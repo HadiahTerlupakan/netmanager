@@ -1,15 +1,15 @@
-import { NextResponse } from 'next/server'
 import { getHybridUser } from '@/lib/hybrid-auth'
 import { hasPermission } from '@/lib/rbac'
 import { getOdcRepository } from '@/lib/repositories'
 import { odcCreateSchema } from '@/lib/validations/odc'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 export async function GET(req: Request) {
   const user = await getHybridUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return ApiErrors.unauthorized('Session tidak valid')
 
   if (!(await hasPermission("odc:read", user))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat ODC')
   }
 
   const isSiteRestricted = (await hasPermission("odc:site_only", user)) && (user as any).role !== 'SUPER_ADMIN';
@@ -19,40 +19,40 @@ export async function GET(req: Request) {
 
   if (isSiteRestricted) {
     if (!userSiteId) {
-         // User restricted but has no site
-         return NextResponse.json({ odcs: [] });
+         return apiSuccess({ odcs: [] });
     }
     filterSiteId = userSiteId;
   }
 
   const repo = getOdcRepository()
   const odcs = await repo.findAll(filterSiteId)
-  return NextResponse.json({ odcs })
+  return apiSuccess({ odcs })
 }
 
 export async function POST(req: Request) {
   const user = await getHybridUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return ApiErrors.unauthorized('Session tidak valid')
 
   if (!(await hasPermission("odc:create", user))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat ODC')
   }
   const json = await req.json()
   const parsed = odcCreateSchema.safeParse(json)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
+      status: 400, 
+      details: { errors: parsed.error.flatten() } 
+    })
   }
   const data = parsed.data
 
-  // RBAC: Check site restrictions
   const isSiteRestricted = (await hasPermission("odc:site_only", user)) && (user as any).role !== 'SUPER_ADMIN';
   const userSiteId = (user as any).siteId;
 
   if (isSiteRestricted) {
       if (!userSiteId) {
-          return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 });
+          return ApiErrors.forbidden('User tidak memiliki akses site')
       }
-      // Force siteId
       data.siteId = userSiteId;
   }
   const repo = getOdcRepository()
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       coreColor: o.coreColor,
     })),
   })
-  // System Log
+  
   try {
     const { logger } = await import('@/lib/logger')
     if (user?.id) {
@@ -89,7 +89,5 @@ export async function POST(req: Request) {
     console.error('Logging failed', e)
   }
 
-  return NextResponse.json({ id: created.id })
+  return apiSuccess({ id: created.id }, { status: 201, message: 'ODC berhasil dibuat' })
 }
-
-

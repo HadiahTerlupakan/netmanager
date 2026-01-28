@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const holidayRepo = new HolidayRepository()
 
@@ -13,15 +14,16 @@ export async function DELETE(
     if (session instanceof NextResponse) return session
 
     if (session.user.role !== 'ADMIN' && !await hasPermission('holiday:delete')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus hari libur')
     }
 
     try {
         const { id } = await params
         await holidayRepo.delete(id)
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'Hari libur berhasil dihapus' })
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to delete holiday' }, { status: 500 })
+        console.error('Delete holiday error:', error)
+        return ApiErrors.internalError('Gagal menghapus hari libur')
     }
 }
 
@@ -33,7 +35,7 @@ export async function PUT(
     if (session instanceof NextResponse) return session
 
     if (session.user.role !== 'ADMIN' && !await hasPermission('holiday:update')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah hari libur')
     }
 
     try {
@@ -47,8 +49,9 @@ export async function PUT(
         if (isNational !== undefined) updateData.isNational = isNational
 
         const holiday = await holidayRepo.update(id, updateData)
-        return NextResponse.json({ success: true, data: holiday })
+        return apiSuccess(holiday, { message: 'Hari libur berhasil diperbarui' })
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to update holiday' }, { status: 500 })
+        console.error('Update holiday error:', error)
+        return ApiErrors.internalError('Gagal memperbarui hari libur')
     }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { AssetService } from '@/modules/inventory/services/AssetService'
 import { z, ZodError } from 'zod'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const assetService = new AssetService()
 
@@ -25,7 +26,9 @@ const createAssetSchema = z.object({
 export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session || !session.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if (!session || !session.user?.id) {
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
         
         const { searchParams } = new URL(req.url)
         const page = Number(searchParams.get('page')) || 1
@@ -40,7 +43,7 @@ export async function GET(req: NextRequest) {
             status
         })
 
-        return NextResponse.json({
+        return apiSuccess({
             assets: result.items,
             total: result.total,
             page,
@@ -48,7 +51,7 @@ export async function GET(req: NextRequest) {
         })
     } catch (error: any) {
         console.error('Failed to fetch assets:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal memuat data aset')
     }
 }
 
@@ -56,7 +59,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session || !session.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if (!session || !session.user?.id) {
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
         
         // TODO: Check permission (inventory:create)
 
@@ -65,12 +70,15 @@ export async function POST(req: NextRequest) {
 
         const asset = await assetService.createAsset(validated, session.user.id)
 
-        return NextResponse.json({ asset }, { status: 201 })
+        return apiSuccess({ asset }, { status: 201, message: 'Aset berhasil dibuat' })
     } catch (error: any) {
         console.error('Failed to create asset:', error)
         if (error instanceof ZodError) {
-            return NextResponse.json({ error: (error as any).errors || error.issues }, { status: 400 })
+            return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
+                status: 400, 
+                details: { errors: error.issues } 
+            })
         }
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal membuat aset')
     }
 }

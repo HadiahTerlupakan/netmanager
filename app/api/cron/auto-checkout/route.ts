@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { AutoCheckoutService } from '@/modules/attendance/services/AutoCheckoutService'
 import { headers } from 'next/headers'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,29 +9,23 @@ export async function POST(request: Request) {
         const headersList = await headers()
         const authHeader = headersList.get('authorization')
         
-        // Basic security check
-        // In production this should be strictly enforced
+        // Basic security check (uncomment for production)
         // if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        //     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        //     return ApiErrors.unauthorized('Cron secret tidak valid')
         // }
 
         const count = await AutoCheckoutService.runAutoCheckout()
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             checkedOutCount: count,
             timestamp: new Date().toISOString()
-        })
+        }, { message: 'Auto-checkout berhasil dijalankan' })
     } catch (error: any) {
         console.error('Error running auto-checkout:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError(error.message || 'Gagal menjalankan auto-checkout')
     }
 }
 
 export async function GET(request: Request) {
-    // Allow GET for easy testing via browser/curl if needed, or redirect to POST logic
     return POST(request)
 }

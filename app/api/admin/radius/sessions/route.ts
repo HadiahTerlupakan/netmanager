@@ -20,82 +20,6 @@
  *     responses:
  *       200:
  *         description: Active sessions retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 count:
- *                   type: integer
- *                   description: Number of active sessions
- *                 sessions:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       radAcctId:
- *                         type: string
- *                         description: RADIUS accounting ID
- *                       userName:
- *                         type: string
- *                         description: Username
- *                       nasIpAddress:
- *                         type: string
- *                         description: NAS IP address
- *                       nasPortId:
- *                         type: string
- *                         description: NAS port ID
- *                       acctSessionId:
- *                         type: string
- *                         description: Session ID
- *                       acctSessionTime:
- *                         type: string
- *                         nullable: true
- *                         description: Session duration in seconds
- *                       acctInputOctets:
- *                         type: string
- *                         nullable: true
- *                         description: Input bytes
- *                       acctOutputOctets:
- *                         type: string
- *                         nullable: true
- *                         description: Output bytes
- *                       acctStartTime:
- *                         type: string
- *                         format: date-time
- *                         description: Session start time
- *                       callingStationId:
- *                         type: string
- *                         description: Calling station ID (MAC address)
- *                       framedIpAddress:
- *                         type: string
- *                         description: Assigned IP address
- *       401:
- *         description: Unauthorized - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Unauthorized - Admin access required"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Failed to fetch RADIUS sessions"
- *                 details:
- *                   type: string
- *                   description: Error details
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -103,6 +27,7 @@ import { requireAdmin } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 export async function GET(req: NextRequest) {
     try {
@@ -112,7 +37,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (!await hasPermission('radius:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat sesi RADIUS');
         }
 
         const { searchParams } = new URL(req.url);
@@ -130,19 +55,12 @@ export async function GET(req: NextRequest) {
             acctOutputOctets: session.acctOutputOctets?.toString() || null,
         }));
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             count: sessions.length,
             sessions: serializedSessions,
         });
     } catch (error) {
         console.error('RADIUS sessions error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch RADIUS sessions',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil sesi RADIUS');
     }
 }

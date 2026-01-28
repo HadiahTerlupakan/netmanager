@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -11,11 +12,11 @@ export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('work_order_dashboard:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat top performers');
         }
 
         const { searchParams } = new URL(request.url);
@@ -48,8 +49,7 @@ export async function GET(request: NextRequest) {
 
         if (hasDepartmentRestriction && !isSuperAdmin) {
             if (!user.departmentId) {
-                 return NextResponse.json({
-                    success: true,
+                 return apiSuccess({
                     data: [],
                     topAssists: [],
                     message: "Restricted access: No department assigned."
@@ -63,13 +63,12 @@ export async function GET(request: NextRequest) {
             workOrderRepo.getTopAssists(5, dateFrom, dateTo, departmentIdFilter)
         ]);
 
-        return NextResponse.json({
-            success: true,
-            data: topPerformers,
+        return apiSuccess({
+            performers: topPerformers,
             topAssists: topAssists,
         });
     } catch (error) {
         console.error('Error fetching top performers:', error);
-        return NextResponse.json({ error: 'Failed to fetch top performers' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil top performers');
     }
 }

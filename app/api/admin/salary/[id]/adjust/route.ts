@@ -1,8 +1,9 @@
-
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { SalaryAuditService } from '@/modules/salary/services/SalaryAuditService'
+import { getSalaryService } from '@/modules/salary/services/SalaryService'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { z } from 'zod'
 
 const adjustSchema = z.object({
@@ -12,37 +13,50 @@ const adjustSchema = z.object({
     notes: z.string().min(1, 'Catatan / Alasan wajib diisi')
 })
 
-export async function POST(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+interface RouteParams {
+    params: Promise<{ id: string }>
+}
+
+/**
+ * POST /api/admin/salary/[id]/adjust - Add manual adjustment
+ */
+export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session || !session.user?.id) {
-            return new NextResponse('Unauthorized', { status: 401 })
+        if (!session?.user?.id) {
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
-        const json = await req.json()
-        const body = adjustSchema.parse(json)
+        if (!await hasPermission('salary:update')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah gaji')
+        }
+
         const { id } = await params
+        const body = await request.json()
 
-        const service = new SalaryAuditService()
-        await service.addManualAdjustment(
-            id,
-            body.name,
-            body.type,
-            body.amount,
-            body.notes,
-            session.user.id
-        )
-
-        return NextResponse.json({ success: true })
-        
-    } catch (error: any) {
-        if (error instanceof z.ZodError) {
-            return new NextResponse('Invalid request data', { status: 400 })
+        // Validate input
+        const parsed = adjustSchema.safeParse(body)
+        if (!parsed.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parsed.error.flatten().fieldErrors }
+            )
         }
-        console.error('Adjustment error:', error)
-        return new NextResponse(error.message || 'Internal Server Error', { status: 500 })
+
+        const service = getSalaryService()
+        const result = await service.addAdjustment(id, parsed.data, session.user.id)
+
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Data gaji')
+            }
+            return ApiErrors.internalError(result.error)
+        }
+
+        return apiSuccess(null, { message: 'Penyesuaian berhasil ditambahkan' })
+    } catch (error) {
+        console.error('Error adding adjustment:', error)
+        return ApiErrors.internalError('Gagal menambahkan penyesuaian')
     }
 }

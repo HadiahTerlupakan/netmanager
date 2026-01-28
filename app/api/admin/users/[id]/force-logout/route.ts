@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { hasPermission } from '@/lib/rbac';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 /**
  * POST /api/admin/users/[id]/force-logout
@@ -18,12 +19,12 @@ export async function POST(
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         // Permission check
         if (!await hasPermission('users:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk force logout user');
         }
 
         const { id: targetUserId } = await params;
@@ -31,7 +32,7 @@ export async function POST(
 
         // Prevent self force-logout
         if (currentUser.id === targetUserId) {
-            return NextResponse.json({ error: 'Tidak dapat force logout diri sendiri' }, { status: 400 });
+            return apiError('Tidak dapat force logout diri sendiri', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Check if target user exists
@@ -41,7 +42,7 @@ export async function POST(
         });
 
         if (!targetUser) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+            return ApiErrors.notFound('User');
         }
 
         // Increment tokenVersion to invalidate all existing tokens
@@ -56,14 +57,12 @@ export async function POST(
 
         console.log(`[FORCE_LOGOUT] User ${targetUser.name} (${targetUserId}) was force logged out by ${currentUser.name}. Token version: ${updatedUser.tokenVersion}`);
 
-        return NextResponse.json({
-            success: true,
-            message: `User ${targetUser.name} berhasil di-logout paksa`,
+        return apiSuccess({
             tokenVersion: updatedUser.tokenVersion
-        });
+        }, { message: `User ${targetUser.name} berhasil di-logout paksa` });
 
     } catch (error: any) {
         console.error('[FORCE_LOGOUT] Error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return ApiErrors.internalError('Gagal force logout user');
     }
 }

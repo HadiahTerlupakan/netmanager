@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -10,25 +11,16 @@ const workOrderRepo = new WorkOrderRepository(prisma);
  * GET /api/admin/workorders/trends
  * 
  * Trend analytics endpoint for Work Order Dashboard
- * Returns 4 types of trends with custom date range:
- * 1. Volume Trend - WO created vs completed per month
- * 2. Issue Trend - Issue distribution per month
- * 3. Performance Trend - Avg completion time & rating per month
- * 4. Type Trend - WO type distribution per month
- * 
- * Query Parameters:
- * - startDate: ISO date string (required)
- * - endDate: ISO date string (required)
  */
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('work_order_dashboard:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tren work order');
         }
 
         const { searchParams } = new URL(request.url);
@@ -37,10 +29,7 @@ export async function GET(request: NextRequest) {
 
         // Validate required parameters
         if (!startDateParam || !endDateParam) {
-            return NextResponse.json(
-                { error: 'startDate and endDate are required' },
-                { status: 400 }
-            );
+            return apiError('startDate dan endDate wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         const startDate = new Date(startDateParam);
@@ -48,17 +37,11 @@ export async function GET(request: NextRequest) {
 
         // Validate dates
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            return NextResponse.json(
-                { error: 'Invalid date format' },
-                { status: 400 }
-            );
+            return apiError('Format tanggal tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         if (startDate > endDate) {
-            return NextResponse.json(
-                { error: 'startDate must be before endDate' },
-                { status: 400 }
-            );
+            return apiError('startDate harus sebelum endDate', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Build access restriction filters
@@ -72,14 +55,11 @@ export async function GET(request: NextRequest) {
             workOrderRepo.getTypeTrend(startDate, endDate, departmentId, siteId),
         ]);
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                volumeTrend,
-                issueTrend,
-                performanceTrend,
-                typeTrend,
-            },
+        return apiSuccess({
+            volumeTrend,
+            issueTrend,
+            performanceTrend,
+            typeTrend,
             dateRange: {
                 startDate: startDate.toISOString(),
                 endDate: endDate.toISOString(),
@@ -87,7 +67,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error fetching WO trends:', error);
-        return NextResponse.json({ error: 'Failed to fetch trends' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil tren work order');
     }
 }
 

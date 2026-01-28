@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, apiError, apiPaginated, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { attendanceFilterSchema } from '@/lib/validations/attendance'
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,20 +14,36 @@ export async function GET(request: NextRequest) {
 
         // Permission check
         if (!await hasPermission('attendance:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data absensi')
         }
 
         const { searchParams } = new URL(request.url)
-        const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '10')
-        const skip = (page - 1) * limit
 
-        const startDateStr = searchParams.get('startDate')
-        const endDateStr = searchParams.get('endDate')
-        const userId = searchParams.get('userId')
-        const status = searchParams.get('status') // Added status search param
-        let siteId = searchParams.get('siteId')
-        let departmentId = searchParams.get('departmentId')
+        // Validate query params with Zod
+        const parseResult = attendanceFilterSchema.safeParse({
+            page: searchParams.get('page') || '1',
+            limit: searchParams.get('limit') || '10',
+            startDate: searchParams.get('startDate'),
+            endDate: searchParams.get('endDate'),
+            userId: searchParams.get('userId'),
+            siteId: searchParams.get('siteId'),
+            departmentId: searchParams.get('departmentId'),
+            status: searchParams.get('status'),
+            export: searchParams.get('export'),
+        })
+
+        if (!parseResult.success) {
+            return apiError(
+                'Parameter tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
+        }
+
+        const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, status, export: isExportStr } = parseResult.data
+        let { siteId, departmentId } = parseResult.data
+
+        const skip = (page - 1) * limit
 
         // NEW: Enforce RBAC Restrictions
         const user = session.user as any;
@@ -72,7 +90,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Check for export flag
-        const isExport = searchParams.get('export') === 'true'
+        const isExport = isExportStr === 'true'
 
         if (isExport) {
             // Fetch Timezone Setting
@@ -114,9 +132,6 @@ export async function GET(request: NextRequest) {
                     hour: '2-digit', minute: '2-digit', second: '2-digit',
                     hour12: false
                 }
-
-                // Format dates to parts to match dd/mm/yyyy format explicitly if needed, or rely on locale
-                // 'id-ID' usually gives dd/mm/yyyy.
 
                 csvRows.push([
                     (index + 1).toString(),
@@ -175,20 +190,21 @@ export async function GET(request: NextRequest) {
             return acc
         }, {} as Record<string, number>)
 
-        return NextResponse.json({
-            success: true,
-            data: attendances,
-            summary,
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit)
+        // Use standard paginated response
+        return apiSuccess({
+            attendances,
+            summary
+        }, {
+            headers: {
+                'X-Total-Count': total.toString(),
+                'X-Page': page.toString(),
+                'X-Limit': limit.toString(),
+                'X-Total-Pages': Math.ceil(total / limit).toString()
             }
         })
 
     } catch (error: any) {
         console.error('Error fetching admin attendance:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data absensi')
     }
 }

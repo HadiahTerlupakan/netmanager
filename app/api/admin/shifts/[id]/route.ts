@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { ShiftService } from '@/modules/shift'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const shiftService = new ShiftService()
 
@@ -13,7 +14,7 @@ export async function GET(
     if (session instanceof NextResponse) return session
 
     if (!(await hasPermission('shift:read'))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat shift')
     }
 
     try {
@@ -21,13 +22,13 @@ export async function GET(
         const shift = await shiftService.getShiftById(id)
         
         if (!shift) {
-            return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+            return ApiErrors.notFound('Shift')
         }
 
-        return NextResponse.json(shift)
+        return apiSuccess(shift)
     } catch (error: any) {
         console.error('[Shifts API] Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data shift')
     }
 }
 
@@ -39,7 +40,7 @@ export async function PATCH(
     if (session instanceof NextResponse) return session
 
     if (!(await hasPermission('shift:update'))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengupdate shift')
     }
 
     try {
@@ -55,10 +56,10 @@ export async function PATCH(
             isActive: body.isActive
         })
 
-        return NextResponse.json(shift)
+        return apiSuccess(shift, { message: 'Shift berhasil diperbarui' })
     } catch (error: any) {
         console.error('[Shifts API] Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 400 })
+        return apiError(error.message || 'Gagal memperbarui shift', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 }
 
@@ -70,7 +71,7 @@ export async function DELETE(
     if (session instanceof NextResponse) return session
 
     if (!(await hasPermission('shift:delete'))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus shift')
     }
 
     try {
@@ -80,9 +81,9 @@ export async function DELETE(
 
         await shiftService.deleteShift(id, force)
 
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'Shift berhasil dihapus' })
     } catch (error: any) {
         console.error('[Shifts API] Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 400 })
+        return apiError(error.message || 'Gagal menghapus shift', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 }

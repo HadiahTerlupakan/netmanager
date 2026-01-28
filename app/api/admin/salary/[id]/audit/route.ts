@@ -1,67 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { SalaryAuditService } from '@/modules/salary/services/SalaryAuditService'
-
-const auditService = new SalaryAuditService()
+import { getSalaryService } from '@/modules/salary/services/SalaryService'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
 }
 
 /**
- * POST /api/admin/salary/[id]/audit - Audit actions
- * Actions: 'audit', 'revise'
+ * POST /api/admin/salary/[id]/audit - Audit salary
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if (!session?.user?.id) {
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        // Permission check
+        if (!await hasPermission('salary:update')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk audit gaji')
         }
 
         const { id } = await params
         const body = await request.json()
-        const { action, notes, reason } = body
-        const userId = session.user.id
+        const { notes } = body
 
-        if (!userId) {
-            return NextResponse.json({ error: 'User ID not found' }, { status: 401 })
+        const service = getSalaryService()
+        const result = await service.auditSalary(id, session.user.id, notes)
+
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Data gaji')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        switch (action) {
-            case 'audit':
-                await auditService.audit(id, userId, notes)
-                return NextResponse.json({ 
-                    success: true, 
-                    message: 'Salary marked as audited' 
-                })
-
-            case 'revise':
-                if (!reason) {
-                    return NextResponse.json(
-                        { error: 'Reason is required for revision request' },
-                        { status: 400 }
-                    )
-                }
-                await auditService.requestRevision(id, userId, reason)
-                return NextResponse.json({ 
-                    success: true, 
-                    message: 'Revision requested' 
-                })
-
-            default:
-                return NextResponse.json(
-                    { error: 'Invalid action. Use "audit" or "revise"' },
-                    { status: 400 }
-                )
-        }
+        return apiSuccess(result.data, { message: 'Gaji berhasil ditandai sebagai teraudit' })
     } catch (error) {
-
-        console.error('Error in audit action:', error)
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to process audit action' },
-            { status: 500 }
-        )
+        console.error('Error auditing salary:', error)
+        return ApiErrors.internalError('Gagal mengaudit gaji')
     }
 }

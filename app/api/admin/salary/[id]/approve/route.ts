@@ -1,61 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { SalaryAuditService } from '@/modules/salary/services/SalaryAuditService'
-
-const auditService = new SalaryAuditService()
+import { getSalaryService } from '@/modules/salary/services/SalaryService'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
 }
 
 /**
- * POST /api/admin/salary/[id]/approve - Approval actions
- * Actions: 'approve', 'paid'
+ * POST /api/admin/salary/[id]/approve - Approve salary
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if (!session?.user?.id) {
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        // Permission check
+        if (!await hasPermission('salary:approve')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menyetujui gaji')
         }
 
         const { id } = await params
         const body = await request.json()
-        const { action } = body
-        const userId = session.user.id
+        const { notes } = body
 
-        if (!userId) {
-            return NextResponse.json({ error: 'User ID not found' }, { status: 401 })
+        const service = getSalaryService()
+        const result = await service.approveSalary(id, session.user.id, notes)
+
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Data gaji')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        switch (action) {
-            case 'approve':
-                await auditService.approve(id, userId)
-
-                return NextResponse.json({ 
-                    success: true, 
-                    message: 'Salary approved' 
-                })
-
-            case 'paid':
-                await auditService.markAsPaid(id)
-                return NextResponse.json({ 
-                    success: true, 
-                    message: 'Salary marked as paid' 
-                })
-
-            default:
-                return NextResponse.json(
-                    { error: 'Invalid action. Use "approve" or "paid"' },
-                    { status: 400 }
-                )
-        }
+        return apiSuccess(result.data, { message: 'Gaji berhasil disetujui' })
     } catch (error) {
-        console.error('Error in approval action:', error)
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to process approval action' },
-            { status: 500 }
-        )
+        console.error('Error approving salary:', error)
+        return ApiErrors.internalError('Gagal menyetujui gaji')
     }
 }

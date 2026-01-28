@@ -1,91 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 import { workOrderTemplateCreateSchema, workOrderTemplateQuerySchema } from '@/lib/validations/workorder-template';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 /**
  * @swagger
  * /api/admin/workorders/templates:
  *   get:
  *     summary: Get all work order templates
- *     description: Mengambil daftar semua template work order dengan filter dan pagination
  *     tags: [Work Order Templates]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *         description: Items per page
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search in name and description
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [INSTALLATION, TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION, DISCONNECTION, OTHER]
- *         description: Filter by type
- *       - in: query
- *         name: priority
- *         schema:
- *           type: string
- *           enum: [LOW, NORMAL, HIGH, URGENT, CRITICAL]
- *         description: Filter by priority
- *       - in: query
- *         name: departmentId
- *         schema:
- *           type: string
- *         description: Filter by department
- *       - in: query
- *         name: isActive
- *         schema:
- *           type: boolean
- *         description: Filter by active status
- *     responses:
- *       200:
- *         description: List of work order templates
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/WorkOrderTemplate'
- *                 pagination:
- *                   $ref: '#/components/schemas/PaginationMeta'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_template:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat template work order');
         }
 
         const { searchParams } = new URL(request.url);
@@ -152,8 +87,7 @@ export async function GET(request: NextRequest) {
             (prisma as any).workOrderTemplates.count({ where }),
         ]);
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             data: templates,
             pagination: {
                 page: query.page,
@@ -164,7 +98,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error fetching work order templates:', error);
-        return NextResponse.json({ error: 'Failed to fetch work order templates' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil template work order');
     }
 }
 
@@ -173,89 +107,17 @@ export async function GET(request: NextRequest) {
  * /api/admin/workorders/templates:
  *   post:
  *     summary: Create new work order template
- *     description: Membuat template work order baru
  *     tags: [Work Order Templates]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - type
- *             properties:
- *               name:
- *                 type: string
- *                 example: Template Instalasi Standar
- *               description:
- *                 type: string
- *                 example: Template untuk instalasi fiber optic standar
- *               type:
- *                 type: string
- *                 enum: [INSTALLATION, TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION, DISCONNECTION, OTHER]
- *                 example: INSTALLATION
- *               priority:
- *                 type: string
- *                 enum: [LOW, NORMAL, HIGH, URGENT, CRITICAL]
- *                 default: NORMAL
- *               departmentId:
- *                 type: string
- *                 description: Department ID
- *               estimatedHours:
- *                 type: number
- *                 description: Estimasi waktu pengerjaan dalam jam
- *               estimatedCost:
- *                 type: number
- *                 description: Estimasi biaya
- *               requiredMaterials:
- *                 type: object
- *                 description: Material yang diperlukan (JSON)
- *               tasks:
- *                 type: array
- *                 description: Daftar tugas (JSON)
- *               checklist:
- *                 type: array
- *                 description: Checklist (JSON)
- *     responses:
- *       201:
- *         description: Work order template created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrderTemplate'
- *                 message:
- *                   type: string
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_template:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat template work order');
         }
 
         const body = await request.json();
@@ -282,13 +144,9 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        return NextResponse.json({
-            success: true,
-            data: template,
-            message: 'Work order template created successfully',
-        }, { status: 201 });
+        return apiSuccess(template, { status: 201, message: 'Template work order berhasil dibuat' });
     } catch (error) {
         console.error('Error creating work order template:', error);
-        return NextResponse.json({ error: 'Failed to create work order template' }, { status: 500 });
+        return ApiErrors.internalError('Gagal membuat template work order');
     }
 }

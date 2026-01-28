@@ -1,11 +1,23 @@
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { ChatService } from '@/modules/chat'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
 
 interface RouteParams {
     params: Promise<{ id: string }>
 }
+
+/**
+ * Validation schema for sending message
+ */
+const sendMessageSchema = z.object({
+    content: z.string().max(5000).optional(),
+    imageUrl: z.string().url().optional(),
+}).refine(data => data.content?.trim() || data.imageUrl, {
+    message: 'Pesan atau gambar wajib diisi',
+})
 
 // GET - Get messages for a conversation
 export async function GET(
@@ -15,11 +27,11 @@ export async function GET(
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('chat:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat chat')
         }
 
         const { id: conversationId } = await params
@@ -30,19 +42,16 @@ export async function GET(
         const chatService = new ChatService()
         const result = await chatService.getMessages(conversationId, user.id, cursor, limit)
 
-        return NextResponse.json({
-            success: true,
-            data: result
-        })
+        return apiSuccess(result)
     } catch (error: unknown) {
         console.error('Error fetching messages:', error)
         const message = error instanceof Error ? error.message : 'Unknown error'
         
         if (message === 'Not a participant') {
-            return NextResponse.json({ error: message }, { status: 403 })
+            return ApiErrors.forbidden('Anda bukan peserta percakapan ini')
         }
         
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil pesan')
     }
 }
 
@@ -54,20 +63,26 @@ export async function POST(
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('chat:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengirim pesan')
         }
 
         const { id: conversationId } = await params
         const body = await request.json()
-        const { content, imageUrl } = body
-
-        if ((!content || typeof content !== 'string' || content.trim().length === 0) && !imageUrl) {
-            return NextResponse.json({ error: 'Message content or image is required' }, { status: 400 })
+        
+        const parseResult = sendMessageSchema.safeParse(body)
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
         }
+
+        const { content, imageUrl } = parseResult.data
 
         const chatService = new ChatService()
         const result = await chatService.sendMessage({
@@ -78,18 +93,15 @@ export async function POST(
             imageUrl
         })
 
-        return NextResponse.json({
-            success: true,
-            data: result
-        })
+        return apiSuccess(result, { status: 201, message: 'Pesan berhasil dikirim' })
     } catch (error: unknown) {
         console.error('Error sending message:', error)
         const message = error instanceof Error ? error.message : 'Unknown error'
         
         if (message === 'Not a participant') {
-            return NextResponse.json({ error: message }, { status: 403 })
+            return ApiErrors.forbidden('Anda bukan peserta percakapan ini')
         }
         
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengirim pesan')
     }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { sendWorkOrderReminder } from '@/modules/work-order/services/WorkOrderNotifications'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 /**
  * POST /api/admin/workorders/[id]/reminder
@@ -15,13 +16,12 @@ export async function POST(
     try {
         const session = await verifyAuth(request)
         if (!session?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Check permission
-        // hasPermission expects (permission, userObject?)
         if (!await hasPermission('workorders:reminder', session)) {
-            return NextResponse.json({ error: 'Forbidden: Missing workorders:reminder permission' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengirim reminder')
         }
 
         const { id } = await params
@@ -43,14 +43,16 @@ export async function POST(
         })
 
         if (!workOrder) {
-            return NextResponse.json({ error: 'Work order not found' }, { status: 404 })
+            return ApiErrors.notFound('Work Order')
         }
 
         // Only allow reminder for PENDING, ASSIGNED, or IN_PROGRESS status
         if (!['PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(workOrder.status)) {
-            return NextResponse.json({ 
-                error: 'Reminder hanya bisa dikirim untuk WO dengan status Pending, Assigned, atau In Progress' 
-            }, { status: 400 })
+            return apiError(
+                'Reminder hanya bisa dikirim untuk WO dengan status Pending, Assigned, atau In Progress',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400 }
+            )
         }
 
         // Get optional custom message and target department from body
@@ -65,7 +67,6 @@ export async function POST(
         }
 
         // Send reminder notification
-        // If targetDepartmentId is provided, use it instead of WO's departmentId
         const sentCount = await sendWorkOrderReminder(
             {
                 id: workOrder.id,
@@ -80,14 +81,10 @@ export async function POST(
             customMessage
         )
 
-        return NextResponse.json({
-            success: true,
-            message: `Reminder terkirim ke ${sentCount} teknisi`,
-            sentCount,
-        })
+        return apiSuccess({ sentCount }, { message: `Reminder terkirim ke ${sentCount} teknisi` })
 
     } catch (error) {
         console.error('Error sending reminder:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengirim reminder')
     }
 }

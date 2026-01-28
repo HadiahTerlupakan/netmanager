@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { SiteService } from '@/modules/roles/services/SiteService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const siteService = new SiteService()
 
@@ -16,28 +17,25 @@ export async function GET(
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('site:read'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat site')
         }
 
         const { id } = await params
         const site = await siteService.getSiteById(id)
 
-        return NextResponse.json({
-            success: true,
-            data: site,
-        })
+        return apiSuccess(site)
     } catch (error: any) {
         console.error('Error fetching site:', error)
         
         if (error.message === 'Site not found') {
-            return NextResponse.json({ error: error.message }, { status: 404 })
+            return ApiErrors.notFound('Site')
         }
         
-        return NextResponse.json({ error: 'Failed to fetch site' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data site')
     }
 }
 
@@ -52,11 +50,11 @@ export async function PATCH(
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('site:update'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah site')
         }
 
         const { id } = await params
@@ -64,22 +62,18 @@ export async function PATCH(
 
         const site = await siteService.updateSite(id, body, user.id)
 
-        return NextResponse.json({
-            success: true,
-            data: site,
-            message: 'Site updated successfully',
-        })
+        return apiSuccess(site, { message: 'Site berhasil diperbarui' })
     } catch (error: any) {
         console.error('Error updating site:', error)
         
         if (error.message === 'Site not found') {
-            return NextResponse.json({ error: error.message }, { status: 404 })
+            return ApiErrors.notFound('Site')
         }
         if (error.message === 'Site code already exists') {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return ApiErrors.conflict('Kode site sudah ada')
         }
         
-        return NextResponse.json({ error: 'Failed to update site' }, { status: 500 })
+        return ApiErrors.internalError('Gagal memperbarui site')
     }
 }
 
@@ -94,27 +88,24 @@ export async function DELETE(
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('site:delete'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus site')
         }
 
         const { id } = await params
         const result = await siteService.deleteSite(id, user.id)
 
-        return NextResponse.json({
-            success: true,
-            message: result.message,
-        })
+        return apiSuccess(null, { message: result.message })
     } catch (error: any) {
         console.error('Error deleting site:', error)
         
         if (error.message === 'Site not found') {
-            return NextResponse.json({ error: error.message }, { status: 404 })
+            return ApiErrors.notFound('Site')
         }
         
-        return NextResponse.json({ error: 'Failed to delete site' }, { status: 500 })
+        return ApiErrors.internalError('Gagal menghapus site')
     }
 }

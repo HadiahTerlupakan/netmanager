@@ -5,12 +5,13 @@
  * Returns overall statistics for the dashboard
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 const radiusRepository = new RadiusRepository(prisma);
 
@@ -18,23 +19,17 @@ export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('radius:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat statistik RADIUS');
         }
 
         const stats = await radiusRepository.getDashboardStats();
-        return NextResponse.json(stats);
+        return apiSuccess(stats);
     } catch (error) {
         console.error('RADIUS dashboard stats error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch dashboard statistics',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil statistik dashboard');
     }
 }

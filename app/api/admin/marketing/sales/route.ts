@@ -1,19 +1,19 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
-export async function GET(request: Request) {
+export async function GET() {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Check permissions
         if (!(await hasPermission('sales:read'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data sales')
         }
 
         const salesUsers = await prisma.user.findMany({
@@ -70,21 +70,17 @@ export async function GET(request: Request) {
 
         const totalTarget = salesUsers.reduce((sum, user) => sum + (user.canvasingTarget || 0), 0)
 
-        // Return new structure
-        return NextResponse.json({ 
-            success: true, 
-            data: {
-                users: salesUsers,
-                stats: {
-                    totalSales: salesUsers.length,
-                    totalTarget,
-                    totalAchieved,
-                    totalPending
-                }
-            } 
+        return apiSuccess({
+            users: salesUsers,
+            stats: {
+                totalSales: salesUsers.length,
+                totalTarget,
+                totalAchieved,
+                totalPending
+            }
         })
     } catch (error: any) {
         console.error('Error fetching sales users:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data sales')
     }
 }

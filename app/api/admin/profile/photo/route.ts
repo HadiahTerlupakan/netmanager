@@ -1,30 +1,30 @@
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 export async function POST(request: Request) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const formData = await request.formData()
         const photo = formData.get('photo') as File
 
         if (!photo) {
-            return NextResponse.json({ error: 'Photo is required' }, { status: 400 })
+            return apiError('Foto wajib diupload', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         if (!photo.type.startsWith('image/')) {
-            return NextResponse.json({ error: 'File must be an image' }, { status: 400 })
+            return apiError('File harus berupa gambar', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const MAX_SIZE = 5 * 1024 * 1024 // 5MB
         if (photo.size > MAX_SIZE) {
-            return NextResponse.json({ error: 'Photo size max 5MB' }, { status: 400 })
+            return apiError('Ukuran foto maksimal 5MB', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const uploadDir = 'public/uploads/profiles'
@@ -48,9 +48,9 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({ success: true, data: updated })
+        return apiSuccess(updated, { message: 'Foto profil berhasil diperbarui' })
     } catch (error: any) {
         console.error('Profile photo upload error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal upload foto profil')
     }
 }

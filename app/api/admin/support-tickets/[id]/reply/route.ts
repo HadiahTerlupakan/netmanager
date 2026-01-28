@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { randomUUID } from 'crypto'
 import { TicketStatus } from '@prisma/client'
 import { WhatsAppService } from '@/modules/notification/services/whatsapp/whatsapp-service'
 import { socketEmitter } from '@/lib/websocket/emitter'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -17,7 +18,7 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
     const user = await verifyAuth(request)
     if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return ApiErrors.unauthorized('Session tidak valid')
     }
 
     const { id } = await params
@@ -27,10 +28,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const { message, updateStatus, sendWhatsApp = true, attachments } = body
 
         if ((!message || message.trim().length === 0) && (!attachments || attachments.length === 0)) {
-            return NextResponse.json(
-                { success: false, error: 'Pesan atau lampiran tidak boleh kosong' },
-                { status: 400 }
-            )
+            return apiError('Pesan atau lampiran tidak boleh kosong', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Find ticket
@@ -49,18 +47,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         })
 
         if (!ticket) {
-            return NextResponse.json(
-                { success: false, error: 'Tiket tidak ditemukan' },
-                { status: 404 }
-            )
+            return ApiErrors.notFound('Tiket')
         }
 
         // Check if ticket is closed
         if (ticket.status === TicketStatus.CLOSED) {
-            return NextResponse.json(
-                { success: false, error: 'Tiket sudah ditutup dan tidak dapat dibalas' },
-                { status: 400 }
-            )
+            return apiError('Tiket sudah ditutup dan tidak dapat dibalas', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Create reply
@@ -122,9 +114,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            message: 'Balasan berhasil dikirim',
+        return apiSuccess({
             reply: {
                 id: reply.id,
                 message: reply.message,
@@ -133,12 +123,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 sender: reply.user,
             },
             whatsappSent,
-        })
+        }, { message: 'Balasan berhasil dikirim' })
     } catch (error) {
         console.error('[Admin Support Ticket Reply POST] Error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal mengirim balasan' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal mengirim balasan')
     }
 }

@@ -5,23 +5,24 @@
  * POST /api/admin/radius/ippool - Add IP to pool
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
 import type { IRadIpPool } from '@/modules/network/repositories/IRadiusRepository';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('radius:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat IP Pool');
         }
 
         const { searchParams } = new URL(req.url);
@@ -32,8 +33,7 @@ export async function GET(req: NextRequest) {
 
         if (getStats) {
             const stats = await radiusRepo.getIpPoolStats(poolName || undefined);
-            return NextResponse.json({
-                success: true,
+            return apiSuccess({
                 data: stats,
                 poolName: poolName || 'all',
             });
@@ -45,8 +45,7 @@ export async function GET(req: NextRequest) {
                 ? pools.filter(pool => pool.poolName === poolName)
                 : pools;
 
-            return NextResponse.json({
-                success: true,
+            return apiSuccess({
                 data: filteredPools,
                 count: filteredPools.length,
                 poolName: poolName || 'all',
@@ -54,13 +53,7 @@ export async function GET(req: NextRequest) {
         }
     } catch (error) {
         console.error('IP Pool list error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch IP pools',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil daftar IP Pool');
     }
 }
 
@@ -68,11 +61,11 @@ export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('radius:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah IP Pool');
         }
 
         const body = await req.json();
@@ -80,29 +73,16 @@ export async function POST(req: NextRequest) {
 
         // Validation
         if (!poolName || !framedIpAddress) {
-            return NextResponse.json(
-                { error: 'Pool name and framed IP address are required' },
-                { status: 400 }
-            );
+            return apiError('Pool name dan framed IP address wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Validate IP address format
         const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         if (!ipRegex.test(framedIpAddress)) {
-            return NextResponse.json(
-                { error: 'Invalid IP address format' },
-                { status: 400 }
-            );
+            return apiError('Format alamat IP tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         const radiusRepo = new RadiusRepository(prisma);
-
-        const ipPoolData: IRadIpPool = {
-            poolName,
-            framedIpAddress,
-            nasIpAddress,
-            poolKey,
-        };
 
         const newPool = await radiusRepo.addToIpPool({
             poolName,
@@ -122,19 +102,9 @@ export async function POST(req: NextRequest) {
             console.error('Logging failed', e)
         }
 
-        return NextResponse.json({
-            success: true,
-            data: newPool,
-            message: 'IP added to pool successfully',
-        });
+        return apiSuccess(newPool, { status: 201, message: 'IP berhasil ditambahkan ke pool' });
     } catch (error) {
         console.error('IP Pool creation error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to add IP to pool',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal menambah IP ke pool');
     }
 }

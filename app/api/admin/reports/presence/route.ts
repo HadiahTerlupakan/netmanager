@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { OvertimeService } from '@/modules/overtime/services/OvertimeService'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 // Disable Next.js caching for this route
 export const dynamic = 'force-dynamic'
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (!startDateStr || !endDateStr) {
-            return NextResponse.json({ error: 'Start date and End date required' }, { status: 400 })
+            return apiError('Tanggal mulai dan tanggal akhir wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const startDate = new Date(startDateStr)
@@ -48,16 +49,13 @@ export async function GET(request: NextRequest) {
             overtimeService.getReportData(startDate, endDate, siteId, departmentId)
         ])
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                attendance: attendanceReport,
-                overtime: overtimeReport
-            }
+        return apiSuccess({
+            attendance: attendanceReport,
+            overtime: overtimeReport
         })
 
     } catch (error: any) {
         console.error('Error fetching reports:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil laporan')
     }
 }

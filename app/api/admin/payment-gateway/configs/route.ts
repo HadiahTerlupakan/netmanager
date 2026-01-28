@@ -1,18 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         // Permission check
         if (!await hasPermission('payment_gateway:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat payment gateway');
         }
+        
         const configs = await prisma.paymentGatewayConfig.findMany({
             orderBy: { priority: 'desc' }
         })
@@ -24,12 +27,9 @@ export async function GET(request: NextRequest) {
             apiSecret: config.apiSecret ? '***ENCRYPTED***' : null
         }))
 
-        return NextResponse.json(sanitizedConfigs)
+        return apiSuccess(sanitizedConfigs)
     } catch (error: any) {
         console.error('Error fetching gateway configs:', error)
-        return NextResponse.json(
-            { error: 'Failed to fetch configurations', details: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal mengambil konfigurasi payment gateway')
     }
 }

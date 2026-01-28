@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 // GET - Get material detail by updateId
 export async function GET(
@@ -11,14 +12,14 @@ export async function GET(
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const { id } = await params
         const updateId = req.nextUrl.searchParams.get('updateId')
 
         if (!updateId) {
-            return NextResponse.json({ error: 'updateId is required' }, { status: 400 })
+            return apiError('updateId wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Get the work order update with related data
@@ -35,11 +36,11 @@ export async function GET(
         })
 
         if (!update) {
-            return NextResponse.json({ error: 'Update not found' }, { status: 404 })
+            return ApiErrors.notFound('Update')
         }
 
         if (update.workOrderId !== id) {
-            return NextResponse.json({ error: 'Update does not belong to this work order' }, { status: 400 })
+            return apiError('Update tidak ditemukan pada work order ini', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Parse the message to extract material info
@@ -156,9 +157,9 @@ export async function GET(
             }
         }
 
-        return NextResponse.json(materialDetail)
+        return apiSuccess(materialDetail)
     } catch (error) {
         console.error('Error fetching material detail:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil detail material')
     }
 }

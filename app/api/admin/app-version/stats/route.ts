@@ -1,7 +1,6 @@
-
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ensurePermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +15,7 @@ export async function GET() {
         })
 
         if (!latestVersion) {
-            return NextResponse.json({
+            return apiSuccess({
                 updatedCount: 0,
                 outdatedCount: 0,
                 unknownCount: 0,
@@ -46,7 +45,7 @@ export async function GET() {
             }
         })
 
-        return NextResponse.json({
+        return apiSuccess({
             updatedCount,
             outdatedCount,
             unknownCount,
@@ -58,6 +57,6 @@ export async function GET() {
 
     } catch (error) {
         console.error('Error fetching app version stats:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil statistik versi aplikasi')
     }
 }

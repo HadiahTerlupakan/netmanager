@@ -1,13 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { WorkOrderRepository, getWorkOrderService } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
-import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications';
-import { format } from 'date-fns';
-import { id } from 'date-fns/locale';
 import { hasPermission } from '@/lib/rbac';
-import { getSiteFilter } from '@/modules/roles';
-import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -18,83 +14,17 @@ const workOrderRepo = new WorkOrderRepository(prisma);
  *     summary: Get all work orders
  *     description: Mengambil daftar semua work order dengan filter dan pagination
  *     tags: [Work Orders]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *         description: Items per page
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [OPEN, IN_PROGRESS, COMPLETED, CANCELLED]
- *         description: Filter by status (comma-separated for multiple)
- *       - in: query
- *         name: priority
- *         schema:
- *           type: string
- *           enum: [LOW, MEDIUM, HIGH, URGENT]
- *         description: Filter by priority
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [INSTALLATION, MAINTENANCE, TROUBLESHOOTING, RELOCATION]
- *         description: Filter by type
- *       - in: query
- *         name: departmentId
- *         schema:
- *           type: string
- *         description: Filter by department
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search in title and description
- *     responses:
- *       200:
- *         description: List of work orders
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/WorkOrder'
- *                 pagination:
- *                   $ref: '#/components/schemas/PaginationMeta'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         // Permission check
         if (!await hasPermission('list:read')) {
-            return NextResponse.json({ error: 'Forbidden: You do not have permission to view work orders' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat work order');
         }
 
         const { searchParams } = new URL(request.url);
@@ -110,72 +40,45 @@ export async function GET(request: NextRequest) {
         const unassignedOnly = searchParams.get('unassignedOnly') === 'true';
         const woType = searchParams.get('woType'); // 'customer' | 'internal'
 
+        // Build filters
         const filters: any = {};
         if (status) filters.status = status.includes(',') ? status.split(',') : status;
         if (priority) filters.priority = priority.includes(',') ? priority.split(',') : priority;
         if (type) filters.type = type.includes(',') ? type.split(',') : type;
         if (unassignedOnly) filters.unassignedOnly = true;
+        if (departmentId) filters.departmentId = departmentId;
+        if (siteId) filters.siteId = siteId;
+        if (search) filters.search = search;
+        if (assignedToId) filters.assignedToId = assignedToId;
         
-        // Filter by WO Type (Customer vs Internal) using isInternal field
+        // Filter by WO Type (Customer vs Internal)
         if (woType === 'customer') {
             filters.isInternal = false;
         } else if (woType === 'internal') {
             filters.isInternal = true;
         }
 
-        // NEW: Enforce Department Restriction Logic
-        // If user has 'department_only' permission and is NOT a Super Admin, force restrict to their department
-        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
-        const hasSiteRestriction = user.permissions?.includes('workorders:site_only');
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
-
-        if (hasDepartmentRestriction && !isSuperAdmin) {
-            if (!user.departmentId) {
-                // If restricted but no department assigned, show nothing
-                 return NextResponse.json({ 
-                    success: true, 
-                    data: [], 
-                    pagination: { total: 0, pages: 0, current: page, limit },
-                    message: "Restricted access: No department assigned to your account."
-                });
-            }
-            filters.departmentId = user.departmentId;
-        } else {
-             if (departmentId) filters.departmentId = departmentId;
-        }
-
-        // NEW: Enforce Site Restriction Logic
-        if (hasSiteRestriction && !isSuperAdmin) {
-            if (!user.siteId) {
-                 return NextResponse.json({ 
-                    success: true, 
-                    data: [], 
-                    pagination: { total: 0, pages: 0, current: page, limit },
-                    message: "Restricted access: No site assigned to your account."
-                });
-            }
-            filters.siteId = user.siteId;
-        } else {
-             if (siteId) filters.siteId = siteId;
-        }
-
-        // Add search filter
-        if (search) filters.search = search;
-
-        // Add assignedToId filter
-        if (assignedToId) filters.assignedToId = assignedToId;
-
-        // OPTIMIZED: Use lightweight query for list view (Phase 1 optimization)
-        // This reduces response size by ~90% by not fetching tasks, assignments, updates, attachments
-        const result = await workOrderRepo.findAllForList(filters, page, limit);
-
-        return NextResponse.json({
-            success: true,
-            ...result,
+        // Use WorkOrderService with user context for permission-based filtering
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.getWorkOrders({
+            page,
+            limit,
+            filters,
+            userId: user.id,
+            userPermissions: user.permissions || [],
+            userDepartmentId: user.departmentId,
+            userSiteId: user.siteId,
+            userRole: user.role,
         });
+
+        if (!result.success) {
+            return apiError(result.error || 'Gagal mengambil work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+        }
+
+        return apiSuccess(result.data);
     } catch (error) {
         console.error('Error fetching work orders:', error);
-        return NextResponse.json({ error: 'Failed to fetch work orders' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil work order');
     }
 }
 
@@ -186,196 +89,35 @@ export async function GET(request: NextRequest) {
  *     summary: Create new work order
  *     description: Membuat work order baru dan mengirim notifikasi ke department terkait
  *     tags: [Work Orders]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - type
- *               - title
- *               - description
- *             properties:
- *               type:
- *                 type: string
- *                 enum: [INSTALLATION, MAINTENANCE, TROUBLESHOOTING, RELOCATION]
- *                 example: INSTALLATION
- *               title:
- *                 type: string
- *                 example: Instalasi baru pelanggan
- *               description:
- *                 type: string
- *                 example: Instalasi fiber optic untuk pelanggan baru
- *               priority:
- *                 type: string
- *                 enum: [LOW, MEDIUM, HIGH, URGENT]
- *                 default: MEDIUM
- *               pelangganId:
- *                 type: string
- *                 description: ID pelanggan terkait
- *               departmentId:
- *                 type: string
- *                 description: Department yang akan menangani
- *               scheduledDate:
- *                 type: string
- *                 format: date-time
- *                 description: Tanggal jadwal pengerjaan
- *     responses:
- *       201:
- *         description: Work order created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrder'
- *                 message:
- *                   type: string
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         // Permission check
         if (!await hasPermission('list:create')) {
-            return NextResponse.json({ error: 'Forbidden: You do not have permission to create work orders' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat work order');
         }
 
         const body = await request.json();
 
-        if (!body.type || !body.title || !body.description) {
-            return NextResponse.json(
-                { error: 'Type, title, and description are required' },
-                { status: 400 }
-            );
-        }
+        // Use WorkOrderService for creation (handles validation, notifications, socket, logging, cache)
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.createWorkOrder(body, user.id);
 
-        // Include ticketId in Work Order data
-        const { ticketId, ...restBody } = body;
-
-        // Pass everything to repo including ticketId (now supported by type and schema)
-        const workOrderData = {
-            ...restBody,
-            ticketId: ticketId
-        };
-
-        const workOrder = await workOrderRepo.create({
-            ...workOrderData,
-            createdById: user.id,
-        });
-
-        // Trigger notification for new Work Order
-        // This notifies all users in the department
-        await onWorkOrderCreated({
-            id: workOrder.id,
-            workOrderNumber: workOrder.workOrderNumber,
-            title: workOrder.title,
-            type: workOrder.type,
-            priority: workOrder.priority,
-            departmentId: workOrder.departmentId,
-            siteId: workOrder.siteId,
-            assignedToId: workOrder.assignedToId,
-        });
-
-        // Broadcast new WO event for dashboards
-        const { socketEmitter } = await import('@/lib/websocket/emitter');
-        socketEmitter.newWorkOrder({
-            id: workOrder.id,
-            workOrderNumber: workOrder.workOrderNumber,
-            title: workOrder.title,
-            type: workOrder.type,
-            status: workOrder.status,
-            priority: workOrder.priority,
-            departmentId: workOrder.departmentId || undefined,
-            department: workOrder.departmentId ? { id: workOrder.departmentId, name: '' } : undefined,
-            assignedToId: workOrder.assignedToId || undefined,
-            assignedTo: workOrder.assignedToId ? { id: workOrder.assignedToId, name: '' } : undefined,
-            createdAt: workOrder.createdAt.toISOString()
-        }, workOrder.departmentId || undefined);
-
-        // Link to Ticket and Auto-Reply if ticketId is present
-        if (ticketId) {
-            try {
-                const scheduledTime = workOrder.scheduledDate
-                    ? format(new Date(workOrder.scheduledDate), 'dd MMMM yyyy HH:mm', { locale: id })
-                    : 'Belum Dijadwalkan';
-
-                const replyMessage = `Work Order #${workOrder.workOrderNumber} telah dibuat untuk tiket ini.\n\n` +
-                    `Judul: ${workOrder.title}\n` +
-                    `Tipe: ${workOrder.type}\n` +
-                    `Jadwal: ${scheduledTime}`;
-
-                await prisma.ticketReplies.create({
-                    data: {
-                        id: crypto.randomUUID(),
-                        ticketId: ticketId,
-                        message: replyMessage,
-                        isFromAdmin: true,
-                        senderId: user.id, // Support Admin who created the WO
-                    }
-                });
-
-                // Update Ticket Status to IN_PROGRESS
-                await prisma.supportTickets.update({
-                    where: { id: ticketId },
-                    data: {
-                        status: 'IN_PROGRESS',
-                        // Optional: Assign ticket to WO creator if assignedToId is not strict
-                    }
-                });
-
-                console.log(`Auto-replied to ticket ${ticketId} for Work Order ${workOrder.workOrderNumber}`);
-            } catch (ticketError) {
-                console.error('Error sending auto-reply to ticket:', ticketError);
-                // Non-blocking error
+        if (!result.success) {
+            if (result.code === 'VALIDATION_ERROR') {
+                return apiError(result.error || 'Data tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
             }
+            return apiError(result.error || 'Gagal membuat work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
         }
 
-        // System Log
-        try {
-            const { logger } = await import('@/lib/logger')
-            await logger.logActivity({
-                action: 'CREATE',
-                subject: 'Work Order',
-                userId: user.id,
-                details: { id: workOrder.id, number: workOrder.workOrderNumber, title: workOrder.title }
-            })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
-
-        // PHASE 4: Invalidate caches after creating work order
-        await workOrderCacheService.invalidateAllCaches();
-
-        return NextResponse.json({
-            success: true,
-            data: workOrder,
-            message: 'Work order created successfully',
-        }, { status: 201 });
+        return apiSuccess(result.data, { status: 201, message: 'Work order berhasil dibuat' });
     } catch (error) {
         console.error('Error creating work order:', error);
-        return NextResponse.json({ error: 'Failed to create work order' }, { status: 500 });
+        return ApiErrors.internalError('Gagal membuat work order');
     }
 }

@@ -1,42 +1,46 @@
-
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { SalaryRepository } from '@/modules/salary/repositories/SalaryRepository'
-import { SalaryCalculatorService } from '@/modules/salary/services/SalaryCalculatorService'
+import { getSalaryService } from '@/modules/salary/services/SalaryService'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
-export async function POST(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+interface RouteParams {
+    params: Promise<{ id: string }>
+}
+
+/**
+ * POST /api/admin/salary/[id]/recalculate - Recalculate salary
+ */
+export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session || !session.user?.id) {
-            return new NextResponse('Unauthorized', { status: 401 })
+        if (!session?.user?.id) {
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        // Permission check
+        if (!await hasPermission('salary:create')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghitung ulang gaji')
         }
 
         const { id } = await params
-        const repo = new SalaryRepository()
-        const salary = await repo.findById(id)
 
-        if (!salary) {
-            return new NextResponse('Salary record not found', { status: 404 })
+        const service = getSalaryService()
+        const result = await service.recalculateSalary(id, session.user.id)
+
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Data gaji')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        if (salary.status !== 'CALCULATED' && salary.status !== 'REVISED') {
-             return new NextResponse(
-                `Cannot recalculate. Status is ${salary.status}`, 
-                { status: 400 }
-            )
-        }
-
-        const calculator = new SalaryCalculatorService()
-        await calculator.calculateAndSave(salary.userId, salary.month, salary.year)
-
-        return NextResponse.json({ success: true })
-        
-    } catch (error: any) {
-        console.error('Recalculate error:', error)
-        return new NextResponse(error.message || 'Internal Server Error', { status: 500 })
+        return apiSuccess({
+            salaryId: result.data?.salaryId
+        }, { message: 'Gaji berhasil dihitung ulang' })
+    } catch (error) {
+        console.error('Error recalculating salary:', error)
+        return ApiErrors.internalError('Gagal menghitung ulang gaji')
     }
 }

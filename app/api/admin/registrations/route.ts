@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { RegistrationRepository } from '@/modules/registration/repositories/RegistrationRepository'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const registrationRepository = new RegistrationRepository()
 
@@ -16,21 +16,17 @@ export async function GET() {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('registration:read'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat registrasi')
         }
 
         const registrations = await registrationRepository.findAll()
-
-        return NextResponse.json(registrations)
+        return apiSuccess(registrations)
     } catch (error) {
         console.error('Fetch Registrations Error:', error)
-        return NextResponse.json(
-            { error: 'Internal Server Error' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal mengambil data registrasi')
     }
 }

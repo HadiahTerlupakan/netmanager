@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
 import { getOltSyncService } from '@/modules/network'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 export const maxDuration = 600 // 10 menit dalam detik
 export const dynamic = 'force-dynamic'
@@ -17,17 +18,17 @@ async function requireAdmin() {
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
   const { id } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
   if (!olt) {
-    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+    return ApiErrors.notFound('OLT')
   }
   if (!olt.snmpConnected) {
-    return NextResponse.json({ error: 'SNMP tidak connected. Silakan test connection terlebih dahulu.' }, { status: 400 })
+    return apiError('SNMP tidak connected. Silakan test connection terlebih dahulu.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   // Update progress ke 1% segera untuk menunjukkan sync sudah dimulai
@@ -49,8 +50,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }, 0)
 
   // Langsung return response tanpa menunggu sync selesai
-  return NextResponse.json({
-    success: true,
+  return apiSuccess({
     message: 'Sync dimulai di background. Progress dapat dilihat di kolom Synchronization Status.',
     oltId: id,
     oltName: olt.name,

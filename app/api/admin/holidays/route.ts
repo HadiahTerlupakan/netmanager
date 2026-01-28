@@ -1,20 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
 
 const holidayRepo = new HolidayRepository()
 
+/**
+ * Validation schema for creating holiday
+ */
+const createHolidaySchema = z.object({
+    date: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
+    description: z.string().min(1, 'Description is required').max(255),
+    isNational: z.boolean().optional().default(true),
+})
+
 export async function GET(request: NextRequest) {
     const session = await requireAdmin(request)
-    if (session instanceof NextResponse) return session
+    if (session instanceof Response) return session
 
-    // Permission check - sesuai standar OWASP, gunakan permission-only check
-    // Role yang memerlukan akses harus diberikan permission holiday:read
     const hasAccess = await hasPermission('holiday:read')
     if (!hasAccess) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat hari libur')
     }
 
     const { searchParams } = new URL(request.url)
@@ -22,46 +31,52 @@ export async function GET(request: NextRequest) {
 
     try {
         const holidays = await holidayRepo.getHolidaysByYear(year)
-        return NextResponse.json({ success: true, data: holidays })
+        return apiSuccess(holidays)
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch holidays' }, { status: 500 })
+        console.error('Fetch holidays error:', error)
+        return ApiErrors.internalError('Gagal mengambil data hari libur')
     }
 }
 
 
 export async function POST(request: NextRequest) {
     const session = await requireAdmin(request)
-    if (session instanceof NextResponse) return session
+    if (session instanceof Response) return session
 
-    // Permission check - sesuai standar OWASP, gunakan permission-only check
     const hasAccess = await hasPermission('holiday:create')
     if (!hasAccess) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat hari libur')
     }
-
 
     try {
         const body = await request.json()
-        const { date, description, isNational } = body
-
-        if (!date || !description) {
-            return NextResponse.json({ error: 'Date and description are required' }, { status: 400 })
+        
+        // Validate with Zod
+        const parseResult = createHolidaySchema.safeParse(body)
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
         }
+
+        const { date, description, isNational } = parseResult.data
 
         const holiday = await holidayRepo.create({
             id: randomUUID(),
             date: new Date(date),
             description,
-            isNational: isNational ?? true,
+            isNational,
             updatedAt: new Date()
         })
 
-        return NextResponse.json({ success: true, data: holiday })
+        return apiSuccess(holiday, { status: 201, message: 'Hari libur berhasil dibuat' })
     } catch (error: any) {
         if (error.code === 'P2002') {
-            return NextResponse.json({ error: 'Holiday for this date already exists' }, { status: 409 })
+            return ApiErrors.conflict('Hari libur untuk tanggal ini sudah ada')
         }
         console.error('Create holiday error:', error)
-        return NextResponse.json({ error: 'Failed to create holiday' }, { status: 500 })
+        return ApiErrors.internalError('Gagal membuat hari libur')
     }
 }

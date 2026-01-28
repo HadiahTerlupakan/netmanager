@@ -1,22 +1,44 @@
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { OvertimeService } from '@/modules/overtime'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
+
+/**
+ * Validation schema for overtime action
+ */
+const overtimeActionSchema = z.object({
+    action: z.enum(['approve', 'reject']).optional(),
+    reason: z.string().max(500).optional(),
+    startTime: z.string().datetime().optional(),
+    endTime: z.string().datetime().optional(),
+})
 
 export async function PATCH(
-    request: Request,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const { id } = await params
         const body = await request.json()
-        const { action, reason, ...updateData } = body 
+        
+        const parseResult = overtimeActionSchema.safeParse(body)
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
+        }
+        
+        const { action, reason, ...updateData } = parseResult.data
 
         // Check ownership & site/dept restrictions first
         const existing = await import('@/lib/prisma').then(m => m.prisma.overtime.findUnique({
@@ -24,16 +46,18 @@ export async function PATCH(
             include: { user: true }
         }))
 
-        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+        if (!existing) {
+            return ApiErrors.notFound('Data lembur')
+        }
 
         const user = session.user as any;
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
         if (!isSuperAdmin) {
              if (user.permissions?.includes('lembur:site_only') && existing.user.siteId !== user.siteId) {
-                 return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+                 return ApiErrors.forbidden('Dibatasi hanya untuk Site Anda')
              }
              if (user.permissions?.includes('lembur:department_only') && existing.user.departmentId !== user.departmentId) {
-                  return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+                  return ApiErrors.forbidden('Dibatasi hanya untuk Departemen Anda')
              }
         }
 
@@ -43,7 +67,7 @@ export async function PATCH(
         if (action === 'approve' || action === 'reject') {
             // VERIFICATION ACTIONS
             if (!await hasPermission('lembur:verify')) {
-                return NextResponse.json({ error: 'Forbidden: You need verify permission' }, { status: 403 })
+                return ApiErrors.forbidden('Anda membutuhkan permission verify')
             }
 
             if (action === 'approve') {
@@ -60,9 +84,11 @@ export async function PATCH(
                 })
                 } catch (e) { console.error('Logging failed', e) }
 
-                return NextResponse.json(result)
+                return apiSuccess(result, { message: 'Lembur berhasil disetujui' })
             } else {
-                if (!reason) return NextResponse.json({ error: 'Reason required for rejection' }, { status: 400 })
+                if (!reason) {
+                    return apiError('Alasan penolakan wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+                }
                 const result = await service.rejectRequest(id, reason)
 
                 // System Log
@@ -76,22 +102,19 @@ export async function PATCH(
                 })
                 } catch (e) { console.error('Logging failed', e) }
 
-                return NextResponse.json(result)
+                return apiSuccess(result, { message: 'Lembur berhasil ditolak' })
             }
         } else {
             // EDIT DATA ACTIONS (reason, startTime, endTime, etc.)
             if (!await hasPermission('lembur:update')) {
-                return NextResponse.json({ error: 'Forbidden: You need update permission' }, { status: 403 })
+                return ApiErrors.forbidden('Anda membutuhkan permission update')
             }
 
-            // Implement simple update logic via Prisma directly or add updateRequest to Service
-            // For now assuming service has update method or we do direct prisma update
-            // Since OvertimeService update isn't confirmed, let's look at updating reason/times
             const prisma = await import('@/lib/prisma').then(m => m.prisma)
             
             // Clean up update data
             const cleanData: any = {}
-            if (updateData.reason) cleanData.reason = updateData.reason
+            if (reason) cleanData.reason = reason
             if (updateData.startTime) cleanData.startTime = new Date(updateData.startTime)
             if (updateData.endTime) cleanData.endTime = new Date(updateData.endTime)
             
@@ -111,35 +134,33 @@ export async function PATCH(
             })
             } catch (e) { console.error('Logging failed', e) }
 
-            return NextResponse.json({ success: true, data: result })
+            return apiSuccess(result, { message: 'Data lembur berhasil diperbarui' })
         }
 
     } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        )
+        console.error('Error updating overtime:', error)
+        return ApiErrors.internalError('Gagal memperbarui lembur')
     }
 }
 
 export async function DELETE(
-    request: Request,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const { id } = await params
 
         // Permission check
         if (!await hasPermission('lembur:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus lembur')
         }
 
-        // NEW: Ownership Check
+        // Ownership Check
         const existing = await import('@/lib/prisma').then(m => m.prisma.overtime.findUnique({
             where: { id },
             include: { user: true }
@@ -150,10 +171,10 @@ export async function DELETE(
             const isSuperAdmin = user.role === 'SUPER_ADMIN';
             if (!isSuperAdmin) {
                     if (user.permissions?.includes('lembur:site_only') && existing.user.siteId !== user.siteId) {
-                        return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+                        return ApiErrors.forbidden('Dibatasi hanya untuk Site Anda')
                     }
                     if (user.permissions?.includes('lembur:department_only') && existing.user.departmentId !== user.departmentId) {
-                        return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+                        return ApiErrors.forbidden('Dibatasi hanya untuk Departemen Anda')
                     }
             }
         }
@@ -172,11 +193,9 @@ export async function DELETE(
         })
         } catch (e) { console.error('Logging failed', e) }
 
-        return NextResponse.json({ success: true, message: 'Overtime deleted' })
+        return apiSuccess(null, { message: 'Lembur berhasil dihapus' })
     } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        )
+        console.error('Error deleting overtime:', error)
+        return ApiErrors.internalError('Gagal menghapus lembur')
     }
 }

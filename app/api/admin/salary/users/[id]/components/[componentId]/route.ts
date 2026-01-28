@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 // DELETE - Remove component from user
 export async function DELETE(
@@ -11,7 +13,11 @@ export async function DELETE(
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('salary:delete')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus komponen gaji')
         }
 
         const { componentId } = await params
@@ -20,9 +26,9 @@ export async function DELETE(
             where: { id: componentId }
         })
 
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'Komponen gaji berhasil dihapus' })
     } catch (error) {
         console.error('[API] Error removing component:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal menghapus komponen gaji')
     }
 }

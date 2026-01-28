@@ -1,19 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Permission check
         if (!await hasPermission('email:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat pengaturan email')
         }
 
         // Get email settings from Settings table
@@ -28,7 +30,6 @@ export async function GET(request: NextRequest) {
         const settingsMap: Record<string, string> = {}
         for (const setting of settings) {
             if (setting.key === 'SMTP_PASS' && setting.value) {
-                // TEMP DEBUG: Return actual decrypted password to see what's saved
                 try {
                     const decryptedPass = decryptApiKey(setting.value)
                     settingsMap[setting.key] = decryptedPass
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({
+        return apiSuccess({
             smtpHost: settingsMap['SMTP_HOST'] || '',
             smtpPort: settingsMap['SMTP_PORT'] || '587',
             smtpuser: settingsMap['SMTP_USER'] || '',
@@ -52,10 +53,7 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: any) {
         console.error('Error fetching email settings:', error)
-        return NextResponse.json(
-            { error: 'Failed to fetch settings', details: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal mengambil pengaturan email')
     }
 }
 
@@ -63,12 +61,12 @@ export async function PUT(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Permission check
         if (!await hasPermission('email:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah pengaturan email')
         }
 
         const body = await request.json()
@@ -85,7 +83,6 @@ export async function PUT(request: NextRequest) {
 
         // Only update password if provided (not empty)
         if (smtpPass) {
-            // Trim and remove spaces (Gmail App Passwords have spaces)
             const cleanedPass = smtpPass.trim().replace(/\s+/g, '')
             console.log(`[Email Settings] Saving password, length: ${cleanedPass.length}`)
             const encryptedPass = encryptApiKey(cleanedPass)
@@ -111,12 +108,9 @@ export async function PUT(request: NextRequest) {
             })
         }
 
-        return NextResponse.json({ success: true, message: 'Settings saved successfully' })
+        return apiSuccess(null, { message: 'Pengaturan email berhasil disimpan' })
     } catch (error: any) {
         console.error('Error saving email settings:', error)
-        return NextResponse.json(
-            { error: 'Failed to save settings', details: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal menyimpan pengaturan email')
     }
 }

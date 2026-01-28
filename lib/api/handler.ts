@@ -1,0 +1,264 @@
+/**
+ * Unified API Route Handler
+ * 
+ * This module provides a unified wrapper for API routes that handles:
+ * - Authentication (NextAuth session)
+ * - Authorization (RBAC permissions via existing authorize middleware)
+ * - Request validation (Zod schemas)
+ * - Error handling (with Sentry integration)
+ * - Standard response format
+ * 
+ * NOTE: For routes that need complex auth (site restriction, etc.),
+ * continue using the existing `authorize` middleware from `@/lib/authorization-middleware`.
+ * This handler is for simpler cases or new routes.
+ * 
+ * @example
+ * // Simple authenticated route
+ * import { createHandler, apiSuccess } from '@/lib/api'
+ * 
+ * export const GET = createHandler({
+ *   auth: true,
+ * }, async (req, ctx) => {
+ *   return apiSuccess({ userId: ctx.session?.user.id })
+ * })
+ * 
+ * // With validation
+ * import { z } from 'zod'
+ * const schema = z.object({ name: z.string() })
+ * 
+ * export const POST = createHandler({
+ *   auth: true,
+ *   schema,
+ * }, async (req, ctx) => {
+ *   return apiSuccess({ created: ctx.validated.name })
+ * })
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import type { ZodSchema, ZodError } from 'zod'
+import * as Sentry from '@sentry/nextjs'
+import { authOptions } from '@/lib/auth'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import type { ErrorResponse } from '@/lib/api-response'
+
+// Types
+export interface HandlerContext<T = unknown> {
+    /** Validated request body (if schema provided) */
+    validated: T
+    /** Query parameters as object */
+    query: Record<string, string | string[]>
+    /** Route parameters (from [id] segments) */
+    params: Record<string, string>
+    /** Authenticated user session */
+    session: {
+        user: {
+            id: string
+            email: string
+            name?: string
+            role?: string
+        }
+    } | null
+    /** User permissions (if auth enabled) */
+    permissions: string[]
+}
+
+export interface HandlerOptions<T = unknown> {
+    /** Require authentication */
+    auth?: boolean
+    /** Required permissions (RBAC) */
+    permissions?: string[]
+    /** Zod schema for request body validation */
+    schema?: ZodSchema<T>
+    /** Custom rate limit (requests per minute) */
+    rateLimit?: number
+}
+
+type RouteHandler<T> = (
+    request: NextRequest,
+    context: HandlerContext<T>
+) => Promise<NextResponse>
+
+/**
+ * Creates a standardized API route handler with built-in:
+ * - Authentication
+ * - Permission checking
+ * - Request validation
+ * - Error handling
+ * - Sentry integration
+ */
+export function createHandler<T = unknown>(
+    options: HandlerOptions<T>,
+    handler: RouteHandler<T>
+) {
+    return async (
+        request: NextRequest,
+        routeContext?: { params?: Promise<Record<string, string>> }
+    ): Promise<NextResponse> => {
+        // Resolve params if it's a Promise (Next.js 15+)
+        const params = routeContext?.params ? await routeContext.params : {}
+        
+        try {
+            // Create context object
+            const ctx: HandlerContext<T> = {
+                validated: {} as T,
+                query: parseQuery(request.nextUrl.searchParams),
+                params,
+                session: null,
+                permissions: [],
+            }
+
+            // 1. Authentication check
+            if (options.auth) {
+                const session = await getServerSession(authOptions)
+                
+                if (!session?.user) {
+                    return ApiErrors.unauthorized('Session tidak valid')
+                }
+                
+                ctx.session = {
+                    user: {
+                        id: session.user.id || '',
+                        email: session.user.email || '',
+                        name: session.user.name || undefined,
+                        role: session.user.role || undefined,
+                    }
+                }
+
+                // Load permissions from session or cache
+                if (session.user.permissions && Array.isArray(session.user.permissions)) {
+                    ctx.permissions = session.user.permissions
+                }
+            }
+
+            // 2. Permission check (RBAC)
+            if (options.permissions && options.permissions.length > 0) {
+                const hasPermission = options.permissions.some(
+                    perm => ctx.permissions.includes(perm) || ctx.permissions.includes('*')
+                )
+                
+                if (!hasPermission) {
+                    return ApiErrors.forbidden('Anda tidak memiliki akses ke fitur ini')
+                }
+            }
+
+            // 3. Request body validation
+            if (options.schema) {
+                const contentType = request.headers.get('content-type') || ''
+                
+                if (contentType.includes('application/json')) {
+                    try {
+                        const body = await request.json()
+                        const result = options.schema.safeParse(body)
+                        
+                        if (!result.success) {
+                            return formatValidationError(result.error)
+                        }
+                        
+                        ctx.validated = result.data
+                    } catch {
+                        return apiError(
+                            'Invalid JSON body',
+                            ErrorCodes.VALIDATION_ERROR,
+                            { status: 400 }
+                        )
+                    }
+                }
+            }
+
+            // 4. Execute handler
+            return await handler(request, ctx)
+
+        } catch (error) {
+            // 5. Error handling with Sentry
+            return handleError(error, request)
+        }
+    }
+}
+
+/**
+ * Parse URLSearchParams to object
+ */
+function parseQuery(searchParams: URLSearchParams): Record<string, string | string[]> {
+    const query: Record<string, string | string[]> = {}
+    
+    for (const [key, value] of searchParams.entries()) {
+        if (query[key]) {
+            if (Array.isArray(query[key])) {
+                (query[key] as string[]).push(value)
+            } else {
+                query[key] = [query[key] as string, value]
+            }
+        } else {
+            query[key] = value
+        }
+    }
+    
+    return query
+}
+
+/**
+ * Format Zod validation error to standard response
+ */
+function formatValidationError(error: ZodError): NextResponse<ErrorResponse> {
+    const details: Record<string, string> = {}
+    
+    for (const issue of error.issues) {
+        const path = issue.path.join('.') || 'general'
+        details[path] = issue.message
+    }
+    
+    return apiError(
+        'Validation error',
+        ErrorCodes.VALIDATION_ERROR,
+        { status: 400, details }
+    )
+}
+
+/**
+ * Centralized error handler with Sentry integration
+ */
+function handleError(error: unknown, request: NextRequest): NextResponse<ErrorResponse> {
+    // Log to console
+    console.error('[API Error]', {
+        url: request.nextUrl.pathname,
+        method: request.method,
+        error,
+    })
+    
+    // Send to Sentry
+    Sentry.captureException(error, {
+        extra: {
+            url: request.nextUrl.pathname,
+            method: request.method,
+        },
+    })
+    
+    // Handle known error types
+    if (error instanceof Error) {
+        // Business logic errors
+        if (error.message.startsWith('NOT_FOUND:')) {
+            return ApiErrors.notFound(error.message.replace('NOT_FOUND:', ''))
+        }
+        if (error.message.startsWith('CONFLICT:')) {
+            return ApiErrors.conflict(error.message.replace('CONFLICT:', ''))
+        }
+        if (error.message.startsWith('FORBIDDEN:')) {
+            return ApiErrors.forbidden(error.message.replace('FORBIDDEN:', ''))
+        }
+        
+        // Prisma errors
+        if (error.message.includes('Unique constraint')) {
+            return ApiErrors.conflict('Data sudah ada')
+        }
+        if (error.message.includes('Record to update not found')) {
+            return ApiErrors.notFound('Data tidak ditemukan')
+        }
+    }
+    
+    // Default internal error
+    return ApiErrors.internalError('Terjadi kesalahan pada server')
+}
+
+// Re-export api response helpers for convenience
+export { apiSuccess, apiError, apiPaginated, ApiErrors, ErrorCodes } from '@/lib/api-response'

@@ -1,13 +1,14 @@
 import { verifyAuth } from '@/lib/auth'
 import { ChatService } from '@/modules/chat'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 // GET - Search users for creating new chat
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const { searchParams } = new URL(request.url)
@@ -16,13 +17,9 @@ export async function GET(request: NextRequest) {
         const chatService = new ChatService()
         const users = await chatService.searchUsers(search, user.id)
 
-        return NextResponse.json({
-            success: true,
-            data: users
-        })
+        return apiSuccess(users)
     } catch (error: unknown) {
         console.error('Error searching users:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mencari pengguna')
     }
 }

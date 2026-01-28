@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -11,11 +12,11 @@ export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('work_order_dashboard:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat statistik response');
         }
 
         const { searchParams } = new URL(request.url);
@@ -52,23 +53,17 @@ export async function GET(request: NextRequest) {
 
         if (hasDepartmentRestriction && !isSuperAdmin) {
             if (!user.departmentId) {
-                return NextResponse.json({
-                    success: true,
-                    data: [] // No access to any department data
-                });
+                return apiSuccess([]); // No access to any department data
             }
             departmentId = user.departmentId;
         }
 
         const stats = await workOrderRepo.getAdminResponseStats(dateFrom, dateTo, departmentId);
 
-        return NextResponse.json({
-            success: true,
-            data: stats,
-        });
+        return apiSuccess(stats);
 
     } catch (error) {
         console.error('Error fetching admin response stats:', error);
-        return NextResponse.json({ error: 'Failed to fetch statistics' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil statistik response');
     }
 }

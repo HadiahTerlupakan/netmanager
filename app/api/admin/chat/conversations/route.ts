@@ -1,27 +1,33 @@
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { ChatService } from '@/modules/chat'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
+
+/**
+ * Validation schema for creating conversation
+ */
+const createConversationSchema = z.object({
+    participantIds: z.array(z.string().uuid()).min(1, 'Minimal 1 peserta'),
+    name: z.string().max(100).optional(),
+})
 
 // GET - Get all conversations for current admin user
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const chatService = new ChatService()
         const conversations = await chatService.getConversations(user.id)
 
-        return NextResponse.json({
-            success: true,
-            data: conversations
-        })
+        return apiSuccess(conversations)
     } catch (error: unknown) {
         console.error('Error fetching conversations:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil percakapan')
     }
 }
 
@@ -30,20 +36,26 @@ export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Check permission
         if (!await hasPermission('chat:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat percakapan')
         }
 
         const body = await request.json()
-        const { participantIds, name } = body
-
-        if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
-            return NextResponse.json({ error: 'participantIds is required' }, { status: 400 })
+        const parseResult = createConversationSchema.safeParse(body)
+        
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
         }
+
+        const { participantIds, name } = parseResult.data
 
         const chatService = new ChatService()
         const result = await chatService.createConversation({
@@ -52,13 +64,9 @@ export async function POST(request: NextRequest) {
             name
         })
 
-        return NextResponse.json({
-            success: true,
-            data: result
-        })
+        return apiSuccess(result, { status: 201, message: 'Percakapan berhasil dibuat' })
     } catch (error: unknown) {
         console.error('Error creating conversation:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError('Gagal membuat percakapan')
     }
 }

@@ -1,19 +1,19 @@
-import { NextResponse } from 'next/server'
 import { OvertimeService } from '@/modules/overtime'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(request: Request) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Permission check
         if (!await hasPermission('lembur:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data lembur')
         }
 
         const { searchParams } = new URL(request.url)
@@ -52,8 +52,7 @@ export async function GET(request: Request) {
         const service = new OvertimeService()
         const result = await service.getAllRequests(filters)
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             data: result.data,
             summary: result.summary,
             pagination: {
@@ -64,9 +63,7 @@ export async function GET(request: Request) {
             }
         })
     } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        )
+        console.error('Error fetching lembur:', error)
+        return ApiErrors.internalError('Gagal mengambil data lembur')
     }
 }

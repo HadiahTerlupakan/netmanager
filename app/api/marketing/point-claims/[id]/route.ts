@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 // GET - Get detail claim
 export async function GET(
@@ -10,29 +11,28 @@ export async function GET(
 ) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
     const { id } = await params
     const service = getPointClaimService()
     const claim = await service.getClaimById(id)
 
     if (!claim) {
-      return NextResponse.json({ error: 'Claim tidak ditemukan' }, { status: 404 })
+      return ApiErrors.notFound('Claim')
     }
 
-    // Check access - only owner or admin can view
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const isAdmin = isSuperAdmin || permissions.includes('point_claims:read')
     const isOwner = claim.salesId === session.id
 
     if (!isAdmin && !isOwner) {
-      return NextResponse.json({ error: 'Anda tidak memiliki akses ke claim ini' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses ke claim ini')
     }
 
-    return NextResponse.json(claim)
+    return apiSuccess(claim)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Gagal mengambil data claim')
   }
 }
 
@@ -43,19 +43,17 @@ export async function PUT(
 ) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
-    // Check admin permissions
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
-    // Check for point_claims:update or canvasing:update (action-based permission format)
     const canManage = isSuperAdmin || 
       permissions.includes('point_claims:update') || 
       permissions.includes('canvasing:update') ||
       permissions.includes('marketing:update')
 
     if (!canManage) {
-      return NextResponse.json({ error: 'Forbidden: Missing point_claims:update or canvasing:update permission' }, { status: 403 })
+      return ApiErrors.forbidden('Missing point_claims:update atau canvasing:update permission')
     }
 
     const { id } = await params
@@ -67,22 +65,22 @@ export async function PUT(
       result = await service.approveClaim(id, session.id, body.notes)
     } else if (body.action === 'reject') {
       if (!body.notes) {
-        return NextResponse.json({ error: 'Alasan penolakan wajib diisi' }, { status: 400 })
+        return apiError('Alasan penolakan wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
       }
       result = await service.rejectClaim(id, session.id, body.notes)
     } else {
-      return NextResponse.json({ error: 'Action tidak valid. Gunakan approve atau reject' }, { status: 400 })
+      return apiError('Action tidak valid. Gunakan approve atau reject', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
-    return NextResponse.json(result)
+    return apiSuccess(result, { message: `Claim berhasil di-${body.action}` })
   } catch (error: any) {
     if (error.message.includes('tidak ditemukan')) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Claim')
     }
     if (error.message.includes('Hanya claim')) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Gagal memproses claim')
   }
 }
 
@@ -93,29 +91,28 @@ export async function DELETE(
 ) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
-    // Check admin permissions
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const canManage = isSuperAdmin || permissions.includes('point_claims:delete')
 
     if (!canManage) {
-      return NextResponse.json({ error: 'Anda tidak memiliki akses untuk menghapus claim' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus claim')
     }
 
     const { id } = await params
     const service = getPointClaimService()
     await service.deleteClaim(id)
 
-    return NextResponse.json({ success: true })
+    return apiSuccess(null, { message: 'Claim berhasil dihapus' })
   } catch (error: any) {
     if (error.message.includes('tidak ditemukan')) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Claim')
     }
     if (error.message.includes('tidak bisa dihapus')) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Gagal menghapus claim')
   }
 }

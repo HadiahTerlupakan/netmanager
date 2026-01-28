@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/analytics/usage')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -31,10 +32,7 @@ export async function GET(req: NextRequest) {
     const days = parseInt(searchParams.get('days') || '30')
 
     if (!barangId || !gudangId) {
-      return NextResponse.json(
-        { error: 'Barang ID dan Gudang ID harus diisi' },
-        { status: 400 }
-      )
+      return apiError('Barang ID dan Gudang ID harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     try {
@@ -126,7 +124,7 @@ export async function GET(req: NextRequest) {
         avgDailyUsage,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         barangId,
         gudangId,
         days,
@@ -147,9 +145,6 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/analytics/usage',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat analisis penggunaan' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat analisis penggunaan')
   }
 }

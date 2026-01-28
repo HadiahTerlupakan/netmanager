@@ -1,60 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { bandwidthSchema } from '@/lib/validations/bandwidth'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
-/**
- * @swagger
- * /api/bandwidths:
- *   get:
- *     summary: Get all bandwidths
- *     description: Mengambil daftar semua bandwidth dengan filter opsional
- *     tags: [Bandwidth]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: ["AKTIF", "NONAKTIF"]
- *         description: Filter by status
- *     responses:
- *       200:
- *         description: Daftar bandwidth berhasil diambil
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Bandwidth'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
 export async function GET(req: NextRequest) {
   try {
-    // Cek autentikasi menggunakan fungsi terpusat
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("bandwidth:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat bandwidth')
     }
 
     const { searchParams } = new URL(req.url)
@@ -66,13 +27,10 @@ export async function GET(req: NextRequest) {
       where.status = status
     }
 
-    // Filter based on user role and parameter
     const user = session.user as any
-    // If not super admin and has siteId, enforce restriction
     if (user.role !== 'SUPER_ADMIN' && user.siteId) {
       where.siteId = user.siteId
     } else if (siteIdParam) {
-      // If super admin (or no site restriction) and param exists, use it
       where.siteId = siteIdParam
     }
 
@@ -86,44 +44,32 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json(bandwidths)
+    return apiSuccess(bandwidths)
   } catch (error: any) {
     console.error('Error fetching bandwidths:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error?.message || 'Gagal mengambil data bandwidth')
   }
 }
 
-/**
- * POST /api/bandwidths
- * Create new bandwidth - Membuat bandwidth baru
- */
 export async function POST(req: NextRequest) {
   try {
-    // Cek autentikasi admin menggunakan fungsi terpusat
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("bandwidth:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat bandwidth')
     }
 
     const body = await req.json()
     const user = session.user as any
 
-    // Determine siteId
-    // If user is restricted, force their siteId
-    // If user is Super Admin, take from body, otherwise null (Global) or error if we want strict
     let siteIdToSave = body.siteId
     if (user.role !== 'SUPER_ADMIN' && user.siteId) {
       siteIdToSave = user.siteId
     }
 
-    // Sanitize input
     const sanitizedBody: any = {
       name: body.name ? sanitizeInput(body.name) : undefined,
       maxLimitDownload: body.maxLimitDownload ? sanitizeInput(body.maxLimitDownload) : undefined,
@@ -142,7 +88,6 @@ export async function POST(req: NextRequest) {
       siteId: siteIdToSave || null,
     }
 
-    // Hapus field yang undefined untuk menghindari masalah dengan Prisma
     Object.keys(sanitizedBody).forEach(key => {
       if (sanitizedBody[key] === undefined) {
         delete sanitizedBody[key]
@@ -151,13 +96,12 @@ export async function POST(req: NextRequest) {
 
     const validation = bandwidthSchema.safeParse(sanitizedBody)
     if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
-        { status: 400 }
-      )
+      return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
+        status: 400, 
+        details: { errors: validation.error.flatten() } 
+      })
     }
 
-    // Hapus field undefined dari validation.data sebelum create
     const dataToCreate: any = {}
     Object.keys(validation.data).forEach(key => {
       if (validation.data[key as keyof typeof validation.data] !== undefined) {
@@ -165,7 +109,6 @@ export async function POST(req: NextRequest) {
       }
     })
     
-    // Explicitly add siteId as it might not be in the Zod schema yet/validated separately
     if (siteIdToSave) {
         dataToCreate.siteId = siteIdToSave
     }
@@ -180,7 +123,6 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // System Log
     try {
       const { logger } = await import('@/lib/logger')
       await logger.logActivity({
@@ -193,21 +135,14 @@ export async function POST(req: NextRequest) {
       console.error('Logging failed', e)
     }
 
-    return NextResponse.json(bandwidth, { status: 201 })
+    return apiSuccess(bandwidth, { status: 201, message: 'Bandwidth berhasil dibuat' })
   } catch (error: any) {
     console.error('Error creating bandwidth:', error)
 
-    // Handle unique constraint violation
     if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Nama bandwidth sudah digunakan' },
-        { status: 400 }
-      )
+      return apiError('Nama bandwidth sudah digunakan', ErrorCodes.CONFLICT, { status: 409 })
     }
 
-    return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error?.message || 'Gagal membuat bandwidth')
   }
 }

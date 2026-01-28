@@ -1,14 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
-import { TicketStatus } from '@prisma/client'
-import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
-import { randomUUID } from 'crypto'
+import { TicketStatus, TicketPriority } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
+import { z } from 'zod'
 
 interface RouteParams {
     params: Promise<{ id: string }>
 }
+
+/**
+ * Validation schema for updating ticket
+ */
+const updateTicketSchema = z.object({
+    status: z.nativeEnum(TicketStatus).optional(),
+    priority: z.nativeEnum(TicketPriority).optional(),
+    assignedToId: z.string().uuid().nullable().optional(),
+    closingNote: z.string().max(1000).optional(),
+})
 
 /**
  * GET /api/admin/support-tickets/[id]
@@ -17,89 +27,35 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
     const user = await verifyAuth(request)
     if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!await hasPermission('support:read')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tiket')
     }
 
     const { id } = await params
 
-    try {
-        const ticket = await prisma.supportTickets.findUnique({
-            where: { id },
-            include: {
-                pelanggan: {
-                    select: {
-                        id: true,
-                        idPelanggan: true,
-                        nama: true,
-                        username: true,
-                        email: true,
-                        noTelp: true,
-                        alamat: true,
-                        status: true,
+    const hasSiteRestriction = await hasPermission('support:site_only')
+    const service = getAdminSupportTicketService()
 
-                        siteId: true,
-                        hargaPaket: {
-                            select: {
-                                name: true,
-                            },
-                        },
-                    },
-                },
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-                replies: {
-                    orderBy: { createdAt: 'asc' },
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                image: true,
-                            },
-                        },
-                    },
-                },
-            },
-        })
+    const result = await service.getTicketById(id, {
+        id: user.id,
+        role: user.role,
+        siteId: user.siteId,
+    }, hasSiteRestriction)
 
-        if (!ticket) {
-            return NextResponse.json(
-                { success: false, error: 'Tiket tidak ditemukan' },
-                { status: 404 }
-            )
+    if (!result.success) {
+        if (result.code === 'NOT_FOUND') {
+            return ApiErrors.notFound('Tiket')
         }
-
-
-        // Site restriction check
-        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
-            if (!user.siteId) {
-                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
-            }
-            if (ticket.pelanggan?.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-            }
+        if (result.code === 'FORBIDDEN') {
+            return ApiErrors.forbidden(result.error!)
         }
-
-        return NextResponse.json({
-            success: true,
-            ticket,
-        })
-    } catch (error) {
-        console.error('[Admin Support Ticket GET Detail] Error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal mengambil detail tiket' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError(result.error)
     }
+
+    return apiSuccess(result.data)
 }
 
 /**
@@ -109,137 +65,52 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const user = await verifyAuth(request)
     if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!await hasPermission('support:update')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah tiket')
     }
 
     const { id } = await params
 
+    // Parse and validate body
+    let body: any
     try {
-        const body = await request.json()
-        const { status, priority, assignedToId } = body
+        body = await request.json()
+    } catch {
+        return apiError('Invalid JSON body', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
 
-        // Find ticket first
-        const existingTicket = await prisma.supportTickets.findUnique({
-            where: { id },
-             include: {
-                pelanggan: {
-                    select: {
-                        siteId: true
-                    }
-                }
-            }
-        })
-
-        if (!existingTicket) {
-            return NextResponse.json(
-                { success: false, error: 'Tiket tidak ditemukan' },
-                { status: 404 }
-            )
-        }
-
-
-        // Site restriction check
-        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
-            if (!user.siteId) {
-                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
-            }
-            if (existingTicket.pelanggan?.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-            }
-        }
-
-        const updateData: any = {}
-
-        // Update status
-        if (status && Object.values(TicketStatus).includes(status)) {
-            updateData.status = status
-
-            // Set resolved/closed timestamps
-            if (status === TicketStatus.RESOLVED && !existingTicket.resolvedAt) {
-                updateData.resolvedAt = new Date()
-            }
-            if (status === TicketStatus.CLOSED && !existingTicket.closedAt) {
-                updateData.closedAt = new Date()
-            }
-        }
-
-        // Update priority
-        if (priority) {
-            updateData.priority = priority
-        }
-
-        // Update assignee
-        if (assignedToId !== undefined) {
-            updateData.assignedToId = assignedToId || null
-        }
-
-        const ticket = await prisma.supportTickets.update({
-            where: { id },
-            data: updateData,
-            include: {
-                pelanggan: {
-                    select: {
-                        nama: true,
-                        idPelanggan: true,
-                    },
-                },
-                user: {
-                    select: {
-                        name: true,
-                    },
-                },
-            },
-        })
-
-        // Handle closing logic side effects
-        if (status === TicketStatus.CLOSED) {
-            // 1. Send closing note if exists
-            const { closingNote } = body
-            if (closingNote) {
-                await prisma.ticketReplies.create({
-                    data: {
-                        id: randomUUID(),
-                        ticketId: id,
-                        message: closingNote,
-                        isFromAdmin: true,
-                        senderId: user.id
-                    }
-                })
-            }
-
-            // 2. Auto-close related Work Orders
-            await closeWoOnTicketClose(id)
-        }
-
-        // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'UPDATE',
-                subject: 'Support Ticket',
-                userId: user.id,
-                details: { id: ticket.id, updates: updateData }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: 'Tiket berhasil diupdate',
-            ticket,
-        })
-    } catch (error) {
-        console.error('[Admin Support Ticket PATCH] Error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal mengupdate tiket' },
-            { status: 500 }
+    const parseResult = updateTicketSchema.safeParse(body)
+    if (!parseResult.success) {
+        return apiError(
+            'Data tidak valid',
+            ErrorCodes.VALIDATION_ERROR,
+            { status: 400, details: parseResult.error.flatten().fieldErrors }
         )
     }
+
+    const hasSiteRestriction = await hasPermission('support:site_only')
+    const service = getAdminSupportTicketService()
+
+    const result = await service.updateTicket(id, parseResult.data, {
+        id: user.id,
+        role: user.role,
+        siteId: user.siteId,
+    }, hasSiteRestriction)
+
+    if (!result.success) {
+        if (result.code === 'NOT_FOUND') {
+            return ApiErrors.notFound('Tiket')
+        }
+        if (result.code === 'FORBIDDEN') {
+            return ApiErrors.forbidden(result.error!)
+        }
+        return ApiErrors.internalError(result.error)
+    }
+
+    return apiSuccess(result.data, { message: 'Tiket berhasil diupdate' })
 }
 
 /**
@@ -249,70 +120,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const user = await verifyAuth(request)
     if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!await hasPermission('support:delete')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus tiket')
     }
 
     const { id } = await params
 
-    try {
-        const ticket = await prisma.supportTickets.findUnique({
-            where: { id },
-             include: {
-                pelanggan: {
-                    select: {
-                        siteId: true
-                    }
-                }
-            }
-        })
+    const hasSiteRestriction = await hasPermission('support:site_only')
+    const service = getAdminSupportTicketService()
 
-        if (!ticket) {
-            return NextResponse.json(
-                { success: false, error: 'Tiket tidak ditemukan' },
-                { status: 404 }
-            )
+    const result = await service.deleteTicket(id, {
+        id: user.id,
+        role: user.role,
+        siteId: user.siteId,
+    }, hasSiteRestriction)
+
+    if (!result.success) {
+        if (result.code === 'NOT_FOUND') {
+            return ApiErrors.notFound('Tiket')
         }
-
-        // Site restriction check
-        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
-            if (!user.siteId) {
-                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
-            }
-            if (ticket.pelanggan?.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-            }
+        if (result.code === 'FORBIDDEN') {
+            return ApiErrors.forbidden(result.error!)
         }
-
-        await prisma.supportTickets.delete({
-            where: { id },
-        })
-
-          // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'DELETE',
-                subject: 'Support Ticket',
-                userId: user.id,
-                details: { id: ticket.id }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: 'Tiket berhasil dihapus',
-        })
-    } catch (error) {
-        console.error('[Admin Support Ticket DELETE] Error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal menghapus tiket' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError(result.error)
     }
+
+    return apiSuccess(result.data, { message: 'Tiket berhasil dihapus' })
 }

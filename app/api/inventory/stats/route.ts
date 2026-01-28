@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
     const session = await verifyAuth(req)
     if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return ApiErrors.unauthorized('Session tidak valid')
     }
 
     try {
-        // const permissions = session.permissions || []
         const permissions = await getUserPermissions(session.id);
         const isSuperAdmin = session.role === 'SUPER_ADMIN'
         
@@ -49,21 +49,15 @@ export async function GET(req: NextRequest) {
             prisma.gudang.count({ where: gudangFilter })
         ])
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                totalBarang,
-                barangMasukToday,
-                barangKeluarToday,
-                totalGudang
-            }
+        return apiSuccess({
+            totalBarang,
+            barangMasukToday,
+            barangKeluarToday,
+            totalGudang
         })
 
     } catch (error: any) {
         logger.error('Error fetching inventory stats:', error)
-        return NextResponse.json(
-            { error: 'Internal Server Error' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal memuat statistik inventori')
     }
 }

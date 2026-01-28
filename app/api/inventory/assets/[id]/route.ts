@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { AssetService } from '@/modules/inventory/services/AssetService'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { z, ZodError } from 'zod'
 import { AssetStatus } from '@prisma/client'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const assetService = new AssetService()
 
@@ -21,17 +22,19 @@ export async function GET(
 ) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if (!session) {
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
 
         const { id } = await params
         const asset = await assetService.getAsset(id)
         if (!asset) {
-            return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
+            return ApiErrors.notFound('Asset')
         }
 
-        return NextResponse.json({ asset })
+        return apiSuccess({ asset })
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal memuat data aset')
     }
 }
 
@@ -41,7 +44,9 @@ export async function PATCH(
 ) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if (!session) {
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
 
         const body = await req.json()
         const validated = updateAssetSchema.parse(body)
@@ -49,11 +54,14 @@ export async function PATCH(
         const { id } = await params
         const updated = await assetService.updateAsset(id, validated)
 
-        return NextResponse.json({ asset: updated })
+        return apiSuccess({ asset: updated }, { message: 'Aset berhasil diperbarui' })
     } catch (error: any) {
         if (error instanceof ZodError) {
-            return NextResponse.json({ error: (error as any).errors || error.issues }, { status: 400 })
+            return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
+                status: 400, 
+                details: { errors: error.issues } 
+            })
         }
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal memperbarui aset')
     }
 }

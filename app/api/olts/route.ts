@@ -1,55 +1,27 @@
-import { NextResponse, NextRequest } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getOLTRepository } from '@/lib/repositories'
 import { oltCreateSchema } from '@/lib/validations/olt'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 /**
  * @swagger
  * /api/olts:
  *   get:
  *     summary: Get all OLTs
- *     description: Mengambil daftar semua OLT (Optical Line Terminal). Hanya bisa diakses oleh ADMIN.
  *     tags: [OLTs]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     responses:
- *       200:
- *         description: Daftar OLT berhasil diambil
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 olts:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/OLT'
- *       401:
- *         description: Unauthorized - Tidak memiliki akses
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function GET(req: NextRequest) {
   try {
-    // Cek autentikasi admin menggunakan fungsi terpusat
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("olt:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat OLT')
     }
     const isSiteRestricted = (await hasPermission("olt:site_only")) && session.user.role !== 'SUPER_ADMIN';
     const userSiteId = (session.user as any).siteId;
@@ -59,20 +31,17 @@ export async function GET(req: NextRequest) {
     if (isSiteRestricted) {
         if (!userSiteId) {
              // User restricted but has no site
-             return NextResponse.json({ olts: [] });
+             return apiSuccess({ olts: [] });
         }
         filterSiteId = userSiteId;
     }
 
     const oltRepository = getOLTRepository()
     const olts = await oltRepository.findAll(filterSiteId)
-    return NextResponse.json({ olts })
+    return apiSuccess({ olts })
   } catch (error: any) {
     console.error('Error fetching OLTs:', error)
-    return NextResponse.json(
-      { error: error.message || 'Gagal memuat data OLT', olts: [] },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Gagal memuat data OLT')
   }
 }
 
@@ -81,131 +50,25 @@ export async function GET(req: NextRequest) {
  * /api/olts:
  *   post:
  *     summary: Create new OLT
- *     description: Membuat OLT baru. Hanya bisa diakses oleh ADMIN.
  *     tags: [OLTs]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - ipAddress
- *               - type
- *               - telnetPassword
- *             properties:
- *               name:
- *                 type: string
- *                 example: OLT-Jakarta-01
- *               ipAddress:
- *                 type: string
- *                 format: ipv4
- *                 example: 192.168.1.100
- *               type:
- *                 type: string
- *                 example: ZTE-C300
- *               version:
- *                 type: string
- *                 nullable: true
- *                 example: 1.0.0
- *               temperature:
- *                 type: integer
- *                 nullable: true
- *                 example: 45
- *               connectedDevices:
- *                 type: integer
- *                 default: 0
- *                 example: 128
- *               model:
- *                 type: string
- *                 nullable: true
- *                 example: C300
- *               uptime:
- *                 type: string
- *                 nullable: true
- *                 example: 30 days
- *               syncStatus:
- *                 type: string
- *                 default: '0'
- *                 example: '0'
- *               telnetUsername:
- *                 type: string
- *                 default: zte
- *                 example: zte
- *               telnetPassword:
- *                 type: string
- *                 example: password123
- *               telnetPort:
- *                 type: integer
- *                 default: 23
- *                 example: 23
- *               snmpCommunityWrite:
- *                 type: string
- *                 default: public
- *                 example: public
- *               snmpVersion:
- *                 type: string
- *                 default: '2'
- *                 example: '2'
- *               snmpPort:
- *                 type: integer
- *                 default: 161
- *                 example: 161
- *     responses:
- *       200:
- *         description: OLT berhasil dibuat
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                   example: clx1234567890
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized - Tidak memiliki akses
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       409:
- *         description: IP Address sudah terpakai
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function POST(req: NextRequest) {
-  // Cek autentikasi admin menggunakan fungsi terpusat
   const session = await getServerSession(authOptions)
   if (!session || !session.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return ApiErrors.unauthorized('Session tidak valid')
   }
 
   if (!(await hasPermission("olt:create"))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat OLT')
   }
 
   const json = await req.json()
   const parsed = oltCreateSchema.safeParse(json)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
+      status: 400, 
+      details: { errors: parsed.error.flatten() } 
+    })
   }
   const data = parsed.data
   
@@ -215,7 +78,7 @@ export async function POST(req: NextRequest) {
   
   if (isSiteRestricted) {
       if (!userSiteId) {
-          return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 });
+          return ApiErrors.forbidden('User tidak memiliki akses site')
       }
       // Force siteId
       data.siteId = userSiteId;
@@ -259,9 +122,8 @@ export async function POST(req: NextRequest) {
       console.error('Logging failed', e)
     }
 
-    return NextResponse.json({ id: olt.id })
+    return apiSuccess({ id: olt.id }, { status: 201, message: 'OLT berhasil dibuat' })
   } catch (e: any) {
-    return NextResponse.json({ error: 'IP Address sudah terpakai atau terjadi kesalahan' }, { status: 409 })
+    return apiError('IP Address sudah terpakai atau terjadi kesalahan', ErrorCodes.CONFLICT, { status: 409 })
   }
 }
-

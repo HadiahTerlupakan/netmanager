@@ -1,57 +1,39 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/modules/notification/services/NotificationService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
-
-/**
- * Auto-Approve Pending TUKAR_LIBUR Leave Requests
- * 
- * This cron job runs daily (e.g., at 23:00) to auto-approve any PENDING 
- * TUKAR_LIBUR requests where startDate is tomorrow (H-1).
- * 
- * This ensures employees who request TUKAR_LIBUR get their leave approved
- * automatically if admin doesn't take action before the leave date.
- * 
- * The approval is marked as "SYSTEM" to distinguish from manual admin approval.
- */
 
 export async function POST(request: Request) {
     try {
         const headersList = await headers()
         const authHeader = headersList.get('authorization')
         
-        // Security check can be enabled in production
+        // Security check (uncomment for production)
         // if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        //     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        //     return ApiErrors.unauthorized('Cron secret tidak valid')
         // }
 
         const result = await autoApproveTukarLibur()
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             ...result,
             timestamp: new Date().toISOString()
-        })
+        }, { message: 'Auto-approve leave berhasil dijalankan' })
     } catch (error: any) {
         console.error('[Cron Auto-Approve Leave] Error:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError(error.message || 'Gagal menjalankan auto-approve leave')
     }
 }
 
 async function autoApproveTukarLibur() {
-    // Get tomorrow's date range
     const now = new Date()
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
     const tomorrowEnd = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 23, 59, 59, 999)
 
     console.log(`[Cron Auto-Approve Leave] Checking TUKAR_LIBUR for ${tomorrow.toISOString().split('T')[0]}`)
 
-    // Find PENDING TUKAR_LIBUR requests with startDate = tomorrow
     const pendingRequests = await prisma.leaveRequest.findMany({
         where: {
             type: 'TUKAR_LIBUR',
@@ -75,17 +57,15 @@ async function autoApproveTukarLibur() {
 
     for (const request of pendingRequests) {
         try {
-            // Auto-approve with SYSTEM marker
             await prisma.leaveRequest.update({
                 where: { id: request.id },
                 data: {
                     status: 'APPROVED',
-                    approvedBy: 'SYSTEM_AUTO', // Mark as system auto-approval
+                    approvedBy: 'SYSTEM_AUTO',
                     updatedAt: new Date()
                 }
             })
 
-            // Notify user about auto-approval
             await createNotification({
                 type: 'SYSTEM',
                 priority: 'NORMAL',
@@ -112,6 +92,5 @@ async function autoApproveTukarLibur() {
 }
 
 export async function GET(request: Request) {
-    // Allow GET for easy testing via browser/curl
     return POST(request)
 }

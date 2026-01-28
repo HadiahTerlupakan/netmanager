@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 // GET - List all claims (admin) atau claims by sales (mobile)
 export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
-    // RBAC Check
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const canReadAll = isSuperAdmin || permissions.includes('canvasing:read') || permissions.includes('point_claims:read')
@@ -18,7 +18,6 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') as any
     let salesId = searchParams.get('salesId') || undefined
 
-    // If user cannot read all, force filter to their own ID
     if (!canReadAll) {
       salesId = session.id
     }
@@ -26,8 +25,8 @@ export async function GET(req: NextRequest) {
     const service = getPointClaimService()
     const claims = await service.getAllClaims({ status, salesId })
 
-    return NextResponse.json(claims)
+    return apiSuccess(claims)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Gagal mengambil data claims')
   }
 }

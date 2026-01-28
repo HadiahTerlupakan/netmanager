@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { getInventoryRepository } from '@/lib/repositories'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/barang/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     const { id } = await params
@@ -34,10 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       const barang = await inventoryRepository.findBarangDetail(id)
 
       if (!barang) {
-        return NextResponse.json(
-          { error: 'Barang tidak ditemukan' },
-          { status: 404 }
-        )
+        return ApiErrors.notFound('Barang')
       }
 
       // Calculate total stock
@@ -58,7 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         barangId: barang.id,
       })
 
-      return NextResponse.json({ barang: barangWithStats })
+      return apiSuccess({ barang: barangWithStats })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -68,10 +66,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       method: 'GET',
       id: 'unknown',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data barang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data barang')
   }
 }
 
@@ -85,7 +80,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/barang/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     const { id } = await params
@@ -94,10 +89,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Validation
     if (!kode || !nama || !satuan) {
-      return NextResponse.json(
-        { error: 'Kode, nama, dan satuan barang harus diisi' },
-        { status: 400 }
-      )
+      return apiError('Kode, nama, dan satuan barang harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -109,20 +101,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const existingBarang = await inventoryRepository.findBarangById(id)
 
       if (!existingBarang) {
-        return NextResponse.json(
-          { error: 'Barang tidak ditemukan' },
-          { status: 404 }
-        )
+        return ApiErrors.notFound('Barang')
       }
 
       // Check if kode conflicts with another barang
       const kodeConflict = await inventoryRepository.findBarangByKode(kode)
 
       if (kodeConflict && kodeConflict.id !== id) {
-        return NextResponse.json(
-          { error: 'Kode barang sudah digunakan' },
-          { status: 400 }
-        )
+        return apiError('Kode barang sudah digunakan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
       }
 
       const updatedBarang = await inventoryRepository.updateBarang(id, {
@@ -149,7 +135,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         details: { id: updatedBarang.id, changes: { kode, nama, satuan } }
       })
 
-      return NextResponse.json({ barang: updatedBarang })
+      return apiSuccess({ barang: updatedBarang }, { message: 'Barang berhasil diperbarui' })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -159,10 +145,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       method: 'PUT',
       id: 'unknown',
     })
-    return NextResponse.json(
-      { error: 'Gagal mengupdate barang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal mengupdate barang')
   }
 }
 
@@ -176,7 +159,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/barang/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     const { id } = await params
@@ -189,10 +172,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       const existingBarang = await inventoryRepository.findBarangById(id)
 
       if (!existingBarang) {
-        return NextResponse.json(
-          { error: 'Barang tidak ditemukan' },
-          { status: 404 }
-        )
+        return ApiErrors.notFound('Barang')
       }
 
       // Safe delete via repository
@@ -213,7 +193,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         details: { id }
       })
 
-      return NextResponse.json({ message: 'Barang berhasil dihapus' })
+      return apiSuccess(null, { message: 'Barang berhasil dihapus' })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -222,9 +202,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       path: '/api/inventory/barang/[id]',
       method: 'DELETE',
     })
-    return NextResponse.json(
-      { error: 'Gagal menghapus barang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal menghapus barang')
   }
 }

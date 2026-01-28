@@ -1,25 +1,22 @@
 import { verifyAuth } from '@/lib/auth'
 import { ChatService } from '@/modules/chat'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 // GET - Get or create global chat and add user as participant
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const chatService = new ChatService()
         const globalChat = await chatService.getGlobalChat(user.id)
 
-        return NextResponse.json({
-            success: true,
-            data: globalChat
-        })
+        return apiSuccess(globalChat)
     } catch (error: unknown) {
         console.error('Error getting global chat:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil global chat')
     }
 }

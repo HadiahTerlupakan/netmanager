@@ -3,11 +3,13 @@
  * POST /api/admin/radius/sync/[id] - Sync specific customer
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusSyncService } from '@/modules/network';
+import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 export async function POST(
     req: NextRequest,
@@ -15,14 +17,17 @@ export async function POST(
 ) {
     try {
         const { id } = await params
+        
         // Auth check
         const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        if (!session?.user) {
+            return ApiErrors.unauthorized('Session tidak valid');
         }
+
+        if (!await hasPermission('radius:update')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk sinkronisasi RADIUS');
+        }
+
         const syncService = new RadiusSyncService(prisma);
 
         // Sync single customer
@@ -31,19 +36,9 @@ export async function POST(
         // Verify sync
         const verification = await syncService.verifyCustomerSync(id);
 
-        return NextResponse.json({
-            success: true,
-            message: 'Customer synced to RADIUS',
-            data: verification,
-        });
+        return apiSuccess(verification, { message: 'Customer berhasil disinkronisasi ke RADIUS' });
     } catch (error) {
         console.error('RADIUS sync error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to sync customer',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal sinkronisasi customer');
     }
 }

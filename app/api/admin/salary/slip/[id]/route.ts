@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { SalaryRepository } from '@/modules/salary/repositories/SalaryRepository'
-
-const salaryRepo = new SalaryRepository()
+import { getSalaryService } from '@/modules/salary/services/SalaryService'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -16,26 +16,31 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('salary:read')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat slip gaji')
         }
 
         const { id } = await params
-        const salary = await salaryRepo.findById(id)
+        const service = getSalaryService()
+        const result = await service.getSalaryById(id)
 
-        if (!salary) {
-            return NextResponse.json({ error: 'Salary not found' }, { status: 404 })
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Data gaji')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
         // Format as receipt/slip
-        const slip = formatAsReceipt(salary)
+        const slip = formatAsReceipt(result.data)
 
-        return NextResponse.json({ slip, salary })
+        return apiSuccess({ slip, salary: result.data })
     } catch (error) {
         console.error('Error generating slip:', error)
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to generate slip' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal membuat slip gaji')
     }
 }
 
@@ -62,7 +67,6 @@ function formatAsReceipt(salary: any): string {
     }
 
     const padRight = (text: string, width: number) => text.padEnd(width)
-    const padLeft = (text: string, width: number) => text.padStart(width)
     const centerText = (text: string) => {
         const padding = Math.floor((LINE_WIDTH - text.length) / 2)
         return ' '.repeat(padding) + text

@@ -1,55 +1,46 @@
-
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { SalaryAuditService } from '@/modules/salary/services/SalaryAuditService'
-import * as z from 'zod'
-
-const auditSchema = z.object({
-    notes: z.string().optional()
-})
+import { getSalaryService } from '@/modules/salary/services/SalaryService'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface RouteParams {
-    params: Promise<{
-        id: string
-    }>
+    params: Promise<{ id: string }>
 }
 
-export async function POST(
-    req: Request,
-    { params }: RouteParams
-) {
+/**
+ * POST /api/admin/salary/[id]/paid - Mark salary as paid
+ */
+export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session) {
-            return new NextResponse('Unauthorized', { status: 401 })
+        if (!session?.user?.id) {
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
-        // Check permission strictly
-        // Usually handled by service or middleware, but good to check here too
-        if (session.user.role !== 'ADMIN' && session.user.role !== 'MANAGER' && session.user.role !== 'FINANCE') {
-             // Basic role check, detailed permission check is better if available in backend utils
+        // Permission check
+        if (!await hasPermission('salary:update')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah status gaji')
         }
 
         const { id } = await params
-        const body = await req.json()
-        
-        // Validate body just in case, though markAsPaid mainly needs ID
-        // const { notes } = auditSchema.parse(body)
+        const body = await request.json().catch(() => ({}))
+        const { notes } = body
 
-        const service = new SalaryAuditService()
-        const salary = await service.markAsPaid(id)
+        const service = getSalaryService()
+        const result = await service.markAsPaid(id, session.user.id, notes)
 
-        return NextResponse.json(salary)
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return new NextResponse('Invalid request data', { status: 400 })
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Data gaji')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        console.error('Paid error:', error)
-        return new NextResponse(
-            error instanceof Error ? error.message : 'Internal Server Error',
-            { status: 500 }
-        )
+        return apiSuccess(result.data, { message: 'Gaji berhasil ditandai sebagai dibayar' })
+    } catch (error) {
+        console.error('Error marking salary as paid:', error)
+        return ApiErrors.internalError('Gagal menandai gaji sebagai dibayar')
     }
 }

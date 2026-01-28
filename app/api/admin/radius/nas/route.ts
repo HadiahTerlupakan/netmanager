@@ -4,43 +4,33 @@
  * POST /api/admin/radius/nas - Create new NAS
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
-import type { INas } from '@/modules/network/repositories/IRadiusRepository';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         // Permission check
         if (!await hasPermission('radius:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat NAS');
         }
 
         const radiusRepo = new RadiusRepository(prisma);
         const nasList = await radiusRepo.getAllNas();
 
-        return NextResponse.json({
-            success: true,
-            data: nasList,
-            count: nasList.length,
-        });
+        return apiSuccess({ data: nasList, count: nasList.length });
     } catch (error) {
         console.error('NAS list error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch NAS list',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil daftar NAS');
     }
 }
 
@@ -48,12 +38,12 @@ export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         // Permission check
         if (!await hasPermission('radius:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat NAS');
         }
 
         const body = await req.json();
@@ -61,8 +51,9 @@ export async function POST(req: NextRequest) {
 
         // Validation
         if (!nasname || !secret) {
-            return NextResponse.json(
-                { error: 'NAS name and secret are required' },
+            return apiError(
+                'NAS name dan secret wajib diisi',
+                ErrorCodes.VALIDATION_ERROR,
                 { status: 400 }
             );
         }
@@ -72,10 +63,7 @@ export async function POST(req: NextRequest) {
         // Check if NAS already exists
         const existingNas = await radiusRepo.getNasByIp(nasname);
         if (existingNas) {
-            return NextResponse.json(
-                { error: 'NAS with this IP/hostname already exists' },
-                { status: 409 }
-            );
+            return ApiErrors.conflict('NAS dengan IP/hostname ini sudah ada');
         }
 
         const newNas = await radiusRepo.createNas({
@@ -101,19 +89,9 @@ export async function POST(req: NextRequest) {
             console.error('Logging failed', e)
         }
 
-        return NextResponse.json({
-            success: true,
-            message: 'NAS created successfully',
-            data: newNas,
-        });
+        return apiSuccess(newNas, { status: 201, message: 'NAS berhasil dibuat' });
     } catch (error) {
         console.error('NAS creation error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to create NAS',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal membuat NAS');
     }
 }

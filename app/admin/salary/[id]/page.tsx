@@ -52,7 +52,7 @@ export default async function SalaryDetailPage({ params }: PageProps) {
         <SalaryDetailClient 
             salary={serializedSalary} 
             currentUser={{
-                id: session.user.id,
+                id: session.user.id || '',
                 name: session.user.name || '',
                 role: session.user.role || ''
                 // permissions checked in client component via usePermissions hook if needed

@@ -1,91 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 import { slaCreateSchema, slaQuerySchema } from '@/lib/validations/sla';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 /**
  * @swagger
  * /api/admin/workorders/slas:
  *   get:
  *     summary: Get all SLA rules
- *     description: Mengambil daftar semua aturan SLA dengan filter dan pagination
  *     tags: [SLA Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *         description: Items per page
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search in name and description
- *       - in: query
- *         name: workOrderType
- *         schema:
- *           type: string
- *           enum: [INSTALLATION, TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION, DISCONNECTION, OTHER]
- *         description: Filter by work order type
- *       - in: query
- *         name: priority
- *         schema:
- *           type: string
- *           enum: [LOW, NORMAL, HIGH, URGENT, CRITICAL]
- *         description: Filter by priority
- *       - in: query
- *         name: departmentId
- *         schema:
- *           type: string
- *         description: Filter by department
- *       - in: query
- *         name: isActive
- *         schema:
- *           type: boolean
- *         description: Filter by active status
- *     responses:
- *       200:
- *         description: List of SLA rules
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/SLA'
- *                 pagination:
- *                   $ref: '#/components/schemas/PaginationMeta'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_sla:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat aturan SLA');
         }
 
         const { searchParams } = new URL(request.url);
@@ -159,8 +94,7 @@ export async function GET(request: NextRequest) {
             (prisma as any).sLA.count({ where }),
         ]);
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             data: slas,
             pagination: {
                 page: query.page,
@@ -171,7 +105,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error fetching SLA rules:', error);
-        return NextResponse.json({ error: 'Failed to fetch SLA rules' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil aturan SLA');
     }
 }
 
@@ -180,85 +114,17 @@ export async function GET(request: NextRequest) {
  * /api/admin/workorders/slas:
  *   post:
  *     summary: Create new SLA rule
- *     description: Membuat aturan SLA baru
  *     tags: [SLA Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - responseTime
- *               - resolutionTime
- *             properties:
- *               name:
- *                 type: string
- *                 example: SLA Standar Instalasi
- *               description:
- *                 type: string
- *                 example: SLA untuk pekerjaan instalasi standar
- *               workOrderType:
- *                 type: string
- *                 enum: [INSTALLATION, TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION, DISCONNECTION, OTHER]
- *               priority:
- *                 type: string
- *                 enum: [LOW, NORMAL, HIGH, URGENT, CRITICAL]
- *               departmentId:
- *                 type: string
- *                 description: Department ID
- *               responseTime:
- *                 type: integer
- *                 description: Waktu respons dalam menit
- *                 example: 60
- *               resolutionTime:
- *                 type: integer
- *                 description: Waktu resolusi dalam menit
- *                 example: 480
- *               businessHoursOnly:
- *                 type: boolean
- *                 default: true
- *                 description: Hanya hitung jam kerja
- *     responses:
- *       201:
- *         description: SLA rule created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/SLA'
- *                 message:
- *                   type: string
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_sla:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat aturan SLA');
         }
 
         const body = await request.json();
@@ -285,13 +151,9 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        return NextResponse.json({
-            success: true,
-            data: sla,
-            message: 'SLA rule created successfully',
-        }, { status: 201 });
+        return apiSuccess(sla, { status: 201, message: 'Aturan SLA berhasil dibuat' });
     } catch (error) {
         console.error('Error creating SLA rule:', error);
-        return NextResponse.json({ error: 'Failed to create SLA rule' }, { status: 500 });
+        return ApiErrors.internalError('Gagal membuat aturan SLA');
     }
 }

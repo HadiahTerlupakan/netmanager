@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/admin/location/history/[userId]
@@ -15,7 +17,11 @@ export async function GET(
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('live_tracking:read')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat history lokasi')
         }
 
         const { userId } = await params
@@ -45,12 +51,9 @@ export async function GET(
             locationService.getLocationStats(userId, startDate)
         ])
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                locations: history,
-                stats
-            },
+        return apiSuccess({
+            locations: history,
+            stats,
             userId,
             dateRange: {
                 start: startDate.toISOString(),
@@ -60,6 +63,6 @@ export async function GET(
 
     } catch (error: any) {
         console.error('Error fetching location history:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil history lokasi')
     }
 }

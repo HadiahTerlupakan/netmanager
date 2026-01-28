@@ -1,18 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('whatsapp:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat pengaturan WhatsApp')
         }
 
         // Get WhatsApp settings from Settings table
@@ -27,7 +29,6 @@ export async function GET(request: NextRequest) {
         const settingsMap: Record<string, string> = {}
         for (const setting of settings) {
             if (setting.key === 'WHATSAPP_API_KEY' && setting.value) {
-                // Decrypt API key for display
                 try {
                     settingsMap[setting.key] = decryptApiKey(setting.value)
                 } catch (error) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({
+        return apiSuccess({
             whatsappProvider: settingsMap['WHATSAPP_PROVIDER'] || 'WABLAS',
             whatsappApiKey: settingsMap['WHATSAPP_API_KEY'] || '',
             whatsappDeviceId: settingsMap['WABLAS_DEVICE_ID'] || '',
@@ -47,10 +48,7 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: any) {
         console.error('Error fetching WhatsApp settings:', error)
-        return NextResponse.json(
-            { error: 'Failed to fetch settings', details: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal mengambil pengaturan WhatsApp')
     }
 }
 
@@ -58,11 +56,11 @@ export async function PUT(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('whatsapp:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah pengaturan WhatsApp')
         }
 
         const body = await request.json()
@@ -108,12 +106,9 @@ export async function PUT(request: NextRequest) {
 
         console.log('[WhatsApp Settings] Saved configuration:', whatsappProvider)
 
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'Pengaturan WhatsApp berhasil disimpan' })
     } catch (error: any) {
         console.error('Error saving WhatsApp settings:', error)
-        return NextResponse.json(
-            { error: 'Failed to save settings', details: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal menyimpan pengaturan WhatsApp')
     }
 }

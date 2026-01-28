@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-
-
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 /**
  * GET /api/inventory/restock/settings
@@ -17,11 +16,11 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/restock/settings')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("restock:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat pengaturan restock')
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -80,7 +79,7 @@ export async function GET(req: NextRequest) {
         gudangId,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         settings,
         pagination: {
           page,
@@ -97,10 +96,7 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/restock/settings',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat pengaturan restock' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat pengaturan restock')
   }
 }
 
@@ -114,11 +110,11 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/restock/settings')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("restock:update"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah pengaturan restock')
     }
 
     const body = await req.json()
@@ -126,17 +122,11 @@ export async function POST(req: NextRequest) {
 
     // Validation
     if (!barangId || !gudangId || !minStok || !maxStok) {
-      return NextResponse.json(
-        { error: 'Barang, gudang, minimal stok, dan maksimal stok harus diisi' },
-        { status: 400 }
-      )
+      return apiError('Barang, gudang, minimal stok, dan maksimal stok harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     if (minStok >= maxStok) {
-      return NextResponse.json(
-        { error: 'Minimal stok harus lebih kecil dari maksimal stok' },
-        { status: 400 }
-      )
+      return apiError('Minimal stok harus lebih kecil dari maksimal stok', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     try {
@@ -282,7 +272,6 @@ export async function POST(req: NextRequest) {
 
       // System Log
       try {
-        const { logger } = await import('@/lib/logger')
         await logger.logActivity({
           action: 'UPDATE',
           subject: 'Restock Settings',
@@ -293,13 +282,10 @@ export async function POST(req: NextRequest) {
         console.error('Logging failed', e)
       }
 
-      return NextResponse.json(
-        {
-          message: 'Pengaturan restock berhasil disimpan',
-          settings: result
-        },
-        { status: 201 }
-      )
+      return apiSuccess({
+        message: 'Pengaturan restock berhasil disimpan',
+        settings: result
+      }, { status: 201 })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -310,18 +296,12 @@ export async function POST(req: NextRequest) {
     })
 
     if (error.message === 'Barang tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Barang')
     }
     if (error.message === 'Gudang tidak ditemukan atau tidak aktif') {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    if (error.message === 'Minimal stok harus lebih kecil dari maksimal stok') {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return apiError('Gudang tidak ditemukan atau tidak aktif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
-    return NextResponse.json(
-      { error: 'Gagal menyimpan pengaturan restock' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal menyimpan pengaturan restock')
   }
 }

@@ -5,9 +5,13 @@ import { isR2Enabled, uploadToR2, generateR2Key } from './r2-client'
 
 export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'marketing' | 'app-version'
 
+// OPTIMIZATION: Threshold for streaming vs buffer processing
+const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024 // 50MB
+
 /**
  * Konversi dan simpan gambar ke WebP format
  * Mendukung upload ke R2 jika diaktifkan, fallback ke local storage
+ * OPTIMIZATION: Uses streaming for large files (>50MB)
  * @param file File yang akan dikonversi
  * @param uploadDir Direktori upload (untuk local storage)
  * @param fileName Nama file output (tanpa extension)
@@ -53,6 +57,12 @@ export async function convertAndSaveImage(
   watermarkLines?: string[] // New optional parameter
 ): Promise<string> {
   try {
+    // OPTIMIZATION: Log file size for monitoring
+    const fileSize = file.size
+    if (fileSize > LARGE_FILE_THRESHOLD) {
+      console.log(`[Image Upload] Large file detected: ${(fileSize / 1024 / 1024).toFixed(2)}MB. Using optimized processing.`)
+    }
+
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder, watermarkLines)

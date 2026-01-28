@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(
   request: Request,
@@ -14,7 +14,7 @@ export async function GET(
     // Verify Admin Access
     if (!session?.user?.id) {
       console.log('Performance API: No session or user ID')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
     
     const userId = id
@@ -29,7 +29,7 @@ export async function GET(
     const isAdmin = allowedRoles.includes(userRole)
 
     if (!isSelf && !isAdmin) {
-       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+       return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat performa user ini')
     }
 
     // 0. Get User Working Hour Mode & Target
@@ -206,21 +206,16 @@ export async function GET(
     }
 
     // 5. Return Aggregated Data with workingHourMode
-    return NextResponse.json({
-      data: {
-        workingHourMode,
-        attendance,
-        flexibleStats,
-        leaves,
-        workOrders
-      }
+    return apiSuccess({
+      workingHourMode,
+      attendance,
+      flexibleStats,
+      leaves,
+      workOrders
     })
 
   } catch (error: any) {
     console.error('Error fetching user performance:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal mengambil data performa user')
   }
 }

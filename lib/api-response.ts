@@ -84,6 +84,7 @@ export const ErrorCodes = {
     
     // Validation
     VALIDATION_ERROR: 'VALIDATION_ERROR',
+    BAD_REQUEST: 'BAD_REQUEST',
     MISSING_FIELD: 'MISSING_FIELD',
     INVALID_FORMAT: 'INVALID_FORMAT',
     INVALID_COORDINATES: 'INVALID_COORDINATES',
@@ -99,6 +100,7 @@ export const ErrorCodes = {
     NO_ACTIVE_SESSION: 'NO_ACTIVE_SESSION',
     OUTSIDE_GEOFENCE: 'OUTSIDE_GEOFENCE',
     OUTSIDE_SCHEDULE: 'OUTSIDE_SCHEDULE',
+    BUSINESS_LOGIC_ERROR: 'BUSINESS_LOGIC_ERROR',
     
     // Server
     INTERNAL_ERROR: 'INTERNAL_ERROR',
@@ -134,3 +136,63 @@ export function withErrorHandler<T>(
         )
     })
 }
+
+/**
+ * Paginated success response
+ */
+export interface PaginatedResponse<T> extends SuccessResponse<T[]> {
+    meta: {
+        page: number
+        limit: number
+        total: number
+        totalPages: number
+    }
+}
+
+export function apiPaginated<T>(
+    data: T[],
+    options: {
+        page: number
+        limit: number
+        total: number
+        message?: string
+    }
+): NextResponse<PaginatedResponse<T>> {
+    const response: PaginatedResponse<T> = {
+        success: true,
+        data,
+        meta: {
+            page: options.page,
+            limit: options.limit,
+            total: options.total,
+            totalPages: Math.ceil(options.total / options.limit),
+        },
+        ...(options.message && { message: options.message }),
+    }
+
+    return NextResponse.json(response, { status: 200 })
+}
+
+/**
+ * Common error response shortcuts
+ */
+export const ApiErrors = {
+    unauthorized: (message = 'Unauthorized') =>
+        apiError(message, ErrorCodes.UNAUTHORIZED, { status: 401 }),
+
+    forbidden: (message = 'Forbidden') =>
+        apiError(message, ErrorCodes.FORBIDDEN, { status: 403 }),
+
+    notFound: (resource = 'Resource') =>
+        apiError(`${resource} not found`, ErrorCodes.NOT_FOUND, { status: 404 }),
+
+    badRequest: (message: string, details?: Record<string, unknown>) =>
+        apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400, details }),
+
+    conflict: (message: string) =>
+        apiError(message, ErrorCodes.CONFLICT, { status: 409 }),
+
+    internalError: (message = 'Internal server error') =>
+        apiError(message, ErrorCodes.INTERNAL_ERROR, { status: 500 }),
+}
+

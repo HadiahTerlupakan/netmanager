@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig, getUserPermissions } from '@/lib/auth';
 import { getUnreadCount, type NotificationType } from '@/modules/notification';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 // GET /api/notifications/unread-count - Get unread notification count
 export async function GET(request: NextRequest) {
@@ -9,14 +10,12 @@ export async function GET(request: NextRequest) {
         const session = await getServerSession(authConfig);
 
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const { searchParams } = new URL(request.url);
         const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
 
-        // Enforce Site Restriction
-        // const permissions = (session.user as any).permissions || []
         const permissions = await getUserPermissions(session.user.id);
         const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
         const siteId = (!isSuperAdmin && permissions.includes('site_only'))
@@ -25,9 +24,9 @@ export async function GET(request: NextRequest) {
 
         const count = await getUnreadCount(session.user.id, excludeTypes, siteId);
 
-        return NextResponse.json({ count });
+        return apiSuccess({ count })
     } catch (error) {
         console.error('Error fetching unread count:', error);
-        return NextResponse.json({ count: 0 });
+        return apiSuccess({ count: 0 })
     }
 }

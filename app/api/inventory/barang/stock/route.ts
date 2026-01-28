@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/barang/stock')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -30,10 +31,7 @@ export async function GET(req: NextRequest) {
     const gudangId = searchParams.get('gudangId')
 
     if (!barangId || !gudangId) {
-      return NextResponse.json(
-        { error: 'Barang ID dan Gudang ID harus diisi' },
-        { status: 400 }
-      )
+      return apiError('Barang ID dan Gudang ID harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     try {
@@ -75,7 +73,7 @@ export async function GET(req: NextRequest) {
         stock: barangGudang?.stok || 0
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         stok: barangGudang?.stok || 0,
         barang: barangGudang?.barang,
         gudang: barangGudang?.gudang
@@ -89,9 +87,6 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/barang/stock',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal mengambil informasi stok' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal mengambil informasi stok')
   }
 }

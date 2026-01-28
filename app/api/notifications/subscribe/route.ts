@@ -1,22 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { subscribeDevice } from '@/modules/notification';
 import { getVapidPublicKey, isPushConfigured } from '@/modules/notification/services/PushNotificationService';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 // GET /api/notifications/subscribe - Get VAPID public key
 export async function GET() {
     if (!isPushConfigured()) {
-        return NextResponse.json(
-            { error: 'Push notifications not configured' },
-            { status: 503 }
-        );
+        return apiError('Push notifications tidak dikonfigurasi', ErrorCodes.EXTERNAL_SERVICE_ERROR, { status: 503 })
     }
 
-    return NextResponse.json({
+    return apiSuccess({
         publicKey: getVapidPublicKey(),
-    });
+    })
 }
 
 // POST /api/notifications/subscribe - Subscribe device for push notifications
@@ -25,23 +23,17 @@ export async function POST(request: NextRequest) {
         const session = await getServerSession(authConfig);
 
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!isPushConfigured()) {
-            return NextResponse.json(
-                { error: 'Push notifications not configured' },
-                { status: 503 }
-            );
+            return apiError('Push notifications tidak dikonfigurasi', ErrorCodes.EXTERNAL_SERVICE_ERROR, { status: 503 })
         }
 
         const body = await request.json();
 
         if (!body.subscription || !body.subscription.endpoint || !body.subscription.keys) {
-            return NextResponse.json(
-                { error: 'Invalid subscription data' },
-                { status: 400 }
-            );
+            return apiError('Data subscription tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const subscription = await subscribeDevice(
@@ -56,17 +48,10 @@ export async function POST(request: NextRequest) {
             request.headers.get('user-agent') || undefined
         );
 
-        return NextResponse.json({
-            success: true,
-            message: 'Device subscribed for push notifications',
-            subscriptionId: subscription.id,
-        });
+        return apiSuccess({ subscriptionId: subscription.id }, { message: 'Device berhasil di-subscribe untuk push notifications' })
     } catch (error) {
         console.error('Error subscribing device:', error);
-        return NextResponse.json(
-            { error: 'Failed to subscribe device' },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal subscribe device')
     }
 }
 
@@ -76,16 +61,13 @@ export async function DELETE(request: NextRequest) {
         const session = await getServerSession(authConfig);
 
         if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const body = await request.json();
 
         if (!body.endpoint) {
-            return NextResponse.json(
-                { error: 'Endpoint is required' },
-                { status: 400 }
-            );
+            return apiError('Endpoint harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         await prisma.pushSubscriptions.updateMany({
@@ -93,15 +75,9 @@ export async function DELETE(request: NextRequest) {
             data: { isActive: false },
         });
 
-        return NextResponse.json({
-            success: true,
-            message: 'Device unsubscribed from push notifications',
-        });
+        return apiSuccess(null, { message: 'Device berhasil di-unsubscribe dari push notifications' })
     } catch (error) {
         console.error('Error unsubscribing device:', error);
-        return NextResponse.json(
-            { error: 'Failed to unsubscribe device' },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal unsubscribe device')
     }
 }

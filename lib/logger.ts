@@ -59,11 +59,24 @@ class Logger {
         if (error) {
           console.error('Error stack:', error.stack)
         }
-        // TODO: Send ke error tracking service (Sentry, dll)
+        // Send to Sentry for production error tracking
+        try {
+          const Sentry = require('@sentry/nextjs')
+          if (error) {
+            Sentry.captureException(error, { extra: context })
+          } else {
+            Sentry.captureMessage(message, { level: 'error', extra: context })
+          }
+        } catch (e) {
+          // Sentry not available, silently fail
+        }
         break
     }
 
-    // TODO: Send ke logging service (Datadog, CloudWatch, dll) untuk production
+    // Production logging to external service
+    if (process.env.NODE_ENV === 'production' && level !== LogLevel.DEBUG) {
+      // Future: Add Datadog, CloudWatch, etc. integration here
+    }
   }
 
   debug(message: string, context?: LogContext) {

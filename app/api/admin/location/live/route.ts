@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/admin/location/live
@@ -13,12 +14,12 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Permission check
         if (!await hasPermission('live_tracking:read')) {
-            return NextResponse.json({ error: 'Forbidden: You do not have permission to view live tracking' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat live tracking')
         }
 
         const user = session.user as any;
@@ -40,8 +41,7 @@ export async function GET(request: NextRequest) {
         const locationService = new LocationTrackingService()
         const liveLocations = await locationService.getLiveLocations({ siteId, departmentId })
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             data: liveLocations,
             count: liveLocations.length,
             timestamp: new Date().toISOString()
@@ -49,6 +49,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error('Error fetching live locations:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil lokasi live')
     }
 }

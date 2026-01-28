@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from "@/lib/api-response";
 
 export const dynamic = 'force-dynamic';
 
@@ -21,24 +21,23 @@ export async function PUT(
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const { id } = await params;
-        if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+        if (!id) return apiError('ID tidak ditemukan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
 
         const body = await req.json();
         const validation = expenseSchema.safeParse(body);
 
         if (!validation.success) {
-            return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
+            return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
+                status: 400, 
+                details: { errors: validation.error.format() } 
+            })
         }
 
         const { amount, date, category, description } = validation.data;
-
-        // Verify ownership or check if admin (for now, just existence check because we lack Roles)
-        // Ideally: const existing = await prisma.expense.findFirst({ where: { id, userId: session.user.id } });
-        // But since we want admins to edit everything, we skip userId check for now, trusting the Login.
 
         // @ts-ignore
         const expense = await prisma.expense.update({
@@ -60,13 +59,13 @@ export async function PUT(
             }
         });
 
-        return NextResponse.json({
+        return apiSuccess({
             ...expense,
             amount: expense.amount.toString(),
-        });
+        }, { message: 'Expense berhasil diperbarui' })
     } catch (error) {
         console.error("[EXPENSE_PUT]", error);
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+        return ApiErrors.internalError('Gagal memperbarui expense')
     }
 }
 
@@ -77,11 +76,11 @@ export async function DELETE(
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const { id } = await params;
-        if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+        if (!id) return apiError('ID tidak ditemukan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
 
         // @ts-ignore
         const expense = await prisma.expense.delete({
@@ -90,12 +89,12 @@ export async function DELETE(
             },
         });
 
-        return NextResponse.json({
+        return apiSuccess({
             ...expense,
             amount: expense.amount.toString(),
-        });
+        }, { message: 'Expense berhasil dihapus' })
     } catch (error) {
         console.error("[EXPENSE_DELETE]", error);
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+        return ApiErrors.internalError('Gagal menghapus expense')
     }
 }

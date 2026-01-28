@@ -1,21 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendWorkOrderReminder } from '@/modules/work-order/services/WorkOrderNotifications'
-
-/**
- * Cron Job: Auto-Reminder untuk Work Order yang Belum Dikerjakan > 1 Hari
- * 
- * Logic:
- * 1. Cari WO dengan status PENDING, ASSIGNED, atau IN_PROGRESS
- * 2. Filter WO yang sudah lebih dari 1 hari (24 jam) sejak dibuat/di-assign
- * 3. Kirim reminder ke teknisi yang relevan
- * 
- * Usage:
- * GET /api/cron/workorder-reminder
- * 
- * Security: Requires CRON_SECRET in Authorization header
- * Recommended cron schedule: Once daily (e.g. "0 8 * * *" = 08:00 setiap hari)
- */
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface ReminderResult {
     workOrderId: string
@@ -27,14 +13,13 @@ interface ReminderResult {
 
 export async function GET(request: NextRequest) {
     try {
-        // Verify cron secret in production
         const authHeader = request.headers.get('authorization')
         const cronSecret = process.env.CRON_SECRET
 
         if (cronSecret) {
             if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
                 console.log('[Cron WO Reminder] Unauthorized access attempt')
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+                return ApiErrors.unauthorized('Cron secret tidak valid')
             }
         } else {
             console.warn('[Cron WO Reminder] CRON_SECRET not set - endpoint is unprotected!')
@@ -44,9 +29,7 @@ export async function GET(request: NextRequest) {
         const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
         console.log(`[Cron WO Reminder] Starting auto-reminder check at ${now.toISOString()}`)
-        console.log(`[Cron WO Reminder] Looking for WO older than ${oneDayAgo.toISOString()}`)
 
-        // Find pending/assigned/in_progress WOs older than 1 day
         const staleWorkOrders = await prisma.workOrders.findMany({
             where: {
                 status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] },
@@ -65,7 +48,7 @@ export async function GET(request: NextRequest) {
                 createdAt: true,
             },
             orderBy: { createdAt: 'asc' },
-            take: 100, // Limit to prevent overwhelming
+            take: 100,
         })
 
         console.log(`[Cron WO Reminder] Found ${staleWorkOrders.length} stale work orders`)
@@ -76,7 +59,6 @@ export async function GET(request: NextRequest) {
         for (const wo of staleWorkOrders) {
             const ageHours = Math.floor((now.getTime() - wo.createdAt.getTime()) / (1000 * 60 * 60))
             
-            // Build custom message berdasarkan status
             let customMessage: string
             if (wo.status === 'PENDING') {
                 customMessage = `⏰ WO Menunggu ${ageHours} jam! ${wo.workOrderNumber} - ${wo.title}`
@@ -116,8 +98,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             timestamp: now.toISOString(),
             summary: {
                 staleWorkOrders: staleWorkOrders.length,
@@ -129,6 +110,6 @@ export async function GET(request: NextRequest) {
     } catch (error: unknown) {
         console.error('[Cron WO Reminder] Error:', error)
         const message = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError(message)
     }
 }

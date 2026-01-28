@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { getWorkOrderService } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-
-const workOrderRepo = new WorkOrderRepository(prisma);
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 // GET /api/admin/workorders/[id]/tasks - Get tasks
 export async function GET(
@@ -14,26 +13,25 @@ export async function GET(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('list:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tasks');
         }
 
         const { id } = await params;
-        const workOrder = await workOrderRepo.findById(id);
-        if (!workOrder) {
-            return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.getWorkOrderById(id);
+
+        if (!result.success) {
+            return ApiErrors.notFound('Work Order');
         }
 
-        return NextResponse.json({
-            success: true,
-            data: workOrder.tasks || [],
-        });
+        return apiSuccess(result.data?.tasks || []);
     } catch (error) {
         console.error('Error fetching tasks:', error);
-        return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil tasks');
     }
 }
 
@@ -45,35 +43,40 @@ export async function POST(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('list:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah task');
         }
 
         const { id } = await params;
         const body = await request.json();
 
         if (!body.title) {
-            return NextResponse.json({ error: 'Task title is required' }, { status: 400 });
+            return apiError('Judul task wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
-        const task = await workOrderRepo.addTask({
-            workOrderId: id,
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.addTask(id, {
             title: body.title,
             description: body.description,
             order: body.order,
         });
 
+        if (!result.success) {
+            return apiError(result.error || 'Gagal menambah task', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+        }
+
+        const task = result.data!;
+
         // Real-time update
         const { socketEmitter } = await import('@/lib/websocket/emitter');
-        // We need to fetch the updated WO to emit valid payload
-        const updatedWO = await workOrderRepo.findById(id);
-        if (updatedWO) {
-            socketEmitter.updateWorkOrder(updatedWO as any);
+        const woResult = await workOrderService.getWorkOrderById(id);
+        if (woResult.success && woResult.data) {
+            socketEmitter.updateWorkOrder(woResult.data as any);
 
-            // Fetch push token specifically (repo.findById excludes it)
+            // Send Push Notification
             const woForNotify = await prisma.workOrders.findUnique({
                 where: { id },
                 select: {
@@ -84,7 +87,6 @@ export async function POST(
                 }
             });
 
-            // Send Push Notification
             if (woForNotify?.assignedTo?.pushToken && woForNotify.assignedTo.isActive) {
                 try {
                     const { sendExpoPushNotifications } = await import('@/lib/expo');
@@ -102,7 +104,6 @@ export async function POST(
                         }
                     );
 
-                    // Create DB Notification
                     await prisma.notifications.create({
                         data: {
                             id: crypto.randomUUID(),
@@ -123,13 +124,9 @@ export async function POST(
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            data: task,
-            message: 'Task added successfully',
-        }, { status: 201 });
+        return apiSuccess(task, { status: 201, message: 'Task berhasil ditambahkan' });
     } catch (error) {
         console.error('Error adding task:', error);
-        return NextResponse.json({ error: 'Failed to add task' }, { status: 500 });
+        return ApiErrors.internalError('Gagal menambah task');
     }
 }

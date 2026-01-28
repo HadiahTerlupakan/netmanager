@@ -4,6 +4,7 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 /**
  * @swagger
@@ -149,11 +150,11 @@ export async function GET(req: NextRequest) {
     // Cek autentikasi admin menggunakan fungsi terpusat
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("barang:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat barang')
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -168,12 +169,10 @@ export async function GET(req: NextRequest) {
       const inventoryRepository = getInventoryRepository()
 
       // Enforce Site Restriction
-      // const permissions = session.permissions || []
       const permissions = await getUserPermissions(session.id);
       const isSuperAdmin = session.role === 'SUPER_ADMIN'
       
       // Check restriction: barang:site_only (specific) OR k_barang:site_only (mobile) OR gudang:site_only (inherited)
-      // If user is restricted from seeing other warehouses, they should also be restricted from seeing stock in them.
       const hasRestriction = permissions.includes('barang:site_only') || 
                              permissions.includes('k_barang:site_only') ||
                              permissions.includes('gudang:site_only')
@@ -235,7 +234,7 @@ export async function GET(req: NextRequest) {
         search,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         barangs: barangsWithStock,
         pagination: {
           page,
@@ -252,10 +251,7 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/barang',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data barang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data barang')
   }
 }
 
@@ -278,11 +274,11 @@ export async function POST(req: NextRequest) {
     // Cek autentikasi admin menggunakan fungsi terpusat
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("barang:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat barang')
     }
 
     const body = await req.json()
@@ -290,10 +286,7 @@ export async function POST(req: NextRequest) {
 
     // Validation
     if (!nama || !satuan) {
-      return NextResponse.json(
-        { error: 'Nama dan satuan barang harus diisi' },
-        { status: 400 }
-      )
+      return apiError('Nama dan satuan barang harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     try {
@@ -343,7 +336,7 @@ export async function POST(req: NextRequest) {
       })
 
 
-      return NextResponse.json({ barang }, { status: 201 })
+      return apiSuccess({ barang }, { status: 201, message: 'Barang berhasil dibuat' })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -352,9 +345,6 @@ export async function POST(req: NextRequest) {
       path: '/api/inventory/barang',
       method: 'POST',
     })
-    return NextResponse.json(
-      { error: error.message || 'Gagal membuat barang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Gagal membuat barang')
   }
 }

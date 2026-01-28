@@ -1,9 +1,10 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
 import snmp from 'net-snmp'
 import { Telnet } from 'telnet-client'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -990,27 +991,25 @@ function buildBridgePortToIfIndexMap(ifIndexResults: Array<{ oid: string; value:
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
   const { id } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
   
   if (!olt) {
-    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+    return ApiErrors.notFound('OLT')
   }
-// Cek SNMP connection status, tapi tetap coba ambil data jika kredensial tersedia
+  // Cek SNMP connection status, tapi tetap coba ambil data jika kredensial tersedia
   if (!olt.snmpConnected) {
     console.log(`[VLAN-SNMP] Warning: SNMP status menunjukkan tidak connected untuk OLT ${olt.name}, tapi akan tetap mencoba mengambil data VLAN`)
   }
 
   if (!olt.snmpCommunityWrite) {
-    return NextResponse.json(
-      { 
-        error: 'SNMP community tidak ditemukan di data OLT. Silakan edit OLT dan pastikan SNMP community sudah diisi dengan benar.',
-        hint: 'Pastikan OLT sudah di-test connection terlebih dahulu untuk mengaktifkan SNMP connection.'
-      },
-      { status: 400 }
+    return apiError(
+      'SNMP community tidak ditemukan di data OLT. Silakan edit OLT dan pastikan SNMP community sudah diisi dengan benar.',
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400, details: { hint: 'Pastikan OLT sudah di-test connection terlebih dahulu untuk mengaktifkan SNMP connection.' } }
     )
   }
 
@@ -1151,7 +1150,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       olt: {
         id: olt.id,
         name: olt.name,
@@ -1163,13 +1162,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     })
   } catch (error: any) {
     console.error('[VLAN-SNMP] Error:', error)
-    return NextResponse.json(
-      {
-        error: error.message || 'Gagal memuat data VLAN dari SNMP',
-        details: error.toString(),
-      },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Gagal memuat data VLAN dari SNMP')
   }
 }
 
@@ -1272,27 +1265,24 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
   const { id } = await params
   const { searchParams } = new URL(req.url)
   const vlanId = searchParams.get('vlanId')
   
   if (!vlanId) {
-    return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
+    return apiError('VLAN ID diperlukan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
-const oltRepository = getOLTRepository()
+  const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
   if (!olt) {
-    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+    return ApiErrors.notFound('OLT')
   }
 
   if (!olt.telnetUsername || !olt.telnetPassword) {
-    return NextResponse.json(
-      { error: 'Telnet username dan password diperlukan untuk menghapus VLAN' },
-      { status: 400 }
-    )
+    return apiError('Telnet username dan password diperlukan untuk menghapus VLAN', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   try {
@@ -1342,18 +1332,12 @@ const oltRepository = getOLTRepository()
 
       // Cek apakah command berhasil (tidak ada error message)
       if (outputBuffer.includes('Error') || outputBuffer.includes('Invalid') || outputBuffer.includes('Failed')) {
-        return NextResponse.json(
-          { error: `Gagal menghapus VLAN: ${outputBuffer}` },
-          { status: 500 }
-        )
+        return ApiErrors.internalError(`Gagal menghapus VLAN: ${outputBuffer}`)
       }
 
       console.log(`[VLAN-Delete] VLAN ${vlanId} berhasil dihapus`)
 
-      return NextResponse.json({
-        success: true,
-        message: `VLAN ${vlanId} berhasil dihapus`,
-      })
+      return apiSuccess(null, { message: `VLAN ${vlanId} berhasil dihapus` })
     } catch (error: any) {
       if (connection) {
         try {
@@ -1366,13 +1350,7 @@ const oltRepository = getOLTRepository()
     }
   } catch (error: any) {
     console.error('[VLAN-Delete] Error:', error)
-    return NextResponse.json(
-      {
-        error: error.message || 'Gagal menghapus VLAN',
-        details: error.toString(),
-      },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Gagal menghapus VLAN')
   }
 }
 
@@ -1382,31 +1360,28 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
   const { id } = await params
   const body = await req.json()
   const { vlanId, name, description } = body
   
   if (!vlanId) {
-    return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
+    return apiError('VLAN ID diperlukan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
-if (!name && !description) {
-    return NextResponse.json({ error: 'Name atau description diperlukan' }, { status: 400 })
+  if (!name && !description) {
+    return apiError('Name atau description diperlukan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
   if (!olt) {
-    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+    return ApiErrors.notFound('OLT')
   }
 
   if (!olt.telnetUsername || !olt.telnetPassword) {
-    return NextResponse.json(
-      { error: 'Telnet username dan password diperlukan untuk mengedit VLAN' },
-      { status: 400 }
-    )
+    return apiError('Telnet username dan password diperlukan untuk mengedit VLAN', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   try {
@@ -1473,18 +1448,12 @@ if (!name && !description) {
 
       // Cek apakah command berhasil
       if (outputBuffer.includes('Error') || outputBuffer.includes('Invalid') || outputBuffer.includes('Failed')) {
-        return NextResponse.json(
-          { error: `Gagal mengedit VLAN: ${outputBuffer}` },
-          { status: 500 }
-        )
+        return ApiErrors.internalError(`Gagal mengedit VLAN: ${outputBuffer}`)
       }
 
       console.log(`[VLAN-Edit] VLAN ${vlanId} berhasil diupdate`)
 
-      return NextResponse.json({
-        success: true,
-        message: `VLAN ${vlanId} berhasil diupdate`,
-      })
+      return apiSuccess(null, { message: `VLAN ${vlanId} berhasil diupdate` })
     } catch (error: any) {
       if (connection) {
         try {
@@ -1497,13 +1466,7 @@ if (!name && !description) {
     }
   } catch (error: any) {
     console.error('[VLAN-Edit] Error:', error)
-    return NextResponse.json(
-      {
-        error: error.message || 'Gagal mengedit VLAN',
-        details: error.toString(),
-      },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Gagal mengedit VLAN')
   }
 }
 

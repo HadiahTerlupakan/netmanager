@@ -3,11 +3,13 @@
  * GET /api/admin/radius/accounting/[username] - Get usage statistics for user
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusSyncService } from '@/modules/network';
+import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 export async function GET(
     req: NextRequest,
@@ -15,14 +17,17 @@ export async function GET(
 ) {
     try {
         const { username } = await params
+        
         // Auth check
         const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        if (!session?.user) {
+            return ApiErrors.unauthorized('Session tidak valid');
         }
+
+        if (!await hasPermission('radius:read')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data accounting');
+        }
+
         const { searchParams } = new URL(req.url);
 
         const startDate = searchParams.get('startDate')
@@ -51,8 +56,7 @@ export async function GET(
             totalOutputGB: Number(stats.totalOutputOctets) / 1073741824,
         };
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             username,
             period: {
                 startDate: startDate?.toISOString() || null,
@@ -62,12 +66,6 @@ export async function GET(
         });
     } catch (error) {
         console.error('RADIUS accounting error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch accounting data',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil data accounting');
     }
 }

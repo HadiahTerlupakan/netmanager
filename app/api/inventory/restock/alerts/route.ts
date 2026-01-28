@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-
-
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/inventory/restock/alerts
@@ -17,11 +16,11 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/restock/alerts')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("restock:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat restock alerts')
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -98,7 +97,7 @@ export async function GET(req: NextRequest) {
         urgency,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         alerts,
         pagination: {
           page,
@@ -116,10 +115,7 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/restock/alerts',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat notifikasi restock' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat notifikasi restock')
   }
 }
 
@@ -133,11 +129,11 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/restock/alerts')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("restock:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat restock alerts')
     }
 
     const body = await req.json()
@@ -272,7 +268,6 @@ export async function POST(req: NextRequest) {
 
       // System Log
       try {
-        const { logger } = await import('@/lib/logger')
         await logger.logActivity({
           action: 'CREATE',
           subject: 'Restock Check',
@@ -283,7 +278,7 @@ export async function POST(req: NextRequest) {
         console.error('Logging failed', e)
       }
 
-      return NextResponse.json(result, { status: 201 })
+      return apiSuccess(result, { status: 201 })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -293,9 +288,6 @@ export async function POST(req: NextRequest) {
       method: 'POST',
     })
 
-    return NextResponse.json(
-      { error: 'Gagal memproses notifikasi restock' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memproses notifikasi restock')
   }
 }

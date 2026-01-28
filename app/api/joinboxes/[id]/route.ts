@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getJoinboxRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { joinboxUpdateSchema } from '@/lib/validations/joinbox'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -22,31 +22,32 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       joinboxOutput: { orderBy: { idx: 'asc' } },
     },
   })
-  if (!item) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
-  return NextResponse.json({ joinbox: item })
+  if (!item) return ApiErrors.notFound('Joinbox')
+  return apiSuccess({ joinbox: item })
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
   const { id } = await params
   const json = await req.json()
   const parsed = joinboxUpdateSchema.safeParse(json)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
+      status: 400, 
+      details: { errors: parsed.error.flatten() } 
+    })
   }
   const repo = getJoinboxRepository()
   await repo.update(id, parsed.data as any)
-  return NextResponse.json({ ok: true })
+  return apiSuccess(null, { message: 'Joinbox berhasil diperbarui' })
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
   const repo = getJoinboxRepository()
   const { id } = await params
   await repo.delete(id)
-  return NextResponse.json({ ok: true })
+  return apiSuccess(null, { message: 'Joinbox berhasil dihapus' })
 }
-
-

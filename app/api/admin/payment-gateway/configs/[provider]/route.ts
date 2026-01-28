@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey } from '@/lib/utils/encryption'
-
-
 import { verifyAuth } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ provider: string }> }
@@ -13,7 +14,11 @@ export async function PUT(
         // Authentication check
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
+        }
+
+        if (!await hasPermission('payment_gateway:update')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah payment gateway');
         }
 
         const { provider } = await params;
@@ -61,7 +66,6 @@ export async function PUT(
                 ...(encryptedApiSecret && { apiSecret: encryptedApiSecret }),
                 ...(clientKey && { clientKey }),
                 ...(merchantId && { merchantId }),
-                ...(merchantId && { merchantId }),
                 ...(settings && { settings }),
                 updatedAt: new Date()
             }
@@ -80,16 +84,13 @@ export async function PUT(
             console.error('Logging failed', e)
         }
 
-        return NextResponse.json({
+        return apiSuccess({
             ...config,
             apiKey: config.apiKey ? '***ENCRYPTED***' : null,
             apiSecret: config.apiSecret ? '***ENCRYPTED***' : null
-        })
+        }, { message: 'Konfigurasi payment gateway berhasil diperbarui' })
     } catch (error: any) {
         console.error('Error updating gateway config:', error)
-        return NextResponse.json(
-            { error: 'Failed to update configuration', details: error.message },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal memperbarui konfigurasi payment gateway')
     }
 }

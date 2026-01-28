@@ -1,29 +1,43 @@
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { ChatService } from '@/modules/chat'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
+
+/**
+ * Validation schema for broadcast message
+ */
+const broadcastSchema = z.object({
+    content: z.string().min(1, 'Konten pesan wajib diisi').max(5000),
+    title: z.string().max(200).optional(),
+})
 
 // POST - Send broadcast message to all users
 export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Check broadcast permission
         if (!await hasPermission('broadcast:create')) {
-            return NextResponse.json({ error: 'Forbidden: No broadcast permission' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk broadcast')
         }
-        // For now, any authenticated admin can broadcast
-        // You can add: if (!user.permissions?.includes('chat:broadcast')) { return 403 }
 
         const body = await request.json()
-        const { content, title } = body
-
-        if (!content || typeof content !== 'string' || content.trim().length === 0) {
-            return NextResponse.json({ error: 'Content is required' }, { status: 400 })
+        const parseResult = broadcastSchema.safeParse(body)
+        
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
         }
+
+        const { content, title } = parseResult.data
 
         const chatService = new ChatService()
         const result = await chatService.broadcastMessage({
@@ -33,13 +47,9 @@ export async function POST(request: NextRequest) {
             title
         })
 
-        return NextResponse.json({
-            success: true,
-            data: result
-        })
+        return apiSuccess(result, { status: 201, message: 'Broadcast berhasil dikirim' })
     } catch (error: unknown) {
         console.error('Error broadcasting message:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengirim broadcast')
     }
 }

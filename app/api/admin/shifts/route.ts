@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { ShiftService } from '@/modules/shift'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const shiftService = new ShiftService()
 
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
     if (session instanceof NextResponse) return session
 
     if (!(await hasPermission('shift:read'))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat shift')
     }
 
     try {
@@ -18,10 +19,10 @@ export async function GET(request: NextRequest) {
         const includeInactive = searchParams.get('includeInactive') === 'true'
         
         const shifts = await shiftService.getAllShifts(includeInactive)
-        return NextResponse.json(shifts)
+        return apiSuccess(shifts)
     } catch (error: any) {
         console.error('[Shifts API] Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data shift')
     }
 }
 
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     if (session instanceof NextResponse) return session
 
     if (!(await hasPermission('shift:create'))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat shift')
     }
 
     try {
@@ -38,10 +39,7 @@ export async function POST(request: NextRequest) {
         
         // Validate required fields
         if (!body.name || !body.startTime || !body.endTime) {
-            return NextResponse.json(
-                { error: 'name, startTime, and endTime are required' },
-                { status: 400 }
-            )
+            return apiError('name, startTime, dan endTime wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const shift = await shiftService.createShift({
@@ -52,9 +50,9 @@ export async function POST(request: NextRequest) {
             description: body.description || null
         })
 
-        return NextResponse.json(shift, { status: 201 })
+        return apiSuccess(shift, { status: 201, message: 'Shift berhasil dibuat' })
     } catch (error: any) {
         console.error('[Shifts API] Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 400 })
+        return apiError(error.message || 'Gagal membuat shift', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 }

@@ -1,207 +1,112 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyAuth } from '@/lib/auth';
-import { hasPermission } from '@/lib/rbac';
+import { NextRequest } from 'next/server'
+import { verifyAuth } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
+import { getDepartmentService } from '@/modules/roles/services/DepartmentService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
-// GET /api/admin/departments/[id] - Get department details
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+const service = getDepartmentService()
+
+interface RouteParams {
+    params: Promise<{ id: string }>
+}
+
+/**
+ * GET /api/admin/departments/[id] - Get department details
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
-        const user = await verifyAuth(request);
+        const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('department:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat departemen')
         }
 
-        const { id } = await params;
+        const { id } = await params
+        const result = await service.getDepartmentById(id)
 
-        const department = await prisma.departments.findUnique({
-            where: { id },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        name: true,
-                    },
-                    take: 10,
-                },
-                _count: {
-                    select: {
-                        user: true,
-                        work_orders: true,
-                    },
-                },
-            },
-        });
-
-        if (!department) {
-            return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Departemen')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        return NextResponse.json({
-            success: true,
-            data: department,
-        });
+        return apiSuccess(result.data)
     } catch (error) {
-        console.error('Error fetching department:', error);
-        return NextResponse.json({ error: 'Failed to fetch department' }, { status: 500 });
+        console.error('Error fetching department:', error)
+        return ApiErrors.internalError('Gagal mengambil data departemen')
     }
 }
 
-// PATCH /api/admin/departments/[id] - Update department
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * PATCH /api/admin/departments/[id] - Update department
+ */
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
-        const user = await verifyAuth(request);
+        const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('department:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah departemen')
         }
 
-        const { id } = await params;
-        const body = await request.json();
-        const { name, description, jobDescription, isReminderTarget } = body;
+        const { id } = await params
+        const body = await request.json()
 
-        // Check if department exists
-        const existingDept = await prisma.departments.findUnique({
-            where: { id },
-        });
+        const result = await service.updateDepartment(id, body, user.id)
 
-        if (!existingDept) {
-            return NextResponse.json({ error: 'Department not found' }, { status: 404 });
-        }
-
-        // If updating name, check for duplicates
-        if (name && name !== existingDept.name) {
-            const duplicateName = await prisma.departments.findUnique({
-                where: { name },
-            });
-
-            if (duplicateName) {
-                return NextResponse.json(
-                    { error: 'Department name already exists' },
-                    { status: 400 }
-                );
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Departemen')
             }
+            if (result.code === 'DUPLICATE_NAME') {
+                return ApiErrors.conflict('Nama departemen sudah digunakan')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        const department = await prisma.departments.update({
-            where: { id },
-            data: {
-                ...(name && { name }),
-                ...(description !== undefined && { description: description || null }),
-                ...(jobDescription !== undefined && { jobDescription: jobDescription || null }),
-                ...(isReminderTarget !== undefined && { isReminderTarget }),
-            },
-        });
-
-        // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'UPDATE',
-                subject: 'Department',
-                userId: user.id,
-                details: { id: department.id, updates: body }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
-
-        return NextResponse.json({
-            success: true,
-            data: department,
-            message: 'Department updated successfully',
-        });
+        return apiSuccess(result.data, { message: 'Departemen berhasil diperbarui' })
     } catch (error) {
-        console.error('Error updating department:', error);
-        return NextResponse.json({ error: 'Failed to update department' }, { status: 500 });
+        console.error('Error updating department:', error)
+        return ApiErrors.internalError('Gagal memperbarui departemen')
     }
 }
 
-// DELETE /api/admin/departments/[id] - Delete department
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * DELETE /api/admin/departments/[id] - Delete department
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
-        const user = await verifyAuth(request);
+        const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('department:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus departemen')
         }
 
-        const { id } = await params;
+        const { id } = await params
+        const result = await service.deleteDepartment(id, user.id)
 
-        // Check if department has employees or work orders
-        const department = await prisma.departments.findUnique({
-            where: { id },
-            include: {
-                _count: {
-                    select: {
-                        user: true,
-                        work_orders: true,
-                    },
-                },
-            },
-        });
-
-        if (!department) {
-            return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Departemen')
+            }
+            if (result.code === 'HAS_USERS' || result.code === 'HAS_WORKORDERS') {
+                return ApiErrors.conflict('Departemen masih memiliki karyawan atau work order aktif')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        if (department._count.user > 0) {
-            return NextResponse.json(
-                { error: `Cannot delete department. It has ${department._count.user} user(s) assigned.` },
-                { status: 400 }
-            );
-        }
-
-        if (department._count.work_orders > 0) {
-            return NextResponse.json(
-                { error: `Cannot delete department. It has ${department._count.work_orders} work order(s) assigned.` },
-                { status: 400 }
-            );
-        }
-
-        // Safe to delete
-        await prisma.departments.delete({
-            where: { id },
-        });
-
-        // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'DELETE',
-                subject: 'Department',
-                userId: user.id,
-                details: { id: department.id, name: department.name }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: 'Department deleted successfully',
-        });
+        return apiSuccess(null, { message: 'Departemen berhasil dihapus' })
     } catch (error) {
-        console.error('Error deleting department:', error);
-        return NextResponse.json({ error: 'Failed to delete department' }, { status: 500 });
+        console.error('Error deleting department:', error)
+        return ApiErrors.internalError('Gagal menghapus departemen')
     }
 }

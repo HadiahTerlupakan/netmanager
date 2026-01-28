@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { getWorkOrderService, WorkOrderRepository } from '@/modules/work-order';
 import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
 import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
 import { onWorkOrderStatusChanged } from '@/modules/work-order/services/WorkOrderNotifications';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 import { createNotification } from '@/modules/notification';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
+// Note: PATCH and DELETE handlers still use workOrderRepo for complex status transitions
+// GET handler uses WorkOrderService
 const workOrderRepo = new WorkOrderRepository(prisma);
 
 /**
@@ -17,53 +20,7 @@ const workOrderRepo = new WorkOrderRepository(prisma);
  *     summary: Get work order detail
  *     description: Retrieve detailed information about a specific work order
  *     tags: [Work Orders]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Work order ID
- *     responses:
- *       200:
- *         description: Work order details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrder'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Work order not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Work order not found"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
-// GET /api/admin/workorders/[id] - Get work order detail
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -76,40 +33,41 @@ export async function GET(
 
         // Permission check
         if (!await hasPermission('list:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat work order');
         }
 
         const { id } = await params;
-        const workOrder = await workOrderRepo.findById(id);
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.getWorkOrderById(id);
 
-        if (!workOrder) {
-            return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+        if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Work Order');
+            }
+            return apiError(result.error || 'Gagal mengambil work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
         }
 
-        // NEW: Strict Access Control (Site & Department)
+        const workOrder = result.data!;
+
+        // Access Control (Site & Department) - stays in route as context-specific
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
         
-        // 1. Site Check
         if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
             if (workOrder.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 });
+                return ApiErrors.forbidden('Anda hanya bisa mengakses work order di Site Anda');
             }
         }
 
-        // 2. Department Check
         if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
             if (workOrder.departmentId !== user.departmentId) {
-                 return NextResponse.json({ error: 'Forbidden: Restricted to your Department' }, { status: 403 });
+                return ApiErrors.forbidden('Anda hanya bisa mengakses work order di Departemen Anda');
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            data: workOrder,
-        });
+        return apiSuccess(workOrder);
     } catch (error) {
         console.error('Error fetching work order:', error);
-        return NextResponse.json({ error: 'Failed to fetch work order' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil work order');
     }
 }
 
@@ -118,89 +76,9 @@ export async function GET(
  * /api/admin/workorders/{id}:
  *   patch:
  *     summary: Update work order
- *     description: |
- *       Update work order information including status and other fields.
- *       Can add rejection reason which will be recorded as an update note.
- *       Status changes are handled separately from other field updates.
+ *     description: Update work order information including status and other fields.
  *     tags: [Work Orders]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Work order ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [OPEN, IN_PROGRESS, COMPLETED, CANCELLED]
- *                 description: New work order status
- *               rejectionReason:
- *                 type: string
- *                 description: Reason for rejection (will be added as note)
- *               title:
- *                 type: string
- *                 description: Work order title
- *               description:
- *                 type: string
- *                 description: Work order description
- *               type:
- *                 type: string
- *                 enum: [INSTALLATION, MAINTENANCE, TROUBLESHOOTING, RELOCATION]
- *                 description: Work order type
- *               priority:
- *                 type: string
- *                 enum: [LOW, MEDIUM, HIGH, URGENT]
- *                 description: Work order priority
- *               pelangganId:
- *                 type: string
- *                 description: Customer ID
- *               assignedDepartmentId:
- *                 type: string
- *                 description: Assigned department ID
- *               scheduledDate:
- *                 type: string
- *                 format: date-time
- *                 description: Scheduled date
- *     responses:
- *       200:
- *         description: Work order updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrder'
- *                 message:
- *                   type: string
- *                   example: "Work order updated successfully"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
-// PATCH /api/admin/workorders/[id] - Update work order
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -224,13 +102,13 @@ export async function PATCH(
 
         // Permission check
         if (!await hasPermission(requiredPermission)) {
-            return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki permission untuk tindakan ini');
         }
 
         // NEW: Pre-fetch for Access Control
         const existingWO = await workOrderRepo.findById(id);
         if (!existingWO) {
-            return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+            return ApiErrors.notFound('Work Order');
         }
 
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
@@ -238,14 +116,14 @@ export async function PATCH(
         // 1. Site Check
         if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
             if (existingWO.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden: You can only update tickets in your Site' }, { status: 403 });
+                return ApiErrors.forbidden('Anda hanya bisa mengupdate work order di Site Anda');
             }
         }
         
         // 2. Department Check
         if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
              if (existingWO.departmentId !== user.departmentId) {
-                return NextResponse.json({ error: 'Forbidden: You can only update tickets in your Department' }, { status: 403 });
+                return ApiErrors.forbidden('Anda hanya bisa mengupdate work order di Departemen Anda');
             }
         }
 
@@ -371,14 +249,10 @@ export async function PATCH(
         // PHASE 4: Invalidate caches after update
         await workOrderCacheService.invalidateAllCaches();
 
-        return NextResponse.json({
-            success: true,
-            data: workOrder,
-            message: 'Work order updated successfully',
-        });
+        return apiSuccess(workOrder, { message: 'Work order berhasil diperbarui' });
     } catch (error) {
         console.error('Error updating work order:', error);
-        return NextResponse.json({ error: 'Failed to update work order' }, { status: 500 });
+        return ApiErrors.internalError('Gagal memperbarui work order');
     }
 }
 
@@ -389,50 +263,7 @@ export async function PATCH(
  *     summary: Delete/cancel work order
  *     description: Cancel a work order with optional reason
  *     tags: [Work Orders]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Work order ID
- *       - in: query
- *         name: reason
- *         schema:
- *           type: string
- *           default: "Cancelled by admin"
- *         description: Reason for cancellation
- *     responses:
- *       200:
- *         description: Work order cancelled successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Work order cancelled successfully"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
-// DELETE /api/admin/workorders/[id] - Delete/cancel work order
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -454,13 +285,13 @@ export async function DELETE(
         const requiredPermission = isPermanent ? 'list:delete' : 'list:cancel';
         
         if (!await hasPermission(requiredPermission)) {
-            return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki permission untuk tindakan ini');
         }
 
         // NEW: Pre-fetch for Access Control
         const existingWO = await workOrderRepo.findById(id);
         if (!existingWO) {
-             return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+             return ApiErrors.notFound('Work Order');
         }
 
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
@@ -468,14 +299,14 @@ export async function DELETE(
         // 1. Site Check
         if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
             if (existingWO.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden: You can only delete tickets in your Site' }, { status: 403 });
+                return ApiErrors.forbidden('Anda hanya bisa menghapus work order di Site Anda');
             }
         }
         
         // 2. Department Check
         if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
              if (existingWO.departmentId !== user.departmentId) {
-                return NextResponse.json({ error: 'Forbidden: You can only delete tickets in your Department' }, { status: 403 });
+                return ApiErrors.forbidden('Anda hanya bisa menghapus work order di Departemen Anda');
             }
         }
 
@@ -509,10 +340,7 @@ export async function DELETE(
             // PHASE 4: Invalidate caches after deletion
             await workOrderCacheService.invalidateAllCaches();
 
-            return NextResponse.json({
-                success: true,
-                message: 'Work order permanently deleted',
-            });
+            return apiSuccess(null, { message: 'Work order berhasil dihapus permanen' });
         }
 
         await workOrderRepo.cancel(id, reason, user.user.id);
@@ -578,12 +406,9 @@ export async function DELETE(
         // PHASE 4: Invalidate caches after cancellation
         await workOrderCacheService.invalidateAllCaches();
 
-        return NextResponse.json({
-            success: true,
-            message: 'Work order cancelled successfully',
-        });
+        return apiSuccess(null, { message: 'Work order berhasil dibatalkan' });
     } catch (error) {
         console.error('Error cancelling work order:', error);
-        return NextResponse.json({ error: 'Failed to cancel work order' }, { status: 500 });
+        return ApiErrors.internalError('Gagal membatalkan work order');
     }
 }

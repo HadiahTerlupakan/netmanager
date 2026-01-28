@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -25,11 +26,11 @@ export async function GET(
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/masuk/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    try {
       const dbStart = Date.now()
 
       const masukRecord = await prisma.barangMasuk.findUnique({
@@ -56,7 +57,7 @@ export async function GET(
       logger.dbOperation('findUnique', 'BarangMasuk+Relations', Date.now() - dbStart)
 
       if (!masukRecord) {
-        return NextResponse.json({ error: 'Record barang masuk tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Record barang masuk')
       }
 
       logger.apiRequest('GET', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
@@ -64,7 +65,7 @@ export async function GET(
         masukId: id,
       })
 
-      return NextResponse.json({ masuk: masukRecord })
+      return apiSuccess({ masuk: masukRecord })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -73,16 +74,13 @@ export async function GET(
       path: '/api/inventory/masuk/[id]',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data barang masuk' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data barang masuk')
   }
 }
 
 /**
  * PUT /api/inventory/masuk/[id]
- * Update stock-in record (not typically used, but included for completeness)
+ * Update stock-in record
  */
 export async function PUT(
   req: NextRequest,
@@ -93,19 +91,16 @@ export async function PUT(
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/masuk/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
-        const { id } = await params
+    const { id } = await params
     const body = await req.json()
     const { jumlah, kondisi, keterangan } = body
 
     // Validation
     if (!jumlah || jumlah <= 0) {
-      return NextResponse.json(
-        { error: 'Jumlah harus diisi dengan angka positif' },
-        { status: 400 }
-      )
+      return apiError('Jumlah harus diisi dengan angka positif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     try {
@@ -175,7 +170,7 @@ export async function PUT(
         jumlah,
       })
 
-      return NextResponse.json({ message: 'Barang masuk berhasil diperbarui' })
+      return apiSuccess(null, { message: 'Barang masuk berhasil diperbarui' })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -186,16 +181,13 @@ export async function PUT(
     })
 
     if (error.message === 'Record barang masuk tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Record barang masuk')
     }
     if (error.message === 'Stok tidak bisa negatif') {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return apiError('Stok tidak bisa negatif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
-    return NextResponse.json(
-      { error: 'Gagal memperbarui barang masuk' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memperbarui barang masuk')
   }
 }
 
@@ -212,11 +204,11 @@ export async function DELETE(
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/masuk/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    try {
       const dbStart = Date.now()
 
       await prisma.$transaction(async (tx) => {
@@ -253,10 +245,6 @@ export async function DELETE(
               data: { stok: newStock }
             })
           }
-        } else {
-          // If no stock record exists, this means the stock should be 0
-          // This can happen if all stock was already used
-          // In this case, we don't need to update anything
         }
 
         // Delete the record
@@ -272,7 +260,7 @@ export async function DELETE(
         masukId: id,
       })
 
-      return NextResponse.json({ message: 'Record barang masuk berhasil dihapus dan stok dikurangi' })
+      return apiSuccess(null, { message: 'Record barang masuk berhasil dihapus dan stok dikurangi' })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -283,12 +271,9 @@ export async function DELETE(
     })
 
     if (error.message === 'Record barang masuk tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Record barang masuk')
     }
 
-    return NextResponse.json(
-      { error: 'Gagal menghapus record barang masuk' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal menghapus record barang masuk')
   }
 }

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess, ErrorCodes, apiError } from '@/lib/api-response'
 
 interface IpApiResponse {
     status: string
@@ -14,19 +15,17 @@ interface IpApiResponse {
 
 /**
  * GET /api/ip-info?ip=xxx.xxx.xxx.xxx
- * Fetches IP geolocation info from ip-api.com (free, no key required)
  */
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const ip = searchParams.get('ip')
 
     if (!ip) {
-        return NextResponse.json({ error: 'IP address required' }, { status: 400 })
+        return apiError('IP address wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
-    // Skip for localhost/private IPs
     if (ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
-        return NextResponse.json({
+        return apiSuccess({
             ip,
             country: 'Local',
             countryCode: '-',
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
         const data: IpApiResponse = await res.json()
 
         if (data.status === 'fail') {
-            return NextResponse.json({
+            return apiSuccess({
                 ip,
                 country: '-',
                 countryCode: '-',
@@ -49,7 +48,7 @@ export async function GET(request: NextRequest) {
             })
         }
 
-        return NextResponse.json({
+        return apiSuccess({
             ip: data.query,
             country: data.country || '-',
             countryCode: data.countryCode || '-',
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
         })
     } catch (error) {
         console.error('Error fetching IP info:', error)
-        return NextResponse.json({
+        return apiSuccess({
             ip,
             country: '-',
             countryCode: '-',

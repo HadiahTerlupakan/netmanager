@@ -1,9 +1,10 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository, getOnuTypeRepository, getOnuRepository } from '@/lib/repositories'
 import { Telnet } from 'telnet-client'
 import snmp from 'net-snmp'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -826,7 +827,7 @@ async function syncOnuTypeFromSNMP(
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
   const { id } = await params
   const oltRepository = getOLTRepository()
@@ -834,7 +835,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const olt = await oltRepository.findById(id)
 
   if (!olt) {
-    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+    return ApiErrors.notFound('OLT')
   }
   // Cek method sync dari query parameter
   const { searchParams } = new URL(req.url)
@@ -843,17 +844,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Sync dari SNMP
   if (syncMethod === 'snmp') {
     if (!olt.snmpConnected) {
-      return NextResponse.json(
-        { error: 'SNMP tidak connected. Silakan test connection terlebih dahulu.' },
-        { status: 400 }
-      )
+      return apiError('SNMP tidak connected. Silakan test connection terlebih dahulu.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     if (!olt.snmpCommunityWrite) {
-      return NextResponse.json(
-        { error: 'SNMP community tidak ditemukan di data OLT.' },
-        { status: 400 }
-      )
+      return apiError('SNMP community tidak ditemukan di data OLT.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     try {
@@ -869,15 +864,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
 
       if (onuTypesFromSNMP.length === 0) {
-        return NextResponse.json({
-          success: true,
-          message: 'Tidak ada ONU type ditemukan dari SNMP. Pastikan ada ONU yang terdaftar di OLT.',
-          data: {
-            totalTypes: 0,
-            syncedTypes: 0,
-            types: [],
-          },
-        })
+        return apiSuccess({
+          totalTypes: 0,
+          syncedTypes: 0,
+          types: [],
+        }, { message: 'Tidak ada ONU type ditemukan dari SNMP. Pastikan ada ONU yang terdaftar di OLT.' })
       }
 
       // Sync ke database
@@ -951,41 +942,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
       }
 
-      return NextResponse.json({
-        success: true,
-        message: `Berhasil sync ${syncedTypes.length} ONU types dari SNMP`,
-        data: {
-          totalTypes: onuTypesFromSNMP.length,
-          syncedTypes: syncedTypes.length,
-          types: syncedTypes.map(t => t.name),
-          errors: errors.length > 0 ? errors : undefined,
-        },
-      })
+      return apiSuccess({
+        totalTypes: onuTypesFromSNMP.length,
+        syncedTypes: syncedTypes.length,
+        types: syncedTypes.map(t => t.name),
+        errors: errors.length > 0 ? errors : undefined,
+      }, { message: `Berhasil sync ${syncedTypes.length} ONU types dari SNMP` })
     } catch (error: any) {
       console.error('[ONU-Type-Sync] Error:', error)
-      return NextResponse.json(
-        {
-          error: error.message || 'Gagal sync ONU types dari SNMP',
-          details: error.toString(),
-        },
-        { status: 500 }
-      )
+      return ApiErrors.internalError(error.message || 'Gagal sync ONU types dari SNMP')
     }
   }
 
   // Sync dari Telnet (default)
   if (!olt.telnetConnected) {
-    return NextResponse.json(
-      { error: 'Telnet tidak connected. Silakan test connection terlebih dahulu.' },
-      { status: 400 }
-    )
+    return apiError('Telnet tidak connected. Silakan test connection terlebih dahulu.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   if (!olt.telnetUsername || !olt.telnetPassword) {
-    return NextResponse.json(
-      { error: 'Username atau password Telnet tidak ditemukan di data OLT.' },
-      { status: 400 }
-    )
+    return apiError('Username atau password Telnet tidak ditemukan di data OLT.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   try {
@@ -1118,25 +1093,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Berhasil sync ${syncedTypes.length} ONU types dari Telnet`,
-      data: {
-        totalTypes: onuTypes.length,
-        syncedTypes: syncedTypes.length,
-        types: syncedTypes.map(t => t.name),
-        errors: errors.length > 0 ? errors : undefined,
-      },
-    })
+    return apiSuccess({
+      totalTypes: onuTypes.length,
+      syncedTypes: syncedTypes.length,
+      types: syncedTypes.map(t => t.name),
+      errors: errors.length > 0 ? errors : undefined,
+    }, { message: `Berhasil sync ${syncedTypes.length} ONU types dari Telnet` })
   } catch (error: any) {
     console.error('[ONU-Type-Sync] Error:', error)
-    return NextResponse.json(
-      {
-        error: error.message || 'Gagal sync ONU types dari Telnet',
-        details: error.toString(),
-      },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Gagal sync ONU types dari Telnet')
   }
 }
 

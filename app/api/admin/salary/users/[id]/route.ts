@@ -1,7 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
+import { EmployeeType, RateType } from '@prisma/client'
+
+/**
+ * Validation schema for updating user salary config
+ */
+const updateSalaryConfigSchema = z.object({
+    basicSalary: z.union([z.number(), z.string()]).optional().nullable(),
+    employeeType: z.nativeEnum(EmployeeType).optional(),
+    overtimeRateNormal: z.union([z.number(), z.string()]).optional().nullable(),
+    overtimeCalcTypeNormal: z.nativeEnum(RateType).optional(),
+    overtimeRateHoliday: z.union([z.number(), z.string()]).optional().nullable(),
+    overtimeCalcTypeHoliday: z.nativeEnum(RateType).optional(),
+    overtimeRateNational: z.union([z.number(), z.string()]).optional().nullable(),
+    overtimeCalcTypeNational: z.nativeEnum(RateType).optional(),
+    woIncentiveRate: z.union([z.number(), z.string()]).optional().nullable(),
+    lateDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
+    absentDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
+})
 
 // GET - Get user salary details
 export async function GET(
@@ -11,7 +32,11 @@ export async function GET(
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('salary:read')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data gaji')
         }
 
         const { id: userId } = await params
@@ -23,7 +48,7 @@ export async function GET(
                 name: true,
                 email: true,
                 image: true,
-                employeeType: true, // KARYAWAN / MITRA
+                employeeType: true,
                 
                 // Salary Config
                 basicSalary: true,
@@ -46,19 +71,19 @@ export async function GET(
                     include: {
                         component: true
                     },
-                    orderBy: { component: { type: 'asc' } } // Earnings first, then deductions
+                    orderBy: { component: { type: 'asc' } }
                 }
             }
         })
 
         if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+            return ApiErrors.notFound('User')
         }
 
-        return NextResponse.json({ user })
+        return apiSuccess({ user })
     } catch (error) {
         console.error('[API] Error fetching salary user detail:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil detail gaji user')
     }
 }
 
@@ -70,11 +95,25 @@ export async function PUT(
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('salary:update')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah konfigurasi gaji')
         }
 
         const { id } = await params
         const body = await request.json()
+        
+        const parseResult = updateSalaryConfigSchema.safeParse(body)
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
+        }
+
         const {
             basicSalary,
             employeeType,
@@ -84,29 +123,29 @@ export async function PUT(
             woIncentiveRate,
             lateDeductionRate,
             absentDeductionRate
-        } = body
+        } = parseResult.data
 
         await prisma.user.update({
             where: { id },
             data: {
                 employeeType,
-                basicSalary: basicSalary ? parseFloat(basicSalary) : null,
-                overtimeRateNormal: overtimeRateNormal ? parseFloat(overtimeRateNormal) : null,
+                basicSalary: basicSalary ? parseFloat(String(basicSalary)) : null,
+                overtimeRateNormal: overtimeRateNormal ? parseFloat(String(overtimeRateNormal)) : null,
                 overtimeCalcTypeNormal,
-                overtimeRateHoliday: overtimeRateHoliday ? parseFloat(overtimeRateHoliday) : null,
+                overtimeRateHoliday: overtimeRateHoliday ? parseFloat(String(overtimeRateHoliday)) : null,
                 overtimeCalcTypeHoliday,
-                overtimeRateNational: overtimeRateNational ? parseFloat(overtimeRateNational) : null,
+                overtimeRateNational: overtimeRateNational ? parseFloat(String(overtimeRateNational)) : null,
                 overtimeCalcTypeNational,
-                woIncentiveRate: woIncentiveRate ? parseFloat(woIncentiveRate) : null,
-                lateDeductionRate: lateDeductionRate ? parseFloat(lateDeductionRate) : null,
-                absentDeductionRate: absentDeductionRate ? parseFloat(absentDeductionRate) : null,
+                woIncentiveRate: woIncentiveRate ? parseFloat(String(woIncentiveRate)) : null,
+                lateDeductionRate: lateDeductionRate ? parseFloat(String(lateDeductionRate)) : null,
+                absentDeductionRate: absentDeductionRate ? parseFloat(String(absentDeductionRate)) : null,
             }
         })
 
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'Konfigurasi gaji berhasil diperbarui' })
     } catch (error) {
         console.error('[API] Error updating user salary config:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal memperbarui konfigurasi gaji')
     }
 }
 
@@ -118,7 +157,11 @@ export async function DELETE(
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('salary:delete')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus dari penggajian')
         }
 
         const { id } = await params
@@ -128,9 +171,9 @@ export async function DELETE(
             data: { basicSalary: null }
         })
 
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'User berhasil dihapus dari daftar gaji' })
     } catch (error) {
         console.error('[API] Error removing salary user:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal menghapus user dari penggajian')
     }
 }

@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { LogType } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
     try {
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
 
         // Permission check
         if (!await hasPermission('system_log:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat system log')
         }
 
         const { searchParams } = new URL(req.url)
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
         if (isSiteRestricted) {
             if (!user.siteId) {
                 // Restricted user but no siteId? Treat as no access to logs.
-                 return NextResponse.json({
+                return apiSuccess({
                     logs: [],
                     pagination: { total: 0, page, limit, totalPages: 0 }
                 })
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
             })
         ])
 
-        return NextResponse.json({
+        return apiSuccess({
             logs,
             pagination: {
                 total,
@@ -77,6 +78,6 @@ export async function GET(req: NextRequest) {
         })
     } catch (error) {
         console.error('Error fetching system logs:', error)
-        return NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil system log')
     }
 }

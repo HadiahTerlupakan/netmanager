@@ -1,126 +1,75 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
-import { prisma } from '@/lib/prisma';
-import { verifyAuth } from '@/lib/auth';
-import { hasPermission } from '@/lib/rbac';
+import { NextRequest } from 'next/server'
+import { verifyAuth } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
+import { getDepartmentService } from '@/modules/roles/services/DepartmentService'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
-// GET /api/admin/departments - List all departments
+const service = getDepartmentService()
+
+/**
+ * GET /api/admin/departments - List all departments
+ * Refactored to use DepartmentService (thin controller pattern)
+ */
 export async function GET(request: NextRequest) {
     try {
-        const user = await verifyAuth(request);
+        const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
-        // Permission check
         if (!await hasPermission('department:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat departemen')
         }
 
-        const { searchParams } = new URL(request.url);
-        const search = searchParams.get('search');
-        const reminderOnly = searchParams.get('reminderOnly') === 'true';
+        const { searchParams } = new URL(request.url)
+        const search = searchParams.get('search') || undefined
+        const reminderOnly = searchParams.get('reminderOnly') === 'true'
 
-        const where: any = {};
-        if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
-            ];
-        }
-        if (reminderOnly) {
-            where.isReminderTarget = true;
+        const result = await service.getDepartments({ search, reminderOnly })
+
+        if (!result.success) {
+            return ApiErrors.internalError(result.error)
         }
 
-        const departments = await prisma.departments.findMany({
-            where,
-            include: {
-                _count: {
-                    select: {
-                        user: true,
-                        work_orders: true,
-                    },
-                },
-            },
-            orderBy: { name: 'asc' },
-        });
-
-        return NextResponse.json({
-            success: true,
-            data: departments,
-        });
+        return apiSuccess(result.data)
     } catch (error) {
-        console.error('Error fetching departments:', error);
-        return NextResponse.json({ error: 'Failed to fetch departments' }, { status: 500 });
+        console.error('Error fetching departments:', error)
+        return ApiErrors.internalError('Gagal mengambil data departemen')
     }
 }
 
-// POST /api/admin/departments - Create new department
+/**
+ * POST /api/admin/departments - Create new department
+ * Refactored to use DepartmentService (thin controller pattern)
+ */
 export async function POST(request: NextRequest) {
     try {
-        const user = await verifyAuth(request);
+        const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
-        // Permission check
         if (!await hasPermission('department:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat departemen')
         }
 
-        const body = await request.json();
-        const { name, description, jobDescription, isReminderTarget } = body;
+        const body = await request.json()
 
-        if (!name) {
-            return NextResponse.json(
-                { error: 'Name is required' },
-                { status: 400 }
-            );
+        const result = await service.createDepartment(body, user.id)
+
+        if (!result.success) {
+            if (result.code === 'VALIDATION_ERROR') {
+                return apiError(result.error || 'Data tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+            }
+            if (result.code === 'DUPLICATE_NAME') {
+                return ApiErrors.conflict('Nama departemen sudah ada')
+            }
+            return ApiErrors.internalError(result.error)
         }
 
-        // Check if name already exists
-        const existingDept = await prisma.departments.findUnique({
-            where: { name },
-        });
-
-        if (existingDept) {
-            return NextResponse.json(
-                { error: 'Department name already exists' },
-                { status: 400 }
-            );
-        }
-
-        const department = await prisma.departments.create({
-            data: {
-                id: randomUUID(),
-                name,
-                description: description || null,
-                jobDescription: jobDescription || null,
-                isReminderTarget: isReminderTarget ?? false,
-                updatedAt: new Date(),
-            },
-        });
-
-        // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'CREATE',
-                subject: 'Department',
-                userId: user.id,
-                details: { id: department.id, name: department.name }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
-
-        return NextResponse.json({
-            success: true,
-            data: department,
-            message: 'Department created successfully',
-        });
+        return apiSuccess(result.data, { status: 201, message: 'Departemen berhasil dibuat' })
     } catch (error) {
-        console.error('Error creating department:', error);
-        return NextResponse.json({ error: 'Failed to create department' }, { status: 500 });
+        console.error('Error creating department:', error)
+        return ApiErrors.internalError('Gagal membuat departemen')
     }
 }

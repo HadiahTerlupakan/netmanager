@@ -1,8 +1,8 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 export async function POST(
     request: NextRequest,
@@ -16,7 +16,7 @@ export async function POST(
 
         // Permission check (Update permission required to add attachments)
         if (!await hasPermission('list:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah attachment')
         }
 
         const { id } = await params
@@ -24,7 +24,7 @@ export async function POST(
         const { fileName, filePath, fileType, caption, fileSize } = body
 
         if (!fileName || !filePath || !fileType) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+            return apiError('fileName, filePath, dan fileType wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const attachment = await prisma.workOrderAttachments.create({
@@ -65,16 +65,13 @@ export async function POST(
             console.error('Log failed', e)
         }
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                ...attachment,
-                uploadedBy: attachment.user
-            }
-        })
+        return apiSuccess({
+            ...attachment,
+            uploadedBy: attachment.user
+        }, { message: 'Attachment berhasil ditambahkan' })
 
     } catch (error) {
         console.error('Error adding attachment:', error)
-        return NextResponse.json({ error: 'Failed to add attachment' }, { status: 500 })
+        return ApiErrors.internalError('Gagal menambah attachment')
     }
 }

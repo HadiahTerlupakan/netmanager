@@ -1,14 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
+import { EmployeeType, RateType } from '@prisma/client'
+
+/**
+ * Validation schema for adding user to salary list
+ */
+const addSalaryUserSchema = z.object({
+    userId: z.string().uuid('User ID wajib diisi'),
+    basicSalary: z.number().min(0).optional().default(0),
+    employeeType: z.nativeEnum(EmployeeType).optional().default('KARYAWAN'),
+    overtimeRateNormal: z.number().min(0).optional(),
+    overtimeCalcTypeNormal: z.nativeEnum(RateType).optional().default('PER_HOUR'),
+    overtimeRateHoliday: z.number().min(0).optional(),
+    overtimeCalcTypeHoliday: z.nativeEnum(RateType).optional().default('PER_HOUR'),
+    overtimeRateNational: z.number().min(0).optional(),
+    overtimeCalcTypeNational: z.nativeEnum(RateType).optional().default('PER_HOUR'),
+    woIncentiveRate: z.number().min(0).optional(),
+    lateDeductionRate: z.number().min(0).optional(),
+    absentDeductionRate: z.number().min(0).optional(),
+})
 
 // GET - List users with salary setup
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('salary:read')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data gaji')
         }
 
         // Get users with basicSalary set (already in salary list)
@@ -57,10 +83,10 @@ export async function GET(request: NextRequest) {
             orderBy: { name: 'asc' }
         })
 
-        return NextResponse.json({ users, allUsers })
+        return apiSuccess({ users, allUsers })
     } catch (error) {
         console.error('[API] Error fetching salary users:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data pengguna')
     }
 }
 
@@ -69,10 +95,24 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
+        }
+
+        if (!await hasPermission('salary:create')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah user ke penggajian')
         }
 
         const body = await request.json()
+        const parseResult = addSalaryUserSchema.safeParse(body)
+        
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
+        }
+
         const {
             userId,
             basicSalary,
@@ -86,32 +126,28 @@ export async function POST(request: NextRequest) {
             woIncentiveRate,
             lateDeductionRate,
             absentDeductionRate,
-        } = body
-
-        if (!userId) {
-            return NextResponse.json({ error: 'User ID diperlukan' }, { status: 400 })
-        }
+        } = parseResult.data
 
         await prisma.user.update({
             where: { id: userId },
             data: {
-                basicSalary: basicSalary || 0,
-                employeeType: employeeType || 'KARYAWAN',
+                basicSalary,
+                employeeType,
                 overtimeRateNormal,
-                overtimeCalcTypeNormal: overtimeCalcTypeNormal || 'PER_HOUR',
+                overtimeCalcTypeNormal,
                 overtimeRateHoliday,
-                overtimeCalcTypeHoliday: overtimeCalcTypeHoliday || 'PER_HOUR',
+                overtimeCalcTypeHoliday,
                 overtimeRateNational,
-                overtimeCalcTypeNational: overtimeCalcTypeNational || 'PER_HOUR',
+                overtimeCalcTypeNational,
                 woIncentiveRate,
                 lateDeductionRate,
                 absentDeductionRate,
             }
         })
 
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'User berhasil ditambahkan ke daftar gaji' })
     } catch (error) {
         console.error('[API] Error adding salary user:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal menambahkan user ke penggajian')
     }
 }

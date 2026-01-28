@@ -1,54 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 import { workOrderEscalationUpdateSchema } from '@/lib/validations/workorder-escalation';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 /**
  * @swagger
  * /api/admin/workorders/escalations/{id}:
  *   get:
  *     summary: Get escalation rule by ID
- *     description: Mengambil detail aturan eskalasi berdasarkan ID
  *     tags: [Escalation Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Escalation rule ID
- *     responses:
- *       200:
- *         description: Escalation rule details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrderEscalation'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Escalation rule not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Escalation rule not found"
  */
 export async function GET(
     request: NextRequest,
@@ -57,11 +19,11 @@ export async function GET(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_escalation:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat aturan eskalasi');
         }
 
         const { id } = await params;
@@ -93,16 +55,13 @@ export async function GET(
         });
 
         if (!escalation) {
-            return NextResponse.json({ error: 'Escalation rule not found' }, { status: 404 });
+            return ApiErrors.notFound('Aturan Eskalasi');
         }
 
-        return NextResponse.json({
-            success: true,
-            data: escalation,
-        });
+        return apiSuccess(escalation);
     } catch (error) {
         console.error('Error fetching escalation rule:', error);
-        return NextResponse.json({ error: 'Failed to fetch escalation rule' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil aturan eskalasi');
     }
 }
 
@@ -111,93 +70,7 @@ export async function GET(
  * /api/admin/workorders/escalations/{id}:
  *   put:
  *     summary: Update escalation rule
- *     description: Memperbarui aturan eskalasi yang ada
  *     tags: [Escalation Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Escalation rule ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               description:
- *                 type: string
- *               slaId:
- *                 type: string
- *               workOrderType:
- *                 type: string
- *                 enum: [INSTALLATION, TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION, DISCONNECTION, OTHER]
- *               priority:
- *                 type: string
- *                 enum: [LOW, NORMAL, HIGH, URGENT, CRITICAL]
- *               departmentId:
- *                 type: string
- *               triggerCondition:
- *                 type: string
- *               escalationLevel:
- *                 type: integer
- *               notifyRole:
- *                 type: string
- *               notifyEmployees:
- *                 type: array
- *                 items:
- *                   type: string
- *               notifyDepartments:
- *                 type: array
- *                 items:
- *                   type: string
- *               delayMinutes:
- *                 type: integer
- *               isActive:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: Escalation rule updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrderEscalation'
- *                 message:
- *                   type: string
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Escalation rule not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Escalation rule not found"
  */
 export async function PUT(
     request: NextRequest,
@@ -206,11 +79,11 @@ export async function PUT(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_escalation:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengupdate aturan eskalasi');
         }
 
         const { id } = await params;
@@ -223,7 +96,7 @@ export async function PUT(
         });
 
         if (!existingEscalation) {
-            return NextResponse.json({ error: 'Escalation rule not found' }, { status: 404 });
+            return ApiErrors.notFound('Aturan Eskalasi');
         }
 
         const escalation = await (prisma as any).workOrderEscalations.update({
@@ -256,14 +129,10 @@ export async function PUT(
             },
         });
 
-        return NextResponse.json({
-            success: true,
-            data: escalation,
-            message: 'Escalation rule updated successfully',
-        });
+        return apiSuccess(escalation, { message: 'Aturan eskalasi berhasil diperbarui' });
     } catch (error) {
         console.error('Error updating escalation rule:', error);
-        return NextResponse.json({ error: 'Failed to update escalation rule' }, { status: 500 });
+        return ApiErrors.internalError('Gagal memperbarui aturan eskalasi');
     }
 }
 
@@ -272,46 +141,7 @@ export async function PUT(
  * /api/admin/workorders/escalations/{id}:
  *   delete:
  *     summary: Delete escalation rule
- *     description: Menghapus aturan eskalasi
  *     tags: [Escalation Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Escalation rule ID
- *     responses:
- *       200:
- *         description: Escalation rule deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Escalation rule not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Escalation rule not found"
  */
 export async function DELETE(
     request: NextRequest,
@@ -320,11 +150,11 @@ export async function DELETE(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_escalation:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus aturan eskalasi');
         }
 
         const { id } = await params;
@@ -335,19 +165,16 @@ export async function DELETE(
         });
 
         if (!existingEscalation) {
-            return NextResponse.json({ error: 'Escalation rule not found' }, { status: 404 });
+            return ApiErrors.notFound('Aturan Eskalasi');
         }
 
         await (prisma as any).workOrderEscalations.delete({
             where: { id },
         });
 
-        return NextResponse.json({
-            success: true,
-            message: 'Escalation rule deleted successfully',
-        });
+        return apiSuccess(null, { message: 'Aturan eskalasi berhasil dihapus' });
     } catch (error) {
         console.error('Error deleting escalation rule:', error);
-        return NextResponse.json({ error: 'Failed to delete escalation rule' }, { status: 500 });
+        return ApiErrors.internalError('Gagal menghapus aturan eskalasi');
     }
 }

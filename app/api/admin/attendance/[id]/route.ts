@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { attendanceUpdateSchema } from '@/lib/validations/attendance'
+import { logger } from '@/lib/logger'
 
 export async function DELETE(
     request: NextRequest,
@@ -14,13 +17,13 @@ export async function DELETE(
         }
 
         if (!await hasPermission('attendance:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus absensi')
         }
 
         const { id } = await params
 
         if (!id) {
-            return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+            return apiError('ID wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
         }
 
         // Check existence and ownership
@@ -30,7 +33,7 @@ export async function DELETE(
         })
 
         if (!existing) {
-             return NextResponse.json({ error: 'Data not found' }, { status: 404 })
+            return ApiErrors.notFound('Data absensi')
         }
 
         // OWNERSHIP CHECK
@@ -40,10 +43,10 @@ export async function DELETE(
         if (!isSuperAdmin) {
             const recordUser = existing.user;
             if (user.permissions?.includes('attendance:site_only') && recordUser.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+                return ApiErrors.forbidden('Akses dibatasi hanya untuk site Anda')
             }
             if (user.permissions?.includes('attendance:department_only') && recordUser.departmentId !== user.departmentId) {
-                 return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+                return ApiErrors.forbidden('Akses dibatasi hanya untuk departemen Anda')
             }
         }
 
@@ -53,7 +56,6 @@ export async function DELETE(
 
         // System Log
         try {
-            const { logger } = await import('@/lib/logger')
             await logger.logActivity({
                 action: 'DELETE',
                 subject: 'Attendance',
@@ -62,14 +64,14 @@ export async function DELETE(
             })
         } catch (e) { console.error('Logging failed', e) }
 
-        return NextResponse.json({ success: true, message: 'Attendance deleted successfully' })
+        return apiSuccess({ id }, { message: 'Absensi berhasil dihapus' })
 
     } catch (error: any) {
         console.error('Error deleting attendance:', error)
         if (error.code === 'P2025') {
-            return NextResponse.json({ error: 'Data not found' }, { status: 404 })
+            return ApiErrors.notFound('Data absensi')
         }
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal menghapus absensi')
     }
 }
 
@@ -84,27 +86,29 @@ export async function PATCH(
         }
 
         if (!await hasPermission('attendance:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah absensi')
         }
 
         const { id } = await params
-        const body = await request.json()
-        const { checkIn, checkOut, status, notes } = body
 
         if (!id) {
-            return NextResponse.json({ error: 'ID is required', code: 'MISSING_ID' }, { status: 400 })
+            return apiError('ID wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
         }
 
-        // Validate status if provided
-        const VALID_STATUSES = ['ON_TIME', 'LATE', 'ABSENT', 'SICK', 'PERMIT', 'DAY_OFF'] as const
-        if (status && !VALID_STATUSES.includes(status)) {
-            return NextResponse.json({
-                error: `Status tidak valid. Pilihan: ${VALID_STATUSES.join(', ')}`,
-                code: 'INVALID_STATUS'
-            }, { status: 400 })
+        // Parse and validate request body
+        const body = await request.json()
+        const parseResult = attendanceUpdateSchema.safeParse(body)
+
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
         }
 
-        // Prepare update data
+        const { checkIn, checkOut, status, notes } = parseResult.data
+
         // Fetch existing attendance to get userId and User details
         const existingAttendance = await prisma.attendance.findUnique({
             where: { id },
@@ -112,7 +116,7 @@ export async function PATCH(
         })
 
         if (!existingAttendance) {
-            return NextResponse.json({ error: 'Data not found' }, { status: 404 })
+            return ApiErrors.notFound('Data absensi')
         }
 
         // OWNERSHIP CHECK
@@ -121,21 +125,17 @@ export async function PATCH(
         if (!isSuperAdmin) {
             const recordUser = existingAttendance.user;
             if (user.permissions?.includes('attendance:site_only') && recordUser.siteId !== user.siteId) {
-                return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+                return ApiErrors.forbidden('Akses dibatasi hanya untuk site Anda')
             }
             if (user.permissions?.includes('attendance:department_only') && recordUser.departmentId !== user.departmentId) {
-                 return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+                return ApiErrors.forbidden('Akses dibatasi hanya untuk departemen Anda')
             }
-        }
-
-        if (!existingAttendance) {
-            return NextResponse.json({ error: 'Data not found' }, { status: 404 })
         }
 
         // Prepare update data
         const updateData: any = {}
         if (checkIn) updateData.checkIn = new Date(checkIn)
-        if (checkOut) updateData.checkOut = new Date(checkOut)
+        if (checkOut !== undefined) updateData.checkOut = checkOut ? new Date(checkOut) : null
         if (notes !== undefined) updateData.notes = notes
 
         // Auto-calculate status if checkIn changes
@@ -158,16 +158,13 @@ export async function PATCH(
             const [schedHour, schedMinute] = userDetails.startWorkTime!.split(':').map(Number)
 
             // 1. Parse the new checkIn time
-            // The checkIn coming from body is likely ISO string (e.g. 2025-12-23T06:18:00Z)
             const checkInDate = new Date(checkIn)
 
             // 2. Convert checkIn to Wall Clock Time in Target Timezone
             const checkInInTz = new Date(checkInDate.toLocaleString('en-US', { timeZone: timezone }))
 
             // 3. Create Schedule for THAT day (in Timezone Context)
-            // We use checkInInTz (which represents the local day) to set the schedule
             const scheduleTime = new Date(checkInInTz)
-            // Reset to HH:mm:00 based on startWorkTime
             scheduleTime.setHours(schedHour, schedMinute, 0, 0)
 
             const toleranceMs = toleranceMinutes * 60 * 1000
@@ -187,7 +184,6 @@ export async function PATCH(
 
         // System Log
         try {
-            const { logger } = await import('@/lib/logger')
             await logger.logActivity({
                 action: 'UPDATE',
                 subject: 'Attendance',
@@ -196,13 +192,13 @@ export async function PATCH(
             })
         } catch (e) { console.error('Logging failed', e) }
 
-        return NextResponse.json({ success: true, data: updated })
+        return apiSuccess(updated, { message: 'Absensi berhasil diperbarui' })
 
     } catch (error: any) {
         console.error('Error updating attendance:', error)
         if (error.code === 'P2025') {
-            return NextResponse.json({ error: 'Data not found' }, { status: 404 })
+            return ApiErrors.notFound('Data absensi')
         }
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal memperbarui absensi')
     }
 }

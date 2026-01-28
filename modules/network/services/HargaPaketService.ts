@@ -1,4 +1,5 @@
-import { HargaPaketRepository, HargaPaketCreateInput, HargaPaketUpdateInput, HargaPaketFilterOptions } from '../repositories/HargaPaketRepository'
+import { HargaPaketRepository } from '../repositories/HargaPaketRepository'
+import type { HargaPaketCreateInput, HargaPaketUpdateInput, HargaPaketFilterOptions } from '../repositories/HargaPaketRepository'
 import { hargaPaketSchema } from '@/lib/validations/hargapaket'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { logger } from '@/lib/logger'
@@ -62,7 +63,7 @@ export class HargaPaketService {
             durasi: validData.durasi,
             durasiUnit: validData.durasiUnit,
             profilePPPId: validData.profilePPPId,
-            bandwidthId: validData.bandwidthId,
+            bandwidthId: validData.bandwidthId ?? undefined,
             description: validData.description,
             featured: validData.featured,
             status: validData.status,

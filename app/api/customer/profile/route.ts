@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { PelangganService } from '@/modules/pelanggan'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const pelangganService = new PelangganService()
 
 /**
  * GET - Get customer profile
- * Refactored to use PelangganService (thin controller pattern)
  */
 export async function GET(request: NextRequest) {
     try {
@@ -17,27 +17,20 @@ export async function GET(request: NextRequest) {
 
         const profile = await pelangganService.getProfile(authResult.session.id)
 
-        return NextResponse.json({
-            success: true,
-            profile,
-        })
+        return apiSuccess({ profile })
     } catch (error: any) {
         console.error('[Customer Profile GET Error]:', error)
         
         if (error.message === 'Data pelanggan tidak ditemukan') {
-            return NextResponse.json({ error: error.message }, { status: 404 })
+            return ApiErrors.notFound('Pelanggan')
         }
         
-        return NextResponse.json(
-            { error: 'Terjadi kesalahan server' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Terjadi kesalahan server')
     }
 }
 
 /**
  * PATCH - Update customer phone, preferences, or password
- * Refactored to use PelangganService (thin controller pattern)
  */
 export async function PATCH(request: NextRequest) {
     try {
@@ -56,13 +49,9 @@ export async function PATCH(request: NextRequest) {
             isPromoEnabled
         } = body
 
-        // Handle password change separately
         if (newPassword) {
             if (!currentPassword) {
-                return NextResponse.json(
-                    { error: 'Password saat ini harus diisi untuk mengganti password' },
-                    { status: 400 }
-                )
+                return apiError('Password saat ini harus diisi untuk mengganti password', ErrorCodes.VALIDATION_ERROR, { status: 400 })
             }
 
             await pelangganService.changePassword(
@@ -71,13 +60,9 @@ export async function PATCH(request: NextRequest) {
                 newPassword
             )
 
-            return NextResponse.json({
-                success: true,
-                message: 'Password berhasil diubah',
-            })
+            return apiSuccess(null, { message: 'Password berhasil diubah' })
         }
 
-        // Handle profile/preferences update
         const updated = await pelangganService.updateProfile(authResult.session.id, {
             noTelp,
             is2FAEnabled,
@@ -85,18 +70,13 @@ export async function PATCH(request: NextRequest) {
             isPromoEnabled,
         })
 
-        return NextResponse.json({
-            success: true,
-            message: 'Profil berhasil diupdate',
-            updated: {
-                noTelp: updated.noTelp,
-                updatedAt: updated.updatedAt,
-            },
-        })
+        return apiSuccess({
+            noTelp: updated.noTelp,
+            updatedAt: updated.updatedAt,
+        }, { message: 'Profil berhasil diupdate' })
     } catch (error: any) {
         console.error('[Customer Profile PATCH Error]:', error)
         
-        // Map known errors to appropriate status codes
         const errorMap: Record<string, number> = {
             'Password saat ini salah': 401,
             'Password baru minimal 6 karakter': 400,
@@ -105,8 +85,10 @@ export async function PATCH(request: NextRequest) {
         }
         
         const statusCode = errorMap[error.message] || 500
-        return NextResponse.json(
-            { error: error.message || 'Terjadi kesalahan server' },
+        return apiError(error.message || 'Terjadi kesalahan server', 
+            statusCode === 401 ? ErrorCodes.UNAUTHORIZED : 
+            statusCode === 400 ? ErrorCodes.VALIDATION_ERROR : 
+            ErrorCodes.INTERNAL_ERROR, 
             { status: statusCode }
         )
     }

@@ -194,15 +194,74 @@ Jika fitur hanya menambah endpoint sederhana tanpa logic kompleks, pertimbangkan
 
 ## Tech Stack
 
-| Layer      | Technology                  |
-| ---------- | --------------------------- |
-| Framework  | Next.js 15 (App Router)     |
-| Database   | PostgreSQL + Prisma ORM     |
-| Auth       | NextAuth.js                 |
-| Validation | Zod                         |
-| Styling    | Tailwind CSS                |
-| Real-time  | Socket.IO                   |
-| Monitoring | Custom services di modules/ |
+| Layer          | Technology                  |
+| -------------- | --------------------------- |
+| Framework      | Next.js 15 (App Router)     |
+| Database       | PostgreSQL + Prisma ORM     |
+| Auth           | NextAuth.js                 |
+| Validation     | Zod                         |
+| Styling        | Tailwind CSS                |
+| Real-time      | Socket.IO                   |
+| Error Tracking | Sentry                      |
+| Monitoring     | Custom services di modules/ |
+
+---
+
+## API Utilities
+
+Gunakan utilities di `/lib/api/` untuk standardisasi response dan error handling:
+
+### Standard Response Format
+
+```typescript
+import { apiSuccess, apiError, ApiErrors } from "@/lib/api";
+
+// Success response
+return apiSuccess({ user: data });
+// → { success: true, data: { user: ... } }
+
+// Error response
+return apiError("Validation failed", "VALIDATION_ERROR", { status: 400 });
+// → { success: false, error: 'Validation failed', code: 'VALIDATION_ERROR' }
+
+// Common error shortcuts
+return ApiErrors.unauthorized(); // 401
+return ApiErrors.forbidden(); // 403
+return ApiErrors.notFound("User"); // 404
+return ApiErrors.badRequest("..."); // 400
+```
+
+### Paginated Response
+
+```typescript
+import { apiPaginated } from "@/lib/api";
+
+return apiPaginated(items, { page: 1, limit: 10, total: 100 });
+// → { success: true, data: [...], meta: { page, limit, total, totalPages } }
+```
+
+### Unified Handler (New Routes)
+
+Untuk route baru yang sederhana, gunakan `createHandler`:
+
+```typescript
+import { createHandler, apiSuccess } from "@/lib/api";
+import { z } from "zod";
+
+const schema = z.object({ name: z.string() });
+
+export const POST = createHandler(
+  {
+    auth: true,
+    schema,
+  },
+  async (req, ctx) => {
+    return apiSuccess({ created: ctx.validated.name });
+  },
+);
+```
+
+Untuk route dengan complex auth (site restriction, custom RBAC), tetap gunakan `authorize` middleware.
 
 ---
 
@@ -210,4 +269,5 @@ Jika fitur hanya menambah endpoint sederhana tanpa logic kompleks, pertimbangkan
 
 - [Modular Monolith Workflow](.agent/workflows/new-feature.md)
 - [Refactor to Service Layer](.agent/workflows/refactor-to-service-layer.md)
+- [API Utilities](lib/api/index.ts)
 - [Prisma Schema](prisma/schema.prisma)

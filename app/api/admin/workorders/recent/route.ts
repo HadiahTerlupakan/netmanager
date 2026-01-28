@@ -1,21 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { NextRequest } from 'next/server';
+import { getWorkOrderService } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-
-const workOrderRepo = new WorkOrderRepository(prisma);
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 // GET /api/admin/workorders/recent - Get recent work orders
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('list:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat work order');
         }
 
         const { searchParams } = new URL(request.url);
@@ -23,29 +21,27 @@ export async function GET(request: NextRequest) {
 
         const filters: any = {};
         
-        // NEW: Enforce Department Restriction Logic
+        // Access Control
         const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
 
         if (hasDepartmentRestriction && !isSuperAdmin) {
             if (!user.departmentId) {
-                return NextResponse.json({
-                    success: true,
-                    data: [],
-                    message: "Restricted access: No department assigned."
-                });
+                return apiSuccess([], { message: "Restricted access: No department assigned." });
             }
             filters.departmentId = user.departmentId;
         }
 
-        const workOrders = await workOrderRepo.getRecentWorkOrders(limit, filters);
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.getRecentWorkOrders(limit, filters);
 
-        return NextResponse.json({
-            success: true,
-            data: workOrders,
-        });
+        if (!result.success) {
+            return apiError(result.error || 'Gagal mengambil work order terbaru', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+        }
+
+        return apiSuccess(result.data);
     } catch (error) {
         console.error('Error fetching recent work orders:', error);
-        return NextResponse.json({ error: 'Failed to fetch recent work orders' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil work order terbaru');
     }
 }

@@ -1,14 +1,32 @@
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
+
+/**
+ * Validation schemas
+ */
+const updateProfileSchema = z.object({
+    name: z.string().min(1).max(100).optional(),
+    phone: z.string().max(20).optional(),
+})
+
+const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, 'Password lama wajib diisi'),
+    newPassword: z.string().min(6, 'Password minimal 6 karakter'),
+    confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),
+}).refine(data => data.newPassword === data.confirmPassword, {
+    message: 'Password baru dan konfirmasi tidak cocok',
+    path: ['confirmPassword'],
+})
 
 export async function GET() {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const profile = await prisma.user.findUnique({
@@ -36,13 +54,13 @@ export async function GET() {
         })
 
         if (!profile) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+            return ApiErrors.notFound('User')
         }
 
-        return NextResponse.json({ success: true, data: profile })
+        return apiSuccess(profile)
     } catch (error: any) {
         console.error('Profile fetch error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data profil')
     }
 }
 
@@ -50,18 +68,28 @@ export async function PATCH(request: Request) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const body = await request.json()
-        const { name, phone } = body
+        
+        // Validate with Zod
+        const parseResult = updateProfileSchema.safeParse(body)
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
+        }
 
+        const { name, phone } = parseResult.data
         const updateData: { name?: string; phone?: string } = {}
         if (name !== undefined) updateData.name = name
         if (phone !== undefined) updateData.phone = phone
 
         if (Object.keys(updateData).length === 0) {
-            return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+            return apiError('Tidak ada field untuk diupdate', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const updated = await prisma.user.update({
@@ -76,10 +104,10 @@ export async function PATCH(request: Request) {
             }
         })
 
-        return NextResponse.json({ success: true, data: updated })
+        return apiSuccess(updated, { message: 'Profil berhasil diperbarui' })
     } catch (error: any) {
         console.error('Profile update error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal memperbarui profil')
     }
 }
 
@@ -87,29 +115,22 @@ export async function POST(request: Request) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         const body = await request.json()
-        const { currentPassword, newPassword, confirmPassword } = body
-
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            return NextResponse.json({ 
-                error: 'Semua field harus diisi' 
-            }, { status: 400 })
+        
+        // Validate with Zod
+        const parseResult = changePasswordSchema.safeParse(body)
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
         }
 
-        if (newPassword !== confirmPassword) {
-            return NextResponse.json({ 
-                error: 'Password baru dan konfirmasi tidak cocok' 
-            }, { status: 400 })
-        }
-
-        if (newPassword.length < 6) {
-            return NextResponse.json({ 
-                error: 'Password minimal 6 karakter' 
-            }, { status: 400 })
-        }
+        const { currentPassword, newPassword } = parseResult.data
 
         const dbUser = await prisma.user.findUnique({
             where: { id: session.user.id },
@@ -117,12 +138,12 @@ export async function POST(request: Request) {
         })
 
         if (!dbUser || !dbUser.passwordHash) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+            return ApiErrors.notFound('User')
         }
 
         const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash)
         if (!isValidPassword) {
-            return NextResponse.json({ error: 'Password lama salah' }, { status: 400 })
+            return apiError('Password lama salah', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, 10)
@@ -132,9 +153,9 @@ export async function POST(request: Request) {
             data: { passwordHash: newPasswordHash }
         })
 
-        return NextResponse.json({ success: true, message: 'Password berhasil diubah' })
+        return apiSuccess(null, { message: 'Password berhasil diubah' })
     } catch (error: any) {
         console.error('Password change error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengubah password')
     }
 }

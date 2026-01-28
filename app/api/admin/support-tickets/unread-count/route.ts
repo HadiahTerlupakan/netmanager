@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/admin/support-tickets/unread-count
@@ -14,7 +15,7 @@ import { TicketStatus } from '@prisma/client'
 export async function GET(request: NextRequest) {
     const user = await verifyAuth(request)
     if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return ApiErrors.unauthorized('Session tidak valid')
     }
 
     try {
@@ -65,8 +66,7 @@ export async function GET(request: NextRequest) {
 
         const totalNeedsAttention = openTickets + needsReplyCount + customerRepliedWhileWaiting
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             count: totalNeedsAttention,
             breakdown: {
                 openTickets,
@@ -76,9 +76,6 @@ export async function GET(request: NextRequest) {
         })
     } catch (error) {
         console.error('[Admin Support Tickets Unread Count] Error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal mengambil jumlah tiket' },
-            { status: 500 }
-        )
+        return ApiErrors.internalError('Gagal mengambil jumlah tiket')
     }
 }

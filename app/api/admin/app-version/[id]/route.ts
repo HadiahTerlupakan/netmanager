@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getAppVersionService } from '@/modules/app-version'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -12,11 +13,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('app_version:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat versi aplikasi')
         }
 
         const { id } = await params
@@ -24,13 +25,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const version = await service.getVersionById(id)
 
         if (!version) {
-            return NextResponse.json({ error: 'Versi tidak ditemukan' }, { status: 404 })
+            return ApiErrors.notFound('Versi aplikasi')
         }
 
-        return NextResponse.json({ success: true, data: version })
+        return apiSuccess(version)
     } catch (error: any) {
         console.error('Error fetching app version:', error)
-        return NextResponse.json({ error: error.message || 'Failed to fetch app version' }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal mengambil versi aplikasi')
     }
 }
 
@@ -39,11 +40,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('app_version:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah versi aplikasi')
         }
 
         const { id } = await params
@@ -70,14 +71,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             console.error('Logging failed', e)
         }
 
-        return NextResponse.json({
-            success: true,
-            data: version,
-            message: 'Versi berhasil diupdate'
-        })
+        return apiSuccess(version, { message: 'Versi berhasil diperbarui' })
     } catch (error: any) {
         console.error('Error updating app version:', error)
-        return NextResponse.json({ error: error.message || 'Failed to update app version' }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal memperbarui versi aplikasi')
     }
 }
 
@@ -86,11 +83,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!await hasPermission('app_version:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus versi aplikasi')
         }
 
         const { id } = await params
@@ -110,12 +107,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             console.error('Logging failed', e)
         }
 
-        return NextResponse.json({
-            success: true,
-            message: 'Versi dan file berhasil dihapus permanen'
-        })
+        return apiSuccess(null, { message: 'Versi dan file berhasil dihapus permanen' })
     } catch (error: any) {
         console.error('Error deleting app version:', error)
-        return NextResponse.json({ error: error.message || 'Failed to delete app version' }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal menghapus versi aplikasi')
     }
 }

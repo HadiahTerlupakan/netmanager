@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { getWorkOrderService } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { hasPermission } from '@/lib/rbac';
-
-const workOrderRepo = new WorkOrderRepository(prisma);
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 export async function POST(
     request: NextRequest,
@@ -15,24 +14,29 @@ export async function POST(
         const { id } = await params;
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('list:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah komentar');
         }
 
         const body = await request.json();
         const { message } = body;
 
         if (!message) {
-            return NextResponse.json(
-                { error: 'Message is required' },
-                { status: 400 }
-            );
+            return apiError('Pesan wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
-        const comment = await workOrderRepo.addComment(id, message, user.id);
+        // Use service to add comment
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.addComment(id, message, user.id);
+
+        if (!result.success) {
+            return apiError(result.error || 'Gagal menambah komentar', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+        }
+
+        const comment = result.data!;
 
         // Emit WebSocket event for real-time Activity Timeline
         socketEmitter.workOrderActivity(id, {
@@ -57,18 +61,17 @@ export async function POST(
             if (workOrder?.assignedTo?.pushToken && workOrder.assignedTo?.isActive) {
                 const { sendExpoPushNotifications } = await import('@/lib/expo');
 
-                // Determine title based on role maybe? Or just "New Comment on WO-..."
                 const title = `Komentar Baru: ${workOrder.workOrderNumber}`;
-                const body = `${user.name || 'Admin'}: ${message.substring(0, 100)}`;
+                const notifBody = `${user.name || 'Admin'}: ${message.substring(0, 100)}`;
 
                 await sendExpoPushNotifications(
                     [workOrder.assignedTo.pushToken],
                     title,
-                    body,
+                    notifBody,
                     {
                         type: 'WORK_ORDER',
                         workOrderId: id,
-                        url: `/(app)/work-order-detail/${id}` // Correct mobile route
+                        url: `/(app)/work-order-detail/${id}`
                     }
                 );
 
@@ -78,7 +81,7 @@ export async function POST(
                         id: crypto.randomUUID(),
                         type: 'WORK_ORDER',
                         title: title,
-                        message: body,
+                        message: notifBody,
                         userId: workOrder.assignedTo.id,
                         sourceType: 'WORK_ORDER',
                         sourceId: id,
@@ -92,13 +95,9 @@ export async function POST(
             console.error('Failed to send comment notification:', error);
         }
 
-        return NextResponse.json({
-            success: true,
-            data: comment,
-            message: 'Comment added successfully',
-        }, { status: 201 });
+        return apiSuccess(comment, { status: 201, message: 'Komentar berhasil ditambahkan' });
     } catch (error) {
         console.error('Error adding comment:', error);
-        return NextResponse.json({ error: 'Failed to add comment' }, { status: 500 });
+        return ApiErrors.internalError('Gagal menambah komentar');
     }
 }

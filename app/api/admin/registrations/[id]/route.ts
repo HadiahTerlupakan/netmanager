@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { RegistrationRepository } from '@/modules/registration/repositories/RegistrationRepository'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -18,24 +19,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('registration:read'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat registrasi')
         }
 
         const { id } = await params
         const registration = await registrationRepository.findById(id)
 
         if (!registration) {
-            return NextResponse.json({ error: 'Registration not found' }, { status: 404 })
+            return ApiErrors.notFound('Registrasi')
         }
 
-        return NextResponse.json(registration)
+        return apiSuccess(registration)
     } catch (error) {
         console.error('Get Registration Error:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data registrasi')
     }
 }
 
@@ -47,11 +48,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('registration:update'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah registrasi')
         }
 
         const { id } = await params
@@ -59,12 +60,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         const { status, rejectionReason, notes } = body
 
         if (!status) {
-            return NextResponse.json({ error: 'Status is required' }, { status: 400 })
+            return apiError('Status wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const current = await registrationRepository.findById(id)
         if (!current) {
-            return NextResponse.json({ error: 'Registration not found' }, { status: 404 })
+            return ApiErrors.notFound('Registrasi')
         }
 
         // Validate status transitions
@@ -79,14 +80,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
         const allowedStatuses = validTransitions[current.status] || []
         if (!allowedStatuses.includes(status)) {
-            return NextResponse.json({
-                error: `Cannot change status from ${current.status} to ${status}`,
-                allowedStatuses,
-            }, { status: 400 })
+            return apiError(
+                `Tidak dapat mengubah status dari ${current.status} ke ${status}`,
+                ErrorCodes.BUSINESS_LOGIC_ERROR,
+                { status: 400, details: { allowedStatuses } }
+            )
         }
 
         if (status === 'REJECTED' && !rejectionReason) {
-            return NextResponse.json({ error: 'Rejection reason is required' }, { status: 400 })
+            return apiError('Alasan penolakan wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const updated = await registrationRepository.updateWithDetails(id, {
@@ -97,13 +99,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             verifiedBy: status === 'VERIFIED' ? (session.user?.email || 'admin') : undefined,
         })
 
-        return NextResponse.json({
-            message: `Status updated to ${status}`,
-            data: updated,
-        })
+        return apiSuccess(updated, { message: `Status berhasil diubah ke ${status}` })
     } catch (error) {
         console.error('Update Registration Error:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal memperbarui registrasi')
     }
 }
 
@@ -115,19 +114,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('registration:delete'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus registrasi')
         }
 
         const { id } = await params
         await registrationRepository.delete(id)
 
-        return NextResponse.json({ message: 'Registration deleted' })
+        return apiSuccess(null, { message: 'Registrasi berhasil dihapus' })
     } catch (error) {
         console.error('Delete Registration Error:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal menghapus registrasi')
     }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { TicketStatus, TicketCategory, TicketPriority } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
 
 /**
  * GET /api/admin/support-tickets
@@ -11,189 +12,41 @@ import { hasPermission } from '@/lib/rbac'
 export async function GET(request: NextRequest) {
     const user = await verifyAuth(request)
     if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return ApiErrors.unauthorized('Session tidak valid')
     }
 
     // Permission check
     if (!await hasPermission('support:read')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tiket')
     }
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const status = searchParams.get('status')
-    const category = searchParams.get('category')
-    const priority = searchParams.get('priority')
-    const search = searchParams.get('search')
-    const assignedToMe = searchParams.get('assignedToMe') === 'true'
 
-    const skip = (page - 1) * limit
-
-    try {
-        const where: any = {}
-        
-        // Site restriction check
-        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
-            if (!user.siteId) {
-                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
-            }
-             // Filter tickets where associated Pelanggan is in the user's site
-            where.pelanggan = {
-                siteId: user.siteId
-            }
-        }
-
-        // Status filter
-        if (status && Object.values(TicketStatus).includes(status as TicketStatus)) {
-            where.status = status
-        }
-
-        // Category filter
-        if (category && Object.values(TicketCategory).includes(category as TicketCategory)) {
-            where.category = category
-        }
-
-        // Priority filter
-        if (priority && Object.values(TicketPriority).includes(priority as TicketPriority)) {
-            where.priority = priority
-        }
-
-        // Assigned to current user filter
-        if (assignedToMe) {
-            where.assignedToId = user.id
-        }
-
-        // Search by ticket number or customer name
-        if (search) {
-            where.OR = [
-                { ticketNumber: { contains: search, mode: 'insensitive' } },
-                { subject: { contains: search, mode: 'insensitive' } },
-                { pelanggan: { nama: { contains: search, mode: 'insensitive' } } },
-                { pelanggan: { idPelanggan: { contains: search, mode: 'insensitive' } } },
-            ]
-        }
-
-        // Get tickets with last reply including message
-        const [tickets, total] = await Promise.all([
-            prisma.supportTickets.findMany({
-                where,
-                orderBy: [
-                    { priority: 'desc' }, // URGENT first
-                    { createdAt: 'desc' },
-                ],
-                skip,
-                take: limit,
-                include: {
-                    pelanggan: {
-                        select: {
-                            id: true,
-                            idPelanggan: true,
-                            nama: true,
-                            noTelp: true,
-                            email: true,
-                        },
-                    },
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
-                    },
-                    replies: {
-                        orderBy: { createdAt: 'desc' },
-                        take: 1,
-                        select: {
-                            createdAt: true,
-                            isFromAdmin: true,
-                            message: true, // Include message for rating extraction
-                        },
-                    },
-                    _count: {
-                        select: { replies: true },
-                    },
-                },
-            }),
-            prisma.supportTickets.count({ where }),
-        ])
-
-        // Get stats for all statuses
-        const [openCount, inProgressCount, waitingCustomerCount, resolvedCount, closedCount] = await Promise.all([
-            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.OPEN } }),
-            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.IN_PROGRESS } }),
-            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.WAITING_CUSTOMER } }),
-            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.RESOLVED } }),
-            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.CLOSED } }),
-        ])
-
-        // Get closed tickets with ratings from replies
-        const closedTicketsWithReplies = await prisma.supportTickets.findMany({
-            where: { ...where, status: TicketStatus.CLOSED },
-            include: {
-                replies: {
-                    where: {
-                        isFromAdmin: false,
-                        message: { contains: '⭐' }
-                    },
-                    take: 1,
-                    orderBy: { createdAt: 'desc' },
-                    select: { message: true }
-                }
-            }
-        })
-
-        // Calculate average rating
-        let totalRating = 0
-        let ratedCount = 0
-        for (const t of closedTicketsWithReplies) {
-            if (t.replies[0]?.message) {
-                const msg = t.replies[0].message
-                let rating = 0
-                if (msg.includes('⭐⭐⭐⭐⭐')) rating = 5
-                else if (msg.includes('⭐⭐⭐⭐')) rating = 4
-                else if (msg.includes('⭐⭐⭐')) rating = 3
-                else if (msg.includes('⭐⭐')) rating = 2
-                else if (msg.includes('⭐')) rating = 1
-
-                if (rating > 0) {
-                    totalRating += rating
-                    ratedCount++
-                }
-            }
-        }
-        const avgRating = ratedCount > 0 ? totalRating / ratedCount : 0
-
-        return NextResponse.json({
-            success: true,
-            tickets: tickets.map((ticket) => ({
-                ...ticket,
-                lastReply: ticket.replies[0] || null,
-                replyCount: ticket._count.replies,
-                replies: undefined,
-                _count: undefined,
-            })),
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-            stats: {
-                total: openCount + inProgressCount + waitingCustomerCount + resolvedCount + closedCount,
-                open: openCount,
-                inProgress: inProgressCount,
-                waitingCustomer: waitingCustomerCount,
-                resolved: resolvedCount,
-                closed: closedCount,
-                avgRating,
-                ratedCount,
-            },
-        })
-    } catch (error) {
-        console.error('[Admin Support Tickets GET] Error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal mengambil daftar tiket' },
-            { status: 500 }
-        )
+    const filters = {
+        page: parseInt(searchParams.get('page') || '1'),
+        limit: parseInt(searchParams.get('limit') || '20'),
+        status: searchParams.get('status') as TicketStatus | undefined,
+        category: searchParams.get('category') as TicketCategory | undefined,
+        priority: searchParams.get('priority') as TicketPriority | undefined,
+        search: searchParams.get('search') || undefined,
+        assignedToMe: searchParams.get('assignedToMe') === 'true',
     }
+
+    const hasSiteRestriction = await hasPermission('support:site_only')
+    const service = getAdminSupportTicketService()
+
+    const result = await service.getTickets(filters, {
+        id: user.id,
+        role: user.role,
+        siteId: user.siteId,
+    }, hasSiteRestriction)
+
+    if (!result.success) {
+        if (result.code === 'FORBIDDEN') {
+            return ApiErrors.forbidden(result.error!)
+        }
+        return ApiErrors.internalError(result.error)
+    }
+
+    return apiSuccess(result.data)
 }

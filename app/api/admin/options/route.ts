@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET() {
     try {
@@ -14,12 +14,9 @@ export async function GET() {
             })
         ])
 
-        return NextResponse.json({
-            sites,
-            departments
-        })
+        return apiSuccess({ sites, departments })
     } catch (error) {
         console.error('Error fetching options:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data opsi')
     }
 }

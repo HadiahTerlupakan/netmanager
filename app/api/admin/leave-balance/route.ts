@@ -1,9 +1,20 @@
-import { NextResponse, NextRequest } from 'next/server'
+import { NextRequest } from 'next/server'
 import { authorize, isAuthError } from '@/lib/authorization-middleware'
 import { LeaveBalanceRepository, DEFAULT_LEAVE_QUOTAS } from '@/modules/attendance/repositories/LeaveBalanceRepository'
 import { LeaveType } from '@prisma/client'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { z } from 'zod'
 
 const leaveBalanceRepo = new LeaveBalanceRepository()
+
+/**
+ * Validation schema for setting leave quota
+ */
+const setQuotaSchema = z.object({
+    userId: z.string().uuid('Invalid user ID'),
+    year: z.number().int().min(2000).max(2100).optional(),
+    quotas: z.record(z.nativeEnum(LeaveType), z.number().int().min(0).max(365)),
+})
 
 /**
  * @swagger
@@ -11,17 +22,6 @@ const leaveBalanceRepo = new LeaveBalanceRepository()
  *   get:
  *     summary: Get all leave balances
  *     tags: [Leave Balance]
- *     parameters:
- *       - in: query
- *         name: year
- *         schema:
- *           type: integer
- *         description: Year to get balances for (default current year)
- *       - in: query
- *         name: userId
- *         schema:
- *           type: string
- *         description: Filter by user ID
  */
 export async function GET(req: NextRequest) {
     const auth = await authorize(req, { permissions: ['attendance:read'] })
@@ -38,7 +38,6 @@ export async function GET(req: NextRequest) {
             
             // Fill in missing types with defaults
             const allTypes = Object.keys(DEFAULT_LEAVE_QUOTAS) as LeaveType[]
-            const existingTypes = new Set(balances.map(b => b.leaveType))
             
             const filledBalances = allTypes.map(type => {
                 const existing = balances.find(b => b.leaveType === type)
@@ -56,15 +55,15 @@ export async function GET(req: NextRequest) {
                 }
             })
 
-            return NextResponse.json({ balances: filledBalances, year })
+            return apiSuccess({ balances: filledBalances, year })
         }
 
         // Get all balances for admin view
         const balances = await leaveBalanceRepo.getAllBalances(year)
-        return NextResponse.json({ balances, year })
+        return apiSuccess({ balances, year })
     } catch (error: any) {
         console.error('Error fetching leave balances:', error)
-        return NextResponse.json({ error: 'Gagal mengambil data saldo cuti' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data saldo cuti')
     }
 }
 
@@ -74,32 +73,25 @@ export async function GET(req: NextRequest) {
  *   post:
  *     summary: Set leave quota for a user
  *     tags: [Leave Balance]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               userId:
- *                 type: string
- *               year:
- *                 type: integer
- *               quotas:
- *                 type: object
- *                 description: Leave type to quota mapping
  */
 export async function POST(req: NextRequest) {
     const auth = await authorize(req, { permissions: ['attendance:update'] })
     if (isAuthError(auth)) return auth.error
 
     try {
-        const { userId, year, quotas } = await req.json()
-
-        if (!userId) {
-            return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+        const body = await req.json()
+        
+        // Validate with Zod
+        const parseResult = setQuotaSchema.safeParse(body)
+        if (!parseResult.success) {
+            return apiError(
+                'Data tidak valid',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400, details: parseResult.error.flatten().fieldErrors }
+            )
         }
 
+        const { userId, year, quotas } = parseResult.data
         const targetYear = year || new Date().getFullYear()
 
         // Update each provided quota
@@ -111,12 +103,9 @@ export async function POST(req: NextRequest) {
 
         // Return updated balances
         const balances = await leaveBalanceRepo.getUserBalances(userId, targetYear)
-        return NextResponse.json({ 
-            message: 'Kuota cuti berhasil diperbarui',
-            balances 
-        })
+        return apiSuccess({ balances }, { message: 'Kuota cuti berhasil diperbarui' })
     } catch (error: any) {
         console.error('Error updating leave quota:', error)
-        return NextResponse.json({ error: 'Gagal memperbarui kuota cuti' }, { status: 500 })
+        return ApiErrors.internalError('Gagal memperbarui kuota cuti')
     }
 }

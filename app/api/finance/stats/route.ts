@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { hasPermission } from "@/lib/rbac"
 import { FinanceStatsService } from "@/modules/finance/services/FinanceStatsService"
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from "@/lib/api-response"
 
 export const dynamic = 'force-dynamic'
 
@@ -15,11 +15,11 @@ export async function GET(req: Request) {
     try {
         const user = await verifyAuth(req as any)
         if (!user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission("finance:read"))) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat statistik finance')
         }
 
         const { searchParams } = new URL(req.url)
@@ -27,12 +27,11 @@ export async function GET(req: Request) {
         const endDate = searchParams.get("endDate") || undefined
         const type = searchParams.get("type") || "daily"
 
-        // Validate dates if provided
         if (startDate && endDate) {
             const start = new Date(startDate)
             const end = new Date(endDate)
             if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                return NextResponse.json({ error: "Invalid date format" }, { status: 400 })
+                return apiError('Format tanggal tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
             }
         }
 
@@ -42,9 +41,9 @@ export async function GET(req: Request) {
             type,
         })
 
-        return NextResponse.json(stats)
+        return apiSuccess(stats)
     } catch (error) {
         console.error("[FINANCE_STATS_GET]", error)
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil statistik finance')
     }
 }

@@ -1,54 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 import { workOrderTemplateUpdateSchema } from '@/lib/validations/workorder-template';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 /**
  * @swagger
  * /api/admin/workorders/templates/{id}:
  *   get:
  *     summary: Get work order template by ID
- *     description: Mengambil detail template work order berdasarkan ID
  *     tags: [Work Order Templates]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Template ID
- *     responses:
- *       200:
- *         description: Work order template details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrderTemplate'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Template not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Work order template not found"
  */
 export async function GET(
     request: NextRequest,
@@ -57,11 +19,11 @@ export async function GET(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_template:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat template work order');
         }
 
         const { id } = await params;
@@ -85,16 +47,13 @@ export async function GET(
         });
 
         if (!template) {
-            return NextResponse.json({ error: 'Work order template not found' }, { status: 404 });
+            return ApiErrors.notFound('Template Work Order');
         }
 
-        return NextResponse.json({
-            success: true,
-            data: template,
-        });
+        return apiSuccess(template);
     } catch (error) {
         console.error('Error fetching work order template:', error);
-        return NextResponse.json({ error: 'Failed to fetch work order template' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil template work order');
     }
 }
 
@@ -103,85 +62,7 @@ export async function GET(
  * /api/admin/workorders/templates/{id}:
  *   put:
  *     summary: Update work order template
- *     description: Memperbarui template work order yang ada
  *     tags: [Work Order Templates]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Template ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               description:
- *                 type: string
- *               type:
- *                 type: string
- *                 enum: [INSTALLATION, TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION, DISCONNECTION, OTHER]
- *               priority:
- *                 type: string
- *                 enum: [LOW, NORMAL, HIGH, URGENT, CRITICAL]
- *               departmentId:
- *                 type: string
- *               estimatedHours:
- *                 type: number
- *               estimatedCost:
- *                 type: number
- *               requiredMaterials:
- *                 type: object
- *               tasks:
- *                 type: array
- *               checklist:
- *                 type: array
- *               isActive:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: Work order template updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/WorkOrderTemplate'
- *                 message:
- *                   type: string
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Template not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Work order template not found"
  */
 export async function PUT(
     request: NextRequest,
@@ -190,11 +71,11 @@ export async function PUT(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_template:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengupdate template work order');
         }
 
         const { id } = await params;
@@ -207,7 +88,7 @@ export async function PUT(
         });
 
         if (!existingTemplate) {
-            return NextResponse.json({ error: 'Work order template not found' }, { status: 404 });
+            return ApiErrors.notFound('Template Work Order');
         }
 
         const template = await (prisma as any).workOrderTemplates.update({
@@ -232,14 +113,10 @@ export async function PUT(
             },
         });
 
-        return NextResponse.json({
-            success: true,
-            data: template,
-            message: 'Work order template updated successfully',
-        });
+        return apiSuccess(template, { message: 'Template work order berhasil diperbarui' });
     } catch (error) {
         console.error('Error updating work order template:', error);
-        return NextResponse.json({ error: 'Failed to update work order template' }, { status: 500 });
+        return ApiErrors.internalError('Gagal memperbarui template work order');
     }
 }
 
@@ -248,46 +125,7 @@ export async function PUT(
  * /api/admin/workorders/templates/{id}:
  *   delete:
  *     summary: Delete work order template
- *     description: Menghapus template work order
  *     tags: [Work Order Templates]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Template ID
- *     responses:
- *       200:
- *         description: Work order template deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Template not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Work order template not found"
  */
 export async function DELETE(
     request: NextRequest,
@@ -296,11 +134,11 @@ export async function DELETE(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_template:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus template work order');
         }
 
         const { id } = await params;
@@ -311,7 +149,7 @@ export async function DELETE(
         });
 
         if (!existingTemplate) {
-            return NextResponse.json({ error: 'Work order template not found' }, { status: 404 });
+            return ApiErrors.notFound('Template Work Order');
         }
 
         // Check if template is being used by any work orders
@@ -320,21 +158,20 @@ export async function DELETE(
         });
 
         if (workOrdersCount > 0) {
-            return NextResponse.json({
-                error: 'Cannot delete template that is being used by work orders'
-            }, { status: 400 });
+            return apiError(
+                'Tidak dapat menghapus template yang sedang digunakan oleh work order',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400 }
+            );
         }
 
         await (prisma as any).workOrderTemplates.delete({
             where: { id },
         });
 
-        return NextResponse.json({
-            success: true,
-            message: 'Work order template deleted successfully',
-        });
+        return apiSuccess(null, { message: 'Template work order berhasil dihapus' });
     } catch (error) {
         console.error('Error deleting work order template:', error);
-        return NextResponse.json({ error: 'Failed to delete work order template' }, { status: 500 });
+        return ApiErrors.internalError('Gagal menghapus template work order');
     }
 }

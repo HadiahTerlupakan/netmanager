@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger'
 const CACHE_TTL = 300 // 5 minutes
 const SEARCH_CACHE_TTL = 60 // 1 minute for search results
 const CACHE_PREFIX = 'onu:'
+const MAX_CACHE_SIZE = 10 * 1024 * 1024 // 10MB per entry - prevent unbounded memory
 
 export interface CacheStats {
     hits: number
@@ -22,16 +23,33 @@ export interface CacheStats {
 export class OnuCacheService {
     /**
      * Cache ONU list for a specific OLT
+     * OPTIMIZATION: Added size limit check to prevent unbounded memory
      */
     async cacheOltOnus(oltId: string, onus: any[]): Promise<void> {
         try {
             const key = this.getOltCacheKey(oltId)
-            await redis.setex(key, CACHE_TTL, JSON.stringify(onus))
+            const jsonStr = JSON.stringify(onus)
+            
+            // OPTIMIZATION: Check size before caching
+            const size = Buffer.byteLength(jsonStr, 'utf8')
+            if (size > MAX_CACHE_SIZE) {
+                logger.warn(`ONU cache too large for OLT ${oltId}: ${(size / 1024 / 1024).toFixed(2)}MB`, {
+                    action: 'cache_skip',
+                    oltId,
+                    size,
+                    count: onus.length,
+                    maxSize: MAX_CACHE_SIZE,
+                })
+                return
+            }
 
-            logger.debug(`Cached ${onus.length} ONUs for OLT ${oltId}`, {
+            await redis.setex(key, CACHE_TTL, jsonStr)
+
+            logger.debug(`Cached ${onus.length} ONUs for OLT ${oltId} (${(size / 1024).toFixed(1)}KB)`, {
                 action: 'cache_set',
                 oltId,
                 count: onus.length,
+                size,
                 ttl: CACHE_TTL,
             })
         } catch (error) {

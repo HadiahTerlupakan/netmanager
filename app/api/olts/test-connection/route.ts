@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
@@ -6,6 +5,7 @@ import snmp from 'net-snmp'
 import { Telnet } from 'telnet-client'
 import { createSocket } from 'dgram'
 import '@/lib/utils/event-emitter-config'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -19,7 +19,6 @@ async function requireAdmin() {
 async function testUDPPort(ipAddress: string, port: number, timeout: number = 3000): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = createSocket('udp4')
-    // Set max listeners untuk menghindari warning
     socket.setMaxListeners(20)
     let resolved = false
 
@@ -48,7 +47,6 @@ async function testUDPPort(ipAddress: string, port: number, timeout: number = 30
 
     socket.on('error', errorHandler)
 
-    // Send a dummy packet to test if port is reachable
     socket.bind(() => {
       socket.send(Buffer.from('test'), port, ipAddress, (err) => {
         if (!resolved) {
@@ -56,7 +54,7 @@ async function testUDPPort(ipAddress: string, port: number, timeout: number = 30
           clearTimeout(timer)
           socket.removeAllListeners()
           socket.close()
-          resolve(!err) // If no error, port might be accessible
+          resolve(!err)
         }
       })
     })
@@ -89,7 +87,6 @@ async function testSNMP(
       resolve(result)
     }
 
-    // Quick UDP connectivity test first
     const udpReachable = await testUDPPort(ipAddress, port, 2000)
     if (!udpReachable) {
       finish({
@@ -100,37 +97,31 @@ async function testSNMP(
     }
 
     try {
-      // Map version string ke SNMP version constant
-      let snmpVersion: 0 | 1 | undefined = 1 // Default: Version2c
+      let snmpVersion: 0 | 1 | undefined = 1
       if (version === '1') {
-        snmpVersion = 0 // Version1
+        snmpVersion = 0
       } else if (version === '3') {
-        // SNMP v3 tidak didukung oleh net-snmp library yang digunakan
         console.warn(`[SNMP] SNMP v3 is not supported, using v2c instead`)
-        snmpVersion = 1 // Fallback to Version2c
+        snmpVersion = 1
       } else {
-        snmpVersion = 1 // Version2c
+        snmpVersion = 1
       }
 
       session = snmp.createSession(ipAddress, community, {
         port,
         version: snmpVersion,
         retries: 3,
-        timeout: 5000, // 5 seconds per request
+        timeout: 5000,
         transport: 'udp4',
         idBitsSize: 32,
       })
       
-      // Set max listeners untuk menghindari warning
       if (session && session.setMaxListeners) {
         session.setMaxListeners(20)
       }
 
-      // Test dengan beberapa OID yang umum digunakan
-      // OID sysDescr (1.3.6.1.2.1.1.1.0) - standard OID yang hampir semua device support
       const oids = ['1.3.6.1.2.1.1.1.0', '1.3.6.1.2.1.1.2.0', '1.3.6.1.2.1.1.3.0']
 
-      // Set timeout
       timeoutId = setTimeout(() => {
         finish({ 
           success: false, 
@@ -138,14 +129,12 @@ async function testSNMP(
         })
       }, timeout)
 
-      // Try first OID
       session.get([oids[0]], (error: any, varbinds: any[]) => {
         if (resolved) return
         
         if (error) {
           const errorMsg = error.message || error.toString() || 'Unknown error'
           
-          // Provide more specific error messages
           let detailedMsg = `SNMP error: ${errorMsg}`
           
           if (errorMsg.includes('Timeout') || errorMsg.includes('timeout')) {
@@ -206,7 +195,6 @@ async function testTelnet(
     try {
       connection = new Telnet()
       
-      // Set max listeners untuk menghindari warning
       if (connection.setMaxListeners) {
         connection.setMaxListeners(20)
       }
@@ -229,7 +217,6 @@ async function testTelnet(
 
       resolve({ success: true, message: 'Telnet connection successful' })
     } catch (error: any) {
-      // Pastikan cleanup connection
       if (connection) {
         try {
           await connection.end()
@@ -238,11 +225,9 @@ async function testTelnet(
         }
       }
       
-      // Jika login gagal tapi koneksi berhasil, masih anggap berhasil
       if (error.message && (error.message.includes('timeout') || error.message.includes('ECONNREFUSED'))) {
         resolve({ success: false, message: `Telnet error: ${error.message}` })
       } else {
-        // Koneksi berhasil meskipun login mungkin gagal
         resolve({ success: true, message: 'Telnet connection successful (connection established)' })
       }
     }
@@ -251,7 +236,7 @@ async function testTelnet(
 
 export async function POST(req: Request) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return ApiErrors.unauthorized('Session tidak valid')
 
   try {
     const body = await req.json()
@@ -263,14 +248,13 @@ export async function POST(req: Request) {
       telnetPort,
       telnetUsername = 'zte',
       telnetPassword,
-      oltId, // Optional: untuk update status connection di database
+      oltId,
     } = body
 
     if (!ipAddress) {
-      return NextResponse.json({ error: 'IP Address is required' }, { status: 400 })
+      return apiError('IP Address harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
-    // Validate and use custom ports or defaults
     const finalSnmpPort = snmpPort && !isNaN(Number(snmpPort)) && Number(snmpPort) > 0 && Number(snmpPort) <= 65535
       ? Number(snmpPort)
       : 161
@@ -278,11 +262,9 @@ export async function POST(req: Request) {
       ? Number(telnetPort)
       : 23
 
-    // Test SNMP dengan community write, jika gagal coba dengan community read-only (public)
     let snmpResult: any
     const writeResult = await testSNMP(ipAddress, finalSnmpPort, snmpCommunityWrite, snmpVersion, 8000)
     
-    // Jika gagal dengan write community, coba dengan read-only community (public)
     if (!writeResult.success && snmpCommunityWrite !== 'public') {
       const readResult = await testSNMP(ipAddress, finalSnmpPort, 'public', snmpVersion, 8000)
       if (readResult.success) {
@@ -297,7 +279,6 @@ export async function POST(req: Request) {
       snmpResult = writeResult
     }
 
-    // Test Telnet
     let telnet
     try {
       telnet = await testTelnet(ipAddress, finalTelnetPort, telnetUsername, telnetPassword || '', 5000)
@@ -305,7 +286,6 @@ export async function POST(req: Request) {
       telnet = { success: false, message: `Telnet test failed: ${error.message || error}` }
     }
 
-    // Update connection status di database jika oltId tersedia dan test berhasil
     if (oltId && (snmpResult.success || telnet.success)) {
       try {
         const oltRepository = getOLTRepository()
@@ -314,18 +294,17 @@ export async function POST(req: Request) {
           telnetConnected: telnet.success,
         })
       } catch (error: any) {
-        // Log error tapi tidak fail request
         console.error('Error updating connection status:', error)
       }
     }
 
-    return NextResponse.json({
-      success: snmpResult.success && telnet.success,
+    return apiSuccess({
       snmp: snmpResult,
       telnet,
+    }, { 
+      message: snmpResult.success && telnet.success ? 'Connection test berhasil' : 'Connection test selesai dengan beberapa masalah' 
     })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Test connection failed' }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Test connection failed')
   }
 }
-

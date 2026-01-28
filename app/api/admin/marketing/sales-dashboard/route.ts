@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(request: NextRequest) {
     const session = await requireAdmin(request)
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     // Check permission
     if (!(await hasPermission('sales_dashboard:read'))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat sales dashboard')
     }
 
     // Get period and site from query params
@@ -235,22 +236,19 @@ export async function GET(request: NextRequest) {
             })
         }
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                period,
-                siteId,
-                sites,
-                teamStats,
-                topPerformers,
-                topSites,
-                leaderboard: rankedLeaderboard,
-                weeklyTrend
-            }
+        return apiSuccess({
+            period,
+            siteId,
+            sites,
+            teamStats,
+            topPerformers,
+            topSites,
+            leaderboard: rankedLeaderboard,
+            weeklyTrend
         })
 
     } catch (error: any) {
         console.error('Error fetching sales dashboard:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data sales dashboard')
     }
 }

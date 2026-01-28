@@ -5,11 +5,13 @@
  * Returns recent/active sessions with pagination
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
+import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 const radiusRepository = new RadiusRepository(prisma);
 
@@ -17,11 +19,12 @@ export async function GET(req: NextRequest) {
     try {
         // Auth check
         const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        if (!session?.user) {
+            return ApiErrors.unauthorized('Session tidak valid');
+        }
+
+        if (!await hasPermission('radius:read')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat sesi RADIUS');
         }
 
         const { searchParams } = new URL(req.url);
@@ -35,7 +38,7 @@ export async function GET(req: NextRequest) {
             status: status as 'active' | 'all',
         });
 
-        return NextResponse.json({
+        return apiSuccess({
             sessions,
             pagination: {
                 page,
@@ -46,12 +49,6 @@ export async function GET(req: NextRequest) {
         });
     } catch (error) {
         console.error('RADIUS recent sessions error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch sessions',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil sesi terbaru');
     }
 }

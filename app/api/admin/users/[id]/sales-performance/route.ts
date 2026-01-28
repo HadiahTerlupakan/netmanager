@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await requireAdmin(request)
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         })
 
         if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+            return ApiErrors.notFound('User')
         }
 
         // Calculate date range based on period
@@ -161,25 +162,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             _sum: { pointValue: true }
         })
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                user,
-                period,
-                target: user.canvasingTarget || 50,
-                canvasing: {
-                    ...canvasing,
-                    progress: Math.round((canvasing.approved / (user.canvasingTarget || 50)) * 100)
-                },
-                points,
-                totalAllTime,
-                totalPointsAllTime: totalPointsAllTime._sum?.pointValue || 0,
-                recentActivity
-            }
+        return apiSuccess({
+            user,
+            period,
+            target: user.canvasingTarget || 50,
+            canvasing: {
+                ...canvasing,
+                progress: Math.round((canvasing.approved / (user.canvasingTarget || 50)) * 100)
+            },
+            points,
+            totalAllTime,
+            totalPointsAllTime: totalPointsAllTime._sum?.pointValue || 0,
+            recentActivity
         })
 
     } catch (error: any) {
         console.error('Error fetching sales performance:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil data performa sales')
     }
 }

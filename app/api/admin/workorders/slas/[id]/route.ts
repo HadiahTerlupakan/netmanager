@@ -1,54 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 import { slaUpdateSchema } from '@/lib/validations/sla';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 /**
  * @swagger
  * /api/admin/workorders/slas/{id}:
  *   get:
  *     summary: Get SLA rule by ID
- *     description: Mengambil detail aturan SLA berdasarkan ID
  *     tags: [SLA Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: SLA rule ID
- *     responses:
- *       200:
- *         description: SLA rule details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/SLA'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: SLA rule not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "SLA rule not found"
  */
 export async function GET(
     request: NextRequest,
@@ -57,11 +19,11 @@ export async function GET(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_sla:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat aturan SLA');
         }
 
         const { id } = await params;
@@ -105,16 +67,13 @@ export async function GET(
         });
 
         if (!sla) {
-            return NextResponse.json({ error: 'SLA rule not found' }, { status: 404 });
+            return ApiErrors.notFound('Aturan SLA');
         }
 
-        return NextResponse.json({
-            success: true,
-            data: sla,
-        });
+        return apiSuccess(sla);
     } catch (error) {
         console.error('Error fetching SLA rule:', error);
-        return NextResponse.json({ error: 'Failed to fetch SLA rule' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil aturan SLA');
     }
 }
 
@@ -123,81 +82,7 @@ export async function GET(
  * /api/admin/workorders/slas/{id}:
  *   put:
  *     summary: Update SLA rule
- *     description: Memperbarui aturan SLA yang ada
  *     tags: [SLA Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: SLA rule ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               description:
- *                 type: string
- *               workOrderType:
- *                 type: string
- *                 enum: [INSTALLATION, TROUBLESHOOT, MAINTENANCE, UPGRADE, RELOCATION, DISCONNECTION, OTHER]
- *               priority:
- *                 type: string
- *                 enum: [LOW, NORMAL, HIGH, URGENT, CRITICAL]
- *               departmentId:
- *                 type: string
- *               responseTime:
- *                 type: integer
- *               resolutionTime:
- *                 type: integer
- *               businessHoursOnly:
- *                 type: boolean
- *               isActive:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: SLA rule updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/SLA'
- *                 message:
- *                   type: string
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: SLA rule not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "SLA rule not found"
  */
 export async function PUT(
     request: NextRequest,
@@ -206,11 +91,11 @@ export async function PUT(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_sla:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengupdate aturan SLA');
         }
 
         const { id } = await params;
@@ -223,7 +108,7 @@ export async function PUT(
         });
 
         if (!existingSLA) {
-            return NextResponse.json({ error: 'SLA rule not found' }, { status: 404 });
+            return ApiErrors.notFound('Aturan SLA');
         }
 
         const sla = await (prisma as any).sLA.update({
@@ -255,14 +140,10 @@ export async function PUT(
             },
         });
 
-        return NextResponse.json({
-            success: true,
-            data: sla,
-            message: 'SLA rule updated successfully',
-        });
+        return apiSuccess(sla, { message: 'Aturan SLA berhasil diperbarui' });
     } catch (error) {
         console.error('Error updating SLA rule:', error);
-        return NextResponse.json({ error: 'Failed to update SLA rule' }, { status: 500 });
+        return ApiErrors.internalError('Gagal memperbarui aturan SLA');
     }
 }
 
@@ -271,46 +152,7 @@ export async function PUT(
  * /api/admin/workorders/slas/{id}:
  *   delete:
  *     summary: Delete SLA rule
- *     description: Menghapus aturan SLA
  *     tags: [SLA Rules]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: SLA rule ID
- *     responses:
- *       200:
- *         description: SLA rule deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: SLA rule not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "SLA rule not found"
  */
 export async function DELETE(
     request: NextRequest,
@@ -319,11 +161,11 @@ export async function DELETE(
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('wo_sla:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus aturan SLA');
         }
 
         const { id } = await params;
@@ -334,7 +176,7 @@ export async function DELETE(
         });
 
         if (!existingSLA) {
-            return NextResponse.json({ error: 'SLA rule not found' }, { status: 404 });
+            return ApiErrors.notFound('Aturan SLA');
         }
 
         // Check if SLA is being used by any work orders
@@ -343,21 +185,20 @@ export async function DELETE(
         });
 
         if (workOrdersCount > 0) {
-            return NextResponse.json({ 
-                error: 'Cannot delete SLA rule that is being used by work orders' 
-            }, { status: 400 });
+            return apiError(
+                'Tidak dapat menghapus aturan SLA yang sedang digunakan oleh work order',
+                ErrorCodes.VALIDATION_ERROR,
+                { status: 400 }
+            );
         }
 
         await (prisma as any).sLA.delete({
             where: { id },
         });
 
-        return NextResponse.json({
-            success: true,
-            message: 'SLA rule deleted successfully',
-        });
+        return apiSuccess(null, { message: 'Aturan SLA berhasil dihapus' });
     } catch (error) {
         console.error('Error deleting SLA rule:', error);
-        return NextResponse.json({ error: 'Failed to delete SLA rule' }, { status: 500 });
+        return ApiErrors.internalError('Gagal menghapus aturan SLA');
     }
 }

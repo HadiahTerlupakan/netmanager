@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 
 
@@ -42,11 +43,11 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/restock/prediction')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("restock:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat prediksi restock')
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -234,7 +235,7 @@ export async function GET(req: NextRequest) {
         gudangId,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         predictions,
         summary: {
           totalItems: predictions.length,
@@ -253,10 +254,7 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/restock/prediction',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal membuat prediksi restock' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal membuat prediksi restock')
   }
 }
 

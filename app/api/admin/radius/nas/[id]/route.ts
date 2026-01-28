@@ -5,13 +5,14 @@
  * DELETE /api/admin/radius/nas/[id] - Delete NAS
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
 import type { INas } from '@/modules/network/repositories/IRadiusRepository';
 import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 interface RouteContext {
     params: Promise<{
@@ -23,45 +24,30 @@ export async function GET(req: NextRequest, context: RouteContext) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('radius:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat NAS');
         }
 
         const { id: idStr } = await context.params;
         const id = parseInt(idStr);
         if (isNaN(id)) {
-            return NextResponse.json(
-                { error: 'Invalid NAS ID' },
-                { status: 400 }
-            );
+            return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
         }
 
         const radiusRepo = new RadiusRepository(prisma);
         const nas = await radiusRepo.getNasById(id);
 
         if (!nas) {
-            return NextResponse.json(
-                { error: 'NAS not found' },
-                { status: 404 }
-            );
+            return ApiErrors.notFound('NAS');
         }
 
-        return NextResponse.json({
-            success: true,
-            data: nas,
-        });
+        return apiSuccess(nas);
     } catch (error) {
         console.error('NAS get error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch NAS',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil data NAS');
     }
 }
 
@@ -69,20 +55,17 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('radius:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah NAS');
         }
 
         const { id: idStr } = await context.params;
         const id = parseInt(idStr);
         if (isNaN(id)) {
-            return NextResponse.json(
-                { error: 'Invalid NAS ID' },
-                { status: 400 }
-            );
+            return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
         }
 
         const body = await req.json();
@@ -93,20 +76,14 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         // Check if NAS exists
         const existingNas = await radiusRepo.getNasById(id);
         if (!existingNas) {
-            return NextResponse.json(
-                { error: 'NAS not found' },
-                { status: 404 }
-            );
+            return ApiErrors.notFound('NAS');
         }
 
         // Check if new nasname conflicts with existing NAS (if changing)
         if (nasname && nasname !== existingNas.nasname) {
             const conflictNas = await radiusRepo.getNasByIp(nasname);
             if (conflictNas) {
-                return NextResponse.json(
-                    { error: 'NAS with this IP/hostname already exists' },
-                    { status: 409 }
-                );
+                return ApiErrors.conflict('NAS dengan IP/hostname ini sudah ada');
             }
         }
 
@@ -121,20 +98,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 
         const updatedNas = await radiusRepo.updateNas(id, updateData);
 
-        return NextResponse.json({
-            success: true,
-            message: 'NAS updated successfully',
-            data: updatedNas,
-        });
+        return apiSuccess(updatedNas, { message: 'NAS berhasil diperbarui' });
     } catch (error) {
         console.error('NAS update error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to update NAS',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal memperbarui NAS');
     }
 }
 
@@ -142,20 +109,17 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('radius:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus NAS');
         }
 
         const { id: idStr } = await context.params;
         const id = parseInt(idStr);
         if (isNaN(id)) {
-            return NextResponse.json(
-                { error: 'Invalid NAS ID' },
-                { status: 400 }
-            );
+            return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
         }
 
         const radiusRepo = new RadiusRepository(prisma);
@@ -163,26 +127,14 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
         // Check if NAS exists
         const existingNas = await radiusRepo.getNasById(id);
         if (!existingNas) {
-            return NextResponse.json(
-                { error: 'NAS not found' },
-                { status: 404 }
-            );
+            return ApiErrors.notFound('NAS');
         }
 
         await radiusRepo.deleteNas(id);
 
-        return NextResponse.json({
-            success: true,
-            message: 'NAS deleted successfully',
-        });
+        return apiSuccess(null, { message: 'NAS berhasil dihapus' });
     } catch (error) {
         console.error('NAS delete error:', error);
-        return NextResponse.json(
-            {
-                error: 'Failed to delete NAS',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal menghapus NAS');
     }
 }

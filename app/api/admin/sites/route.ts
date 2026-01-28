@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { SiteService } from '@/modules/roles/services/SiteService'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const siteService = new SiteService()
 
@@ -13,11 +14,11 @@ export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('site:read'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat site')
         }
 
         const { searchParams } = new URL(request.url)
@@ -26,13 +27,10 @@ export async function GET(request: NextRequest) {
 
         const sites = await siteService.getSites({ search, activeOnly })
 
-        return NextResponse.json({
-            success: true,
-            data: sites,
-        })
+        return apiSuccess(sites)
     } catch (error) {
         console.error('Error fetching sites:', error)
-        return NextResponse.json({ error: 'Failed to fetch sites' }, { status: 500 })
+        return ApiErrors.internalError('Gagal mengambil daftar site')
     }
 }
 
@@ -44,32 +42,28 @@ export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         if (!(await hasPermission('site:create'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat site')
         }
 
         const body = await request.json()
 
         const site = await siteService.createSite(body, user.id)
 
-        return NextResponse.json({
-            success: true,
-            data: site,
-            message: 'Site created successfully',
-        })
+        return apiSuccess(site, { status: 201, message: 'Site berhasil dibuat' })
     } catch (error: any) {
         console.error('Error creating site:', error)
         
         if (error.message === 'Code and name are required') {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return apiError('Kode dan nama wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
         if (error.message === 'Site code already exists') {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return ApiErrors.conflict('Kode site sudah ada')
         }
         
-        return NextResponse.json({ error: 'Failed to create site' }, { status: 500 })
+        return ApiErrors.internalError('Gagal membuat site')
     }
 }

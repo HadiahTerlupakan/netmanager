@@ -3,11 +3,13 @@
  * DELETE /api/admin/radius/ippool/[ipAddress] - Remove IP from pool
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
+import { hasPermission } from '@/lib/rbac';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 interface RouteContext {
     params: Promise<{
@@ -19,11 +21,12 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     try {
         // Auth check
         const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        if (!session?.user) {
+            return ApiErrors.unauthorized('Session tidak valid');
+        }
+
+        if (!await hasPermission('radius:delete')) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus IP Pool');
         }
 
         const { ipAddress } = await context.params;
@@ -31,37 +34,21 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
         // Validate IP address format
         const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         if (!ipRegex.test(ipAddress)) {
-            return NextResponse.json(
-                { error: 'Invalid IP address format' },
-                { status: 400 }
-            );
+            return apiError('Format alamat IP tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         const radiusRepo = new RadiusRepository(prisma);
         await radiusRepo.removeFromIpPool(ipAddress);
 
-        return NextResponse.json({
-            success: true,
-            message: 'IP removed from pool successfully',
-            ipAddress,
-        });
+        return apiSuccess({ ipAddress }, { message: 'IP berhasil dihapus dari pool' });
     } catch (error) {
         console.error('IP Pool delete error:', error);
 
         // Check if it's a "record not found" error
         if (error instanceof Error && error.message.includes('Record to delete does not exist')) {
-            return NextResponse.json(
-                { error: 'IP address not found in pool' },
-                { status: 404 }
-            );
+            return ApiErrors.notFound('IP address dalam pool');
         }
 
-        return NextResponse.json(
-            {
-                error: 'Failed to remove IP from pool',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal menghapus IP dari pool');
     }
 }

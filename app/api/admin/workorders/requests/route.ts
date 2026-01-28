@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { getWorkOrderService } from '@/modules/work-order';
 import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
-
-const workOrderRepo = new WorkOrderRepository(prisma);
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 /**
  * GET /api/admin/workorders/requests
@@ -19,7 +17,7 @@ export async function GET(request: NextRequest) {
 
         // Permission check
         if (!await hasPermission('workorders:requests:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat permintaan work order');
         }
 
         const { searchParams } = new URL(request.url);
@@ -31,18 +29,16 @@ export async function GET(request: NextRequest) {
 
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
 
-        // Non-super admin restrictions
+        // Build filters
         const filters: { departmentId?: string; siteId?: string; search?: string } = { search };
         
         if (!isSuperAdmin) {
-            // Site restriction
             if (user.permissions?.includes('workorders:site_only') && user.siteId) {
                 filters.siteId = user.siteId;
             } else if (siteId) {
                 filters.siteId = siteId;
             }
             
-            // Department restriction  
             if (user.permissions?.includes('workorders:department_only') && user.departmentId) {
                 filters.departmentId = user.departmentId;
             } else if (departmentId) {
@@ -53,26 +49,24 @@ export async function GET(request: NextRequest) {
             if (departmentId) filters.departmentId = departmentId;
         }
 
-        const result = await workOrderRepo.findAllRequests(filters, page, limit);
+        const workOrderService = getWorkOrderService();
+        const result = await workOrderService.getWorkOrderRequests(filters, page, limit);
 
-        // Get count for badge
-        const pendingCount = result.total;
+        if (!result.success) {
+            return apiError(result.error || 'Gagal mengambil permintaan work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+        }
 
-        return NextResponse.json({
-            success: true,
-            data: result.workOrders,
+        return apiSuccess({
+            data: result.data?.workOrders || [],
             pagination: {
-                page: result.page,
-                totalPages: result.totalPages,
-                total: result.total,
+                page: result.data?.page || page,
+                totalPages: result.data?.totalPages || 1,
+                total: result.data?.total || 0,
             },
-            pendingCount,
+            pendingCount: result.data?.total || 0,
         });
     } catch (error) {
         console.error('Error fetching work order requests:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch work order requests' },
-            { status: 500 }
-        );
+        return ApiErrors.internalError('Gagal mengambil permintaan work order');
     }
 }

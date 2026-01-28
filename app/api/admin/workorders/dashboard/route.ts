@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -12,29 +13,16 @@ const workOrderRepo = new WorkOrderRepository(prisma);
  * 
  * Consolidated dashboard endpoint - combines 6 API calls into 1
  * Reduces network overhead and ensures consistent data snapshot
- * 
- * Features:
- * - Redis caching (60s TTL for dashboard data)
- * - Parallel database queries
- * - Permission-based filtering
- * 
- * Original endpoints consolidated:
- * - /api/admin/workorders/stats
- * - /api/admin/workorders/recent
- * - /api/admin/workorders/department-workload
- * - /api/admin/workorders/top-performers
- * - /api/admin/workorders/analytics
- * - /api/admin/workorders/response-stats
  */
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return ApiErrors.unauthorized('Session tidak valid');
         }
 
         if (!await hasPermission('work_order_dashboard:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat dashboard work order');
         }
 
         const { searchParams } = new URL(request.url);
@@ -45,9 +33,8 @@ export async function GET(request: NextRequest) {
 
         // If user has no access, return empty data
         if (emptyResponse) {
-            return NextResponse.json({
-                success: true,
-                data: getEmptyDashboardData(),
+            return apiSuccess({
+                ...getEmptyDashboardData(),
                 message: "Restricted access: No department/site assigned."
             });
         }
@@ -60,10 +47,9 @@ export async function GET(request: NextRequest) {
         );
 
         if (cachedData) {
-            return NextResponse.json({
-                success: true,
-                data: cachedData,
-                cached: true, // Indicate data is from cache
+            return apiSuccess({
+                ...cachedData,
+                cached: true,
             });
         }
 
@@ -159,14 +145,13 @@ export async function GET(request: NextRequest) {
             { departmentId, siteId }
         );
 
-        return NextResponse.json({
-            success: true,
-            data: dashboardData,
+        return apiSuccess({
+            ...dashboardData,
             cached: false,
         });
     } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        return NextResponse.json({ error: 'Failed to fetch dashboard data' }, { status: 500 });
+        return ApiErrors.internalError('Gagal mengambil data dashboard');
     }
 }
 

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getAppVersionService } from '@/modules/app-version'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 // Route segment config for large file uploads (APK)
 export const runtime = 'nodejs'
@@ -13,12 +14,12 @@ export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Permission check
         if (!await hasPermission('app_version:read')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat versi aplikasi')
         }
 
         const { searchParams } = new URL(request.url)
@@ -31,8 +32,7 @@ export async function GET(request: NextRequest) {
         const service = getAppVersionService()
         const result = await service.getAllVersions({ page, limit, platform, isActive })
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             data: result.data,
             pagination: {
                 page: result.page,
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: any) {
         console.error('Error fetching app versions:', error)
-        return NextResponse.json({ error: error.message || 'Failed to fetch app versions' }, { status: 500 })
+        return ApiErrors.internalError(error.message || 'Gagal mengambil daftar versi aplikasi')
     }
 }
 
@@ -52,12 +52,12 @@ export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request)
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Session tidak valid')
         }
 
         // Permission check
         if (!await hasPermission('app_version:create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk upload versi aplikasi')
         }
 
         const formData = await request.formData()
@@ -77,8 +77,9 @@ export async function POST(request: NextRequest) {
 
         // Validation - butuh APK atau field lengkap
         if (!apkFile && (!version || !buildNumber || !versionCode)) {
-            return NextResponse.json(
-                { error: 'Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode' },
+            return apiError(
+                'Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode',
+                ErrorCodes.VALIDATION_ERROR,
                 { status: 400 }
             )
         }
@@ -90,7 +91,6 @@ export async function POST(request: NextRequest) {
 
         if (apkFile) {
             // For large files, save to temp file instead of loading into memory
-            // This prevents memory issues with APK files > 100MB
             const fs = await import('fs/promises')
             const path = await import('path')
             const os = await import('os')
@@ -144,23 +144,9 @@ export async function POST(request: NextRequest) {
             console.error('Logging failed', e)
         }
 
-        return NextResponse.json({
-            success: true,
-            data: appVersion,
-            message: 'Versi aplikasi berhasil diupload'
-        }, { status: 201 })
+        return apiSuccess(appVersion, { status: 201, message: 'Versi aplikasi berhasil diupload' })
     } catch (error: any) {
         console.error('[API] Error uploading app version:', error)
-        
-        // Ensure we always return JSON, even on error
-        const errorMessage = error?.message || 'Failed to upload app version'
-        const errorDetails: any = { error: errorMessage }
-        
-        // Include stack trace in development for debugging
-        if (process.env.NODE_ENV === 'development' && error?.stack) {
-            errorDetails.stack = error.stack
-        }
-        
-        return NextResponse.json(errorDetails, { status: 500 })
+        return ApiErrors.internalError(error?.message || 'Gagal upload versi aplikasi')
     }
 }

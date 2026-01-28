@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
 import { checkSiteRestriction, canAccessSite } from '@/lib/site-restriction'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 /**
  * @swagger
@@ -80,28 +81,19 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   try {
     body = await _req.json()
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Invalid JSON in request body' },
-      { status: 400 }
-    )
+    return apiError('Invalid JSON in request body', ErrorCodes.BAD_REQUEST, { status: 400 })
   }
 
   console.log('[USER-UPDATE] Updating user:', { id, body })
 
   // Validate input
   if (body.name !== undefined && typeof body.name !== 'string') {
-    return NextResponse.json(
-      { error: 'Name must be a string' },
-      { status: 400 }
-    )
+    return apiError('Nama harus berupa string', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   if (body.password !== undefined) {
     if (typeof body.password !== 'string' || body.password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
-        { status: 400 }
-      )
+      return apiError('Password minimal 6 karakter', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
   }
 
@@ -151,7 +143,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     const isSelfUpdate = session.user.id === id
     
     if (!permissions.includes('users:update')) {
-      return NextResponse.json({ error: 'Unauthorized: You do not have permission to update users.' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengupdate user')
     }
 
     // Check if we need to validate sensitive field changes
@@ -170,19 +162,19 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     if (isSelfUpdate && currentData) {
         if (body.roleId !== undefined && body.roleId !== currentData.roleId) {
           console.warn('[USER-UPDATE] SECURITY: Self role change attempt blocked', { userId: id, old: currentData.roleId, new: body.roleId })
-          return NextResponse.json({ error: 'Unauthorized: Cannot change your own role' }, { status: 403 })
+          return ApiErrors.forbidden('Tidak dapat mengubah role sendiri')
         }
         if (body.siteId !== undefined && body.siteId !== currentData.siteId) {
           console.warn('[USER-UPDATE] SECURITY: Self site change attempt blocked', { userId: id })
-          return NextResponse.json({ error: 'Unauthorized: Cannot change your own site assignment' }, { status: 403 })
+          return ApiErrors.forbidden('Tidak dapat mengubah site sendiri')
         }
         if (body.departmentId !== undefined && body.departmentId !== currentData.departmentId) {
           console.warn('[USER-UPDATE] SECURITY: Self department change attempt blocked', { userId: id })
-          return NextResponse.json({ error: 'Unauthorized: Cannot change your own department' }, { status: 403 })
+          return ApiErrors.forbidden('Tidak dapat mengubah departemen sendiri')
         }
         if (body.isActive !== undefined && body.isActive !== currentData.isActive) {
           console.warn('[USER-UPDATE] SECURITY: Self status change attempt blocked', { userId: id })
-          return NextResponse.json({ error: 'Unauthorized: Cannot change your own active status' }, { status: 403 })
+          return ApiErrors.forbidden('Tidak dapat mengubah status aktif sendiri')
         }
     }
 
@@ -201,16 +193,16 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       })
 
       if (!targetUser) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return ApiErrors.notFound('User')
       }
 
       if (!canAccessSite(session, 'users', targetUser.siteId)) {
-        return NextResponse.json({ error: 'Unauthorized: You can only update users within your assigned site.' }, { status: 403 })
+        return ApiErrors.forbidden('Anda hanya dapat mengupdate user di site Anda')
       }
 
       // Also prevent changing siteId to something else
       if (data.siteId && data.siteId !== userSiteId) {
-        return NextResponse.json({ error: 'Unauthorized: You cannot change user site to a different site.' }, { status: 403 })
+        return ApiErrors.forbidden('Anda tidak dapat mengubah site user ke site lain')
       }
     }
 
@@ -279,21 +271,15 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       }
     })
 
-    return NextResponse.json({ ok: true })
+    return apiSuccess({ ok: true }, { message: 'User berhasil diperbarui' })
   } catch (error: any) {
     console.error('[USER-UPDATE] Error updating user:', error)
 
     if (error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+      return ApiErrors.notFound('User')
     }
 
-    return NextResponse.json(
-      { error: 'Failed to update user' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal mengupdate user')
   }
 }
 
@@ -407,10 +393,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   // Validate ID
   if (!id || typeof id !== 'string') {
-    return NextResponse.json(
-      { error: 'Invalid user ID' },
-      { status: 400 }
-    )
+    return apiError('User ID tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   try {
@@ -475,41 +458,35 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       },
     })
 
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (!user) return ApiErrors.notFound('User')
 
     // Check permissions
     const permissions = await getUserPermissions(session.user.id)
     const isSelfView = session.user.id === id
 
     if (!permissions.includes('users:read') && !isSelfView) {
-      return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat user')
     }
 
     // Site restriction check using centralized helper
     if (!isSelfView && !canAccessSite(session, 'users', user.siteId)) {
-      return NextResponse.json({ error: 'Unauthorized: You can only view users within your assigned site.' }, { status: 403 })
+      return ApiErrors.forbidden('Anda hanya dapat melihat user di site Anda')
     }
 
-    return NextResponse.json({ user })
+    return apiSuccess({ user })
   } catch (e: any) {
     console.error('[USER-GET] Error fetching user:', e)
 
     // Handle specific database errors
     if (e.code === 'P1001') {
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 503 }
-      )
+      return apiError('Database connection failed', ErrorCodes.INTERNAL_ERROR, { status: 503 })
     }
 
     if (e.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Database constraint violation' },
-        { status: 409 }
-      )
+      return ApiErrors.conflict('Database constraint violation')
     }
 
-    return NextResponse.json({ error: e.message || 'Gagal memuat pengguna' }, { status: 500 })
+    return ApiErrors.internalError('Gagal memuat pengguna')
   }
 }
 
@@ -553,10 +530,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   // Validate ID
   if (!id || typeof id !== 'string') {
-    return NextResponse.json(
-      { error: 'Invalid user ID' },
-      { status: 400 }
-    )
+    return apiError('User ID tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
   }
 
   try {
@@ -565,7 +539,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     // Check permissions
     const permissions = await getUserPermissions(session.user.id)
     if (!permissions.includes('users:delete')) {
-      return NextResponse.json({ error: 'Unauthorized: You do not have permission to delete users.' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus user')
     }
 
     // Site restriction check using centralized helper
@@ -576,11 +550,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       })
 
       if (!targetUser) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        return ApiErrors.notFound('User')
       }
 
       if (!canAccessSite(session, 'users', targetUser.siteId)) {
-        return NextResponse.json({ error: 'Unauthorized: You can only delete users within your assigned site.' }, { status: 403 })
+        return ApiErrors.forbidden('Anda hanya dapat menghapus user di site Anda')
       }
     }
 
@@ -599,20 +573,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       details: { id, name: targetUserForLog?.name }
     })
 
-    return NextResponse.json({ ok: true })
+    return apiSuccess({ ok: true }, { message: 'User berhasil dihapus' })
   } catch (error: any) {
     console.error('[USER-DELETE] Error deleting user:', error)
 
     if (error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+      return ApiErrors.notFound('User')
     }
 
-    return NextResponse.json(
-      { error: 'Failed to delete user' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal menghapus user')
   }
 }
