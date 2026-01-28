@@ -17,7 +17,7 @@ export const PERMISSION_GROUPS = {
     MARKETING: ['marketing', 'coupon', 'sales_dashboard', 'sales', 'canvasing'],
     CHAT: ['chat', 'broadcast'],
     USERS: ['users'],
-    SALARY: ['salary', 'salary_config', 'salary_components'],
+    SALARY: ['salary', 'salary_users'],
 
 } as const
 

@@ -32,6 +32,8 @@ interface User {
     overtimeRateNational: number | null
     overtimeCalcTypeNational?: string | null
     woIncentiveRate: number | null
+    payPeriodDay: number
+    payDay: number
     lateDeductionRate: number | null
     absentDeductionRate: number | null
     departments?: { name: string } | null
@@ -71,6 +73,8 @@ export default function SalaryUsersClient() {
     const [employeeType, setEmployeeType] = useState('KARYAWAN')
     const [overtimeRateNormal, setOvertimeRateNormal] = useState('')
     const [overtimeCalcTypeNormal, setOvertimeCalcTypeNormal] = useState('PER_HOUR')
+    const [payPeriodDay, setPayPeriodDay] = useState(25)
+    const [payDay, setPayDay] = useState(1)
     const [overtimeRateHoliday, setOvertimeRateHoliday] = useState('')
     const [overtimeCalcTypeHoliday, setOvertimeCalcTypeHoliday] = useState('PER_HOUR')
     const [overtimeRateNational, setOvertimeRateNational] = useState('')
@@ -147,6 +151,8 @@ export default function SalaryUsersClient() {
                     overtimeRateNational: overtimeRateNational ? parseFloat(overtimeRateNational) : null,
                     overtimeCalcTypeNational,
                     woIncentiveRate: woIncentiveRate ? parseFloat(woIncentiveRate) : null,
+                    payPeriodDay: payPeriodDay,
+                    payDay: payDay,
                     lateDeductionRate: lateDeductionRate ? parseFloat(lateDeductionRate) : null,
                     absentDeductionRate: absentDeductionRate ? parseFloat(absentDeductionRate) : null,
                 }),
@@ -214,6 +220,8 @@ export default function SalaryUsersClient() {
                     overtimeRateNational: editForm.overtimeRateNational ? parseFloat(editForm.overtimeRateNational) : null,
                     overtimeCalcTypeNational: editForm.overtimeCalcTypeNational,
                     woIncentiveRate: editForm.woIncentiveRate ? parseFloat(editForm.woIncentiveRate) : null,
+                    payPeriodDay: editForm.payPeriodDay,
+                    payDay: editForm.payDay,
                     lateDeductionRate: editForm.lateDeductionRate ? parseFloat(editForm.lateDeductionRate) : null,
                     absentDeductionRate: editForm.absentDeductionRate ? parseFloat(editForm.absentDeductionRate) : null,
                 }),
@@ -243,6 +251,8 @@ export default function SalaryUsersClient() {
         setOvertimeRateNational('')
         setOvertimeCalcTypeNational('PER_HOUR')
         setWoIncentiveRate('')
+        setPayPeriodDay(25)
+        setPayDay(1)
         setLateDeductionRate('')
         setAbsentDeductionRate('')
         setPendingComponents([])
@@ -274,7 +284,9 @@ export default function SalaryUsersClient() {
         overtimeCalcTypeNational: 'PER_HOUR',
         woIncentiveRate: '',
         lateDeductionRate: '',
-        absentDeductionRate: ''
+        absentDeductionRate: '',
+        payPeriodDay: 25,
+        payDay: 1
     })
 
     const openEditModal = (user: User) => {
@@ -290,7 +302,9 @@ export default function SalaryUsersClient() {
             overtimeCalcTypeNational: user.overtimeCalcTypeNational || 'PER_HOUR',
             woIncentiveRate: user.woIncentiveRate?.toString() || '',
             lateDeductionRate: user.lateDeductionRate?.toString() || '',
-            absentDeductionRate: user.absentDeductionRate?.toString() || ''
+            absentDeductionRate: user.absentDeductionRate?.toString() || '',
+            payPeriodDay: user.payPeriodDay || 25,
+            payDay: user.payDay || 1
         })
         setShowEditModal(true)
         fetchUserComponents(user.id)
@@ -623,6 +637,34 @@ export default function SalaryUsersClient() {
                         />
                     </div>
 
+                    {/* Siklus Gaji & Cutoff */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-emerald-600">Tanggal Cutoff (Siklus) *</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="31"
+                                value={payPeriodDay}
+                                onChange={(e) => setPayPeriodDay(parseInt(e.target.value))}
+                                className="w-full px-3 py-2 border-2 border-emerald-100 rounded-lg dark:bg-gray-700 dark:border-emerald-900/30"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Tanggal Gajian *</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="31"
+                                value={payDay}
+                                onChange={(e) => setPayDay(parseInt(e.target.value))}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                required
+                            />
+                        </div>
+                    </div>
+
                     {/* Rate Lembur - Compact Grid */}
                     <div className="border-t border-gray-100 dark:border-gray-700/50 pt-4 mt-4">
                         <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
@@ -930,6 +972,32 @@ export default function SalaryUsersClient() {
                                     }}
                                     className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
                                     placeholder="0"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Cutoff & Pay Day */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label className="block text-sm font-bold mb-1 text-emerald-600">Tanggal Cutoff (Siklus)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    value={editForm.payPeriodDay}
+                                    onChange={(e) => setEditForm({ ...editForm, payPeriodDay: parseInt(e.target.value) })}
+                                    className="w-full px-3 py-2 border-2 border-emerald-100 rounded-lg dark:bg-gray-700 dark:border-emerald-900/30 font-semibold"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Tanggal Gajian</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    value={editForm.payDay}
+                                    onChange={(e) => setEditForm({ ...editForm, payDay: parseInt(e.target.value) })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
                                 />
                             </div>
                         </div>

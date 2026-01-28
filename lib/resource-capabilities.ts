@@ -28,18 +28,13 @@ export interface ResourceCapability {
  * Value: available actions for that resource
  */
 export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
-    // ====== SALARY MODULE ======
     salary: {
         actions: ['read', 'create', 'update', 'delete', 'calculate', 'audit', 'approve', 'mark_paid', 'site_only', 'department_only'],
-        description: 'Manajemen penggajian karyawan'
+        description: 'Manajemen Daftar Gaji'
     },
-    salary_config: {
-        actions: ['read', 'update', 'site_only'],
-        description: 'Konfigurasi parameter gaji'
-    },
-    salary_components: {
+    salary_users: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
-        description: 'Komponen gaji (tunjangan/potongan)'
+        description: 'Manajemen Karyawan Digaji & Pengaturan Gaji Individu'
     },
 
     // ====== READ-ONLY RESOURCES ======

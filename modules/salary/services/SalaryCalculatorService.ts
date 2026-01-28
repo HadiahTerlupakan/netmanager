@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma'
 import { SalaryRepository } from '../repositories/SalaryRepository'
-import { SalaryConfigRepository } from '../repositories/SalaryConfigRepository'
 import { SalaryComponentRepository } from '../repositories/SalaryComponentRepository'
 import { AttendanceRepository } from '../../attendance/repositories/AttendanceRepository'
 import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
@@ -29,6 +28,8 @@ interface AttendanceStats {
     present: number
     late: number
     absent: number // Alpha
+    sick: number
+    permit: number
     workDays: number
 }
 
@@ -37,11 +38,15 @@ interface OvertimeStats {
     normalMinutes: number
     holidayMinutes: number
     nationalHolidayMinutes: number
+    // Counts for event-based calculation
+    normalCount: number
+    holidayCount: number
+    nationalCount: number
+    totalCount: number
 }
 
 export class SalaryCalculatorService {
     private salaryRepo: SalaryRepository
-    private configRepo: SalaryConfigRepository
     private componentRepo: SalaryComponentRepository
     private attendanceRepo: AttendanceRepository
     private overtimeRepo: OvertimeRepository
@@ -49,7 +54,6 @@ export class SalaryCalculatorService {
 
     constructor() {
         this.salaryRepo = new SalaryRepository()
-        this.configRepo = new SalaryConfigRepository()
         this.componentRepo = new SalaryComponentRepository()
         this.attendanceRepo = new AttendanceRepository()
         this.overtimeRepo = new OvertimeRepository()
@@ -59,44 +63,46 @@ export class SalaryCalculatorService {
     /**
      * Calculate salary for a single user for a given month
      */
-    async calculateSalary(userId: string, month: number, year: number): Promise<SalaryCalculationResult> {
-        // Get config and user data
-        const [config, user, userComponents] = await Promise.all([
-            this.configRepo.getOrCreateConfig(),
-            prisma.user.findUnique({
-                where: { id: userId },
-                select: {
-                    id: true,
-                    name: true,
-                    basicSalary: true,
-                    employeeType: true,
-                    departmentId: true,
-                    siteId: true,
-                    // User-level rate overrides
-                    woIncentiveRate: true,
-                    lateDeductionRate: true,
-                    absentDeductionRate: true,
-                    overtimeRateNormal: true,
-                    overtimeRateHoliday: true,
-                    overtimeRateNational: true,
-                    overtimeCalcTypeNormal: true,
-                    overtimeCalcTypeHoliday: true,
-                    overtimeCalcTypeNational: true
-                }
-            }),
-            this.componentRepo.getUserComponents(userId)
-        ])
+    async calculateSalary(userId: string, month: number, year: number, existingUser?: any): Promise<SalaryCalculationResult> {
+        // Get user data and components
+        const user = existingUser || await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                basicSalary: true,
+                employeeType: true,
+                departmentId: true,
+                siteId: true,
+                // Salary configuration directly from User model
+                payPeriodDay: true,
+                payDay: true,
+                woIncentiveEnabled: true,
+                woIncentiveRate: true,
+                lateDeductionRate: true,
+                absentDeductionRate: true,
+                overtimeRateNormal: true,
+                overtimeRateHoliday: true,
+                overtimeRateNational: true,
+                overtimeCalcTypeNormal: true,
+                overtimeCalcTypeHoliday: true,
+                overtimeCalcTypeNational: true,
+                workDays: true
+            }
+        })
 
         if (!user) {
             throw new Error(`User ${userId} tidak ditemukan`)
         }
 
+        const userComponents = await this.componentRepo.getUserComponents(userId)
+
         if (!user.basicSalary) {
             throw new Error(`Gaji pokok untuk ${user.name || userId} belum diset`)
         }
 
-        // Calculate date range for the period
-        const { startDate, endDate } = this.getPeriodDateRange(month, year, config.payPeriodDay)
+        // Calculate date range for the period using user's Pay Period Day
+        const { startDate, endDate } = this.getPeriodDateRange(month, year, user.payPeriodDay)
 
         // Gather data from various modules
         const [attendanceStats, overtimeStats, woStats] = await Promise.all([
@@ -115,46 +121,43 @@ export class SalaryCalculatorService {
         })
 
         // 2. User-assigned components (tunjangan tetap)
-        // 2. User-assigned components (tunjangan tetap)
         for (const uc of userComponents) {
             let amount = uc.amount
             let rate: number | undefined = undefined
 
             if (uc.component.rateType === 'PERCENTAGE') {
-                amount = (user.basicSalary * uc.amount) / 100
+                amount = Math.round((user.basicSalary * uc.amount) / 100)
                 rate = uc.amount // Save the percentage (e.g., 5 or 10) as rate
             }
 
             if (uc.component.type === 'EARNING') {
                 earnings.push({
                     name: uc.component.name,
-                    amount: amount,
+                    amount: Math.round(amount),
                     rate: rate,
                     notes: uc.notes || undefined
                 })
             } else {
                 deductions.push({
                     name: uc.component.name,
-                    amount: amount,
+                    amount: Math.round(amount),
                     rate: rate,
                     notes: uc.notes || undefined
                 })
             }
         }
 
-        // 3. Overtime pay (use user rates if set, otherwise global config)
+        // 3. Overtime pay (use user rates)
         if (overtimeStats.totalMinutes > 0) {
             // Determine effective overtime rates
-            // Note: user can have different CalcType per overtime type
-            // For simplicity, we use user's normal calc type as the overall type, or fallback to config
-            const effectiveOtRateType = user.overtimeCalcTypeNormal || config.overtimeRateType
-            const effectiveOtRateNormal = (user.overtimeRateNormal != null && user.overtimeRateNormal > 0) ? user.overtimeRateNormal : config.overtimeRateNormal
-            const effectiveOtRateHoliday = (user.overtimeRateHoliday != null && user.overtimeRateHoliday > 0) ? user.overtimeRateHoliday : config.overtimeRateHoliday
-            const effectiveOtRateNational = (user.overtimeRateNational != null && user.overtimeRateNational > 0) ? user.overtimeRateNational : config.overtimeRateNational
+            const effectiveOtRateType = user.overtimeCalcTypeNormal
+            const effectiveOtRateNormal = user.overtimeRateNormal || 0
+            const effectiveOtRateHoliday = user.overtimeRateHoliday || 0
+            const effectiveOtRateNational = user.overtimeRateNational || 0
 
             const overtimePay = this.calculateOvertimePay(
                 overtimeStats,
-                effectiveOtRateType as RateType,
+                effectiveOtRateType,
                 effectiveOtRateNormal,
                 effectiveOtRateHoliday,
                 effectiveOtRateNational,
@@ -165,18 +168,18 @@ export class SalaryCalculatorService {
             if (overtimePay.amount > 0) {
                 earnings.push({
                     name: 'Lembur',
-                    amount: overtimePay.amount,
-                    quantity: overtimePay.hours,
-                    rate: overtimePay.rate,
+                    amount: Math.round(overtimePay.amount),
+                    quantity: Number(overtimePay.hours.toFixed(1)),
+                    rate: Math.round(overtimePay.rate),
                     notes: `Total ${overtimePay.hours.toFixed(1)} jam`
                 })
             }
         }
 
-        // 4. Work Order Incentive (use user rate if set, otherwise global config)
-        if (config.woIncentiveEnabled && woStats.completed > 0) {
-            const effectiveWoRate = (user.woIncentiveRate != null && user.woIncentiveRate > 0) ? user.woIncentiveRate : config.woIncentiveRate
-            const woIncentive = woStats.completed * effectiveWoRate
+        // 4. Work Order Incentive
+        if (user.woIncentiveEnabled && woStats.completed > 0) {
+            const effectiveWoRate = user.woIncentiveRate || 0
+            const woIncentive = Math.round(woStats.completed * effectiveWoRate)
             earnings.push({
                 name: 'Insentif WO',
                 amount: woIncentive,
@@ -186,10 +189,10 @@ export class SalaryCalculatorService {
             })
         }
 
-        // 5. Late deduction (use user rate if set, otherwise global config)
+        // 5. Late deduction
         if (attendanceStats.late > 0) {
-            const effectiveLateRate = (user.lateDeductionRate != null && user.lateDeductionRate > 0) ? user.lateDeductionRate : config.lateDeductionRate
-            const lateDeduction = attendanceStats.late * effectiveLateRate
+            const effectiveLateRate = user.lateDeductionRate || 0
+            const lateDeduction = Math.round(attendanceStats.late * effectiveLateRate)
             deductions.push({
                 name: 'Potongan Telat',
                 amount: lateDeduction,
@@ -199,16 +202,34 @@ export class SalaryCalculatorService {
             })
         }
 
-        // 6. Absent (Alpha) deduction (use user rate if set, otherwise global config)
+        // 6. Absent (Alpha) deduction
         if (attendanceStats.absent > 0) {
-            const effectiveAbsentRate = (user.absentDeductionRate != null && user.absentDeductionRate > 0) ? user.absentDeductionRate : config.absentDeductionRate
-            const absentDeduction = attendanceStats.absent * effectiveAbsentRate
+            const effectiveAbsentRate = user.absentDeductionRate || 0
+            const absentDeduction = Math.round(attendanceStats.absent * effectiveAbsentRate)
             deductions.push({
                 name: 'Potongan Alpha',
                 amount: absentDeduction,
                 quantity: attendanceStats.absent,
                 rate: effectiveAbsentRate,
                 notes: `${attendanceStats.absent} hari alpha`
+            })
+        }
+
+        // 7. Info only: Sick & Permit (Transparent reporting)
+        if (attendanceStats.sick > 0) {
+            earnings.push({
+                name: 'Sakit',
+                amount: 0,
+                quantity: attendanceStats.sick,
+                notes: `${attendanceStats.sick} hari (Informasi)`
+            })
+        }
+        if (attendanceStats.permit > 0) {
+            earnings.push({
+                name: 'Izin',
+                amount: 0,
+                quantity: attendanceStats.permit,
+                notes: `${attendanceStats.permit} hari (Informasi)`
             })
         }
 
@@ -233,8 +254,8 @@ export class SalaryCalculatorService {
     /**
      * Calculate and save salary for a user
      */
-    async calculateAndSave(userId: string, month: number, year: number): Promise<string> {
-        const result = await this.calculateSalary(userId, month, year)
+    async calculateAndSave(userId: string, month: number, year: number, existingUser?: any): Promise<string> {
+        const result = await this.calculateSalary(userId, month, year, existingUser)
 
         // Upsert salary record
         const salary = await this.salaryRepo.upsert(userId, month, year, {
@@ -296,7 +317,27 @@ export class SalaryCalculatorService {
 
         const users = await prisma.user.findMany({
             where,
-            select: { id: true, name: true }
+            select: {
+                id: true,
+                name: true,
+                basicSalary: true,
+                employeeType: true,
+                departmentId: true,
+                siteId: true,
+                payPeriodDay: true,
+                payDay: true,
+                woIncentiveEnabled: true,
+                woIncentiveRate: true,
+                lateDeductionRate: true,
+                absentDeductionRate: true,
+                overtimeRateNormal: true,
+                overtimeRateHoliday: true,
+                overtimeRateNational: true,
+                overtimeCalcTypeNormal: true,
+                overtimeCalcTypeHoliday: true,
+                overtimeCalcTypeNational: true,
+                workDays: true
+            }
         })
 
         let success = 0
@@ -304,7 +345,7 @@ export class SalaryCalculatorService {
 
         for (const user of users) {
             try {
-                await this.calculateAndSave(user.id, month, year)
+                await this.calculateAndSave(user.id, month, year, user)
                 success++
             } catch (error) {
                 failed.push({
@@ -351,17 +392,52 @@ export class SalaryCalculatorService {
         let present = 0
         let late = 0
         let absent = 0
+        let sick = 0
+        let permit = 0
 
         for (const a of attendances) {
             if (a.status === 'ON_TIME') present++
             else if (a.status === 'LATE') { present++; late++ }
             else if (a.status === 'ALPHA' || a.status === 'ABSENT') absent++
+            else if (a.status === 'SICK') sick++
+            else if (a.status === 'PERMIT') permit++
         }
 
-        // Estimate work days (simple: ~22 days per month)
-        const workDays = 22
+        // Calculate dynamic work days based on user's schedule
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { workDays: true }
+        })
+        
+        const workDays = this.calculateWorkDays(startDate, endDate, user?.workDays || 'Senin,Selasa,Rabu,Kamis,Jumat,Sabtu')
 
-        return { present, late, absent, workDays }
+        return { present, late, absent, sick, permit, workDays }
+    }
+
+    /**
+     * Helper to calculate actual working days in a period
+     */
+    private calculateWorkDays(startDate: Date, endDate: Date, workDaysStr: string): number {
+        const dayMap: Record<string, number> = {
+            'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
+            'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6
+        }
+
+        const activeDays = workDaysStr.split(',').map(d => {
+            const trimmed = d.trim()
+            const parsed = parseInt(trimmed)
+            return isNaN(parsed) ? dayMap[trimmed] : parsed
+        }).filter(d => d !== undefined)
+
+        let count = 0
+        const cur = new Date(startDate)
+        while (cur <= endDate) {
+            if (activeDays.includes(cur.getDay())) {
+                count++
+            }
+            cur.setDate(cur.getDate() + 1)
+        }
+        return count || 22 // Fallback to 22 if calculation fails
     }
 
     /**
@@ -372,7 +448,16 @@ export class SalaryCalculatorService {
             where: {
                 userId,
                 status: { in: ['APPROVED', 'COMPLETED'] },
-                createdAt: { gte: startDate, lte: endDate }
+                // Filter by startTime (actual work date), fallback to createdAt
+                OR: [
+                    { startTime: { gte: startDate, lte: endDate } },
+                    {
+                        AND: [
+                            { startTime: null },
+                            { createdAt: { gte: startDate, lte: endDate } }
+                        ]
+                    }
+                ]
             },
             select: {
                 duration: true,
@@ -386,37 +471,71 @@ export class SalaryCalculatorService {
         let holidayMinutes = 0
         let nationalHolidayMinutes = 0
 
+        let normalCount = 0
+        let holidayCount = 0
+        let nationalCount = 0
+
         for (const ot of overtimes) {
             const duration = ot.duration || 0
             totalMinutes += duration
 
             if (ot.isNationalHoliday) {
                 nationalHolidayMinutes += duration
+                nationalCount++
             } else if (ot.isHolidayOvertime) {
                 holidayMinutes += duration
+                holidayCount++
             } else {
                 normalMinutes += duration
+                normalCount++
             }
         }
 
-        return { totalMinutes, normalMinutes, holidayMinutes, nationalHolidayMinutes }
+        return { 
+            totalMinutes, 
+            normalMinutes, 
+            holidayMinutes, 
+            nationalHolidayMinutes,
+            normalCount,
+            holidayCount,
+            nationalCount,
+            totalCount: overtimes.length
+        }
     }
 
     /**
      * Get work order statistics for the period (for incentive)
-     * Only counts WO that have been VERIFIED by admin
+     * Counts WO where user is main technician or helper
+     * Uses verifiedAt/closedAt for accurate period filtering
      */
     private async getWorkOrderStats(userId: string, startDate: Date, endDate: Date): Promise<{ completed: number }> {
-        // Find WO where this user is assigned and the WO has been VERIFIED by admin
-        const verifiedCount = await prisma.workOrders.count({
+        // Find WO where this user is assigned (main or helper) and status is final (VERIFIED/CLOSED)
+        const count = await prisma.workOrders.count({
             where: {
-                assignedToId: userId,
-                status: 'VERIFIED',
-                updatedAt: { gte: startDate, lte: endDate }
+                AND: [
+                    {
+                        OR: [
+                            { assignedToId: userId },
+                            { assignments: { some: { userId: userId, status: { not: 'REJECTED' } } } }
+                        ]
+                    },
+                    {
+                        OR: [
+                            { verifiedAt: { gte: startDate, lte: endDate } },
+                            {
+                                AND: [
+                                    { verifiedAt: null },
+                                    { closedAt: { gte: startDate, lte: endDate } }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                status: { in: ['VERIFIED', 'CLOSED'] }
             }
         })
 
-        return { completed: verifiedCount }
+        return { completed: count }
     }
 
     /**
@@ -434,12 +553,16 @@ export class SalaryCalculatorService {
         const totalHours = stats.totalMinutes / 60
 
         if (rateType === 'FIXED') {
-            // Fixed rate per overtime event (count as 1 per day)
-            const overtimeDays = Math.ceil(totalHours / 3) // Assume 3 hours = 1 overtime event
+            // Fixed rate per overtime record (event-based)
+            const amount = 
+                (stats.normalCount * rateNormal) +
+                (stats.holidayCount * rateHoliday) +
+                (stats.nationalCount * rateNational)
+            
             return {
-                amount: overtimeDays * rateNormal,
+                amount,
                 hours: totalHours,
-                rate: rateNormal
+                rate: rateNormal // Representative rate
             }
         } else if (rateType === 'PERCENTAGE') {
             // Percentage of daily salary per hour
@@ -450,23 +573,40 @@ export class SalaryCalculatorService {
             const holidayHours = stats.holidayMinutes / 60
             const nationalHours = stats.nationalHolidayMinutes / 60
 
+            // Multipliers for holiday/national
+            const holidayMultiplier = rateHoliday > 0 ? rateHoliday / 100 : 2 // Default 2x if not set
+            const nationalMultiplier = rateNational > 0 ? rateNational / 100 : 3 // Default 3x if not set
+
             const amount = 
                 (normalHours * hourlyRate) +
-                (holidayHours * hourlyRate * rateHoliday / 100) +
-                (nationalHours * hourlyRate * rateNational / 100)
+                (holidayHours * hourlyRate * holidayMultiplier) +
+                (nationalHours * hourlyRate * nationalMultiplier)
 
             return { amount, hours: totalHours, rate: hourlyRate }
         } else if (rateType === 'DAILY_SALARY') {
-            // 1x daily salary per overtime day
+            // 1x daily salary per overtime shift (8h proportional)
             const dailySalary = basicSalary / workDays
-            const overtimeDays = Math.ceil(totalHours / 8) // 8 hours = 1 day
+            
+            const normalShifts = (stats.normalMinutes / 60) / 8
+            const holidayShifts = (stats.holidayMinutes / 60) / 8
+            const nationalShifts = (stats.nationalHolidayMinutes / 60) / 8
+
+            // Optional multipliers for different days
+            const holidayMult = rateHoliday > 0 ? rateHoliday / 100 : 1
+            const nationalMult = rateNational > 0 ? rateNational / 100 : 1
+
+            const amount = 
+                (normalShifts * dailySalary) +
+                (holidayShifts * dailySalary * holidayMult) +
+                (nationalShifts * dailySalary * nationalMult)
+
             return {
-                amount: overtimeDays * dailySalary,
+                amount,
                 hours: totalHours,
                 rate: dailySalary
             }
         } else {
-            // PER_HOUR (default)
+            // PER_HOUR (standard)
             const normalHours = stats.normalMinutes / 60
             const holidayHours = stats.holidayMinutes / 60
             const nationalHours = stats.nationalHolidayMinutes / 60

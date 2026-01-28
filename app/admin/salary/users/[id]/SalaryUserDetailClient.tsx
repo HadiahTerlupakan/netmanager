@@ -194,21 +194,33 @@ export default function SalaryUserDetailClient() {
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-600 dark:text-gray-400">Hari Biasa</span>
                                         <div className="flex items-center gap-2">
-                                           <span className="font-mono">{user.overtimeCalcTypeNormal === 'FIXED' ? formatCurrency(user.overtimeRateNormal) : `${user.overtimeRateNormal}%`}</span> 
+                                           <span className="font-mono">
+                                                {user.overtimeCalcTypeNormal === 'PERCENTAGE' 
+                                                    ? `${user.overtimeRateNormal}%` 
+                                                    : formatCurrency(user.overtimeRateNormal)}
+                                           </span> 
                                            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{user.overtimeCalcTypeNormal}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-600 dark:text-gray-400">Hari Libur</span>
                                         <div className="flex items-center gap-2">
-                                            <span className="font-mono">{user.overtimeCalcTypeHoliday === 'FIXED' ? formatCurrency(user.overtimeRateHoliday) : `${user.overtimeRateHoliday}%`}</span>
+                                            <span className="font-mono">
+                                                {user.overtimeCalcTypeHoliday === 'PERCENTAGE' 
+                                                    ? `${user.overtimeRateHoliday}%` 
+                                                    : formatCurrency(user.overtimeRateHoliday)}
+                                            </span>
                                             <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{user.overtimeCalcTypeHoliday}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-600 dark:text-gray-400">Libur Nasional</span>
                                         <div className="flex items-center gap-2">
-                                            <span className="font-mono">{user.overtimeCalcTypeNational === 'FIXED' ? formatCurrency(user.overtimeRateNational) : `${user.overtimeRateNational}%`}</span>
+                                            <span className="font-mono">
+                                                {user.overtimeCalcTypeNational === 'PERCENTAGE' 
+                                                    ? `${user.overtimeRateNational}%` 
+                                                    : formatCurrency(user.overtimeRateNational)}
+                                            </span>
                                             <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{user.overtimeCalcTypeNational}</span>
                                         </div>
                                     </div>

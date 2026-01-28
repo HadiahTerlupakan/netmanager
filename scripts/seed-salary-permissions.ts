@@ -25,15 +25,11 @@ const SALARY_PERMISSIONS = [
     { resource: 'salary', action: 'update', description: 'Mengubah data gaji' },
     { resource: 'salary', action: 'delete', description: 'Menghapus data gaji' },
     
-    // Salary config permissions
-    { resource: 'salary_config', action: 'read', description: 'Melihat konfigurasi gaji' },
-    { resource: 'salary_config', action: 'update', description: 'Mengubah konfigurasi gaji' },
-    
-    // Salary components permissions
-    { resource: 'salary_components', action: 'read', description: 'Melihat komponen gaji' },
-    { resource: 'salary_components', action: 'create', description: 'Membuat komponen gaji' },
-    { resource: 'salary_components', action: 'update', description: 'Mengubah komponen gaji' },
-    { resource: 'salary_components', action: 'delete', description: 'Menghapus komponen gaji' },
+    // Salary users & settings permissions
+    { resource: 'salary_users', action: 'read', description: 'Melihat manajemen karyawan digaji' },
+    { resource: 'salary_users', action: 'create', description: 'Mendaftarkan karyawan ke penggajian' },
+    { resource: 'salary_users', action: 'update', description: 'Mengubah pengaturan gaji individu' },
+    { resource: 'salary_users', action: 'delete', description: 'Menghapus karyawan dari penggajian' },
     
     // Granular permissions for sensitive operations
     { resource: 'salary', action: 'calculate', description: 'Menghitung gaji karyawan' },
@@ -98,7 +94,7 @@ async function main() {
     
     const allSalaryPerms = await prisma.permission.findMany({
         where: {
-            resource: { in: ['salary', 'salary_config', 'salary_components'] }
+            resource: { in: ['salary', 'salary_users'] }
         }
     })
     

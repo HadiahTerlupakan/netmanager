@@ -76,12 +76,13 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                 body = { action: 'audit', notes }
             } else if (action === 'approve') {
                 endpoint += 'approve'
+                body = { action: 'approve' }
             } else if (action === 'paid') {
                 endpoint += 'paid'
+                body = {} // /paid route uses req.json() but doesn't strictly need fields
             } else if (action === 'recalculate') {
                 endpoint += 'recalculate'
             } else if (action === 'revise') {
-                endpoint += 'audit' 
                 endpoint = `/api/admin/salary/${salary.id}/revise`
                 body = { reason: notes }
             }
@@ -225,7 +226,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                             <div className="p-6 border-b border-gray-100 dark:border-gray-800">
                                 <div className="flex justify-between items-center mb-4">
                                     <h4 className="text-sm font-bold text-green-600 uppercase tracking-wider">Pendapatan</h4>
-                                    {(salary.status === 'CALCULATED' || salary.status === 'REVISED') && (
+                                    {salary.status === 'REVISED' && (
                                         <button
                                             onClick={() => {
                                                 setAdjustData({...adjustData, type: 'EARNING'})
@@ -268,7 +269,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                             <div className="p-6 bg-gray-50/50 dark:bg-gray-800/30">
                                 <div className="flex justify-between items-center mb-4">
                                     <h4 className="text-sm font-bold text-red-500 uppercase tracking-wider">Potongan</h4>
-                                    {(salary.status === 'CALCULATED' || salary.status === 'REVISED') && (
+                                    {salary.status === 'REVISED' && (
                                         <button
                                             onClick={() => {
                                                 setAdjustData({...adjustData, type: 'DEDUCTION'})

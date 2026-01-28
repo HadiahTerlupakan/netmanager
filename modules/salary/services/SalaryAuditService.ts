@@ -83,8 +83,8 @@ export class SalaryAuditService {
             throw new Error('Salary record tidak ditemukan')
         }
 
-        if (salary.status !== 'CALCULATED' && salary.status !== 'REVISED') {
-            throw new Error(`Tidak dapat menambah komponen. Status saat ini: ${salary.status}`)
+        if (salary.status !== 'REVISED') {
+            throw new Error(`Tidak dapat menambah komponen manual. Status harus REVISED (klik "Minta Revisi" terlebih dahulu). Saat ini: ${salary.status}`)
         }
 
         // Add the new detail

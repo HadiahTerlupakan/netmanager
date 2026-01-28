@@ -125,6 +125,21 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   if (body.canvasingTarget !== undefined) data.canvasingTarget = parseInt(body.canvasingTarget) || 50
   if (body.isSales !== undefined) data.isSales = body.isSales
 
+  // Salary
+  if (body.basicSalary !== undefined) data.basicSalary = parseFloat(body.basicSalary) || null
+  if (body.payPeriodDay !== undefined) data.payPeriodDay = parseInt(body.payPeriodDay) || 25
+  if (body.payDay !== undefined) data.payDay = parseInt(body.payDay) || 1
+  if (body.overtimeRateNormal !== undefined) data.overtimeRateNormal = parseFloat(body.overtimeRateNormal) || 0
+  if (body.overtimeRateHoliday !== undefined) data.overtimeRateHoliday = parseFloat(body.overtimeRateHoliday) || 0
+  if (body.overtimeRateNational !== undefined) data.overtimeRateNational = parseFloat(body.overtimeRateNational) || 0
+  if (body.overtimeCalcTypeNormal !== undefined) data.overtimeCalcTypeNormal = body.overtimeCalcTypeNormal
+  if (body.overtimeCalcTypeHoliday !== undefined) data.overtimeCalcTypeHoliday = body.overtimeCalcTypeHoliday
+  if (body.overtimeCalcTypeNational !== undefined) data.overtimeCalcTypeNational = body.overtimeCalcTypeNational
+  if (body.woIncentiveEnabled !== undefined) data.woIncentiveEnabled = body.woIncentiveEnabled
+  if (body.woIncentiveRate !== undefined) data.woIncentiveRate = parseFloat(body.woIncentiveRate) || 0
+  if (body.lateDeductionRate !== undefined) data.lateDeductionRate = parseFloat(body.lateDeductionRate) || 0
+  if (body.absentDeductionRate !== undefined) data.absentDeductionRate = parseFloat(body.absentDeductionRate) || 0
+
   // Extract userSites for separate handling
   const userSites: Array<{ siteId: string; isPrimary: boolean }> | undefined = body.userSites
 
@@ -420,6 +435,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         canvasingTarget: true,
         isSales: true,
         shiftId: true,
+        // Salary configuration
+        basicSalary: true,
+        payPeriodDay: true,
+        payDay: true,
+        woIncentiveEnabled: true,
+        woIncentiveRate: true,
+        lateDeductionRate: true,
+        absentDeductionRate: true,
+        overtimeRateNormal: true,
+        overtimeRateHoliday: true,
+        overtimeRateNational: true,
+        overtimeCalcTypeNormal: true,
+        overtimeCalcTypeHoliday: true,
+        overtimeCalcTypeNational: true,
         shift: {
           select: { id: true, name: true, startTime: true, endTime: true }
         },

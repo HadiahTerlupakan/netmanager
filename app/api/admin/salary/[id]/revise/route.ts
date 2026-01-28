@@ -32,7 +32,7 @@ export async function POST(
         const service = new SalaryAuditService()
         // Note: The Implementation Plan mentioned /revise but SalaryAuditService has requestRevision
         // Let's assume requestRevision is what we want for "Minta Revisi"
-        const salary = await service.requestRevision(id, reason, session.user.id)
+        const salary = await service.requestRevision(id, session.user.id, reason)
 
         return NextResponse.json({ success: true })
     } catch (error) {

@@ -22,6 +22,7 @@ import {
   HiOutlineIdentification,
   HiOutlineStar
 } from 'react-icons/hi2'
+import { RateType } from '@prisma/client'
 import WorkingHoursSettings from './WorkingHoursSettings'
 import LeaveBalanceSettings from './LeaveBalanceSettings'
 import LeaveQuotaSummary from './LeaveQuotaSummary'
@@ -118,7 +119,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     workDays: '',
     flexibleTargetHour: 8,
     shiftId: '',
-    isSales: false
+    isSales: false,
   })
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           workDays: usr.workDays || '',
           flexibleTargetHour: usr.flexibleTargetHour || 8,
           shiftId: usr.shiftId || '',
-          isSales: usr.isSales || false
+          isSales: usr.isSales || false,
         })
         // Multi-site: Load userSites
         if (usr.userSites && usr.userSites.length > 0) {

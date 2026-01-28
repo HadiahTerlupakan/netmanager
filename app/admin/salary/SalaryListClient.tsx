@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
     HiOutlineBanknotes,
@@ -15,6 +16,7 @@ import {
 } from 'react-icons/hi2'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 
 interface Salary {
@@ -64,6 +66,7 @@ const MONTHS = [
 
 export default function SalaryListClient() {
     const { data: session } = useSession()
+    const router = useRouter()
     const [salaries, setSalaries] = useState<Salary[]>([])
     const [stats, setStats] = useState<PeriodStats | null>(null)
     const [loading, setLoading] = useState(true)
@@ -132,8 +135,110 @@ export default function SalaryListClient() {
             style: 'currency',
             currency: 'IDR',
             minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
         }).format(amount)
     }
+
+    // Short format for table to prevent overflow
+    const formatCurrencyCompact = (amount: number) => {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'decimal',
+            minimumFractionDigits: 0,
+        }).format(amount)
+    }
+
+    const columns: Column<Salary>[] = [
+        {
+            key: 'user.name',
+            header: 'Karyawan',
+            priority: 'primary',
+            minWidth: '180px',
+            render: (item) => (
+                <div className="py-1">
+                    <div className="font-semibold text-gray-900 dark:text-white truncate max-w-[150px]" title={item.user.name || ''}>
+                        {item.user.name || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px]">{item.user.email}</div>
+                </div>
+            )
+        },
+        {
+            key: 'user.departments.name',
+            header: 'Dept',
+            priority: 'secondary',
+            render: (item) => (
+                <span className="text-gray-600 dark:text-gray-400 text-xs">
+                    {item.user.departments?.name || '-'}
+                </span>
+            )
+        },
+        {
+            key: 'basicSalary',
+            header: 'Pokok',
+            priority: 'tertiary',
+            align: 'right',
+            render: (item) => formatCurrencyCompact(item.basicSalary)
+        },
+        {
+            key: 'totalEarnings',
+            header: 'Earning',
+            priority: 'tertiary',
+            align: 'right',
+            className: 'text-green-600 text-xs',
+            render: (item) => `+${formatCurrencyCompact(item.totalEarnings)}`
+        },
+        {
+            key: 'totalDeductions',
+            header: 'Deduct',
+            priority: 'tertiary',
+            align: 'right',
+            className: 'text-red-500 text-xs',
+            render: (item) => `-${formatCurrencyCompact(item.totalDeductions)}`
+        },
+        {
+            key: 'netSalary',
+            header: 'Gaji Bersih',
+            priority: 'primary',
+            align: 'right',
+            minWidth: '120px',
+            render: (item) => (
+                <span className="font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(item.netSalary)}
+                </span>
+            )
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            align: 'center',
+            render: (item) => (
+                <Badge className={`${STATUS_COLORS[item.status]} border-none shadow-none text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+                    {item.status}
+                </Badge>
+            )
+        }
+    ]
+
+    const renderActions = (salary: Salary) => (
+        <div className="flex items-center gap-1">
+            <Link
+                href={`/admin/salary/${salary.id}`}
+                className="p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full text-gray-500 hover:text-indigo-600 transition-all active:scale-95"
+                title="Lihat Detail"
+            >
+                <HiOutlineEye className="w-5 h-5" />
+            </Link>
+            <a
+                href={`/admin/salary/slip/${salary.id}`}
+                target="_blank"
+                className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-full text-gray-500 hover:text-emerald-600 transition-all active:scale-95"
+                title="Lihat Slip"
+            >
+                <HiOutlineDocumentText className="w-5 h-5" />
+            </a>
+        </div>
+    )
 
     return (
         <div className="p-6 space-y-6">
@@ -214,7 +319,7 @@ export default function SalaryListClient() {
                             <select
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                className="px-3 py-2 border rounded-lg"
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
                             >
                                 {MONTHS.map((name, idx) => (
                                     <option key={idx} value={idx + 1}>{name}</option>
@@ -222,11 +327,11 @@ export default function SalaryListClient() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Tahun</label>
+                            <label className="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-400">Tahun</label>
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                className="px-3 py-2 border rounded-lg"
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
                             >
                                 {[2024, 2025, 2026].map(y => (
                                     <option key={y} value={y}>{y}</option>
@@ -234,11 +339,11 @@ export default function SalaryListClient() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Status</label>
+                            <label className="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-400">Status</label>
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="px-3 py-2 border rounded-lg"
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
                             >
                                 <option value="">Semua</option>
                                 <option value="DRAFT">Draft</option>
@@ -258,83 +363,28 @@ export default function SalaryListClient() {
                     <CardTitle>Daftar Gaji - {MONTHS[selectedMonth - 1]} {selectedYear}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {loading ? (
-                        <div className="flex justify-center py-8">
-                            <HiOutlineArrowPath className="w-8 h-8 animate-spin text-gray-400" />
-                        </div>
-                    ) : salaries.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                            <HiOutlineBanknotes className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                            <p>Belum ada data gaji untuk periode ini</p>
-                            <p className="text-sm mt-2">Klik "Hitung Gaji Bulk" untuk generate</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b">
-                                        <th className="text-left py-3 px-4">Karyawan</th>
-                                        <th className="text-left py-3 px-4">Departemen</th>
-                                        <th className="text-right py-3 px-4">Gaji Pokok</th>
-                                        <th className="text-right py-3 px-4">Pendapatan</th>
-                                        <th className="text-right py-3 px-4">Potongan</th>
-                                        <th className="text-right py-3 px-4">Gaji Bersih</th>
-                                        <th className="text-center py-3 px-4">Status</th>
-                                        <th className="text-center py-3 px-4">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {salaries.map((salary) => (
-                                        <tr key={salary.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                                            <td className="py-3 px-4">
-                                                <div className="font-medium">{salary.user.name || 'N/A'}</div>
-                                                <div className="text-sm text-gray-500">{salary.user.email}</div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                {salary.user.departments?.name || '-'}
-                                            </td>
-                                            <td className="py-3 px-4 text-right">
-                                                {formatCurrency(salary.basicSalary)}
-                                            </td>
-                                            <td className="py-3 px-4 text-right text-green-600">
-                                                +{formatCurrency(salary.totalEarnings)}
-                                            </td>
-                                            <td className="py-3 px-4 text-right text-red-600">
-                                                -{formatCurrency(salary.totalDeductions)}
-                                            </td>
-                                            <td className="py-3 px-4 text-right font-bold">
-                                                {formatCurrency(salary.netSalary)}
-                                            </td>
-                                            <td className="py-3 px-4 text-center">
-                                                <Badge className={STATUS_COLORS[salary.status]}>
-                                                    {salary.status}
-                                                </Badge>
-                                            </td>
-                                            <td className="py-3 px-4 text-center">
-                                                <div className="flex justify-center gap-2">
-                                                    <Link
-                                                        href={`/admin/salary/${salary.id}`}
-                                                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 hover:text-indigo-600 transition-colors"
-                                                        title="Lihat Detail"
-                                                    >
-                                                        <HiOutlineEye className="w-4 h-4" />
-                                                    </Link>
-                                                    <a
-                                                        href={`/admin/salary/slip/${salary.id}`}
-                                                        target="_blank"
-                                                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 hover:text-indigo-600 transition-colors"
-                                                        title="Lihat Slip"
-                                                    >
-                                                        <HiOutlineDocumentText className="w-4 h-4" />
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    <ResponsiveTable
+                        data={salaries}
+                        columns={columns}
+                        keyField="id"
+                        loading={loading}
+                        emptyMessage={
+                            <div className="text-center py-12">
+                                <HiOutlineBanknotes className="w-16 h-16 mx-auto mb-4 text-gray-200 dark:text-gray-700" />
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Pencatatan Gaji Kosong</h3>
+                                <p className="text-gray-500 dark:text-gray-400 mt-1">Belum ada data gaji untuk periode {MONTHS[selectedMonth -1]} {selectedYear}.</p>
+                                <button 
+                                    onClick={handleCalculateBulk}
+                                    className="mt-6 text-indigo-600 hover:text-indigo-700 font-semibold"
+                                >
+                                    Generate Sekarang &rarr;
+                                </button>
+                            </div>
+                        }
+                        renderActions={renderActions}
+                        onRowClick={(item) => router.push(`/admin/salary/${item.id}`)}
+                        className="border-none"
+                    />
                 </CardContent>
             </Card>
         </div>
