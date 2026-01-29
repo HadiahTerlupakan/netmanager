@@ -48,7 +48,7 @@ async function validateRedisConnection(): Promise<boolean> {
 export const authConfig: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
   // IMPORTANT: Secret is required for JWT signing
-  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || '',
   // Enable debug mode in development
   debug: process.env.NODE_ENV === 'development',
   session: {
@@ -349,19 +349,19 @@ export const authConfig: NextAuthOptions = {
           // If user doesn't exist, is inactive, or token version mismatch - invalidate session
           if (!dbUser || !dbUser.isActive) {
             console.log(`[AUTH SESSION] User ${token.id} not found or inactive. Invalidating session.`);
-            return { ...session, user: undefined, expires: new Date(0).toISOString() };
+            return { ...session, user: undefined as any, expires: new Date(0).toISOString() };
           }
 
           const tokenVersion = (token.tokenVersion as number) ?? 0;
           if (dbUser.tokenVersion > tokenVersion) {
             console.log(`[AUTH SESSION] Token version mismatch for user ${token.id}. DB: ${dbUser.tokenVersion}, Token: ${tokenVersion}. Forcing logout.`);
-            return { ...session, user: undefined, expires: new Date(0).toISOString() };
+            return { ...session, user: undefined as any, expires: new Date(0).toISOString() };
           }
         } catch (error) {
           console.error('[AUTH SESSION] Error validating tokenVersion:', error);
           // SECURITY: Fail-closed - invalidate session on validation error
           console.warn('[AUTH SESSION] SECURITY: Invalidating session due to validation error');
-          return { ...session, user: undefined, expires: new Date(0).toISOString() };
+          return { ...session, user: undefined as any, expires: new Date(0).toISOString() };
         }
 
         (session.user as any).id = token.id;
@@ -485,7 +485,7 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
     // 2. Check for NextAuth token (Web)
     const token = await getToken({
       req: request as any,
-      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || ''
     })
 
     if (!token) {

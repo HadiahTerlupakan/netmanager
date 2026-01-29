@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { GeofenceService } from './GeofenceService'
 import { AttendanceValidationService } from './AttendanceValidationService'
 import { AttendanceTimezoneService } from './AttendanceTimezoneService'
-import { AttendanceStatus } from '@prisma/client'
+import { AttendanceStatus, Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { ATTENDANCE_CONSTANTS } from '@/lib/attendance-constants'
 import { cache } from '@/lib/cache'
@@ -125,21 +125,26 @@ export class AttendanceService {
         }
 
         // 8. Create Record
+        const createData: Prisma.AttendanceUncheckedCreateInput = {
+            id: randomUUID(),
+            userId,
+            checkIn: checkInTime,
+            checkInPhoto: photoUrl,
+            location,
+            notes,
+            status,
+            geofenceStatus: geofenceResult.status,
+            geofenceDistance: geofenceResult.distance,
+            geofenceSiteName: geofenceResult.siteName,
+            updatedAt: new Date()
+        }
+
+        if (offlineTime) {
+            createData.geofenceMeta = { offline: true, capturedAt: offlineTime.toISOString() }
+        }
+
         return await prisma.attendance.create({
-            data: {
-                id: randomUUID(),
-                userId,
-                checkIn: checkInTime,
-                checkInPhoto: photoUrl,
-                location,
-                notes,
-                status,
-                geofenceStatus: geofenceResult.status,
-                geofenceDistance: geofenceResult.distance,
-                geofenceSiteName: geofenceResult.siteName,
-                geofenceMeta: offlineTime ? { offline: true, capturedAt: offlineTime.toISOString() } : undefined,
-                updatedAt: new Date()
-            }
+            data: createData
         })
     }
 
@@ -162,7 +167,9 @@ export class AttendanceService {
             
             // Logic Auto Checkout - same as legacy
             if (userDetails?.endWorkTime) {
-                const [endHour, endMinute] = userDetails.endWorkTime.split(':').map(Number)
+                const parts = userDetails.endWorkTime.split(':').map(Number)
+                const endHour = parts[0] ?? 17
+                const endMinute = parts[1] ?? 0
                 autoCheckOut.setHours(endHour, endMinute, 0, 0)
             } else {
                 autoCheckOut.setHours(17, 0, 0, 0)
@@ -282,21 +289,26 @@ export class AttendanceService {
 
         // 5. Update record
         const checkOutTime = offlineTime || new Date()
-        
+
+        const updateData: Prisma.AttendanceUncheckedUpdateInput = {
+            checkOut: checkOutTime,
+            checkOutPhoto: photoUrl,
+            checkOutLocation: location ?? null,
+            checkOutGeofenceStatus,
+            checkOutGeofenceDistance,
+            notes: finalNotes,
+            updatedAt: new Date()
+        }
+
         const updatedAttendance = await prisma.attendance.update({
             where: { id: attendance.id },
-            data: {
-                checkOut: checkOutTime,
-                checkOutPhoto: photoUrl,
-                checkOutLocation: location || undefined,
-                checkOutGeofenceStatus,
-                checkOutGeofenceDistance,
-                notes: finalNotes,
-                updatedAt: new Date()
-            }
+            data: updateData
         })
 
-        return { attendance: updatedAttendance, warning }
+        const result: { attendance: any; warning?: string } = { attendance: updatedAttendance }
+        if (warning) result.warning = warning
+        
+        return result
     }
 
     async getReportData(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
@@ -375,8 +387,14 @@ export class AttendanceService {
                 case 'FIXED':
                     // Calculate from startWorkTime and endWorkTime (format: "HH:mm")
                     if (config.startWorkTime && config.endWorkTime) {
-                        const [startH, startM] = config.startWorkTime.split(':').map(Number)
-                        const [endH, endM] = config.endWorkTime.split(':').map(Number)
+                        const startParts = config.startWorkTime.split(':').map(Number)
+                        const endParts = config.endWorkTime.split(':').map(Number)
+                        
+                        const startH = startParts[0] ?? 0
+                        const startM = startParts[1] ?? 0
+                        const endH = endParts[0] ?? 0
+                        const endM = endParts[1] ?? 0
+
                         const startMinutes = startH * 60 + startM
                         const endMinutes = endH * 60 + endM
                         // Handle overnight (end < start)
@@ -389,8 +407,14 @@ export class AttendanceService {
                 case 'SHIFT':
                     // Calculate from shift times
                     if (config.shift?.startTime && config.shift?.endTime) {
-                        const [startH, startM] = config.shift.startTime.split(':').map(Number)
-                        const [endH, endM] = config.shift.endTime.split(':').map(Number)
+                        const startParts = config.shift.startTime.split(':').map(Number)
+                        const endParts = config.shift.endTime.split(':').map(Number)
+
+                        const startH = startParts[0] ?? 0
+                        const startM = startParts[1] ?? 0
+                        const endH = endParts[0] ?? 0
+                        const endM = endParts[1] ?? 0
+
                         const startMinutes = startH * 60 + startM
                         const endMinutes = endH * 60 + endM
                         // Handle overnight shift

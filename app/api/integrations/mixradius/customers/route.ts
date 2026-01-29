@@ -37,17 +37,22 @@ export async function GET(req: NextRequest) {
 
     // Fetch data from MixRadius
     const service = getMixRadiusService()
-    const data = await service.fetchCustomersPPP({
+    
+    // Construct params ensuring no explicit undefined values for exactOptionalPropertyTypes
+    const params: any = {
       start,
-      length: Math.min(length, 100), // Max 100 per request
+      length: Math.min(length, 100),
       search,
       searchType,
-      authStatus,
-      ownerName: searchParams.get('ownerName') || undefined,
-      groupId: searchParams.get('groupId') || undefined,
-      onlineStatus: searchParams.get('onlineStatus') as any || undefined,
-      siteId: searchParams.get('siteId') || undefined,
-    })
+    }
+    
+    if (authStatus) params.authStatus = authStatus
+    if (searchParams.get('ownerName')) params.ownerName = searchParams.get('ownerName')
+    if (searchParams.get('groupId')) params.groupId = searchParams.get('groupId')
+    if (searchParams.get('onlineStatus')) params.onlineStatus = searchParams.get('onlineStatus') as any
+    if (searchParams.get('siteId')) params.siteId = searchParams.get('siteId')
+
+    const data = await service.fetchCustomersPPP(params)
 
     return apiSuccess(data)
   } catch (error: any) {

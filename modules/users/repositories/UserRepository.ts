@@ -38,8 +38,7 @@ export interface UserWithRelations extends User {
 export class UserRepository {
     async findAll(siteId?: string): Promise<UserWithRelations[]> {
 
-        const users = await prisma.user.findMany({
-            where: siteId ? { siteId } : undefined,
+        const query: Prisma.UserFindManyArgs = {
             orderBy: { createdAt: 'desc' },
             include: {
                 departments: { select: { id: true, name: true } },
@@ -55,9 +54,15 @@ export class UserRepository {
                     orderBy: { isPrimary: 'desc' }
                 },
             },
-        })
+        }
 
-        return users.map(user => ({
+        if (siteId) {
+            query.where = { siteId }
+        }
+
+        const users = await prisma.user.findMany(query)
+
+        return users.map((user: any) => ({
             ...user,
             department: user.departments,
             site: user.sites,
@@ -86,9 +91,9 @@ export class UserRepository {
 
         return {
             ...user,
-            department: user.departments,
-            site: user.sites,
-            role: user.role
+            department: (user as any).departments,
+            site: (user as any).sites,
+            role: (user as any).role
         }
     }
 
@@ -148,16 +153,19 @@ export class UserRepository {
         flexibleTargetHour?: number | null
         shiftId?: string | null
     }): Promise<User> {
+        const updateData: Prisma.UserUncheckedUpdateInput = {
+            workingHourMode: data.workingHourMode
+        }
+        
+        if (data.startWorkTime !== undefined) updateData.startWorkTime = data.startWorkTime
+        if (data.endWorkTime !== undefined) updateData.endWorkTime = data.endWorkTime
+        if (data.workDays !== undefined) updateData.workDays = data.workDays
+        if (data.flexibleTargetHour !== undefined) updateData.flexibleTargetHour = data.flexibleTargetHour
+        if (data.shiftId !== undefined) updateData.shiftId = data.shiftId
+
         return prisma.user.update({
             where: { id },
-            data: {
-                workingHourMode: data.workingHourMode,
-                startWorkTime: data.startWorkTime,
-                endWorkTime: data.endWorkTime,
-                workDays: data.workDays,
-                flexibleTargetHour: data.flexibleTargetHour,
-                shiftId: data.shiftId
-            }
+            data: updateData
         })
     }
 }
