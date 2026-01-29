@@ -6,6 +6,8 @@ import { FiEdit, FiTrash2, FiEye, FiSearch } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { useSocketEvent } from '@/hooks/useSocket'
 import { usePermission } from '@/hooks/use-permission'
+import { useDebounce } from '@/hooks/useDebounce'
+import { useToast } from '@/hooks/use-toast'
 
 interface Barang {
   id: string
@@ -27,6 +29,7 @@ export function BarangTable() {
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('barang:update')
   const canDelete = hasPermission('barang:delete')
+  const { toast } = useToast()
 
   const [barangs, setBarangs] = useState<Barang[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +44,9 @@ export function BarangTable() {
     total: 0,
     totalPages: 0
   })
+
+  // Debounce search to reduce API calls
+  const debouncedSearch = useDebounce(search, 500)
 
   // Listen for inventory updates
   useSocketEvent('inventory:update', () => {
@@ -99,7 +105,7 @@ export function BarangTable() {
 
   useEffect(() => {
     fetchBarangs()
-  }, [search, gudangId, page])
+  }, [debouncedSearch, gudangId, page])
 
   const handleDelete = async (id: string, kode: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus barang ${kode}?`)) {
@@ -116,14 +122,22 @@ export function BarangTable() {
         throw new Error(errorData.error || 'Gagal menghapus barang')
       }
 
-      // Show success message
-      alert('Barang berhasil dihapus')
+      // Show success toast
+      toast({
+        title: 'Berhasil',
+        description: `Barang ${kode} berhasil dihapus`,
+        variant: 'default'
+      })
 
-      // Refresh data
-      window.location.reload()
+      // Soft refresh - reload data without full page reload
+      await fetchBarangs()
     } catch (error) {
       console.error('Failed to delete barang:', error)
-      alert(error instanceof Error ? error.message : 'Gagal menghapus barang')
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Gagal menghapus barang',
+        variant: 'destructive'
+      })
     }
   }
 

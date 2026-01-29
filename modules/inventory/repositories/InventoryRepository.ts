@@ -2,6 +2,7 @@
 import { AssetRepository } from './AssetRepository'
 import { PrismaClient, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { USEFUL_LIFE_MONTHS, STOCK_FIELD_MAP, DEFAULT_KONDISI } from '@/lib/constants/inventory'
 import type {
     KondisiBarang,
     BarangMasuk,
@@ -232,11 +233,9 @@ export class InventoryRepository implements IInventoryRepository {
             if (masuk.barang && masuk.barang.jenis === 'ASET') {
                 const assetRepo = new AssetRepository()
                 
-                let usefulLife = 48
-                // Map category to useful life
-                if (masuk.barang.kategoriAset === 'KENDARAAN') usefulLife = 96
-                if (masuk.barang.kategoriAset === 'BANGUNAN') usefulLife = 240
-                if (masuk.barang.kategoriAset === 'FURNITURE') usefulLife = 96
+                // Use constant for useful life mapping
+                const kategori = masuk.barang.kategoriAset as keyof typeof USEFUL_LIFE_MONTHS
+                const usefulLife = USEFUL_LIFE_MONTHS[kategori] || USEFUL_LIFE_MONTHS.LAINNYA
                 
                 const assetsToCreate = []
                 const prefix = `AST-${masuk.barang.kode}`
@@ -270,45 +269,33 @@ export class InventoryRepository implements IInventoryRepository {
                 }
             }
 
-            // 2. Update or Create Stock in BarangGudang
-            const existingStock = await tx.barangGudang.findUnique({
+            // 2. Update or Create Stock in BarangGudang using UPSERT (atomic operation)
+            const kondisi = data.kondisi || DEFAULT_KONDISI
+            const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
+            
+            await tx.barangGudang.upsert({
                 where: {
                     barangId_gudangId: {
                         barangId: data.barangId,
                         gudangId: data.gudangId
                     }
+                },
+                create: {
+                    id: crypto.randomUUID(),
+                    barangId: data.barangId,
+                    gudangId: data.gudangId,
+                    stok: data.jumlah,
+                    stokBaru: kondisi === 'BARU' ? data.jumlah : 0,
+                    stokBekas: kondisi === 'BEKAS' ? data.jumlah : 0,
+                    stokRusak: kondisi === 'RUSAK' ? data.jumlah : 0,
+                    updatedAt: new Date()
+                },
+                update: {
+                    stok: { increment: data.jumlah },
+                    [stockField]: { increment: data.jumlah },
+                    updatedAt: new Date()
                 }
             })
-
-            const updateData: any = {
-                stok: { increment: data.jumlah }
-            }
-
-            // Determine which specific stock to increment
-            if (data.kondisi === 'BARU') updateData.stokBaru = { increment: data.jumlah }
-            else if (data.kondisi === 'BEKAS') updateData.stokBekas = { increment: data.jumlah }
-            else if (data.kondisi === 'RUSAK') updateData.stokRusak = { increment: data.jumlah }
-            else updateData.stokBaru = { increment: data.jumlah } // Default to BARU if unknown
-
-            if (existingStock) {
-                await tx.barangGudang.update({
-                    where: { id: existingStock.id },
-                    data: updateData
-                })
-            } else {
-                await tx.barangGudang.create({
-                    data: {
-                        id: crypto.randomUUID(),
-                        barangId: data.barangId,
-                        gudangId: data.gudangId,
-                        stok: data.jumlah,
-                        stokBaru: data.kondisi === 'BARU' || !data.kondisi ? data.jumlah : 0,
-                        stokBekas: data.kondisi === 'BEKAS' ? data.jumlah : 0,
-                        stokRusak: data.kondisi === 'RUSAK' ? data.jumlah : 0,
-                        updatedAt: new Date()
-                    } as any
-                })
-            }
 
             return masuk
         })
@@ -335,22 +322,25 @@ export class InventoryRepository implements IInventoryRepository {
                 throw new Error('Total stok tidak mencukupi')
             }
 
-            // Check specific condition stock
-            let updateData: any = { stok: { decrement: data.jumlah } }
+            // Check specific condition stock with proper typing and validation
+            const kondisi = data.kondisi || DEFAULT_KONDISI
+            const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
+            
+            // Type-safe stock access with runtime validation
+            const stokByKondisi = currentStock[stockField as keyof typeof currentStock] as number
+            
+            // Validate that stock value is a valid number
+            if (typeof stokByKondisi !== 'number' || isNaN(stokByKondisi)) {
+                throw new Error(`Data stok tidak valid untuk kondisi ${kondisi}`)
+            }
+            
+            if (stokByKondisi < data.jumlah) {
+                throw new Error(`Stok ${kondisi} tidak mencukupi (Tersedia: ${stokByKondisi})`)
+            }
 
-            const stockAny = currentStock as any
-            if (data.kondisi === 'BARU') {
-                if (stockAny.stokBaru < data.jumlah) throw new Error(`Stok BARU tidak mencukupi (Tersedia: ${stockAny.stokBaru})`)
-                updateData.stokBaru = { decrement: data.jumlah }
-            } else if (data.kondisi === 'BEKAS') {
-                if (stockAny.stokBekas < data.jumlah) throw new Error(`Stok BEKAS tidak mencukupi (Tersedia: ${stockAny.stokBekas})`)
-                updateData.stokBekas = { decrement: data.jumlah }
-            } else if (data.kondisi === 'RUSAK') {
-                if (stockAny.stokRusak < data.jumlah) throw new Error(`Stok RUSAK tidak mencukupi (Tersedia: ${stockAny.stokRusak})`)
-                updateData.stokRusak = { decrement: data.jumlah }
-            } else {
-                if (stockAny.stokBaru < data.jumlah) throw new Error(`Stok BARU tidak mencukupi (Tersedia: ${stockAny.stokBaru})`)
-                updateData.stokBaru = { decrement: data.jumlah }
+            const updateData = {
+                stok: { decrement: data.jumlah },
+                [stockField]: { decrement: data.jumlah }
             }
 
             // Update stock
@@ -410,16 +400,15 @@ export class InventoryRepository implements IInventoryRepository {
                 if (assetsToAllocate.length > 0) {
                     const assetIds = assetsToAllocate.map(a => a.id)
                     
-                    // Update Status to INSTALLED (or 'ISSUED' if we had that status, but user context implies deployment)
-                    // If just taking out of warehouse for WO, usually becomes INSTALLED.
-                    await tx.asset.update({
+                    // Update Status to INSTALLED - use updateMany for multiple records
+                    await tx.asset.updateMany({
                         where: { id: { in: assetIds } },
                         data: {
                             status: 'INSTALLED',
-                            location: `Deployed (Ref: ${keluarWithRelations.keterangan || 'Barang Keluar'})`, // Update location context
+                            location: `Deployed (Ref: ${keluarWithRelations.keterangan || 'Barang Keluar'})`,
                             assignedTo: data.userId || null
                         }
-                    } as any)
+                    })
                 }
             }
 
@@ -631,8 +620,19 @@ export class InventoryRepository implements IInventoryRepository {
                 throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi di gudang sumber. Stok tersedia: ${stokAvailable}`)
             }
 
-            // Create Transfer Record
-            const transferCode = `TRF${Date.now()}`
+            // Create Transfer Record with unique code validation
+            let transferCode = `TRF${Date.now()}`
+            
+            // Check for duplicate transfer code (rare but possible with concurrent requests)
+            const existingTransfer = await tx.transferAntarGudang.findFirst({
+                where: { kodeTransfer: transferCode }
+            })
+            
+            // If duplicate exists, add random suffix
+            if (existingTransfer) {
+                transferCode = `TRF${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+            }
+            
             const transfer = await tx.transferAntarGudang.create({
                 data: {
                     id: crypto.randomUUID(),
@@ -671,16 +671,14 @@ export class InventoryRepository implements IInventoryRepository {
             })
 
             // Determine which stock field to update based on kondisi
-            const stockField = kondisi === 'BARU' ? 'stokBaru' : 
-                              kondisi === 'BEKAS' ? 'stokBekas' : 
-                              kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
-            
-            const decrementData: any = { stok: stockSumber.stok - jumlah }
-            decrementData[stockField] = { decrement: jumlah }
+            const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
 
             await tx.barangGudang.update({
                 where: { id: stockSumber.id },
-                data: decrementData
+                data: {
+                    stok: { decrement: jumlah },
+                    [stockField]: { decrement: jumlah }
+                }
             })
 
             // Add to Dest (Create Masuk + Update/Create BarangGudang)
@@ -701,31 +699,27 @@ export class InventoryRepository implements IInventoryRepository {
                 where: { barangId_gudangId: { barangId, gudangId: keGudangId } }
             })
 
-            if (stockTujuan) {
-                const incrementData: any = { stok: stockTujuan.stok + jumlah }
-                incrementData[stockField] = { increment: jumlah }
-                
-                await tx.barangGudang.update({
-                    where: { id: stockTujuan.id },
-                    data: incrementData
-                })
-            } else {
-                const createData: any = {
+            // Use upsert for atomic operation
+            await tx.barangGudang.upsert({
+                where: {
+                    barangId_gudangId: { barangId, gudangId: keGudangId }
+                },
+                create: {
                     id: crypto.randomUUID(),
                     barangId,
                     gudangId: keGudangId,
                     stok: jumlah,
-                    stokBaru: 0,
-                    stokBekas: 0,
-                    stokRusak: 0,
+                    stokBaru: kondisi === 'BARU' ? jumlah : 0,
+                    stokBekas: kondisi === 'BEKAS' ? jumlah : 0,
+                    stokRusak: kondisi === 'RUSAK' ? jumlah : 0,
+                    updatedAt: new Date()
+                },
+                update: {
+                    stok: { increment: jumlah },
+                    [stockField]: { increment: jumlah },
                     updatedAt: new Date()
                 }
-                createData[stockField] = jumlah // Set the appropriate stock field
-                
-                await tx.barangGudang.create({
-                    data: createData
-                })
-            }
+            })
 
             return transfer
         })
@@ -782,41 +776,49 @@ export class InventoryRepository implements IInventoryRepository {
                 throw new Error('Stok di gudang tujuan tidak mencukupi untuk pembatalan transfer')
             }
 
-            // 2. Reduce Dest Stock
+            // 2. Reduce Dest Stock with proper breakdown update
             const stockTujuan = await tx.barangGudang.findUnique({
                 where: { barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.keGudangId } }
             })
             if (!stockTujuan) throw new Error('Stok tidak ditemukan di gudang tujuan')
+
+            const stockFieldDel = STOCK_FIELD_MAP[transfer.kondisi] || 'stokBaru'
 
             if (stockTujuan.stok - transfer.jumlah === 0) {
                 await tx.barangGudang.delete({ where: { id: stockTujuan.id } })
             } else {
                 await tx.barangGudang.update({
                     where: { id: stockTujuan.id },
-                    data: { stok: stockTujuan.stok - transfer.jumlah }
-                })
-            }
-
-            // 3. Add back to Source Stock
-            const stockSumber = await tx.barangGudang.findUnique({
-                where: { barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.dariGudangId } }
-            })
-            if (stockSumber) {
-                await tx.barangGudang.update({
-                    where: { id: stockSumber.id },
-                    data: { stok: stockSumber.stok + transfer.jumlah }
-                })
-            } else {
-                await tx.barangGudang.create({
                     data: {
-                        id: crypto.randomUUID(),
-                        barangId: transfer.barangId,
-                        gudangId: transfer.dariGudangId,
-                        stok: transfer.jumlah,
-                        updatedAt: new Date()
+                        stok: { decrement: transfer.jumlah },
+                        [stockFieldDel]: { decrement: transfer.jumlah }
                     }
                 })
             }
+
+            // 3. Add back to Source Stock with proper breakdown update
+            const stockFieldAdd = STOCK_FIELD_MAP[transfer.kondisi] || 'stokBaru'
+            
+            await tx.barangGudang.upsert({
+                where: {
+                    barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.dariGudangId }
+                },
+                create: {
+                    id: crypto.randomUUID(),
+                    barangId: transfer.barangId,
+                    gudangId: transfer.dariGudangId,
+                    stok: transfer.jumlah,
+                    stokBaru: transfer.kondisi === 'BARU' ? transfer.jumlah : 0,
+                    stokBekas: transfer.kondisi === 'BEKAS' ? transfer.jumlah : 0,
+                    stokRusak: transfer.kondisi === 'RUSAK' ? transfer.jumlah : 0,
+                    updatedAt: new Date()
+                },
+                update: {
+                    stok: { increment: transfer.jumlah },
+                    [stockFieldAdd]: { increment: transfer.jumlah },
+                    updatedAt: new Date()
+                }
+            })
 
             // 4. Delete Masuk/Keluar/Transfer
             await tx.barangMasuk.deleteMany({ where: { transferId: id } })
@@ -826,44 +828,28 @@ export class InventoryRepository implements IInventoryRepository {
     }
 
     async getStockBreakdown(barangId: string, gudangId: string): Promise<{ baru: number, bekas: number, rusak: number, total: number }> {
-        const [masukData, keluarData] = await Promise.all([
-            this.db.barangMasuk.findMany({
-                where: { barangId, gudangId }
-            }),
-            this.db.barangKeluar.findMany({
-                where: { barangId, gudangId }
-            })
-        ])
-
-        let stokBaru = 0
-        let stokBekas = 0
-        let stokRusak = 0
-
-        // Process barang masuk
-        masukData.forEach((masuk) => {
-            switch (masuk.kondisi) {
-                case 'BARU': stokBaru += masuk.jumlah; break;
-                case 'BEKAS': stokBekas += masuk.jumlah; break;
-                case 'RUSAK': stokRusak += masuk.jumlah; break;
-                default: stokBaru += masuk.jumlah; break;
+        // Optimized: Use pre-calculated stock from BarangGudang instead of iterating all transactions
+        const stock = await this.db.barangGudang.findUnique({
+            where: {
+                barangId_gudangId: { barangId, gudangId }
+            },
+            select: {
+                stokBaru: true,
+                stokBekas: true,
+                stokRusak: true,
+                stok: true
             }
         })
 
-        // Process barang keluar
-        keluarData.forEach((keluar) => {
-            switch (keluar.kondisi) {
-                case 'BARU': stokBaru = Math.max(0, stokBaru - keluar.jumlah); break;
-                case 'BEKAS': stokBekas = Math.max(0, stokBekas - keluar.jumlah); break;
-                case 'RUSAK': stokRusak = Math.max(0, stokRusak - keluar.jumlah); break;
-                default: stokBaru = Math.max(0, stokBaru - keluar.jumlah); break;
-            }
-        })
+        if (!stock) {
+            return { baru: 0, bekas: 0, rusak: 0, total: 0 }
+        }
 
         return {
-            baru: stokBaru,
-            bekas: stokBekas,
-            rusak: stokRusak,
-            total: stokBaru + stokBekas + stokRusak
+            baru: stock.stokBaru,
+            bekas: stock.stokBekas,
+            rusak: stock.stokRusak,
+            total: stock.stok
         }
     }
 

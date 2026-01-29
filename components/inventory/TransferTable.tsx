@@ -9,6 +9,7 @@ import {
   FiEye,
   FiArrowRight
 } from 'react-icons/fi'
+import { deleteWithAuth } from '@/lib/api-client'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface TransferTableProps {
@@ -28,13 +29,11 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete }:
 
     setDeletingId(transfer.id)
     try {
-      const response = await fetch(`/api/inventory/transfer/${transfer.id}`, {
-        method: 'DELETE',
-      })
+      const response = await deleteWithAuth(`/api/inventory/transfer/${transfer.id}`)
+      const data = await response.json()
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Gagal membatalkan transfer')
+      if (!data.success) {
+        throw new Error(data.error || 'Gagal membatalkan transfer')
       }
 
       onRefresh()

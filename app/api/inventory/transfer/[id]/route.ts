@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
+import { authConfig } from '@/lib/auth'
+import { getServerSession } from 'next-auth'
+import { hasPermission } from '@/lib/rbac'
 
 /**
  * GET /api/inventory/transfer/[id]
@@ -13,9 +17,13 @@ export async function GET(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin(req)
-    if (session instanceof NextResponse) {
-      return session
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("transfer:read"))) {
+      return ApiErrors.forbidden()
     }
 
     const { id } = await params
@@ -29,7 +37,7 @@ export async function GET(
       logger.dbOperation('findUnique', 'TransferAntarGudang+Relations', Date.now() - dbStart)
 
       if (!transferRecord) {
-        return NextResponse.json({ error: 'Record transfer tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Record transfer tidak ditemukan')
       }
 
       logger.apiRequest('GET', `/api/inventory/transfer/${id}`, 200, Date.now() - startTime, {
@@ -37,7 +45,7 @@ export async function GET(
         transferId: id,
       })
 
-      return NextResponse.json({ transfer: transferRecord })
+      return apiSuccess({ transfer: transferRecord })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -46,10 +54,7 @@ export async function GET(
       path: '/api/inventory/transfer/[id]',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data transfer' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data transfer')
   }
 }
 
@@ -63,9 +68,13 @@ export async function PUT(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin(req)
-    if (session instanceof NextResponse) {
-      return session
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("transfer:create"))) {
+      return ApiErrors.forbidden()
     }
 
     const { id } = await params
@@ -86,7 +95,7 @@ export async function PUT(
         transferId: id,
       })
 
-      return NextResponse.json({ message: 'Transfer record berhasil diperbarui', transfer: transferRecord })
+      return apiSuccess({ message: 'Transfer record berhasil diperbarui', transfer: transferRecord })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -97,13 +106,10 @@ export async function PUT(
     })
 
     if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Record transfer tidak ditemukan' }, { status: 404 })
+      return ApiErrors.notFound('Record transfer tidak ditemukan')
     }
 
-    return NextResponse.json(
-      { error: 'Gagal memperbarui record transfer' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memperbarui record transfer')
   }
 }
 
@@ -117,9 +123,13 @@ export async function DELETE(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin(req)
-    if (session instanceof NextResponse) {
-      return session
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("transfer:delete"))) {
+      return ApiErrors.forbidden()
     }
 
     const { id } = await params
@@ -137,7 +147,7 @@ export async function DELETE(
         transferId: id,
       })
 
-      return NextResponse.json({ message: 'Transfer berhasil dibatalkan dan stok dikembalikan' })
+      return apiSuccess({ message: 'Transfer berhasil dibatalkan and stok dikembalikan' })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -148,15 +158,12 @@ export async function DELETE(
     })
 
     if (error.message === 'Record transfer tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Record transfer tidak ditemukan')
     }
     if (error.message.includes('tidak mencukupi untuk pembatalan transfer') || error.message.includes('tidak ditemukan di gudang tujuan')) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return ApiErrors.badRequest(error.message)
     }
 
-    return NextResponse.json(
-      { error: 'Gagal membatalkan transfer' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal membatalkan transfer')
   }
 }

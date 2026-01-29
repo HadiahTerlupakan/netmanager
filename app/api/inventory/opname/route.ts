@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
 import { randomUUID } from 'crypto'
+import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
@@ -12,11 +13,11 @@ export async function GET(req: NextRequest) {
     const session: any = await getServerSession(authConfig as any)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/opname')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     if (!(await hasPermission("opname:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
         gudangId,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         opnameList,
         pagination: {
           page,
@@ -115,10 +116,7 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/opname',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data stock opname' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data stock opname')
   }
 }
 
@@ -132,11 +130,11 @@ export async function POST(req: NextRequest) {
     const session: any = await getServerSession(authConfig as any)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/opname')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     if (!(await hasPermission("opname:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const body = await req.json()
@@ -161,26 +159,20 @@ export async function POST(req: NextRequest) {
 
     // Validation
     if (!barangId || !gudangId || stokFisik === undefined || stokFisik < 0) {
-      return NextResponse.json(
-        { error: 'Barang, gudang, dan stok fisik harus diisi dengan benar' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Barang, gudang, dan stok fisik harus diisi dengan benar')
     }
 
     // NEW: Validate Gudang Access
     const { validateGudangAccess } = await import('@/lib/inventory-validation');
     const access = await validateGudangAccess(session, gudangId);
     if (!access.allowed) {
-      return NextResponse.json({ error: access.error || 'Forbidden' }, { status: 403 });
+      return ApiErrors.forbidden(access.error || 'Forbidden');
     }
 
     // Validate condition breakdown
     const totalKondisi = kondisiBaik + kondisiRusak + kondisiExpire
     if (totalKondisi > stokFisik) {
-      return NextResponse.json(
-        { error: 'Total jumlah kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Total jumlah kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik')
     }
 
     try {
@@ -324,7 +316,7 @@ export async function POST(req: NextRequest) {
 
       const { opnameRecord, previousStock, newStock, selisih } = result
 
-      return NextResponse.json({
+      return apiSuccess({
         message: 'Stock opname berhasil dicatat',
         opname: {
           ...opnameRecord,
@@ -343,16 +335,13 @@ export async function POST(req: NextRequest) {
     })
 
     if (error.message === 'Barang tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Barang tidak ditemukan')
     }
     if (error.message === 'Gudang tidak ditemukan atau tidak aktif') {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return ApiErrors.badRequest(error.message)
     }
 
-    return NextResponse.json(
-      { error: 'Gagal mencatat stock opname' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal mencatat stock opname')
   }
 }
 

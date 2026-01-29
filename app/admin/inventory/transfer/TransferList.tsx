@@ -6,6 +6,7 @@ import { TransferTable } from '@/components/inventory/TransferTable'
 import { Modal } from '@/components/ui/Modal'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
 import { usePermission } from '@/hooks/use-permission'
+import { getWithAuth } from '@/lib/api-client'
 
 export default function TransferPage() {
   const { hasPermission } = usePermission()
@@ -32,19 +33,19 @@ export default function TransferPage() {
     try {
       setLoading(true)
       setError('')
-      const response = await fetch(`/api/inventory/transfer?page=${page}&limit=${pagination.limit}`)
+      const response = await getWithAuth(`/api/inventory/transfer?page=${page}&limit=${pagination.limit}`)
       const data = await response.json()
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.error || 'Gagal memuat data transfer')
       }
 
-      setTransfers(data.transferList || [])
+      setTransfers(data.data.transferList || [])
       setPagination(prev => ({
         ...prev,
         page,
-        total: data.pagination?.total || 0,
-        totalPages: data.pagination?.totalPages || 0
+        total: data.data.pagination?.total || 0,
+        totalPages: data.data.pagination?.totalPages || 0
       }))
     } catch (error) {
       console.error('Error fetching transfers:', error)

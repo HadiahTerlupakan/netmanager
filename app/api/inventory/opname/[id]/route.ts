@@ -3,14 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { hasPermission } from '@/lib/rbac'
 
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
+// Auth helpers unified in route handlers
 
 /**
  * GET /api/inventory/opname/[id]
@@ -19,10 +15,14 @@ async function requireAdmin() {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/opname/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("opname:read"))) {
+      return ApiErrors.forbidden()
     }
 
         const { id } = await params
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       })
 
       if (!opnameRecord) {
-        return NextResponse.json({ error: 'Record stock opname tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Record stock opname tidak ditemukan')
       }
 
       logger.dbOperation('findUnique', 'StockOpname+Relations', Date.now() - dbStart)
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         opnameId: id,
       })
 
-      return NextResponse.json(opnameRecord)
+      return apiSuccess(opnameRecord)
     } finally {
       // do not disconnect shared prisma client
     }
@@ -72,10 +72,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       method: 'GET',
       id: 'unknown',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data stock opname' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data stock opname')
   }
 }
 
@@ -86,10 +83,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/opname/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("opname:update"))) {
+      return ApiErrors.forbidden()
     }
 
         const { id } = await params
@@ -113,20 +114,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Validation
     if (stokFisik === undefined || stokFisik < 0) {
-      return NextResponse.json(
-        { error: 'Stok fisik harus berupa angka non-negatif' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Stok fisik harus berupa angka non-negatif')
     }
 
     // Validate condition breakdown
     if (kondisiBaik !== undefined && kondisiRusak !== undefined && kondisiExpire !== undefined) {
       const totalKondisi = kondisiBaik + kondisiRusak + kondisiExpire
       if (totalKondisi > stokFisik) {
-        return NextResponse.json(
-          { error: 'Total jumlah kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik' },
-          { status: 400 }
-        )
+        return ApiErrors.badRequest('Total jumlah kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik')
       }
     }
 
@@ -217,7 +212,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         return updatedRecord
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         message: 'Stock opname berhasil diperbarui',
         record: result
       })
@@ -232,13 +227,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     })
 
     if (error.message === 'Record stock opname tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound(error.message)
     }
 
-    return NextResponse.json(
-      { error: 'Gagal memperbarui stock opname' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memperbarui stock opname')
   }
 }
 
@@ -248,15 +240,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("opname:delete"))) {
+      return ApiErrors.forbidden()
     }
 
         const { id } = await params
         // Validate ID
     if (!id || id.trim() === '') {
-      return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+      return ApiErrors.badRequest('ID tidak valid')
     }
 
     await prisma.$transaction(async (tx) => {
@@ -311,19 +307,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       })
     })
 
-    return NextResponse.json({
+    return apiSuccess({
       message: 'Stock opname berhasil dihapus'
     })
   } catch (error: any) {
     console.error('Delete error:', error.message)
 
     if (error.message.includes('tidak ditemukan')) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound(error.message)
     }
 
-    return NextResponse.json(
-      { error: error.message || 'Gagal menghapus stock opname' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Gagal menghapus stock opname')
   }
 }

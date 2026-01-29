@@ -41,7 +41,7 @@ interface DetailKeluarModalProps {
   keluar: BarangKeluar | null
   isOpen: boolean
   onClose: () => void
-  onEdit?: (keluar: BarangKeluar) => void
+  onEdit?: ((keluar: BarangKeluar) => void) | undefined
 }
 
 export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKeluarModalProps) {

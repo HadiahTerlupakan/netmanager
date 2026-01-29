@@ -39,7 +39,7 @@ interface DetailMasukModalProps {
   masuk: BarangMasuk | null
   isOpen: boolean
   onClose: () => void
-  onEdit?: (masuk: BarangMasuk) => void
+  onEdit?: ((masuk: BarangMasuk) => void) | undefined
 }
 
 export function DetailMasukModal({ masuk, isOpen, onClose, onEdit }: DetailMasukModalProps) {

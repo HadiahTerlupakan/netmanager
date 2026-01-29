@@ -35,8 +35,8 @@ interface BarangMasuk {
 }
 
 interface MasukTableProps {
-  onEdit?: (masuk: BarangMasuk) => void
-  onView?: (masuk: BarangMasuk) => void
+  onEdit?: ((masuk: BarangMasuk) => void) | undefined
+  onView?: ((masuk: BarangMasuk) => void) | undefined
   refreshTrigger?: number
   search?: string
   startDate?: string

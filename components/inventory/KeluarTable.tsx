@@ -39,8 +39,8 @@ interface BarangKeluar {
 }
 
 interface KeluarTableProps {
-  onEdit?: (keluar: BarangKeluar) => void
-  onView?: (keluar: BarangKeluar) => void
+  onEdit?: ((keluar: BarangKeluar) => void) | undefined
+  onView?: ((keluar: BarangKeluar) => void) | undefined
   refreshTrigger?: number
   search?: string
   startDate?: string

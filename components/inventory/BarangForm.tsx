@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FiInfo } from 'react-icons/fi'
+import { validateBarangForm, sanitizeInput } from '@/lib/validations/barang'
+import { useToast } from '@/hooks/use-toast'
 
 interface BarangFormProps {
   initialData?: {
@@ -28,8 +30,10 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [isCustomSatuan, setIsCustomSatuan] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const satuanOptions = [
     'pcs', 'meter', 'box', 'roll', 'pack', 'karton', 'liter', 'kg', 'set', 'buah', 'unit'
@@ -54,25 +58,40 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validation
-    if (!formData.nama.trim() || !formData.satuan.trim()) {
-      setError('Nama dan satuan barang harus diisi')
+    // Clear previous errors
+    setError('')
+    setErrors({})
+
+    // Comprehensive validation
+    const validation = validateBarangForm({
+      nama: formData.nama,
+      satuan: formData.satuan,
+      jenis: formData.jenis,
+      kategoriAset: formData.kategoriAset
+    })
+
+    if (!validation.valid) {
+      setErrors(validation.errors)
+      setError('Mohon perbaiki kesalahan pada form')
       return
     }
 
     setLoading(true)
-    setError('')
 
     try {
+      // Sanitize inputs before sending
+      const sanitizedData = {
+        nama: sanitizeInput(formData.nama),
+        satuan: sanitizeInput(formData.satuan),
+        isWorkOrderMaterial: formData.isWorkOrderMaterial,
+        jenis: formData.jenis,
+        kategoriAset: formData.jenis === 'ASET' ? formData.kategoriAset : null
+      }
       if (initialData?.id) {
-        // Update existing barang (include kode for updates)
+        // Update existing barang
         const updateData = {
           kode: initialData.kode || '',
-          nama: formData.nama,
-          satuan: formData.satuan,
-          isWorkOrderMaterial: formData.isWorkOrderMaterial,
-          jenis: formData.jenis,
-          kategoriAset: formData.jenis === 'ASET' ? formData.kategoriAset : null
+          ...sanitizedData
         }
         const response = await fetch(`/api/inventory/barang/${initialData.id}`, {
           method: 'PUT',
@@ -86,23 +105,35 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           const data = await response.json()
           throw new Error(data.error || 'Gagal mengupdate barang')
         }
+
+        toast({
+          title: 'Berhasil',
+          description: 'Barang berhasil diupdate',
+          variant: 'default'
+        })
       } else {
-        // Create new barang (kode will be generated automatically)
+        // Create new barang
         const response = await fetch('/api/inventory/barang', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(sanitizedData),
         })
 
         if (!response.ok) {
           const data = await response.json()
           throw new Error(data.error || 'Gagal menambah barang')
         }
+
+        toast({
+          title: 'Berhasil',
+          description: 'Barang berhasil ditambahkan',
+          variant: 'default'
+        })
       }
 
-      onSubmit(formData)
+      onSubmit(sanitizedData)
     } catch (error) {
       console.error('Error submitting barang:', error)
       setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
@@ -116,6 +147,13 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
           {error}
+          {Object.keys(errors).length > 0 && (
+            <ul className="mt-2 ml-4 list-disc text-sm">
+              {Object.entries(errors).map(([field, message]) => (
+                <li key={field}>{message}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -213,13 +251,27 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           type="text"
           id="nama"
           value={formData.nama}
-          onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          onChange={(e) => {
+            setFormData({ ...formData, nama: e.target.value })
+            // Clear error on change
+            if (errors.nama) {
+              const newErrors = { ...errors }
+              delete newErrors.nama
+              setErrors(newErrors)
+            }
+          }}
+          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+            errors.nama ? 'border-red-500' : 'border-gray-300'
+          }`}
           placeholder="Contoh: ONT ZTE F660"
           disabled={loading}
+          maxLength={200}
         />
+        {errors.nama && (
+          <p className="mt-1 text-xs text-red-600">{errors.nama}</p>
+        )}
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Nama lengkap barang
+          Nama lengkap barang (3-200 karakter)
         </p>
       </div>
 
@@ -239,8 +291,16 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
               setIsCustomSatuan(false)
               setFormData({ ...formData, satuan: val })
             }
+            // Clear error on change
+            if (errors.satuan) {
+              const newErrors = { ...errors }
+              delete newErrors.satuan
+              setErrors(newErrors)
+            }
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+            errors.satuan ? 'border-red-500' : 'border-gray-300'
+          }`}
           disabled={loading}
         >
           <option value="">Pilih satuan</option>
@@ -257,12 +317,26 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
             <input
               type="text"
               value={formData.satuan}
-              onChange={(e) => setFormData({ ...formData, satuan: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              onChange={(e) => {
+                setFormData({ ...formData, satuan: e.target.value })
+                // Clear error on change
+                if (errors.satuan) {
+                  const newErrors = { ...errors }
+                  delete newErrors.satuan
+                  setErrors(newErrors)
+                }
+              }}
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+                errors.satuan ? 'border-red-500' : 'border-gray-300'
+              }`}
               placeholder="Masukkan nama satuan kustom..."
               disabled={loading}
               autoFocus
+              maxLength={50}
             />
+            {errors.satuan && (
+              <p className="mt-1 text-xs text-red-600">{errors.satuan}</p>
+            )}
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Ketik satuan yang tidak tersedia di pilihan (contoh: lusin, lembar)
             </p>

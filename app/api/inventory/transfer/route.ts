@@ -5,6 +5,7 @@ import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 import { validateGudangAccess } from '@/lib/inventory-validation'
+import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/inventory/transfer
@@ -15,11 +16,11 @@ export async function GET(req: NextRequest) {
   try {
     const session: any = await getServerSession(authConfig as any)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     if (!(await hasPermission("transfer:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -46,12 +47,12 @@ export async function GET(req: NextRequest) {
       const dbStart = Date.now()
 
       const { items: transferList, total } = await inventoryRepository.findAllTransfers({
-        barangId,
-        dariGudangId,
-        keGudangId,
         skip: offset,
         take: limit,
-        siteId
+        ...(barangId && { barangId }),
+        ...(dariGudangId && { dariGudangId }),
+        ...(keGudangId && { keGudangId }),
+        ...(siteId && { siteId })
       })
 
       logger.dbOperation('findMany', 'TransferAntarGudang+Relations', Date.now() - dbStart)
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
         keGudangId,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         transferList,
         pagination: {
           page,
@@ -84,10 +85,7 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/transfer',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data transfer' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data transfer')
   }
 }
 
@@ -100,11 +98,11 @@ export async function POST(req: NextRequest) {
   try {
     const session: any = await getServerSession(authConfig as any)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     if (!(await hasPermission("transfer:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -123,35 +121,26 @@ export async function POST(req: NextRequest) {
 
     // Validation
     if (!barangId || !dariGudangId || !keGudangId || !jumlah || jumlah <= 0) {
-      return NextResponse.json(
-        { error: 'Barang, gudang sumber, gudang tujuan, dan jumlah harus diisi dengan benar' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Barang, gudang sumber, gudang tujuan, dan jumlah harus diisi dengan benar')
     }
 
     if (dariGudangId === keGudangId) {
-      return NextResponse.json(
-        { error: 'Gudang sumber dan tujuan tidak boleh sama' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Gudang sumber dan tujuan tidak boleh sama')
     }
 
     // Validate photo data if provided
     if (fotoBukti && !Array.isArray(fotoBukti)) {
-      return NextResponse.json(
-        { error: 'fotoBukti harus berupa array URL foto' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('fotoBukti harus berupa array URL foto')
     }
 
     const accessDari = await validateGudangAccess(session, dariGudangId)
     if (!accessDari.allowed) {
-      return NextResponse.json({ error: `Gudang Sumber: ${accessDari.error}` }, { status: 403 })
+      return ApiErrors.forbidden(`Gudang Sumber: ${accessDari.error}`)
     }
 
     const accessKe = await validateGudangAccess(session, keGudangId)
     if (!accessKe.allowed) {
-      return NextResponse.json({ error: `Gudang Tujuan: ${accessKe.error}` }, { status: 403 })
+      return ApiErrors.forbidden(`Gudang Tujuan: ${accessKe.error}`)
     }
 
     try {
@@ -193,7 +182,7 @@ export async function POST(req: NextRequest) {
         console.error('Logging failed', e)
       }
 
-      return NextResponse.json({
+      return apiSuccess({
         message: 'Transfer barang antar gudang berhasil',
         transfer: transferRecord,
         kodeTransfer: transferRecord.kodeTransfer
@@ -209,18 +198,15 @@ export async function POST(req: NextRequest) {
     })
 
     if (error.message === 'Barang tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return ApiErrors.notFound('Barang tidak ditemukan')
     }
     if (error.message.includes('Gudang') && (error.message.includes('tidak ditemukan') || error.message.includes('tidak aktif') || error.message.includes('sama'))) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return ApiErrors.badRequest(error.message)
     }
     if (error.message.includes('Stok tidak mencukupi') || error.message.includes('tidak mencukupi')) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return ApiErrors.badRequest(error.message)
     }
 
-    return NextResponse.json(
-      { error: 'Gagal melakukan transfer barang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal melakukan transfer barang')
   }
 }

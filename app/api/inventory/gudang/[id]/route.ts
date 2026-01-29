@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authConfig, getUserPermissions } from '@/lib/auth'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { hasPermission } from '@/lib/rbac'
 
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
+// Standardized permission checks used in route handlers
 
 /**
  * GET /api/inventory/gudang/[id]
@@ -22,10 +18,14 @@ export async function GET(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/gudang/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("gudang:read"))) {
+      return ApiErrors.forbidden()
     }
 
     const { id } = await params
@@ -37,10 +37,7 @@ export async function GET(
       const gudang = await inventoryRepository.findGudangById(id)
 
       if (!gudang) {
-        return NextResponse.json(
-          { error: 'Gudang tidak ditemukan' },
-          { status: 404 }
-        )
+        return ApiErrors.notFound('Gudang tidak ditemukan')
       }
 
       logger.dbOperation('findUnique', 'Gudang', Date.now() - dbStart)
@@ -50,7 +47,7 @@ export async function GET(
         gudangId: gudang.id,
       })
 
-      return NextResponse.json({ gudang })
+      return apiSuccess({ gudang })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -60,10 +57,7 @@ export async function GET(
       method: 'GET',
       id: 'unknown',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data gudang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data gudang')
   }
 }
 
@@ -78,20 +72,21 @@ export async function PUT(
   const { id } = await params
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/gudang/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("gudang:update"))) {
+      return ApiErrors.forbidden()
     }
     const body = await req.json()
     const { kode, nama, lokasi, isActive } = body
 
     // Validation
     if (!kode || !nama) {
-      return NextResponse.json(
-        { error: 'Kode dan nama gudang harus diisi' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Kode dan nama gudang harus diisi')
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -103,20 +98,14 @@ export async function PUT(
       const existingGudang = await inventoryRepository.findGudangById(id)
 
       if (!existingGudang) {
-        return NextResponse.json(
-          { error: 'Gudang tidak ditemukan' },
-          { status: 404 }
-        )
+        return ApiErrors.notFound('Gudang tidak ditemukan')
       }
 
       // Check if kode conflicts with another gudang
       const kodeConflict = await inventoryRepository.findGudangByKode(kode)
 
       if (kodeConflict && kodeConflict.id !== id) {
-        return NextResponse.json(
-          { error: 'Kode gudang sudah digunakan' },
-          { status: 400 }
-        )
+        return ApiErrors.badRequest('Kode gudang sudah digunakan')
       }
 
       const updatedGudang = await inventoryRepository.updateGudang(id, {
@@ -146,7 +135,7 @@ export async function PUT(
         console.error('Logging failed', e)
       }
 
-      return NextResponse.json({ gudang: updatedGudang })
+      return apiSuccess({ gudang: updatedGudang })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -156,10 +145,7 @@ export async function PUT(
       method: 'PUT',
       id: 'unknown',
     })
-    return NextResponse.json(
-      { error: 'Gagal mengupdate gudang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal mengupdate gudang')
   }
 }
 
@@ -174,10 +160,14 @@ export async function DELETE(
   const { id } = await params
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/gudang/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
+    }
+
+    if (!(await hasPermission("gudang:delete"))) {
+      return ApiErrors.forbidden()
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -189,20 +179,14 @@ export async function DELETE(
       const existingGudang = await inventoryRepository.findGudangById(id)
 
       if (!existingGudang) {
-        return NextResponse.json(
-          { error: 'Gudang tidak ditemukan' },
-          { status: 404 }
-        )
+        return ApiErrors.notFound('Gudang tidak ditemukan')
       }
 
       // Check if gudang has stock
       const hasStock = await inventoryRepository.hasStockInGudang(id)
 
       if (hasStock) {
-        return NextResponse.json(
-          { error: 'Tidak dapat menghapus gudang yang masih memiliki stok barang' },
-          { status: 400 }
-        )
+        return ApiErrors.badRequest('Tidak dapat menghapus gudang yang masih memiliki stok barang')
       }
 
       // Soft delete by setting isActive to false (via repository deleteGudang)
@@ -228,7 +212,7 @@ export async function DELETE(
         console.error('Logging failed', e)
       }
 
-      return NextResponse.json({ message: 'Gudang berhasil dihapus' })
+      return apiSuccess({ message: 'Gudang berhasil dihapus' })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -238,9 +222,6 @@ export async function DELETE(
       method: 'DELETE',
       id: id ?? 'unknown',
     })
-    return NextResponse.json(
-      { error: 'Gagal menghapus gudang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal menghapus gudang')
   }
 }

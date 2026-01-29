@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi'
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
+import { getWithAuth, postWithAuth } from '@/lib/api-client'
 
 interface TransferFormProps {
   initialData?: any
@@ -45,13 +46,13 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
     async function fetchInitialData() {
       try {
         // Fetch barang
-        const barangResponse = await fetch('/api/inventory/barang?limit=100')
+        const barangResponse = await getWithAuth('/api/inventory/barang?limit=100')
         const barangData = await barangResponse.json()
         const barangResult = barangData.data || barangData
         setBarangs(barangResult.barangs || [])
 
         // Fetch gudang
-        const gudangResponse = await fetch('/api/inventory/gudang')
+        const gudangResponse = await getWithAuth('/api/inventory/gudang')
         const gudangData = await gudangResponse.json()
         const gudangResult = gudangData.data || gudangData
         setGudangs(gudangResult.gudangs || [])
@@ -69,7 +70,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
       if (formData.barangId && formData.dariGudangId) {
         try {
           // Fetch condition-specific stock from API
-          const response = await fetch(
+          const response = await getWithAuth(
             `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.dariGudangId}`
           )
           if (response.ok) {
@@ -158,26 +159,34 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
         }
       }
 
-      const response = await fetch('/api/inventory/transfer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          jumlah,
-          fotoBukti: fotoBuktiUrls,
-          fotoMetadata: uploadedPhotosList.length > 0 ? {
-            uploadedAt: new Date().toISOString(),
-            count: uploadedPhotosList.length,
-            totalSize: uploadedPhotosList.reduce((sum, photo) => sum + (photo.file?.size || 0), 0)
-          } : null
-        }),
+      const response = await postWithAuth('/api/inventory/transfer', {
+        ...formData,
+        jumlah,
+        fotoBukti: fotoBuktiUrls,
+        fotoMetadata: uploadedPhotosList.length > 0 ? {
+          uploadedAt: new Date().toISOString(),
+          count: uploadedPhotosList.length,
+          totalSize: uploadedPhotosList.reduce((sum, photo) => sum + (photo.file?.size || 0), 0)
+        } : null
       })
 
       const data = await response.json()
 
-      if (!response.ok) {
+      if (!data.success) {
+        // Cleanup uploaded photos if transfer failed
+        if (fotoBuktiUrls.length > 0) {
+          try {
+            await Promise.allSettled(
+              fotoBuktiUrls.map(url =>
+                fetch(url.replace('/uploads/', '/api/uploads/delete/'), {
+                  method: 'DELETE'
+                }).catch(err => console.error('Failed to cleanup photo:', err))
+              )
+            )
+          } catch (cleanupError) {
+            console.error('Error during photo cleanup:', cleanupError)
+          }
+        }
         throw new Error(data.error || 'Gagal melakukan transfer')
       }
 
