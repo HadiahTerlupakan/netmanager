@@ -2154,69 +2154,74 @@ model WorkOrderUpdates {
 }
 
 model WorkOrders {
-  id                  String                 @id
-  workOrderNumber     String                 @unique
-  pelangganId         String?
-  siteId              String?
-  type                WorkOrderType
-  title               String
-  description         String
-  status              WorkOrderStatus        @default(PENDING)
-  priority            WorkOrderPriority      @default(NORMAL)
-  departmentId        String?
-  assignedToId        String?
-  locationAddress     String?
-  locationLat         Float?
-  locationLng         Float?
-  contactName         String?
-  contactPhone        String?
-  scheduledDate       DateTime?
-  scheduledTimeStart  String?
-  scheduledTimeEnd    String?
-  startedAt           DateTime?
-  completedAt         DateTime?
-  verifiedAt          DateTime?
-  closedAt            DateTime?
-  estimatedHours      Float?
-  actualHours         Float?
-  estimatedCost       Float?
-  actualCost          Float?
-  requiredMaterials   Json?
-  usedMaterials       Json?
-  returnedMaterials   Json? // For DISCONNECTION: materials returned to warehouse
-  internalNotes       String?
-  resolutionNotes     String?
-  customerFeedback    String?
-  rating              Int?
-  disconnectionReason String?
-  templateId          String?
-  slaId               String?
-  createdById         String?
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime
-  ticketId            String?
-  isInternal          Boolean                @default(false) // true = Internal FOC, false = Customer/Guest
+  id                       String                    @id
+  workOrderNumber          String                    @unique
+  pelangganId              String?
+  siteId                   String?
+  type                     WorkOrderType
+  title                    String
+  description              String
+  status                   WorkOrderStatus           @default(PENDING)
+  priority                 WorkOrderPriority         @default(NORMAL)
+  departmentId             String?
+  assignedToId             String?
+  locationAddress          String?
+  locationLat              Float?
+  locationLng              Float?
+  contactName              String?
+  contactPhone             String?
+  scheduledDate            DateTime?
+  scheduledTimeStart       String?
+  scheduledTimeEnd         String?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  verifiedAt               DateTime?
+  closedAt                 DateTime?
+  // ON_HOLD tracking fields
+  holdReason               String?
+  heldAt                   DateTime?
+  resumedAt                DateTime?
+  estimatedHours           Float?
+  actualHours              Float?
+  estimatedCost            Float?
+  actualCost               Float?
+  requiredMaterials        Json?
+  usedMaterials            Json?
+  returnedMaterials        Json? // For DISCONNECTION: materials returned to warehouse
+  internalNotes            String?
+  resolutionNotes          String?
+  customerFeedback         String?
+  rating                   Int?
+  disconnectionReason      String?
+  templateId               String?
+  slaId                    String?
+  createdById              String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime
+  ticketId                 String?
+  isInternal               Boolean                   @default(false) // true = Internal FOC, false = Customer/Guest
   // Mobile WO Request fields
-  requestedById       String? // User yang request dari mobile
-  requestedAt         DateTime? // Waktu request
-  approvedById        String? // Admin yang approve/reject
-  approvedAt          DateTime? // Waktu approve/reject
-  rejectionReason     String? // Alasan reject (jika ditolak)
-  canvasing           Canvasing[]
-  assignments         WorkOrderAssignments[]
-  attachments         WorkOrderAttachments[]
-  tasks               WorkOrderTasks[]
-  updates             WorkOrderUpdates[]
-  assignedTo          User?                  @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
-  createdBy           User?                  @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
-  department          Departments?           @relation(fields: [departmentId], references: [id])
-  pelanggan           Pelanggan?             @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  site                Sites?                 @relation(fields: [siteId], references: [id])
-  sla                 Sla?                   @relation(fields: [slaId], references: [id])
-  template            WorkOrderTemplates?    @relation(fields: [templateId], references: [id])
-  ticket              SupportTickets?        @relation(fields: [ticketId], references: [id])
-  requestedBy         User?                  @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
-  approvedBy          User?                  @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
+  requestedById            String? // User yang request dari mobile
+  requestedAt              DateTime? // Waktu request
+  approvedById             String? // Admin yang approve/reject
+  approvedAt               DateTime? // Waktu approve/reject
+  rejectionReason          String? // Alasan reject (jika ditolak)
+  canvasing                Canvasing[]
+  assignments              WorkOrderAssignments[]
+  attachments              WorkOrderAttachments[]
+  tasks                    WorkOrderTasks[]
+  updates                  WorkOrderUpdates[]
+  assignedTo               User?                     @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
+  createdBy                User?                     @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
+  department               Departments?              @relation(fields: [departmentId], references: [id])
+  pelanggan                Pelanggan?                @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  site                     Sites?                    @relation(fields: [siteId], references: [id])
+  sla                      Sla?                      @relation(fields: [slaId], references: [id])
+  template                 WorkOrderTemplates?       @relation(fields: [templateId], references: [id])
+  ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
+  requestedBy              User?                     @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
+  approvedBy               User?                     @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
+  workOrderMaterialReturns WorkOrderMaterialReturn[]
 
   @@index([assignedToId])
   @@index([departmentId])
@@ -2236,6 +2241,37 @@ model WorkOrders {
   @@index([type, status])
   @@index([createdAt])
   @@map("work_orders")
+}
+
+// Material Return Tracking - untuk tracking pengembalian material dari lapangan
+model WorkOrderMaterialReturn {
+  id                 String               @id @default(uuid())
+  workOrderId        String
+  barangId           String
+  quantity           Int
+  kondisi            KondisiBarang        @default(BARU)
+  returnedToGudangId String?
+  reason             String?
+  notes              String?
+  returnedById       String?
+  verifiedById       String?
+  verifiedAt         DateTime?
+  status             MaterialReturnStatus @default(PENDING)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  workOrder          WorkOrders           @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([barangId])
+  @@index([status])
+  @@map("work_order_material_returns")
+}
+
+enum MaterialReturnStatus {
+  PENDING
+  VERIFIED
+  RETURNED_TO_WAREHOUSE
+  REJECTED
 }
 
 model Conversation {

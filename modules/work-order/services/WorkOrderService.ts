@@ -228,12 +228,11 @@ export class WorkOrderService {
             }
 
             // Create work order - ensure scheduledDate is Date or undefined
+            const { scheduledDate: rawScheduledDate, ...restInput } = input
             const createData = {
-                ...input,
+                ...restInput,
                 createdById,
-                scheduledDate: input.scheduledDate 
-                    ? new Date(input.scheduledDate) 
-                    : undefined,
+                ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
             }
 
             const workOrder = await this.repository.create(createData)
@@ -284,11 +283,10 @@ export class WorkOrderService {
             }
 
             // Update - ensure scheduledDate is Date or undefined
+            const { scheduledDate: rawScheduledDate, ...restInput } = input
             const updateData = {
-                ...input,
-                scheduledDate: input.scheduledDate 
-                    ? new Date(input.scheduledDate) 
-                    : undefined,
+                ...restInput,
+                ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
             }
 
             const updated = await this.repository.update(id, updateData)
@@ -392,6 +390,24 @@ export class WorkOrderService {
             const existing = await this.repository.findById(id)
             if (!existing) {
                 return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+            }
+
+            // Validate employee status
+            const employee = await prisma.user.findUnique({
+                where: { id: employeeId },
+                select: { id: true, name: true, isActive: true }
+            })
+
+            if (!employee) {
+                return { success: false, error: 'Employee not found', code: 'EMPLOYEE_NOT_FOUND' }
+            }
+
+            if (!employee.isActive) {
+                return {
+                    success: false,
+                    error: `Cannot assign work order to inactive employee: ${employee.name || 'Unknown'}`,
+                    code: 'EMPLOYEE_INACTIVE'
+                }
             }
 
             // Assign
@@ -670,8 +686,8 @@ export class WorkOrderService {
             const task = await this.repository.addTask({
                 workOrderId,
                 title: taskData.title,
-                description: taskData.description,
-                order: taskData.order,
+                ...(taskData.description && { description: taskData.description }),
+                ...(taskData.order !== undefined && { order: taskData.order }),
             })
             return { success: true, data: task }
         } catch (error) {

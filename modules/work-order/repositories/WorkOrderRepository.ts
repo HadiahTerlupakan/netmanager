@@ -13,12 +13,7 @@ import type {
     TopPerformer,
 } from './IWorkOrderRepository';
 import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
-import { 
-    notifyNewWorkOrder, 
-    notifyWorkOrderAssigned, 
-    notifyWorkOrderStatusChange, 
-    notifyWorkOrderUpdate 
-} from '../../notification/services/NotificationService';
+import { validateStatusTransition } from '../utils/status-transitions';
 import { randomUUID } from 'crypto';
 import { socketEmitter } from '@/lib/websocket/emitter';
 
@@ -53,9 +48,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         let nextSequence = 1;
         if (lastWo?.workOrderNumber) {
             // Extract the sequence part: WO-YYYYMMDD-XXXX -> XXXX
-            const parts = lastWo.workOrderNumber.split('-');
+            const parts = (lastWo?.workOrderNumber ?? '').split('-');
             if (parts.length >= 3) {
-                const lastSequence = parseInt(parts[2], 10);
+                const lastSequence = parseInt(parts[2] || '0', 10);
                 if (!isNaN(lastSequence)) {
                     nextSequence = lastSequence + 1;
                 }
@@ -87,37 +82,28 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         description: restData.description,
                         status: 'PENDING',
                         priority: data.priority || 'NORMAL',
-                        createdById: data.createdById,
+                        createdById: data.createdById ?? null,
                         pelangganId: pelangganId || null,
                         siteId: restData.siteId || null,
                         departmentId: restData.departmentId || null,
                         assignedToId: restData.assignedToId || null,
-                        contactName: restData.contactName,
-                        contactPhone: restData.contactPhone,
-                        locationAddress: restData.locationAddress,
-                        scheduledDate: restData.scheduledDate,
-                        scheduledTimeStart: restData.scheduledTimeStart,
-                        scheduledTimeEnd: restData.scheduledTimeEnd,
-                        estimatedHours: restData.estimatedHours,
-                        estimatedCost: restData.estimatedCost,
+                        contactName: restData.contactName ?? null,
+                        contactPhone: restData.contactPhone ?? null,
+                        locationAddress: restData.locationAddress ?? null,
+                        scheduledDate: restData.scheduledDate ?? null,
+                        scheduledTimeStart: restData.scheduledTimeStart ?? null,
+                        scheduledTimeEnd: restData.scheduledTimeEnd ?? null,
+                        estimatedHours: restData.estimatedHours ?? null,
+                        estimatedCost: restData.estimatedCost ?? null,
                         requiredMaterials: restData.requiredMaterials ?? undefined,
-                        internalNotes: restData.internalNotes,
+                        internalNotes: restData.internalNotes ?? null,
                         disconnectionReason: restData.disconnectionReason || null,
                         isInternal: restData.isInternal || false, // Internal FOC flag
                     },
                 });
 
-                // Notify Creation
-                await notifyNewWorkOrder({
-                    workOrderId: result.id,
-                    workOrderNumber: result.workOrderNumber,
-                    title: result.title,
-                    type: result.type,
-                    priority: result.priority,
-                    departmentId: result.departmentId || undefined,
-                    siteId: result.siteId || undefined,
-                    assignedToId: result.assignedToId || undefined
-                }).catch(err => console.error('Failed to notify new WO:', err));
+                // NOTE: Notification moved to Service layer to avoid duplication
+                // and resolve "Cannot find name notifyNewWorkOrder" error
 
                 return result;
             } catch (error: any) {
@@ -690,51 +676,47 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             throw new Error('Work order not found');
         }
 
-        const updateData: any = { status };
+        // CRITICAL: Validate status transition
+        validateStatusTransition(workOrder.status, status);
+
+        const woUpdateData: any = { status };
         const eventTime = timestamp || new Date();
 
         if (status === 'IN_PROGRESS' && !workOrder.startedAt) {
-            updateData.startedAt = eventTime;
+            woUpdateData.startedAt = eventTime;
         } else if (status === 'COMPLETED') {
-            updateData.completedAt = eventTime;
+            woUpdateData.completedAt = eventTime;
             if (workOrder.startedAt) {
                 const hours = (eventTime.getTime() - new Date(workOrder.startedAt).getTime()) / (1000 * 60 * 60);
-                updateData.actualHours = hours;
+                woUpdateData.actualHours = hours;
             }
         } else if (status === 'VERIFIED') {
-            updateData.verifiedAt = eventTime;
+            woUpdateData.verifiedAt = eventTime;
         } else if (status === 'CLOSED') {
-            updateData.closedAt = eventTime;
+            woUpdateData.closedAt = eventTime;
         }
 
-        await this.addUpdate({
+        const statusUpdateData: AddUpdateData = {
             workOrderId: id,
             updateType: 'STATUS_CHANGE',
             message: `Status changed from ${workOrder.status} to ${status}`,
-            oldStatus: workOrder.status,
-            newStatus: status,
-            createdById: userId,
-        });
+            oldStatus: workOrder.status as any,
+            newStatus: status as any,
+        };
 
-        const updatedWo = await this.update(id, updateData);
+        if (userId) {
+            statusUpdateData.createdById = userId;
+        }
+
+        await this.addUpdate(statusUpdateData);
+
+        const updatedWo = await this.update(id, woUpdateData);
 
         // Sync to Ticket
         await syncWoStatusToTicket(id, status);
 
-        // Notify Status Change - always notify (removed assignedToId check so admins see it)
-        await notifyWorkOrderStatusChange({
-            workOrderId: id,
-            workOrderNumber: workOrder.workOrderNumber,
-            title: workOrder.title,
-            type: workOrder.type,
-            priority: workOrder.priority,
-            departmentId: workOrder.departmentId || undefined,
-            siteId: workOrder.siteId || undefined,
-            assignedToId: workOrder.assignedToId || undefined,
-            oldStatus: workOrder.status,
-            newStatus: status,
-            triggeredByUserId: userId
-        }).catch(err => console.error('Failed to notify WO status change:', err));
+        // NOTE: Notification moved to Service layer to avoid duplication
+        // Repository should not send notifications directly
 
         return updatedWo;
     }
@@ -762,12 +744,17 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async cancel(id: string, reason: string, userId?: string): Promise<WorkOrders> {
-        await this.addUpdate({
+        const updateData: AddUpdateData = {
             workOrderId: id,
             updateType: 'NOTE',
             message: `Work order cancelled. Reason: ${reason}`,
-            createdById: userId,
-        });
+        };
+
+        if (userId) {
+            updateData.createdById = userId;
+        }
+
+        await this.addUpdate(updateData);
 
         return this.updateStatus(id, 'CANCELLED', userId);
     }
@@ -803,13 +790,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         siteId: restData.siteId || null,
                         departmentId: restData.departmentId || null,
                         assignedToId: null, // Not assigned yet
-                        contactName: restData.contactName,
-                        contactPhone: restData.contactPhone,
-                        locationAddress: restData.locationAddress,
-                        locationLat: restData.locationLat,
-                        locationLng: restData.locationLng,
-                        scheduledDate: restData.scheduledDate,
-                        internalNotes: restData.internalNotes,
+                        contactName: restData.contactName ?? null,
+                        contactPhone: restData.contactPhone ?? null,
+                        locationAddress: restData.locationAddress ?? null,
+                        locationLat: restData.locationLat ?? null,
+                        locationLng: restData.locationLng ?? null,
+                        scheduledDate: restData.scheduledDate ?? null,
+                        internalNotes: restData.internalNotes ?? null,
                         isInternal: restData.isInternal || false, // Internal FOC flag
                     },
                 });
@@ -866,18 +853,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             createdById: approvedById,
         });
 
-        // Now it's approved, notify department users
-        await notifyNewWorkOrder({
-            workOrderId: result.id,
-            workOrderNumber: result.workOrderNumber,
-            title: result.title,
-            type: result.type,
-            priority: result.priority,
-            departmentId: result.departmentId || undefined,
-            siteId: result.siteId || undefined,
-            assignedToId: result.assignedToId || undefined
-        }).catch(err => console.error('Failed to notify approved WO:', err));
-
+        // NOTE: Notification moved to Service layer
+        
         return result;
     }
 
@@ -986,24 +963,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         await this.addAssignment(id, employeeId, role || 'Lead');
         
-        const wo = await this.findById(id) as WorkOrders; // Need full object for notify
+        const wo = await this.findById(id) as WorkOrders;
         
         console.log(`[RepoDebug] Assigning WO ${id} to ${employeeId} by ${triggeredByUserId}`);
         
-        // Notify Assignment
-        await notifyWorkOrderAssigned({
-            workOrderId: id,
-            workOrderNumber: wo.workOrderNumber,
-            title: wo.title,
-            type: wo.type,
-            priority: wo.priority,
-            departmentId: wo.departmentId || undefined,
-            siteId: wo.siteId || undefined,
-            assignedToId: employeeId,
-            triggeredByUserId
-        })
-        .then(() => console.log(`[RepoDebug] Notification sent for assignment of ${wo.workOrderNumber}`))
-        .catch(err => console.error('[RepoDebug] Failed to notify WO assignment:', err));
+        // NOTE: Notification moved to Service layer
 
         return wo;
     }
@@ -1024,7 +988,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 id: randomUUID(),
                 workOrderId,
                 userId,
-                role,
+                role: role ?? null,
             },
         });
     }
@@ -1076,33 +1040,16 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const update = await this.prisma.workOrderUpdates.create({
             data: {
                 id: randomUUID(),
-                ...data,
-                createdById: data.createdById,
+                workOrderId: data.workOrderId,
+                updateType: data.updateType,
+                message: data.message,
+                oldStatus: data.oldStatus ?? null,
+                newStatus: data.newStatus ?? null,
+                createdById: data.createdById ?? null,
             },
         });
 
-        // Notify Update/Comment
-        // We need WO details for the notification.
-        const workOrder = await this.prisma.workOrders.findUnique({
-             where: { id: data.workOrderId },
-             select: { workOrderNumber: true, title: true, type: true, priority: true, assignedToId: true, departmentId: true, siteId: true }
-        });
-
-        if (workOrder) {
-            // Notify everyone, will be filtered by NotificationService
-             await notifyWorkOrderUpdate({
-                workOrderId: data.workOrderId,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: workOrder.type,
-                priority: workOrder.priority,
-                departmentId: workOrder.departmentId || undefined,
-                siteId: workOrder.siteId || undefined,
-                assignedToId: workOrder.assignedToId || undefined,
-                updateMessage: data.message,
-                triggeredByUserId: data.createdById
-            }).catch(err => console.error('Failed to notify WO update:', err));
-        }
+        // NOTE: Notification moved to Service layer
 
         // Fetch creator for socket payload
         let createdByUser = null;
@@ -1127,7 +1074,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             createdAt: update.createdAt.toISOString(),
             createdBy: createdByUser ? {
                 id: createdByUser.id,
-                name: createdByUser.name || undefined
+                ...(createdByUser.name && { name: createdByUser.name })
             } : null
         });
 
@@ -1158,18 +1105,23 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 filePath,
                 fileSize,
                 fileType,
-                caption,
-                uploadedById,
+                caption: caption ?? null,
+                uploadedById: uploadedById ?? null,
             },
         });
 
         // Log photo upload
-        await this.addUpdate({
+        const updateData: AddUpdateData = {
             workOrderId,
             updateType: 'PHOTO',
             message: caption || `Photo uploaded: ${fileName}`,
-            createdById: uploadedById,
-        });
+        };
+
+        if (uploadedById) {
+            updateData.createdById = uploadedById;
+        }
+
+        await this.addUpdate(updateData);
 
         return attachment;
     }
@@ -1323,21 +1275,32 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
 
                 if (!userStats[name]) {
-                    userStats[name] = { count: 0, totalHours: 0, role, site };
+                    userStats[name] = { 
+                        count: 0, 
+                        totalHours: 0,
+                        ...(role && { role }),
+                        ...(site && { site })
+                    };
                 }
 
-                userStats[name].count += 1;
-                userStats[name].totalHours += hours;
+                const currentUserStats = userStats[name];
+                if (currentUserStats) {
+                    currentUserStats.count += 1;
+                    currentUserStats.totalHours += hours;
+                }
             }
         });
 
-        const topPerformers = Object.entries(userStats).map(([name, stats]) => ({
-            userName: name,
-            role: stats.role,
-            site: stats.site,
-            count: stats.count,
-            avgCompletionTime: stats.totalHours / stats.count,
-        }));
+        const topPerformers: TopPerformer[] = Object.entries(userStats).map(([name, stats]) => {
+            const result: TopPerformer = {
+                userName: name,
+                count: stats.count,
+                avgCompletionTime: stats.totalHours / stats.count,
+            };
+            if (stats.role) result.role = stats.role;
+            if (stats.site) result.site = stats.site;
+            return result;
+        });
 
         // Sort by count (desc) then by avgCompletionTime (asc)
         return topPerformers.sort((a, b) => {
@@ -1399,21 +1362,32 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
 
                 if (!userStats[name]) {
-                    userStats[name] = { count: 0, totalHours: 0, role, site };
+                    userStats[name] = { 
+                        count: 0, 
+                        totalHours: 0,
+                        ...(role && { role }),
+                        ...(site && { site })
+                    };
                 }
 
-                userStats[name].count += 1;
-                userStats[name].totalHours += hours;
+                const currentUserStats = userStats[name];
+                if (currentUserStats) {
+                    currentUserStats.count += 1;
+                    currentUserStats.totalHours += hours;
+                }
             }
         });
 
-        const topAssists = Object.entries(userStats).map(([name, stats]) => ({
-            userName: name,
-            role: stats.role,
-            site: stats.site,
-            count: stats.count,
-            avgCompletionTime: stats.count > 0 ? stats.totalHours / stats.count : 0,
-        }));
+        const topAssists: TopPerformer[] = Object.entries(userStats).map(([name, stats]) => {
+            const result: TopPerformer = {
+                userName: name,
+                count: stats.count,
+                avgCompletionTime: stats.count > 0 ? stats.totalHours / stats.count : 0,
+            };
+            if (stats.role) result.role = stats.role;
+            if (stats.site) result.site = stats.site;
+            return result;
+        });
 
         // Sort by count (desc)
         return topAssists.sort((a, b) => b.count - a.count).slice(0, limit);
@@ -1802,7 +1776,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         workOrders.forEach(wo => {
             const category = this.classifyIssue(wo.title);
-            counts[category]++;
+            if (category in counts) {
+                const currentCount = counts[category];
+                if (typeof currentCount === 'number') {
+                    counts[category] = currentCount + 1;
+                }
+            }
         });
 
         // Convert to array and sort
@@ -2131,16 +2110,20 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
 
         // If we have users with only Canvasing stats (name='Admin (Sales)'), we should try to fetch their real names
-        const unknownUserIds = Object.keys(userStats).filter(uid => userStats[uid].name === 'Admin (Sales)');
+        const unknownUserIds = Object.keys(userStats).filter(uid => {
+            const stat = userStats[uid];
+            return stat && stat.name === 'Admin (Sales)';
+        });
         if (unknownUserIds.length > 0) {
             const users = await this.prisma.user.findMany({
                 where: { id: { in: unknownUserIds } },
                 select: { id: true, name: true, role: { select: { name: true } } }
             });
             users.forEach(u => {
-                if (userStats[u.id]) {
-                    userStats[u.id].name = u.name || 'Unknown';
-                    userStats[u.id].role = u.role?.name || 'N/A';
+                const stat = userStats[u.id];
+                if (stat) {
+                    stat.name = u.name || 'Unknown';
+                    stat.role = u.role?.name || 'N/A';
                 }
             });
         }
@@ -2365,7 +2348,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         return Object.entries(months).map(([key, value]) => {
             const [year, month] = key.split('-');
-            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            const date = new Date(parseInt(year || '0'), parseInt(month || '1') - 1, 1);
             return {
                 month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
                 created: value.created,
@@ -2422,7 +2405,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         return Object.entries(monthIssues).map(([key, issueMap]) => {
             const [year, month] = key.split('-');
-            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            const date = new Date(parseInt(year || '0'), parseInt(month || '1') - 1, 1);
             return {
                 month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
                 issues: Object.entries(issueMap)
@@ -2498,7 +2481,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         return Object.entries(monthStats).map(([key, stats]) => {
             const [year, month] = key.split('-');
-            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            const date = new Date(parseInt(year || '0'), parseInt(month || '1') - 1, 1);
             return {
                 month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
                 avgCompletionHours: stats.count > 0 ? Math.round((stats.totalHours / stats.count) * 10) / 10 : 0,
@@ -2565,7 +2548,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         return Object.entries(monthTypes).map(([key, typeMap]) => {
             const [year, month] = key.split('-');
-            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            const date = new Date(parseInt(year || '0'), parseInt(month || '1') - 1, 1);
             return {
                 month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
                 types: Object.entries(typeMap)

@@ -29,7 +29,7 @@ export function BarangTable() {
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('barang:update')
   const canDelete = hasPermission('barang:delete')
-  const { toast } = useToast()
+  const { showToast } = useToast()
 
   const [barangs, setBarangs] = useState<Barang[]>([])
   const [loading, setLoading] = useState(true)
@@ -123,21 +123,13 @@ export function BarangTable() {
       }
 
       // Show success toast
-      toast({
-        title: 'Berhasil',
-        description: `Barang ${kode} berhasil dihapus`,
-        variant: 'default'
-      })
+      showToast('success', `Barang ${kode} berhasil dihapus`)
 
       // Soft refresh - reload data without full page reload
       await fetchBarangs()
     } catch (error) {
       console.error('Failed to delete barang:', error)
-      toast({
-        title: 'Gagal',
-        description: error instanceof Error ? error.message : 'Gagal menghapus barang',
-        variant: 'destructive'
-      })
+      showToast('error', error instanceof Error ? error.message : 'Gagal menghapus barang')
     }
   }
 

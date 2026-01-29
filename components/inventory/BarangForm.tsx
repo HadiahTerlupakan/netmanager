@@ -33,7 +33,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isCustomSatuan, setIsCustomSatuan] = useState(false)
   const router = useRouter()
-  const { toast } = useToast()
+  const { showToast } = useToast()
 
   const satuanOptions = [
     'pcs', 'meter', 'box', 'roll', 'pack', 'karton', 'liter', 'kg', 'set', 'buah', 'unit'
@@ -106,11 +106,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           throw new Error(data.error || 'Gagal mengupdate barang')
         }
 
-        toast({
-          title: 'Berhasil',
-          description: 'Barang berhasil diupdate',
-          variant: 'default'
-        })
+        showToast('success', 'Barang berhasil diupdate')
       } else {
         // Create new barang
         const response = await fetch('/api/inventory/barang', {
@@ -126,11 +122,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           throw new Error(data.error || 'Gagal menambah barang')
         }
 
-        toast({
-          title: 'Berhasil',
-          description: 'Barang berhasil ditambahkan',
-          variant: 'default'
-        })
+        showToast('success', 'Barang berhasil ditambahkan')
       }
 
       onSubmit(sanitizedData)
