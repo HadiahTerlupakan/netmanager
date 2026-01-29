@@ -1,52 +1,72 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
-import { TicketStatus, TicketCategory, TicketPriority } from '@prisma/client'
-import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { supportTicketFilterSchema } from '@/lib/validations/support-ticket'
 import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
+import { getSiteFilter } from '@/lib/site-restriction'
+import { logger } from '@/lib/logger'
 
 /**
- * GET /api/admin/support-tickets
- * Get all support tickets with filters
+ * @swagger
+ * /api/admin/support-tickets:
+ *   get:
+ *     summary: List support tickets
+ *     description: Mengambil daftar tiket dukungan dengan pagination dan filter.
+ *     tags: [Support Tickets]
  */
-export async function GET(request: NextRequest) {
-    const user = await verifyAuth(request)
-    if (!user) {
-        return ApiErrors.unauthorized('Session tidak valid')
+export const GET = createHandler({
+  auth: true,
+  permissions: ['support:read']
+}, async (req, ctx) => {
+  const startTime = Date.now()
+  const { session, query, permissions } = ctx
+
+  if (!session) return ApiErrors.unauthorized()
+
+  // Validate query params with Zod
+  // ctx.query already handles multi-value params and sanitization of "", "null", "undefined"
+  const parseResult = supportTicketFilterSchema.safeParse(query)
+
+  if (!parseResult.success) {
+    return ApiErrors.badRequest('Parameter tidak valid', parseResult.error.flatten().fieldErrors)
+  }
+
+  const validated = parseResult.data
+
+  // Site restriction logic
+  const sessionWithPermissions = {
+    ...session,
+    user: {
+      ...session.user,
+      permissions
     }
+  }
+  const siteId = getSiteFilter(sessionWithPermissions as any, 'support')
+  const hasSiteRestriction = !!siteId
 
-    // Permission check
-    if (!await hasPermission('support:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tiket')
+  // Build service filters
+  const serviceFilters: any = {
+    ...validated,
+    siteId
+  }
+
+  const service = getAdminSupportTicketService()
+  const result = await service.getTickets(serviceFilters, {
+    id: session.user.id,
+    role: session.user.role || '',
+    siteId: session.user.id, // Service expects siteId of the user if needed
+  }, hasSiteRestriction)
+
+  if (!result.success) {
+    if (result.code === 'FORBIDDEN') {
+      return ApiErrors.forbidden(result.error || 'Akses ditolak')
     }
+    throw new Error(result.error || 'Gagal mengambil data tiket')
+  }
 
-    const { searchParams } = new URL(request.url)
+  logger.apiRequest('GET', '/api/admin/support-tickets', 200, Date.now() - startTime, {
+    userId: session.user.id,
+    count: (result.data as any)?.tickets?.length || 0
+  })
 
-    const filters = {
-        page: parseInt(searchParams.get('page') || '1'),
-        limit: parseInt(searchParams.get('limit') || '20'),
-        status: searchParams.get('status') as TicketStatus | undefined,
-        category: searchParams.get('category') as TicketCategory | undefined,
-        priority: searchParams.get('priority') as TicketPriority | undefined,
-        search: searchParams.get('search') || undefined,
-        assignedToMe: searchParams.get('assignedToMe') === 'true',
-    }
-
-    const hasSiteRestriction = await hasPermission('support:site_only')
-    const service = getAdminSupportTicketService()
-
-    const result = await service.getTickets(filters, {
-        id: user.id,
-        role: user.role,
-        siteId: user.siteId,
-    }, hasSiteRestriction)
-
-    if (!result.success) {
-        if (result.code === 'FORBIDDEN') {
-            return ApiErrors.forbidden(result.error!)
-        }
-        return ApiErrors.internalError(result.error)
-    }
-
-    return apiSuccess(result.data)
-}
+  return apiSuccess(result.data)
+})

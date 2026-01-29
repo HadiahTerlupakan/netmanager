@@ -1,21 +1,28 @@
 import { z } from 'zod'
 
-const EnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  NEXTAUTH_URL: z.string().url(),
-  NEXTAUTH_SECRET: z.string().min(16),
+const envSchema = z.object({
+  // Database
   DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url().optional(),
-  GOOGLE_GEMINI_API_KEY: z.string().optional(),
+  
+  // Auth
+  NEXTAUTH_SECRET: z.string().min(32),
+  NEXTAUTH_URL: z.string().url().optional(),
+  
+  // Redis
+  REDIS_URL: z.string().optional(),
+  
+  // R2/S3
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().optional(),
+  R2_ENDPOINT: z.string().optional(),
+  R2_PUBLIC_URL: z.string().optional(),
+  
+  // Sentry
+  SENTRY_DSN: z.string().optional(),
+  
+  // Node Environment
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })
 
-export const env = EnvSchema.parse({
-  NODE_ENV: process.env.NODE_ENV,
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  DATABASE_URL: process.env.DATABASE_URL,
-  REDIS_URL: process.env.REDIS_URL,
-  GOOGLE_GEMINI_API_KEY: process.env.GOOGLE_GEMINI_API_KEY,
-})
-
-
+export const env = envSchema.parse(process.env)

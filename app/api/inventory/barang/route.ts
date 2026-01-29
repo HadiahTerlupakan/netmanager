@@ -179,13 +179,16 @@ export async function GET(req: NextRequest) {
 
       const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
 
-      const { items: barangs, total } = await inventoryRepository.findAllBarang({
+      const findAllParams: Parameters<typeof inventoryRepository.findAllBarang>[0] = {
         skip: offset,
         take: limit,
-        search: search || undefined,
-        gudangId: gudangId || undefined,
-        siteId
-      })
+      }
+
+      if (search) findAllParams.search = search
+      if (gudangId) findAllParams.gudangId = gudangId
+      if (siteId) findAllParams.siteId = siteId
+
+      const { items: barangs, total } = await inventoryRepository.findAllBarang(findAllParams)
 
       // Calculate total stock per item and filter by gudang if needed
       const barangsWithStock = barangs.map(barang => {
@@ -216,7 +219,15 @@ export async function GET(req: NextRequest) {
         }
 
         return {
-          ...barang,
+          id: barang.id,
+          kode: barang.kode,
+          nama: barang.nama,
+          satuan: barang.satuan,
+          isWorkOrderMaterial: barang.isWorkOrderMaterial,
+          jenis: barang.jenis,
+          kategoriAset: barang.kategoriAset,
+          createdAt: barang.createdAt,
+          updatedAt: barang.updatedAt,
           totalStock,
           stockPerGudang
         }
@@ -300,9 +311,9 @@ export async function POST(req: NextRequest) {
 
       do {
         kode = await generateBarangCode()
-        const existingBarang = await inventoryRepository.findBarangByKode(kode)
+        const isExists = await inventoryRepository.existsBarangByKode(kode)
 
-        if (!existingBarang) break
+        if (!isExists) break
         attempts++
       } while (attempts < maxAttempts)
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { FiEdit2, FiTrash2, FiEye, FiMinusCircle } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { getWithAuth, deleteWithAuth } from '@/lib/api-client'
 
 interface StockOpnameRecord {
   id: string
@@ -73,20 +74,22 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
   async function fetchBarangsAndGudangs() {
     try {
       const [barangRes, gudangRes] = await Promise.all([
-        fetch('/api/inventory/barang'),
-        fetch('/api/inventory/gudang')
+        getWithAuth('/api/inventory/barang?limit=100'),
+        getWithAuth('/api/inventory/gudang')
       ])
 
       if (barangRes.ok) {
         const barangData = await barangRes.json()
-        setBarangs(Array.isArray(barangData) ? barangData : [])
+        const barangResult = barangData.data || barangData
+        setBarangs(Array.isArray(barangResult.barangs) ? barangResult.barangs : (Array.isArray(barangResult) ? barangResult : []))
       } else {
         setBarangs([])
       }
 
       if (gudangRes.ok) {
         const gudangData = await gudangRes.json()
-        setGudangs(Array.isArray(gudangData) ? gudangData : [])
+        const gudangResult = gudangData.data || gudangData
+        setGudangs(Array.isArray(gudangResult.gudangs) ? gudangResult.gudangs : (Array.isArray(gudangResult) ? gudangResult : []))
       } else {
         setGudangs([])
       }
@@ -109,15 +112,16 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
         ...(filters.gudangId && { gudangId: filters.gudangId })
       })
 
-      const response = await fetch(`/api/inventory/opname/list?${params}`)
+      const response = await getWithAuth(`/api/inventory/opname/list?${params}`)
       if (!response.ok) {
         throw new Error('Gagal memuat data stock opname')
       }
 
       const data = await response.json()
-      setOpnameList(data.opnameList || [])
-      setTotalPages(data.pagination?.totalPages || 0)
-      setTotal(data.pagination?.total || 0)
+      const result = data.data || data
+      setOpnameList(result.opnameList || [])
+      setTotalPages(result.pagination?.totalPages || 0)
+      setTotal(result.pagination?.total || 0)
     } catch (error) {
       console.error('Error fetching opname list:', error)
       setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
@@ -133,9 +137,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
 
     setDeletingId(id)
     try {
-      const response = await fetch(`/api/inventory/opname/${id}`, {
-        method: 'DELETE',
-      })
+      const response = await deleteWithAuth(`/api/inventory/opname/${id}`)
 
       if (!response.ok) {
         const errorData = await response.json()

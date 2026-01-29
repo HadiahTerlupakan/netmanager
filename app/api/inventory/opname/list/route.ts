@@ -4,6 +4,7 @@ import { authConfig, getUserPermissions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -23,11 +24,11 @@ export async function GET(req: NextRequest) {
     const session = await requireAdmin()
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/opname/list')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Session tidak valid')
     }
 
     if (!(await hasPermission("opname:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Forbidden')
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
         gudangId,
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         opnameList,
         pagination: {
           page,
@@ -121,9 +122,6 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/opname/list',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data stock opname' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data stock opname')
   }
 }

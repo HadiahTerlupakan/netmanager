@@ -44,7 +44,7 @@ export interface NotificationPayload {
     priority: string
     title: string
     message: string
-    link?: string
+    link?: string | undefined
     createdAt: string
 }
 

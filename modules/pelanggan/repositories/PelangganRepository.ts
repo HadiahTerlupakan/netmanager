@@ -74,20 +74,7 @@ export interface FilterOptions {
 
 export class PelangganRepository {
     async findAll(filter?: FilterOptions): Promise<PelangganWithPackage[]> {
-        const where: any = {}
-        if (filter?.status) {
-            where.status = filter.status
-        }
-        if (filter?.siteId) {
-            where.siteId = filter.siteId
-        }
-        if (filter?.search) {
-            where.OR = [
-                { nama: { contains: filter.search, mode: 'insensitive' } },
-                { idPelanggan: { contains: filter.search, mode: 'insensitive' } },
-                { username: { contains: filter.search, mode: 'insensitive' } },
-            ]
-        }
+        const where = this.buildWhereClause(filter)
 
         return prisma.pelanggan.findMany({
             where,
@@ -103,6 +90,48 @@ export class PelangganRepository {
                 createdAt: 'desc',
             },
         })
+    }
+
+    async findAllPaginated(filter?: FilterOptions, page: number = 1, limit: number = 10): Promise<{ data: PelangganWithPackage[], total: number }> {
+        const where = this.buildWhereClause(filter)
+
+        const [data, total] = await Promise.all([
+            prisma.pelanggan.findMany({
+                where,
+                include: {
+                    hargaPaket: {
+                        include: {
+                            profilePPP: true,
+                            bandwidth: true,
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            prisma.pelanggan.count({ where })
+        ])
+
+        return { data, total }
+    }
+
+    private buildWhereClause(filter?: FilterOptions): any {
+        const where: any = {}
+        if (filter?.status) {
+            where.status = filter.status
+        }
+        if (filter?.siteId) {
+            where.siteId = filter.siteId
+        }
+        if (filter?.search) {
+            where.OR = [
+                { nama: { contains: filter.search, mode: 'insensitive' } },
+                { idPelanggan: { contains: filter.search, mode: 'insensitive' } },
+                { username: { contains: filter.search, mode: 'insensitive' } },
+            ]
+        }
+        return where
     }
 
     async findById(id: string): Promise<Pelanggan | null> {

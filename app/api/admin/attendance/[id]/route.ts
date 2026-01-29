@@ -1,161 +1,169 @@
-import { NextRequest, NextResponse } from 'next/server'
+/**
+ * Admin Attendance Single Record Routes
+ * Migrated to use standardized middleware and validation
+ */
+
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/auth-helpers'
-import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { 
+  withAuth, 
+  withPermission, 
+  withErrorHandler, 
+  withRateLimit,
+  RateLimits,
+  ValidationError,
+  NotFoundError,
+  applyRBACRestrictions
+} from '@/lib/middleware'
+import { apiSuccess } from '@/lib/api-response'
 import { attendanceUpdateSchema } from '@/lib/validations/attendance'
+import { idSchema } from '@/lib/validations/common'
 import { logger } from '@/lib/logger'
 
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await requireAdmin(request)
-        if (session instanceof NextResponse) {
-            return session
-        }
+/**
+ * GET /api/admin/attendance/[id]
+ * Retrieve single attendance record
+ */
+export const GET = withErrorHandler(
+  withAuth(
+    withPermission('attendance:read',
+      applyRBACRestrictions(
+        { 
+          sitePermission: 'attendance:site_only', 
+          departmentPermission: 'attendance:department_only' 
+        },
+        withRateLimit(RateLimits.STANDARD,
+          async ({ user, request, filters }, routeContext) => {
+            const { id } = await routeContext.params
 
-        if (!await hasPermission('attendance:delete')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus absensi')
-        }
-
-        const { id } = await params
-
-        if (!id) {
-            return apiError('ID wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
-        }
-
-        // Check existence and ownership
-        const existing = await prisma.attendance.findUnique({
-            where: { id },
-            include: { user: true }
-        })
-
-        if (!existing) {
-            return ApiErrors.notFound('Data absensi')
-        }
-
-        // OWNERSHIP CHECK
-        const user = session.user as any;
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
-
-        if (!isSuperAdmin) {
-            const recordUser = existing.user;
-            if (user.permissions?.includes('attendance:site_only') && recordUser.siteId !== user.siteId) {
-                return ApiErrors.forbidden('Akses dibatasi hanya untuk site Anda')
+            // Validate ID format
+            const parseResult = idSchema.safeParse(id)
+            if (!parseResult.success) {
+              throw new ValidationError('ID tidak valid', {
+                errors: parseResult.error.flatten().fieldErrors
+              })
             }
-            if (user.permissions?.includes('attendance:department_only') && recordUser.departmentId !== user.departmentId) {
-                return ApiErrors.forbidden('Akses dibatasi hanya untuk departemen Anda')
-            }
-        }
 
-        await prisma.attendance.delete({
-            where: { id }
-        })
-
-        // System Log
-        try {
-            await logger.logActivity({
-                action: 'DELETE',
-                subject: 'Attendance',
-                userId: session.user.id,
-                details: { id }
+            // Fetch attendance with user details
+            const attendance = await prisma.attendance.findUnique({
+              where: { id: parseResult.data },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                    siteId: true,
+                    departmentId: true,
+                    departments: { select: { name: true } },
+                    sites: { select: { name: true } }
+                  }
+                }
+              }
             })
-        } catch (e) { console.error('Logging failed', e) }
 
-        return apiSuccess({ id }, { message: 'Absensi berhasil dihapus' })
+            if (!attendance) {
+              throw new NotFoundError('Data absensi tidak ditemukan')
+            }
 
-    } catch (error: any) {
-        console.error('Error deleting attendance:', error)
-        if (error.code === 'P2025') {
-            return ApiErrors.notFound('Data absensi')
-        }
-        return ApiErrors.internalError('Gagal menghapus absensi')
-    }
-}
+            // Apply RBAC filtering on the retrieved record
+            const recordUser = attendance.user
+            if (filters.siteId && recordUser.siteId !== filters.siteId) {
+              throw new NotFoundError('Data absensi tidak ditemukan')
+            }
+            if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
+              throw new NotFoundError('Data absensi tidak ditemukan')
+            }
 
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await requireAdmin(request)
-        if (session instanceof NextResponse) {
-            return session
-        }
+            return apiSuccess(attendance)
+          }
+        )
+      )
+    )
+  )
+)
 
-        if (!await hasPermission('attendance:update')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah absensi')
-        }
+/**
+ * PATCH /api/admin/attendance/[id]
+ * Update attendance record (admin correction)
+ */
+export const PATCH = withErrorHandler(
+  withAuth(
+    withPermission('attendance:update',
+      applyRBACRestrictions(
+        { 
+          sitePermission: 'attendance:site_only', 
+          departmentPermission: 'attendance:department_only' 
+        },
+        async ({ user, request, filters }, routeContext) => {
+          const { id } = await routeContext.params
 
-        const { id } = await params
+          // Validate ID format
+          const idParseResult = idSchema.safeParse(id)
+          if (!idParseResult.success) {
+            throw new ValidationError('ID tidak valid', {
+              errors: idParseResult.error.flatten().fieldErrors
+            })
+          }
 
-        if (!id) {
-            return apiError('ID wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
-        }
+          // Parse and validate request body
+          const body = await request.json()
+          const parseResult = attendanceUpdateSchema.safeParse(body)
 
-        // Parse and validate request body
-        const body = await request.json()
-        const parseResult = attendanceUpdateSchema.safeParse(body)
+          if (!parseResult.success) {
+            throw new ValidationError('Data tidak valid', {
+              errors: parseResult.error.flatten().fieldErrors
+            })
+          }
 
-        if (!parseResult.success) {
-            return apiError(
-                'Data tidak valid',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400, details: parseResult.error.flatten().fieldErrors }
-            )
-        }
+          const { checkIn, checkOut, status, notes } = parseResult.data
 
-        const { checkIn, checkOut, status, notes } = parseResult.data
-
-        // Fetch existing attendance to get userId and User details
-        const existingAttendance = await prisma.attendance.findUnique({
-            where: { id },
+          // Fetch existing attendance to get userId and User details
+          const existingAttendance = await prisma.attendance.findUnique({
+            where: { id: idParseResult.data },
             include: { user: true }
-        })
+          })
 
-        if (!existingAttendance) {
-            return ApiErrors.notFound('Data absensi')
-        }
+          if (!existingAttendance) {
+            throw new NotFoundError('Data absensi tidak ditemukan')
+          }
 
-        // OWNERSHIP CHECK
-        const user = session.user as any;
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
-        if (!isSuperAdmin) {
-            const recordUser = existingAttendance.user;
-            if (user.permissions?.includes('attendance:site_only') && recordUser.siteId !== user.siteId) {
-                return ApiErrors.forbidden('Akses dibatasi hanya untuk site Anda')
-            }
-            if (user.permissions?.includes('attendance:department_only') && recordUser.departmentId !== user.departmentId) {
-                return ApiErrors.forbidden('Akses dibatasi hanya untuk departemen Anda')
-            }
-        }
+          // Apply RBAC filtering
+          const recordUser = existingAttendance.user
+          if (filters.siteId && recordUser.siteId !== filters.siteId) {
+            throw new NotFoundError('Data absensi tidak ditemukan')
+          }
+          if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
+            throw new NotFoundError('Data absensi tidak ditemukan')
+          }
 
-        // Prepare update data
-        const updateData: any = {}
-        if (checkIn) updateData.checkIn = new Date(checkIn)
-        if (checkOut !== undefined) updateData.checkOut = checkOut ? new Date(checkOut) : null
-        if (notes !== undefined) updateData.notes = notes
+          // Prepare update data
+          const updateData: any = {}
+          if (checkIn) updateData.checkIn = new Date(checkIn)
+          if (checkOut !== undefined) updateData.checkOut = checkOut ? new Date(checkOut) : null
+          if (notes !== undefined) updateData.notes = notes
 
-        // Auto-calculate status if checkIn changes
-        if (checkIn && existingAttendance.user.startWorkTime && existingAttendance.user.workingHourMode !== 'FLEXIBLE') {
+          // Auto-calculate status if checkIn changes
+          if (checkIn && existingAttendance.user.startWorkTime && existingAttendance.user.workingHourMode !== 'FLEXIBLE') {
             const userDetails = existingAttendance.user
 
             // Fetch Tolerance Setting and Timezone
             const [toleranceSetting, timezoneSetting] = await Promise.all([
-                prisma.settings.findFirst({
-                    where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
-                }),
-                prisma.settings.findFirst({
-                    where: { key: 'GENERAL_TIMEZONE' }
-                })
+              prisma.settings.findFirst({
+                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
+              }),
+              prisma.settings.findFirst({
+                where: { key: 'GENERAL_TIMEZONE' }
+              })
             ])
 
             const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
             const timezone = timezoneSetting?.value || 'Asia/Jakarta'
 
-            const [schedHour, schedMinute] = userDetails.startWorkTime!.split(':').map(Number)
+            const parts = userDetails.startWorkTime!.split(':')
+            const schedHour = Number(parts[0]) || 0
+            const schedMinute = Number(parts[1]) || 0
 
             // 1. Parse the new checkIn time
             const checkInDate = new Date(checkIn)
@@ -172,33 +180,107 @@ export async function PATCH(
 
             // Determine status by comparing "Wall Clock" times
             updateData.status = checkInInTz > lateThreshold ? 'LATE' : 'ON_TIME'
-        } else if (status) {
+          } else if (status) {
             // If checkIn didn't change (or user has no schedule), allow manual status update
             updateData.status = status
-        }
+          }
 
-        const updated = await prisma.attendance.update({
-            where: { id },
-            data: updateData
-        })
+          const updated = await prisma.attendance.update({
+            where: { id: idParseResult.data },
+            data: updateData,
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                  image: true,
+                  departments: { select: { name: true } },
+                  sites: { select: { name: true } }
+                }
+              }
+            }
+          })
 
-        // System Log
-        try {
+          // System Log
+          try {
             await logger.logActivity({
-                action: 'UPDATE',
-                subject: 'Attendance',
-                userId: session.user.id,
-                details: { id, updates: updateData }
+              action: 'UPDATE',
+              subject: 'Attendance',
+              userId: user.id,
+              details: { id: idParseResult.data, updates: updateData }
             })
-        } catch (e) { console.error('Logging failed', e) }
+          } catch (e) { 
+            console.error('Logging failed', e) 
+          }
 
-        return apiSuccess(updated, { message: 'Absensi berhasil diperbarui' })
-
-    } catch (error: any) {
-        console.error('Error updating attendance:', error)
-        if (error.code === 'P2025') {
-            return ApiErrors.notFound('Data absensi')
+          return apiSuccess(updated, { message: 'Absensi berhasil diperbarui' })
         }
-        return ApiErrors.internalError('Gagal memperbarui absensi')
-    }
-}
+      )
+    )
+  )
+)
+
+/**
+ * DELETE /api/admin/attendance/[id]
+ * Remove attendance record
+ */
+export const DELETE = withErrorHandler(
+  withAuth(
+    withPermission('attendance:delete',
+      applyRBACRestrictions(
+        { 
+          sitePermission: 'attendance:site_only', 
+          departmentPermission: 'attendance:department_only' 
+        },
+        async ({ user, filters }, routeContext) => {
+          const { id } = await routeContext.params
+
+          // Validate ID format
+          const parseResult = idSchema.safeParse(id)
+          if (!parseResult.success) {
+            throw new ValidationError('ID tidak valid', {
+              errors: parseResult.error.flatten().fieldErrors
+            })
+          }
+
+          // Check existence and apply RBAC
+          const existing = await prisma.attendance.findUnique({
+            where: { id: parseResult.data },
+            include: { user: true }
+          })
+
+          if (!existing) {
+            throw new NotFoundError('Data absensi tidak ditemukan')
+          }
+
+          // Apply RBAC filtering
+          const recordUser = existing.user
+          if (filters.siteId && recordUser.siteId !== filters.siteId) {
+            throw new NotFoundError('Data absensi tidak ditemukan')
+          }
+          if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
+            throw new NotFoundError('Data absensi tidak ditemukan')
+          }
+
+          await prisma.attendance.delete({
+            where: { id: parseResult.data }
+          })
+
+          // System Log
+          try {
+            await logger.logActivity({
+              action: 'DELETE',
+              subject: 'Attendance',
+              userId: user.id,
+              details: { id: parseResult.data }
+            })
+          } catch (e) { 
+            console.error('Logging failed', e) 
+          }
+
+          return apiSuccess({ id: parseResult.data }, { message: 'Absensi berhasil dihapus' })
+        }
+      )
+    )
+  )
+)

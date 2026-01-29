@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -193,7 +193,10 @@ export function ClientComponent() {
         try {
             const response = await fetch(`/api/pelanggan-ppp?search=${searchQuery}&limit=10`)
             if (response.ok) { const result = await response.json(); setPelangganList(result.data || []) }
-        } catch (error) { console.error('Error searching pelanggan:', error) }
+        } catch (error) { 
+            console.error('Error searching pelanggan:', error)
+            toast.error('Gagal mencari pelanggan. Silakan coba lagi.')
+        }
         finally { setSearchingPelanggan(false) }
     }
 
@@ -205,7 +208,10 @@ export function ClientComponent() {
                 const result = await response.json(); 
                 setMixRadiusList(result.data?.data || []) 
             }
-        } catch (error) { console.error('Error searching MixRadius:', error) }
+        } catch (error) { 
+            console.error('Error searching MixRadius:', error)
+            toast.error('Gagal mencari data MixRadius. Silakan coba lagi.')
+        }
         finally { setSearchingPelanggan(false) }
     }
 
@@ -408,23 +414,23 @@ export function ClientComponent() {
         if (woType === 'CUSTOMER') {
             // For Customer WO: require customer or guest info
             if (!isGuest && !formData.pelangganId) { 
-                alert('Please select a customer or switch to Manual Ticket mode'); 
+                toast.error('Silakan pilih pelanggan atau gunakan mode Tiket Manual')
                 return 
             }
         } else {
             // For Internal WO: require Site and Department
             if (!formData.siteId) { 
-                alert('Pilih Site terlebih dahulu untuk WO Internal'); 
+                toast.error('Pilih Site terlebih dahulu untuk WO Internal')
                 return 
             }
             if (!formData.departmentId) { 
-                alert('Pilih Department terlebih dahulu untuk WO Internal'); 
+                toast.error('Pilih Department terlebih dahulu untuk WO Internal')
                 return 
             }
         }
         
-        if (!formData.title || !formData.description) { alert('Please fill in title and description'); return }
-        if (formData.type === 'DISCONNECTION' && !formData.disconnectionReason) { alert('Please select a reason for disconnection'); return }
+        if (!formData.title || !formData.description) { toast.error('Silakan isi judul dan deskripsi'); return }
+        if (formData.type === 'DISCONNECTION' && !formData.disconnectionReason) { toast.error('Silakan pilih alasan pemutusan'); return }
 
         setLoading(true)
 
@@ -464,13 +470,17 @@ export function ClientComponent() {
             })
             if (response.ok) {
                 const result = await response.json();
+                toast.success('Work Order berhasil dibuat!')
                 router.push(`/admin/workorders/${result.data.id}`)
             }
             else {
                 const error = await response.json();
-                alert(`Error: ${error.error || 'Failed to create work order'}`)
+                toast.error(error.error || 'Gagal membuat work order. Silakan coba lagi.')
             }
-        } catch (error) { console.error('Error creating work order:', error); alert('An error occurred') }
+        } catch (error) { 
+            console.error('Error creating work order:', error)
+            toast.error('Terjadi kesalahan jaringan. Silakan coba lagi.')
+        }
         finally { setLoading(false) }
     }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { StockOpnameFormData } from '@/lib/types/inventory'
+import { getWithAuth, postWithAuth, putWithAuth } from '@/lib/api-client'
 
 interface OpnameFormProps {
   initialData?: StockOpnameFormData
@@ -38,20 +39,22 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
     async function fetchInitialData() {
       try {
         const [barangRes, gudangRes] = await Promise.all([
-          fetch('/api/inventory/barang'),
-          fetch('/api/inventory/gudang?view=all')
+          getWithAuth('/api/inventory/barang?limit=100'),
+          getWithAuth('/api/inventory/gudang?view=all')
         ])
 
         if (barangRes.ok) {
           const barangData = await barangRes.json()
-          setBarangs(Array.isArray(barangData) ? barangData : [])
+          const barangResult = barangData.data || barangData
+          setBarangs(Array.isArray(barangResult.barangs) ? barangResult.barangs : (Array.isArray(barangResult) ? barangResult : []))
         } else {
           setBarangs([])
         }
 
         if (gudangRes.ok) {
           const gudangData = await gudangRes.json()
-          setGudangs(Array.isArray(gudangData) ? gudangData : [])
+          const gudangResult = gudangData.data || gudangData
+          setGudangs(Array.isArray(gudangResult.gudangs) ? gudangResult.gudangs : (Array.isArray(gudangResult) ? gudangResult : []))
         } else {
           setGudangs([])
         }
@@ -72,7 +75,8 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
           const response = await fetch(`/api/inventory/barang/stock?barangId=${formData.barangId}&gudangId=${formData.gudangId}`)
           if (response.ok) {
             const data = await response.json()
-            setCurrentStock(data.stok || 0)
+            const result = data.data || data
+            setCurrentStock(result.stok || 0)
           }
         } catch (error) {
           console.error('Error fetching current stock:', error)
@@ -173,13 +177,9 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
         ? `/api/inventory/opname/${initialData.id}`
         : '/api/inventory/opname'
 
-      const response = await fetch(url, {
-        method: initialData?.id ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      })
+      const response = initialData?.id
+        ? await putWithAuth(url, submitData)
+        : await postWithAuth(url, submitData)
 
       const data = await response.json()
 

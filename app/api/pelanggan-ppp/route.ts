@@ -8,7 +8,7 @@ import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
 import type { FilterOptions } from '@/modules/pelanggan'
 import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, apiPaginated } from '@/lib/api-response'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -102,10 +102,13 @@ export async function GET(req: NextRequest) {
       filter.siteId = siteIdParam
     }
 
-    const pelangganService = getPelangganService()
-    const pelanggans = await pelangganService.getAllPelanggan(filter)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
 
-    return apiSuccess(pelanggans)
+    const pelangganService = getPelangganService()
+    const { data: pelanggans, total } = await pelangganService.getAllPelangganPaginated(filter, page, limit)
+
+    return apiPaginated(pelanggans, { page, limit, total })
   } catch (error: any) {
     console.error('Error fetching pelanggans:', error)
     return NextResponse.json(

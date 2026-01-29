@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/inventory/barang/stock/by-kondisi
@@ -20,10 +21,7 @@ export async function GET(req: NextRequest) {
     const gudangId = searchParams.get('gudangId')
 
     if (!barangId || !gudangId) {
-      return NextResponse.json(
-        { error: 'Barang ID dan Gudang ID harus diisi' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Barang ID dan Gudang ID harus diisi')
     }
 
     try {
@@ -107,7 +105,7 @@ export async function GET(req: NextRequest) {
         stockPerKondisi
       })
 
-      return NextResponse.json({
+      return apiSuccess({
         totalStock,
         stockPerKondisi,
         barang: barangInfo,
@@ -122,9 +120,6 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/barang/stock/by-kondisi',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal mengambil informasi stok per kondisi' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal mengambil informasi stok per kondisi')
   }
 }

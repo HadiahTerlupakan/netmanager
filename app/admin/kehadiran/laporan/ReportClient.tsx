@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -13,11 +13,15 @@ import {
     LineElement,
     ArcElement
 } from 'chart.js'
-import { Bar, Line, Doughnut } from 'react-chartjs-2'
-import { FaCalendarAlt, FaSearch } from 'react-icons/fa'
-import { MdTrendingUp, MdTrendingDown, MdAccessTime, MdPeople, MdPersonOff } from 'react-icons/md'
-import toast from 'react-hot-toast'
-import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { Bar, Line } from 'react-chartjs-2'
+import { FaCalendarAlt, FaSearch, FaFileExport } from 'react-icons/fa'
+import { MdTrendingUp, MdAccessTime, MdPeople, MdPersonOff, MdTimer } from 'react-icons/md'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { useToast } from '@/hooks/use-toast'
+import { useDebounce } from '@/hooks/useDebounce'
+import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
+import { formatDateDisplay } from '@/lib/utils/datetime'
+import { validateDateRange } from '@/lib/utils/validation'
 
 ChartJS.register(
     CategoryScale,
@@ -32,14 +36,25 @@ ChartJS.register(
 )
 
 export function ClientComponent() {
+    const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<any>(null)
+    const [retryCountdown, setRetryCountdown] = useState<number | null>(null)
 
     // Filters
-    const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
+    const [startDate, setStartDate] = useState(() => {
+        const now = new Date()
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    })
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
     const [siteId, setSiteId] = useState('')
     const [departmentId, setDepartmentId] = useState('')
+
+    // Debounced filters
+    const debouncedStartDate = useDebounce(startDate, 300)
+    const debouncedEndDate = useDebounce(endDate, 300)
+    const debouncedSiteId = useDebounce(siteId, 300)
+    const debouncedDepartmentId = useDebounce(departmentId, 300)
 
     // Options
     const [sites, setSites] = useState<{ id: string, name: string }[]>([])
@@ -50,46 +65,72 @@ export function ClientComponent() {
     const [searchQuery, setSearchQuery] = useState('')
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'hadir', direction: 'desc' })
 
+    // Handle rate limit countdown
+    useEffect(() => {
+        if (retryCountdown !== null && retryCountdown > 0) {
+            const timer = setTimeout(() => setRetryCountdown(retryCountdown - 1), 1000)
+            return () => clearTimeout(timer)
+        } else if (retryCountdown === 0) {
+            setRetryCountdown(null)
+        }
+    }, [retryCountdown])
+
     const fetchOptions = async () => {
         try {
-            const res = await fetch('/api/admin/options')
-            if (res.ok) {
-                const data = await res.json()
-                const options = data.data || data
-                setSites(options.sites || [])
-                setDepartments(options.departments || [])
+            const response = await fetchWithHandling<{ sites: { id: string, name: string }[], departments: { id: string, name: string }[] }>('/api/admin/options')
+            if (response.data) {
+                setSites(response.data.sites || [])
+                setDepartments(response.data.departments || [])
             }
         } catch (error) {
-            console.error('Failed to fetch options')
+            if (isFetchError(error)) {
+                showToast('error', formatErrorMessage(error))
+            }
         }
     }
 
-    const fetchReport = async () => {
+    const fetchReport = useCallback(async () => {
+        if (retryCountdown !== null) return
+
+        // Validate date range
+        const validation = validateDateRange(debouncedStartDate, debouncedEndDate)
+        if (!validation.valid) {
+            showToast('error', validation.error || 'Filter tidak valid')
+            return
+        }
+
         setLoading(true)
         try {
-            const params = new URLSearchParams({ startDate, endDate })
-            if (siteId) params.append('siteId', siteId)
-            if (departmentId) params.append('departmentId', departmentId)
-
-            const res = await fetch(`/api/admin/reports/presence?${params.toString()}`)
-            const json = await res.json()
-
-            if (json.success) {
-                setData(json.data)
-            } else {
-                toast.error(json.error || 'Gagal memuat laporan')
+            const params: Record<string, string> = {
+                startDate: debouncedStartDate,
+                endDate: debouncedEndDate || '',
             }
+            if (debouncedSiteId) params.siteId = debouncedSiteId
+            if (debouncedDepartmentId) params.departmentId = debouncedDepartmentId
+
+            const query = new URLSearchParams(params)
+
+            const response = await fetchWithHandling<any>(`/api/admin/reports/presence?${query.toString()}`)
+            setData(response.data)
         } catch (error) {
-            toast.error('Terjadi kesalahan')
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setLoading(false)
         }
-    }
+    }, [debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, retryCountdown, showToast])
 
     useEffect(() => {
         fetchOptions()
-        fetchReport()
     }, [])
+
+    useEffect(() => {
+        fetchReport()
+    }, [fetchReport])
 
     const formatDuration = (minutes: number) => {
         const h = Math.floor(minutes / 60)
@@ -97,38 +138,177 @@ export function ClientComponent() {
         return `${h}j ${m}m`
     }
 
-    if (!data && loading) return <div className="p-8 text-center text-gray-500">Sedang memuat laporan...</div>
+    const handleExportCSV = () => {
+        if (!data?.attendance?.employeeSummary) return
+        
+        const headers = ['Nama', 'Site', 'Departemen', 'Hadir', 'Terlambat', 'Izin', 'Alpha', 'Lembur (Jam)', 'Total Jam Kerja']
+        const rows = data.attendance.employeeSummary.map((e: any) => [
+            `"${e.user?.name || '-'}"`,
+            `"${e.user?.site?.name || '-'}"`,
+            `"${e.user?.department?.name || '-'}"`,
+            e.hadir,
+            e.terlambat,
+            e.izin,
+            e.alpha,
+            e.lemburJam,
+            e.totalJamKerja
+        ])
+        
+        const csvContent = [headers.join(','), ...rows.map((r: any[]) => r.join(','))].join('\n')
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.setAttribute('href', url)
+        link.setAttribute('download', `rekap-karyawan-${startDate}-ke-${endDate}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+    }
+
+    const rekapColumns: Column<any>[] = [
+        {
+            key: 'name',
+            header: 'Karyawan',
+            priority: 'primary',
+            render: (item) => (
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0 relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={item.user?.image || `https://ui-avatars.com/api/?name=${item.user?.name}&background=random`}
+                            alt=""
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{item.user?.name}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{item.user?.department?.name || '-'}</p>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'site',
+            header: 'Site',
+            priority: 'tertiary',
+            render: (item) => <span className="text-xs text-gray-600 dark:text-gray-400">{item.user?.site?.name || '-'}</span>
+        },
+        {
+            key: 'hadir',
+            header: 'Hadir',
+            priority: 'primary',
+            align: 'center',
+            sortable: true,
+            render: (item) => <span className="font-bold text-blue-600 dark:text-blue-400">{item.hadir}</span>
+        },
+        {
+            key: 'terlambat',
+            header: 'Late',
+            priority: 'secondary',
+            align: 'center',
+            sortable: true,
+            render: (item) => <span className="text-yellow-600 font-medium">{item.terlambat}</span>
+        },
+        {
+            key: 'izin',
+            header: 'Izin',
+            priority: 'secondary',
+            align: 'center',
+            sortable: true,
+            render: (item) => <span className="text-green-600">{item.izin}</span>
+        },
+        {
+            key: 'alpha',
+            header: 'Alpha',
+            priority: 'primary',
+            align: 'center',
+            sortable: true,
+            render: (item) => <span className="text-red-600 font-bold">{item.alpha}</span>
+        },
+        {
+            key: 'lemburJam',
+            header: 'OT (j)',
+            priority: 'secondary',
+            align: 'center',
+            sortable: true,
+            render: (item) => <span className="text-purple-600">{item.lemburJam}</span>
+        },
+        {
+            key: 'totalJamKerja',
+            header: 'Total Jam',
+            priority: 'primary',
+            align: 'center',
+            sortable: true,
+            render: (item) => <span className="font-bold text-teal-600 dark:text-teal-400">{item.totalJamKerja}</span>
+        }
+    ]
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Laporan Kinerja Kehadiran & Lembur</h1>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Laporan Kinerja Kehadiran & Lembur</h1>
+
+            {/* Rate Limit Warning */}
+            {retryCountdown !== null && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3 dark:bg-yellow-900/20 dark:border-yellow-800">
+                    <MdTimer className="text-yellow-600 text-xl" />
+                    <div>
+                        <p className="font-medium text-yellow-800 dark:text-yellow-200">Terlalu Banyak Permintaan</p>
+                        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                            Mohon tunggu {retryCountdown} detik sebelum memuat ulang...
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex flex-wrap gap-4 items-end">
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Dari Tanggal</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                    <input 
+                        type="date" 
+                        value={startDate} 
+                        onChange={e => setStartDate(e.target.value)} 
+                        className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                    />
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Sampai Tanggal</label>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                    <input 
+                        type="date" 
+                        value={endDate} 
+                        onChange={e => setEndDate(e.target.value)} 
+                        className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                    />
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Site</label>
-                    <select value={siteId} onChange={e => setSiteId(e.target.value)} className="border rounded px-3 py-2 text-sm w-32 dark:bg-gray-700 dark:border-gray-600">
-                        <option value="">Semua</option>
+                    <select 
+                        value={siteId} 
+                        onChange={e => setSiteId(e.target.value)} 
+                        className="border rounded px-3 py-2 text-sm w-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    >
+                        <option value="">Semua Site</option>
                         {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Departemen</label>
-                    <select value={departmentId} onChange={e => setDepartmentId(e.target.value)} className="border rounded px-3 py-2 text-sm w-32 dark:bg-gray-700 dark:border-gray-600">
-                        <option value="">Semua</option>
+                    <select 
+                        value={departmentId} 
+                        onChange={e => setDepartmentId(e.target.value)} 
+                        className="border rounded px-3 py-2 text-sm w-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    >
+                        <option value="">Semua Dept</option>
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
-                <button onClick={fetchReport} className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 flex items-center gap-2 h-[38px]">
-                    <FaSearch /> Terapkan
+                <button 
+                    onClick={() => fetchReport()} 
+                    disabled={loading || retryCountdown !== null}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 flex items-center gap-2 h-[38px] disabled:opacity-50"
+                >
+                    <FaSearch /> {loading ? 'Memuat...' : 'Terapkan'}
                 </button>
             </div>
 
@@ -152,6 +332,13 @@ export function ClientComponent() {
                 </button>
             </div>
 
+            {loading && !data && (
+                <div className="p-12 text-center text-gray-500 dark:text-gray-400 italic">
+                    <div className="animate-spin inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mb-4"></div>
+                    <p>Menganalisis data laporan...</p>
+                </div>
+            )}
+
             {data && activeTab === 'dashboard' && (
                 <>
                     {/* Summary Cards */}
@@ -162,9 +349,9 @@ export function ClientComponent() {
                                     <p className="text-gray-500 text-sm">Total Kehadiran</p>
                                     <p className="text-2xl font-bold text-gray-800 dark:text-white">{data.attendance.summary.totalAttendance}</p>
                                 </div>
-                                <MdPeople className="text-3xl text-blue-200" />
+                                <MdPeople className="text-3xl text-blue-200 dark:text-blue-900/40" />
                             </div>
-                            <div className="mt-2 text-xs text-blue-600 font-medium">
+                            <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
                                 Rate: {data.attendance.summary.attendanceRate}%
                             </div>
                         </div>
@@ -172,14 +359,14 @@ export function ClientComponent() {
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-l-4 border-teal-500">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-gray-500 text-sm">Rata-rata Jam Kerja</p>
+                                    <p className="text-gray-500 text-sm">Avg. Jam Kerja</p>
                                     <p className="text-2xl font-bold text-gray-800 dark:text-white">
                                         {formatDuration(data.attendance.summary.avgDurationMinutes || 0)}
                                     </p>
                                 </div>
-                                <MdAccessTime className="text-3xl text-teal-200" />
+                                <MdAccessTime className="text-3xl text-teal-200 dark:text-teal-900/40" />
                             </div>
-                            <div className="mt-2 text-xs text-teal-600 font-medium">
+                            <div className="mt-2 text-xs text-teal-600 dark:text-teal-400 font-medium">
                                 per hari / karyawan
                             </div>
                         </div>
@@ -190,9 +377,9 @@ export function ClientComponent() {
                                     <p className="text-gray-500 text-sm">Terlambat</p>
                                     <p className="text-2xl font-bold text-gray-800 dark:text-white">{data.attendance.summary.lateCount}</p>
                                 </div>
-                                <MdAccessTime className="text-3xl text-yellow-200" />
+                                <MdAccessTime className="text-3xl text-yellow-200 dark:text-yellow-900/40" />
                             </div>
-                            <div className="mt-2 text-xs text-yellow-600 font-medium">
+                            <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400 font-medium">
                                 {data.attendance.summary.lateRate.toFixed(1)}% dari total hadir
                             </div>
                         </div>
@@ -203,9 +390,9 @@ export function ClientComponent() {
                                     <p className="text-gray-500 text-sm">Bolos (Alpha)</p>
                                     <p className="text-2xl font-bold text-gray-800 dark:text-white">{data.attendance.summary.alphaCount}</p>
                                 </div>
-                                <MdPersonOff className="text-3xl text-red-200" />
+                                <MdPersonOff className="text-3xl text-red-200 dark:text-red-900/40" />
                             </div>
-                            <div className="mt-2 text-xs text-red-600 font-medium">
+                            <div className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium">
                                 {data.attendance.summary.alphaRate.toFixed(1)}% dari total
                             </div>
                         </div>
@@ -216,9 +403,9 @@ export function ClientComponent() {
                                     <p className="text-gray-500 text-sm">Total Lembur</p>
                                     <p className="text-2xl font-bold text-gray-800 dark:text-white">{data.overtime.summary.totalRequests} <span className="text-sm font-normal text-gray-400">Request</span></p>
                                 </div>
-                                <MdTrendingUp className="text-3xl text-purple-200" />
+                                <MdTrendingUp className="text-3xl text-purple-200 dark:text-purple-900/40" />
                             </div>
-                            <div className="mt-2 text-xs text-purple-600 font-medium">
+                            <div className="mt-2 text-xs text-purple-600 dark:text-purple-400 font-medium">
                                 Total: {formatDuration(data.overtime.summary.totalDuration)}
                             </div>
                         </div>
@@ -229,169 +416,12 @@ export function ClientComponent() {
                                     <p className="text-gray-500 text-sm">Rata-rata Lembur</p>
                                     <p className="text-2xl font-bold text-gray-800 dark:text-white">{data.overtime.summary.avgDuration} <span className="text-sm font-normal text-gray-400">Menit</span></p>
                                 </div>
-                                <MdTrendingUp className="text-3xl text-green-200" />
+                                <MdTrendingUp className="text-3xl text-green-200 dark:text-green-900/40" />
                             </div>
-                            <div className="mt-2 text-xs text-green-600 font-medium">
+                            <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
                                 per karyawan aktif
                             </div>
                         </div>
-                    </div>
-
-                    {/* Top Employees */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {/* Most Diligent */}
-                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                            <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                <span className="text-2xl">⚡</span> Paling Rajin
-                                <span className="text-xs font-normal text-gray-500">(Kehadiran)</span>
-                            </h3>
-                            <div className="space-y-3">
-                                {data.attendance.topEmployees.length === 0 ? (
-                                    <p className="text-gray-400 text-sm italic">Belum ada data.</p>
-                                ) : (
-                                    data.attendance.topEmployees.map((item: any, idx: number) => (
-                                        <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                            <div className="font-bold text-gray-400 w-4">#{idx + 1}</div>
-                                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden shrink-0">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
-                                                    alt=""
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.user.name}</p>
-                                                <p className="text-xs text-gray-500 truncate">{item.user.department?.name || '-'}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-lg font-bold text-blue-600">{item.count}</div>
-                                                <div className="text-[10px] text-gray-400">Hari Hadir</div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Top Overtime */}
-                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                            <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                <span className="text-2xl">⚡</span> Paling Lembur
-                                <span className="text-xs font-normal text-gray-500">(Total Durasi)</span>
-                            </h3>
-                            <div className="space-y-3">
-                                {data.overtime.topEmployees.length === 0 ? (
-                                    <p className="text-gray-400 text-sm italic">Belum ada data.</p>
-                                ) : (
-                                    data.overtime.topEmployees.map((item: any, idx: number) => (
-                                        <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                            <div className="font-bold text-gray-400 w-4">#{idx + 1}</div>
-                                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden shrink-0">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
-                                                    alt=""
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.user.name}</p>
-                                                <p className="text-xs text-gray-500 truncate">{item.user.site?.name || '-'}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-lg font-bold text-purple-600">{formatDuration(item.totalDuration)}</div>
-                                                <div className="text-[10px] text-gray-400">Total Durasi</div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Top Overall (Accumulated) */}
-                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-2 border-indigo-500/20 relative overflow-hidden">
-                            <div className="absolute -right-6 -top-6 w-24 h-24 bg-linear-to-br from-indigo-500 to-purple-500 rounded-full opacity-10 blur-xl"></div>
-                            <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2 relative z-10">
-                                <span className="text-2xl">👑</span> Star Employees
-                                <span className="text-xs font-normal text-gray-500">(Overall Score)</span>
-                            </h3>
-                            <div className="space-y-3 relative z-10">
-                                {data.attendance.combinedTopEmployees?.length === 0 ? (
-                                    <p className="text-gray-400 text-sm italic">Belum ada data cukup.</p>
-                                ) : (
-                                    data.attendance.combinedTopEmployees?.map((item: any, idx: number) => (
-                                        <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-linear-to-r from-indigo-50 to-white dark:from-indigo-900/20 dark:to-gray-800 border border-indigo-100 dark:border-indigo-900/50">
-                                            <div className={`font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs ${idx === 0 ? 'bg-yellow-400 text-white shadow-sm' : idx === 1 ? 'bg-gray-300 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'text-gray-400'}`}>
-                                                {idx + 1}
-                                            </div>
-                                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-white dark:ring-gray-700 shadow-sm">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
-                                                    alt=""
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.user.name}</p>
-                                                <div className="flex gap-2 text-[10px] text-gray-500">
-                                                    <span>📅 {item.details.days}</span>
-                                                    <div className="flex flex-col">
-                                                        <span>⚡ {item.details.otHours}j Jam Tambahan</span>
-                                                        <span className="text-[9px] text-gray-400">({item.details.officialOtHours}j Resmi + {item.details.excessHours}j Extra)</span>
-                                                    </div>
-                                                    <span className="text-blue-500">⏱️ {item.details.totalHours}j Kerja</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{item.score}</div>
-                                                <div className="text-[10px] text-gray-400">Poin</div>
-                                                <div className="text-[9px] text-gray-400 mt-1 whitespace-nowrap">
-                                                    ({item.details.days * 10}H {item.details.alphaCount > 0 ? `- ${item.details.alphaCount * 20}A ` : ''}+ {Math.floor(item.details.officialOtHours * 2)}R + {Math.floor(item.details.excessHours * 4)}E)
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Top Absentees (Tukang Bolos) */}
-                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-2 border-red-500/20">
-                            <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                <span className="text-2xl">👻</span> Tukang Bolos
-                                <span className="text-xs font-normal text-gray-500">(Total Alpha)</span>
-                            </h3>
-                            <div className="space-y-3">
-                                {(!data.attendance.topAbsentees || data.attendance.topAbsentees.length === 0) ? (
-                                    <p className="text-gray-400 text-sm italic">Nihil. Semua rajin!</p>
-                                ) : (
-                                    data.attendance.topAbsentees.map((item: any, idx: number) => (
-                                        <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50">
-                                            <div className="font-bold text-gray-400 w-4">#{idx + 1}</div>
-                                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center overflow-hidden shrink-0">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
-                                                    alt=""
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.user.name}</p>
-                                                <p className="text-xs text-gray-500 truncate">{item.user.department?.name || '-'}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-lg font-bold text-red-600 dark:text-red-400">{item.count}</div>
-                                                <div className="text-[10px] text-gray-400">Kali</div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
                     </div>
 
                     {/* Charts Row */}
@@ -409,16 +439,24 @@ export function ClientComponent() {
                                                 data: data.attendance.trends.map((t: any) => t.present),
                                                 borderColor: 'rgb(59, 130, 246)',
                                                 backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                                                tension: 0.3
                                             },
                                             {
                                                 label: 'Terlambat',
                                                 data: data.attendance.trends.map((t: any) => t.late),
                                                 borderColor: 'rgb(234, 179, 8)',
                                                 backgroundColor: 'rgba(234, 179, 8, 0.5)',
+                                                tension: 0.3
                                             }
                                         ]
                                     }}
-                                    options={{ responsive: true, maintainAspectRatio: false }}
+                                    options={{ 
+                                        responsive: true, 
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: { position: 'top' as const }
+                                        }
+                                    }}
                                 />
                             </div>
                         </div>
@@ -435,16 +473,23 @@ export function ClientComponent() {
                                                 label: 'Durasi Lembur (Menit)',
                                                 data: data.overtime.trends.map((t: any) => t.duration),
                                                 backgroundColor: 'rgba(147, 51, 234, 0.6)',
+                                                borderRadius: 4
                                             }
                                         ]
                                     }}
-                                    options={{ responsive: true, maintainAspectRatio: false }}
+                                    options={{ 
+                                        responsive: true, 
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: { position: 'top' as const }
+                                        }
+                                    }}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Breakdown Tables */}
+                    {/* Breakdowns */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* By Department */}
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
@@ -452,37 +497,39 @@ export function ClientComponent() {
                             <ResponsiveTable<any>
                                 data={data.attendance.byDepartment}
                                 loading={loading}
-                                keyField="id"
+                                keyField="name"
                                 columns={[
                                     {
                                         key: 'name',
                                         header: 'Departemen',
                                         priority: 'primary',
-                                        render: (item) => <span className="font-medium">{item.name}</span>
+                                        render: (item) => <span className="font-medium text-sm">{item.name}</span>
                                     },
                                     {
                                         key: 'present',
                                         header: 'Hadir',
                                         priority: 'primary',
-                                        render: (item) => <span className="text-right block">{item.present}</span>
+                                        align: 'center',
+                                        render: (item) => <span className="font-bold text-blue-600">{item.present}</span>
                                     },
                                     {
                                         key: 'late',
-                                        header: 'Terlambat',
+                                        header: 'Late',
                                         priority: 'secondary',
-                                        render: (item) => <span className="text-right text-yellow-600 block">{item.late}</span>
+                                        align: 'center',
+                                        render: (item) => <span className="text-yellow-600">{item.late}</span>
                                     },
                                     {
                                         key: 'overtime',
-                                        header: 'Lembur (Jam)',
+                                        header: 'OT (jam)',
                                         priority: 'secondary',
+                                        align: 'center',
                                         render: (item) => {
                                             const ot = data.overtime.byDepartment.find((o: any) => o.name === item.name)
-                                            return <span className="text-right text-purple-600 block">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
+                                            return <span className="text-purple-600 font-medium">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
                                         }
                                     }
                                 ]}
-                                emptyMessage="Tidak ada data departemen"
                             />
                         </div>
 
@@ -492,37 +539,39 @@ export function ClientComponent() {
                             <ResponsiveTable<any>
                                 data={data.attendance.bySite}
                                 loading={loading}
-                                keyField="id"
+                                keyField="name"
                                 columns={[
                                     {
                                         key: 'name',
                                         header: 'Site',
                                         priority: 'primary',
-                                        render: (item) => <span className="font-medium">{item.name}</span>
+                                        render: (item) => <span className="font-medium text-sm">{item.name}</span>
                                     },
                                     {
                                         key: 'present',
                                         header: 'Hadir',
                                         priority: 'primary',
-                                        render: (item) => <span className="text-right block">{item.present}</span>
+                                        align: 'center',
+                                        render: (item) => <span className="font-bold text-blue-600">{item.present}</span>
                                     },
                                     {
                                         key: 'late',
-                                        header: 'Terlambat',
+                                        header: 'Late',
                                         priority: 'secondary',
-                                        render: (item) => <span className="text-right text-yellow-600 block">{item.late}</span>
+                                        align: 'center',
+                                        render: (item) => <span className="text-yellow-600">{item.late}</span>
                                     },
                                     {
                                         key: 'overtime',
-                                        header: 'Lembur (Jam)',
+                                        header: 'OT (jam)',
                                         priority: 'secondary',
+                                        align: 'center',
                                         render: (item) => {
                                             const ot = data.overtime.bySite.find((o: any) => o.name === item.name)
-                                            return <span className="text-right text-purple-600 block">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
+                                            return <span className="text-purple-600 font-medium">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
                                         }
                                     }
                                 ]}
-                                emptyMessage="Tidak ada data site"
                             />
                         </div>
                     </div>
@@ -537,40 +586,21 @@ export function ClientComponent() {
                             Rekap Kehadiran Karyawan
                         </h3>
                         <div className="flex gap-2 items-center">
-                            <input
-                                type="text"
-                                placeholder="Cari nama karyawan..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 w-48"
-                            />
+                            <div className="relative">
+                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                                <input
+                                    type="text"
+                                    placeholder="Cari nama..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="border rounded pl-8 pr-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white w-48"
+                                />
+                            </div>
                             <button
-                                onClick={() => {
-                                    if (!data?.attendance?.employeeSummary) return
-                                    const csv = [
-                                        ['Nama', 'Site', 'Departemen', 'Hadir', 'Terlambat', 'Izin', 'Alpha', 'Lembur (Jam)', 'Total Jam Kerja'].join(','),
-                                        ...data.attendance.employeeSummary.map((e: any) => [
-                                            e.user?.name || '-',
-                                            e.user?.site?.name || '-',
-                                            e.user?.department?.name || '-',
-                                            e.hadir,
-                                            e.terlambat,
-                                            e.izin,
-                                            e.alpha,
-                                            e.lemburJam,
-                                            e.totalJamKerja
-                                        ].join(','))
-                                    ].join('\n')
-                                    const blob = new Blob([csv], { type: 'text/csv' })
-                                    const url = window.URL.createObjectURL(blob)
-                                    const a = document.createElement('a')
-                                    a.href = url
-                                    a.download = `rekap-karyawan-${startDate}-${endDate}.csv`
-                                    a.click()
-                                }}
-                                className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
+                                onClick={handleExportCSV}
+                                className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 flex items-center gap-2"
                             >
-                                📥 Export CSV
+                                <FaFileExport /> Export CSV
                             </button>
                         </div>
                     </div>
@@ -597,85 +627,11 @@ export function ClientComponent() {
                         })()}
                         loading={loading}
                         keyField="userId"
-                        columns={[
-                            {
-                                key: 'name',
-                                header: 'Karyawan',
-                                priority: 'primary',
-                                render: (item) => (
-                                    <div className="flex items-center gap-2">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={item.user?.image || `https://ui-avatars.com/api/?name=${item.user?.name}&background=random`}
-                                            alt=""
-                                            className="w-8 h-8 rounded-full object-cover"
-                                        />
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white text-sm">{item.user?.name}</p>
-                                            <p className="text-xs text-gray-500">{item.user?.department?.name || '-'}</p>
-                                        </div>
-                                    </div>
-                                )
-                            },
-                            {
-                                key: 'site',
-                                header: 'Site',
-                                priority: 'tertiary',
-                                render: (item) => <span className="text-sm">{item.user?.site?.name || '-'}</span>
-                            },
-                            {
-                                key: 'hadir',
-                                header: 'Hadir',
-                                priority: 'primary',
-                                align: 'center',
-                                sortable: true,
-                                render: (item) => <span className="font-medium text-blue-600">{item.hadir}</span>
-                            },
-                            {
-                                key: 'terlambat',
-                                header: 'Terlambat',
-                                priority: 'secondary',
-                                align: 'center',
-                                sortable: true,
-                                render: (item) => <span className="text-yellow-600">{item.terlambat}</span>
-                            },
-                            {
-                                key: 'izin',
-                                header: 'Izin',
-                                priority: 'secondary',
-                                align: 'center',
-                                sortable: true,
-                                render: (item) => <span className="text-green-600">{item.izin}</span>
-                            },
-                            {
-                                key: 'alpha',
-                                header: 'Alpha',
-                                priority: 'secondary',
-                                align: 'center',
-                                sortable: true,
-                                render: (item) => <span className="text-red-600">{item.alpha}</span>
-                            },
-                            {
-                                key: 'lemburJam',
-                                header: 'Lembur',
-                                priority: 'secondary',
-                                align: 'center',
-                                sortable: true,
-                                render: (item) => <span className="text-purple-600">{item.lemburJam}j</span>
-                            },
-                            {
-                                key: 'totalJamKerja',
-                                header: 'Total Jam',
-                                priority: 'primary',
-                                align: 'center',
-                                sortable: true,
-                                render: (item) => <span className="font-medium text-teal-600">{item.totalJamKerja}j</span>
-                            }
-                        ]}
+                        columns={rekapColumns}
                         sortColumn={sortConfig.key}
                         sortDirection={sortConfig.direction}
                         onSort={(key, dir) => setSortConfig({ key, direction: dir })}
-                        emptyMessage="Tidak ada data karyawan"
+                        emptyMessage="Tidak ada data karyawan sesuai filter"
                     />
                 </div>
             )}

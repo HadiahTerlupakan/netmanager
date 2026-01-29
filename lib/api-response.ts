@@ -43,7 +43,7 @@ export function apiSuccess<T>(
 
     return NextResponse.json(response, {
         status: options?.status || 200,
-        headers: options?.headers
+        ...(options?.headers && { headers: options.headers })
     })
 }
 
@@ -68,7 +68,7 @@ export function apiError(
 
     return NextResponse.json(response, {
         status: options?.status || 400,
-        headers: options?.headers
+        ...(options?.headers && { headers: options.headers })
     })
 }
 
@@ -174,6 +174,46 @@ export function apiPaginated<T>(
 }
 
 /**
+ * Paginated response with summary data
+ * Used when response includes both paginated data and aggregated summary
+ */
+export interface PaginatedWithSummaryResponse<T, S = any> extends SuccessResponse<T[]> {
+    meta: {
+        page: number
+        limit: number
+        total: number
+        totalPages: number
+    }
+    summary?: S
+}
+
+export function apiPaginatedWithSummary<T, S = any>(
+    data: T[],
+    options: {
+        page: number
+        limit: number
+        total: number
+        summary?: S
+        message?: string
+    }
+): NextResponse<PaginatedWithSummaryResponse<T, S>> {
+    const response: PaginatedWithSummaryResponse<T, S> = {
+        success: true,
+        data,
+        meta: {
+            page: options.page,
+            limit: options.limit,
+            total: options.total,
+            totalPages: Math.ceil(options.total / options.limit),
+        },
+        ...(options.summary && { summary: options.summary }),
+        ...(options.message && { message: options.message }),
+    }
+
+    return NextResponse.json(response, { status: 200 })
+}
+
+/**
  * Common error response shortcuts
  */
 export const ApiErrors = {
@@ -187,7 +227,7 @@ export const ApiErrors = {
         apiError(`${resource} not found`, ErrorCodes.NOT_FOUND, { status: 404 }),
 
     badRequest: (message: string, details?: Record<string, unknown>) =>
-        apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400, details }),
+        apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400, ...(details && { details }) }),
 
     conflict: (message: string) =>
         apiError(message, ErrorCodes.CONFLICT, { status: 409 }),

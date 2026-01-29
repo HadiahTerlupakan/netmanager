@@ -46,6 +46,7 @@
     "@prisma/client": "^7.2.0",
     "@sentry/nextjs": "^10.37.0",
     "@types/formidable": "^3.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.4",
     "@types/swagger-jsdoc": "^6.0.4",
@@ -103,7 +104,6 @@
     "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/adm-zip": "^0.5.7",
-    "@types/jsonwebtoken": "^9.0.10",
     "@types/net-snmp": "^3.23.0",
     "@types/node": "^25.0.0",
     "@types/pg": "^8.16.0",
@@ -111,13 +111,18 @@
     "@types/tough-cookie": "^4.0.5",
     "@types/uuid": "^10.0.0",
     "@types/web-push": "^3.6.4",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "@vitest/coverage-v8": "^4.0.16",
-    "autoprefixer": "^10.4.22",
-    "baseline-browser-mapping": "^2.9.6",
+    "autoprefixer": "^10.4.23",
+    "baseline-browser-mapping": "^2.9.19",
+    "browserslist": "^4.28.1",
     "copy-webpack-plugin": "^13.0.1",
-    "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.10",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.1.6",
     "eslint-import-resolver-typescript": "^4.4.4",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
     "postcss": "^8.5.6",
     "prisma": "^7.2.0",
     "sharp": "^0.34.5",
@@ -125,6 +130,7 @@
     "terser-webpack-plugin": "^5.3.16",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.16",
     "vitest-mock-extended": "^3.1.0"
   },
@@ -143,5 +149,11 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

@@ -55,17 +55,14 @@ export class InventoryRepository implements IInventoryRepository {
             (where as any).isWorkOrderMaterial = isWorkOrderMaterial
         }
 
-        // Note: gudangId filter often implies filtering items *available* in a warehouse,
-        // or simply loading stock for that warehouse. Prisma doesn't easily filter
-        // parent by child condition while preserving parent structure unless using where clause on relation.
-        // For now, if gudangId is provided, we filter items that have ANY record in that gudang (even 0 stock)
-        // or we might just want to load the stock relations.
-        // Let's assume we want all items, but specific stock info.
+        // REMOVED SITE RESTRICTION ON ITEM LIST: 
+        // We want all items to be visible in the search/catalog even if they don't have stock in the current site yet.
+        // The site restriction should only apply to stocks calculation (barangGudang include), not the item's existence.
 
         // Count total matches
         const total = await this.db.barang.count({ where })
 
-        const items = await this.db.barang.findMany({
+        const queryOptions: Prisma.BarangFindManyArgs = {
             where,
             include: {
                 barangGudang: {
@@ -80,10 +77,13 @@ export class InventoryRepository implements IInventoryRepository {
                     }
                 }
             },
-            orderBy: { nama: 'asc' },
-            skip,
-            take,
-        })
+            orderBy: { nama: 'asc' }
+        }
+
+        if (skip !== undefined) queryOptions.skip = skip
+        if (take !== undefined) queryOptions.take = take
+
+        const items = await this.db.barang.findMany(queryOptions) as BarangWithStock[]
 
         return { items, total }
     }
@@ -108,6 +108,13 @@ export class InventoryRepository implements IInventoryRepository {
                 }
             }
         })
+    }
+
+    async existsBarangByKode(kode: string): Promise<boolean> {
+        const count = await this.db.barang.count({
+            where: { kode }
+        })
+        return count > 0
     }
 
     async createBarang(data: CreateBarangInput): Promise<any> {
@@ -205,11 +212,11 @@ export class InventoryRepository implements IInventoryRepository {
                     jumlah: data.jumlah,
                     hargaBeliSatuan: data.hargaBeliSatuan || 0,
                     kondisi: data.kondisi || 'BARU',
-                    keterangan: data.keterangan,
-                    userId: data.userId,
-                    tanggal: data.tanggal,
-                    fotoBukti: data.fotoBukti,
-                    fotoMetadata: data.fotoMetadata
+                    keterangan: data.keterangan || null,
+                    userId: data.userId || null,
+                    tanggal: data.tanggal || new Date(),
+                    fotoBukti: data.fotoBukti || [],
+                    fotoMetadata: data.fotoMetadata || null
                 },
                 include: {
                     barang: true,
@@ -249,7 +256,7 @@ export class InventoryRepository implements IInventoryRepository {
                         residualValue: 0,
                         status: 'ACTIVE' as const, 
                         location: masuk.gudang?.nama || 'Gudang Utama',
-                        assignedTo: undefined
+                        assignedTo: null
                     })
                 }
 
@@ -360,13 +367,13 @@ export class InventoryRepository implements IInventoryRepository {
                     gudangId: data.gudangId,
                     jumlah: data.jumlah,
                     kondisi: data.kondisi || 'BARU',
-                    keterangan: data.keterangan,
-                    tujuanPenggunaan: data.tujuanPenggunaan,
+                    keterangan: data.keterangan || null,
+                    tujuanPenggunaan: data.tujuanPenggunaan || null,
                     isHilang: data.isHilang || false,
-                    userId: data.userId,
-                    tanggal: data.tanggal,
-                    fotoBukti: data.fotoBukti,
-                    fotoMetadata: data.fotoMetadata
+                    userId: data.userId || null,
+                    tanggal: data.tanggal || new Date(),
+                    fotoBukti: data.fotoBukti || [],
+                    fotoMetadata: data.fotoMetadata || null
                 },
                 include: {
                     barang: true,
@@ -378,7 +385,8 @@ export class InventoryRepository implements IInventoryRepository {
             })
 
             // 2.5. FIFO Asset Allocation (If Item is ASET)
-            if (keluar.barang.jenis === 'ASET' && !data.isHilang) {
+            const keluarWithRelations = keluar as any
+            if (keluarWithRelations.barang.jenis === 'ASET' && !data.isHilang) {
                 // Find Oldest Assets (FIFO)
                 // We pick assets that are ACTIVE in this Warehouse
                 // Ordered by purchaseDate ASC, createdAt ASC
@@ -386,7 +394,7 @@ export class InventoryRepository implements IInventoryRepository {
                     where: {
                         barangId: data.barangId,
                         status: 'ACTIVE', 
-                        location: keluar.gudang.nama // Assuming location matches Warehouse Name logic from addStock
+                        location: keluarWithRelations.gudang.nama // Assuming location matches Warehouse Name logic from addStock
                         // Note: Ideally location should be linked to gudangId relation, but current schema uses string 'location'.
                         // We rely on string matching or we upgrade schema later. 
                         // For now, let's assume assets created in this warehouse have this location string.
@@ -404,14 +412,14 @@ export class InventoryRepository implements IInventoryRepository {
                     
                     // Update Status to INSTALLED (or 'ISSUED' if we had that status, but user context implies deployment)
                     // If just taking out of warehouse for WO, usually becomes INSTALLED.
-                    await tx.asset.updateMany({
+                    await tx.asset.update({
                         where: { id: { in: assetIds } },
                         data: {
                             status: 'INSTALLED',
-                            location: `Deployed (Ref: ${keluar.keterangan || 'Barang Keluar'})`, // Update location context
-                            assignedTo: data.userId || undefined
+                            location: `Deployed (Ref: ${keluarWithRelations.keterangan || 'Barang Keluar'})`, // Update location context
+                            assignedTo: data.userId || null
                         }
-                    })
+                    } as any)
                 }
             }
 
@@ -461,15 +469,20 @@ export class InventoryRepository implements IInventoryRepository {
 
     async createGudang(data: CreateGudangInput): Promise<any> {
         const { siteIds, ...gudangData } = data
+        const createData: Prisma.GudangCreateInput = {
+            id: crypto.randomUUID(),
+            ...gudangData,
+            updatedAt: new Date(),
+        }
+
+        if (siteIds && siteIds.length > 0) {
+            createData.sites = {
+                connect: siteIds.map(id => ({ id }))
+            }
+        }
+
         return this.db.gudang.create({
-            data: {
-                id: crypto.randomUUID(),
-                ...gudangData,
-                updatedAt: new Date(),
-                sites: siteIds && siteIds.length > 0 ? {
-                    connect: siteIds.map(id => ({ id }))
-                } : undefined
-            },
+            data: createData,
             include: {
                 sites: { select: { id: true, name: true, code: true } }
             }
@@ -523,24 +536,29 @@ export class InventoryRepository implements IInventoryRepository {
             ]
         }
 
+        const queryOptions: Prisma.TransferAntarGudangFindManyArgs = {
+            where,
+            include: {
+                barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+                gudangDari: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                gudangKe: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                createdBy: { select: { id: true, name: true, email: true } }
+            },
+            orderBy: { tanggal: 'desc' }
+        }
+
+        if (skip !== undefined) queryOptions.skip = skip
+        if (take !== undefined) queryOptions.take = take
+
         const [rawItems, total] = await Promise.all([
-            this.db.transferAntarGudang.findMany({
-                where,
-                include: {
-                    barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-                    gudangDari: { select: { id: true, kode: true, nama: true, lokasi: true } },
-                    gudangKe: { select: { id: true, kode: true, nama: true, lokasi: true } },
-                    createdBy: { select: { id: true, name: true, email: true } }
-                },
-                orderBy: { tanggal: 'desc' },
-                skip,
-                take
-            }),
+            this.db.transferAntarGudang.findMany(queryOptions),
             this.db.transferAntarGudang.count({ where })
         ])
 
+        const typedRawItems = rawItems as any[]
+
         // Map to match frontend property names
-        const items = rawItems.map(item => ({
+        const items = typedRawItems.map(item => ({
             ...item,
             dariGudang: item.gudangDari,
             keGudang: item.gudangKe
@@ -624,7 +642,7 @@ export class InventoryRepository implements IInventoryRepository {
                     keGudangId,
                     jumlah,
                     kondisi,
-                    keterangan: data.keterangan,
+                    keterangan: data.keterangan || null,
                     createdById: data.userId,
                     fotoBukti: data.fotoBukti || [],
                     fotoMetadata: data.fotoMetadata || null
@@ -894,17 +912,20 @@ export class InventoryRepository implements IInventoryRepository {
 
         const total = await this.db.barangMasuk.count({ where })
 
-        const items = await this.db.barangMasuk.findMany({
+        const queryOptions: Prisma.BarangMasukFindManyArgs = {
             where,
             include: {
                 barang: true,
                 gudang: true,
                 user: { select: { id: true, name: true } }
             },
-            orderBy: { tanggal: 'desc' },
-            skip,
-            take
-        }) as BarangMasukWithRelations[] // Cast usually safe here due to structure match
+            orderBy: { tanggal: 'desc' }
+        }
+
+        if (skip !== undefined) queryOptions.skip = skip
+        if (take !== undefined) queryOptions.take = take
+
+        const items = await this.db.barangMasuk.findMany(queryOptions) as BarangMasukWithRelations[] // Cast usually safe here due to structure match
 
         return { items, total }
     }
@@ -954,17 +975,20 @@ export class InventoryRepository implements IInventoryRepository {
 
         const total = await this.db.barangKeluar.count({ where })
 
-        const items = await this.db.barangKeluar.findMany({
+        const queryOptions: Prisma.BarangKeluarFindManyArgs = {
             where,
             include: {
                 barang: true,
                 gudang: true,
                 user: { select: { id: true, name: true } }
             },
-            orderBy: { tanggal: 'desc' },
-            skip,
-            take
-        }) as BarangKeluarWithRelations[]
+            orderBy: { tanggal: 'desc' }
+        }
+
+        if (skip !== undefined) queryOptions.skip = skip
+        if (take !== undefined) queryOptions.take = take
+
+        const items = await this.db.barangKeluar.findMany(queryOptions) as BarangKeluarWithRelations[]
 
         return { items, total }
     }

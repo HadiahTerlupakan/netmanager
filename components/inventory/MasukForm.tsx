@@ -46,7 +46,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         
         const response = await fetch(`/api/inventory/barang?${params.toString()}`)
         const data = await response.json()
-        setBarangs(data.barangs || [])
+        // Standardized apiSuccess: { success: true, data: { barangs, pagination } }
+        const result = data.data || data
+        setBarangs(result.barangs || [])
     } catch (err) {
         console.error('Error fetching barangs:', err)
     } finally {
@@ -63,7 +65,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         // Fetch gudang
         const gudangResponse = await fetch('/api/inventory/gudang')
         const gudangData = await gudangResponse.json()
-        setGudangs(gudangData.gudangs || [])
+        // Standardized apiSuccess: { success: true, data: { gudangs } }
+        const gudangResult = gudangData.data || gudangData
+        setGudangs(gudangResult.gudangs || [])
 
         // If in edit mode, populate form with initial data
         if (initialData) {
@@ -261,8 +265,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           throw new Error(data.error || 'Gagal mencatat barang masuk')
         }
 
-        if (data.masukId) {
-          setTransactionId(data.masukId)
+        const result = data.data || data
+        if (result.masukId) {
+          setTransactionId(result.masukId)
           setSuccess('Barang masuk berhasil dicatat!')
 
           setTimeout(() => {

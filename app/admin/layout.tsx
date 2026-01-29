@@ -3,6 +3,7 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import SocketProviderWrapper from '@/components/providers/SocketProviderWrapper'
 import ToastProvider from '@/components/common/ToastProvider'
+import ErrorBoundary from '@/components/common/ErrorBoundary'
 import { getServerSession } from 'next-auth'
 import AnnouncementBanner from '@/components/announcement/AnnouncementBanner'
 import { authConfig } from '@/lib/auth'
@@ -37,7 +38,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <AnnouncementBanner portal="admin" />
             <Navbar />
             <main className="flex-1 overflow-y-auto">
-              <div className="p-6">{children}</div>
+              <div className="p-6">
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
+              </div>
             </main>
             <Footer />
           </div>

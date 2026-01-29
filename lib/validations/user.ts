@@ -1,5 +1,152 @@
-import { z } from 'zod'
+/**
+ * User Validation Schemas
+ * Comprehensive validation for user management endpoints
+ */
 
+import { z } from 'zod'
+import { paginationSchema, idSchema, optionalIdSchema } from './common'
+
+/**
+ * User list filters schema
+ */
+export const userFilterSchema = paginationSchema.and(z.object({
+  roleId: optionalIdSchema,
+  siteId: optionalIdSchema,
+  departmentId: optionalIdSchema,
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  isActive: z.string().optional().transform(val => val === 'true'),
+  search: z.string().optional(),
+  isSales: z.string().optional().transform(val => val === 'true'),
+}))
+
+/**
+ * Working hour modes
+ */
+export const workingHourModeEnum = z.enum(['FIXED', 'FLEXIBLE', 'SHIFT'])
+
+/**
+ * Overtime calculation types
+ */
+export const overtimeCalcTypeEnum = z.enum(['HOURLY', 'DAILY', 'FIXED'])
+
+/**
+ * Create user schema
+ */
+export const createUserSchema = z.object({
+  email: z.string().email('Format email tidak valid'),
+  name: z.string().min(1, 'Nama wajib diisi'),
+  password: z.string().min(8, 'Password minimal 8 karakter'),
+  phone: z.string().optional(),
+  roleId: z.string().uuid('Role ID tidak valid'),
+  siteId: optionalIdSchema,
+  departmentId: optionalIdSchema,
+  isActive: z.boolean().default(true),
+  isSales: z.boolean().default(false),
+  
+  // Multi-site support
+  userSites: z.array(z.object({
+    siteId: z.string().uuid(),
+    isPrimary: z.boolean().default(false),
+  })).optional(),
+  
+  // Working hours configuration
+  workingHourMode: workingHourModeEnum.default('FIXED'),
+  startWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).default('09:00'),
+  endWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).default('17:00'),
+  workDays: z.string().default('Mon,Tue,Wed,Thu,Fri'),
+  flexibleTargetHour: z.number().int().min(1).max(24).default(8),
+  shiftId: optionalIdSchema,
+  
+  // Sales configuration
+  canvasingTarget: z.number().int().min(0).default(50),
+  
+  // Salary configuration
+  basicSalary: z.number().min(0).optional(),
+  payPeriodDay: z.number().int().min(1).max(31).default(25),
+  payDay: z.number().int().min(1).max(31).default(1),
+  
+  // Overtime rates
+  overtimeRateNormal: z.number().min(0).default(0),
+  overtimeRateHoliday: z.number().min(0).default(0),
+  overtimeRateNational: z.number().min(0).default(0),
+  overtimeCalcTypeNormal: overtimeCalcTypeEnum.default('HOURLY'),
+  overtimeCalcTypeHoliday: overtimeCalcTypeEnum.default('HOURLY'),
+  overtimeCalcTypeNational: overtimeCalcTypeEnum.default('HOURLY'),
+  
+  // Incentives and deductions
+  woIncentiveEnabled: z.boolean().default(false),
+  woIncentiveRate: z.number().min(0).default(0),
+  lateDeductionRate: z.number().min(0).default(0),
+  absentDeductionRate: z.number().min(0).default(0),
+})
+
+/**
+ * Update user schema - all fields optional
+ */
+export const updateUserSchema = z.object({
+  email: z.string().email('Format email tidak valid').optional(),
+  name: z.string().min(1, 'Nama tidak boleh kosong').optional(),
+  password: z.string().min(8, 'Password minimal 8 karakter').optional(),
+  phone: z.string().optional(),
+  roleId: optionalIdSchema,
+  siteId: optionalIdSchema,
+  departmentId: optionalIdSchema,
+  isActive: z.boolean().optional(),
+  isSales: z.boolean().optional(),
+  
+  // Multi-site support
+  userSites: z.array(z.object({
+    siteId: z.string().uuid(),
+    isPrimary: z.boolean().default(false),
+  })).optional(),
+  
+  // Working hours configuration
+  workingHourMode: workingHourModeEnum.optional(),
+  startWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+  endWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+  workDays: z.string().optional(),
+  flexibleTargetHour: z.number().int().min(1).max(24).optional(),
+  shiftId: optionalIdSchema,
+  
+  // Sales configuration
+  canvasingTarget: z.number().int().min(0).optional(),
+  
+  // Salary configuration
+  basicSalary: z.number().min(0).optional(),
+  payPeriodDay: z.number().int().min(1).max(31).optional(),
+  payDay: z.number().int().min(1).max(31).optional(),
+  
+  // Overtime rates
+  overtimeRateNormal: z.number().min(0).optional(),
+  overtimeRateHoliday: z.number().min(0).optional(),
+  overtimeRateNational: z.number().min(0).optional(),
+  overtimeCalcTypeNormal: overtimeCalcTypeEnum.optional(),
+  overtimeCalcTypeHoliday: overtimeCalcTypeEnum.optional(),
+  overtimeCalcTypeNational: overtimeCalcTypeEnum.optional(),
+  
+  // Incentives and deductions
+  woIncentiveEnabled: z.boolean().optional(),
+  woIncentiveRate: z.number().min(0).optional(),
+  lateDeductionRate: z.number().min(0).optional(),
+  absentDeductionRate: z.number().min(0).optional(),
+}).refine(
+  data => Object.keys(data).length > 0,
+  { message: 'At least one field must be provided for update' }
+)
+
+/**
+ * User ID parameter schema
+ */
+export const userIdParamSchema = z.object({
+  id: idSchema,
+})
+
+/**
+ * Force logout schema (no body needed, just validation)
+ */
+export const forceLogoutSchema = z.object({})
+
+// Legacy schemas for backward compatibility
 export const userCreateSchema = z.object({
   name: z.string().trim().min(1, 'Nama wajib diisi').optional().or(z.literal('').transform(() => undefined)),
   email: z.string().trim().min(1, 'Email wajib diisi').email('Format email tidak valid'),
@@ -8,6 +155,7 @@ export const userCreateSchema = z.object({
   departmentId: z.string().optional().or(z.literal('').transform(() => undefined)),
   siteId: z.string().optional().or(z.literal('').transform(() => undefined)),
   isActive: z.boolean().optional().default(true),
+  role: z.string().optional(), // Legacy field
 })
 
 export const userUpdateSchema = z.object({
@@ -18,5 +166,3 @@ export const userUpdateSchema = z.object({
   siteId: z.string().optional().or(z.literal('').transform(() => undefined)),
   isActive: z.boolean().optional(),
 })
-
-

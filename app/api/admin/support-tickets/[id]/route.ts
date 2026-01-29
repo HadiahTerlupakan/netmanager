@@ -1,152 +1,174 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
-import { TicketStatus, TicketPriority } from '@prisma/client'
-import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
-import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
-import { z } from 'zod'
-
-interface RouteParams {
-    params: Promise<{ id: string }>
-}
-
 /**
- * Validation schema for updating ticket
+ * Admin Support Tickets Detail Routes
+ * Migrated to use standardized middleware and validation
  */
-const updateTicketSchema = z.object({
-    status: z.nativeEnum(TicketStatus).optional(),
-    priority: z.nativeEnum(TicketPriority).optional(),
-    assignedToId: z.string().uuid().nullable().optional(),
-    closingNote: z.string().max(1000).optional(),
-})
+
+import { 
+  withAuth, 
+  withPermission, 
+  withErrorHandler,
+  withRateLimit,
+  RateLimits,
+  ValidationError,
+  NotFoundError,
+  ForbiddenError,
+  applySiteRestriction
+} from '@/lib/middleware'
+import { apiSuccess } from '@/lib/api-response'
+import { supportTicketUpdateSchema } from '@/lib/validations/support-ticket'
+import { idSchema } from '@/lib/validations/common'
+import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
 
 /**
  * GET /api/admin/support-tickets/[id]
- * Get ticket detail with all replies
+ * Get single support ticket with all replies
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-    const user = await verifyAuth(request)
-    if (!user) {
-        return ApiErrors.unauthorized('Session tidak valid')
-    }
+export const GET = withErrorHandler(
+  withAuth(
+    withPermission('support:read',
+      applySiteRestriction('support:site_only',
+        withRateLimit(RateLimits.STANDARD,
+          async ({ user, filters }, routeContext) => {
+            const { id } = await routeContext.params
 
-    if (!await hasPermission('support:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tiket')
-    }
+            // Validate ID format
+            const parseResult = idSchema.safeParse(id)
+            if (!parseResult.success) {
+              throw new ValidationError('ID tidak valid', { 
+                errors: parseResult.error.flatten().fieldErrors 
+              })
+            }
 
-    const { id } = await params
+            const hasSiteRestriction = !!filters.siteId
+            const service = getAdminSupportTicketService()
 
-    const hasSiteRestriction = await hasPermission('support:site_only')
-    const service = getAdminSupportTicketService()
+            const result = await service.getTicketById(parseResult.data, {
+              id: user.id,
+              ...(user.role !== undefined && { role: user.role }),
+              ...(user.siteId !== undefined && { siteId: user.siteId }),
+            }, hasSiteRestriction)
 
-    const result = await service.getTicketById(id, {
-        id: user.id,
-        role: user.role,
-        siteId: user.siteId,
-    }, hasSiteRestriction)
+            if (!result.success) {
+              if (result.code === 'NOT_FOUND') {
+                throw new NotFoundError('Tiket')
+              }
+              if (result.code === 'FORBIDDEN') {
+                throw new ForbiddenError(result.error || 'Akses ditolak')
+              }
+              throw new Error(result.error || 'Gagal mengambil detail tiket')
+            }
 
-    if (!result.success) {
-        if (result.code === 'NOT_FOUND') {
-            return ApiErrors.notFound('Tiket')
-        }
-        if (result.code === 'FORBIDDEN') {
-            return ApiErrors.forbidden(result.error!)
-        }
-        return ApiErrors.internalError(result.error)
-    }
-
-    return apiSuccess(result.data)
-}
+            return apiSuccess(result.data)
+          }
+        )
+      )
+    )
+  )
+)
 
 /**
  * PATCH /api/admin/support-tickets/[id]
  * Update ticket (status, priority, assignee)
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
-    const user = await verifyAuth(request)
-    if (!user) {
-        return ApiErrors.unauthorized('Session tidak valid')
-    }
+export const PATCH = withErrorHandler(
+  withAuth(
+    withPermission('support:update',
+      applySiteRestriction('support:site_only',
+        async ({ user, request, filters }, routeContext) => {
+          const { id } = await routeContext.params
 
-    if (!await hasPermission('support:update')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah tiket')
-    }
+          // Validate ID format
+          const idParseResult = idSchema.safeParse(id)
+          if (!idParseResult.success) {
+            throw new ValidationError('ID tidak valid', { 
+              errors: idParseResult.error.flatten().fieldErrors 
+            })
+          }
 
-    const { id } = await params
+          // Parse and validate request body
+          const body = await request.json()
+          const parseResult = supportTicketUpdateSchema.safeParse(body)
 
-    // Parse and validate body
-    let body: any
-    try {
-        body = await request.json()
-    } catch {
-        return apiError('Invalid JSON body', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    }
+          if (!parseResult.success) {
+            throw new ValidationError('Data tidak valid', { 
+              errors: parseResult.error.flatten().fieldErrors 
+            })
+          }
 
-    const parseResult = updateTicketSchema.safeParse(body)
-    if (!parseResult.success) {
-        return apiError(
-            'Data tidak valid',
-            ErrorCodes.VALIDATION_ERROR,
-            { status: 400, details: parseResult.error.flatten().fieldErrors }
-        )
-    }
+          const hasSiteRestriction = !!filters.siteId
+          const service = getAdminSupportTicketService()
 
-    const hasSiteRestriction = await hasPermission('support:site_only')
-    const service = getAdminSupportTicketService()
+          const updateData = {
+            ...(parseResult.data.status !== undefined && { status: parseResult.data.status }),
+            ...(parseResult.data.priority !== undefined && { priority: parseResult.data.priority }),
+            ...(parseResult.data.assignedToId !== undefined && { assignedToId: parseResult.data.assignedToId }),
+            ...(parseResult.data.resolution && { closingNote: parseResult.data.resolution }),
+          }
 
-    const result = await service.updateTicket(id, parseResult.data, {
-        id: user.id,
-        role: user.role,
-        siteId: user.siteId,
-    }, hasSiteRestriction)
+          const result = await service.updateTicket(idParseResult.data, updateData, {
+            id: user.id,
+            ...(user.role !== undefined && { role: user.role }),
+            ...(user.siteId !== undefined && { siteId: user.siteId }),
+          }, hasSiteRestriction)
 
-    if (!result.success) {
-        if (result.code === 'NOT_FOUND') {
-            return ApiErrors.notFound('Tiket')
+          if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+              throw new NotFoundError('Tiket')
+            }
+            if (result.code === 'FORBIDDEN') {
+              throw new ForbiddenError(result.error || 'Akses ditolak')
+            }
+            throw new Error(result.error || 'Gagal mengupdate tiket')
+          }
+
+          return apiSuccess(result.data, { message: 'Tiket berhasil diupdate' })
         }
-        if (result.code === 'FORBIDDEN') {
-            return ApiErrors.forbidden(result.error!)
-        }
-        return ApiErrors.internalError(result.error)
-    }
-
-    return apiSuccess(result.data, { message: 'Tiket berhasil diupdate' })
-}
+      )
+    )
+  )
+)
 
 /**
  * DELETE /api/admin/support-tickets/[id]
- * Delete ticket
+ * Delete support ticket
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-    const user = await verifyAuth(request)
-    if (!user) {
-        return ApiErrors.unauthorized('Session tidak valid')
-    }
+export const DELETE = withErrorHandler(
+  withAuth(
+    withPermission('support:delete',
+      applySiteRestriction('support:site_only',
+        async ({ user, filters }, routeContext) => {
+          const { id } = await routeContext.params
 
-    if (!await hasPermission('support:delete')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus tiket')
-    }
+          // Validate ID format
+          const parseResult = idSchema.safeParse(id)
+          if (!parseResult.success) {
+            throw new ValidationError('ID tidak valid', { 
+              errors: parseResult.error.flatten().fieldErrors 
+            })
+          }
 
-    const { id } = await params
+          const hasSiteRestriction = !!filters.siteId
+          const service = getAdminSupportTicketService()
 
-    const hasSiteRestriction = await hasPermission('support:site_only')
-    const service = getAdminSupportTicketService()
+          const result = await service.deleteTicket(parseResult.data, {
+            id: user.id,
+            ...(user.role !== undefined && { role: user.role }),
+            ...(user.siteId !== undefined && { siteId: user.siteId }),
+          }, hasSiteRestriction)
 
-    const result = await service.deleteTicket(id, {
-        id: user.id,
-        role: user.role,
-        siteId: user.siteId,
-    }, hasSiteRestriction)
+          if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+              throw new NotFoundError('Tiket')
+            }
+            if (result.code === 'FORBIDDEN') {
+              throw new ForbiddenError(result.error || 'Akses ditolak')
+            }
+            throw new Error(result.error || 'Gagal menghapus tiket')
+          }
 
-    if (!result.success) {
-        if (result.code === 'NOT_FOUND') {
-            return ApiErrors.notFound('Tiket')
+          return apiSuccess(result.data, { message: 'Tiket berhasil dihapus' })
         }
-        if (result.code === 'FORBIDDEN') {
-            return ApiErrors.forbidden(result.error!)
-        }
-        return ApiErrors.internalError(result.error)
-    }
-
-    return apiSuccess(result.data, { message: 'Tiket berhasil dihapus' })
-}
+      )
+    )
+  )
+)

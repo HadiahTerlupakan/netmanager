@@ -24,20 +24,22 @@ export function StatsCards() {
     try {
       const response = await fetch('/api/inventory/barang?limit=1')
       const data = await response.json()
+      // Standardized apiSuccess: { success: true, data: { barangs, pagination } }
+      const result = data.data || data
+      const totalBarang = result.pagination?.total || 0
+      const totalStok = result.barangs?.reduce((sum: number, item: any) => sum + (item.totalStock || 0), 0)
 
       // Get gudang count
       const gudangResponse = await fetch('/api/inventory/gudang')
       const gudangData = await gudangResponse.json()
-
-      // Calculate stats
-      const totalBarang = data.pagination?.total || 0
-      const totalStok = data.barangs?.reduce((sum: number, item: any) => sum + (item.totalStock || 0), 0)
-      const totalGudang = gudangData.gudangs?.length || 0
+      const gudangResult = gudangData.data || gudangData
+      const totalGudang = gudangResult.gudangs?.length || 0
 
       // Get low stock items (stok < 5)
       const lowStockResponse = await fetch('/api/inventory/barang?limit=100')
       const lowStockData = await lowStockResponse.json()
-      const lowStock = lowStockData.barangs?.filter((item: any) => {
+      const lowStockResult = lowStockData.data || lowStockData
+      const lowStock = lowStockResult.barangs?.filter((item: any) => {
         const minStock = Math.min(...(item.stockPerGudang?.map((s: any) => s.stok) || [Infinity]))
         return minStock < 5
       }).length || 0

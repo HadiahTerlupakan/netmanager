@@ -1,11 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { MdCheckCircle, MdCancel, MdPending, MdAccessTime, MdTimer, MdDoneAll, MdPlayArrow, MdLocationOn, MdDelete, MdEdit } from 'react-icons/md'
 import { FaSearch, FaCalendarAlt, FaBuilding } from 'react-icons/fa'
 import Image from 'next/image'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
+import { useToast } from '@/hooks/use-toast'
+import { useDebounce } from '@/hooks/useDebounce'
+import { fetchWithHandling, isFetchError, formatErrorMessage, type FetchError } from '@/lib/utils/fetch-wrapper'
+import { formatForDateTimeInput, toISOString, formatDateDisplay, formatTimeDisplay, getDayName } from '@/lib/utils/datetime'
+import { validateReason, validateRejectionReason, validateTimeRange } from '@/lib/utils/validation'
 
 interface Overtime {
     id: string
@@ -40,6 +45,7 @@ interface Overtime {
 
 export function ClientComponent() {
     const { hasPermission } = usePermission()
+    const { showToast } = useToast()
     const canVerify = hasPermission('lembur:verify')
     const canUpdate = hasPermission('lembur:update')
     const canDelete = hasPermission('lembur:delete')
@@ -49,11 +55,14 @@ export function ClientComponent() {
     const [processingId, setProcessingId] = useState<string | null>(null)
     const [rejectId, setRejectId] = useState<string | null>(null)
     const [rejectReason, setRejectReason] = useState('')
+    const [rejectError, setRejectError] = useState<string | null>(null)
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
+    const [retryCountdown, setRetryCountdown] = useState<number | null>(null)
 
     // Edit State
     const [editId, setEditId] = useState<string | null>(null)
     const [editForm, setEditForm] = useState({ reason: '', startTime: '', endTime: '' })
+    const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
     // Pagination & Stats
     const [page, setPage] = useState(1)
@@ -69,99 +78,118 @@ export function ClientComponent() {
     const [departmentId, setDepartmentId] = useState('')
     const [holidayFilter, setHolidayFilter] = useState('')
 
+    // Debounced filters to prevent race conditions
+    const debouncedStartDate = useDebounce(startDate, 300)
+    const debouncedEndDate = useDebounce(endDate, 300)
+    const debouncedStatusFilter = useDebounce(statusFilter, 300)
+    const debouncedSiteId = useDebounce(siteId, 300)
+    const debouncedDepartmentId = useDebounce(departmentId, 300)
+    const debouncedHolidayFilter = useDebounce(holidayFilter, 300)
+
     // Options
     const [sites, setSites] = useState<{ id: string, name: string }[]>([])
     const [departments, setDepartments] = useState<{ id: string, name: string }[]>([])
+
+    // Handle rate limit countdown
+    useEffect(() => {
+        if (retryCountdown !== null && retryCountdown > 0) {
+            const timer = setTimeout(() => setRetryCountdown(retryCountdown - 1), 1000)
+            return () => clearTimeout(timer)
+        } else if (retryCountdown === 0) {
+            setRetryCountdown(null)
+        }
+    }, [retryCountdown])
 
     useEffect(() => {
         fetchOptions()
         fetchRequests()
     }, [])
 
-    // Fetch on filter change (debounce could be better but direct for now)
+    // Fetch on debounced filter change
     useEffect(() => {
         if (!isLoading) fetchRequests()
-    }, [page, startDate, endDate, statusFilter, siteId, departmentId, holidayFilter])
+    }, [page, debouncedStartDate, debouncedEndDate, debouncedStatusFilter, debouncedSiteId, debouncedDepartmentId, debouncedHolidayFilter])
 
     const fetchOptions = async () => {
         try {
-            const res = await fetch('/api/admin/options')
-            if (res.ok) {
-                const data = await res.json()
-                const options = data.data || data
-                setSites(options.sites || [])
-                setDepartments(options.departments || [])
+            const response = await fetchWithHandling<{ sites: { id: string, name: string }[], departments: { id: string, name: string }[] }>('/api/admin/options')
+            if (response.data) {
+                setSites(response.data.sites || [])
+                setDepartments(response.data.departments || [])
             }
         } catch (error) {
-            console.error('Failed to fetch options')
+            if (isFetchError(error)) {
+                showToast('error', formatErrorMessage(error))
+            }
         }
     }
 
-    const fetchRequests = async () => {
+    const fetchRequests = useCallback(async () => {
+        if (retryCountdown !== null) return // Don't fetch during rate limit
+
         setIsLoading(true)
         try {
             const query = new URLSearchParams({
                 page: page.toString(),
                 limit: '10',
-                ...(startDate && { startDate }),
-                ...(endDate && { endDate }),
-                ...(statusFilter && { status: statusFilter }),
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
+                ...(debouncedStartDate && { startDate: debouncedStartDate }),
+                ...(debouncedEndDate && { endDate: debouncedEndDate }),
+                ...(debouncedStatusFilter && { status: debouncedStatusFilter }),
+                ...(debouncedSiteId && { siteId: debouncedSiteId }),
+                ...(debouncedDepartmentId && { departmentId: debouncedDepartmentId }),
+                ...(debouncedHolidayFilter && { holidayType: debouncedHolidayFilter }) // Server-side filter
             })
 
-            const res = await fetch(`/api/admin/lembur?${query.toString()}`)
-            if (res.ok) {
-                const data = await res.json()
-                let filteredData = data.data
-                
-                // Client-side filter by holiday type
-                if (holidayFilter) {
-                    filteredData = filteredData.filter((item: Overtime) => {
-                        switch (holidayFilter) {
-                            case 'REGULAR': return !item.isHolidayOvertime
-                            case 'NATIONAL': return item.isNationalHoliday
-                            case 'COLLECTIVE': return item.isHolidayOvertime && !item.isNationalHoliday && !item.isOffDay
-                            case 'OFFDAY': return item.isOffDay
-                            case 'ALL_HOLIDAY': return item.isHolidayOvertime
-                            default: return true
-                        }
-                    })
-                }
-                
-                setRequests(filteredData)
-                setTotalPages(data.pagination?.totalPages || 1)
-                setTotalItems(holidayFilter ? filteredData.length : (data.pagination?.total || 0))
-                if (data.summary) setSummary(data.summary)
-            }
+            const response = await fetchWithHandling<Overtime[]>(`/api/admin/lembur?${query.toString()}`)
+            
+            setRequests(response.data || [])
+            setTotalPages(response.pagination?.totalPages || 1)
+            setTotalItems(response.pagination?.total || 0)
+            if (response.summary) setSummary(response.summary)
         } catch (error) {
-            console.error('Failed to fetch requests:', error)
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [page, debouncedStartDate, debouncedEndDate, debouncedStatusFilter, debouncedSiteId, debouncedDepartmentId, debouncedHolidayFilter, retryCountdown, showToast])
 
     const handleAction = async (id: string, action: 'approve' | 'reject', reason?: string) => {
+        // Validate rejection reason
+        if (action === 'reject') {
+            const validation = validateRejectionReason(reason || '')
+            if (!validation.valid) {
+                setRejectError(validation.error || 'Alasan tidak valid')
+                return
+            }
+        }
+
         setProcessingId(id)
         try {
-            const res = await fetch(`/api/admin/lembur/${id}`, {
+            const response = await fetchWithHandling(`/api/admin/lembur/${id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, reason })
             })
 
-            if (res.ok) {
-                await fetchRequests()
-                if (action === 'reject') {
-                    setRejectId(null)
-                    setRejectReason('')
-                }
-            } else {
-                const data = await res.json()
-                alert(data.error || 'Gagal memproses permintaan')
+            showToast('success', action === 'approve' ? 'Lembur Disetujui' : 'Lembur Ditolak')
+
+            await fetchRequests()
+            if (action === 'reject') {
+                setRejectId(null)
+                setRejectReason('')
+                setRejectError(null)
             }
         } catch (error) {
-            console.error('Action failed:', error)
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setProcessingId(null)
         }
@@ -169,45 +197,58 @@ export function ClientComponent() {
 
     const openEditModal = (item: Overtime) => {
         setEditId(item.id)
-        // Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
-        const formatForInput = (dateStr?: string) => {
-            if (!dateStr) return ''
-            const d = new Date(dateStr)
-            d.setMinutes(d.getMinutes() - d.getTimezoneOffset()) // Adjust to local
-            return d.toISOString().slice(0, 16)
-        }
-
+        setEditErrors({})
         setEditForm({
             reason: item.reason,
-            startTime: formatForInput(item.startTime),
-            endTime: formatForInput(item.endTime)
+            startTime: formatForDateTimeInput(item.startTime),
+            endTime: formatForDateTimeInput(item.endTime)
         })
     }
 
     const handleEditSubmit = async () => {
         if (!editId) return
+
+        // Validate before submit
+        const errors: Record<string, string> = {}
+        
+        const reasonValidation = validateReason(editForm.reason)
+        if (!reasonValidation.valid) {
+            errors.reason = reasonValidation.error || 'Alasan tidak valid'
+        }
+
+        const timeValidation = validateTimeRange(editForm.startTime, editForm.endTime)
+        if (!timeValidation.valid) {
+            errors.time = timeValidation.error || 'Waktu tidak valid'
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setEditErrors(errors)
+            return
+        }
+
         setProcessingId(editId)
         try {
-            // Convert back to ISO strings or nulls
-            const payload: any = { reason: editForm.reason }
-            if (editForm.startTime) payload.startTime = new Date(editForm.startTime).toISOString()
-            if (editForm.endTime) payload.endTime = new Date(editForm.endTime).toISOString()
+            const payload: Record<string, string | null> = { reason: editForm.reason }
+            if (editForm.startTime) payload.startTime = toISOString(editForm.startTime)
+            if (editForm.endTime) payload.endTime = toISOString(editForm.endTime)
 
-            const res = await fetch(`/api/admin/lembur/${editId}`, {
+            await fetchWithHandling(`/api/admin/lembur/${editId}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
 
-            if (res.ok) {
-                await fetchRequests()
-                setEditId(null)
-            } else {
-                const data = await res.json()
-                alert(data.error || 'Gagal mengupdate data')
-            }
+            showToast('success', 'Data lembur berhasil diperbarui')
+
+            await fetchRequests()
+            setEditId(null)
+            setEditErrors({})
         } catch (error) {
-            console.error('Update failed:', error)
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setProcessingId(null)
         }
@@ -218,18 +259,20 @@ export function ClientComponent() {
 
         setProcessingId(id)
         try {
-            const res = await fetch(`/api/admin/lembur/${id}`, {
+            await fetchWithHandling(`/api/admin/lembur/${id}`, {
                 method: 'DELETE'
             })
 
-            if (res.ok) {
-                await fetchRequests()
-            } else {
-                const data = await res.json()
-                alert(data.error || 'Gagal menghapus data')
-            }
+            showToast('success', 'Data lembur berhasil dihapus')
+
+            await fetchRequests()
         } catch (error) {
-            console.error('Delete failed:', error)
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setProcessingId(null)
         }
@@ -311,9 +354,8 @@ export function ClientComponent() {
             header: 'Tanggal & Alasan',
             priority: 'primary',
             render: (item) => {
-                const date = new Date(item.createdAt)
-                const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' })
-                const dateStr = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                const dayName = getDayName(item.createdAt)
+                const dateStr = formatDateDisplay(item.createdAt)
                 
                 return (
                     <div className="text-gray-600 dark:text-gray-300">
@@ -359,13 +401,13 @@ export function ClientComponent() {
                     {item.startTime ? (
                         <div className="flex items-center gap-1">
                             <span className="font-bold text-green-600">Start:</span>
-                            {new Date(item.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            {formatTimeDisplay(item.startTime)}
                         </div>
                     ) : <span className="text-gray-400 italic">Belum mulai</span>}
                     {item.endTime && (
                         <div className="flex items-center gap-1">
                             <span className="font-bold text-red-600">End:</span>
-                            {new Date(item.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            {formatTimeDisplay(item.endTime)}
                         </div>
                     )}
                     {item.duration != null && (
@@ -491,6 +533,19 @@ export function ClientComponent() {
         <div className="space-y-6">
             <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Manajemen Lembur</h1>
 
+            {/* Rate Limit Warning */}
+            {retryCountdown !== null && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3 dark:bg-yellow-900/20 dark:border-yellow-800">
+                    <MdTimer className="text-yellow-600 text-xl" />
+                    <div>
+                        <p className="font-medium text-yellow-800 dark:text-yellow-200">Terlalu Banyak Permintaan</p>
+                        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                            Coba lagi dalam {retryCountdown} detik...
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {Object.entries(summary).map(([key, count]) => (
@@ -579,7 +634,8 @@ export function ClientComponent() {
                 </div>
                 <button
                     onClick={() => fetchRequests()}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2"
+                    disabled={retryCountdown !== null}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <FaSearch /> Cari
                 </button>
@@ -623,15 +679,22 @@ export function ClientComponent() {
                     <div className="bg-white dark:bg-[#1c2936] w-full max-w-sm rounded-xl p-4 shadow-xl">
                         <h3 className="font-bold text-lg mb-3 dark:text-white">Alasan Penolakan</h3>
                         <textarea
-                            className="w-full p-2 border rounded-lg mb-3 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                            className={`w-full p-2 border rounded-lg mb-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${rejectError ? 'border-red-500' : ''}`}
                             rows={3}
-                            placeholder="Wajib diisi..."
+                            placeholder="Minimal 5 karakter..."
                             value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
+                            onChange={(e) => {
+                                setRejectReason(e.target.value)
+                                setRejectError(null)
+                            }}
                         />
+                        {rejectError && (
+                            <p className="text-xs text-red-500 mb-2">{rejectError}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mb-3">{rejectReason.length}/500 karakter</p>
                         <div className="flex justify-end gap-2">
                             <button
-                                onClick={() => { setRejectId(null); setRejectReason(''); }}
+                                onClick={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
                                 className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal
@@ -658,11 +721,20 @@ export function ClientComponent() {
                             <div>
                                 <label className="block text-sm font-medium mb-1 dark:text-gray-300">Alasan Lembur</label>
                                 <textarea
-                                    className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                    className={`w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white ${editErrors.reason ? 'border-red-500' : ''}`}
                                     rows={3}
                                     value={editForm.reason}
-                                    onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                                    onChange={(e) => {
+                                        setEditForm({ ...editForm, reason: e.target.value })
+                                        if (editErrors.reason) {
+                                            setEditErrors({ ...editErrors, reason: '' })
+                                        }
+                                    }}
                                 />
+                                {editErrors.reason && (
+                                    <p className="text-xs text-red-500 mt-1">{editErrors.reason}</p>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1">{editForm.reason.length}/500 karakter (min 10)</p>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-4">
@@ -685,11 +757,14 @@ export function ClientComponent() {
                                     />
                                 </div>
                             </div>
+                            {editErrors.time && (
+                                <p className="text-xs text-red-500">{editErrors.time}</p>
+                            )}
                         </div>
 
                         <div className="flex justify-end gap-2 mt-6">
                             <button
-                                onClick={() => setEditId(null)}
+                                onClick={() => { setEditId(null); setEditErrors({}); }}
                                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal

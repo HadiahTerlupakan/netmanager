@@ -64,6 +64,10 @@ export class PelangganService {
         return this.pelangganRepository.findAll(filter)
     }
 
+    async getAllPelangganPaginated(filter?: FilterOptions, page: number = 1, limit: number = 10) {
+        return this.pelangganRepository.findAllPaginated(filter, page, limit)
+    }
+
     async getPelanggan(id: string): Promise<Pelanggan | null> {
         return this.pelangganRepository.findById(id)
     }

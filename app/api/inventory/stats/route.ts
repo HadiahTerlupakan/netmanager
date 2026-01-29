@@ -37,6 +37,16 @@ export async function GET(req: NextRequest) {
             transactionFilter.gudang = siteRelation
         }
 
+        // Date filter for "Today"
+        const startOfDay = new Date()
+        startOfDay.setHours(0, 0, 0, 0)
+
+        // Add date filter to transaction filters
+        const todayFilter = {
+            ...transactionFilter,
+            createdAt: { gte: startOfDay }
+        }
+
         const [
             totalBarang,
             barangMasukToday,
@@ -44,8 +54,8 @@ export async function GET(req: NextRequest) {
             totalGudang
         ] = await Promise.all([
             prisma.barang.count(), // Total Master Barang (Global)
-            prisma.barangMasuk.count({ where: transactionFilter }),
-            prisma.barangKeluar.count({ where: transactionFilter }),
+            prisma.barangMasuk.count({ where: todayFilter }),
+            prisma.barangKeluar.count({ where: todayFilter }),
             prisma.gudang.count({ where: gudangFilter })
         ])
 

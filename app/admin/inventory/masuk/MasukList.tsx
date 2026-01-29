@@ -83,7 +83,8 @@ export default function BarangMasukPage() {
         const gudangRes = await getWithAuth('/api/inventory/gudang?view=all')
         if (gudangRes.ok) {
           const data = await gudangRes.json()
-          setGudangs(data.gudangs || [])
+          const result = data.data || data
+          setGudangs(result.gudangs || [])
         }
       } catch (err) {
         console.error('Failed to fetch data', err)

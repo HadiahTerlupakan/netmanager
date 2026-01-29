@@ -47,12 +47,14 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
         // Fetch barang
         const barangResponse = await fetch('/api/inventory/barang?limit=100')
         const barangData = await barangResponse.json()
-        setBarangs(barangData.barangs || [])
+        const barangResult = barangData.data || barangData
+        setBarangs(barangResult.barangs || [])
 
         // Fetch gudang
         const gudangResponse = await fetch('/api/inventory/gudang')
         const gudangData = await gudangResponse.json()
-        setGudangs(gudangData.gudangs || [])
+        const gudangResult = gudangData.data || gudangData
+        setGudangs(gudangResult.gudangs || [])
       } catch (error) {
         console.error('Error fetching initial data:', error)
         setError('Gagal memuat data awal')
@@ -72,8 +74,9 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
           )
           if (response.ok) {
             const data = await response.json()
-            setStockPerKondisi(data.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 })
-            setStockSumber(data.totalStock || 0)
+            const result = data.data || data
+            setStockPerKondisi(result.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 })
+            setStockSumber(result.totalStock || 0)
           } else {
             // Fallback to current logic if API fails
             const selectedBarang = barangs.find(b => b.id === formData.barangId)
@@ -178,7 +181,8 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
         throw new Error(data.error || 'Gagal melakukan transfer')
       }
 
-      setSuccess(`Transfer berhasil! Kode transfer: ${data.kodeTransfer}`)
+      const result = data.data || data
+      setSuccess(`Transfer berhasil! Kode transfer: ${result.kodeTransfer}`)
 
       // Reset form
       setFormData({

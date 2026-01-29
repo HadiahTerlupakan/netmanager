@@ -1,68 +1,68 @@
-import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { hasPermission } from '@/lib/rbac';
-import { socketEmitter } from '@/lib/websocket/emitter';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
+import { NextRequest } from 'next/server'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { prisma } from '@/lib/prisma'
+import { socketEmitter } from '@/lib/websocket/emitter'
+import { forceLogoutSchema } from '@/lib/validations/user'
+import { logger } from '@/lib/logger'
 
 /**
- * POST /api/admin/users/[id]/force-logout
- * 
- * Force logout a user by incrementing their tokenVersion.
- * This invalidates all existing JWT tokens for the user.
+ * @swagger
+ * /api/admin/users/{id}/force-logout:
+ *   post:
+ *     summary: Force logout user
+ *     description: Mengeluarkan paksa user dengan meng-increment tokenVersion.
+ *     tags: [Users]
  */
-export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid');
-        }
+export const POST = createHandler({
+  auth: true,
+  permissions: ['users:update'],
+  schema: forceLogoutSchema
+}, async (req, ctx) => {
+  const startTime = Date.now()
+  const { session, params } = ctx
+  const { id: targetUserId } = params
 
-        // Permission check
-        if (!await hasPermission('users:update')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk force logout user');
-        }
+  if (!targetUserId) return ApiErrors.badRequest('ID User tidak valid')
 
-        const { id: targetUserId } = await params;
-        const currentUser = session.user as any;
+  if (!session) return ApiErrors.unauthorized()
 
-        // Prevent self force-logout
-        if (currentUser.id === targetUserId) {
-            return apiError('Tidak dapat force logout diri sendiri', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-        }
+  // Prevent self force-logout
+  if (session.user.id === targetUserId) {
+    return ApiErrors.badRequest('Tidak dapat force logout diri sendiri')
+  }
 
-        // Check if target user exists
-        const targetUser = await prisma.user.findUnique({
-            where: { id: targetUserId },
-            select: { id: true, name: true, tokenVersion: true }
-        });
+  // Check if target user exists
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, name: true, tokenVersion: true }
+  })
 
-        if (!targetUser) {
-            return ApiErrors.notFound('User');
-        }
+  if (!targetUser) return ApiErrors.notFound('User')
 
-        // Increment tokenVersion to invalidate all existing tokens
-        const updatedUser = await prisma.user.update({
-            where: { id: targetUserId },
-            data: { tokenVersion: { increment: 1 } },
-            select: { id: true, name: true, tokenVersion: true }
-        });
+  // Increment tokenVersion to invalidate all existing tokens
+  const updatedUser = await prisma.user.update({
+    where: { id: targetUserId },
+    data: { tokenVersion: { increment: 1 } },
+    select: { id: true, name: true, tokenVersion: true }
+  })
 
-        // Emit WebSocket event to force logout the user in real-time
-        socketEmitter.forceLogout(targetUserId);
+  // Emit WebSocket event to force logout the user in real-time
+  socketEmitter.forceLogout(targetUserId)
 
-        console.log(`[FORCE_LOGOUT] User ${targetUser.name} (${targetUserId}) was force logged out by ${currentUser.name}. Token version: ${updatedUser.tokenVersion}`);
+  logger.apiRequest('POST', `/api/admin/users/${targetUserId}/force-logout`, 200, Date.now() - startTime, {
+    userId: session.user.id,
+    targetUserId,
+    newTokenVersion: updatedUser.tokenVersion
+  })
 
-        return apiSuccess({
-            tokenVersion: updatedUser.tokenVersion
-        }, { message: `User ${targetUser.name} berhasil di-logout paksa` });
+  await logger.logActivity({
+    action: 'FORCE_LOGOUT',
+    subject: 'User',
+    userId: session.user.id,
+    details: { id: targetUserId, name: targetUser.name }
+  })
 
-    } catch (error: any) {
-        console.error('[FORCE_LOGOUT] Error:', error);
-        return ApiErrors.internalError('Gagal force logout user');
-    }
-}
+  return apiSuccess({
+    tokenVersion: updatedUser.tokenVersion
+  }, { message: `User ${targetUser.name} berhasil di-logout paksa` })
+})

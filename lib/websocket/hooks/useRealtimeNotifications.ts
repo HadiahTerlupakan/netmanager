@@ -47,6 +47,7 @@ export function useRealtimeNotifications(
 
     // Stabilize excludeTypes array reference using JSON comparison
     const excludeTypesKey = JSON.stringify(excludeTypes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const stableExcludeTypes = useMemo(() => excludeTypes, [excludeTypesKey])
 
     // Build query params with stable reference

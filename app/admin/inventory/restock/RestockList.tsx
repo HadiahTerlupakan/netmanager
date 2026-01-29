@@ -63,7 +63,8 @@ export default function RestockPage() {
       // Fetch gudangs
       const gudangResponse = await fetch('/api/inventory/gudang')
       const gudangData = await gudangResponse.json()
-      setGudangs(gudangData.gudangs || [])
+      const result = gudangData.data || gudangData
+      setGudangs(result.gudangs || [])
     } catch (error) {
       console.error('Error fetching initial data:', error)
     }
@@ -81,12 +82,13 @@ export default function RestockPage() {
 
       const response = await fetch(url)
       const data = await response.json()
+      const result = data.data || data
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Gagal memuat prediksi')
+      if (!response.ok || data.success === false) {
+        throw new Error(result.error || 'Gagal memuat prediksi')
       }
 
-      let filteredPredictions = data.predictions || []
+      let filteredPredictions = result.predictions || []
 
       // Apply urgency filter
       if (filterUrgency && filterUrgency !== 'ALL') {
@@ -99,7 +101,7 @@ export default function RestockPage() {
       }))
 
       setPredictions(mappedPredictions)
-      setSummary(data.summary || {})
+      setSummary(result.summary || {})
     } catch (error) {
       console.error('Error fetching predictions:', error)
       setError(error instanceof Error ? error.message : 'Terjadi kesalahan')

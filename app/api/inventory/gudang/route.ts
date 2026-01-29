@@ -4,6 +4,7 @@ import { authOptions, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * Generate automatic warehouse code
@@ -54,11 +55,11 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Unauthorized')
     }
 
     if (!(await hasPermission("gudang:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Forbidden')
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -102,7 +103,7 @@ export async function GET(req: NextRequest) {
         gudangCount: gudangs.length,
       })
 
-      return NextResponse.json({ gudangs })
+      return apiSuccess({ gudangs })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -111,10 +112,7 @@ export async function GET(req: NextRequest) {
       path: '/api/inventory/gudang',
       method: 'GET',
     })
-    return NextResponse.json(
-      { error: 'Gagal memuat data gudang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal memuat data gudang')
   }
 }
 
@@ -184,11 +182,11 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized('Unauthorized')
     }
 
     if (!(await hasPermission("gudang:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Forbidden')
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -198,10 +196,7 @@ export async function POST(req: NextRequest) {
 
     // Validation
     if (!nama) {
-      return NextResponse.json(
-        { error: 'Nama gudang harus diisi' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Nama gudang harus diisi')
     }
 
     // Note: siteIds is optional, gudang-site relationship managed from Site menu
@@ -255,7 +250,7 @@ export async function POST(req: NextRequest) {
         console.error('Logging failed', e)
       }
 
-      return NextResponse.json({ gudang }, { status: 201 })
+      return apiSuccess({ gudang }, { status: 201 })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -264,9 +259,6 @@ export async function POST(req: NextRequest) {
       path: '/api/inventory/gudang',
       method: 'POST',
     })
-    return NextResponse.json(
-      { error: 'Gagal membuat gudang' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError('Gagal membuat gudang')
   }
 }

@@ -12,7 +12,7 @@ interface SiteFilterProps {
   onSiteChange: (siteId: string | undefined) => void
   className?: string
   isInput?: boolean // If true, behaves like a form input (auto-selects & shows static if single site)
-  value?: string
+  value?: string | undefined
 }
 
 export function SiteFilter({ onSiteChange, className = '', isInput = false, value }: SiteFilterProps) {
@@ -53,9 +53,11 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
   useEffect(() => {
     // If input mode (required selection), auto-select single site
     if (isInput && !loading && sites.length === 1 && !selectedSite) {
-        const singleSiteId = sites[0].id
-        setSelectedSite(singleSiteId)
-        onSiteChange(singleSiteId)
+        const singleSite = sites[0]
+        if (singleSite) {
+            setSelectedSite(singleSite.id)
+            onSiteChange(singleSite.id)
+        }
     }
     // If filter mode, we usually default to "Semua Site" (''), unless we want to force?
     // Let's leave filter mode as manual selection (default ''), enabling 'Semua Site'.
@@ -82,7 +84,7 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
       */}
       {isInput && sites.length === 1 ? (
         <div className="block w-full pl-10 pr-3 py-2 text-base border border-gray-200 bg-gray-50 text-gray-500 rounded-md sm:text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
-           {sites[0].name} <span className='text-xs ml-1 text-gray-400'>(Otomatis)</span>
+           {sites[0]?.name} <span className='text-xs ml-1 text-gray-400'>(Otomatis)</span>
         </div>
       ) : (
         <select

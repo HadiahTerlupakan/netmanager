@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
 import { SOCKET_EVENTS, type TicketMessagePayload } from '../types'
+
 
 export interface ChatReply {
     id: string
@@ -41,10 +42,14 @@ export function useRealtimeTicketChat(
 
     const [replies, setReplies] = useState<ChatReply[]>(initialReplies)
 
+    const prevInitialRepliesRef = useRef(initialReplies)
+
     // Update replies when initial data changes
     useEffect(() => {
-        if (initialReplies.length > 0) {
+        if (initialReplies !== prevInitialRepliesRef.current && initialReplies.length > 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setReplies(initialReplies)
+            prevInitialRepliesRef.current = initialReplies
         }
     }, [initialReplies])
 

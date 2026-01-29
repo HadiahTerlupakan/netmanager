@@ -1,9 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useToast } from '@/components/common/ToastProvider'
+import { useToast } from '@/hooks/use-toast'
 import { HiOutlineUser, HiOutlineCamera, HiOutlineLockClosed, HiOutlineEnvelope, HiOutlinePhone, HiOutlineBuildingOffice, HiOutlineMapPin, HiOutlineClock } from 'react-icons/hi2'
 import { HiSave } from 'react-icons/hi'
+import { MdTimer } from 'react-icons/md'
+import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
+import { validateRequired, validateLength } from '@/lib/utils/validation'
 
 interface ProfileData {
     id: string
@@ -21,11 +24,12 @@ interface ProfileData {
 }
 
 export default function MyProfileClient() {
-    const { show } = useToast()
+    const { showToast } = useToast()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [uploadingPhoto, setUploadingPhoto] = useState(false)
     const [changingPassword, setChangingPassword] = useState(false)
+    const [retryCountdown, setRetryCountdown] = useState<number | null>(null)
     
     const [profile, setProfile] = useState<ProfileData | null>(null)
     const [editMode, setEditMode] = useState(false)
@@ -34,52 +38,77 @@ export default function MyProfileClient() {
     // Edit form state
     const [name, setName] = useState('')
     const [phone, setPhone] = useState('')
+    const [editErrors, setEditErrors] = useState<Record<string, string>>({})
     
     // Password form state
     const [currentPassword, setCurrentPassword] = useState('')
     const [newPassword, setNewPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
+    const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({})
     
     const fileInputRef = useRef<HTMLInputElement>(null)
 
+    // Handle rate limit countdown
     useEffect(() => {
-        fetchProfile()
-    }, [])
+        if (retryCountdown !== null && retryCountdown > 0) {
+            const timer = setTimeout(() => setRetryCountdown(retryCountdown - 1), 1000)
+            return () => clearTimeout(timer)
+        } else if (retryCountdown === 0) {
+            setRetryCountdown(null)
+        }
+    }, [retryCountdown])
 
     const fetchProfile = async () => {
         try {
-            const res = await fetch('/api/admin/profile')
-            const data = await res.json()
-            if (data.success) {
-                setProfile(data.data)
-                setName(data.data.name || '')
-                setPhone(data.data.phone || '')
+            const response = await fetchWithHandling<ProfileData>('/api/admin/profile')
+            if (response.data) {
+                setProfile(response.data)
+                setName(response.data.name || '')
+                setPhone(response.data.phone || '')
             }
         } catch (error) {
-            show({ type: 'error', message: 'Gagal memuat profil' })
+            if (isFetchError(error)) {
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setLoading(false)
         }
     }
 
+    useEffect(() => {
+        fetchProfile()
+    }, [])
+
     const handleSave = async () => {
+        // Validate
+        const errors: Record<string, string> = {}
+        const nameValid = validateRequired(name, 'Nama')
+        if (!nameValid.valid) errors.name = nameValid.error!
+        
+        const nameLength = validateLength(name, 3, 50, 'Nama')
+        if (!nameLength.valid) errors.name = nameLength.error!
+
+        if (Object.keys(errors).length > 0) {
+            setEditErrors(errors)
+            return
+        }
+
         setSaving(true)
         try {
-            const res = await fetch('/api/admin/profile', {
+            await fetchWithHandling('/api/admin/profile', {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, phone })
             })
-            const data = await res.json()
-            if (data.success) {
-                setProfile(prev => prev ? { ...prev, name, phone } : null)
-                setEditMode(false)
-                show({ type: 'success', message: 'Profil berhasil diperbarui' })
-            } else {
-                show({ type: 'error', message: data.error || 'Gagal menyimpan' })
-            }
+            
+            setProfile(prev => prev ? { ...prev, name, phone } : null)
+            setEditMode(false)
+            setEditErrors({})
+            showToast('success', 'Profil Anda telah diperbarui')
         } catch (error) {
-            show({ type: 'error', message: 'Gagal menyimpan profil' })
+            if (isFetchError(error)) {
+                if (error.retryAfter) setRetryCountdown(error.retryAfter)
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setSaving(false)
         }
@@ -89,58 +118,70 @@ export default function MyProfileClient() {
         const file = e.target.files?.[0]
         if (!file) return
 
+        // Basic frontend file validation
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('error', 'Ukuran foto maksimal adalah 2MB')
+            return
+        }
+
         setUploadingPhoto(true)
         try {
             const formData = new FormData()
             formData.append('photo', file)
 
-            const res = await fetch('/api/admin/profile/photo', {
+            const response = await fetchWithHandling<{ image: string }>('/api/admin/profile/photo', {
                 method: 'POST',
                 body: formData
             })
-            const data = await res.json()
-            if (data.success) {
-                setProfile(prev => prev ? { ...prev, image: data.data.image } : null)
-                show({ type: 'success', message: 'Foto berhasil diperbarui' })
-            } else {
-                show({ type: 'error', message: data.error || 'Gagal upload foto' })
+            
+            if (response.data) {
+                setProfile(prev => prev ? { ...prev, image: response.data!.image } : null)
+                showToast('success', 'Foto profil telah diperbarui')
             }
         } catch (error) {
-            show({ type: 'error', message: 'Gagal upload foto' })
+            if (isFetchError(error)) {
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setUploadingPhoto(false)
         }
     }
 
     const handleChangePassword = async () => {
+        const errors: Record<string, string> = {}
+        
+        if (!currentPassword) errors.currentPassword = 'Password lama wajib diisi'
+        
+        const passLen = validateLength(newPassword, 8, 32, 'Password baru')
+        if (!passLen.valid) errors.newPassword = passLen.error!
+        
         if (newPassword !== confirmPassword) {
-            show({ type: 'error', message: 'Password baru dan konfirmasi tidak cocok' })
-            return
+            errors.confirmPassword = 'Konfirmasi password tidak cocok'
         }
-        if (newPassword.length < 6) {
-            show({ type: 'error', message: 'Password minimal 6 karakter' })
+
+        if (Object.keys(errors).length > 0) {
+            setPasswordErrors(errors)
             return
         }
 
         setChangingPassword(true)
         try {
-            const res = await fetch('/api/admin/profile', {
+            await fetchWithHandling('/api/admin/profile', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
             })
-            const data = await res.json()
-            if (data.success) {
-                setShowPasswordModal(false)
-                setCurrentPassword('')
-                setNewPassword('')
-                setConfirmPassword('')
-                show({ type: 'success', message: 'Password berhasil diubah' })
-            } else {
-                show({ type: 'error', message: data.error || 'Gagal mengubah password' })
-            }
+            
+            setShowPasswordModal(false)
+            setCurrentPassword('')
+            setNewPassword('')
+            setConfirmPassword('')
+            setPasswordErrors({})
+            showToast('success', 'Password Anda telah berhasil diubah')
         } catch (error) {
-            show({ type: 'error', message: 'Gagal mengubah password' })
+            if (isFetchError(error)) {
+                if (error.retryAfter) setRetryCountdown(error.retryAfter)
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setChangingPassword(false)
         }
@@ -148,49 +189,65 @@ export default function MyProfileClient() {
 
     const getInitials = (name?: string | null) => {
         if (!name) return 'U'
-        return name.charAt(0).toUpperCase()
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
     }
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="flex flex-col justify-center items-center h-96 gap-4">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+                <p className="text-gray-500 animate-pulse">Memuat data profil...</p>
             </div>
         )
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">Profil Saya</h1>
+        <div className="max-w-2xl mx-auto p-6 space-y-6">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Profil Saya</h1>
+
+            {/* Rate Limit Warning */}
+            {retryCountdown !== null && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3 dark:bg-yellow-900/20 dark:border-yellow-800">
+                    <MdTimer className="text-yellow-600 text-xl" />
+                    <div>
+                        <p className="font-medium text-yellow-800 dark:text-yellow-200">Terlalu Banyak Permintaan</p>
+                        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                            Mohon tunggu {retryCountdown} detik sebelum mencoba lagi...
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Profile Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {/* Header with Avatar */}
                 <div className="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-8">
-                    <div className="flex items-center gap-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
                         <div className="relative">
-                            {profile?.image ? (
-                                <img 
-                                    src={profile.image} 
-                                    alt="Profile" 
-                                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
-                                />
-                            ) : (
-                                <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center border-4 border-white shadow-lg">
-                                    <span className="text-blue-600 text-3xl font-bold">
+                            <div className="w-24 h-24 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center border-4 border-white dark:border-gray-800 shadow-lg overflow-hidden shrink-0">
+                                {profile?.image ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img 
+                                        src={profile.image} 
+                                        alt="Profile" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="text-blue-600 dark:text-blue-400 text-3xl font-bold">
                                         {getInitials(profile?.name)}
                                     </span>
-                                </div>
-                            )}
+                                )}
+                            </div>
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={uploadingPhoto}
-                                className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-lg hover:bg-gray-50 transition-colors"
+                                className="absolute bottom-0 right-0 bg-white dark:bg-gray-600 rounded-full p-2 shadow-lg hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors ring-2 ring-blue-600"
+                                title="Ganti Foto"
                             >
                                 {uploadingPhoto ? (
                                     <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                                 ) : (
-                                    <HiOutlineCamera className="w-4 h-4 text-gray-600" />
+                                    <HiOutlineCamera className="w-4 h-4 text-gray-600 dark:text-gray-200" />
                                 )}
                             </button>
                             <input
@@ -201,11 +258,11 @@ export default function MyProfileClient() {
                                 className="hidden"
                             />
                         </div>
-                        <div>
+                        <div className="text-center sm:text-left">
                             <h2 className="text-2xl font-bold text-white">{profile?.name || 'User'}</h2>
-                            <p className="text-blue-100">{profile?.email}</p>
+                            <p className="text-blue-100 opacity-90">{profile?.email}</p>
                             {profile?.role && (
-                                <span className="inline-block mt-2 px-3 py-1 bg-blue-500 text-white text-sm rounded-full">
+                                <span className="inline-block mt-2 px-3 py-1 bg-white/20 backdrop-blur-md text-white text-xs font-semibold rounded-full border border-white/30">
                                     {profile.role.name}
                                 </span>
                             )}
@@ -216,113 +273,103 @@ export default function MyProfileClient() {
                 {/* Profile Info */}
                 <div className="p-6 space-y-4">
                     {editMode ? (
-                        <>
+                        <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nama</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Lengkap</label>
                                 <input
                                     type="text"
                                     value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    onChange={(e) => {
+                                        setName(e.target.value)
+                                        if (editErrors.name) setEditErrors({ ...editErrors, name: '' })
+                                    }}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${editErrors.name ? 'border-red-500' : 'border-gray-300'}`}
                                 />
+                                {editErrors.name && <p className="text-xs text-red-500 mt-1">{editErrors.name}</p>}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Telepon</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nomor Telepon / WhatsApp</label>
                                 <input
                                     type="tel"
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Contoh: 08123456789"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                                 />
                             </div>
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex gap-3 pt-4 border-t dark:border-gray-700">
                                 <button
                                     onClick={handleSave}
-                                    disabled={saving}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                    disabled={saving || retryCountdown !== null}
+                                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                 >
                                     <HiSave className="w-4 h-4" />
-                                    {saving ? 'Menyimpan...' : 'Simpan'}
+                                    {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
                                 </button>
                                 <button
                                     onClick={() => {
                                         setEditMode(false)
+                                        setEditErrors({})
                                         setName(profile?.name || '')
                                         setPhone(profile?.phone || '')
                                     }}
-                                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                    className="px-6 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium"
                                 >
                                     Batal
                                 </button>
                             </div>
-                        </>
+                        </div>
                     ) : (
-                        <>
-                            <div className="flex items-center gap-4 py-3 border-b border-gray-100">
-                                <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
-                                    <HiOutlineEnvelope className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Email</p>
-                                    <p className="font-medium">{profile?.email}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 py-3 border-b border-gray-100">
-                                <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center">
-                                    <HiOutlinePhone className="w-5 h-5 text-green-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Telepon</p>
-                                    <p className="font-medium">{profile?.phone || '-'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 py-3 border-b border-gray-100">
-                                <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
-                                    <HiOutlineBuildingOffice className="w-5 h-5 text-purple-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Department</p>
-                                    <p className="font-medium">{profile?.departments?.name || '-'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 py-3 border-b border-gray-100">
-                                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center">
-                                    <HiOutlineMapPin className="w-5 h-5 text-orange-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Site</p>
-                                    <p className="font-medium">{profile?.sites?.name || '-'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 py-3">
-                                <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center">
-                                    <HiOutlineClock className="w-5 h-5 text-amber-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Jam Kerja</p>
-                                    <p className="font-medium">
-                                        {profile?.workingHourMode === 'FLEXIBLE' ? 'Fleksibel' : 
-                                         `${profile?.startWorkTime || '09:00'} - ${profile?.endWorkTime || '17:00'}`}
-                                    </p>
-                                </div>
-                            </div>
-                        </>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                            <InfoItem 
+                                icon={<HiOutlineEnvelope className="w-5 h-5 text-blue-600" />}
+                                label="Alamat Email"
+                                value={profile?.email ?? null}
+                                bgColor="bg-blue-50"
+                            />
+                            <InfoItem 
+                                icon={<HiOutlinePhone className="w-5 h-5 text-green-600" />}
+                                label="Nomor Telepon"
+                                value={profile?.phone || 'Belum diatur'}
+                                bgColor="bg-green-50"
+                            />
+                            <InfoItem 
+                                icon={<HiOutlineBuildingOffice className="w-5 h-5 text-purple-600" />}
+                                label="Departemen"
+                                value={profile?.departments?.name || '-'}
+                                bgColor="bg-purple-50"
+                            />
+                            <InfoItem 
+                                icon={<HiOutlineMapPin className="w-5 h-5 text-orange-600" />}
+                                label="Site Kerja"
+                                value={profile?.sites?.name || '-'}
+                                bgColor="bg-orange-50"
+                            />
+                            <InfoItem 
+                                icon={<HiOutlineClock className="w-5 h-5 text-amber-600" />}
+                                label="Mode Jam Kerja"
+                                value={profile?.workingHourMode === 'FLEXIBLE' ? 'Fleksibel' : 
+                                       profile?.workingHourMode === 'SHIFT' ? 'Shift Kerja' :
+                                       `${profile?.startWorkTime || '09:00'} - ${profile?.endWorkTime || '17:00'}`}
+                                bgColor="bg-amber-50"
+                            />
+                        </div>
                     )}
                 </div>
 
                 {/* Action Buttons */}
                 {!editMode && (
-                    <div className="px-6 pb-6 flex gap-3">
+                    <div className="px-6 pb-6 pt-4 border-t dark:border-gray-700 flex flex-col sm:flex-row gap-3">
                         <button
                             onClick={() => setEditMode(true)}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors font-semibold"
                         >
                             <HiOutlineUser className="w-5 h-5" />
-                            Edit Profil
+                            Lengkapi Profil
                         </button>
                         <button
                             onClick={() => setShowPasswordModal(true)}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors font-semibold border border-gray-200 dark:border-gray-600"
                         >
                             <HiOutlineLockClosed className="w-5 h-5" />
                             Ganti Password
@@ -333,45 +380,60 @@ export default function MyProfileClient() {
 
             {/* Password Modal */}
             {showPasswordModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-                        <h3 className="text-lg font-bold mb-4">Ganti Password</h3>
-                        <div className="space-y-4">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="px-6 py-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                            <h3 className="text-lg font-bold dark:text-white">Ubah Password Keamanan</h3>
+                            <p className="text-xs text-gray-500">Pastikan password baru Anda kuat dan unik.</p>
+                        </div>
+                        <div className="p-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Password Lama</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password Saat Ini</label>
                                 <input
                                     type="password"
                                     value={currentPassword}
-                                    onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    onChange={(e) => {
+                                        setCurrentPassword(e.target.value)
+                                        if (passwordErrors.currentPassword) setPasswordErrors({ ...passwordErrors, currentPassword: '' })
+                                    }}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${passwordErrors.currentPassword ? 'border-red-500' : 'border-gray-300'}`}
                                 />
+                                {passwordErrors.currentPassword && <p className="text-xs text-red-500 mt-1">{passwordErrors.currentPassword}</p>}
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Password Baru</label>
+                            <div className="pt-2 border-t dark:border-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password Baru</label>
                                 <input
                                     type="password"
                                     value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    onChange={(e) => {
+                                        setNewPassword(e.target.value)
+                                        if (passwordErrors.newPassword) setPasswordErrors({ ...passwordErrors, newPassword: '' })
+                                    }}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${passwordErrors.newPassword ? 'border-red-500' : 'border-gray-300'}`}
                                 />
+                                {passwordErrors.newPassword && <p className="text-xs text-red-500 mt-1">{passwordErrors.newPassword}</p>}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Konfirmasi Password Baru</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Konfirmasi Password Baru</label>
                                 <input
                                     type="password"
                                     value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    onChange={(e) => {
+                                        setConfirmPassword(e.target.value)
+                                        if (passwordErrors.confirmPassword) setPasswordErrors({ ...passwordErrors, confirmPassword: '' })
+                                    }}
+                                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${passwordErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
                                 />
+                                {passwordErrors.confirmPassword && <p className="text-xs text-red-500 mt-1">{passwordErrors.confirmPassword}</p>}
                             </div>
                         </div>
-                        <div className="flex gap-3 mt-6">
+                        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 flex gap-3">
                             <button
                                 onClick={handleChangePassword}
-                                disabled={changingPassword}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                disabled={changingPassword || retryCountdown !== null}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-bold transition-all shadow-md"
                             >
-                                {changingPassword ? 'Menyimpan...' : 'Simpan'}
+                                {changingPassword ? 'Memproses...' : 'Update Password'}
                             </button>
                             <button
                                 onClick={() => {
@@ -379,8 +441,9 @@ export default function MyProfileClient() {
                                     setCurrentPassword('')
                                     setNewPassword('')
                                     setConfirmPassword('')
+                                    setPasswordErrors({})
                                 }}
-                                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg"
+                                className="flex-1 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg font-medium"
                             >
                                 Batal
                             </button>
@@ -388,6 +451,20 @@ export default function MyProfileClient() {
                     </div>
                 </div>
             )}
+        </div>
+    )
+}
+
+function InfoItem({ icon, label, value, bgColor }: { icon: React.ReactNode, label: string, value?: string | null, bgColor: string }) {
+    return (
+        <div className="flex items-start gap-4 py-3 group">
+            <div className={`w-10 h-10 ${bgColor} dark:bg-gray-700 rounded-xl flex items-center justify-center shrink-0 shadow-xs group-hover:scale-110 transition-transform`}>
+                {icon}
+            </div>
+            <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0.5">{label}</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-200 wrap-break-word">{value || '-'}</p>
+            </div>
         </div>
     )
 }

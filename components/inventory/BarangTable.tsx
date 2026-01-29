@@ -53,7 +53,8 @@ export function BarangTable() {
       try {
         const response = await fetch('/api/inventory/gudang?view=all')
         const data = await response.json()
-        setGudangs(data.gudangs || [])
+        const result = data.data || data
+        setGudangs(result.gudangs || [])
       } catch (error) {
         console.error('Failed to fetch gudangs:', error)
       }

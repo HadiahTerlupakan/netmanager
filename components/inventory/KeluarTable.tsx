@@ -94,8 +94,9 @@ export function KeluarTable({
           throw new Error(data.error || 'Gagal memuat data')
         }
 
-        setKeluarList(data.keluarList || [])
-        setPagination(data.pagination || pagination)
+        const responseData = data.data || data
+        setKeluarList(responseData.keluarList || [])
+        setPagination(responseData.pagination || pagination)
       } catch (error) {
         console.error('Failed to fetch barang keluar:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data')

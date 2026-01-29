@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'react-hot-toast'
 import {
   HiOutlineArrowLeft,
   HiOutlineEye,
@@ -80,46 +81,62 @@ export function ClientComponent() {
   })
 
   useEffect(() => {
+    const abortController = new AbortController()
+    const signal = abortController.signal
+
+    const fetchDepartments = async () => {
+      try {
+        const res = await fetch('/api/admin/departments', { signal })
+        const data = await res.json()
+        if (res.ok) {
+          setDepartments(data.data || [])
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error fetching departments:', error)
+          toast.error('Gagal memuat data departemen')
+        }
+      }
+    }
+
+    const fetchRoles = async () => {
+      try {
+        const res = await fetch('/api/roles?filterRestricted=true', { signal })
+        const data = await res.json()
+        if (res.ok) {
+          setRoles(Array.isArray(data) ? data : [])
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error fetching roles:', error)
+          toast.error('Gagal memuat data peran')
+        }
+      }
+    }
+
+    const fetchSites = async () => {
+      try {
+        const res = await fetch('/api/admin/sites?activeOnly=true', { signal })
+        const data = await res.json()
+        if (res.ok) {
+          setSites(data.data || [])
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error fetching sites:', error)
+          toast.error('Gagal memuat data site')
+        }
+      }
+    }
+
     fetchDepartments()
     fetchRoles()
     fetchSites()
+
+    return () => {
+      abortController.abort()
+    }
   }, [])
-
-  const fetchDepartments = async () => {
-    try {
-      const res = await fetch('/api/admin/departments')
-      const data = await res.json()
-      if (res.ok) {
-        setDepartments(data.data || [])
-      }
-    } catch (error) {
-      console.error('Error fetching departments:', error)
-    }
-  }
-
-  const fetchRoles = async () => {
-    try {
-      const res = await fetch('/api/roles?filterRestricted=true')
-      const data = await res.json()
-      if (res.ok) {
-        setRoles(Array.isArray(data) ? data : [])
-      }
-    } catch (error) {
-      console.error('Error fetching roles:', error)
-    }
-  }
-
-  const fetchSites = async () => {
-    try {
-      const res = await fetch('/api/admin/sites?activeOnly=true')
-      const data = await res.json()
-      if (res.ok) {
-        setSites(data.data || [])
-      }
-    } catch (error) {
-      console.error('Error fetching sites:', error)
-    }
-  }
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'

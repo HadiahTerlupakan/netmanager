@@ -32,12 +32,13 @@ export default function GudangPage() {
         // Admin view should typically see all warehouses
         const response = await fetch('/api/inventory/gudang?view=all', { cache: 'no-store' })
         const data = await response.json()
+        const result = data.data || data
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Gagal memuat data gudang')
+        if (!response.ok || data.success === false) {
+          throw new Error(result.error || 'Gagal memuat data gudang')
         }
 
-        setGudangs(data.gudangs || [])
+        setGudangs(result.gudangs || [])
       } catch (error) {
         console.error('Failed to fetch gudangs:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data')

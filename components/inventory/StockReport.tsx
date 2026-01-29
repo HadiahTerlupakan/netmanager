@@ -56,8 +56,9 @@ export function StockReport() {
             const response = await fetch('/api/inventory/gudang?view=all')
             if (!response.ok) throw new Error('Gagal memuat daftar gudang')
             const data = await response.json()
-            // API returns { gudangs: [...] }
-            const gudangs = Array.isArray(data.gudangs) ? data.gudangs : []
+            const result = data.data || data
+            // API returns { success: true, data: { gudangs: [...] } }
+            const gudangs = Array.isArray(result.gudangs) ? result.gudangs : []
             setGudangOptions(gudangs)
             // Don't auto-select, let user choose first
             setLoading(false)
@@ -77,8 +78,9 @@ export function StockReport() {
             if (!response.ok) throw new Error('Gagal memuat laporan stok')
 
             const data = await response.json()
-            if (data.gudangList && data.gudangList.length > 0) {
-                setGudangData(data.gudangList[0])
+            const result = data.data || data
+            if (result.gudangList && result.gudangList.length > 0) {
+                setGudangData(result.gudangList[0])
             } else {
                 setGudangData(null)
             }

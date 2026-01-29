@@ -9,15 +9,15 @@ export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 
 export interface CreateNotificationData {
     type: NotificationType;
-    priority?: NotificationPriority;
+    priority?: NotificationPriority | undefined;
     title: string;
     message: string;
-    link?: string;
-    userId?: string;
-    departmentId?: string;
-    siteId?: string;
-    sourceType?: string;
-    sourceId?: string;
+    link?: string | undefined;
+    userId?: string | undefined;
+    departmentId?: string | undefined;
+    siteId?: string | undefined;
+    sourceType?: string | undefined;
+    sourceId?: string | undefined;
 }
 
 export interface WorkOrderNotificationData {
@@ -26,9 +26,9 @@ export interface WorkOrderNotificationData {
     title: string;
     type: string;
     priority: string;
-    departmentId?: string;
-    siteId?: string; // Added for strict filtering
-    assignedToId?: string;
+    departmentId?: string | undefined;
+    siteId?: string | undefined; // Added for strict filtering
+    assignedToId?: string | undefined;
 }
 
 /**
@@ -42,12 +42,12 @@ export async function createNotification(data: CreateNotificationData) {
             priority: data.priority || 'NORMAL',
             title: data.title,
             message: data.message,
-            link: data.link,
-            userId: data.userId,
-            departmentId: data.departmentId,
-            siteId: data.siteId,
-            sourceType: data.sourceType,
-            sourceId: data.sourceId,
+            link: data.link || null,
+            userId: data.userId || null,
+            departmentId: data.departmentId || null,
+            siteId: data.siteId || null,
+            sourceType: data.sourceType || null,
+            sourceId: data.sourceId || null,
         },
     });
 
@@ -68,9 +68,9 @@ export async function createNotification(data: CreateNotificationData) {
 
         // Send Expo Push notification for mobile users
         sendExpoPush(data.userId, data.title, data.message, {
-            link: data.link,
-            sourceType: data.sourceType,
-            sourceId: data.sourceId
+            link: data.link || undefined,
+            sourceType: data.sourceType || undefined,
+            sourceId: data.sourceId || undefined
         }).catch(err => console.error('[Expo Push] Error:', err));
     }
 
@@ -80,9 +80,9 @@ export async function createNotification(data: CreateNotificationData) {
 
         // Send Expo Push to all users in department
         sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
-            link: data.link,
-            sourceType: data.sourceType,
-            sourceId: data.sourceId
+            link: data.link || undefined,
+            sourceType: data.sourceType || undefined,
+            sourceId: data.sourceId || undefined
         }).catch(err => console.error('[Expo Push Dept] Error:', err));
     }
 
@@ -448,21 +448,27 @@ export async function getNotificationsForUser(
         offset?: number;
         type?: NotificationType;
         excludeTypes?: NotificationType[];
-        siteId?: string; // Add siteId to options
+        siteId?: string;
+        departmentId?: string; // Add departmentId optimization
     }
 ) {
-    // Get user's department
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { departmentId: true },
-    });
+    // Optimization: Use provided departmentId to avoid DB query
+    let userDepartmentId = options?.departmentId;
+
+    if (!userDepartmentId) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { departmentId: true },
+        });
+        userDepartmentId = user?.departmentId || undefined;
+    }
 
     const where: any = {
         OR: [
             { userId }, // Direct notifications
             {
                 AND: [
-                    { departmentId: user?.departmentId || 'NONE' },
+                    { departmentId: userDepartmentId || 'NONE' },
                     options?.siteId ? { OR: [{ siteId: options.siteId }, { siteId: null }] } : {}
                 ]
             }
@@ -615,7 +621,7 @@ export async function subscribeDevice(
             endpoint: subscription.endpoint,
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
-            userAgent,
+            userAgent: userAgent || null,
         },
     });
 }

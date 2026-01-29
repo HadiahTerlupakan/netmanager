@@ -38,9 +38,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import type { ZodSchema, ZodError } from 'zod'
 import * as Sentry from '@sentry/nextjs'
-import { authOptions } from '@/lib/auth'
+import { authOptions, getUserPermissions } from '@/lib/auth'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 import type { ErrorResponse } from '@/lib/api-response'
+import { parseQuery } from './query-parser'
 
 // Types
 export interface HandlerContext<T = unknown> {
@@ -120,14 +121,17 @@ export function createHandler<T = unknown>(
                     user: {
                         id: session.user.id || '',
                         email: session.user.email || '',
-                        name: session.user.name || undefined,
-                        role: session.user.role || undefined,
+                        ...(session.user.name && { name: session.user.name }),
+                        ...(session.user.role && { role: session.user.role }),
                     }
                 }
 
                 // Load permissions from session or cache
-                if (session.user.permissions && Array.isArray(session.user.permissions)) {
-                    ctx.permissions = session.user.permissions
+                if ((session.user as any).permissions && Array.isArray((session.user as any).permissions)) {
+                    ctx.permissions = (session.user as any).permissions
+                } else {
+                    // Fallback: Fetch permissions at runtime
+                    ctx.permissions = await getUserPermissions(ctx.session!.user.id)
                 }
             }
 
@@ -174,27 +178,6 @@ export function createHandler<T = unknown>(
             return handleError(error, request)
         }
     }
-}
-
-/**
- * Parse URLSearchParams to object
- */
-function parseQuery(searchParams: URLSearchParams): Record<string, string | string[]> {
-    const query: Record<string, string | string[]> = {}
-    
-    for (const [key, value] of searchParams.entries()) {
-        if (query[key]) {
-            if (Array.isArray(query[key])) {
-                (query[key] as string[]).push(value)
-            } else {
-                query[key] = [query[key] as string, value]
-            }
-        } else {
-            query[key] = value
-        }
-    }
-    
-    return query
 }
 
 /**

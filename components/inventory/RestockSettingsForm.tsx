@@ -32,12 +32,14 @@ export function RestockSettingsForm({ initialData, onClose, onSuccess }: Restock
         // Fetch barang
         const barangResponse = await fetch('/api/inventory/barang?limit=100')
         const barangData = await barangResponse.json()
-        setBarangs(barangData.barangs || [])
+        const barangResult = barangData.data || barangData
+        setBarangs(barangResult.barangs || [])
 
         // Fetch gudang
         const gudangResponse = await fetch('/api/inventory/gudang')
         const gudangData = await gudangResponse.json()
-        setGudangs(gudangData.gudangs || [])
+        const gudangResult = gudangData.data || gudangData
+        setGudangs(gudangResult.gudangs || [])
 
         // If editing, populate form
         if (initialData) {

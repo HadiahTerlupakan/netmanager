@@ -162,6 +162,7 @@ export interface IInventoryRepository {
     findBarangById(id: string): Promise<BarangWithStock | null>
     findBarangDetail(id: string): Promise<BarangDetail | null>
     findBarangByKode(kode: string): Promise<BarangWithStock | null>
+    existsBarangByKode(kode: string): Promise<boolean>
     createBarang(data: CreateBarangInput): Promise<Barang>
     updateBarang(id: string, data: UpdateBarangInput): Promise<Barang>
     deleteBarang(id: string): Promise<void>

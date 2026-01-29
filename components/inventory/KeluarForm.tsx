@@ -51,12 +51,14 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         // Fetch barang
         const barangResponse = await fetch('/api/inventory/barang?limit=100')
         const barangData = await barangResponse.json()
-        setBarangs(barangData.barangs || [])
+        const barangResult = barangData.data || barangData
+        setBarangs(barangResult.barangs || [])
 
         // Fetch gudang
         const gudangResponse = await fetch('/api/inventory/gudang')
         const gudangData = await gudangResponse.json()
-        setGudangs(gudangData.gudangs || [])
+        const gudangResult = gudangData.data || gudangData
+        setGudangs(gudangResult.gudangs || [])
 
 
         // If in edit mode, populate form with initial data
@@ -90,13 +92,16 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           const response = await fetch(`/api/inventory/keluar?checkStock=true&barangId=${formData.barangId}&gudangId=${formData.gudangId}`)
           if (response.ok) {
             const data = await response.json()
-            setStockByCondition({
-              BARU: data.stokByKondisi.BARU,
-              BEKAS: data.stokByKondisi.BEKAS,
-              RUSAK: data.stokByKondisi.RUSAK,
-              totalStok: data.stokByKondisi.total
-            })
-            setCurrentStock(data.stokByKondisi.total)
+            const result = data.data || data
+            if (result.stokByKondisi) {
+              setStockByCondition({
+                BARU: result.stokByKondisi.BARU,
+                BEKAS: result.stokByKondisi.BEKAS,
+                RUSAK: result.stokByKondisi.RUSAK,
+                totalStok: result.stokByKondisi.total
+              })
+              setCurrentStock(result.stokByKondisi.total)
+            }
           } else {
             // Fallback to old method if API fails
             const selectedBarang = barangs.find(b => b.id === formData.barangId)

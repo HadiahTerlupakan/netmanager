@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { FaSearch, FaCalendarAlt, FaFileExport, FaUser, FaBuilding } from 'react-icons/fa'
-import { MdDelete, MdCancel, MdLocationOn, MdEdit, MdSave } from 'react-icons/md'
+import { MdDelete, MdCancel, MdLocationOn, MdEdit, MdSave, MdTimer } from 'react-icons/md'
 import Image from 'next/image'
-import toast from 'react-hot-toast'
-import { format } from 'date-fns'
-import { id } from 'date-fns/locale'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
+import { useToast } from '@/hooks/use-toast'
+import { useDebounce } from '@/hooks/useDebounce'
+import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
+import { formatForDateTimeInput, toISOString, formatDateDisplay, formatTimeDisplay } from '@/lib/utils/datetime'
+import { validateDateRange, validateRequired } from '@/lib/utils/validation'
 
 interface Attendance {
     id: string
@@ -35,6 +37,7 @@ interface Attendance {
 
 export function ClientComponent() {
     const { hasPermission } = usePermission()
+    const { showToast } = useToast()
     const canUpdate = hasPermission('attendance:update')
     const canDelete = hasPermission('attendance:delete')
 
@@ -43,69 +46,96 @@ export function ClientComponent() {
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [totalItems, setTotalItems] = useState(0)
+    const [retryCountdown, setRetryCountdown] = useState<number | null>(null)
 
     // Options
     const [sites, setSites] = useState<{ id: string, name: string }[]>([])
     const [departments, setDepartments] = useState<{ id: string, name: string }[]>([])
 
-    // Filters - Default to first day of month to today
+    // Filters
     const [startDate, setStartDate] = useState(() => {
         const now = new Date()
         const year = now.getFullYear()
         const month = String(now.getMonth() + 1).padStart(2, '0')
         return `${year}-${month}-01`
     })
-    const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
     const [siteId, setSiteId] = useState('')
     const [departmentId, setDepartmentId] = useState('')
+
+    // Debounced filters
+    const debouncedStartDate = useDebounce(startDate, 300)
+    const debouncedEndDate = useDebounce(endDate, 300)
+    const debouncedSiteId = useDebounce(siteId, 300)
+    const debouncedDepartmentId = useDebounce(departmentId, 300)
 
     // Summary
     const [summary, setSummary] = useState<Record<string, number>>({})
 
+    // Handle rate limit countdown
+    useEffect(() => {
+        if (retryCountdown !== null && retryCountdown > 0) {
+            const timer = setTimeout(() => setRetryCountdown(retryCountdown - 1), 1000)
+            return () => clearTimeout(timer)
+        } else if (retryCountdown === 0) {
+            setRetryCountdown(null)
+        }
+    }, [retryCountdown])
+
     const fetchOptions = async () => {
         try {
-            const res = await fetch('/api/admin/options')
-            if (res.ok) {
-                const data = await res.json()
-                const options = data.data || data
-                setSites(options.sites || [])
-                setDepartments(options.departments || [])
+            const response = await fetchWithHandling<{ sites: { id: string, name: string }[], departments: { id: string, name: string }[] }>('/api/admin/options')
+            if (response.data) {
+                setSites(response.data.sites || [])
+                setDepartments(response.data.departments || [])
             }
         } catch (error) {
-            console.error('Failed to fetch options', error)
+            if (isFetchError(error)) {
+                showToast('error', formatErrorMessage(error))
+            }
         }
     }
 
     const fetchAttendances = useCallback(async () => {
+        if (retryCountdown !== null) return
+
+        // Validate date range
+        const validation = validateDateRange(debouncedStartDate, debouncedEndDate)
+        if (!validation.valid) {
+            showToast('error', validation.error!)
+            return
+        }
+
         setLoading(true)
         try {
-            const query = new URLSearchParams({
+            const params: Record<string, string> = {
                 page: page.toString(),
                 limit: '10',
-                startDate,
-                endDate,
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            })
-
-            const res = await fetch(`/api/admin/attendance?${query.toString()}`)
-            const data = await res.json()
-
-            if (data.success) {
-                setAttendances(data.data)
-                setTotalPages(data.pagination.totalPages)
-                setTotalItems(data.pagination.total)
-                if (data.summary) setSummary(data.summary)
-            } else {
-                toast.error('Gagal memuat data absensi')
+                startDate: debouncedStartDate,
+                endDate: debouncedEndDate || '',
             }
+            if (debouncedSiteId) params.siteId = debouncedSiteId
+            if (debouncedDepartmentId) params.departmentId = debouncedDepartmentId
+
+            const query = new URLSearchParams(params)
+
+            const response = await fetchWithHandling<Attendance[]>(`/api/admin/attendance?${query.toString()}`)
+            
+            setAttendances(response.data || [])
+            setTotalPages(response.pagination?.totalPages || 1)
+            setTotalItems(response.pagination?.total || 0)
+            if (response.summary) setSummary(response.summary)
         } catch (error) {
-            console.error('Error fetching attendance:', error)
-            toast.error('Terjadi kesalahan saat memuat data')
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         } finally {
             setLoading(false)
         }
-    }, [page, startDate, endDate, siteId, departmentId])
+    }, [page, debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, retryCountdown, showToast])
 
     useEffect(() => {
         fetchOptions()
@@ -119,33 +149,34 @@ export function ClientComponent() {
         if (!confirm('Apakah Anda yakin ingin menghapus data absensi ini?')) return
 
         try {
-            const res = await fetch(`/api/admin/attendance/${id}`, {
+            await fetchWithHandling(`/api/admin/attendance/${id}`, {
                 method: 'DELETE'
             })
-            const data = await res.json()
-
-            if (data.success) {
-                toast.success('Data absensi berhasil dihapus')
-                fetchAttendances()
-            } else {
-                toast.error(data.error || 'Gagal menghapus data')
-            }
+            
+            showToast('success', 'Data absensi berhasil dihapus')
+            fetchAttendances()
         } catch (error) {
-            console.error('Delete error:', error)
-            toast.error('Terjadi kesalahan')
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         }
     }
 
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
 
     const handleExport = () => {
-        const query = new URLSearchParams({
+        const params: Record<string, string> = {
             startDate,
-            endDate,
-            ...(siteId && { siteId }),
-            ...(departmentId && { departmentId }),
+            endDate: endDate || '',
             export: 'true'
-        })
+        }
+        if (siteId) params.siteId = siteId
+        if (departmentId) params.departmentId = departmentId
+        
+        const query = new URLSearchParams(params)
         window.open(`/api/admin/attendance?${query.toString()}`, '_blank')
     }
 
@@ -157,12 +188,14 @@ export function ClientComponent() {
         checkOut: '',
         status: ''
     })
+    const [editErrors, setEditErrors] = useState<Record<string, string>>({})
 
     const handleEditClick = (item: Attendance) => {
         setEditingAttendance(item)
+        setEditErrors({})
         setEditForm({
-            checkIn: format(new Date(item.checkIn), "yyyy-MM-dd'T'HH:mm"),
-            checkOut: item.checkOut ? format(new Date(item.checkOut), "yyyy-MM-dd'T'HH:mm") : '',
+            checkIn: formatForDateTimeInput(item.checkIn),
+            checkOut: item.checkOut ? formatForDateTimeInput(item.checkOut) : '',
             status: item.status
         })
         setIsEditModalOpen(true)
@@ -171,28 +204,39 @@ export function ClientComponent() {
     const handleUpdate = async () => {
         if (!editingAttendance) return
 
+        // Validate
+        const errors: Record<string, string> = {}
+        const checkInValid = validateRequired(editForm.checkIn, 'Jam Masuk')
+        if (!checkInValid.valid) errors.checkIn = checkInValid.error!
+        
+        const statusValid = validateRequired(editForm.status, 'Status')
+        if (!statusValid.valid) errors.status = statusValid.error!
+
+        if (Object.keys(errors).length > 0) {
+            setEditErrors(errors)
+            return
+        }
+
         try {
-            const res = await fetch(`/api/admin/attendance/${editingAttendance.id}`, {
+            await fetchWithHandling(`/api/admin/attendance/${editingAttendance.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    checkIn: new Date(editForm.checkIn).toISOString(),
-                    checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : null,
+                    checkIn: toISOString(editForm.checkIn),
+                    checkOut: editForm.checkOut ? toISOString(editForm.checkOut) : null,
                     status: editForm.status
                 })
             })
-            const data = await res.json()
 
-            if (data.success) {
-                toast.success('Data absensi berhasil diperbarui')
-                setIsEditModalOpen(false)
-                fetchAttendances()
-            } else {
-                toast.error(data.error || 'Gagal memperbarui data')
-            }
+            showToast('success', 'Data absensi berhasil diperbarui')
+            setIsEditModalOpen(false)
+            fetchAttendances()
         } catch (error) {
-            console.error('Update error:', error)
-            toast.error('Terjadi kesalahan')
+            if (isFetchError(error)) {
+                if (error.retryAfter) {
+                    setRetryCountdown(error.retryAfter)
+                }
+                showToast('error', formatErrorMessage(error))
+            }
         }
     }
 
@@ -236,7 +280,7 @@ export function ClientComponent() {
             priority: 'primary',
             render: (item) => (
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {format(new Date(item.checkIn), 'dd MMM yyyy', { locale: id })}
+                    {formatDateDisplay(item.checkIn)}
                 </span>
             )
         },
@@ -245,8 +289,8 @@ export function ClientComponent() {
             header: 'Jam Kerja',
             priority: 'primary',
             render: (item) => {
-                // ALPHA records should not show working hours (they didn't actually check in)
-                if (item.status === 'ALPHA') {
+                // ALPHA records should not show working hours
+                if (item.status === 'ALPHA' || item.status === 'ABSENT') {
                     return (
                         <div className="text-sm text-gray-400 italic">
                             Tidak Masuk
@@ -257,11 +301,11 @@ export function ClientComponent() {
                 return (
                     <div>
                         <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
-                            IN: {format(new Date(item.checkIn), 'HH:mm', { locale: id })}
+                            IN: {formatTimeDisplay(item.checkIn)}
                         </div>
                         {item.checkOut ? (
                             <div className="text-sm text-red-600 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block">
-                                OUT: {format(new Date(item.checkOut), 'HH:mm', { locale: id })}
+                                OUT: {formatTimeDisplay(item.checkOut)}
                             </div>
                         ) : (
                             <div className="text-xs text-gray-400 italic mt-1">Belum checkout</div>
@@ -275,13 +319,10 @@ export function ClientComponent() {
             header: 'Durasi',
             priority: 'primary',
             render: (item) => {
-                // ALPHA records have no actual working duration
-                if (item.status === 'ALPHA') {
+                if (item.status === 'ALPHA' || item.status === 'ABSENT' || !item.checkOut) {
                     return <span className="text-gray-400 text-sm">-</span>
                 }
                 
-                if (!item.checkOut) return <span className="text-gray-400 text-sm">-</span>
-
                 const start = new Date(item.checkIn).getTime()
                 const end = new Date(item.checkOut).getTime()
                 const diffMs = end - start
@@ -346,7 +387,7 @@ export function ClientComponent() {
                     'ABSENT': { bg: 'bg-gray-100 dark:bg-gray-900/30', text: 'text-gray-800 dark:text-gray-400', label: 'Absen' },
                     'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur' }
                 }
-                const config = statusConfig[item.status] || statusConfig['ABSENT']
+                const config = statusConfig[item.status] || statusConfig['ABSENT'] || { bg: 'bg-gray-100', text: 'text-gray-800', label: item.status };
                 
                 return (
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.bg} ${config.text}`}>
@@ -408,6 +449,19 @@ export function ClientComponent() {
         <div className="space-y-6">
             <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Data Absensi</h1>
 
+            {/* Rate Limit Warning */}
+            {retryCountdown !== null && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3 dark:bg-yellow-900/20 dark:border-yellow-800">
+                    <MdTimer className="text-yellow-600 text-xl" />
+                    <div>
+                        <p className="font-medium text-yellow-800 dark:text-yellow-200">Terlalu Banyak Permintaan</p>
+                        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                            Coba lagi dalam {retryCountdown} detik...
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {/* On Time Card */}
@@ -427,7 +481,7 @@ export function ClientComponent() {
                     <div className="text-sm text-gray-500 dark:text-gray-400">Total Absen Bulan Ini</div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalItems}</div>
                     <div className="text-xs text-gray-400 mt-1">
-                        {new Date(startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - {new Date(endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {formatDateDisplay(startDate)} - {formatDateDisplay(endDate)}
                     </div>
                 </div>
             </div>
@@ -477,7 +531,8 @@ export function ClientComponent() {
                 <div className="flex gap-2">
                     <button
                         onClick={() => fetchAttendances()}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2"
+                        disabled={retryCountdown !== null}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2 disabled:opacity-50"
                     >
                         <FaSearch /> Cari
                     </button>
@@ -553,9 +608,13 @@ export function ClientComponent() {
                                 <input
                                     type="datetime-local"
                                     value={editForm.checkIn}
-                                    onChange={(e) => setEditForm({ ...editForm, checkIn: e.target.value })}
-                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    onChange={(e) => {
+                                        setEditForm({ ...editForm, checkIn: e.target.value })
+                                        if (editErrors.checkIn) setEditErrors({ ...editErrors, checkIn: '' })
+                                    }}
+                                    className={`w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white ${editErrors.checkIn ? 'border-red-500' : ''}`}
                                 />
+                                {editErrors.checkIn && <p className="text-xs text-red-500 mt-1">{editErrors.checkIn}</p>}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Pulang (Check Out)</label>

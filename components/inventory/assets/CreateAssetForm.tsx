@@ -34,7 +34,10 @@ export function CreateAssetForm() {
     useEffect(() => {
         fetch('/api/inventory/barang?limit=1000') // Higher limit for selection
             .then(res => res.json())
-            .then(data => setBarangs(data.barangs || []))
+            .then(data => {
+                const result = data.data || data
+                setBarangs(result.barangs || [])
+            })
             .catch(err => console.error(err))
     }, [])
 

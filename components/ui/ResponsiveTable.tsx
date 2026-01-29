@@ -65,6 +65,12 @@ export interface ResponsiveTableProps<T> {
   sortDirection?: 'asc' | 'desc'
   /** Callback when sorting changes */
   onSort?: (columnKey: string, direction: 'asc' | 'desc') => void
+  /** Current page number */
+  page?: number
+  /** Total number of pages */
+  totalPages?: number
+  /** Callback when page changes */
+  onPageChange?: (page: number) => void
 }
 
 // ============================================================================
@@ -122,8 +128,8 @@ interface MobileCardProps<T> {
   item: T
   columns: Column<T>[]
   index: number
-  onRowClick?: (item: T) => void
-  renderActions?: (item: T) => React.ReactNode
+  onRowClick?: ((item: T) => void) | undefined
+  renderActions?: ((item: T) => React.ReactNode) | undefined
 }
 
 function DefaultMobileCard<T>({
@@ -208,7 +214,10 @@ export function ResponsiveTable<T>({
   striped = false,
   sortColumn,
   sortDirection,
-  onSort
+  onSort,
+  page,
+  totalPages,
+  onPageChange
 }: ResponsiveTableProps<T>) {
   const totalColumns = columns.length + (showRowNumbers ? 1 : 0) + (renderActions ? 1 : 0)
 
@@ -422,6 +431,80 @@ export function ResponsiveTable<T>({
           </React.Fragment>
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages && totalPages > 1 && onPageChange && (
+        <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3 sm:px-6">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => onPageChange(Math.max(1, (page || 1) - 1))}
+              disabled={(page || 1) <= 1}
+              className="relative inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => onPageChange(Math.min(totalPages, (page || 1) + 1))}
+              disabled={(page || 1) >= totalPages}
+              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Page <span className="font-medium">{page || 1}</span> of <span className="font-medium">{totalPages}</span>
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => onPageChange(Math.max(1, (page || 1) - 1))}
+                  disabled={(page || 1) <= 1}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {/* Simple page numbers */}
+                 {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                    let p = (page || 1) - 2 + i;
+                    if (p < 1) p = i + 1;
+                    if (p > totalPages) return null;
+                    
+                    return (
+                        <button
+                            key={p}
+                            onClick={() => onPageChange(p)}
+                            aria-current={p === (page || 1) ? 'page' : undefined}
+                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                                p === (page || 1)
+                                    ? 'z-10 bg-indigo-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+                                    : 'text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0'
+                            }`}
+                        >
+                            {p}
+                        </button>
+                    );
+                 })}
+                <button
+                  onClick={() => onPageChange(Math.min(totalPages, (page || 1) + 1))}
+                  disabled={(page || 1) >= totalPages}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

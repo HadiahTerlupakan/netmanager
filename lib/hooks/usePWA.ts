@@ -8,7 +8,12 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function usePWA() {
-    const [isInstalled, setIsInstalled] = useState(false)
+    const [isInstalled, setIsInstalled] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return window.matchMedia('(display-mode: standalone)').matches
+        }
+        return false
+    })
     const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
     const [isReady, setIsReady] = useState(false)
 
@@ -18,14 +23,10 @@ export function usePWA() {
         console.log('[PWA] Environment:', process.env.NODE_ENV)
         console.log('[PWA] Pathname:', window.location.pathname)
 
-        // Check if already installed
+        // Check if already installed (just for logging now)
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches
         console.log('[PWA] Is standalone mode:', isStandalone)
 
-        if (isStandalone) {
-            setIsInstalled(true)
-            return
-        }
 
         // Register service worker IMMEDIATELY (not delayed)
         const isLoginPage = window.location.pathname.includes('/login')
@@ -43,6 +44,7 @@ export function usePWA() {
                 })
         } else {
             console.log('[PWA] Service worker not available or on login page')
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsReady(true)
         }
 

@@ -1,161 +1,164 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+/**
+ * Admin Profile Routes
+ * Migrated to use standardized middleware and validation
+ */
+
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { 
+  withAuth, 
+  withErrorHandler,
+  withRateLimit,
+  RateLimits,
+  ValidationError,
+  NotFoundError
+} from '@/lib/middleware'
+import { apiSuccess } from '@/lib/api-response'
 import { z } from 'zod'
 
 /**
  * Validation schemas
  */
 const updateProfileSchema = z.object({
-    name: z.string().min(1).max(100).optional(),
-    phone: z.string().max(20).optional(),
+  name: z.string().min(1).max(100).optional(),
+  phone: z.string().max(20).optional(),
 })
 
 const changePasswordSchema = z.object({
-    currentPassword: z.string().min(1, 'Password lama wajib diisi'),
-    newPassword: z.string().min(6, 'Password minimal 6 karakter'),
-    confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),
+  currentPassword: z.string().min(1, 'Password lama wajib diisi'),
+  newPassword: z.string().min(6, 'Password minimal 6 karakter'),
+  confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),
 }).refine(data => data.newPassword === data.confirmPassword, {
-    message: 'Password baru dan konfirmasi tidak cocok',
-    path: ['confirmPassword'],
+  message: 'Password baru dan konfirmasi tidak cocok',
+  path: ['confirmPassword'],
 })
 
-export async function GET() {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user?.id) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
+/**
+ * GET /api/admin/profile
+ * Get current user profile
+ */
+export const GET = withErrorHandler(
+  withAuth(
+    withRateLimit(RateLimits.STANDARD,
+      async ({ user }) => {
         const profile = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                image: true,
-                workingHourMode: true,
-                startWorkTime: true,
-                endWorkTime: true,
-                workDays: true,
-                departments: {
-                    select: { id: true, name: true }
-                },
-                sites: {
-                    select: { id: true, name: true }
-                },
-                role: {
-                    select: { id: true, name: true }
-                }
+          where: { id: user.id },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            image: true,
+            workingHourMode: true,
+            startWorkTime: true,
+            endWorkTime: true,
+            workDays: true,
+            departments: {
+              select: { id: true, name: true }
+            },
+            sites: {
+              select: { id: true, name: true }
+            },
+            role: {
+              select: { id: true, name: true }
             }
+          }
         })
 
         if (!profile) {
-            return ApiErrors.notFound('User')
+          throw new NotFoundError('User')
         }
 
         return apiSuccess(profile)
-    } catch (error: any) {
-        console.error('Profile fetch error:', error)
-        return ApiErrors.internalError('Gagal mengambil data profil')
-    }
-}
+      }
+    )
+  )
+)
 
-export async function PATCH(request: Request) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user?.id) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
-        const body = await request.json()
-        
-        // Validate with Zod
-        const parseResult = updateProfileSchema.safeParse(body)
-        if (!parseResult.success) {
-            return apiError(
-                'Data tidak valid',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400, details: parseResult.error.flatten().fieldErrors }
-            )
-        }
-
-        const { name, phone } = parseResult.data
-        const updateData: { name?: string; phone?: string } = {}
-        if (name !== undefined) updateData.name = name
-        if (phone !== undefined) updateData.phone = phone
-
-        if (Object.keys(updateData).length === 0) {
-            return apiError('Tidak ada field untuk diupdate', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        const updated = await prisma.user.update({
-            where: { id: session.user.id },
-            data: updateData,
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                image: true
-            }
+/**
+ * PATCH /api/admin/profile
+ * Update current user profile
+ */
+export const PATCH = withErrorHandler(
+  withAuth(
+    async ({ user, request }) => {
+      const body = await request.json()
+      
+      // Validate with Zod
+      const parseResult = updateProfileSchema.safeParse(body)
+      if (!parseResult.success) {
+        throw new ValidationError('Data tidak valid', { 
+          errors: parseResult.error.flatten().fieldErrors 
         })
+      }
 
-        return apiSuccess(updated, { message: 'Profil berhasil diperbarui' })
-    } catch (error: any) {
-        console.error('Profile update error:', error)
-        return ApiErrors.internalError('Gagal memperbarui profil')
+      const { name, phone } = parseResult.data
+      const updateData: { name?: string; phone?: string } = {}
+      if (name !== undefined) updateData.name = name
+      if (phone !== undefined) updateData.phone = phone
+
+      if (Object.keys(updateData).length === 0) {
+        throw new ValidationError('Tidak ada field untuk diupdate', {})
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true
+        }
+      })
+
+      return apiSuccess(updated, { message: 'Profil berhasil diperbarui' })
     }
-}
+  )
+)
 
-export async function POST(request: Request) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user?.id) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
-        const body = await request.json()
-        
-        // Validate with Zod
-        const parseResult = changePasswordSchema.safeParse(body)
-        if (!parseResult.success) {
-            return apiError(
-                'Data tidak valid',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400, details: parseResult.error.flatten().fieldErrors }
-            )
-        }
-
-        const { currentPassword, newPassword } = parseResult.data
-
-        const dbUser = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { id: true, passwordHash: true }
+/**
+ * POST /api/admin/profile
+ * Change user password
+ */
+export const POST = withErrorHandler(
+  withAuth(
+    async ({ user, request }) => {
+      const body = await request.json()
+      
+      // Validate with Zod
+      const parseResult = changePasswordSchema.safeParse(body)
+      if (!parseResult.success) {
+        throw new ValidationError('Data tidak valid', { 
+          errors: parseResult.error.flatten().fieldErrors 
         })
+      }
 
-        if (!dbUser || !dbUser.passwordHash) {
-            return ApiErrors.notFound('User')
-        }
+      const { currentPassword, newPassword } = parseResult.data
 
-        const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash)
-        if (!isValidPassword) {
-            return apiError('Password lama salah', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, passwordHash: true }
+      })
 
-        const newPasswordHash = await bcrypt.hash(newPassword, 10)
-        
-        await prisma.user.update({
-            where: { id: session.user.id },
-            data: { passwordHash: newPasswordHash }
-        })
+      if (!dbUser || !dbUser.passwordHash) {
+        throw new NotFoundError('User')
+      }
 
-        return apiSuccess(null, { message: 'Password berhasil diubah' })
-    } catch (error: any) {
-        console.error('Password change error:', error)
-        return ApiErrors.internalError('Gagal mengubah password')
+      const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash)
+      if (!isValidPassword) {
+        throw new ValidationError('Password lama salah', {})
+      }
+
+      const newPasswordHash = await bcrypt.hash(newPassword, 10)
+      
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: newPasswordHash }
+      })
+
+      return apiSuccess(null, { message: 'Password berhasil diubah' })
     }
-}
+  )
+)

@@ -376,13 +376,25 @@ export class AdminSupportTicketService {
     // ====== PRIVATE HELPERS ======
 
     private async getStatusCounts(baseWhere: any) {
-        const [open, inProgress, waitingCustomer, resolved, closed] = await Promise.all([
-            prisma.supportTickets.count({ where: { ...baseWhere, status: TicketStatus.OPEN } }),
-            prisma.supportTickets.count({ where: { ...baseWhere, status: TicketStatus.IN_PROGRESS } }),
-            prisma.supportTickets.count({ where: { ...baseWhere, status: TicketStatus.WAITING_CUSTOMER } }),
-            prisma.supportTickets.count({ where: { ...baseWhere, status: TicketStatus.RESOLVED } }),
-            prisma.supportTickets.count({ where: { ...baseWhere, status: TicketStatus.CLOSED } }),
-        ])
+        // Optimization: Use groupBy instead of 5 separate count queries
+        const counts = await prisma.supportTickets.groupBy({
+            by: ['status'],
+            where: baseWhere,
+            _count: {
+                status: true
+            }
+        })
+
+        const countMap = counts.reduce((acc, curr) => {
+            acc[curr.status] = curr._count.status
+            return acc
+        }, {} as Record<string, number>)
+
+        const open = countMap[TicketStatus.OPEN] || 0
+        const inProgress = countMap[TicketStatus.IN_PROGRESS] || 0
+        const waitingCustomer = countMap[TicketStatus.WAITING_CUSTOMER] || 0
+        const resolved = countMap[TicketStatus.RESOLVED] || 0
+        const closed = countMap[TicketStatus.CLOSED] || 0
 
         return {
             total: open + inProgress + waitingCustomer + resolved + closed,
@@ -395,9 +407,11 @@ export class AdminSupportTicketService {
     }
 
     private async calculateAverageRating(baseWhere: any) {
+        // Optimization: parse logic is still heavy in application layer due to string storage
+        // but we ensure we only select minimal data
         const closedTicketsWithReplies = await prisma.supportTickets.findMany({
             where: { ...baseWhere, status: TicketStatus.CLOSED },
-            include: {
+            select: {
                 replies: {
                     where: { isFromAdmin: false, message: { contains: '⭐' } },
                     take: 1,
@@ -413,6 +427,7 @@ export class AdminSupportTicketService {
         for (const t of closedTicketsWithReplies) {
             if (t.replies[0]?.message) {
                 const msg = t.replies[0].message
+                // Optimize string checking order (most likely first)
                 let rating = 0
                 if (msg.includes('⭐⭐⭐⭐⭐')) rating = 5
                 else if (msg.includes('⭐⭐⭐⭐')) rating = 4

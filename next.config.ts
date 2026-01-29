@@ -61,12 +61,12 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'cdn.radpro.id' },
       { protocol: 'https', hostname: '**' }
     ],
-    // Temporarily unoptimize for production to debug 400 error
-    unoptimized: true,
+    // Enable image optimization
+    unoptimized: false,
   },
   // Enable gzip compression for API responses
   compress: true,
-  reactStrictMode: false, // Temporarily disabled to suppress React warnings from swagger-ui-react
+  reactStrictMode: true,
   
   // Increase body size limit for APK uploads (default 1MB -> 100MB)
   experimental: {
@@ -180,7 +180,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "script-src 'self'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",

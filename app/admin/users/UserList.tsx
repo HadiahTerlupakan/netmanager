@@ -107,9 +107,12 @@ export default function UserList() {
             if (res.ok) {
                 // API uses apiSuccess() which returns {success, data: {users: [...]}}
                 setUsers(data.data?.users || data.users || [])
+            } else {
+                toast.error(data.error || 'Gagal memuat data pengguna')
             }
         } catch (error) {
             console.error('Error fetching users:', error)
+            toast.error('Terjadi kesalahan saat memuat data pengguna')
         } finally {
             setLoading(false)
         }
@@ -121,12 +124,17 @@ export default function UserList() {
             const res = await fetch(`/api/admin/users/${userId}`, {
                 method: 'DELETE',
             })
+            const data = await res.json()
             if (res.ok) {
                 setUsers(users.filter(u => u.id !== userId))
                 setDeleteUserId(null)
+                toast.success('Pengguna berhasil dihapus')
+            } else {
+                toast.error(data.error || 'Gagal menghapus pengguna')
             }
         } catch (error) {
             console.error('Error deleting user:', error)
+            toast.error('Terjadi kesalahan saat menghapus pengguna')
         } finally {
             setDeleting(false)
         }

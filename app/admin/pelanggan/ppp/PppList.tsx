@@ -38,10 +38,13 @@ export default function PelangganPPPPage() {
   const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([])
   const [disableDuration, setDisableDuration] = useState<number>(5) // Default 5 days
   const [siteId, setSiteId] = useState<string | undefined>(undefined)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [limit] = useState(10)
 
   useEffect(() => {
     loadData()
-  }, [siteId])
+  }, [siteId, page])
 
   const loadData = async () => {
     try {
@@ -51,6 +54,8 @@ export default function PelangganPPPPage() {
       // Fetch data pelanggan and settings in parallel
       const params = new URLSearchParams()
       if (siteId) params.append('siteId', siteId)
+      params.append('page', page.toString())
+      params.append('limit', limit.toString())
       
       const [resPelanggan, resSettings] = await Promise.all([
         fetch(`/api/pelanggan-ppp?${params.toString()}`, {
@@ -76,20 +81,35 @@ export default function PelangganPPPPage() {
         }
       }
 
-      let data = []
+      let data: PelangganPPP[] = []
       try {
         const text = await resPelanggan.text()
         if (text) {
-          data = JSON.parse(text)
+          const parsed = JSON.parse(text)
+          if (Array.isArray(parsed)) {
+            data = parsed
+            // Compatibility for array response (no pagination)
+             setTotalPages(1) // Should ideally be calculated or unknown
+          } else if (parsed && parsed.data && Array.isArray(parsed.data)) {
+            data = parsed.data
+            if (parsed.meta) {
+               setTotalPages(Math.ceil((parsed.meta.total || 0) / limit))
+            }
+          } else if (parsed.error) {
+            throw new Error(parsed.error)
+          } else {
+             data = []
+             console.error('[Frontend] Unexpected API response structure:', parsed)
+          }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Error parsing JSON:', e)
-        data = []
+        throw new Error(e.message || 'Gagal memproses data pelanggan')
       }
 
       // Debug: Log data yang diterima
       console.log('[Frontend] Data pelanggan diterima:', data.length, 'pelanggan')
-      setPelanggans(data || [])
+      setPelanggans(data)
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat memuat data')
     } finally {
@@ -140,13 +160,11 @@ export default function PelangganPPPPage() {
       }
 
       const result = await res.json()
-      console.log('[Frontend] Status updated:', result)
-      await loadData() // Reload to reflect changes
-      alert(`Status berhasil diubah menjadi ${actionName}`)
-
+      console.log('Status updated:', result)
+      await loadData()
     } catch (err: any) {
-      console.error('[Frontend] Error update status:', err)
-      alert(err.message || 'Terjadi kesalahan saat mengubah status')
+      console.error('Error updating status:', err)
+      alert(err.message || 'Gagal mengubah status')
     } finally {
       setLoading(false)
     }
@@ -202,172 +220,158 @@ export default function PelangganPPPPage() {
     return today >= allowedDate
   }
 
-  // if (loading) {
-  //   return <PageLoader />
-  // }
+  const columns = [
+    {
+      key: 'nama',
+      header: 'Nama Pelanggan',
+      render: (item: PelangganPPP) => (
+        <div>
+          <div className="font-medium text-gray-900 dark:text-white">{item.nama}</div>
+          <div className="text-sm text-gray-500">{item.idPelanggan}</div>
+          {/* Mobile only: secondary info */}
+          <div className="md:hidden text-xs text-gray-400 mt-1">
+             {item.hargaPaket?.name || '-'}
+          </div>
+        </div>
+      ),
+      priority: 'primary'
+    },
+    {
+      key: 'hargaPaket.name',
+      header: 'Paket',
+      render: (item: PelangganPPP) => (
+        <div>
+          <div className="font-medium">{item.hargaPaket?.name || '-'} ({item.tipe})</div>
+          <div className="text-sm text-gray-500">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(item.hargaPaket?.harga || 0)}</div>
+        </div>
+      ),
+      priority: 'secondary'
+    },
+    {
+        key: 'site.name',
+        header: 'Site',
+        render: (item: PelangganPPP) => item.site?.name || '-',
+        priority: 'tertiary'
+    },
+    {
+      key: 'tanggalAktif',
+      header: 'Masa Aktif',
+      render: (item: PelangganPPP) => {
+        const activeDate = new Date(item.tanggalAktif)
+        const dueDate = new Date(item.jatuhTempo)
+        const now = new Date()
+        
+        // Calculate days remaining
+        const diffTime = dueDate.getTime() - now.getTime()
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        // Determine status based on days remaining
+        let statusColor = 'text-green-600'
+        let statusText = `${diffDays} hari lagi`
+        
+        if (diffDays < 0) {
+            statusColor = 'text-red-600'
+            statusText = `Telat ${Math.abs(diffDays)} hari`
+        } else if (diffDays <= disableDuration) { // Use dynamic setting here
+            statusColor = 'text-orange-500' 
+            statusText = `${diffDays} hari lagi (Segera Habis)`
+        }
 
-  if (error) {
-    return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p className="text-red-800 dark:text-red-400">{error}</p>
-      </div>
-    )
+        return (
+          <div>
+            <div className="text-sm">
+              <span className="text-gray-500">Aktif: </span>
+              {activeDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+            </div>
+            <div className="text-sm">
+              <span className="text-gray-500">Exp: </span>
+              {dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+            </div>
+            <div className={`text-xs font-medium mt-1 ${statusColor}`}>
+              {statusText}
+            </div>
+          </div>
+        )
+      },
+      priority: 'secondary'
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: PelangganPPP) => <StatusBadge status={item.status} />,
+      priority: 'primary', // Keep status visible on mobile
+      mobileLabel: 'Status'
+    }
+  ] as any[]
+
+  if (loading && pelanggans.length === 0) {
+    return <PageLoader />
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Pelanggan PPP</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Kelola data pelanggan yang menggunakan koneksi PPPoE
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pelanggan PPP</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Kelola data pelanggan PPPoE dan Hotspot
           </p>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="w-full md:w-48">
-                <SiteFilter onSiteChange={setSiteId} />
-            </div>
-            <Link
-              href="/admin/pelanggan/ppp/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <HiOutlinePlus className="w-4 h-4" />
-          Tambah Pelanggan
-        </Link>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Link
+            href="/admin/pelanggan/ppp/create"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          >
+            <HiOutlinePlus className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
+            Tambah Pelanggan
+          </Link>
+          <button
+            onClick={loadData}
+            className="inline-flex items-center justify-center rounded-md bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            <HiArrowPath className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
+            Refresh
+          </button>
         </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-red-50 p-4 border border-red-200">
+          <div className="flex">
+            <div className="shrink-0">
+              <HiXMark className="h-5 w-5 text-red-400" aria-hidden="true" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Terjadi kesalahan</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SiteFilter 
+                value={siteId} 
+                onSiteChange={setSiteId}
+                className="w-full"
+            />
+            {/* Add more filters here if needed */}
+         </div>
       </div>
 
       <ResponsiveTable
         data={pelanggans}
+        columns={columns}
         keyField="id"
         loading={loading}
-        loadingMessage="Memuat data pelanggan PPP..."
-        emptyMessage={
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Belum ada data pelanggan PPP
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              Klik &quot;Tambah Pelanggan&quot; untuk menambahkan pelanggan baru
-            </p>
-          </div>
-        }
-        columns={[
-          {
-            key: 'idPelanggan',
-            header: 'ID PELANGGAN',
-            priority: 'primary',
-            render: (item: PelangganPPP) => (
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                <Link href={`/admin/pelanggan/ppp/${item.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                  {item.idPelanggan}
-                </Link>
-              </div>
-            )
-          },
-          {
-            key: 'nama',
-            header: 'NAMA',
-            priority: 'primary',
-            render: (item: PelangganPPP) => (
-              <div>
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  <Link href={`/admin/pelanggan/ppp/${item.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                    {item.nama}
-                  </Link>
-                </div>
-                {item.email && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {item.email}
-                  </div>
-                )}
-              </div>
-            )
-          },
-          {
-            key: 'site',
-            header: 'SITE',
-            priority: 'secondary',
-            render: (item: PelangganPPP) => (
-                <div className="text-sm text-gray-900 dark:text-white">
-                    {item.site?.name || '-'}
-                </div>
-            )
-          },
-          {
-            key: 'username',
-            header: 'USERNAME',
-            priority: 'secondary',
-            render: (item: PelangganPPP) => <span className="text-sm text-gray-900 dark:text-white">{item.username}</span>
-          },
-          {
-            key: 'tipe',
-            header: 'TIPE',
-            priority: 'secondary',
-            render: (item: PelangganPPP) => (
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.tipe === 'REGULER'
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                  : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                  }`}
-              >
-                {item.tipe === 'REGULER' ? (
-                  <span className="flex items-center gap-1"><HiOutlineCalendar className="w-3 h-3" /> Reguler</span>
-                ) : (
-                  <span className="flex items-center gap-1"><HiArrowPath className="w-3 h-3" /> Non Reguler</span>
-                )}
-              </span>
-            )
-          },
-          {
-            key: 'paket',
-            header: 'PAKET',
-            priority: 'secondary',
-            render: (item: PelangganPPP) => (
-              <div>
-                <div className="text-sm text-gray-900 dark:text-white">
-                  {item.hargaPaket?.name || '-'}
-                </div>
-                {item.hargaPaket && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {formatRupiah(item.hargaPaket.harga)}
-                  </div>
-                )}
-              </div>
-            )
-          },
-          {
-            key: 'activeDate',
-            header: 'TGL AKTIF',
-            priority: 'tertiary',
-            render: (item: PelangganPPP) => <span className="text-sm text-gray-600 dark:text-gray-400">{formatDate(item.tanggalAktif)}</span>
-          },
-          {
-            key: 'dueDate',
-            header: 'JATUH TEMPO',
-            priority: 'primary',
-            render: (item: PelangganPPP) => (
-              <div>
-                <div className="text-sm text-gray-900 dark:text-white">
-                  {formatDate(item.jatuhTempo)}
-                </div>
-                {isJatuhTempo(item.jatuhTempo) && (
-                  <div className="text-xs text-red-600 dark:text-red-400 font-medium mt-1">
-                    <div className="flex items-center gap-1">
-                      <HiOutlineExclamationTriangle className="w-3 h-3" /> Jatuh Tempo
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          },
-          {
-            key: 'status',
-            header: 'STATUS',
-            priority: 'primary',
-            render: (item: PelangganPPP) => <StatusBadge status={item.status} />
-          }
-        ]}
+        emptyMessage="Belum ada data pelanggan PPP"
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
         renderActions={(item: PelangganPPP) => {
           const allowed = isRenewalAllowed(item.jatuhTempo)
           return (

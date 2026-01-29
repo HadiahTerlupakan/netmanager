@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
 import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '../types'
+
 
 export interface ActivityItem {
     id: string
@@ -49,10 +50,14 @@ export function useRealtimeWorkOrderActivity(
 
     const [activities, setActivities] = useState<ActivityItem[]>(initialActivities)
 
+    const prevInitialActivitiesRef = useRef(initialActivities)
+
     // Update activities when initial data changes
     useEffect(() => {
-        if (initialActivities.length > 0) {
+        if (initialActivities !== prevInitialActivitiesRef.current && initialActivities.length > 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setActivities(initialActivities)
+            prevInitialActivitiesRef.current = initialActivities
         }
     }, [initialActivities])
 

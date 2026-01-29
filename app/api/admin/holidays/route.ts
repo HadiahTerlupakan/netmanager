@@ -1,82 +1,104 @@
-import { NextRequest } from 'next/server'
+/**
+ * Admin Holidays Routes
+ * Migrated to use standardized middleware and validation
+ */
+
 import { randomUUID } from 'crypto'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
-import { requireAdmin } from '@/lib/auth-helpers'
-import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { 
+  withAuth, 
+  withPermission, 
+  withErrorHandler,
+  withRateLimit,
+  RateLimits,
+  ValidationError,
+  ConflictError
+} from '@/lib/middleware'
+import { apiSuccess } from '@/lib/api-response'
 import { z } from 'zod'
 
 const holidayRepo = new HolidayRepository()
 
 /**
- * Validation schema for creating holiday
+ * Validation schemas
  */
-const createHolidaySchema = z.object({
-    date: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
-    description: z.string().min(1, 'Description is required').max(255),
-    isNational: z.boolean().optional().default(true),
+const holidayFilterSchema = z.object({
+  year: z.coerce.number().int().min(2000).max(2100).default(() => new Date().getFullYear()),
 })
 
-export async function GET(request: NextRequest) {
-    const session = await requireAdmin(request)
-    if (session instanceof Response) return session
+const createHolidaySchema = z.object({
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
+  description: z.string().min(1, 'Description is required').max(255),
+  isNational: z.boolean().optional().default(true),
+})
 
-    const hasAccess = await hasPermission('holiday:read')
-    if (!hasAccess) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat hari libur')
-    }
+/**
+ * GET /api/admin/holidays
+ * List holidays by year
+ */
+export const GET = withErrorHandler(
+  withAuth(
+    withPermission('holiday:read',
+      withRateLimit(RateLimits.STANDARD,
+        async ({ request }) => {
+          const { searchParams } = new URL(request.url)
 
-    const { searchParams } = new URL(request.url)
-    const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear()
+          // Validate query params
+          const parseResult = holidayFilterSchema.safeParse({
+            year: searchParams.get('year'),
+          })
 
-    try {
-        const holidays = await holidayRepo.getHolidaysByYear(year)
-        return apiSuccess(holidays)
-    } catch (error) {
-        console.error('Fetch holidays error:', error)
-        return ApiErrors.internalError('Gagal mengambil data hari libur')
-    }
-}
+          if (!parseResult.success) {
+            throw new ValidationError('Parameter tidak valid', { 
+              errors: parseResult.error.flatten().fieldErrors 
+            })
+          }
 
+          const holidays = await holidayRepo.getHolidaysByYear(parseResult.data.year)
+          return apiSuccess(holidays)
+        }
+      )
+    )
+  )
+)
 
-export async function POST(request: NextRequest) {
-    const session = await requireAdmin(request)
-    if (session instanceof Response) return session
-
-    const hasAccess = await hasPermission('holiday:create')
-    if (!hasAccess) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat hari libur')
-    }
-
-    try {
+/**
+ * POST /api/admin/holidays
+ * Create new holiday
+ */
+export const POST = withErrorHandler(
+  withAuth(
+    withPermission('holiday:create',
+      async ({ request }) => {
         const body = await request.json()
         
         // Validate with Zod
         const parseResult = createHolidaySchema.safeParse(body)
         if (!parseResult.success) {
-            return apiError(
-                'Data tidak valid',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400, details: parseResult.error.flatten().fieldErrors }
-            )
+          throw new ValidationError('Data tidak valid', { 
+            errors: parseResult.error.flatten().fieldErrors 
+          })
         }
 
         const { date, description, isNational } = parseResult.data
 
-        const holiday = await holidayRepo.create({
+        try {
+          const holiday = await holidayRepo.create({
             id: randomUUID(),
             date: new Date(date),
             description,
             isNational,
             updatedAt: new Date()
-        })
+          })
 
-        return apiSuccess(holiday, { status: 201, message: 'Hari libur berhasil dibuat' })
-    } catch (error: any) {
-        if (error.code === 'P2002') {
-            return ApiErrors.conflict('Hari libur untuk tanggal ini sudah ada')
+          return apiSuccess(holiday, { status: 201, message: 'Hari libur berhasil dibuat' })
+        } catch (error: any) {
+          if (error.code === 'P2002') {
+            throw new ConflictError('Hari libur untuk tanggal ini sudah ada')
+          }
+          throw error
         }
-        console.error('Create holiday error:', error)
-        return ApiErrors.internalError('Gagal membuat hari libur')
-    }
-}
+      }
+    )
+  )
+)

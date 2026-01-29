@@ -91,9 +91,20 @@ export async function GET(request: NextRequest) {
             ? (session.user as any).siteId
             : undefined;
 
+        const options: Parameters<typeof getNotificationsForUser>[1] = {
+            unreadOnly,
+            limit,
+            offset,
+        };
+
+        if (type) options.type = type;
+        if (excludeTypes) options.excludeTypes = excludeTypes;
+        if (siteId) options.siteId = siteId;
+        if ((session.user as any).departmentId) options.departmentId = (session.user as any).departmentId;
+
         const { notifications, total } = await getNotificationsForUser(
             session.user.id,
-            { unreadOnly, limit, offset, type, excludeTypes, siteId }
+            options
         );
 
         const unreadCount = await getUnreadCount(session.user.id, excludeTypes, siteId);
