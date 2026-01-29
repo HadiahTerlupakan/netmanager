@@ -62,7 +62,7 @@ export function Modal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm bg-black/30 animate-in fade-in duration-200 safe-area-inset-top safe-area-inset-bottom"
+            className="fixed inset-0 z-9999 flex items-end sm:items-center justify-center backdrop-blur-sm bg-black/30 animate-in fade-in duration-200 safe-area-inset-top safe-area-inset-bottom"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
@@ -70,7 +70,7 @@ export function Modal({
             aria-describedby={descriptionId}
         >
             <div
-                className={`bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 safe-area-inset-bottom`}
+                className={`bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 safe-area-inset-bottom`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {(title || showCloseButton) && (

@@ -3155,3 +3155,57 @@ model WorkOrderTemplateItem {
   @@index([templateId])
   @@map("work_order_template_items")
 }
+
+// ==================== MAPPING MODELS ====================
+
+model MappingNode {
+  id        String   @id @default(uuid())
+  name      String
+  type      String // SERVER, ODC, ODP, ONT
+  latitude  Float
+  longitude Float
+  sn        String?  @unique
+  pppoe     String?  @unique
+  model     String?
+  capacity  Int? // Untuk ODC/ODP
+  splitter  String?
+  used      Int      @default(0)
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Edges dimana node ini adalah sumber
+  edgesFrom MappingEdge[] @relation("SourceNode")
+  // Edges dimana node ini adalah target
+  edgesTo   MappingEdge[] @relation("TargetNode")
+
+  @@map("mapping_nodes")
+}
+
+model MappingEdge {
+  id        String   @id @default(uuid())
+  sourceId  String
+  targetId  String
+  type      String // FIBER_SERVER_ODC, FIBER_ODC_ODP, FIBER_ODP_ONT, etc.
+  fiberType String?
+  color     String   @default("#3388ff")
+  waypoints Json? // Array koordinat [{lat, lng}, ...] untuk jalur kabel
+  distance  Float? // Jarak dalam meter
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  source MappingNode @relation("SourceNode", fields: [sourceId], references: [id], onDelete: Cascade)
+  target MappingNode @relation("TargetNode", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@map("mapping_edges")
+}
+
+model MappingSettings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("mapping_settings")
+}

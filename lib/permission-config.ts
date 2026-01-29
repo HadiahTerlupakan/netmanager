@@ -1,7 +1,6 @@
 export const PERMISSION_GROUPS = {
     DASHBOARD: ['dashboard'],
-    NETWORK: ['network', 'mikrotik', 'radius', 'olt', 'onu', 'onutype', 'speedprofiles', 'vlan'],
-    FTTH: ['ftth', 'otb', 'odc', 'odp', 'closure', 'pole', 'kmz', 'map'],
+    NETWORK: ['network', 'mikrotik', 'radius', 'speedprofiles', 'vlan'],
     PAKET: ['paket', 'bandwidth', 'profileppp', 'harga'],
     PELANGGAN: ['pelanggan', 'ppp', 'registration'],
     INVENTORY: ['inventory', 'barang', 'masuk', 'keluar', 'transfer', 'restock', 'opname', 'gudang', 'assets'],
@@ -31,7 +30,6 @@ export const PERMISSION_GROUPS_MOBILE = {
     BERANDA: ['m_dashboard', 'm_work_order'],
     INVENTORY: ['m_barang', 'm_barang_masuk', 'm_barang_keluar'],
     KEHADIRAN: ['m_absensi', 'm_lembur', 'm_izin', 'm_holidays'],
-    PETA: ['m_topology_map'],
     MARKETING: ['m_canvasing'],
     KOMUNIKASI: ['m_chat']
 } as const

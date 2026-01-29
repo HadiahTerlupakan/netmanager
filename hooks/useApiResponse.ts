@@ -20,6 +20,7 @@ interface UseApiResponseReturn<T> {
   error: string | null
   fetchData: (url: string, options?: RequestInit) => Promise<T | null>
   reset: () => void
+  mutate: (newData: T | null) => void
 }
 
 /**
@@ -106,7 +107,11 @@ export function useApiResponse<T = any>(
     setError(null)
   }, [])
 
-  return { data, loading, error, fetchData, reset }
+  const mutate = useCallback((newData: T | null) => {
+    setData(newData)
+  }, [])
+
+  return { data, loading, error, fetchData, reset, mutate }
 }
 
 /**

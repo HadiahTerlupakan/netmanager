@@ -17,14 +17,7 @@ const MENU_PATHS = [
     { name: 'ONU Type', path: '/admin/network/onutype' },
     { name: 'Speed Profiles', path: '/admin/network/speedprofiles' },
     { name: 'VLAN', path: '/admin/network/vlan' },
-    // FTTH
-    { name: 'OTB', path: '/admin/ftth/otb' },
-    { name: 'ODC', path: '/admin/ftth/odc' },
-    { name: 'ODP', path: '/admin/ftth/odp' },
-    { name: 'Join BOX/Closure', path: '/admin/ftth/closure' },
-    { name: 'Pole/Tiang', path: '/admin/ftth/pole' },
-    { name: 'KMZ', path: '/admin/ftth/kmz' },
-    { name: 'Topology Map', path: '/admin/ftth/map' },
+
     // Paket
     { name: 'Bandwidth', path: '/admin/paket/bandwidth' },
     { name: 'Profile PPP', path: '/admin/paket/profileppp' },

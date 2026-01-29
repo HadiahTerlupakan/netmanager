@@ -44,26 +44,8 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         children: [
             { code: 'NETWORK.MIKROTIK', name: 'MikroTik', path: '/admin/network/mikrotik', icon: 'HiOutlineServer' },
             { code: 'NETWORK.RADIUS', name: 'RADIUS', path: '/admin/network/radius', icon: 'HiOutlineKey' },
-            { code: 'NETWORK.OLT', name: 'OLT', path: '/admin/network/olt', icon: 'HiOutlinePresentationChartLine' },
-            { code: 'NETWORK.ONU', name: 'ONU', path: '/admin/network/onu', icon: 'HiOutlineDevicePhoneMobile' },
-            { code: 'NETWORK.ONUTYPE', name: 'ONU Type', path: '/admin/network/onutype', icon: 'HiOutlineClipboard' },
             { code: 'NETWORK.SPEEDPROFILES', name: 'Speed Profiles', path: '/admin/network/speedprofiles', icon: 'HiOutlineBolt' },
             { code: 'NETWORK.VLAN', name: 'VLAN', path: '/admin/network/vlan', icon: 'HiOutlineLink' },
-        ],
-    },
-    {
-        code: 'FTTH',
-        name: 'FTTH',
-        path: '/admin/ftth',
-        icon: 'HiOutlineWifi',
-        children: [
-            { code: 'FTTH.OTB', name: 'OTB', path: '/admin/ftth/otb', icon: 'HiOutlineServer' },
-            { code: 'FTTH.ODC', name: 'ODC', path: '/admin/ftth/odc', icon: 'HiOutlineArchiveBox' },
-            { code: 'FTTH.ODP', name: 'ODP', path: '/admin/ftth/odp', icon: 'HiOutlineSquares2X2' },
-            { code: 'FTTH.CLOSURE', name: 'Join BOX/Closure', path: '/admin/ftth/closure', icon: 'HiOutlineQueueList' },
-            { code: 'FTTH.POLE', name: 'Pole/Tiang', path: '/admin/ftth/pole', icon: 'HiOutlineBolt' },
-            { code: 'FTTH.KMZ', name: 'KMZ', path: '/admin/ftth/kmz', icon: 'HiOutlineDocument' },
-            { code: 'FTTH.MAP', name: 'Topology Map', path: '/admin/ftth/map', icon: 'HiOutlineMap' },
         ],
     },
     {

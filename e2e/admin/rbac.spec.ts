@@ -194,25 +194,7 @@ test.describe('RBAC - API Route Protection', () => {
       expect(response.status()).toBe(401)
     })
 
-    test('GET /api/odps should return 401', async ({ request }) => {
-      const response = await request.get('/api/odps')
-      expect(response.status()).toBe(401)
-    })
 
-    test('GET /api/odcs should return 401', async ({ request }) => {
-      const response = await request.get('/api/odcs')
-      expect(response.status()).toBe(401)
-    })
-
-    test('GET /api/otbs should return 401', async ({ request }) => {
-      const response = await request.get('/api/otbs')
-      expect(response.status()).toBe(401)
-    })
-
-    test('GET /api/poles should return 401', async ({ request }) => {
-      const response = await request.get('/api/poles')
-      expect(response.status()).toBe(401)
-    })
 
     test('GET /api/onutypes should return 401', async ({ request }) => {
       const response = await request.get('/api/onutypes')
@@ -311,29 +293,7 @@ test.describe('RBAC - API Route Protection', () => {
       expect(response.status()).toBe(200)
     })
 
-    test('GET /api/odps should return 200', async ({ request }) => {
-      test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/odps', { headers: { 'Cookie': authCookie! } })
-      expect(response.status()).toBe(200)
-    })
 
-    test('GET /api/odcs should return 200', async ({ request }) => {
-      test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/odcs', { headers: { 'Cookie': authCookie! } })
-      expect(response.status()).toBe(200)
-    })
-
-    test('GET /api/otbs should return 200', async ({ request }) => {
-      test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/otbs', { headers: { 'Cookie': authCookie! } })
-      expect(response.status()).toBe(200)
-    })
-
-    test('GET /api/poles should return 200', async ({ request }) => {
-      test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/poles', { headers: { 'Cookie': authCookie! } })
-      expect(response.status()).toBe(200)
-    })
   })
 })
 

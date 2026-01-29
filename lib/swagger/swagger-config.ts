@@ -12,12 +12,12 @@ export const swaggerConfig = {
       description: `
 # NetManager API Documentation
 
-Platform Manajemen Jaringan FTTH (Fiber To The Home) yang komprehensif.
+Platform Manajemen Jaringan yang komprehensif.
 
 ## Fitur Utama
 - **OLT Management** - Mengelola Optical Line Terminal
 - **ONU Management** - Mengelola Optical Network Unit
-- **Infrastructure** - ODP, ODC, OTB, Pole, Joinbox
+- **Infrastructure** - ODP, ODC, OTB, Pole, Joinbox (DIHAPUS)
 - **Customer Management** - Manajemen Pelanggan PPPoE
 - **Inventory** - Stok barang dan gudang
 - **Work Orders** - Tiket kerja untuk teknisi
@@ -210,112 +210,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
             odcOutputId: { type: 'string' },
           },
         },
-        // FTTH Infrastructure Schemas
-        otb: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            location: { type: 'string', nullable: true },
-            notes: { type: 'string', nullable: true },
-            keteranganJumlahKabelFeeder: { type: 'string', nullable: true },
-            latitude: { type: 'number', nullable: true },
-            longitude: { type: 'number', nullable: true },
-            coreCount: { type: 'integer' },
-            cores: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  idx: { type: 'integer' },
-                  slotName: { type: 'string' },
-                  tubeColor: { type: 'string' },
-                  coreColor: { type: 'string' },
-                },
-              },
-            },
-            status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
-          },
-        },
-        odc: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            location: { type: 'string', nullable: true },
-            notes: { type: 'string', nullable: true },
-            keteranganJumlahKabelFeeder: { type: 'string', nullable: true },
-            latitude: { type: 'number', nullable: true },
-            longitude: { type: 'number', nullable: true },
-            otbCoreId: { type: 'string' },
-            outputs: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  idx: { type: 'integer' },
-                  slotName: { type: 'string' },
-                  redaman: { type: 'number', nullable: true },
-                  tubeColor: { type: 'string' },
-                  coreColor: { type: 'string' },
-                },
-              },
-            },
-            status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
-          },
-        },
-        odp: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            location: { type: 'string', nullable: true },
-            notes: { type: 'string', nullable: true },
-            keteranganJumlahKabelFeeder: { type: 'string', nullable: true },
-            latitude: { type: 'number', nullable: true },
-            longitude: { type: 'number', nullable: true },
-            odcOutputId: { type: 'string' },
-            outputs: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  idx: { type: 'integer' },
-                  slotName: { type: 'string' },
-                  redaman: { type: 'number', nullable: true },
-                  tubeColor: { type: 'string' },
-                  coreColor: { type: 'string' },
-                },
-              },
-            },
-            status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
-          },
-        },
-        Pole: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            location: { type: 'string', nullable: true },
-            notes: { type: 'string', nullable: true },
-            latitude: { type: 'number', nullable: true },
-            longitude: { type: 'number', nullable: true },
-            cableSlack: { type: 'boolean' },
-            status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
-          },
-        },
-        Joinbox: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            location: { type: 'string', nullable: true },
-            notes: { type: 'string', nullable: true },
-            latitude: { type: 'number', nullable: true },
-            longitude: { type: 'number', nullable: true },
-            status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
-          },
-        },
+
 
         // Customer (Pelanggan)
         pelanggan: {
@@ -525,9 +420,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
       { name: 'MikroTik', description: 'MikroTik Router management' },
 
       // Infrastructure
-      { name: 'FTTH', description: 'FTTH infrastructure (OTB, ODC, ODP, Pole, Joinbox)' },
-      { name: 'KMZ', description: 'KMZ file management untuk peta' },
-      { name: 'Geocode', description: 'Geocoding services' },
+
 
       // Configuration
       { name: 'Bandwidth', description: 'Bandwidth profile management' },
