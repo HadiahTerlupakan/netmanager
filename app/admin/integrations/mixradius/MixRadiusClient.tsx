@@ -957,7 +957,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
                      <div className="col-span-1 md:col-span-2">
                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Owner Data / Reseller</label>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedCustomer?.owner_name ? selectedCustomer.owner_name.split('—')[0].trim() : '-'}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedCustomer?.owner_name?.split('—')?.[0]?.trim() || '-'}</p>
                     </div>
                     <div className="col-span-1 md:col-span-2">
                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">ODP / POP</label>

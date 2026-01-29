@@ -39,14 +39,22 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
 
+        const monthStr = searchParams.get('month')
+        const yearStr = searchParams.get('year')
+        const status = searchParams.get('status') as SalaryStatus | undefined
+        const userId = searchParams.get('userId') || undefined
+        const departmentId = searchParams.get('departmentId') || undefined
+        const siteId = searchParams.get('siteId') || undefined
+        const employeeType = searchParams.get('employeeType') || undefined
+
         const filters = {
-            month: searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined,
-            year: searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined,
-            status: searchParams.get('status') as SalaryStatus | undefined,
-            userId: searchParams.get('userId') || undefined,
-            departmentId: searchParams.get('departmentId') || undefined,
-            siteId: searchParams.get('siteId') || undefined,
-            employeeType: searchParams.get('employeeType') || undefined
+            ...(monthStr ? { month: parseInt(monthStr) } : {}),
+            ...(yearStr ? { year: parseInt(yearStr) } : {}),
+            ...(status ? { status } : {}),
+            ...(userId ? { userId } : {}),
+            ...(departmentId ? { departmentId } : {}),
+            ...(siteId ? { siteId } : {}),
+            ...(employeeType ? { employeeType } : {})
         }
 
         const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1
@@ -120,7 +128,11 @@ export async function POST(request: NextRequest) {
             const result = await service.calculateBulk(
                 month,
                 year,
-                { departmentId, siteId, employeeType },
+                { 
+                    ...(departmentId ? { departmentId } : {}),
+                    ...(siteId ? { siteId } : {}),
+                    ...(employeeType ? { employeeType } : {})
+                },
                 session.user.id
             )
 

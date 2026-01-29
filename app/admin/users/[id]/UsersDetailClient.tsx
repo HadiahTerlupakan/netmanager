@@ -85,7 +85,7 @@ interface UserData {
   isSales?: boolean
 }
 
-export function ClientComponent({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export function ClientComponent({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> | undefined }) {
   const { id } = use(params)
   const router = useRouter()
   const { data: session } = useSession()

@@ -149,7 +149,7 @@ export function ClientComponent() {
   const handleBankChange = (index: number, field: keyof BankAccount, value: string) => {
     setSettings((prev) => {
       const newBanks = [...prev.rekeningBank]
-      newBanks[index] = { ...newBanks[index], [field]: value }
+      newBanks[index] = { ...newBanks[index], [field]: value } as BankAccount
       return { ...prev, rekeningBank: newBanks }
     })
   }

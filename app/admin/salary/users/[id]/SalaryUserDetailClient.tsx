@@ -103,7 +103,7 @@ export default function SalaryUserDetailClient() {
             'bg-indigo-100 text-indigo-600 border-indigo-200'
         ]
         const index = (name.length) % colors.length
-        return colors[index]
+        return colors[index] ?? 'bg-blue-100 text-blue-600 border-blue-200'
     }
 
     if (loading) {
@@ -125,6 +125,10 @@ export default function SalaryUserDetailClient() {
             </div>
         )
     }
+
+    const avatarColor = getAvatarColor(user.name)
+    const avatarBg = avatarColor.replace('bg-', 'text-').replace('text-', 'bg-').split(' ')[0] ?? ''
+    const avatarText = avatarColor.split(' ')[1] ?? ''
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -149,7 +153,7 @@ export default function SalaryUserDetailClient() {
                     <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
                         <div className="h-24 bg-linear-to-r from-indigo-500 to-purple-600"></div>
                         <div className="px-6 pb-6 -mt-10 relative">
-                            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold border-4 border-white dark:border-gray-900 shadow-sm mb-4 bg-white ${getAvatarColor(user.name).replace('bg-', 'text-').replace('text-', 'bg-').split(' ')[0]} ${getAvatarColor(user.name).split(' ')[1]}`}>
+                            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold border-4 border-white dark:border-gray-900 shadow-sm mb-4 bg-white ${avatarBg} ${avatarText}`}>
                                 {user.name.substring(0, 2).toUpperCase()}
                             </div>
                             

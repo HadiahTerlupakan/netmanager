@@ -78,7 +78,7 @@ export default function BandwidthPage() {
     const match = format.match(/^(\d+(?:\.\d+)?)([kMGT])?$/)
     if (match) {
       return {
-        value: match[1],
+        value: match[1] || '',
         unit: (match[2] || 'M') as 'k' | 'M' | 'G' | 'T',
       }
     }

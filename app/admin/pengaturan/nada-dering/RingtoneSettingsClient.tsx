@@ -112,8 +112,9 @@ export default function RingtoneSettingsClient() {
                 try {
                     const base64ToBlob = (dataURI: string) => {
                         const split = dataURI.split(',')
-                        const byteString = atob(split[1])
-                        const mimeString = split[0].split(':')[1].split(';')[0]
+                        const data = split[1] || ''
+                        const byteString = atob(data)
+                        const mimeString = (split[0] ?? '').split(':')[1]?.split(';')[0] ?? 'application/octet-stream'
                         const ab = new ArrayBuffer(byteString.length)
                         const ia = new Uint8Array(ab)
                         for (let i = 0; i < byteString.length; i++) {

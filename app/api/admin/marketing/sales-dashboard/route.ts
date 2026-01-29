@@ -192,15 +192,20 @@ export async function GET(request: NextRequest) {
                         salesCount: 0
                     }
                 }
-                siteAggregation[site.code].approved += stat._count._all
+                
+                const siteEntry = siteAggregation[site.code]
+                if (siteEntry) {
+                    siteEntry.approved += stat._count._all
+                }
             }
         }
 
         // Count sales per site
         for (const user of salesUsers) {
             if (user.sites) {
-                if (siteAggregation[user.sites.code]) {
-                    siteAggregation[user.sites.code].salesCount++
+                const entry = siteAggregation[user.sites.code]
+                if (entry) {
+                    entry.salesCount++
                 }
             }
         }

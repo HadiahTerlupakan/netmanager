@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         const result = await chatService.createConversation({
             creatorId: user.id,
             participantIds,
-            name
+            ...(name ? { name } : {})
         })
 
         return apiSuccess(result, { status: 201, message: 'Percakapan berhasil dibuat' })

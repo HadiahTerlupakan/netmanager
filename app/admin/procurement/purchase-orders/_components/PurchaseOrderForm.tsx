@@ -192,12 +192,12 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                     barangName: detail.nama, // Update name for market price search
                     satuan: detail.satuan,
                     unitPrice: detail.hargaBeli || 0
-                }
+                } as ItemRow
                 setItems(newItems)
                 return
             }
         }
-        newItems[index] = { ...newItems[index], [field]: value }
+        newItems[index] = { ...newItems[index], [field]: value } as ItemRow
         setItems(newItems)
     }
 
@@ -207,6 +207,7 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
 
     const openMarketPriceModal = (index: number) => {
         const item = items[index]
+        if (!item) return
         setActiveItemIndex(index)
         
         // Try to get name from combobox option if not in item state directly

@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
                          searchParams.get('isActive') === 'false' ? false : undefined
 
         const service = getAppVersionService()
-        const result = await service.getAllVersions({ page, limit, platform, isActive })
+        const result = await service.getAllVersions({ 
+            page, 
+            limit,
+            ...(platform ? { platform } : {}),
+            ...(isActive !== undefined ? { isActive } : {})
+        })
 
         return apiSuccess({
             data: result.data,
@@ -106,18 +111,18 @@ export async function POST(request: NextRequest) {
 
         const service = getAppVersionService()
         const appVersion = await service.uploadVersion({
-            version: version || undefined,
-            buildNumber,
-            versionCode,
             platform,
-            releaseNotes,
             isForceUpdate,
-            minVersion,
-            apkBuffer,
-            apkPath: apkTempPath,  // Use temp file path for large files
-            apkFilename,
-            apkSize,
-            createdBy: user.id
+            createdBy: user.id,
+            ...(version ? { version } : {}),
+            ...(buildNumber ? { buildNumber } : {}),
+            ...(versionCode ? { versionCode } : {}),
+            ...(releaseNotes ? { releaseNotes } : {}),
+            ...(minVersion ? { minVersion } : {}),
+            ...(apkBuffer ? { apkBuffer } : {}),
+            ...(apkTempPath ? { apkPath: apkTempPath } : {}),
+            ...(apkFilename ? { apkFilename } : {}),
+            ...(apkSize ? { apkSize } : {})
         })
 
         // Cleanup temp file after successful upload

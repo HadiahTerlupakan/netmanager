@@ -6,8 +6,8 @@ import type { StockOpnameRecord } from '@/lib/types/inventory'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface OpnameReportTableProps {
-  onEdit?: (opname: StockOpnameRecord) => void
-  onView?: (opname: StockOpnameRecord) => void
+  onEdit?: ((opname: StockOpnameRecord) => void) | undefined
+  onView?: ((opname: StockOpnameRecord) => void) | undefined
   refreshTrigger?: number
 }
 

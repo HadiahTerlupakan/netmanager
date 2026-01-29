@@ -94,9 +94,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         const updated = await registrationRepository.updateWithDetails(id, {
             status,
             notes: notes !== undefined ? notes : current.notes,
-            rejectionReason: status === 'REJECTED' ? rejectionReason : undefined,
-            verifiedAt: status === 'VERIFIED' ? new Date() : undefined,
-            verifiedBy: status === 'VERIFIED' ? (session.user?.email || 'admin') : undefined,
+            ...(status === 'REJECTED' && rejectionReason ? { rejectionReason } : {}),
+            ...(status === 'VERIFIED' ? { 
+                verifiedAt: new Date(), 
+                verifiedBy: session.user?.email || 'admin' 
+            } : {})
         })
 
         return apiSuccess(updated, { message: `Status berhasil diubah ke ${status}` })

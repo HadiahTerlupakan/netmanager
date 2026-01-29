@@ -87,16 +87,20 @@ export default function LiveMapPage() {
 
                 // Update existing user location
                 const newLocations = [...prev]
-                newLocations[index] = {
-                    ...newLocations[index],
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    heading: data.heading,
-                    isMoving: data.isMoving,
-                    batteryLevel: data.batteryLevel,
-                    recordedAt: data.recordedAt,
-                    accuracy: data.accuracy,
-                    speed: data.speed
+                const existingLocation = newLocations[index]
+                
+                if (existingLocation) {
+                    newLocations[index] = {
+                        ...existingLocation,
+                        latitude: data.latitude,
+                        longitude: data.longitude,
+                        heading: data.heading,
+                        isMoving: data.isMoving,
+                        batteryLevel: data.batteryLevel,
+                        recordedAt: data.recordedAt,
+                        accuracy: data.accuracy,
+                        speed: data.speed
+                    }
                 }
                 
                 return newLocations

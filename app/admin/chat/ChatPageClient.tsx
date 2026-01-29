@@ -172,8 +172,9 @@ export default function ChatPageClient() {
                 try {
                     const base64ToBlob = (dataURI: string) => {
                         const split = dataURI.split(',')
-                        const byteString = atob(split[1])
-                        const mimeString = split[0].split(':')[1].split(';')[0]
+                        const base64 = split[1] ?? ''
+                        const byteString = atob(base64)
+                        const mimeString = split[0]?.split(':')[1]?.split(';')[0] ?? 'application/octet-stream'
                         const ab = new ArrayBuffer(byteString.length)
                         const ia = new Uint8Array(ab)
                         for (let i = 0; i < byteString.length; i++) {
@@ -402,8 +403,11 @@ export default function ChatPageClient() {
             setConversations(prev => {
                 const index = prev.findIndex(c => c.id === payload.conversationId)
                 if (index !== -1) {
+                    const currentConv = prev[index]
+                    if (!currentConv) return prev
+
                     const updatedConv: ChatConversation = {
-                        ...prev[index],
+                        ...currentConv,
                         lastMessage: {
                             content: payload.content || (payload.imageUrl ? '📷 Gambar' : 'Pesan baru'),
                             senderName: payload.senderName || 'User',
@@ -411,7 +415,7 @@ export default function ChatPageClient() {
                         },
                         updatedAt: payload.createdAt,
                         hasUnread: (selectedConversation !== payload.conversationId),
-                        unreadCount: (selectedConversation === payload.conversationId) ? 0 : ((prev[index].unreadCount || 0) + 1)
+                        unreadCount: (selectedConversation === payload.conversationId) ? 0 : ((currentConv.unreadCount || 0) + 1)
                     }
                     // Remove old position and insert at top
                     const newConvs = [...prev]

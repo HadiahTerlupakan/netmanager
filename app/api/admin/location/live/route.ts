@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
         }
 
         const locationService = new LocationTrackingService()
-        const liveLocations = await locationService.getLiveLocations({ siteId, departmentId })
+        const liveLocations = await locationService.getLiveLocations({ 
+            ...(siteId ? { siteId } : {}),
+            ...(departmentId ? { departmentId } : {})
+        })
 
         return apiSuccess({
             data: liveLocations,

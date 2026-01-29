@@ -90,7 +90,7 @@ export async function POST(
             // Update existing
             await prisma.userSalaryComponent.update({
                 where: { id: existing.id },
-                data: { amount, notes, isActive: true }
+                data: { amount, notes: notes ?? null, isActive: true }
             })
         } else {
             // Create new
@@ -99,7 +99,7 @@ export async function POST(
                     userId,
                     componentId,
                     amount,
-                    notes
+                    notes: notes ?? null
                 }
             })
         }

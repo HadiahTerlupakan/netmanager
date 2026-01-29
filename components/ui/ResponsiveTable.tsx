@@ -48,11 +48,11 @@ export interface ResponsiveTableProps<T> {
   /** Message shown while loading */
   loadingMessage?: string
   /** Callback when row is clicked */
-  onRowClick?: (item: T) => void
+  onRowClick?: ((item: T) => void) | undefined
   /** Render action buttons for each row */
-  renderActions?: (item: T) => React.ReactNode
+  renderActions?: ((item: T) => React.ReactNode) | undefined
   /** Custom mobile card renderer (optional, uses default if not provided) */
-  renderMobileCard?: (item: T, columns: Column<T>[]) => React.ReactNode
+  renderMobileCard?: ((item: T, columns: Column<T>[]) => React.ReactNode) | undefined
   /** Additional className for the wrapper */
   className?: string
   /** Show row numbers */

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
             senderId: user.id,
             senderName: user.name || 'Admin',
             content: content.trim(),
-            title
+            ...(title ? { title } : {})
         })
 
         return apiSuccess(result, { status: 201, message: 'Broadcast berhasil dikirim' })

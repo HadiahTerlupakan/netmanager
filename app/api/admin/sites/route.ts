@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search') || undefined
         const activeOnly = searchParams.get('activeOnly') === 'true'
 
-        const sites = await siteService.getSites({ search, activeOnly })
+        const sites = await siteService.getSites({ 
+            ...(search ? { search } : {}), 
+            activeOnly 
+        })
 
         return apiSuccess(sites)
     } catch (error) {

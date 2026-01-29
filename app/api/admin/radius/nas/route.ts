@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
             await logger.logActivity({
                 action: 'CREATE',
                 subject: 'NAS',
-                userId: session.user.id,
+                ...(session.user.id ? { userId: session.user.id } : {}),
                 details: { id: newNas.id, nasname: newNas.nasname, shortname: newNas.shortname }
             })
         } catch (e) {

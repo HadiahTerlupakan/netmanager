@@ -67,7 +67,7 @@ export function ClientComponent() {
     passwordLogin: '12345', // Default password untuk login portal pelanggan
     hargaPaketId: '',
     tipe: 'REGULER' as 'REGULER' | 'NON_REGULER',
-    tanggalAktif: new Date().toISOString().split('T')[0], // Default: hari ini
+    tanggalAktif: new Date().toISOString().split('T')[0] ?? '', // Default: hari ini
     jatuhTempo: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
     autoIsolir: true, // Default: auto isolir aktif
@@ -318,7 +318,7 @@ export function ClientComponent() {
   }
 
   // Hitung jatuh tempo berdasarkan tanggal aktif dan durasi paket
-  const calculateJatuhTempo = useCallback((tanggalAktif: string, hargaPaketId: string) => {
+  const calculateJatuhTempo = useCallback((tanggalAktif: string | undefined, hargaPaketId: string | undefined) => {
     if (!tanggalAktif || !hargaPaketId || hargaPakets.length === 0) {
       return ''
     }
@@ -347,7 +347,7 @@ export function ClientComponent() {
         break
     }
 
-    return jatuhTempo.toISOString().split('T')[0]
+    return jatuhTempo.toISOString().split('T')[0] ?? ''
   }, [hargaPakets])
 
   // Cek apakah ID Pelanggan sudah ada (untuk validasi duplikat)

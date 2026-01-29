@@ -345,8 +345,8 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                                         // Case 2: "Label: Number" format (common in adjustments)
                                         const parts = val.split(':')
                                         if (parts.length === 2) {
-                                            const label = parts[0].trim()
-                                            const value = parts[1].trim()
+                                            const label = (parts[0] ?? '').trim()
+                                            const value = (parts[1] ?? '').trim()
                                             if (!isNaN(Number(value))) {
                                                 return `${label}: ${formatCurrency(Number(value))}`
                                             }

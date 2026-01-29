@@ -94,10 +94,10 @@ export function createHandler<T = unknown>(
 ) {
     return async (
         request: NextRequest,
-        routeContext?: { params?: Promise<Record<string, string>> }
+        routeContext: { params: Promise<Record<string, string>> }
     ): Promise<NextResponse> => {
         // Resolve params if it's a Promise (Next.js 15+)
-        const params = routeContext?.params ? await routeContext.params : {}
+        const params = await routeContext.params
         
         try {
             // Create context object

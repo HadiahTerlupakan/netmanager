@@ -84,7 +84,7 @@ export default function CustomerInvoicesPage() {
     const pendingInvoices = invoices.filter(inv => ['SENT', 'OVERDUE'].includes(inv.status))
     const totalPending = pendingInvoices.reduce((sum, inv) => sum + inv.remainingAmount, 0)
     const nextDueDate = pendingInvoices.length > 0
-        ? pendingInvoices.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0].dueDate
+        ? pendingInvoices.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]?.dueDate
         : null
 
     const formatCurrency = (amount: number) => {

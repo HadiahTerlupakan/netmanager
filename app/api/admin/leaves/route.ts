@@ -49,9 +49,9 @@ export async function GET(request: Request) {
         }
 
         const result = await service.getLeaves({
-            status: status as any,
-            siteId: siteId || undefined,
-            departmentId: departmentId || undefined
+            ...(status ? { status: status as any } : {}),
+            ...(siteId ? { siteId } : {}),
+            ...(departmentId ? { departmentId } : {})
         })
 
         if (!result.success) {
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
                 startDate: new Date(startDate),
                 endDate: new Date(endDate),
                 reason,
-                attachmentUrl: attachmentUrl ?? undefined
+                ...(attachmentUrl ? { attachmentUrl } : {})
             },
             session.user.id,
             true // Auto-approve for manual admin entry

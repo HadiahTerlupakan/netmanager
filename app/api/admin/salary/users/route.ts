@@ -133,15 +133,16 @@ export async function POST(request: NextRequest) {
             data: {
                 basicSalary,
                 employeeType,
-                overtimeRateNormal,
                 overtimeCalcTypeNormal,
-                overtimeRateHoliday,
                 overtimeCalcTypeHoliday,
-                overtimeRateNational,
                 overtimeCalcTypeNational,
-                woIncentiveRate,
-                lateDeductionRate,
-                absentDeductionRate,
+
+                ...(overtimeRateNormal !== undefined ? { overtimeRateNormal } : {}),
+                ...(overtimeRateHoliday !== undefined ? { overtimeRateHoliday } : {}),
+                ...(overtimeRateNational !== undefined ? { overtimeRateNational } : {}),
+                ...(woIncentiveRate !== undefined ? { woIncentiveRate } : {}),
+                ...(lateDeductionRate !== undefined ? { lateDeductionRate } : {}),
+                ...(absentDeductionRate !== undefined ? { absentDeductionRate } : {})
             }
         })
 

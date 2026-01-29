@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search') || undefined
         const reminderOnly = searchParams.get('reminderOnly') === 'true'
 
-        const result = await service.getDepartments({ search, reminderOnly })
+        const result = await service.getDepartments({ 
+            ...(search ? { search } : {}),
+            reminderOnly 
+        })
 
         if (!result.success) {
             return ApiErrors.internalError(result.error)

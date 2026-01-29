@@ -352,7 +352,7 @@ export function ClientComponent() {
                                                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                                                     <div
                                                         className="bg-red-500 h-2 rounded-full"
-                                                        style={{ width: `${Math.min((stat.count / issueStats[0]?.count) * 100, 100)}%` }}
+                                                        style={{ width: `${Math.min((stat.count / (issueStats[0]?.count ?? 1)) * 100, 100)}%` }}
                                                     ></div>
                                                 </div>
                                             </div>
@@ -382,7 +382,7 @@ export function ClientComponent() {
                                                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                                                     <div
                                                         className="bg-orange-500 h-2 rounded-full"
-                                                        style={{ width: `${Math.min((stat.count / disconnectionStats[0]?.count) * 100, 100)}%` }}
+                                                        style={{ width: `${Math.min((stat.count / (disconnectionStats[0]?.count ?? 1)) * 100, 100)}%` }}
                                                     ></div>
                                                 </div>
                                             </div>

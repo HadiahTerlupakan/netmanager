@@ -60,7 +60,10 @@ export default function MultiSiteSelect({
       const newSites = selectedSites.filter(s => s.siteId !== siteId)
       // If removed site was primary, make first remaining site primary
       if (isPrimarySite(siteId) && newSites.length > 0) {
-        newSites[0].isPrimary = true
+        const firstSite = newSites[0]
+        if (firstSite) {
+            firstSite.isPrimary = true
+        }
       }
       onChange(newSites)
     } else {

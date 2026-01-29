@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
             await logger.logActivity({
                 action: 'CREATE',
                 subject: 'IP Pool',
-                userId: session.user.id,
+                ...(session.user.id ? { userId: session.user.id } : {}),
                 details: { id: (newPool as any).id, poolName: (newPool as any).poolName, ip: (newPool as any).framedIpAddress }
             })
         } catch (e) {

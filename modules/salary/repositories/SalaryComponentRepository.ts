@@ -108,12 +108,12 @@ export class SalaryComponentRepository {
                 userId,
                 componentId,
                 amount,
-                notes,
+                notes: notes ?? null,
                 isActive: true
             },
             update: {
                 amount,
-                notes,
+                notes: notes ?? null,
                 isActive: true,
                 updatedAt: new Date()
             }

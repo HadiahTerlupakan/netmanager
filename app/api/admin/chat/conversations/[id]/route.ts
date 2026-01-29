@@ -89,8 +89,8 @@ export async function POST(
             conversationId,
             senderId: user.id,
             senderName: user.name || 'Admin',
-            content,
-            imageUrl
+            ...(content !== undefined ? { content } : {}),
+            ...(imageUrl !== undefined ? { imageUrl } : {})
         })
 
         return apiSuccess(result, { status: 201, message: 'Pesan berhasil dikirim' })

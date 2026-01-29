@@ -154,7 +154,7 @@ export default function SpeedProfilesPage() {
     if (!acc[profile.oltId]) {
       acc[profile.oltId] = []
     }
-    acc[profile.oltId].push(profile)
+    acc[profile.oltId]?.push(profile)
     return acc
   }, {} as Record<string, SpeedProfileWithOlt[]>)
 

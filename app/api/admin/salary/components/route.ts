@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
                     name,
                     type,
                     rateType: rateType || 'FIXED',
-                    defaultAmount,
-                    description,
+                    defaultAmount: defaultAmount ?? null,
+                    description: description ?? null,
                     sortOrder: sortOrder || 0
                 })
             }
@@ -168,8 +168,16 @@ export async function PUT(request: NextRequest) {
             )
         }
 
-        const { id, ...updateData } = parseResult.data
-        const component = await componentRepo.update(id, updateData)
+        const { id, name, type, rateType, defaultAmount, description, sortOrder, isActive } = parseResult.data
+        const component = await componentRepo.update(id, {
+            ...(name ? { name } : {}),
+            ...(type ? { type } : {}),
+            ...(rateType ? { rateType } : {}),
+            ...(defaultAmount !== undefined ? { defaultAmount } : {}),
+            ...(description !== undefined ? { description } : {}),
+            ...(sortOrder !== undefined ? { sortOrder } : {}),
+            ...(isActive !== undefined ? { isActive } : {})
+        })
 
         return apiSuccess({ component }, { message: 'Komponen berhasil diperbarui' })
     } catch (error) {

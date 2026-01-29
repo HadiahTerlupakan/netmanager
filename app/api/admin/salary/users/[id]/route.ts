@@ -128,17 +128,17 @@ export async function PUT(
         await prisma.user.update({
             where: { id },
             data: {
-                employeeType,
-                basicSalary: basicSalary ? parseFloat(String(basicSalary)) : null,
-                overtimeRateNormal: overtimeRateNormal ? parseFloat(String(overtimeRateNormal)) : null,
-                overtimeCalcTypeNormal,
-                overtimeRateHoliday: overtimeRateHoliday ? parseFloat(String(overtimeRateHoliday)) : null,
-                overtimeCalcTypeHoliday,
-                overtimeRateNational: overtimeRateNational ? parseFloat(String(overtimeRateNational)) : null,
-                overtimeCalcTypeNational,
-                woIncentiveRate: woIncentiveRate ? parseFloat(String(woIncentiveRate)) : null,
-                lateDeductionRate: lateDeductionRate ? parseFloat(String(lateDeductionRate)) : null,
-                absentDeductionRate: absentDeductionRate ? parseFloat(String(absentDeductionRate)) : null,
+                ...(employeeType ? { employeeType } : {}),
+                ...(basicSalary !== undefined ? { basicSalary: basicSalary ? parseFloat(String(basicSalary)) : null } : {}),
+                ...(overtimeRateNormal !== undefined ? { overtimeRateNormal: overtimeRateNormal ? parseFloat(String(overtimeRateNormal)) : null } : {}),
+                ...(overtimeCalcTypeNormal !== undefined ? { overtimeCalcTypeNormal } : {}),
+                ...(overtimeRateHoliday !== undefined ? { overtimeRateHoliday: overtimeRateHoliday ? parseFloat(String(overtimeRateHoliday)) : null } : {}),
+                ...(overtimeCalcTypeHoliday !== undefined ? { overtimeCalcTypeHoliday } : {}),
+                ...(overtimeRateNational !== undefined ? { overtimeRateNational: overtimeRateNational ? parseFloat(String(overtimeRateNational)) : null } : {}),
+                ...(overtimeCalcTypeNational !== undefined ? { overtimeCalcTypeNational } : {}),
+                ...(woIncentiveRate !== undefined ? { woIncentiveRate: woIncentiveRate ? parseFloat(String(woIncentiveRate)) : null } : {}),
+                ...(lateDeductionRate !== undefined ? { lateDeductionRate: lateDeductionRate ? parseFloat(String(lateDeductionRate)) : null } : {}),
+                ...(absentDeductionRate !== undefined ? { absentDeductionRate: absentDeductionRate ? parseFloat(String(absentDeductionRate)) : null } : {}),
             }
         })
 
