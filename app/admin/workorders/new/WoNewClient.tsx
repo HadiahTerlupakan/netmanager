@@ -50,6 +50,7 @@ export function ClientComponent() {
     // Sites and Departments state
     const [sites, setSites] = useState<Site[]>([])
     const [departments, setDepartments] = useState<Department[]>([])
+    const [templates, setTemplates] = useState<any[]>([])
 
     // Search states
     const [searchingPelanggan, setSearchingPelanggan] = useState(false)
@@ -76,6 +77,7 @@ export function ClientComponent() {
         scheduledTimeStart: '',
         scheduledTimeEnd: '',
         disconnectionReason: '',
+        templateId: '',
     })
 
     useEffect(() => {
@@ -83,6 +85,7 @@ export function ClientComponent() {
         if (status === 'authenticated') {
             fetchSites()
             fetchDepartments()
+            fetchTemplates()
         }
     }, [status, router])
 
@@ -161,6 +164,18 @@ export function ClientComponent() {
             }
         } catch (error) {
             console.error('Error fetching departments:', error)
+        }
+    }
+
+    const fetchTemplates = async () => {
+        try {
+            const response = await fetch('/api/admin/workorders/templates')
+            if (response.ok) {
+                const result = await response.json()
+                setTemplates(result.data || [])
+            }
+        } catch (error) {
+            console.error('Error fetching templates:', error)
         }
     }
 
@@ -460,6 +475,7 @@ export function ClientComponent() {
             scheduledTimeStart: formData.scheduledTimeStart || undefined,
             scheduledTimeEnd: formData.scheduledTimeEnd || undefined,
             disconnectionReason: formData.disconnectionReason || undefined,
+            templateId: formData.templateId || undefined,
         }
 
         try {

@@ -1192,6 +1192,7 @@ model Barang {
   supplier             Supplier?             @relation(fields: [supplierId], references: [id])
   supplierId           String?
   purchaseOrderItems   PurchaseOrderItem[]
+  workOrderMaterials   WorkOrderMaterial[]
 
   @@map("barang")
 }
@@ -2111,24 +2112,28 @@ model WorkOrderTasks {
 }
 
 model WorkOrderTemplates {
-  id                String            @id
+  id                String                  @id
   name              String
   description       String?
   type              WorkOrderType
-  priority          WorkOrderPriority @default(NORMAL)
+  priority          WorkOrderPriority       @default(NORMAL)
   departmentId      String?
   estimatedHours    Float?
   estimatedCost     Float?
+  /// @deprecated Use templateItems instead
   requiredMaterials Json?
+  /// @deprecated Use templateItems instead
   tasks             Json?
+  /// @deprecated Use templateItems instead
   checklist         Json?
-  isActive          Boolean           @default(true)
+  isActive          Boolean                 @default(true)
   createdById       String?
-  createdAt         DateTime          @default(now())
+  createdAt         DateTime                @default(now())
   updatedAt         DateTime
-  user              User?             @relation(fields: [createdById], references: [id])
-  departments       Departments?      @relation(fields: [departmentId], references: [id])
+  user              User?                   @relation(fields: [createdById], references: [id])
+  departments       Departments?            @relation(fields: [departmentId], references: [id])
   workOrders        WorkOrders[]
+  templateItems     WorkOrderTemplateItem[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -2222,6 +2227,7 @@ model WorkOrders {
   requestedBy              User?                     @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
   approvedBy               User?                     @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
   workOrderMaterialReturns WorkOrderMaterialReturn[]
+  materials                WorkOrderMaterial[]
 
   @@index([assignedToId])
   @@index([departmentId])
@@ -3114,4 +3120,38 @@ model UserSalaryComponent {
   @@unique([userId, componentId])
   @@index([userId])
   @@map("user_salary_components")
+}
+
+model WorkOrderMaterial {
+  id          String   @id @default(uuid())
+  workOrderId String
+  barangId    String
+  quantity    Float
+  satuan      String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrder WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  barang    Barang     @relation(fields: [barangId], references: [id])
+
+  @@index([workOrderId])
+  @@index([barangId])
+  @@map("work_order_materials")
+}
+
+model WorkOrderTemplateItem {
+  id          String   @id @default(uuid())
+  templateId  String
+  title       String
+  description String?
+  order       Int      @default(0)
+  isMandatory Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  template WorkOrderTemplates @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@map("work_order_template_items")
 }

@@ -200,6 +200,18 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         uploadedAt: 'desc',
                     },
                 },
+                materials: {
+                    include: {
+                        barang: {
+                            select: {
+                                id: true,
+                                kode: true,
+                                nama: true,
+                                satuan: true,
+                            }
+                        }
+                    }
+                },
                 createdBy: {
                     select: {
                         id: true,

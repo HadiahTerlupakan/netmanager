@@ -568,6 +568,153 @@ export class WorkOrderService {
         }
     }
 
+    // ==================== MATERIAL & TEMPLATE OPERATIONS ====================
+
+    /**
+     * Add material usage to work order
+     */
+    async addMaterial(
+        workOrderId: string,
+        barangId: string,
+        quantity: number,
+        actorId: string,
+        notes?: string
+    ): Promise<ServiceResult<any>> {
+        try {
+            return await prisma.$transaction(async (tx) => {
+                // Check work order
+                const workOrder = await tx.workOrders.findUnique({ where: { id: workOrderId } })
+                if (!workOrder) {
+                    throw new Error('Work order not found')
+                }
+
+                // Check barang
+                const barang = await tx.barang.findUnique({ 
+                    where: { id: barangId },
+                    include: {
+                        barangGudang: {
+                            where: { stok: { gt: 0 } },
+                            orderBy: { stok: 'desc' }, // Use warehouse with most stock first
+                            take: 1
+                        }
+                    }
+                })
+
+                if (!barang) {
+                    throw new Error('Barang not found')
+                }
+
+                // Find available stock
+                const gudangSource = barang.barangGudang[0]
+                if (!gudangSource || gudangSource.stok < quantity) {
+                     // Note: Simple check. For production, might need to split across warehouses if needed.
+                    throw new Error(`Insufficient stock. Available: ${gudangSource?.stok || 0}`)
+                }
+
+                const deductAmount = quantity
+
+                // Deduct stock
+                await tx.barangGudang.update({
+                    where: {
+                        barangId_gudangId: {
+                            barangId,
+                            gudangId: gudangSource.gudangId
+                        }
+                    },
+                    data: {
+                        stok: { decrement: deductAmount }
+                    }
+                })
+
+                // Create usage record
+                const material = await tx.workOrderMaterial.create({
+                    data: {
+                        workOrderId,
+                        barangId,
+                        quantity: quantity, // Prisma schema updated to Float
+                        notes: notes ?? null,
+                        satuan: barang.satuan
+                    },
+                    include: {
+                        barang: true
+                    }
+                })
+
+                // Record transaction log (BarangKeluar)
+                await tx.barangKeluar.create({
+                    data: {
+                        id: crypto.randomUUID(),
+                        barangId,
+                        gudangId: gudangSource.gudangId,
+                        jumlah: deductAmount,
+                        tanggal: new Date(),
+                        kondisi: 'BARU',
+                        keterangan: `Used in Work Order #${workOrder.workOrderNumber}`,
+                        tujuanPenggunaan: 'WORK_ORDER',
+                        userId: actorId, // Use actorId instead of workOrder.assignedToId
+                    }
+                })
+
+                return { success: true, data: material }
+            })
+        } catch (error) {
+            logger.error('WorkOrderService.addMaterial failed', error instanceof Error ? error : undefined)
+            return { 
+                success: false, 
+                error: error instanceof Error ? error.message : 'Failed to add material', 
+                code: 'ADD_MATERIAL_ERROR' 
+            }
+        }
+    }
+
+    /**
+     * Create tasks from template
+     */
+    async createTasksFromTemplate(
+        workOrderId: string,
+        templateId: string
+    ): Promise<ServiceResult<any>> {
+        try {
+            // Check work order
+            const workOrder = await this.repository.findById(workOrderId)
+            if (!workOrder) {
+                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+            }
+
+            // Get template items
+            const templateItems = await prisma.workOrderTemplateItem.findMany({
+                where: { templateId },
+                orderBy: { order: 'asc' }
+            })
+
+            if (templateItems.length === 0) {
+                return { success: false, error: 'Template has no items', code: 'EMPTY_TEMPLATE' }
+            }
+
+            // Create tasks
+            const tasks = await prisma.$transaction(
+                templateItems.map(item =>
+                    prisma.workOrderTasks.create({
+                        data: {
+                            id: crypto.randomUUID(),
+                            workOrderId,
+                            title: item.title,
+                            description: item.description,
+                            order: item.order,
+                            status: 'PENDING',
+                            updatedAt: new Date()
+                        }
+                    })
+                )
+            )
+
+            return { success: true, data: tasks }
+        } catch (error) {
+            logger.error('WorkOrderService.createTasksFromTemplate failed', error instanceof Error ? error : undefined)
+            return { success: false, error: 'Failed to create tasks from template', code: 'CREATE_TASKS_ERROR' }
+        }
+    }
+
     // ==================== PRIVATE HELPERS ====================
 
     private async notifyWorkOrderCreated(workOrder: any): Promise<void> {

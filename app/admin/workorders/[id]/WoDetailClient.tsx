@@ -27,6 +27,7 @@ import {
 import PageLoader from '@/components/ui/PageLoader'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import AddMaterialModal from '@/components/workorder/AddMaterialModal'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
 import { usePermission } from '@/hooks/use-permission'
@@ -127,6 +128,16 @@ interface WorkOrderDetail {
             name: string
         }
     }>
+    materials?: Array<{
+        id: string
+        quantity: number
+        notes: string | null
+        barang: {
+            kode: string
+            nama: string
+            satuan: string
+        }
+    }>
     createdBy?: {
         id: string
         name: string | null
@@ -187,7 +198,7 @@ export function ClientComponent() {
     const [cancelReason, setCancelReason] = useState('')
     const [processingApproval, setProcessingApproval] = useState(false)
     // TAB STATE MUST BE HERE (Before any return statements)
-    const [activeTab, setActiveTab] = useState<'activity' | 'discussion'>(() => {
+    const [activeTab, setActiveTab] = useState<'activity' | 'discussion' | 'materials'>(() => {
         return ['COMPLETED', 'CANCELLED', 'VERIFIED'].includes(workOrder?.status || '') ? 'activity' : 'discussion';
     });
     
@@ -208,6 +219,7 @@ export function ClientComponent() {
     const [materialDetailOpen, setMaterialDetailOpen] = useState(false)
     const [materialDetailData, setMaterialDetailData] = useState<MaterialDetailData | null>(null)
     const [loadingMaterialDetail, setLoadingMaterialDetail] = useState(false)
+    const [addMaterialModalOpen, setAddMaterialModalOpen] = useState(false)
 
     // Fetch material detail by updateId (MATERIAL_PICKUP/MATERIAL_RETURN)
     const fetchMaterialDetail = async (updateId: string, updateType: string) => {
@@ -852,6 +864,17 @@ export function ClientComponent() {
                                         <HiChatBubbleLeftRight className="w-5 h-5" />
                                         Diskusi
                                     </button>
+                                    <button
+                                        onClick={() => setActiveTab('materials')}
+                                        className={`w-full py-2.5 text-sm font-medium leading-5 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+                                            activeTab === 'materials'
+                                                ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                        }`}
+                                    >
+                                        <HiCube className="w-5 h-5" />
+                                        Material Used
+                                    </button>
                                 </div>
                             </div>
 
@@ -981,6 +1004,74 @@ export function ClientComponent() {
                             )}
 
                             {/* Tab Content: DISCUSSION */}
+                            {/* Tab Content: MATERIALS */}
+                            {activeTab === 'materials' && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Material & Sparepart</h3>
+                                        {!isReadOnly && (
+                                            <button
+                                                onClick={() => setAddMaterialModalOpen(true)}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
+                                            >
+                                                <HiCube className="w-4 h-4" />
+                                                Tambah Material
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {workOrder.materials && workOrder.materials.length > 0 ? (
+                                        <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                                <thead className="bg-gray-100 dark:bg-gray-800">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Barang</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jumlah</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Catatan</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                                    {workOrder.materials.map((item) => (
+                                                        <tr key={item.id}>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="flex items-center">
+                                                                    <div>
+                                                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                                            {item.barang.nama}
+                                                                        </div>
+                                                                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                                            {item.barang.kode}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                                    {item.quantity} {item.barang.satuan}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                                    {item.notes || '-'}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+                                            <HiCube className="mx-auto h-12 w-12 text-gray-400" />
+                                            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Belum ada material</h3>
+                                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                Gunakan tombol "Tambah Material" untuk mencatat penggunaan barang.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Tab Content: DISCUSSION */}
                             {activeTab === 'discussion' && (
                                 <div className="flex flex-col h-[600px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
@@ -1508,6 +1599,14 @@ export function ClientComponent() {
                     </div>
                 </div>
             )}
+
+            {/* Add Material Modal */}
+            <AddMaterialModal
+                isOpen={addMaterialModalOpen}
+                onClose={() => setAddMaterialModalOpen(false)}
+                onSuccess={() => fetchWorkOrder()}
+                workOrderId={workOrderId}
+            />
 
             {/* Material Detail Modal */}
             <Modal
