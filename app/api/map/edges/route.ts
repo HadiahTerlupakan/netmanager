@@ -9,6 +9,7 @@ const service = new MappingService();
 const createEdgeSchema = z.object({
   source: z.string(),
   target: z.string(),
+  name: z.string().optional(),
   fiberType: z.string().optional(),
   distance: z.number().optional(),
   waypoints: z.string().optional(), // Expecting stringified JSON as per schema, or handle array in API and stringify here? Schema says String?, so stringified json.

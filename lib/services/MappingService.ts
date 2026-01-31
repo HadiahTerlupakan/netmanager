@@ -34,10 +34,24 @@ export class MappingService {
   }
 
   /**
+   * Get single node by ID
+   */
+  async getNodeById(nodeId: string) {
+    return await this.repository.findNodeById(nodeId);
+  }
+
+  /**
    * Get edges only
    */
   async getEdges() {
     return await this.repository.findAllEdges();
+  }
+
+  /**
+   * Get single edge by ID
+   */
+  async getEdgeById(edgeId: string) {
+    return await this.repository.findEdgeById(edgeId);
   }
 
   /**
@@ -48,25 +62,67 @@ export class MappingService {
   }
 
   /**
+   * Get statistics
+   */
+  async getStatistics() {
+    return await this.repository.getStatistics();
+  }
+
+  /**
    * Create a new node with validation
    */
   async createNode(data: Prisma.MappingNodeCreateInput) {
-    // Add validation logic here if needed (e.g. check duplicate SN if not handled by DB)
     return await this.repository.createNode(data);
   }
 
   /**
-   * Create a new edge with validation
+   * Update a node
+   */
+  async updateNode(nodeId: string, data: Prisma.MappingNodeUpdateInput) {
+    const existing = await this.repository.findNodeById(nodeId);
+    if (!existing) {
+      throw new Error("NODE_NOT_FOUND");
+    }
+    return await this.repository.updateNode(nodeId, data);
+  }
+
+  /**
+   * Create a new edge with capacity validation
    */
   async createEdge(data: Prisma.MappingEdgeUncheckedCreateInput) {
-    // Validate source and target exist? Prisma handles foreign key constraints.
-    // Validate capacity? (As mentioned in the guide)
-    
-    // Example capacity check (simplified):
-    // const sourceNode = await prisma.mappingNode.findUnique({ where: { nodeId: data.source } });
-    // if (sourceNode && sourceNode.capacity > 0) { ... }
-    
+    // Validate source node exists and check capacity
+    const sourceNode = await this.repository.findNodeById(data.source);
+    if (!sourceNode) {
+      throw new Error("SOURCE_NODE_NOT_FOUND");
+    }
+
+    const targetNode = await this.repository.findNodeById(data.target);
+    if (!targetNode) {
+      throw new Error("TARGET_NODE_NOT_FOUND");
+    }
+
+    // Check slot capacity for ODC and ODP nodes
+    if (sourceNode.type === 'odc' || sourceNode.type === 'odp') {
+      if (sourceNode.capacity && sourceNode.capacity > 0) {
+        const currentConnections = await this.repository.countEdgesFromSource(data.source);
+        if (currentConnections >= sourceNode.capacity) {
+          throw new Error(`CAPACITY_FULL:${sourceNode.name}:${currentConnections}/${sourceNode.capacity}`);
+        }
+      }
+    }
+
     return await this.repository.createEdge(data);
+  }
+
+  /**
+   * Update an edge
+   */
+  async updateEdge(edgeId: string, data: Prisma.MappingEdgeUpdateInput) {
+    const existing = await this.repository.findEdgeById(edgeId);
+    if (!existing) {
+      throw new Error("EDGE_NOT_FOUND");
+    }
+    return await this.repository.updateEdge(edgeId, data);
   }
 
   /**
@@ -77,19 +133,24 @@ export class MappingService {
   }
 
   /**
-   * Delete node
+   * Delete node (will also delete connected edges)
    */
   async deleteNode(nodeId: string) {
-    // Prisma cascade delete will handle edges if configured, but our schema didn't specify Cascade on relations explicitly in my update (Wait, I should check).
-    // In my schema update: 
-    // sourceNode MappingNode @relation("SourceNode", fields: [source], references: [nodeId])
-    // No onDelete: Cascade. 
-    // So we might need to delete edges first or handle it.
-    // For now, let's assume we delete edges first or add Cascade later.
+    const existing = await this.repository.findNodeById(nodeId);
+    if (!existing) {
+      throw new Error("NODE_NOT_FOUND");
+    }
     return await this.repository.deleteNode(nodeId);
   }
 
+  /**
+   * Delete edge
+   */
   async deleteEdge(edgeId: string) {
+    const existing = await this.repository.findEdgeById(edgeId);
+    if (!existing) {
+      throw new Error("EDGE_NOT_FOUND");
+    }
     return await this.repository.deleteEdge(edgeId);
   }
 }

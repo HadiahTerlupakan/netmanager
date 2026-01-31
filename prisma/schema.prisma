@@ -3183,6 +3183,7 @@ model MappingEdge {
   edgeId    String   @id @default(uuid()) @map("edge_id")
   source    String
   target    String
+  name      String?  @map("name") // Label for the fiber line
   fiberType String?  @map("fiber_type") // 'odc_to_odc', 'odp_to_odp'
   distance  Float?
   waypoints String? // JSON String: [[lat,lng], [lat,lng]]
