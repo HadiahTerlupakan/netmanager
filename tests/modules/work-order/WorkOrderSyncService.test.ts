@@ -140,6 +140,9 @@ describe('WorkOrderSyncService', () => {
     })
 
     it('should handle multiple work orders with different statuses', async () => {
+      // Clear previous calls to ensure clean state
+      vi.clearAllMocks()
+
       prismaMock.workOrders.findMany.mockResolvedValueOnce([
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'PENDING' },
         { id: 'wo-2', workOrderNumber: 'WO-002', status: 'IN_PROGRESS' },

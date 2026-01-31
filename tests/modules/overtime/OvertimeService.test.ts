@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { OvertimeStatus } from '@prisma/client'
+import { prismaMock } from '../../setup'
 
 // Since OvertimeService has complex dependencies, we'll test the business logic
 // by mocking at the repository level and testing simpler scenarios
@@ -64,6 +65,10 @@ describe('OvertimeService', () => {
         date: new Date(),
         status: OvertimeStatus.PENDING
       })
+
+      // Mock user and admins for notification
+      prismaMock.user.findUnique.mockResolvedValue({ name: 'Test User' } as any)
+      prismaMock.user.findMany.mockResolvedValue([{ id: 'admin-1' }] as any)
 
       const result = await service.createRequest('user-1', {
         date: new Date(),

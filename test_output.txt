@@ -1,0 +1,342 @@
+
+> web@1.0.0 test:run
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/rohadimraja/Documents/netmanager[39m
+
+ [32m✓[39m tests/api/api-response-standardization.test.ts [2m([22m[2m121 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/modules/network/OdpRepository.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/modules/coupons/CouponService.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould skip if no active customers found
+[22m[39m[Billing] Starting automatic invoice generation...
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould skip if no active customers found
+[22m[39m[Billing] Completed. Processed 0 customers, generated 0 invoices.
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould generate invoice for customer with matching due date
+[22m[39m[Billing] Starting automatic invoice generation...
+
+[90mstderr[2m | tests/lib/authorization-middleware.test.ts[2m > [22m[2mAuthorization Middleware[2m > [22m[2mauthorize[2m > [22m[2mshould return 403 when user lacks required permission
+[22m[39m[AUTH] Permission denied {
+  userId: [32m'user-1'[39m,
+  required: [ [32m'users:read'[39m ],
+  requireAll: [33mfalse[39m,
+  userHas: [33m1[39m
+}
+
+[90mstderr[2m | tests/lib/authorization-middleware.test.ts[2m > [22m[2mAuthorization Middleware[2m > [22m[2mauthorize[2m > [22m[2mshould require all permissions when requireAll is true
+[22m[39m[AUTH] Permission denied {
+  userId: [32m'user-1'[39m,
+  required: [ [32m'users:read'[39m, [32m'roles:read'[39m ],
+  requireAll: [33mtrue[39m,
+  userHas: [33m1[39m
+}
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould generate invoice for customer with matching due date
+[22m[39m[Billing] Processing batch 1 (1 customers)
+
+[90mstderr[2m | tests/lib/authorization-middleware.test.ts[2m > [22m[2mAuthorization Middleware[2m > [22m[2mHelper Functions[2m > [22m[2mauthorizeWithAllPermissions should require all permissions
+[22m[39m[AUTH] Permission denied {
+  userId: [32m'user-1'[39m,
+  required: [ [32m'users:read'[39m, [32m'roles:read'[39m ],
+  requireAll: [33mtrue[39m,
+  userHas: [33m1[39m
+}
+
+ [32m✓[39m tests/lib/authorization-middleware.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/lib/rbac.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould skip if feature is disabled
+[22m[39m[AutoIsolation] Starting daily isolation check...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould skip if feature is disabled
+[22m[39m[AutoIsolation] Feature is disabled in settings. Skipping.
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould process overdue customers when feature is enabled
+[22m[39m[AutoIsolation] Starting daily isolation check...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould process overdue customers when feature is enabled
+[22m[39m[AutoIsolation] Found 1 candidates (overdue). Processing...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould process overdue customers when feature is enabled
+[22m[39m[AutoIsolation] Isolating Overdue Customer (Due: Wed Jan 10 2024 07:00:00 GMT+0700 (Western Indonesia Time), Late: 5 days)
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould process overdue customers when feature is enabled
+[22m[39m[AutoIsolation] Finished. Isolated 1 customers.
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould generate invoice for customer with matching due date
+[22m[39m[Billing] Completed. Processed 1 customers, generated 1 invoices.
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould skip if invoice already exists for the period
+[22m[39m[Billing] Starting automatic invoice generation...
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould skip if invoice already exists for the period
+[22m[39m[Billing] Processing batch 1 (1 customers)
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould skip customers with autoIsolir = false
+[22m[39m[AutoIsolation] Starting daily isolation check...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould skip customers with autoIsolir = false
+[22m[39m[AutoIsolation] Found 0 candidates (overdue). Processing...
+[AutoIsolation] Finished. Isolated 0 customers.
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould skip if invoice already exists for the period
+[22m[39m[Billing] Completed. Processed 1 customers, generated 0 invoices.
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould calculate PPN correctly
+[22m[39m[Billing] Starting automatic invoice generation...
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould calculate PPN correctly
+[22m[39m[Billing] Processing batch 1 (1 customers)
+
+[90mstdout[2m | tests/modules/finance/AutomaticBillingService.test.ts[2m > [22m[2mAutomaticBillingService[2m > [22m[2mgenerateDailyInvoices[2m > [22m[2mshould calculate PPN correctly
+[22m[39m[Billing] Completed. Processed 1 customers, generated 1 invoices.
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould skip customers with recent paid invoice
+[22m[39m[AutoIsolation] Starting daily isolation check...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould skip customers with recent paid invoice
+[22m[39m[AutoIsolation] Found 1 candidates (overdue). Processing...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould skip customers with recent paid invoice
+[22m[39m[AutoIsolation] Skipping Customer - has recent paid invoice (INV/2024/01/0001)
+[AutoIsolation] Finished. Isolated 0 customers.
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould isolate customer without paid invoice
+[22m[39m[AutoIsolation] Starting daily isolation check...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould isolate customer without paid invoice
+[22m[39m[AutoIsolation] Found 1 candidates (overdue). Processing...
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould isolate customer without paid invoice
+[22m[39m[AutoIsolation] Isolating Overdue Customer (Due: Wed Jan 10 2024 07:00:00 GMT+0700 (Western Indonesia Time), Late: 5 days)
+
+[90mstdout[2m | tests/modules/finance/AutomaticIsolationService.test.ts[2m > [22m[2mAutomaticIsolationService[2m > [22m[2mrunDailyCheck[2m > [22m[2mshould isolate customer without paid invoice
+[22m[39m[AutoIsolation] Finished. Isolated 1 customers.
+
+ [32m✓[39m tests/modules/finance/AutomaticIsolationService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/modules/finance/AutomaticBillingService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+[90mstderr[2m | tests/modules/overtime/OvertimeService.test.ts[2m > [22m[2mOvertimeService[2m > [22m[2mcreateRequest[2m > [22m[2mshould create overtime request successfully
+[22m[39mFailed to send notification: TypeError: admins is not iterable
+    at OvertimeService.createRequest [90m(/Users/rohadimraja/Documents/netmanager/[39mmodules/overtime/services/OvertimeService.ts:77:33[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at [90m/Users/rohadimraja/Documents/netmanager/[39mtests/modules/overtime/OvertimeService.test.ts:68:22
+    at [90mfile:///Users/rohadimraja/Documents/netmanager/[39mnode_modules/[4m@vitest/runner[24m/dist/index.js:915:20
+
+ [32m✓[39m tests/modules/overtime/OvertimeService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[90mstdout[2m | tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22m[2mWorkOrderRepository[2m > [22m[2mupdateStatus[2m > [22m[2mshould set startedAt when transitioning to IN_PROGRESS
+[22m[39m[WS] Socket server not in this process, using HTTP fallback for workorder:wo-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22m[2mWorkOrderRepository[2m > [22m[2mupdateStatus[2m > [22m[2mshould set completedAt and calculate actualHours when COMPLETED
+[22m[39m[WS] Socket server not in this process, using HTTP fallback for workorder:wo-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22m[2mWorkOrderRepository[2m > [22m[2mupdateStatus[2m > [22m[2mshould set verifiedAt when VERIFIED
+[22m[39m[WS] Socket server not in this process, using HTTP fallback for workorder:wo-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22m[2mWorkOrderRepository[2m > [22m[2mupdateStatus[2m > [22m[2mshould set closedAt when CLOSED
+[22m[39m[WS] Socket server not in this process, using HTTP fallback for workorder:wo-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22m[2mWorkOrderRepository[2m > [22m[2massign[2m > [22m[2mshould set assignedToId and change status to ASSIGNED
+[22m[39m[RepoDebug] Assigning WO wo-1 to user-1 by undefined
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22m[2mWorkOrderRepository[2m > [22m[2mcancel[2m > [22m[2mshould add cancellation note and set status to CANCELLED
+[22m[39m[WS] Socket server not in this process, using HTTP fallback for workorder:wo-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22m[2mWorkOrderRepository[2m > [22m[2mcancel[2m > [22m[2mshould add cancellation note and set status to CANCELLED
+[22m[39m[WS] Socket server not in this process, using HTTP fallback for workorder:wo-1
+
+ [31m❯[39m tests/modules/work-order/WorkOrderRepository.test.ts [2m([22m[2m18 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 68[2mms[22m[39m
+       [32m✓[39m should generate WO number with date prefix[32m 4[2mms[22m[39m
+       [32m✓[39m should always increment counter using unique check[32m 1[2mms[22m[39m
+       [32m✓[39m should create work order with PENDING status[32m 2[2mms[22m[39m
+       [32m✓[39m should set startedAt when transitioning to IN_PROGRESS[32m 31[2mms[22m[39m
+       [32m✓[39m should set completedAt and calculate actualHours when COMPLETED[32m 2[2mms[22m[39m
+       [32m✓[39m should set verifiedAt when VERIFIED[32m 2[2mms[22m[39m
+       [32m✓[39m should set closedAt when CLOSED[32m 2[2mms[22m[39m
+       [32m✓[39m should throw error if work order not found[32m 2[2mms[22m[39m
+       [32m✓[39m should set assignedToId and change status to ASSIGNED[32m 1[2mms[22m[39m
+       [32m✓[39m should clear assignedToId and revert to PENDING[32m 0[2mms[22m[39m
+       [32m✓[39m should add cancellation note and set status to CANCELLED[32m 2[2mms[22m[39m
+       [32m✓[39m should create task with PENDING status[32m 3[2mms[22m[39m
+       [32m✓[39m should set status to COMPLETED and record completedAt[32m 1[2mms[22m[39m
+[31m       [31m×[31m should return aggregated statistics[39m[32m 10[2mms[22m[39m
+       [32m✓[39m should filter by status[32m 1[2mms[22m[39m
+       [32m✓[39m should filter by multiple statuses[32m 1[2mms[22m[39m
+       [32m✓[39m should filter unassigned only[32m 0[2mms[22m[39m
+       [32m✓[39m should search by keyword[32m 0[2mms[22m[39m
+[90mstderr[2m | emitViaHttp (/Users/rohadimraja/Documents/netmanager/lib/websocket/emitter.ts:32:17)
+[22m[39m[WS HTTP] Error emitting workorder:activity: TypeError: fetch failed
+[90m    at node:internal/deps/undici/undici:15845:13[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at emitViaHttp [90m(/Users/rohadimraja/Documents/netmanager/[39mlib/websocket/emitter.ts:19:26[90m)[39m {
+  [cause]: AggregateError: 
+  [90m    at internalConnectMultiple (node:net:1134:18)[39m
+  [90m    at afterConnectMultiple (node:net:1715:7)[39m {
+    code: [32m'ECONNREFUSED'[39m,
+    [errors]: [ [36m[Error][39m, [36m[Error][39m ]
+  }
+}
+
+[90mstderr[2m | emitViaHttp (/Users/rohadimraja/Documents/netmanager/lib/websocket/emitter.ts:32:17)
+[22m[39m[WS HTTP] Error emitting workorder:activity: TypeError: fetch failed
+[90m    at node:internal/deps/undici/undici:15845:13[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at emitViaHttp [90m(/Users/rohadimraja/Documents/netmanager/[39mlib/websocket/emitter.ts:19:26[90m)[39m {
+  [cause]: AggregateError: 
+  [90m    at internalConnectMultiple (node:net:1134:18)[39m
+  [90m    at afterConnectMultiple (node:net:1715:7)[39m {
+    code: [32m'ECONNREFUSED'[39m,
+    [errors]: [ [36m[Error][39m, [36m[Error][39m ]
+  }
+}
+
+[90mstderr[2m | emitViaHttp (/Users/rohadimraja/Documents/netmanager/lib/websocket/emitter.ts:32:17)
+[22m[39m[WS HTTP] Error emitting workorder:activity: TypeError: fetch failed
+[90m    at node:internal/deps/undici/undici:15845:13[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at emitViaHttp [90m(/Users/rohadimraja/Documents/netmanager/[39mlib/websocket/emitter.ts:19:26[90m)[39m {
+  [cause]: AggregateError: 
+  [90m    at internalConnectMultiple (node:net:1134:18)[39m
+  [90m    at afterConnectMultiple (node:net:1715:7)[39m {
+    code: [32m'ECONNREFUSED'[39m,
+    [errors]: [ [36m[Error][39m, [36m[Error][39m ]
+  }
+}
+
+[90mstderr[2m | emitViaHttp (/Users/rohadimraja/Documents/netmanager/lib/websocket/emitter.ts:32:17)
+[22m[39m[WS HTTP] Error emitting workorder:activity: TypeError: fetch failed
+[90m    at node:internal/deps/undici/undici:15845:13[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at emitViaHttp [90m(/Users/rohadimraja/Documents/netmanager/[39mlib/websocket/emitter.ts:19:26[90m)[39m {
+  [cause]: AggregateError: 
+  [90m    at internalConnectMultiple (node:net:1134:18)[39m
+  [90m    at afterConnectMultiple (node:net:1715:7)[39m {
+    code: [32m'ECONNREFUSED'[39m,
+    [errors]: [ [36m[Error][39m, [36m[Error][39m ]
+  }
+}
+
+[90mstderr[2m | emitViaHttp (/Users/rohadimraja/Documents/netmanager/lib/websocket/emitter.ts:32:17)
+[22m[39m[WS HTTP] Error emitting workorder:activity: TypeError: fetch failed
+[90m    at node:internal/deps/undici/undici:15845:13[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at emitViaHttp [90m(/Users/rohadimraja/Documents/netmanager/[39mlib/websocket/emitter.ts:19:26[90m)[39m {
+  [cause]: AggregateError: 
+  [90m    at internalConnectMultiple (node:net:1134:18)[39m
+  [90m    at afterConnectMultiple (node:net:1715:7)[39m {
+    code: [32m'ECONNREFUSED'[39m,
+    [errors]: [ [36m[Error][39m, [36m[Error][39m ]
+  }
+}
+
+[90mstderr[2m | emitViaHttp (/Users/rohadimraja/Documents/netmanager/lib/websocket/emitter.ts:32:17)
+[22m[39m[WS HTTP] Error emitting workorder:activity: TypeError: fetch failed
+[90m    at node:internal/deps/undici/undici:15845:13[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at emitViaHttp [90m(/Users/rohadimraja/Documents/netmanager/[39mlib/websocket/emitter.ts:19:26[90m)[39m {
+  [cause]: AggregateError: 
+  [90m    at internalConnectMultiple (node:net:1134:18)[39m
+  [90m    at afterConnectMultiple (node:net:1715:7)[39m {
+    code: [32m'ECONNREFUSED'[39m,
+    [errors]: [ [36m[Error][39m, [36m[Error][39m ]
+  }
+}
+
+ [32m✓[39m tests/modules/inventory/InventoryRepository.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/lib/timezone.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/modules/attendance/GeofenceService.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/modules/notification/NotificationService.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/modules/roles/RoleService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/modules/pelanggan/PelangganService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/modules/users/UserService.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/lib/site-restriction.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m tests/modules/attendance/AttendanceService.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m tests/api/api-response-integration.test.ts [2m([22m[2m9 tests[22m[2m | [22m[33m7 skipped[39m[2m)[22m[32m 1[2mms[22m[39m
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould do nothing if work order not found
+[22m[39m[SyncService] Syncing WO non-existent-wo status IN_PROGRESS
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould do nothing if work order not found
+[22m[39m[SyncService] WO not found
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould do nothing if work order has no linked ticket
+[22m[39m[SyncService] Syncing WO wo-1 status IN_PROGRESS
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould do nothing if work order has no linked ticket
+[22m[39m[SyncService] WO WO-001 has no ticketId
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould update ticket to IN_PROGRESS when WO status is IN_PROGRESS
+[22m[39m[SyncService] Syncing WO wo-1 status IN_PROGRESS
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould update ticket to IN_PROGRESS when WO status is IN_PROGRESS
+[22m[39m[SyncService] Found linked Ticket ticket-1
+[SyncService] Updating ticket to IN_PROGRESS
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould update ticket to RESOLVED and create report when WO is COMPLETED
+[22m[39m[SyncService] Syncing WO wo-1 status COMPLETED
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould update ticket to RESOLVED and create report when WO is COMPLETED
+[22m[39m[SyncService] Found linked Ticket ticket-1
+[SyncService] Updating ticket to RESOLVED and sending report
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2msyncWoStatusToTicket[2m > [22m[2mshould update ticket to RESOLVED and create report when WO is COMPLETED
+[22m[39m[SyncService] Report sent successfully
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould cancel PENDING work orders
+[22m[39m[SyncService] Closing WOs for Ticket ticket-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould cancel PENDING work orders
+[22m[39m[SyncService] WO WO-001 is PENDING -> CANCELLED
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould close IN_PROGRESS work orders without sending report
+[22m[39m[SyncService] Closing WOs for Ticket ticket-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould close IN_PROGRESS work orders without sending report
+[22m[39m[SyncService] WO WO-001 is IN_PROGRESS -> CLOSED (No Report)
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould archive COMPLETED work orders
+[22m[39m[SyncService] Closing WOs for Ticket ticket-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould archive COMPLETED work orders
+[22m[39m[SyncService] WO WO-001 is COMPLETED -> CLOSED (Archive)
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould handle multiple work orders with different statuses
+[22m[39m[SyncService] Closing WOs for Ticket ticket-1
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould handle multiple work orders with different statuses
+[22m[39m[SyncService] WO WO-001 is PENDING -> CANCELLED
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould handle multiple work orders with different statuses
+[22m[39m[SyncService] WO WO-002 is IN_PROGRESS -> CLOSED (No Report)
+
+[90mstdout[2m | tests/modules/work-order/WorkOrderSyncService.test.ts[2m > [22m[2mWorkOrderSyncService[2m > [22m[2mcloseWoOnTicketClose[2m > [22m[2mshould handle multiple work orders with different statuses
+[22m[39m[SyncService] WO WO-003 is COMPLETED -> CLOSED (Archive)
+
+ [32m✓[39m tests/modules/work-order/WorkOrderSyncService.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/modules/work-order/WorkOrderRepository.test.ts[2m > [22mWorkOrderRepository[2m > [22mgetStatistics[2m > [22mshould return aggregated statistics
+[31m[1mAssertionError[22m: expected +0 to be 100 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 100[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m tests/modules/work-order/WorkOrderRepository.test.ts:[2m359:28[22m[39m
+    [90m357| [39m      [35mconst[39m result [33m=[39m [35mawait[39m repository[33m.[39m[34mgetStatistics[39m()
+    [90m358| [39m
+    [90m359| [39m      [34mexpect[39m(result[33m.[39mtotal)[33m.[39m[34mtoBe[39m([34m100[39m)
+    [90m   | [39m                           [31m^[39m
+    [90m360| [39m      [34mexpect[39m(result[33m.[39mpending)[33m.[39m[34mtoBe[39m([34m10[39m)
+    [90m361| [39m      [34mexpect[39m(result[33m.[39minProgress)[33m.[39m[34mtoBe[39m([34m20[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m19 passed[39m[22m[90m (20)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m317 passed[39m[22m[2m | [22m[33m7 skipped[39m[90m (325)[39m
+[2m   Start at [22m 01:12:05
+[2m   Duration [22m 1.62s[2m (transform 1.09s, setup 538ms, import 2.78s, tests 297ms, environment 1ms)[22m
+

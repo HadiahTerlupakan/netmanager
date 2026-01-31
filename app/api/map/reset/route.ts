@@ -41,7 +41,7 @@ export const DELETE = createHandler({
   }
 
   // Password verified, delete all mapping data
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
     // Delete all edges first (foreign key constraint)
     await tx.mappingEdge.deleteMany({});
 

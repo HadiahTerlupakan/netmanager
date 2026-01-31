@@ -338,21 +338,34 @@ describe('WorkOrderRepository', () => {
 
   describe('getStatistics', () => {
     it('should return aggregated statistics', async () => {
-      prismaMock.workOrders.count.mockResolvedValueOnce(100)
+      // Clear any previous mock setup for this specific method
+      prismaMock.workOrders.count.mockReset()
+
+      // Set up the mock implementation
+      prismaMock.workOrders.count.mockImplementation(async (args) => {
+        // If query has priority filter, it's the "urgentOpen" count
+        if (args?.where?.priority) {
+          return 5
+        }
+        // Otherwise it's the total count (empty where or simple filters)
+        return 100
+      })
+
       prismaMock.workOrders.groupBy.mockResolvedValueOnce([
         { status: 'PENDING', _count: 10 },
         { status: 'IN_PROGRESS', _count: 20 },
         { status: 'COMPLETED', _count: 30 },
         { status: 'CLOSED', _count: 40 }
       ] as unknown as Array<{ status: string; _count: number }>)
+
       prismaMock.workOrders.findMany.mockResolvedValueOnce([
         { startedAt: new Date(Date.now() - 7200000), completedAt: new Date(), actualCost: 100 }
       ] as unknown as WorkOrders[])
+
       prismaMock.workOrders.aggregate.mockResolvedValueOnce({
         _avg: { rating: 4.5 },
         _count: { rating: 50 }
       } as unknown as { _avg: { rating: number }; _count: { rating: number } })
-      prismaMock.workOrders.count.mockResolvedValueOnce(5)
 
       const result = await repository.getStatistics()
 
@@ -362,6 +375,7 @@ describe('WorkOrderRepository', () => {
       expect(result.completed).toBe(30)
       expect(result.closed).toBe(40)
       expect(result.avgRating).toBe(4.5)
+      expect(result.urgentOpen).toBe(5)
     })
   })
 

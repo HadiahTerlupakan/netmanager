@@ -25,6 +25,8 @@ vi.mock('@/lib/logger', () => ({
 describe('AutomaticIsolationService', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    // Reset all mocks before each test to prevent state leakage
+    vi.clearAllMocks() 
     // Set today to Jan 15, 2024
     vi.setSystemTime(new Date('2024-01-15'))
   })

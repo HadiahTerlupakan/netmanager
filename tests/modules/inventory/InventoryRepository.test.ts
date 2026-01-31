@@ -87,18 +87,28 @@ describe('InventoryRepository', () => {
   })
 
   describe('getStockBreakdown', () => {
-    it('should calculate stock breakdown from masuk and keluar records', async () => {
-      // Mock barang masuk
-      prismaMock.barangMasuk.findMany.mockResolvedValueOnce([
-        { kondisi: 'BARU', jumlah: 20 },
-        { kondisi: 'BEKAS', jumlah: 15 },
-        { kondisi: 'RUSAK', jumlah: 5 }
-      ] as unknown as BarangMasuk[])
-
-      // Mock barang keluar (empty - no items taken out)
-      prismaMock.barangKeluar.findMany.mockResolvedValueOnce([] as unknown as BarangKeluar[])
+    it('should return correct stock breakdown from BarangGudang record', async () => {
+      // Mock the pre-calculated stock record from BarangGudang
+      prismaMock.barangGudang.findUnique.mockResolvedValueOnce({
+        stokBaru: 20,
+        stokBekas: 15,
+        stokRusak: 5,
+        stok: 40
+      } as unknown as BarangGudang)
 
       const result = await repository.getStockBreakdown('barang-1', 'gudang-1')
+
+      expect(prismaMock.barangGudang.findUnique).toHaveBeenCalledWith({
+        where: {
+          barangId_gudangId: { barangId: 'barang-1', gudangId: 'gudang-1' }
+        },
+        select: {
+          stokBaru: true,
+          stokBekas: true,
+          stokRusak: true,
+          stok: true
+        }
+      })
 
       expect(result.baru).toBe(20)
       expect(result.bekas).toBe(15)
@@ -106,19 +116,16 @@ describe('InventoryRepository', () => {
       expect(result.total).toBe(40)
     })
 
-    it('should subtract keluar from masuk', async () => {
-      prismaMock.barangMasuk.findMany.mockResolvedValueOnce([
-        { kondisi: 'BARU', jumlah: 50 }
-      ] as unknown as BarangMasuk[])
-
-      prismaMock.barangKeluar.findMany.mockResolvedValueOnce([
-        { kondisi: 'BARU', jumlah: 15 }
-      ] as unknown as BarangKeluar[])
+    it('should return all zeros if no stock record is found', async () => {
+      // Mock that no stock record is found
+      prismaMock.barangGudang.findUnique.mockResolvedValueOnce(null)
 
       const result = await repository.getStockBreakdown('barang-1', 'gudang-1')
 
-      expect(result.baru).toBe(35) // 50 - 15
-      expect(result.total).toBe(35)
+      expect(result.baru).toBe(0)
+      expect(result.bekas).toBe(0)
+      expect(result.rusak).toBe(0)
+      expect(result.total).toBe(0)
     })
   })
 

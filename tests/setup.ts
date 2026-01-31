@@ -103,12 +103,99 @@ export type MockPrismaClient = {
   [key: string]: MockModel | MockFn
 }
 
-// Create deep mock without explicit PrismaClient type to avoid circular reference
-const createMock = () => {
-  // Import PrismaClient dynamically to avoid type issues
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { PrismaClient } = require('@prisma/client')
-  return mockDeep(new PrismaClient())
+// Create deep mock without instantiating real PrismaClient
+// This avoids needing DATABASE_URL for tests
+const createMock = (): MockPrismaClient => {
+  const createMockModel = (): MockModel => ({
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    createMany: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+    upsert: vi.fn(),
+    count: vi.fn(),
+    aggregate: vi.fn(),
+    groupBy: vi.fn(),
+  })
+
+  return mockDeep<MockPrismaClient>({
+    user: createMockModel(),
+    role: createMockModel(),
+    permission: createMockModel(),
+    pelanggan: createMockModel(),
+    invoice: createMockModel(),
+    payment: createMockModel(),
+    paket: createMockModel(),
+    bandwidth: createMockModel(),
+    mikrotikRouter: createMockModel(),
+    attendance: createMockModel(),
+    leave: createMockModel(),
+    workOrders: createMockModel(),
+    supportTickets: createMockModel(),
+    ticketReplies: createMockModel(),
+    inventory: createMockModel(),
+    site: createMockModel(),
+    department: createMockModel(),
+    notifications: createMockModel(),
+    announcement: createMockModel(),
+    leaveBalance: createMockModel(),
+    overtime: createMockModel(),
+    shift: createMockModel(),
+    holiday: createMockModel(),
+    salary: createMockModel(),
+    salaryComponent: createMockModel(),
+    canvasing: createMockModel(),
+    pointClaim: createMockModel(),
+    coupon: createMockModel(),
+    purchaseOrder: createMockModel(),
+    purchaseRequest: createMockModel(),
+    supplier: createMockModel(),
+    odc: createMockModel(),
+    odcOutput: createMockModel(),
+    odp: createMockModel(),
+    odpOutput: createMockModel(),
+    onu: createMockModel(),
+    onuType: createMockModel(),
+    barang: createMockModel(),
+    gudang: createMockModel(),
+    stokBarang: createMockModel(),
+    barangGudang: createMockModel(),
+    barangMasuk: createMockModel(),
+    barangKeluar: createMockModel(),
+    transferBarang: createMockModel(),
+    stockOpname: createMockModel(),
+    asset: createMockModel(),
+    speedProfile: createMockModel(),
+    profilePpp: createMockModel(),
+    hargaPaket: createMockModel(),
+    registration: createMockModel(),
+    systemLog: createMockModel(),
+    loginLog: createMockModel(),
+    appVersion: createMockModel(),
+    settings: createMockModel(),
+    locationHistory: createMockModel(),
+    workOrderTasks: createMockModel(),
+    workOrderAssignments: createMockModel(),
+    workOrderUpdates: createMockModel(),
+    workOrderComment: createMockModel(),
+    workOrderAttachment: createMockModel(),
+    workOrderMaterial: createMockModel(),
+    workOrderTemplate: createMockModel(),
+    workOrderSla: createMockModel(),
+    workOrderEscalation: createMockModel(),
+    chatMessage: createMockModel(),
+    conversation: createMockModel(),
+    pushToken: createMockModel(),
+    $connect: vi.fn(),
+    $disconnect: vi.fn(),
+    $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
+    $executeRaw: vi.fn(),
+  })
 }
 
 // Export with simplified type - the actual mock still has all Prisma methods
