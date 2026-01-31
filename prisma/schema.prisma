@@ -3159,53 +3159,53 @@ model WorkOrderTemplateItem {
 // ==================== MAPPING MODELS ====================
 
 model MappingNode {
-  id        String   @id @default(uuid())
-  name      String
-  type      String // SERVER, ODC, ODP, ONT
-  latitude  Float
-  longitude Float
-  sn        String?  @unique
-  pppoe     String?  @unique
-  model     String?
-  capacity  Int? // Untuk ODC/ODP
-  splitter  String?
-  used      Int      @default(0)
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  nodeId       String   @id @map("node_id")
+  type         String // 'olt', 'odc', 'odp', 'ont'
+  name         String?
+  latitude     Float?
+  longitude    Float?
+  capacity     Int      @default(0)
+  splitter     String?
+  pppoe        String?
+  serialNumber String?  @map("serialnumber")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
-  // Edges dimana node ini adalah sumber
-  edgesFrom MappingEdge[] @relation("SourceNode")
-  // Edges dimana node ini adalah target
-  edgesTo   MappingEdge[] @relation("TargetNode")
+  // Relations
+  outgoingEdges MappingEdge[] @relation("SourceNode")
+  incomingEdges MappingEdge[] @relation("TargetNode")
 
   @@map("mapping_nodes")
 }
 
 model MappingEdge {
-  id        String   @id @default(uuid())
-  sourceId  String
-  targetId  String
-  type      String // FIBER_SERVER_ODC, FIBER_ODC_ODP, FIBER_ODP_ONT, etc.
-  fiberType String?
-  color     String   @default("#3388ff")
-  waypoints Json? // Array koordinat [{lat, lng}, ...] untuk jalur kabel
-  distance  Float? // Jarak dalam meter
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  edgeId    String   @id @default(uuid()) @map("edge_id")
+  source    String
+  target    String
+  fiberType String?  @map("fiber_type") // 'odc_to_odc', 'odp_to_odp'
+  distance  Float?
+  waypoints String? // JSON String: [[lat,lng], [lat,lng]]
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  source MappingNode @relation("SourceNode", fields: [sourceId], references: [id], onDelete: Cascade)
-  target MappingNode @relation("TargetNode", fields: [targetId], references: [id], onDelete: Cascade)
+  sourceNode MappingNode @relation("SourceNode", fields: [source], references: [nodeId])
+  targetNode MappingNode @relation("TargetNode", fields: [target], references: [nodeId])
 
+  @@index([source])
+  @@index([target])
   @@map("mapping_edges")
 }
 
-model MappingSettings {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     Json
-  updatedAt DateTime @updatedAt
+model MapSettings {
+  id          Int      @id @default(autoincrement())
+  centerLat   String?  @map("center_lat")
+  centerLng   String?  @map("center_lng")
+  maxZoomIn   String?  @map("max_zoom_in")
+  maxZoomOut  String?  @map("max_zoom_out")
+  defaultZoom String?  @map("default_zoom")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
-  @@map("mapping_settings")
+  @@map("map_settings")
 }

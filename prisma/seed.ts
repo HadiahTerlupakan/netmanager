@@ -780,6 +780,94 @@ async function main() {
       console.log('   ℹ️  Account: Bank BCA (Already exists)')
   }
 
+  // ========================================================================
+  // STEP 11: NETWORK MAP (Initial Data)
+  // ========================================================================
+  console.log('\n🗺️ STEP 11: Seeding Network Map...')
+
+  // 11.1 Map Settings
+  await prisma.mapSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+        id: 1,
+        centerLat: '-6.2088',
+        centerLng: '106.8456',
+        defaultZoom: '13',
+    }
+  })
+  console.log('   ✅ Map Settings: Default Jakarta')
+
+  // 11.2 Mapping Nodes (ODC & ODP)
+  await prisma.mappingNode.upsert({
+    where: { nodeId: 'ODC-HQ' },
+    update: {},
+    create: {
+        nodeId: 'ODC-HQ',
+        name: 'ODC Headquarters',
+        type: 'odc',
+        latitude: -6.2088,
+        longitude: 106.8456,
+        capacity: 144
+    }
+  })
+  console.log('   ✅ Node: ODC-HQ')
+
+  await prisma.mappingNode.upsert({
+    where: { nodeId: 'ODP-JKT01-01' },
+    update: {},
+    create: {
+        nodeId: 'ODP-JKT01-01',
+        name: 'ODP Sudirman 01',
+        type: 'odp',
+        latitude: -6.2100,
+        longitude: 106.8400,
+        capacity: 16
+    }
+  })
+  console.log('   ✅ Node: ODP-JKT01-01')
+
+  await prisma.mappingNode.upsert({
+    where: { nodeId: 'ODP-JKT01-02' },
+    update: {},
+    create: {
+        nodeId: 'ODP-JKT01-02',
+        name: 'ODP Thamrin 02',
+        type: 'odp',
+        latitude: -6.2120,
+        longitude: 106.8480,
+        capacity: 16
+    }
+  })
+  console.log('   ✅ Node: ODP-JKT01-02')
+
+  // 11.3 Mapping Edges (Fiber Cables)
+  await prisma.mappingEdge.upsert({
+    where: { edgeId: 'EDGE-001' },
+    update: {},
+    create: {
+        edgeId: 'EDGE-001',
+        source: 'ODC-HQ',
+        target: 'ODP-JKT01-01',
+        fiberType: '48 core',
+        distance: 800
+    }
+  })
+  console.log('   ✅ Edge: HQ -> ODP 01')
+
+  await prisma.mappingEdge.upsert({
+    where: { edgeId: 'EDGE-002' },
+    update: {},
+    create: {
+        edgeId: 'EDGE-002',
+        source: 'ODC-HQ',
+        target: 'ODP-JKT01-02',
+        fiberType: '24 core',
+        distance: 650
+    }
+  })
+  console.log('   ✅ Edge: HQ -> ODP 02')
+
 }
 
 main()

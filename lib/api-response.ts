@@ -3,7 +3,7 @@
  * Standardizes API response format across the application
  */
 
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 
 /**
  * Standard success response format
@@ -113,28 +113,33 @@ export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes]
 /**
  * Helper to wrap async route handlers with error handling
  */
-export function withErrorHandler<T>(
-    handler: () => Promise<NextResponse<T>>
-): Promise<NextResponse<T | ErrorResponse>> {
-    return handler().catch((error: unknown) => {
-        console.error('[API Error]', error)
-        
-        if (error instanceof Error) {
-            // Check for known error types
-            if (error.message === 'NO_ACTIVE_SESSION') {
-                return apiError('Tidak ada sesi aktif', ErrorCodes.NO_ACTIVE_SESSION, { status: 404 })
+// Helper to wrap async route handlers with error handling
+export function withErrorHandler(
+    handler: (req: NextRequest, context?: unknown) => Promise<NextResponse<unknown>>
+) {
+    return async (req: NextRequest, context?: unknown): Promise<NextResponse<unknown>> => {
+        try {
+            return await handler(req, context)
+        } catch (error: unknown) {
+            console.error('[API Error]', error)
+            
+            if (error instanceof Error) {
+                // Check for known error types
+                if (error.message === 'NO_ACTIVE_SESSION') {
+                    return apiError('Tidak ada sesi aktif', ErrorCodes.NO_ACTIVE_SESSION, { status: 404 })
+                }
+                if (error.message === 'ALREADY_CHECKED_IN') {
+                    return apiError('Anda sudah check-in hari ini', ErrorCodes.ALREADY_CHECKED_IN, { status: 409 })
+                }
             }
-            if (error.message === 'ALREADY_CHECKED_IN') {
-                return apiError('Anda sudah check-in hari ini', ErrorCodes.ALREADY_CHECKED_IN, { status: 409 })
-            }
+            
+            return apiError(
+                'Terjadi kesalahan pada server',
+                ErrorCodes.INTERNAL_ERROR,
+                { status: 500 }
+            )
         }
-        
-        return apiError(
-            'Terjadi kesalahan pada server',
-            ErrorCodes.INTERNAL_ERROR,
-            { status: 500 }
-        )
-    })
+    }
 }
 
 /**
