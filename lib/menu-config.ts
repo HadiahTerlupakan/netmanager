@@ -45,8 +45,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'NETWORK.MAP', name: 'Topology Map', path: '/admin/map', icon: 'HiOutlineMap' },
             { code: 'NETWORK.MIKROTIK', name: 'MikroTik', path: '/admin/network/mikrotik', icon: 'HiOutlineServer' },
             { code: 'NETWORK.RADIUS', name: 'RADIUS', path: '/admin/network/radius', icon: 'HiOutlineKey' },
-            { code: 'NETWORK.SPEEDPROFILES', name: 'Speed Profiles', path: '/admin/network/speedprofiles', icon: 'HiOutlineBolt' },
-            { code: 'NETWORK.VLAN', name: 'VLAN', path: '/admin/network/vlan', icon: 'HiOutlineLink' },
         ],
     },
     {

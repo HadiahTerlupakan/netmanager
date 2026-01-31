@@ -183,15 +183,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Radius server'
     },
-    olt: {
-        actions: ['read', 'create', 'update', 'delete', 'site_only'],
-        description: 'OLT devices'
-    },
-    onu: {
-        actions: ['read', 'create', 'update', 'delete', 'site_only'],
-        description: 'ONU devices'
-    },
-    
+
     // ====== PELANGGAN ======
     pelanggan: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],

@@ -1,7 +1,5 @@
 import { UserRepository } from './UserRepository'
 import type { IUserRepository } from './IUserRepository'
-import { OLTRepository } from '@/modules/network/repositories'
-import type { IOLTRepository } from '@/modules/network/repositories'
 import { OtbRepository } from '@/modules/network/repositories'
 import type { IOtbRepository } from '@/modules/network/repositories'
 import { OdcRepository } from '@/modules/network/repositories'
@@ -14,12 +12,6 @@ import { PoleRepository } from '@/modules/network/repositories'
 import type { IPoleRepository } from '@/modules/network/repositories'
 import { KmzRepository } from '@/modules/network/repositories'
 import type { IKmzRepository } from '@/modules/network/repositories'
-import { OnuRepository } from '@/modules/network/repositories'
-import type { IOnuRepository } from '@/modules/network/repositories'
-import { OnuTypeRepository } from '@/modules/network/repositories'
-import type { IOnuTypeRepository } from '@/modules/network/repositories'
-import { SpeedProfileRepository } from '@/modules/network/repositories'
-import type { ISpeedProfileRepository } from '@/modules/network/repositories'
 import { MikroTikRouterRepository } from '@/modules/network/repositories'
 import type { IMikroTikRouterRepository } from '@/modules/network/repositories'
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository'
@@ -40,16 +32,12 @@ import { AttendanceRepository } from '@/modules/attendance/repositories/Attendan
 import { prisma } from '@/lib/prisma'
 
 let userRepositoryInstance: IUserRepository | null = null
-let oltRepositoryInstance: IOLTRepository | null = null
 let otbRepositoryInstance: IOtbRepository | null = null
 let odcRepositoryInstance: IOdcRepository | null = null
 let odpRepositoryInstance: IOdpRepository | null = null
 let joinboxRepositoryInstance: IJoinboxRepository | null = null
 let poleRepositoryInstance: IPoleRepository | null = null
 let kmzRepositoryInstance: IKmzRepository | null = null
-let onuRepositoryInstance: IOnuRepository | null = null
-let onuTypeRepositoryInstance: IOnuTypeRepository | null = null
-let speedProfileRepositoryInstance: ISpeedProfileRepository | null = null
 let mikroTikRouterRepositoryInstance: IMikroTikRouterRepository | null = null
 let pengeluaranRepositoryInstance: IPengeluaranRepository | null = null
 let pemasukanRepositoryInstance: IPemasukanRepository | null = null
@@ -59,13 +47,6 @@ export function getUserRepository(): IUserRepository {
     userRepositoryInstance = new UserRepository()
   }
   return userRepositoryInstance
-}
-
-export function getOLTRepository(): IOLTRepository {
-  if (!oltRepositoryInstance) {
-    oltRepositoryInstance = new OLTRepository()
-  }
-  return oltRepositoryInstance
 }
 
 export function getOtbRepository(): IOtbRepository {
@@ -110,27 +91,6 @@ export function getKmzRepository(): IKmzRepository {
   return kmzRepositoryInstance
 }
 
-export function getOnuRepository(): IOnuRepository {
-  if (!onuRepositoryInstance) {
-    onuRepositoryInstance = new OnuRepository()
-  }
-  return onuRepositoryInstance
-}
-
-export function getOnuTypeRepository(): IOnuTypeRepository {
-  if (!onuTypeRepositoryInstance) {
-    onuTypeRepositoryInstance = new OnuTypeRepository()
-  }
-  return onuTypeRepositoryInstance
-}
-
-export function getSpeedProfileRepository(): ISpeedProfileRepository {
-  if (!speedProfileRepositoryInstance) {
-    speedProfileRepositoryInstance = new SpeedProfileRepository()
-  }
-  return speedProfileRepositoryInstance
-}
-
 export function getMikroTikRouterRepository(): IMikroTikRouterRepository {
   if (!mikroTikRouterRepositoryInstance) {
     mikroTikRouterRepositoryInstance = new MikroTikRouterRepository()
@@ -163,8 +123,6 @@ export function getPemasukanRepository(): IPemasukanRepository {
 
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
-export { OLTRepository } from '@/modules/network/repositories'
-export type { IOLTRepository, OLTCreateData, OLTUpdateData, OLTPublic } from '@/modules/network/repositories'
 export { OtbRepository } from '@/modules/network/repositories'
 export type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from '@/modules/network/repositories'
 export { OdcRepository } from '@/modules/network/repositories'
@@ -177,12 +135,6 @@ export { PoleRepository } from '@/modules/network/repositories'
 export type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from '@/modules/network/repositories'
 export { KmzRepository } from '@/modules/network/repositories'
 export type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from '@/modules/network/repositories'
-export { OnuRepository } from '@/modules/network/repositories'
-export type { IOnuRepository, OnuCreateData, OnuUpdateData, OnuPublic } from '@/modules/network/repositories'
-export { OnuTypeRepository } from '@/modules/network/repositories'
-export type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from '@/modules/network/repositories'
-export { SpeedProfileRepository } from '@/modules/network/repositories'
-export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from '@/modules/network/repositories'
 export { MikroTikRouterRepository } from '@/modules/network/repositories'
 export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from '@/modules/network/repositories'
 export { RadiusRepository } from '@/modules/network/repositories/RadiusRepository'
@@ -268,4 +220,3 @@ export function getPointClaimService(): PointClaimService {
   }
   return pointClaimServiceInstance
 }
-

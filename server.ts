@@ -15,7 +15,6 @@ import { initializeSocketServer } from './lib/websocket/server'
 import cron from 'node-cron'
 import type { ScheduledTask } from 'node-cron'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
-import { stopOnuMonitoring } from './modules/network/services/OnuMonitor'
 import { prisma } from './lib/prisma'
 
 const dev = process.env.NODE_ENV !== 'production'
@@ -328,27 +327,12 @@ app.prepare().then(() => {
         startRadiusMonitoring(io)
     }).catch(err => console.error('[Server] Failed to start Radius monitoring:', err))
 
-    // Start ONU Monitoring Service
-    import('./modules/network/services/OnuMonitor').then(({ startOnuMonitoring }) => {
-        startOnuMonitoring(io)
-    }).catch(err => console.error('[Server] Failed to start ONU monitoring:', err))
-
-    // Inject IO into OnuService for API-triggered updates
-    import('./modules/network/services/OnuService').then(({ getOnuService }) => {
-        getOnuService().setSocketServer(io)
-    })
-
     // Start MikroTik Monitoring Service
     import('./modules/network/services/MikroTikMonitor').then(({ mikroTikMonitor }) => {
         mikroTikMonitorRef = mikroTikMonitor
         mikroTikMonitor.setSocketServer(io)
         mikroTikMonitor.start()
     }).catch(err => console.error('[Server] Failed to start MikroTik monitoring:', err))
-
-    // Inject IO into OltSyncService
-    import('./modules/network/services/OltSyncService').then(({ getOltSyncService }) => {
-        getOltSyncService().setSocketServer(io)
-    })
 
     // Start Automatic Billing Service (Daily at 01:00 AM)
     import('./modules/finance/services/AutomaticBillingService').then(({ AutomaticBillingService }) => {
@@ -433,7 +417,6 @@ app.prepare().then(() => {
         // 2. Stop Monitoring Services
         try {
             stopRadiusMonitoring()
-            stopOnuMonitoring()
             if (mikroTikMonitorRef) {
                 mikroTikMonitorRef.stop()
             }

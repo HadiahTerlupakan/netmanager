@@ -532,153 +532,6 @@ model OdpOutput {
   @@unique([odpId, idx])
 }
 
-model Olt {
-  id                     String                  @id
-  name                   String
-  ipAddress              String                  @unique
-  type                   String
-  version                String?
-  temperature            Int?
-  connectedDevices       Int                     @default(0)
-  model                  String?
-  uptime                 String?
-  syncStatus             String                  @default("0")
-  syncDate               DateTime?
-  telnetConnected        Boolean                 @default(false)
-  snmpConnected          Boolean                 @default(false)
-  snmpCommunityWrite     String                  @default("public")
-  snmpVersion            String                  @default("2")
-  snmpPort               Int                     @default(161)
-  telnetUsername         String                  @default("zte")
-  telnetPassword         String
-  telnetPort             Int                     @default(23)
-  onuLastSync            DateTime?
-  onuSyncEnabled         Boolean                 @default(true)
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime
-  siteId                 String?
-  site                   Sites?                  @relation(fields: [siteId], references: [id])
-  onu                    Onu[]
-  onuType                OnuType[]
-  speedProfile           SpeedProfile[]
-  configuration_restores ConfigurationRestores[]
-  network_alerts         NetworkAlerts[]
-  network_performance    NetworkPerformance[]
-
-  @@index([siteId])
-}
-
-model Onu {
-  id                     String                  @id
-  oltId                  String
-  name                   String
-  description            String?
-  pppoe                  String?
-  gponOnu                String
-  status                 String
-  rxOlt                  String?
-  rxOnu                  String?
-  serialNumber           String?
-  actualType             String?
-  lastUpdate             DateTime                @default(now())
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime
-  authMode               String?
-  batteryStatus          String?
-  configState            String?
-  distance               Float?
-  dyingGaspTime          DateTime?
-  equipmentId            String?
-  firmwareVersion        String?
-  hardwareVersion        String?
-  laserBiasCurrent       Float?
-  lastDeregTime          DateTime?
-  lastSeen               DateTime?
-  loid                   String?
-  macAddress             String?
-  opticalTransceiverType String?
-  password               String?
-  powerLevel             String?
-  registerTime           DateTime?
-  registrationMode       String?
-  rxBytes                BigInt?
-  rxDrops                BigInt?
-  rxErrors               BigInt?
-  rxPackets              BigInt?
-  rxPowerStatus          String?
-  softwareVersion        String?
-  temperature            Float?
-  txBytes                BigInt?
-  txDrops                BigInt?
-  txErrors               BigInt?
-  txOlt                  String?
-  txOnu                  String?
-  txPackets              BigInt?
-  txPowerStatus          String?
-  vendorId               String?
-  wifiChannel            Int?
-  wifiEnable             Boolean?
-  wifiSecurityMode       String?
-  wifiSsid               String?
-  compositeIndex         Int?
-  descOid                String?
-  nameOid                String?
-  rxOltOid               String?
-  rxOnuOid               String?
-  statusOid              String?
-  olt                    Olt                     @relation(fields: [oltId], references: [id], onDelete: Cascade)
-  configuration_restores ConfigurationRestores[]
-  network_alerts         NetworkAlerts[]
-  network_performance    NetworkPerformance[]
-
-  @@unique([oltId, gponOnu])
-  @@index([lastSeen])
-  @@index([lastUpdate])
-  @@index([macAddress])
-  @@index([oltId, gponOnu])
-  @@index([oltId])
-  @@index([oltId, lastUpdate])
-  @@index([oltId, status])
-  @@index([registerTime])
-  @@index([serialNumber])
-  @@index([status])
-  @@index([status, lastUpdate])
-}
-
-model OnuType {
-  id                    String   @id
-  oltId                 String
-  name                  String
-  ethernetPorts         Int      @default(0)
-  wifi                  Int      @default(0)
-  voipPorts             Int      @default(0)
-  ponType               String?
-  description           String?
-  maxTcont              Int?
-  maxGemPort            Int?
-  maxSwitchPerSlot      Int?
-  maxFlowPerSwitch      Int?
-  maxIpHost             Int?
-  maxIpv6Host           Int?
-  serviceAbilityN1      String?
-  serviceAbility1M      String?
-  serviceAbility1P      String?
-  wifiMgmtViaNonOmci    String?
-  omciSendMode          String?
-  defaultMulticastRange String?
-  vrg                   String?
-  mgcConfigureMode      String?
-  maxVeip               Int?
-  extendedOmci          String?
-  location              String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime
-  olt                   Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
-
-  @@unique([oltId, name])
-  @@index([oltId])
-}
-
 model Otb {
   id                          String    @id
   name                        String
@@ -1007,26 +860,6 @@ model Settings {
   @@index([key])
 }
 
-model SpeedProfile {
-  id           String   @id
-  oltId        String
-  profileType  String   @default("Download")
-  name         String
-  type         Int
-  bandwidthSir Int
-  burstPir     Int
-  fixed        Int?
-  assured      Int?
-  maximum      Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime
-  olt          Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
-
-  @@unique([oltId, profileType, name])
-  @@index([oltId])
-  @@index([profileType])
-}
-
 model SystemLog {
   id        String   @id
   type      LogType
@@ -1308,12 +1141,8 @@ model ConfigurationRestores {
   verifiedAt      DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
-  oltId           String?
-  onuId           String?
   mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_mikrotik_fkey")
   device_backups  DeviceBackups  @relation(fields: [backupId], references: [id], onDelete: Cascade)
-  olt             Olt?           @relation(fields: [oltId], references: [id])
-  onu             Onu?           @relation(fields: [onuId], references: [id])
 
   @@index([backupId])
   @@index([createdAt])
@@ -1462,11 +1291,7 @@ model NetworkAlerts {
   isActive        Boolean        @default(true)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
-  oltId           String?
-  onuId           String?
   mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_mikrotik_fkey")
-  olt             Olt?           @relation(fields: [oltId], references: [id])
-  onu             Onu?           @relation(fields: [onuId], references: [id])
 
   @@index([alertType])
   @@index([createdAt])
@@ -1502,11 +1327,7 @@ model NetworkPerformance {
   customMetrics   Json?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
-  oltId           String?
-  onuId           String?
   mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_mikrotik_fkey")
-  olt             Olt?           @relation(fields: [oltId], references: [id])
-  onu             Onu?           @relation(fields: [onuId], references: [id])
 
   @@index([deviceId, deviceType])
   @@index([deviceId, timestamp])
@@ -1853,7 +1674,6 @@ model Sites {
   mikrotikRouter       MikroTikRouter[]
   odcs                 Odc[]
   odps                 Odp[]
-  olts                 Olt[]
   otbs                 Otb[]
   pelanggan            Pelanggan[]
   poles                Pole[]

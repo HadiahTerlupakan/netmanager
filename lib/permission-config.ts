@@ -1,6 +1,6 @@
 export const PERMISSION_GROUPS = {
     DASHBOARD: ['dashboard'],
-    NETWORK: ['network', 'map', 'mikrotik', 'radius', 'speedprofiles', 'vlan'],
+    NETWORK: ['network', 'map', 'mikrotik', 'radius'],
     PAKET: ['paket', 'bandwidth', 'profileppp', 'harga'],
     PELANGGAN: ['pelanggan', 'ppp', 'registration'],
     INVENTORY: ['inventory', 'barang', 'masuk', 'keluar', 'transfer', 'restock', 'opname', 'gudang', 'assets'],
