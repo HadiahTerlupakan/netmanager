@@ -842,7 +842,7 @@ export default function NetworkMapInteractive() {
     }`;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-100 dark:bg-gray-900">
+    <div className="flex flex-col h-[calc(100vh-150px)] bg-gray-100 dark:bg-gray-900">
       {/* Top Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
         <div className="flex items-center justify-between">
@@ -1227,8 +1227,8 @@ export default function NetworkMapInteractive() {
                   const connected = getConnectedDevices(node.nodeId);
 
                   // Get connected node names
-                  const connectedFromNodes = connected.connectedFrom.map(id => nodes.find(n => n.nodeId === id)).filter(Boolean);
-                  const connectedToNodes = connected.connectedTo.map(id => nodes.find(n => n.nodeId === id)).filter(Boolean);
+                  const connectedFromNodes = Array.from(new Set(connected.connectedFrom)).map(id => nodes.find(n => n.nodeId === id)).filter(Boolean);
+                  const connectedToNodes = Array.from(new Set(connected.connectedTo)).map(id => nodes.find(n => n.nodeId === id)).filter(Boolean);
 
                   // Calculate slot usage based on splitter
                   const getSplitterCapacity = (splitter: string | null) => {
