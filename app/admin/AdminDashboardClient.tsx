@@ -7,7 +7,7 @@ import { HiOutlineUsers } from 'react-icons/hi2'
 import { HiOutlineServer } from 'react-icons/hi2'
 import { DashboardSocketUpdate } from '@/components/dashboard/DashboardSocketUpdate'
 import DashboardSiteTable from '@/components/dashboard/DashboardSiteTable'
-import { getTopEmployees, getTopProblematicSites, getTopDismantleSites, getTopInstallationSites } from '@/app/admin/_services/dashboard'
+import { getDashboardService } from '@/modules/admin/services/DashboardService'
 
 
 // Force dynamic rendering to avoid database queries during build
@@ -87,10 +87,12 @@ export async function ClientComponent() {
   const routerRepository = getMikroTikRouterRepository()
 
   const routerStats = await routerRepository.getStatistics()
-  const topEmployees = await getTopEmployees()
-  const topProblematicSites = await getTopProblematicSites()
-  const topDismantleSites = await getTopDismantleSites()
-  const topInstallationSites = await getTopInstallationSites()
+
+  const dashboardService = getDashboardService()
+  const topEmployees = await dashboardService.getTopEmployees()
+  const topProblematicSites = await dashboardService.getTopProblematicSites()
+  const topDismantleSites = await dashboardService.getTopDismantleSites()
+  const topInstallationSites = await dashboardService.getTopInstallationSites()
 
   return (
     <div className="space-y-6">

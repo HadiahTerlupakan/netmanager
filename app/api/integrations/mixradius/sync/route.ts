@@ -1,8 +1,8 @@
 
 import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { syncService } from '@/modules/integrations/mixradius/SyncService'
-import type { MixRadiusCustomerDetail } from '@/modules/integrations/mixradius/MixRadiusService'
+import { syncService } from '@/modules/integrations/services/MixRadiusSyncService'
+import type { MixRadiusCustomerDetail } from '@/modules/integrations/services/MixRadiusService'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 export async function POST(req: NextRequest) {

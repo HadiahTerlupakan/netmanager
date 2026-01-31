@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getMixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 

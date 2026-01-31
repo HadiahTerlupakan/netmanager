@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { MappingService } from "@/lib/services/MappingService";
+import { MappingService } from "@/modules/map/services/MappingService";
 
 const service = new MappingService();
 

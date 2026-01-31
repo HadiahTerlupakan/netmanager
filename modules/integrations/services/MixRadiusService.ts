@@ -3,7 +3,7 @@ import type { MixRadiusOwnerGroup } from '@prisma/client'
 import axios, { type AxiosInstance } from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import { CookieJar } from 'tough-cookie'
-import { mixRadiusConfigRepo } from '@/modules/integrations/mixradius/MixRadiusConfigRepository'
+import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
 import { LRUCache } from '@/lib/utils/lru-cache'
 
 // Types

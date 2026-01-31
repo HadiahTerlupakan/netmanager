@@ -1,7 +1,7 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { supportTicketFilterSchema } from '@/lib/validations/support-ticket'
 import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
-import { getSiteFilter } from '@/lib/site-restriction'
+import { getSiteFilter } from '@/modules/roles'
 import { logger } from '@/lib/logger'
 
 /**

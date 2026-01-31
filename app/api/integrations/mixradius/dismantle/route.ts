@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { MixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
+import { MixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'

@@ -106,3 +106,35 @@ tmp/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Debug/Test Screenshots
+*.png
+!public/**/*.png
+!components/**/*.png
+
+# Lint Reports
+lint_output.txt
+lint_report.json
+lint_report.txt
+
+# Build Logs
+build-output.log
+firebase-debug.log
+typescript-errors.log
+
+# Test Results
+/playwright-report/
+/test-results/
+
+# IDE/Editor folders
+.agent/
+.claude/
+.cursor/
+.kilocode/
+.playwright-mcp/
+.expo/
+
+# Temporary
+/tmp/
+/plans/
+

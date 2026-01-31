@@ -2,7 +2,7 @@
 import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { logger } from '@/lib/logger'
-import { mixRadiusConfigRepo } from '@/modules/integrations/mixradius/MixRadiusConfigRepository'
+import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
-import { MixRadiusService } from '@/modules/integrations/mixradius';
+import { MixRadiusService } from '@/modules/integrations';
 
 /**
  * GET /api/mobile/mixradius/customers

@@ -2,7 +2,7 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { getUserService } from '@/modules/users'
 import { createUserSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
-import { getSiteFilter, checkSiteRestriction } from '@/lib/site-restriction'
+import { getSiteFilter, checkSiteRestriction } from '@/modules/roles'
 import { prisma } from '@/lib/prisma'
 import type { Session } from 'next-auth'
 

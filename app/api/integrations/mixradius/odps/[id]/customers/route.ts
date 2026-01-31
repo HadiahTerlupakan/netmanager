@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { getMixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 async function requireAuth() {

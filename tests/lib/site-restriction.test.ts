@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest'
 import type { Session } from 'next-auth'
 import {
     checkSiteRestriction,
-    getSiteFilter, 
-    canAccessSite, 
+    getSiteFilter,
+    canAccessSite,
     validateSiteAccess,
-    buildSiteWhereClause 
-} from '@/lib/site-restriction'
+    buildSiteWhereClause
+} from '@/modules/roles'
 
 // Mock session factory
 const mockSession = (overrides: Record<string, unknown> = {}) => ({

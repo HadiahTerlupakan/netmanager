@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { MappingService } from "@/lib/services/MappingService";
+import { MappingService } from "@/modules/map/services/MappingService";
 import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
 import { verifyAuth } from "@/lib/auth";
 import { z } from "zod";

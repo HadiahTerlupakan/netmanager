@@ -1,5 +1,5 @@
 
-import { MappingRepository } from "@/lib/repositories/MappingRepository";
+import { MappingRepository } from "@/modules/map/repositories/MappingRepository";
 import { Prisma } from "@prisma/client";
 
 export class MappingService {
