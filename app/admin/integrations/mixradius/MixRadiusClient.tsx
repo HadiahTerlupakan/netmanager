@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { 
-  HiOutlineArrowPath, 
+import {
+  HiOutlineArrowPath,
   HiOutlineMagnifyingGlass,
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
@@ -11,16 +11,14 @@ import {
   HiOutlineXCircle,
   HiOutlineClock,
   HiOutlineEye,
-  HiOutlineXMark,
   HiUserCircle,
   HiWifi,
   HiClock,
   HiBolt
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
-import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
-import { usePermission } from '@/hooks/use-permission'
 
 interface MixRadiusCustomerDetail {
   id: string
@@ -97,13 +95,17 @@ interface MixRadiusResponse {
   data: MixRadiusCustomer[]
 }
 
+interface MixRadiusGroup {
+  id: string
+  name: string
+}
+
 export interface MixRadiusClientProps {
   defaultStatus?: string
   viewMode?: 'default' | 'isolir'
 }
 
 export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }: MixRadiusClientProps) {
-  const { hasPermission } = usePermission() 
   const [data, setData] = useState<MixRadiusCustomer[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -114,7 +116,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [onlineFilter, setOnlineFilter] = useState('all') // all, online, offline
   const [owners, setOwners] = useState<string[]>([])
   const [selectedOwner, setSelectedOwner] = useState('all')
-  const [groups, setGroups] = useState<any[]>([])
+  const [groups, setGroups] = useState<MixRadiusGroup[]>([])
   const [selectedGroup, setSelectedGroup] = useState('all')
   const [isRefreshing, setIsRefreshing] = useState(false)
   
@@ -215,7 +217,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
 
       const result = await response.json()
       setSelectedCustomer(result.data)
-    } catch (err: any) {
+    } catch (_err) {
       toast.error('Gagal mengambil detail pelanggan')
       setShowDetailModal(false)
     } finally {
@@ -308,8 +310,8 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       setData(responseData.data || [])
       setTotalRecords(responseData.recordsFiltered || 0)
       setGlobalTotal(responseData.recordsTotal || 0)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
       toast.error('Gagal mengambil data dari MixRadius')
     } finally {
       setLoading(false)
@@ -354,29 +356,6 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     )
   }
 
-  const getTrxStatusBadge = (status: string) => {
-    switch (status) {
-      case 'PAID':
-        return (
-          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-            PAID
-          </span>
-        )
-      case 'UNPAID':
-        return (
-          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-            UNPAID
-          </span>
-        )
-      default:
-        return (
-          <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-            {status}
-          </span>
-        )
-    }
-  }
-
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-'
     const date = new Date(dateStr)
@@ -390,19 +369,6 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const isExpired = (dateStr: string) => {
     if (!dateStr) return false
     return new Date(dateStr) < new Date()
-  }
-
-  const calculateMonths = (createdAt: string) => {
-    if (!createdAt) return '0 Bulan'
-    const start = new Date(createdAt)
-    const now = new Date()
-    
-    let months = (now.getFullYear() - start.getFullYear()) * 12
-    months += now.getMonth() - start.getMonth()
-    
-    // Ensure at least 1 month if they just joined
-    const total = Math.max(1, months)
-    return `${total} Bulan`
   }
 
   return (

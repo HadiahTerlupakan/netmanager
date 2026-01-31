@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { socketEmitter } from '@/lib/websocket/emitter'

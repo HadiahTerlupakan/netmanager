@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server'
 import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
-import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
     try {
-        const headersList = await headers()
-        const authHeader = headersList.get('authorization')
-        
         // Simple security check (CRON_SECRET env var or Bearer token)
-        // For development/demo, we might allow it if it matches a secret
-        // Assuming secure environment or local call. 
-        // Ideally: if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) ...
-        
+        // const headersList = await headers()
+        // const authHeader = headersList.get('authorization')
+
         // Parse body to see if specific date is requested (for manual backfill)
         let targetDate = new Date()
         // Default: Process for YESTERDAY (H-1)
@@ -24,7 +19,7 @@ export async function POST(request: Request) {
             if (body.date) {
                 targetDate = new Date(body.date)
             }
-        } catch (e) {
+        } catch (_e) {
             // No body or invalid json, use default
         }
 
@@ -37,10 +32,11 @@ export async function POST(request: Request) {
             result
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error processing absence:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         return NextResponse.json(
-            { success: false, error: error.message },
+            { success: false, error: errorMessage },
             { status: 500 }
         )
     }

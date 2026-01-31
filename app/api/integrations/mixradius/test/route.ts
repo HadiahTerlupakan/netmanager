@@ -33,13 +33,14 @@ export async function GET(req: NextRequest) {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         },
-        // @ts-ignore - Node.js specific option for self-signed certs
+        // @ts-expect-error - Node.js specific option for self-signed certs
         rejectUnauthorized: false,
       })
       logs.push(`Login page status: ${loginPageResponse.status}`)
-    } catch (e: any) {
-      logs.push(`Login page fetch error: ${e.message}`)
-      return apiSuccess({ success: false, logs, error: e.message })
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error'
+      logs.push(`Login page fetch error: ${message}`)
+      return apiSuccess({ success: false, logs, error: message })
     }
 
     // Get cookies
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
 
     // Step 2: Submit login
     logs.push('Step 2: Submitting login form...')
-    
+
     const formData = new URLSearchParams()
     formData.append('username', username)
     formData.append('password', password)
@@ -67,20 +68,21 @@ export async function GET(req: NextRequest) {
         },
         body: formData.toString(),
         redirect: 'manual',
-        // @ts-ignore
+        // @ts-expect-error - Node.js specific option for self-signed certs
         rejectUnauthorized: false,
       })
       logs.push(`Login response status: ${loginResponse.status}`)
       logs.push(`Login response location: ${loginResponse.headers.get('location')}`)
-    } catch (e: any) {
-      logs.push(`Login fetch error: ${e.message}`)
-      return apiSuccess({ success: false, logs, error: e.message })
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error'
+      logs.push(`Login fetch error: ${message}`)
+      return apiSuccess({ success: false, logs, error: message })
     }
 
     // Get session cookie
     const loginSetCookies = loginResponse.headers.getSetCookie?.() || []
     logs.push(`Login set-cookie headers count: ${loginSetCookies.length}`)
-    
+
     let sessionCookie = ''
     for (const cookie of loginSetCookies) {
       logs.push(`Cookie header: ${cookie.substring(0, 80)}...`)
@@ -111,7 +113,7 @@ export async function GET(req: NextRequest) {
 
     // Step 3: Fetch Dashboard to find links
     logs.push('Step 3: Fetching Dashboard to find Active Sessions link...')
-    
+
     let pageResponse
     try {
       pageResponse = await fetch(`${baseUrl}/rad-admin`, {
@@ -120,18 +122,19 @@ export async function GET(req: NextRequest) {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
             'Cookie': sessionCookie
         },
-        // @ts-ignore
+        // @ts-expect-error - Node.js specific option for self-signed certs
         rejectUnauthorized: false
       })
       logs.push(`Page response status: ${pageResponse.status}`)
-    } catch (e: any) {
-       logs.push(`Page fetch error: ${e.message}`)
-       return apiSuccess({ success: false, logs, error: e.message })
+    } catch (e: unknown) {
+       const message = e instanceof Error ? e.message : 'Unknown error'
+       logs.push(`Page fetch error: ${message}`)
+       return apiSuccess({ success: false, logs, error: message })
     }
 
     const pageHtml = await pageResponse.text()
     logs.push(`Page HTML length: ${pageHtml.length}`)
-    
+
     // Search for links containing "active", "online", "session"
     const links = pageHtml.match(/<a[^>]+href="([^"]*)"[^>]*>([^<]*(?:active|online|session)[^<]*)<\/a>/gi)
     if (links) {
@@ -147,7 +150,8 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({ success: true, logs })
 
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }

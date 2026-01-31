@@ -86,11 +86,12 @@ export class DuitkuProvider implements PaymentProvider {
                     error: result.statusMessage || 'Failed to create payment'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Duitku createPayment error:', error)
+            const message = error instanceof Error ? error.message : 'Failed to create payment'
             return {
                 success: false,
-                error: error.message || 'Failed to create payment'
+                error: message
             }
         }
     }
@@ -147,12 +148,12 @@ export class DuitkuProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: result.statusCode === '00' ? new Date() : undefined,
+                ...(result.statusCode === '00' ? { paidAt: new Date() } : {}),
                 paymentMethod: result.paymentMethod,
                 amount: result.amount,
                 transactionId: result.reference
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Duitku checkStatus error:', error)
             throw error
         }
@@ -164,7 +165,7 @@ export class DuitkuProvider implements PaymentProvider {
         console.log(`Duitku: Payment ${orderId} will auto-expire`)
     }
 
-    verifyWebhook(payload: any, signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown>, _signature?: string): boolean {
         try {
             if (!this.config) {
                 return false
@@ -172,8 +173,8 @@ export class DuitkuProvider implements PaymentProvider {
 
             const merchantCode = this.config.merchantId || ''
             const apiKey = this.config.apiKey
-            const amount = payload.amount
-            const merchantOrderId = payload.merchantOrderId
+            const amount = payload.amount as string
+            const merchantOrderId = payload.merchantOrderId as string
 
             // Calculate expected signature
             const expectedSignature = crypto
@@ -188,13 +189,13 @@ export class DuitkuProvider implements PaymentProvider {
         }
     }
 
-    async processWebhook(payload: any): Promise<WebhookResult> {
+    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
         try {
-            const orderId = payload.merchantOrderId
+            const orderId = payload.merchantOrderId as string
 
             // Map Duitku result codes
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
-            switch (payload.resultCode) {
+            switch (payload.resultCode as string) {
                 case '00': // Success
                     status = 'PAID'
                     break
@@ -214,13 +215,13 @@ export class DuitkuProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: status === 'PAID' ? new Date() : undefined,
-                paymentMethod: payload.paymentCode,
-                transactionId: payload.reference,
-                amount: parseFloat(payload.amount),
+                ...(status === 'PAID' ? { paidAt: new Date() } : {}),
+                paymentMethod: payload.paymentCode as string,
+                transactionId: payload.reference as string,
+                amount: parseFloat(payload.amount as string),
                 raw: payload
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Duitku processWebhook error:', error)
             throw error
         }
@@ -276,12 +277,13 @@ export class DuitkuProvider implements PaymentProvider {
                     message: 'Invalid response from Duitku API'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Connection failed'
             return {
                 success: false,
-                message: error.message || 'Connection failed',
+                message,
                 details: {
-                    error: error.code
+                    error: (error as Record<string, unknown>)?.code
                 }
             }
         }

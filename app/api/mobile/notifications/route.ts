@@ -17,11 +17,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
         }
 
-        const { notifications, total } = await getNotificationsForUser(user.id, {
+        const { notifications, total } = await getNotificationsForUser(user.id as string, {
             limit: 50
         })
 
-        const unreadCount = await getUnreadCount(user.id)
+        const unreadCount = await getUnreadCount(user.id as string)
 
         return NextResponse.json({
             success: true,
@@ -56,9 +56,10 @@ export async function GET(request: NextRequest) {
                 total
             }
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching notifications:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
         const { action, notificationId } = body
 
         if (action === 'markAllRead') {
-            await markAllAsRead(user.id)
+            await markAllAsRead(user.id as string)
             return NextResponse.json({ success: true, message: 'All notifications marked as read' })
         } else if (action === 'markRead' && notificationId) {
             await markAsRead(notificationId)
@@ -89,8 +90,9 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating notifications:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

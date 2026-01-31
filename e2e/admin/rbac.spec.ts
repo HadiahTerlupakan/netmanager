@@ -53,7 +53,7 @@ async function loginAsAdmin(page: Page, email: string, password: string): Promis
     await page.waitForLoadState('networkidle')
     
     return true
-  } catch (error) {
+  } catch (_error) {
     console.log('Login failed for', email, '- current URL:', page.url())
     return false
   }
@@ -308,8 +308,8 @@ test.describe('RBAC - Sidebar Menu Visibility', () => {
     await page.waitForLoadState('networkidle')
     
     // SUPER_ADMIN should see critical menu items
-    const sidebar = page.locator('nav, aside, [role="navigation"]').first()
-    
+    page.locator('nav, aside, [role="navigation"]').first()
+
     // Check for key menu items (adjust selectors based on actual UI)
     const menuItems = [
       'Dashboard',

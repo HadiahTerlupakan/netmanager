@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
+
 import { PelangganService, type CreatePelangganInput } from '@/modules/pelanggan/services/PelangganService'
+import type { Pelanggan, HargaPaket } from '@prisma/client'
 
 // Mock bcryptjs
 vi.mock('bcryptjs', () => ({
@@ -52,7 +54,7 @@ describe('PelangganService', () => {
       prismaMock.pelanggan.findUnique.mockResolvedValueOnce({
         id: 'existing-id',
         idPelanggan: '12345678'
-      } as any)
+      } as unknown as Pelanggan)
 
       await expect(service.createPelanggan(validInput))
         .rejects.toThrow('ID Pelanggan sudah digunakan')
@@ -65,7 +67,7 @@ describe('PelangganService', () => {
       prismaMock.pelanggan.findFirst.mockResolvedValueOnce({
         id: 'existing-id',
         username: 'testuser'
-      } as any)
+      } as unknown as Pelanggan)
 
       await expect(service.createPelanggan(validInput))
         .rejects.toThrow('Username sudah digunakan')
@@ -92,14 +94,14 @@ describe('PelangganService', () => {
         hargaPaket: { name: 'Paket 10 Mbps', harga: 100000 }
       }
 
-      // Mock: ID not exists
-      prismaMock.pelanggan.findFirst.mockResolvedValueOnce(null)
+      // Mock: ID not exists (findByIdPelanggan using findUnique)
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(null)
       // Mock: Username not exists
       prismaMock.pelanggan.findFirst.mockResolvedValueOnce(null)
       // Mock: HargaPaket exists
-      prismaMock.hargaPaket.findUnique.mockResolvedValueOnce({ id: 'paket-001' } as any)
+      prismaMock.hargaPaket.findUnique.mockResolvedValueOnce({ id: 'paket-001' } as unknown as HargaPaket)
       // Mock: Create pelanggan
-      prismaMock.pelanggan.create.mockResolvedValueOnce(mockPelanggan as any)
+      prismaMock.pelanggan.create.mockResolvedValueOnce(mockPelanggan as unknown as Pelanggan)
 
       const result = await service.createPelanggan(validInput)
 
@@ -118,8 +120,8 @@ describe('PelangganService', () => {
 
     it('should delete pelanggan successfully', async () => {
       const mockPelanggan = { id: 'pelanggan-id', nama: 'Test' }
-      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(mockPelanggan as any)
-      prismaMock.pelanggan.delete.mockResolvedValueOnce(mockPelanggan as any)
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(mockPelanggan as unknown as Pelanggan)
+      prismaMock.pelanggan.delete.mockResolvedValueOnce(mockPelanggan as unknown as Pelanggan)
 
       const result = await service.deletePelanggan('pelanggan-id')
 
@@ -141,7 +143,7 @@ describe('PelangganService', () => {
 
     it('should return pelanggan if found', async () => {
       const mockPelanggan = { id: 'pelanggan-id', nama: 'Test Customer' }
-      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(mockPelanggan as any)
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(mockPelanggan as unknown as Pelanggan)
 
       const result = await service.getPelanggan('pelanggan-id')
 

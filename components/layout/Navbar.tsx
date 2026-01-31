@@ -32,7 +32,7 @@ export default function Navbar() {
         {/* Left: Mobile Toggle */}
         <div className="flex items-center shrink-0 md:hidden">
           <button
-            onClick={() => (window as any).toggleAdminSidebar?.()}
+            onClick={() => (window as Window & { toggleAdminSidebar?: () => void }).toggleAdminSidebar?.()}
             className="p-2 -ml-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             aria-label="Toggle Menu"
           >
@@ -88,7 +88,7 @@ export default function Navbar() {
                 <div className="h-8 w-8 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
                   <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                     {session.user.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
@@ -104,7 +104,7 @@ export default function Navbar() {
                     {session.user.name || 'User'}
                   </span>
                   <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-tight">
-                    {(session.user as any).departmentName || ((session.user as any).role || '').replace(/_/g, ' ')}
+                    {(session.user as { departmentName?: string; role?: string }).departmentName || ((session.user as { role?: string }).role || '').replace(/_/g, ' ')}
                   </span>
                 </div>
               </button>
@@ -145,7 +145,7 @@ export default function Navbar() {
             <div className="sm:hidden h-9 w-9 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
               <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                 {session.user.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">

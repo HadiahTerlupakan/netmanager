@@ -47,9 +47,9 @@ export class BRIProvider implements PaymentProvider {
                 throw new Error('Failed to get access token')
             }
 
-            const data = await response.json()
+            const data = await response.json() as { access_token: string }
             return data.access_token
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BRI getAccessToken error:', error)
             throw error
         }
@@ -122,11 +122,11 @@ export class BRIProvider implements PaymentProvider {
             })
 
             if (!response.ok) {
-                const errorData = await response.json()
+                const errorData = await response.json() as { message?: string }
                 throw new Error(errorData.message || 'Failed to create payment')
             }
 
-            const data = await response.json()
+            const data = await response.json() as { trxId?: string; vaNumber?: string; brivaNo?: string }
 
             // TODO: Customize return based on actual BRI API response structure
             return {
@@ -136,11 +136,12 @@ export class BRIProvider implements PaymentProvider {
                 paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/bri/${data.brivaNo}`, // Custom payment instruction page
                 expiresAt: expiryDate
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BRI createPayment error:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Failed to create payment'
             return {
                 success: false,
-                error: error.message || 'Failed to create payment'
+                error: errorMessage
             }
         }
     }
@@ -171,7 +172,7 @@ export class BRIProvider implements PaymentProvider {
                 throw new Error('Failed to check payment status')
             }
 
-            const data = await response.json()
+            const data = await response.json() as { statusBayar?: string; status?: string; paymentDate?: string; amount?: string; trxId?: string }
 
             // Map BRI status to our standard status
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
@@ -188,12 +189,12 @@ export class BRIProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: data.paymentDate ? new Date(data.paymentDate) : undefined,
+                ...(data.paymentDate ? { paidAt: new Date(data.paymentDate) } : {}),
                 paymentMethod: 'BRI Virtual Account',
                 amount: parseFloat(data.amount || '0'),
                 transactionId: data.trxId
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BRI checkStatus error:', error)
             throw error
         }
@@ -204,7 +205,7 @@ export class BRIProvider implements PaymentProvider {
         console.log(`BRI VA will auto-expire for order: ${orderId}`)
     }
 
-    verifyWebhook(payload: any, signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
         try {
             if (!this.config || !signature) {
                 return false
@@ -212,7 +213,7 @@ export class BRIProvider implements PaymentProvider {
 
             // TODO: Implement BRI webhook signature verification
             // Based on BRI documentation for webhook security
-            const timestamp = payload.timestamp || ''
+            const timestamp = (payload.timestamp as string) || ''
             const bodyString = JSON.stringify(payload)
 
             // Verify signature matches
@@ -231,10 +232,10 @@ export class BRIProvider implements PaymentProvider {
         }
     }
 
-    async processWebhook(payload: any): Promise<WebhookResult> {
+    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
         try {
             // TODO: Customize based on actual BRI webhook payload structure
-            const orderId = payload.custCode || payload.brivaNo
+            const orderId = (payload.custCode as string) || (payload.brivaNo as string)
 
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
 
@@ -247,13 +248,13 @@ export class BRIProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: payload.paymentDate ? new Date(payload.paymentDate) : undefined,
+                ...(payload.paymentDate ? { paidAt: new Date(payload.paymentDate as string) } : {}),
                 paymentMethod: 'BRI Virtual Account',
-                transactionId: payload.trxId,
-                amount: parseFloat(payload.amount || '0'),
+                transactionId: payload.trxId as string,
+                amount: parseFloat((payload.amount as string) || '0'),
                 raw: payload
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BRI processWebhook error:', error)
             throw error
         }
@@ -286,12 +287,13 @@ export class BRIProvider implements PaymentProvider {
                 success: false,
                 message: 'Failed to obtain access token'
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
             return {
                 success: false,
-                message: error.message || 'Connection failed',
+                message: errorMessage,
                 details: {
-                    error: error.code
+                    error: (error as { code?: string })?.code
                 }
             }
         }

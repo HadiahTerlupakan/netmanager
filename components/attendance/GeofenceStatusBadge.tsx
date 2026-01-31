@@ -1,6 +1,6 @@
 'use client'
 
-import { FaMapMarkerAlt, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa'
+import { FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa'
 
 interface GeofenceStatusBadgeProps {
   status: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN'

@@ -7,7 +7,7 @@ import { validateCoordinates } from '@/lib/validation-utils'
 import { verifySignature } from '@/lib/crypto'
 
 export async function POST(request: NextRequest) {
-    const startTime = Date.now()
+    const _startTime = Date.now()
     try {
         const authHeader = request.headers.get('Authorization')
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -18,6 +18,9 @@ export async function POST(request: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1]
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+        }
         const payload = await verifyMobileToken(token)
         if (!payload) {
             return NextResponse.json({
@@ -44,10 +47,17 @@ export async function POST(request: NextRequest) {
         const contentType = request.headers.get('content-type') || ''
         
         if (contentType.includes('application/json')) {
-            const body = await request.json()
+            const body = await request.json() as {
+              location: string;
+              notes: string;
+              photoUrl?: string;
+              latitude?: number;
+              longitude?: number;
+              _offline_meta?: { capturedAt?: string; signature?: string };
+            }
             location = body.location
             notes = body.notes
-            
+
             // Handle photoUrl from trusted CDN or relative path
             if (body.photoUrl) {
                 // SECURITY: Accept relative paths from our upload endpoint
@@ -59,7 +69,7 @@ export async function POST(request: NextRequest) {
                     const trustedDomains = ['cdn.radpro.id', 'localhost:3000', '0.0.0.0:3000']
                     try {
                         const url = new URL(body.photoUrl)
-                        const isTrusted = trustedDomains.some(domain => 
+                        const isTrusted = trustedDomains.some(domain =>
                             url.host === domain || url.host.endsWith('.' + domain)
                         )
                         if (isTrusted) {
@@ -70,7 +80,7 @@ export async function POST(request: NextRequest) {
                     }
                 }
             }
-            
+
             // Validate coordinates using centralized utility
             if (body.latitude !== undefined && body.longitude !== undefined) {
                 const coordValidation = validateCoordinates(body.latitude, body.longitude)
@@ -92,7 +102,7 @@ export async function POST(request: NextRequest) {
                         code: 'VALIDATION_ERROR'
                     }, { status: 400 })
                 }
-                
+
                 const dataToVerify = {
                     userId,
                     timestamp: body._offline_meta.capturedAt,
@@ -113,18 +123,18 @@ export async function POST(request: NextRequest) {
             }
         } else {
             // FormData handling
-            const formData: any = await request.formData()
+            const formData = await request.formData()
             const photo = formData.get('photo') as File | null
             notes = formData.get('notes') as string || ''
             location = formData.get('location') as string || ''
-            
+
             if (photo) {
                 const photoService = new AttendancePhotoService()
                 try {
                     photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
-                } catch (error: any) {
+                } catch (error: unknown) {
                     return NextResponse.json({
-                        error: error.message,
+                        error: error instanceof Error ? error.message : 'Unknown photo processing error',
                         code: 'VALIDATION_ERROR'
                     }, { status: 400 })
                 }
@@ -149,15 +159,25 @@ export async function POST(request: NextRequest) {
         // Use centralized service
         const attendanceService = new AttendanceService()
         try {
-            const result = await attendanceService.checkOut({
+            const checkOutParams: {
+              userId: string;
+              photoUrl: string | null;
+              location: string;
+              notes: string;
+              latitude?: number;
+              longitude?: number;
+              offlineTime?: Date;
+            } = {
                 userId,
                 photoUrl,
                 location,
                 notes,
-                latitude,
-                longitude,
-                offlineTime
-            })
+            }
+            if (latitude !== undefined) checkOutParams.latitude = latitude
+            if (longitude !== undefined) checkOutParams.longitude = longitude
+            if (offlineTime) checkOutParams.offlineTime = offlineTime
+
+            const result = await attendanceService.checkOut(checkOutParams)
 
             // System Log
             try {
@@ -165,21 +185,21 @@ export async function POST(request: NextRequest) {
                     action: 'CHECK_OUT',
                     subject: 'Attendance',
                     userId,
-                    details: { 
-                        attendanceId: result.attendance.id, 
+                    details: {
+                        attendanceId: result.attendance.id,
                         location,
-                        isOffline: !!offlineTime 
+                        isOffline: !!offlineTime
                     }
                 })
             } catch (e) { console.error('Logging check-out failed', e) }
 
-            return NextResponse.json({ 
-                success: true, 
+            return NextResponse.json({
+                success: true,
                 data: result.attendance,
                 ...(result.warning && { warning: result.warning })
             })
-        } catch (error: any) {
-            if (error.message === 'NO_ACTIVE_SESSION') {
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message === 'NO_ACTIVE_SESSION') {
                 return NextResponse.json({
                     error: 'Anda belum melakukan check-in atau sudah check-out hari ini',
                     code: 'NO_ACTIVE_SESSION'
@@ -188,8 +208,8 @@ export async function POST(request: NextRequest) {
             throw error
         }
 
-    } catch (error: any) {
-        logger.error('Error in mobile check-out', error)
+    } catch (error: unknown) {
+        logger.error('Error in mobile check-out', error as Error)
         return NextResponse.json({
             error: 'Internal server error',
             code: 'INTERNAL_ERROR'

@@ -55,7 +55,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
 
         // Access Control
-        const user = session.user as any
+        const user = session.user as {
+            role?: string;
+            permissions?: string[];
+            siteId?: string;
+            departmentId?: string;
+        }
         const isSuperAdmin = user.role === 'SUPER_ADMIN'
         if (!isSuperAdmin) {
             if (user.permissions?.includes('izin:site_only') && existing.user.siteId !== user.siteId) {
@@ -78,10 +83,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             return ApiErrors.internalError(result.error)
         }
 
-        return apiSuccess(result.data, { 
-            message: status === 'APPROVED' ? 'Izin berhasil disetujui' : 'Izin berhasil ditolak' 
+        return apiSuccess(result.data, {
+            message: status === 'APPROVED' ? 'Izin berhasil disetujui' : 'Izin berhasil ditolak'
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating leave:', error)
         return ApiErrors.internalError('Gagal memperbarui status izin')
     }
@@ -112,7 +117,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         }
 
         // Access Control
-        const user = session.user as any
+        const user = session.user as {
+            role?: string;
+            permissions?: string[];
+            siteId?: string;
+            departmentId?: string;
+        }
         const isSuperAdmin = user.role === 'SUPER_ADMIN'
         if (!isSuperAdmin) {
             if (user.permissions?.includes('izin:site_only') && existing.user.siteId !== user.siteId) {
@@ -130,7 +140,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         }
 
         return apiSuccess(null, { message: 'Izin berhasil dihapus' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting leave:', error)
         return ApiErrors.internalError('Gagal menghapus izin')
     }

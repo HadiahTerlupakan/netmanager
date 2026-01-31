@@ -5,6 +5,7 @@ import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { Prisma } from '@prisma/client'
 
 /**
  * GET /api/inventory/restock/alerts
@@ -37,12 +38,12 @@ export async function GET(req: NextRequest) {
       const dbStart = Date.now()
 
       // Build where clause
-      const where: any = {}
+      const where: Prisma.RestockAlertsWhereInput = {}
       if (barangId) where.barangId = barangId
       if (gudangId) where.gudangId = gudangId
       if (isRead !== null) where.isRead = isRead === 'true'
       if (isResolved !== null) where.isResolved = isResolved === 'true'
-      if (urgency) where.urgency = urgency
+      if (urgency) where.urgency = urgency as Prisma.EnumUrgencyLevelFilter
 
       const [alerts, total, unreadCount] = await Promise.all([
         prisma.restockAlerts.findMany({
@@ -110,8 +111,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching restock alerts', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error fetching restock alerts', err, {
       path: '/api/inventory/restock/alerts',
       method: 'GET',
     })
@@ -181,8 +183,8 @@ export async function POST(req: NextRequest) {
 
           if (currentStock) {
             let shouldAlert = false
-            let alertType = 'RESTOCK_NEEDED'
-            let urgency: any = 'MEDIUM'
+            let alertType: 'RESTOCK_NEEDED' | 'LOW_STOCK' | 'STOCK_OUT' | 'OVERSTOCK' = 'RESTOCK_NEEDED'
+            let urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'MEDIUM'
             let message = ''
 
             if (currentStock.stok === 0) {
@@ -208,7 +210,7 @@ export async function POST(req: NextRequest) {
                 where: {
                   barangId: setting.barangId,
                   gudangId: setting.gudangId,
-                  alertType: alertType as any,
+                  alertType: alertType as Prisma.EnumAlertTypeFilter,
                   isResolved: false
                 }
               })
@@ -221,7 +223,7 @@ export async function POST(req: NextRequest) {
                     id: crypto.randomUUID(),
                     barangId: setting.barangId,
                     gudangId: setting.gudangId,
-                    alertType: alertType as any,
+                    alertType,
                     currentStok: currentStock.stok,
                     minStok: setting.minStok,
                     recommendedOrder,
@@ -282,8 +284,9 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error processing restock alerts', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error processing restock alerts', err, {
       path: '/api/inventory/restock/alerts',
       method: 'POST',
     })

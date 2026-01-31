@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
@@ -11,8 +11,8 @@ const categorySchema = z.object({
   description: z.string().optional(),
 })
 
-export async function GET(req: Request) {
-  const session = await verifyAuth(req as any)
+export async function GET(req: NextRequest) {
+  const session = await verifyAuth(req)
   if (!session) return new NextResponse('Unauthorized', { status: 401 })
 
   try {
@@ -24,8 +24,8 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
-  const session = await verifyAuth(req as any)
+export async function POST(req: NextRequest) {
+  const session = await verifyAuth(req)
   if (!session) return new NextResponse('Unauthorized', { status: 401 })
 
   try {
@@ -33,10 +33,14 @@ export async function POST(req: Request) {
     const result = categorySchema.safeParse(json)
 
     if (!result.success) {
-      return new NextResponse(result.error.issues[0].message, { status: 400 })
+      return new NextResponse(result.error.issues[0]?.message || 'Validasi gagal', { status: 400 })
     }
 
-    const category = await financeService.createCategory(result.data)
+    const { description, ...rest } = result.data
+    const category = await financeService.createCategory({
+        ...rest,
+        ...(description ? { description } : {})
+    })
 
     return NextResponse.json(category)
   } catch (error) {

@@ -1,5 +1,5 @@
 import { PelangganRepository } from '../repositories/PelangganRepository'
-import type { CreatePelangganDTO, PelangganWithPackage, FilterOptions } from '../repositories/PelangganRepository'
+import type { PelangganWithPackage, FilterOptions } from '../repositories/PelangganRepository'
 import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client'
 import { hash } from 'bcryptjs'
 import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
@@ -170,10 +170,11 @@ export class PelangganService {
                  // Update DB with success
                  await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'SYNCED', null)
             }
-        } catch (syncError: any) {
+        } catch (syncError: unknown) {
             console.error('[RADIUS] Auto-sync error:', syncError)
             // Update DB with failure
-            await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'FAILED', syncError?.message || 'Unknown error')
+            const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown error'
+            await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'FAILED', errorMessage)
         }
 
         return pelanggan
@@ -246,8 +247,8 @@ export class PelangganService {
         isBillNotifEnabled?: boolean
         isPromoEnabled?: boolean
     }) {
-        const updateData: any = {}
-        
+        const updateData: Record<string, unknown> = {}
+
         if (typeof data.is2FAEnabled === 'boolean') updateData.is2FAEnabled = data.is2FAEnabled
         if (typeof data.isBillNotifEnabled === 'boolean') updateData.isBillNotifEnabled = data.isBillNotifEnabled
         if (typeof data.isPromoEnabled === 'boolean') updateData.isPromoEnabled = data.isPromoEnabled

@@ -17,6 +17,13 @@ import {
 } from 'react-icons/md'
 import Link from 'next/link'
 
+interface Invoice {
+    id: string
+    status: string
+    remainingAmount: number
+    dueDate: string
+}
+
 interface DashboardData {
     profile: {
         nama: string
@@ -86,7 +93,7 @@ export default function CustomerDashboardPage() {
             }
 
             const pendingInvoices = invoicesData.invoices?.filter(
-                (inv: any) => inv.status === 'SENT' || inv.status === 'OVERDUE'
+                (inv: Invoice) => inv.status === 'SENT' || inv.status === 'OVERDUE'
             ) || []
 
             const firstDue = pendingInvoices.length > 0 ? pendingInvoices[0].dueDate : null
@@ -96,7 +103,7 @@ export default function CustomerDashboardPage() {
                 connection: usageData?.connection || null,
                 pendingInvoice: pendingInvoices.length > 0 ? {
                     count: pendingInvoices.length,
-                    totalAmount: pendingInvoices.reduce((sum: number, inv: any) => sum + inv.remainingAmount, 0),
+                    totalAmount: pendingInvoices.reduce((sum: number, inv: Invoice) => sum + inv.remainingAmount, 0),
                     dueDate: firstDue
                 } : null,
             })

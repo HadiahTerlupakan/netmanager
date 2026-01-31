@@ -16,10 +16,10 @@ export interface PaymentProvider {
     cancelPayment(orderId: string): Promise<void>
 
     // Verify webhook signature
-    verifyWebhook(payload: any, signature?: string): boolean
+    verifyWebhook(payload: unknown, signature?: string): boolean
 
     // Process webhook notification
-    processWebhook(payload: any): Promise<WebhookResult>
+    processWebhook(payload: unknown): Promise<WebhookResult>
 
     // Test API connection (for settings page)
     testConnection(): Promise<TestResult>
@@ -32,7 +32,7 @@ export interface ProviderConfig {
     clientKey?: string
     merchantId?: string
     isProduction: boolean
-    settings?: Record<string, any>
+    settings?: Record<string, unknown>
 }
 
 // Create Payment Parameters
@@ -77,12 +77,12 @@ export interface WebhookResult {
     paymentMethod?: string
     transactionId?: string
     amount?: number
-    raw?: any
+    raw?: unknown
 }
 
 // Connection Test Result
 export interface TestResult {
     success: boolean
     message: string
-    details?: Record<string, any>
+    details?: Record<string, unknown>
 }

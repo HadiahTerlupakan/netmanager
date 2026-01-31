@@ -3,7 +3,7 @@ import { SOCKET_EVENTS, type SocketData } from './types'
 
 // Declare global type for Socket.io server instance
 declare global {
-    // eslint-disable-next-line no-var
+     
     var socketIOServer: SocketIOServer | undefined
 }
 

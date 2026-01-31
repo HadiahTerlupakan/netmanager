@@ -5,10 +5,13 @@ import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { getWorkOrderService } from '@/modules/work-order';
 import { z } from 'zod';
 
+import { prisma } from '@/lib/prisma';
+
 const addMaterialSchema = z.object({
     barangId: z.string().min(1, 'Barang harus dipilih'),
     quantity: z.number().positive('Jumlah harus lebih dari 0'),
     notes: z.string().optional(),
+    gudangId: z.string().optional(),
 });
 
 /**
@@ -41,11 +44,34 @@ export async function POST(
             return ApiErrors.badRequest('Data tidak valid', { errors: validation.error.flatten() });
         }
 
-        const { barangId, quantity, notes } = validation.data;
+        const { barangId, quantity, notes, gudangId } = validation.data;
+
+        // Resolve warehouse:
+        // 1. Explicitly provided gudangId
+        // 2. Fallback to a warehouse in user's site
+        let targetGudangId = gudangId;
+
+        if (!targetGudangId && user.siteId) {
+            // Find a warehouse in the user's site (prefer MAIN or just the first one)
+            // Gudang has many-to-many relation with Sites
+            const siteGudang = await prisma.gudang.findFirst({
+                where: { 
+                    sites: {
+                        some: {
+                            id: user.siteId
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'asc' } // Stable sort
+            });
+            if (siteGudang) {
+                targetGudangId = siteGudang.id;
+            }
+        }
 
         const service = getWorkOrderService();
-        // Updated service call with actorId (user.id)
-        const result = await service.addMaterial(id, barangId, quantity, user.id, notes);
+        // Updated service call with actorId (user.id) and preferredGudangId
+        const result = await service.addMaterial(id, barangId, quantity, user.id, notes, targetGudangId);
 
         if (!result.success) {
             return apiError(

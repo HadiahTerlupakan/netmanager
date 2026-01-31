@@ -2,15 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import type { FieldValues } from "react-hook-form";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { toast } from "react-hot-toast";
 import {
     HiOutlineCreditCard,
     HiPlus,
-    HiOutlineTrash,
-    HiOutlinePencil,
-    HiOutlineFunnel
+    HiOutlineTrash
 } from "react-icons/hi2";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 
@@ -57,7 +56,7 @@ export function ClientComponent() { // ExpensePage() {
         }
     };
 
-    const onSubmit = async (data: any) => {
+    const onSubmit = async (data: FieldValues) => {
         try {
             const res = await fetch("/api/finance/expenses", {
                 method: "POST",
@@ -71,7 +70,7 @@ export function ClientComponent() { // ExpensePage() {
             setIsModalOpen(false);
             reset();
             fetchExpenses();
-        } catch (error) {
+        } catch (_error) {
             toast.error("Terjadi kesalahan");
         }
     };
@@ -82,7 +81,7 @@ export function ClientComponent() { // ExpensePage() {
             await fetch(`/api/finance/expenses/${id}`, { method: 'DELETE' });
             toast.success("Data dihapus");
             fetchExpenses();
-        } catch (error) {
+        } catch (_error) {
             toast.error("Gagal menghapus");
         }
     }

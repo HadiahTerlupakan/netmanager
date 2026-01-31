@@ -28,7 +28,7 @@ export async function GET(
 
         const { id } = await params;
 
-        const escalation = await (prisma as any).workOrderEscalations.findUnique({
+        const escalation = await prisma.workOrderEscalations.findUnique({
             where: { id },
             include: {
                 sla: {
@@ -91,7 +91,7 @@ export async function PUT(
         const validatedData = workOrderEscalationUpdateSchema.parse(body);
 
         // Check if escalation exists
-        const existingEscalation = await (prisma as any).workOrderEscalations.findUnique({
+        const existingEscalation = await prisma.workOrderEscalations.findUnique({
             where: { id },
         });
 
@@ -99,7 +99,7 @@ export async function PUT(
             return ApiErrors.notFound('Aturan Eskalasi');
         }
 
-        const escalation = await (prisma as any).workOrderEscalations.update({
+        const escalation = await prisma.workOrderEscalations.update({
             where: { id },
             data: {
                 ...validatedData,
@@ -160,7 +160,7 @@ export async function DELETE(
         const { id } = await params;
 
         // Check if escalation exists
-        const existingEscalation = await (prisma as any).workOrderEscalations.findUnique({
+        const existingEscalation = await prisma.workOrderEscalations.findUnique({
             where: { id },
         });
 
@@ -168,7 +168,7 @@ export async function DELETE(
             return ApiErrors.notFound('Aturan Eskalasi');
         }
 
-        await (prisma as any).workOrderEscalations.delete({
+        await prisma.workOrderEscalations.delete({
             where: { id },
         });
 

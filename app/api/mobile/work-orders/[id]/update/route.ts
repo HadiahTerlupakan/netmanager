@@ -8,7 +8,7 @@ import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 import { logger } from '@/lib/logger';
 
 // Valid status transitions
-const VALID_TRANSITIONS: Record<string, string[]> = {
+const _VALID_TRANSITIONS: Record<string, string[]> = {
     'PENDING': ['ASSIGNED'],
     'ASSIGNED': ['IN_PROGRESS', 'CANCELLED'],
     'IN_PROGRESS': ['ON_HOLD', 'COMPLETED', 'CANCELLED'],
@@ -33,6 +33,10 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
         const payload = await verifyMobileToken(token);
         if (!payload) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -183,9 +187,9 @@ export async function POST(
                 actionType: 'START',
                 actionMessage: 'Memulai pengerjaan Work Order',
                 triggeredByUserId: userId,
-                triggeredByName: (user?.name as string) || (payload.name as string),
-                departmentId: workOrder.departmentId || undefined,
-                siteId: workOrder.siteId || undefined,
+                triggeredByName: (user?.name as string) || (payload.name as string) || 'Unknown',
+                ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+                ...(workOrder.siteId && { siteId: workOrder.siteId }),
             });
 
 
@@ -237,6 +241,7 @@ export async function POST(
             if (photoUrls && Array.isArray(photoUrls) && photoUrls.length > 0) {
                 for (let i = 0; i < photoUrls.length; i++) {
                     const url = photoUrls[i];
+                    if (!url) continue;
                     await repository.addAttachment(
                         workOrderId,
                         `photo_${i}.jpg`,
@@ -299,9 +304,9 @@ export async function POST(
                 actionType: 'COMPLETE',
                 actionMessage: 'Menyelesaikan Work Order',
                 triggeredByUserId: userId,
-                triggeredByName: (user?.name as string) || (payload.name as string),
-                departmentId: workOrder.departmentId || undefined,
-                siteId: workOrder.siteId || undefined,
+                triggeredByName: (user?.name as string) || (payload.name as string) || 'Unknown',
+                ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+                ...(workOrder.siteId && { siteId: workOrder.siteId }),
             });
 
 
@@ -344,9 +349,9 @@ export async function POST(
                 actionType: 'PAUSE',
                 actionMessage: `Menunda Work Order: ${notes || ''}`,
                 triggeredByUserId: userId,
-                triggeredByName: (user?.name as string) || (payload.name as string),
-                departmentId: workOrder.departmentId || undefined,
-                siteId: workOrder.siteId || undefined,
+                triggeredByName: (user?.name as string) || (payload.name as string) || 'Unknown',
+                ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+                ...(workOrder.siteId && { siteId: workOrder.siteId }),
             });
 
 
@@ -427,9 +432,9 @@ export async function POST(
                 actionType: 'COMMENT',
                 actionMessage: `Komentar Baru: ${notes || 'Photo comment'}`,
                 triggeredByUserId: userId,
-                triggeredByName: (user?.name as string) || (payload.name as string),
-                departmentId: workOrder.departmentId || undefined,
-                siteId: workOrder.siteId || undefined,
+                triggeredByName: (user?.name as string) || (payload.name as string) || 'Unknown',
+                ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+                ...(workOrder.siteId && { siteId: workOrder.siteId }),
             });
 
 
@@ -507,9 +512,9 @@ export async function POST(
                 actionType: 'NOTE',
                 actionMessage: `Menambahkan Catatan: ${notes || 'Photo update'}`,
                 triggeredByUserId: userId,
-                triggeredByName: (user?.name as string) || (payload.name as string),
-                departmentId: workOrder.departmentId || undefined,
-                siteId: workOrder.siteId || undefined,
+                triggeredByName: (user?.name as string) || (payload.name as string) || 'Unknown',
+                ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+                ...(workOrder.siteId && { siteId: workOrder.siteId }),
             });
 
 
@@ -527,8 +532,8 @@ export async function POST(
 
         return NextResponse.json({ error: 'Invalid Action' }, { status: 400 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Mobile WO Update Error:', error);
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
     }
 }

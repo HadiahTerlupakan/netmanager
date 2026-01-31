@@ -18,14 +18,14 @@ export const workOrderEscalationCreateSchema = z.object({
 
 export const workOrderEscalationUpdateSchema = z.object({
   name: z.string().trim().min(1, 'Nama eskalasi wajib diisi').max(100, 'Nama eskalasi maksimal 100 karakter').optional(),
-  description: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
-  slaId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  description: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
+  slaId: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
   workOrderType: z.enum(['INSTALLATION', 'TROUBLESHOOT', 'MAINTENANCE', 'UPGRADE', 'RELOCATION', 'DISCONNECTION', 'OTHER']).optional(),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT', 'CRITICAL']).optional(),
-  departmentId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  departmentId: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
   triggerCondition: z.string().min(1, 'Kondisi trigger wajib diisi').optional(),
   escalationLevel: z.number().min(1, 'Level eskalasi minimal 1').max(10, 'Level eskalasi maksimal 10').optional(),
-  notifyRole: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  notifyRole: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
   notifyEmployees: z.array(z.string()).optional(),
   notifyDepartments: z.array(z.string()).optional(),
   delayMinutes: z.number().min(0, 'Delay tidak boleh negatif').int('Delay harus berupa bilangan bulat').optional(),

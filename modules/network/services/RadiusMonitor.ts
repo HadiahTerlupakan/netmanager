@@ -18,15 +18,15 @@ export class RadiusMonitor extends BaseMonitor {
         this.repository = new RadiusRepository(prisma);
     }
 
-    protected getMonitorName(): string {
+    protected override getMonitorName(): string {
         return 'RadiusMonitor';
     }
 
-    protected getPollInterval(): number {
+    protected override getPollInterval(): number {
         return POLL_INTERVAL;
     }
 
-    protected async poll(): Promise<void> {
+    protected override async poll(): Promise<void> {
         // Concurrent fetching for better performance
         const [stats, recentSessions] = await Promise.all([
             this.repository.getDashboardStats(),

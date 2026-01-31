@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
         const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
 
         // Build filters
-        const gudangFilter: any = { isActive: true }
-        const transactionFilter: any = {}
+        const gudangFilter: Record<string, unknown> = { isActive: true }
+        const transactionFilter: Record<string, unknown> = {}
 
         if (siteId) {
             gudangFilter.sites = { some: { id: siteId } }
@@ -244,8 +244,9 @@ export async function GET(req: NextRequest) {
             }
         })
 
-    } catch (error: any) {
-        logger.error('Error fetching inventory dashboard:', error)
+    } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error('Unknown error')
+        logger.error('Error fetching inventory dashboard:', err)
         return NextResponse.json(
             { error: 'Internal Server Error' },
             { status: 500 }
@@ -253,8 +254,15 @@ export async function GET(req: NextRequest) {
     }
 }
 
+interface MonthlyData {
+    tanggal: Date;
+    _sum: {
+        jumlah: number | null;
+    };
+}
+
 // Helper: Process Monthly Trend
-function processMonthlyTrend(masukData: any[], keluarData: any[], startDate: Date, endDate: Date) {
+function processMonthlyTrend(masukData: MonthlyData[], keluarData: MonthlyData[], startDate: Date, endDate: Date) {
     const months: { [key: string]: { masuk: number; keluar: number } } = {}
     
     // Calculate number of months between start and end
@@ -288,8 +296,8 @@ function processMonthlyTrend(masukData: any[], keluarData: any[], startDate: Dat
     })
     
     return Object.entries(months).map(([key, value]) => {
-        const [year, month] = key.split('-')
-        const date = new Date(parseInt(year), parseInt(month) - 1, 1)
+        const [yearStr, monthStr] = key.split('-')
+        const date = new Date(parseInt(yearStr || '0'), parseInt(monthStr || '0') - 1, 1)
         return {
             month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
             masuk: value.masuk,
@@ -300,7 +308,16 @@ function processMonthlyTrend(masukData: any[], keluarData: any[], startDate: Dat
 
 // Helper: Get Stock Alerts
 async function getStockAlerts(siteId?: string) {
-    const alerts: any[] = []
+    const alerts: Array<{
+        barangId: string;
+        barangKode: string;
+        barangNama: string;
+        gudangId: string;
+        gudangNama: string;
+        currentStock: number;
+        minStock: number;
+        status: string;
+    }> = []
     
     // Find items with low stock based on RestockSettings
     const settings = await prisma.restockSettings.findMany({
@@ -328,9 +345,10 @@ async function getStockAlerts(siteId?: string) {
         if (currentStock < setting.minStok) {
             alerts.push({
                 barangId: setting.barang.id,
-                kode: setting.barang.kode,
-                nama: setting.barang.nama,
-                gudang: setting.gudang.nama,
+                barangKode: setting.barang.kode,
+                barangNama: setting.barang.nama,
+                gudangId: setting.gudang.id,
+                gudangNama: setting.gudang.nama,
                 currentStock,
                 minStock: setting.minStok,
                 status: currentStock === 0 ? 'CRITICAL' : 'LOW'
@@ -345,9 +363,34 @@ async function getStockAlerts(siteId?: string) {
     }).slice(0, 10)
 }
 
+interface ActivityItem {
+    barang?: { nama?: string; kode?: string };
+    gudang?: { nama?: string };
+    jumlah: number;
+    user?: { name?: string };
+    tanggal: Date;
+}
+
+interface TransferItem {
+    barang?: { nama?: string; kode?: string };
+    gudangDari?: { nama?: string };
+    gudangKe?: { nama?: string };
+    jumlah: number;
+    createdBy?: { name?: string };
+    tanggal: Date;
+}
+
 // Helper: Process Recent Activities
-function processRecentActivities(masuk: any[], keluar: any[], transfer: any[]) {
-    const activities: any[] = []
+function processRecentActivities(masuk: ActivityItem[], keluar: ActivityItem[], transfer: TransferItem[]) {
+    const activities: Array<{
+        type: string;
+        barang: string;
+        kode: string;
+        gudang: string;
+        jumlah: number;
+        user: string;
+        timestamp: Date;
+    }> = []
     
     masuk.forEach(item => {
         activities.push({

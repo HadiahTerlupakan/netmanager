@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
  * Endpoint ini hanya mengembalikan data perusahaan, alamat, nomor HP, dan deskripsi invoice
  * Tidak memerlukan autentikasi karena data ini untuk keperluan invoice yang bisa diakses publik
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // Ambil pengaturan umum yang diperlukan untuk invoice
     const settings = await prisma.settings.findMany({
@@ -32,10 +32,10 @@ export async function GET(req: NextRequest) {
       nomorHp: settingsMap.get('GENERAL_NOMOR_HP') || '',
       deskripsiInvoice: settingsMap.get('GENERAL_DESKRIPSI_INVOICE') || '',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching public general settings:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

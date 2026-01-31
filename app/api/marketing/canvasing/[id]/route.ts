@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
-import { hasPermission } from '@/lib/rbac'
 import { getCanvasingService } from '@/lib/repositories'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -27,8 +26,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json(request)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
@@ -43,8 +43,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const request = await service.updateRequest(id, body)
 
     return NextResponse.json(request)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
@@ -53,13 +54,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params
     const session = await verifyAuth(req)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    
+
     const body = await req.json()
-    
+
     // RBAC Check
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
-    
+
     if (!isSuperAdmin && !permissions.includes('canvasing:update')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -70,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.action === 'cancel_approval') {
       const request = await service.getRequestById(id)
       if (!request) return NextResponse.json({ error: 'Request tidak ditemukan' }, { status: 404 })
-      
+
       if (request.status !== 'APPROVED') {
         return NextResponse.json({ error: 'Hanya canvasing APPROVED yang bisa dibatalkan' }, { status: 400 })
       }
@@ -83,8 +84,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Regular update
     const request = await service.updateRequest(id, body)
     return NextResponse.json(request)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
@@ -106,7 +108,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await service.deleteRequest(id)
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -16,9 +16,9 @@ export interface MenuConfig {
     code: string           // Unique identifier
     name: string           // Display name
     path: string | null    // Route path, null if only parent container
-    icon?: string          // Icon name from react-icons/hi2 (optional)
-    children?: MenuConfig[] // Submenu items
-    exact?: boolean        // Match path exactly (for dashboard routes)
+    icon?: string | undefined          // Icon name from react-icons/hi2 (optional)
+    children?: MenuConfig[] | undefined // Submenu items
+    exact?: boolean | undefined        // Match path exactly (for dashboard routes)
 }
 
 /**
@@ -290,18 +290,18 @@ export function toPermissionMenuFormat(menus: MenuConfig[] = ADMIN_MENU_CONFIG) 
         id: menu.code,
         code: menu.code,
         name: menu.name,
-        parentCode: null,
+        parentCode: null as string | null,
         path: menu.path,
-        icon: menu.icon || null,
+        icon: (menu.icon || null) as string | null,
         sortOrder: 0,
         portal: 'admin',
         children: menu.children?.map(child => ({
             id: child.code,
             code: child.code,
             name: child.name,
-            parentCode: menu.code,
+            parentCode: menu.code as string | null,
             path: child.path,
-            icon: child.icon || null,
+            icon: (child.icon || null) as string | null,
             sortOrder: 0,
             portal: 'admin',
         }))

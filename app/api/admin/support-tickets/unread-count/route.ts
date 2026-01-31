@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
         // Count tickets where last reply is from customer (not admin)
         const needsReplyCount = inProgressTickets.filter(
-            (ticket) => ticket.replies.length > 0 && !ticket.replies[0].isFromAdmin
+            (ticket) => ticket.replies.length > 0 && !ticket.replies[0]?.isFromAdmin
         ).length
 
         // Also include WAITING_CUSTOMER tickets if customer has replied
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         })
 
         const customerRepliedWhileWaiting = waitingCustomerTickets.filter(
-            (ticket) => ticket.replies.length > 0 && !ticket.replies[0].isFromAdmin
+            (ticket) => ticket.replies.length > 0 && !ticket.replies[0]?.isFromAdmin
         ).length
 
         const totalNeedsAttention = openTickets + needsReplyCount + customerRepliedWhileWaiting

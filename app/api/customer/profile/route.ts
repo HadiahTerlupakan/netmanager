@@ -18,13 +18,14 @@ export async function GET(request: NextRequest) {
         const profile = await pelangganService.getProfile(authResult.session.id)
 
         return apiSuccess({ profile })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Customer Profile GET Error]:', error)
-        
-        if (error.message === 'Data pelanggan tidak ditemukan') {
+
+        const errorMessage = error instanceof Error ? error.message : ''
+        if (errorMessage === 'Data pelanggan tidak ditemukan') {
             return ApiErrors.notFound('Pelanggan')
         }
-        
+
         return ApiErrors.internalError('Terjadi kesalahan server')
     }
 }
@@ -74,21 +75,22 @@ export async function PATCH(request: NextRequest) {
             noTelp: updated.noTelp,
             updatedAt: updated.updatedAt,
         }, { message: 'Profil berhasil diupdate' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Customer Profile PATCH Error]:', error)
-        
+
+        const errorMessage = error instanceof Error ? error.message : ''
         const errorMap: Record<string, number> = {
             'Password saat ini salah': 401,
             'Password baru minimal 6 karakter': 400,
             'Akun tidak memiliki password': 400,
             'Tidak ada data yang diupdate': 400,
         }
-        
-        const statusCode = errorMap[error.message] || 500
-        return apiError(error.message || 'Terjadi kesalahan server', 
-            statusCode === 401 ? ErrorCodes.UNAUTHORIZED : 
-            statusCode === 400 ? ErrorCodes.VALIDATION_ERROR : 
-            ErrorCodes.INTERNAL_ERROR, 
+
+        const statusCode = errorMap[errorMessage] || 500
+        return apiError(errorMessage || 'Terjadi kesalahan server',
+            statusCode === 401 ? ErrorCodes.UNAUTHORIZED :
+            statusCode === 400 ? ErrorCodes.VALIDATION_ERROR :
+            ErrorCodes.INTERNAL_ERROR,
             { status: statusCode }
         )
     }

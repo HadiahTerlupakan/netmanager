@@ -20,10 +20,10 @@ const updatedConfig = {
 }
 
 // Generate OpenAPI spec
-let specs: any = null
+let specs: Record<string, unknown> | null = null
 
 try {
-  specs = swaggerJsdoc(updatedConfig)
+  specs = swaggerJsdoc(updatedConfig) as Record<string, unknown>
 } catch (error) {
   console.error('Error generating Swagger spec:', error)
   specs = {

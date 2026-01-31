@@ -24,17 +24,17 @@ async function isServerRunning(): Promise<boolean> {
 
 /**
  * Standard API response structure based on lib/api-response.ts
- * 
+ *
  * Success: { success: true, data: T, message?: string }
  * Error: { success: false, error: string, code: string, details?: {} }
  */
-interface ApiSuccessResponse<T = any> {
+interface _ApiSuccessResponse<T = unknown> {
   success: true
   data: T
   message?: string
 }
 
-interface ApiErrorResponse {
+interface _ApiErrorResponse {
   success: false
   error: string
   code: string
@@ -97,20 +97,24 @@ describe.skipIf(!await isServerRunning())('API Response Format Integration Tests
  * Manual Response Format Validator
  * Based on actual lib/api-response.ts format
  */
-export function validateSuccessResponse(json: any): boolean {
+export function validateSuccessResponse(json: unknown): boolean {
+  const data = json as { success?: boolean; data?: unknown }
   return (
     typeof json === 'object' &&
-    json.success === true &&
-    'data' in json
+    json !== null &&
+    data.success === true &&
+    'data' in data
   )
 }
 
-export function validateErrorResponse(json: any): boolean {
+export function validateErrorResponse(json: unknown): boolean {
+  const data = json as { success?: boolean; error?: string; code?: string }
   return (
     typeof json === 'object' &&
-    json.success === false &&
-    typeof json.error === 'string' &&
-    typeof json.code === 'string'
+    json !== null &&
+    data.success === false &&
+    typeof data.error === 'string' &&
+    typeof data.code === 'string'
   )
 }
 

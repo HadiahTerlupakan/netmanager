@@ -86,8 +86,8 @@ export async function syncAllOnuData(): Promise<number> {
               lastSeen: new Date(),
             })
             return true
-          } catch (error: any) {
-            console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
+          } catch (error) {
+            console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error instanceof Error ? error.message : String(error))
             return false
           }
         })
@@ -116,10 +116,10 @@ export async function syncAllOnuData(): Promise<number> {
       })
 
       console.log(`[ONU-Sync] Successfully synced ${totalOnuSynced} ONUs for OLT ${olt.name}`)
-    } catch (error: any) {
+    } catch (error) {
       // Log error dan lanjutkan ke OLT berikutnya
       // Legacy fallback dihapus karena fungsi getC300GponOnuDataViaSNMP tidak bisa diimport dari route file
-      const errorMsg = `Error syncing OLT ${olt.name}: ${error.message}`
+      const errorMsg = `Error syncing OLT ${olt.name}: ${error instanceof Error ? error.message : String(error)}`
       console.error(`[ONU-Sync] ${errorMsg}`)
       errors.push(errorMsg)
     }
@@ -188,8 +188,18 @@ export async function syncOnuDataByOltId(
   const pageSize = 100
   let page = 1
   let hasMoreData = true
-  let totalOnuSynced = 0
-  let allOnuData: any[] = []
+  let allOnuData: Array<{
+    oltId: string
+    name: string
+    description: string | null
+    pppoe: string | null
+    gponOnu: string
+    status: string
+    rxOlt: string | null
+    rxOnu: string | null
+    serialNumber: string | null
+    actualType: string | null
+  }> = []
 
   console.log(`[ONU-Sync] Fetching ONU data using optimized paginated approach...`)
 
@@ -280,16 +290,15 @@ export async function syncOnuDataByOltId(
           lastSeen: new Date(),
         })
         return true
-      } catch (error: any) {
-        console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
+      } catch (error) {
+        console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error instanceof Error ? error.message : String(error))
         return false
       }
     })
 
     const results = await Promise.allSettled(upsertPromises)
-    const batchSavedCount = results.filter(r => r.status === 'fulfilled' && r.value).length
+    const batchSavedCount = results.filter(r => r.status === 'fulfilled' && (r as PromiseFulfilledResult<boolean>).value).length
     savedCount += batchSavedCount
-    totalOnuSynced += batchSavedCount
 
     // Update progress: 30-95% selama save
     if (onProgress) {

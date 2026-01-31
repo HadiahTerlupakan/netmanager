@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import type { 
   INetworkPerformanceRepository, 
@@ -19,24 +19,24 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
         updatedAt: new Date(),
         deviceId: data.deviceId,
         deviceType: data.deviceType,
-        cpuUsage: data.cpuUsage,
-        memoryUsage: data.memoryUsage,
-        temperature: data.temperature,
-        uptime: data.uptime ? BigInt(data.uptime) : undefined,
-        rxBytes: data.rxBytes ? BigInt(data.rxBytes) : undefined,
-        txBytes: data.txBytes ? BigInt(data.txBytes) : undefined,
-        rxPackets: data.rxPackets ? BigInt(data.rxPackets) : undefined,
-        txPackets: data.txPackets ? BigInt(data.txPackets) : undefined,
-        rxDrops: data.rxDrops ? BigInt(data.rxDrops) : undefined,
-        txDrops: data.txDrops ? BigInt(data.txDrops) : undefined,
-        rxErrors: data.rxErrors ? BigInt(data.rxErrors) : undefined,
-        txErrors: data.txErrors ? BigInt(data.txErrors) : undefined,
-        interfaceStatus: data.interfaceStatus,
-        connectionCount: data.connectionCount,
-        bandwidthUsage: data.bandwidthUsage,
-        signalStrength: data.signalStrength,
-        powerLevel: data.powerLevel,
-        customMetrics: data.customMetrics,
+        cpuUsage: data.cpuUsage ?? null,
+        memoryUsage: data.memoryUsage ?? null,
+        temperature: data.temperature ?? null,
+        uptime: data.uptime ? BigInt(data.uptime) : null,
+        rxBytes: data.rxBytes ? BigInt(data.rxBytes) : null,
+        txBytes: data.txBytes ? BigInt(data.txBytes) : null,
+        rxPackets: data.rxPackets ? BigInt(data.rxPackets) : null,
+        txPackets: data.txPackets ? BigInt(data.txPackets) : null,
+        rxDrops: data.rxDrops ? BigInt(data.rxDrops) : null,
+        txDrops: data.txDrops ? BigInt(data.txDrops) : null,
+        rxErrors: data.rxErrors ? BigInt(data.rxErrors) : null,
+        txErrors: data.txErrors ? BigInt(data.txErrors) : null,
+        interfaceStatus: (data.interfaceStatus ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        connectionCount: data.connectionCount ?? null,
+        bandwidthUsage: data.bandwidthUsage ?? null,
+        signalStrength: data.signalStrength ?? null,
+        powerLevel: data.powerLevel ?? null,
+        customMetrics: (data.customMetrics ?? Prisma.JsonNull) as Prisma.InputJsonValue,
       },
     })
   }
@@ -47,8 +47,8 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
     })
   }
 
-  async findByDeviceId(deviceId: string, deviceType: string, filters: NetworkPerformanceFilters = {}): Promise<{ data: NetworkPerformancePublic[], pagination: any }> {
-    const where: any = {
+  async findByDeviceId(deviceId: string, deviceType: string, filters: NetworkPerformanceFilters = {}): Promise<{ data: NetworkPerformancePublic[], pagination: { page: number, limit: number, total: number, totalPages: number } }> {
+    const where: Prisma.NetworkPerformanceWhereInput = {
       deviceId,
       deviceType,
     }
@@ -63,9 +63,9 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {}
     if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
+      (orderBy as Record<string, unknown>)[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
       orderBy.timestamp = 'desc'
     }
@@ -91,8 +91,8 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
     }
   }
 
-  async findMany(filters: NetworkPerformanceFilters = {}): Promise<{ data: NetworkPerformancePublic[], pagination: any }> {
-    const where: any = {}
+  async findMany(filters: NetworkPerformanceFilters = {}): Promise<{ data: NetworkPerformancePublic[], pagination: { page: number, limit: number, total: number, totalPages: number } }> {
+    const where: Prisma.NetworkPerformanceWhereInput = {}
 
     if (filters.deviceId) where.deviceId = filters.deviceId
     if (filters.deviceType) where.deviceType = filters.deviceType
@@ -107,9 +107,9 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {}
     if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
+      (orderBy as Record<string, unknown>)[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
       orderBy.timestamp = 'desc'
     }
@@ -140,24 +140,24 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
       where: { id },
       data: {
         updatedAt: new Date(),
-        cpuUsage: data.cpuUsage,
-        memoryUsage: data.memoryUsage,
-        temperature: data.temperature,
-        uptime: data.uptime ? BigInt(data.uptime) : undefined,
-        rxBytes: data.rxBytes ? BigInt(data.rxBytes) : undefined,
-        txBytes: data.txBytes ? BigInt(data.txBytes) : undefined,
-        rxPackets: data.rxPackets ? BigInt(data.rxPackets) : undefined,
-        txPackets: data.txPackets ? BigInt(data.txPackets) : undefined,
-        rxDrops: data.rxDrops ? BigInt(data.rxDrops) : undefined,
-        txDrops: data.txDrops ? BigInt(data.txDrops) : undefined,
-        rxErrors: data.rxErrors ? BigInt(data.rxErrors) : undefined,
-        txErrors: data.txErrors ? BigInt(data.txErrors) : undefined,
-        interfaceStatus: data.interfaceStatus,
-        connectionCount: data.connectionCount,
-        bandwidthUsage: data.bandwidthUsage,
-        signalStrength: data.signalStrength,
-        powerLevel: data.powerLevel,
-        customMetrics: data.customMetrics,
+        ...(data.cpuUsage !== undefined ? { cpuUsage: data.cpuUsage } : {}),
+        ...(data.memoryUsage !== undefined ? { memoryUsage: data.memoryUsage } : {}),
+        ...(data.temperature !== undefined ? { temperature: data.temperature } : {}),
+        ...(data.uptime !== undefined ? { uptime: data.uptime ? BigInt(data.uptime) : null } : {}),
+        ...(data.rxBytes !== undefined ? { rxBytes: data.rxBytes ? BigInt(data.rxBytes) : null } : {}),
+        ...(data.txBytes !== undefined ? { txBytes: data.txBytes ? BigInt(data.txBytes) : null } : {}),
+        ...(data.rxPackets !== undefined ? { rxPackets: data.rxPackets ? BigInt(data.rxPackets) : null } : {}),
+        ...(data.txPackets !== undefined ? { txPackets: data.txPackets ? BigInt(data.txPackets) : null } : {}),
+        ...(data.rxDrops !== undefined ? { rxDrops: data.rxDrops ? BigInt(data.rxDrops) : null } : {}),
+        ...(data.txDrops !== undefined ? { txDrops: data.txDrops ? BigInt(data.txDrops) : null } : {}),
+        ...(data.rxErrors !== undefined ? { rxErrors: data.rxErrors ? BigInt(data.rxErrors) : null } : {}),
+        ...(data.txErrors !== undefined ? { txErrors: data.txErrors ? BigInt(data.txErrors) : null } : {}),
+        ...(data.interfaceStatus !== undefined ? { interfaceStatus: (data.interfaceStatus ?? Prisma.JsonNull) as Prisma.InputJsonValue } : {}),
+        ...(data.connectionCount !== undefined ? { connectionCount: data.connectionCount } : {}),
+        ...(data.bandwidthUsage !== undefined ? { bandwidthUsage: data.bandwidthUsage } : {}),
+        ...(data.signalStrength !== undefined ? { signalStrength: data.signalStrength } : {}),
+        ...(data.powerLevel !== undefined ? { powerLevel: data.powerLevel } : {}),
+        ...(data.customMetrics !== undefined ? { customMetrics: (data.customMetrics ?? Prisma.JsonNull) as Prisma.InputJsonValue } : {}),
       },
     })
   }
@@ -186,7 +186,7 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
   }
 
   async count(filters: NetworkPerformanceFilters = {}): Promise<number> {
-    const where: any = {}
+    const where: Prisma.NetworkPerformanceWhereInput = {}
 
     if (filters.deviceId) where.deviceId = filters.deviceId
     if (filters.deviceType) where.deviceType = filters.deviceType

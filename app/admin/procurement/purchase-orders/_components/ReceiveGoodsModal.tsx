@@ -7,10 +7,25 @@ import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { HiCheck } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 
+interface POItem {
+    id: string
+    quantity: number
+    barang?: {
+        nama?: string
+        kode?: string
+        satuan?: string
+    }
+}
+
+interface PO {
+    id: string
+    items?: POItem[]
+}
+
 interface ReceiveGoodsModalProps {
     isOpen: boolean
     onClose: () => void
-    po: any
+    po: PO | null
     onSuccess: () => void
 }
 
@@ -24,7 +39,7 @@ export default function ReceiveGoodsModal({ isOpen, onClose, po, onSuccess }: Re
     useEffect(() => {
         if (po?.items) {
             const initial: Record<string, number> = {}
-            po.items.forEach((item: any) => {
+            po.items.forEach((item: POItem) => {
                 initial[item.id] = item.quantity
             })
             setQuantities(initial)
@@ -48,7 +63,7 @@ export default function ReceiveGoodsModal({ isOpen, onClose, po, onSuccess }: Re
                 closePO
             }
 
-            const res = await fetch(`/api/procurement/purchase-orders/${po.id}/status`, {
+            const res = await fetch(`/api/procurement/purchase-orders/${po?.id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -62,9 +77,9 @@ export default function ReceiveGoodsModal({ isOpen, onClose, po, onSuccess }: Re
             toast.success("Barang berhasil diterima & Stok bertambah")
             onSuccess()
             onClose()
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error)
-            toast.error(error.message)
+            toast.error(error instanceof Error ? error.message : 'Terjadi kesalahan')
         } finally {
             setLoading(false)
         }
@@ -95,7 +110,7 @@ export default function ReceiveGoodsModal({ isOpen, onClose, po, onSuccess }: Re
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {po?.items?.map((item: any) => (
+                            {po?.items?.map((item: POItem) => (
                                 <tr key={item.id}>
                                     <td className="px-4 py-3">
                                         <div className="font-medium text-gray-900 dark:text-gray-100">

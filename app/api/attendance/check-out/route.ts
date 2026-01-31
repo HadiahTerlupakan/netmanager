@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
             }, { status: 401 })
         }
 
-        const formData: any = await request.formData()
+        const formData = await request.formData()
         const photo = formData.get('photo') as File | null
         const notes = formData.get('notes') as string
         const location = formData.get('location') as string
@@ -32,9 +32,10 @@ export async function POST(request: NextRequest) {
             const photoService = new AttendancePhotoService()
             try {
                 photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
-            } catch (error: any) {
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error'
                 return NextResponse.json({
-                    error: error.message,
+                    error: errorMessage,
                     code: 'VALIDATION_ERROR'
                 }, { status: 400 })
             }
@@ -55,13 +56,13 @@ export async function POST(request: NextRequest) {
                 attendanceId: result.attendance.id
             })
 
-            return NextResponse.json({ 
-                success: true, 
+            return NextResponse.json({
+                success: true,
                 data: result.attendance,
                 ...(result.warning && { warning: result.warning })
             })
-        } catch (error: any) {
-            if (error.message === 'NO_ACTIVE_SESSION') {
+        } catch (error) {
+            if (error instanceof Error && error.message === 'NO_ACTIVE_SESSION') {
                 return NextResponse.json({
                     error: 'Anda belum melakukan check-in atau sudah check-out hari ini',
                     code: 'NO_ACTIVE_SESSION'
@@ -70,8 +71,9 @@ export async function POST(request: NextRequest) {
             throw error
         }
 
-    } catch (error: any) {
-        logger.error('Error in check-out', error)
+    } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error))
+        logger.error('Error in check-out', err)
         return NextResponse.json({
             error: 'Internal server error',
             code: 'INTERNAL_ERROR'

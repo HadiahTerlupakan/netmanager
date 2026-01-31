@@ -5,6 +5,7 @@ import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { Prisma } from '@prisma/client'
 
 /**
  * GET /api/inventory/restock/settings
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
       const dbStart = Date.now()
 
       // Build where clause
-      const where: any = {}
+      const where: Prisma.RestockSettingsWhereInput = {}
       if (barangId) where.barangId = barangId
       if (gudangId) where.gudangId = gudangId
 
@@ -91,8 +92,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching restock settings', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error fetching restock settings', err, {
       path: '/api/inventory/restock/settings',
       method: 'GET',
     })
@@ -238,7 +240,7 @@ export async function POST(req: NextRequest) {
 
           if (!existingAlert) {
             const recommendedOrder = maxStok - currentStock.stok
-            const urgency = currentStock.stok === 0 ? 'CRITICAL' :
+            const urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM' = currentStock.stok === 0 ? 'CRITICAL' :
               currentStock.stok <= (minStok * 0.5) ? 'HIGH' : 'MEDIUM'
 
             await tx.restockAlerts.create({
@@ -250,7 +252,7 @@ export async function POST(req: NextRequest) {
                 currentStok: currentStock.stok,
                 minStok,
                 recommendedOrder,
-                urgency: urgency as any,
+                urgency,
                 message: `Stok ${barang.nama} di ${gudang.nama} rendah. Sisa: ${currentStock.stok} ${barang.satuan}, Min: ${minStok} ${barang.satuan}`
               }
             })
@@ -289,16 +291,17 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error saving restock settings', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error saving restock settings', err, {
       path: '/api/inventory/restock/settings',
       method: 'POST',
     })
 
-    if (error.message === 'Barang tidak ditemukan') {
+    if (err.message === 'Barang tidak ditemukan') {
       return ApiErrors.notFound('Barang')
     }
-    if (error.message === 'Gudang tidak ditemukan atau tidak aktif') {
+    if (err.message === 'Gudang tidak ditemukan atau tidak aktif') {
       return apiError('Gudang tidak ditemukan atau tidak aktif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 

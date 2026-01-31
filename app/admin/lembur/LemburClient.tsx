@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { MdCheckCircle, MdCancel, MdPending, MdAccessTime, MdTimer, MdDoneAll, MdPlayArrow, MdLocationOn, MdDelete, MdEdit } from 'react-icons/md'
-import { FaSearch, FaCalendarAlt, FaBuilding } from 'react-icons/fa'
+import { MdCheckCircle, MdCancel, MdPending, MdTimer, MdDoneAll, MdPlayArrow, MdLocationOn, MdDelete, MdEdit } from 'react-icons/md'
+import { FaSearch, FaBuilding } from 'react-icons/fa'
 import Image from 'next/image'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
-import { fetchWithHandling, isFetchError, formatErrorMessage, type FetchError } from '@/lib/utils/fetch-wrapper'
+import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
 import { formatForDateTimeInput, toISOString, formatDateDisplay, formatTimeDisplay, getDayName } from '@/lib/utils/datetime'
 import { validateReason, validateRejectionReason, validateTimeRange } from '@/lib/utils/validation'
 
@@ -91,26 +91,7 @@ export function ClientComponent() {
     const [departments, setDepartments] = useState<{ id: string, name: string }[]>([])
 
     // Handle rate limit countdown
-    useEffect(() => {
-        if (retryCountdown !== null && retryCountdown > 0) {
-            const timer = setTimeout(() => setRetryCountdown(retryCountdown - 1), 1000)
-            return () => clearTimeout(timer)
-        } else if (retryCountdown === 0) {
-            setRetryCountdown(null)
-        }
-    }, [retryCountdown])
-
-    useEffect(() => {
-        fetchOptions()
-        fetchRequests()
-    }, [])
-
-    // Fetch on debounced filter change
-    useEffect(() => {
-        if (!isLoading) fetchRequests()
-    }, [page, debouncedStartDate, debouncedEndDate, debouncedStatusFilter, debouncedSiteId, debouncedDepartmentId, debouncedHolidayFilter])
-
-    const fetchOptions = async () => {
+    const fetchOptions = useCallback(async () => {
         try {
             const response = await fetchWithHandling<{ sites: { id: string, name: string }[], departments: { id: string, name: string }[] }>('/api/admin/options')
             if (response.data) {
@@ -122,7 +103,7 @@ export function ClientComponent() {
                 showToast('error', formatErrorMessage(error))
             }
         }
-    }
+    }, [showToast])
 
     const fetchRequests = useCallback(async () => {
         if (retryCountdown !== null) return // Don't fetch during rate limit
@@ -158,6 +139,23 @@ export function ClientComponent() {
         }
     }, [page, debouncedStartDate, debouncedEndDate, debouncedStatusFilter, debouncedSiteId, debouncedDepartmentId, debouncedHolidayFilter, retryCountdown, showToast])
 
+    useEffect(() => {
+        if (retryCountdown !== null && retryCountdown > 0) {
+            const timer = setTimeout(() => setRetryCountdown(retryCountdown - 1), 1000)
+            return () => clearTimeout(timer)
+        } else if (retryCountdown === 0) {
+            setRetryCountdown(null)
+        }
+    }, [retryCountdown])
+
+    useEffect(() => {
+        fetchOptions()
+    }, [fetchOptions])
+
+    useEffect(() => {
+        fetchRequests()
+    }, [fetchRequests])
+
     const handleAction = async (id: string, action: 'approve' | 'reject', reason?: string) => {
         // Validate rejection reason
         if (action === 'reject') {
@@ -170,7 +168,7 @@ export function ClientComponent() {
 
         setProcessingId(id)
         try {
-            const response = await fetchWithHandling(`/api/admin/lembur/${id}`, {
+            await fetchWithHandling(`/api/admin/lembur/${id}`, {
                 method: 'PATCH',
                 body: JSON.stringify({ action, reason })
             })

@@ -24,7 +24,7 @@ async function getSNMPValue(
 ): Promise<string | null> {
   return new Promise((resolve) => {
     let resolved = false
-    let session: any = null
+    let session: { close: () => void; get: (oids: string[], callback: (error: Error | null, varbinds: Array<{ value: unknown }>) => void) => void } | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     const finish = (value: string | null) => {
@@ -34,7 +34,7 @@ async function getSNMPValue(
       if (session) {
         try {
           session.close()
-        } catch (e) {
+        } catch (_e) {
           // Ignore close errors
         }
       }
@@ -55,16 +55,16 @@ async function getSNMPValue(
         version: snmpVersion,
         retries: 2,
         timeout: 5000,
-      })
+      }) as unknown as { close: () => void; get: (oids: string[], callback: (error: Error | null, varbinds: Array<{ value: unknown }>) => void) => void }
 
-      session.get([oid], (error: any, varbinds: any[]) => {
+      session.get([oid], (error: Error | null, varbinds: Array<{ value: unknown }>) => {
         if (resolved) return
 
         if (error || !varbinds || varbinds.length === 0) {
           finish(null)
         } else {
           const varbind = varbinds[0]
-          if (varbind.value !== null && varbind.value !== undefined) {
+          if (varbind && varbind.value !== null && varbind.value !== undefined) {
             finish(varbind.value.toString())
           } else {
             finish(null)
@@ -75,7 +75,7 @@ async function getSNMPValue(
       timeoutId = setTimeout(() => {
         finish(null)
       }, 10000)
-    } catch (error) {
+    } catch (_error) {
       finish(null)
     }
   })
@@ -133,7 +133,7 @@ export async function syncOltDataDirect(oltId: string): Promise<boolean> {
     const connectedDevices = devicesStr ? parseInt(devicesStr) : null
 
     // Update OLT dengan data yang didapat
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       syncStatus: '100',
       syncDate: new Date(),
     }
@@ -150,8 +150,9 @@ export async function syncOltDataDirect(oltId: string): Promise<boolean> {
 
     console.log(`[OLT-Sync-Direct] Successfully synced OLT ${olt.name}`)
     return true
-  } catch (error: any) {
-    console.error(`[OLT-Sync-Direct] Error syncing OLT ${olt.name}:`, error?.message || error)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error(`[OLT-Sync-Direct] Error syncing OLT ${olt.name}:`, message)
     return false
   }
 }

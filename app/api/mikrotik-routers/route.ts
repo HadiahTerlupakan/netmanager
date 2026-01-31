@@ -4,6 +4,7 @@ import { mikrotikRouterCreateSchema } from '@/lib/validations/mikrotik'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import type { MikroTikRouterCreateData } from '@/modules/network/repositories/IMikroTikRouterRepository'
 
 /**
  * @swagger
@@ -147,7 +148,7 @@ export async function GET(req: NextRequest) {
     // RBAC: Check site restrictions
     let siteIdFilter: string | undefined = undefined
     if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
         if (!userSiteId) {
              // User has site restriction but no site assigned, return empty or error?
              // Returning empty list is safer
@@ -164,17 +165,21 @@ export async function GET(req: NextRequest) {
 
     // Use findWithFilters if pagination params are present, otherwise findAll for backward compatibility if needed
     // But better to always use paginated response for consistency on this route
+    const filters: Record<string, string | undefined> = {}
+    if (search) filters.search = search
+    if (siteIdFilter) filters.siteId = siteIdFilter
+
     const result = await routerRepository.findWithFilters(
-      { search, siteId: siteIdFilter },
+      filters,
       { page, limit }
     )
 
     return NextResponse.json(result)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching MikroTik Routers:', error)
-    const errorMessage = error?.message || error?.toString() || 'Gagal memuat data Router'
+    const errorMessage = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: errorMessage, routers: [], total: 0, page: 1, limit: 10, totalPages: 0 },
+      { error: errorMessage || 'Gagal memuat data Router', routers: [], total: 0, page: 1, limit: 10, totalPages: 0 },
       { status: 500 }
     )
   }
@@ -184,7 +189,7 @@ export async function POST(req: NextRequest) {
   // Cek autentikasi admin menggunakan fungsi terpusat
   const session = await getServerSession(authOptions)
   if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  
+
   if (!(await hasPermission("mikrotik:create"))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -211,7 +216,7 @@ export async function POST(req: NextRequest) {
   // RBAC: Check site restrictions for creation
   let finalSiteId = siteId
   if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-       const userSiteId = (session.user as any).siteId
+       const userSiteId = (session.user as { siteId?: string }).siteId
        if (!userSiteId) {
            return NextResponse.json({ error: 'User tidak memiliki akses site untuk membuat router' }, { status: 403 })
        }
@@ -221,26 +226,26 @@ export async function POST(req: NextRequest) {
     const routerRepository = getMikroTikRouterRepository()
     // 3. Create Router (Repository)
     // NAS sync happens inside Repository
-    const router = await routerRepository.create({
+    const createData: Record<string, string | number | undefined> = {
       name,
       ipAddress,
-      timezone,
       apiPort: Number(apiPort),
       apiUsername,
       apiPassword,
       authPort: Number(authPort),
       accountingPort: Number(accountingPort),
       secretRadius,
-      isolirUrl,
+    }
+    if (timezone) createData.timezone = timezone
+    if (isolirUrl) createData.isolirUrl = isolirUrl
+    if (description) createData.description = description
+    if (finalSiteId) createData.siteId = finalSiteId
 
-      description,
-      siteId: finalSiteId,
-    })
+    const router = await routerRepository.create(createData as unknown as MikroTikRouterCreateData)
 
     // 4. Auto Provisioning (Optional)
     let provisioningResult = { success: true, logs: [] as string[] };
-    let apiUserResult: { success: boolean; logs: string[]; username?: string; password?: string } = { success: false, logs: [] };
-    
+
     if (body.autoConfigure) {
       console.log('Starting Auto Provisioning...');
       try {
@@ -249,7 +254,7 @@ export async function POST(req: NextRequest) {
         if (serviceModule && serviceModule.MikroTikProvisioningService) {
             const { MikroTikProvisioningService } = serviceModule;
             const provisioningService = new MikroTikProvisioningService();
-            
+
             provisioningResult = await provisioningService.provisionRadius(
             {
                 ip: ipAddress,
@@ -268,7 +273,7 @@ export async function POST(req: NextRequest) {
 
             // 5. Auto Create API User (setelah provisioning berhasil)
             console.log('Creating API User...');
-            apiUserResult = await provisioningService.createApiUser({
+            const apiUserResult = await provisioningService.createApiUser({
                 ip: ipAddress,
                 port: Number(apiPort),
                 username: apiUsername,
@@ -293,15 +298,15 @@ export async function POST(req: NextRequest) {
             console.error('Failed to load MikroTikProvisioningService module');
             provisioningResult = { success: false, logs: ['Internal Error: Could not load provisioning service'] };
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('Provisioning CRITICAL error:', e);
-        // Do not fail the request if provisioning fails, just log it. 
+        // Do not fail the request if provisioning fails, just log it.
         // We still want to return the success response for the Router creation.
-        provisioningResult = { success: false, logs: [e.message || 'Unknown provisioning error'] };
+        provisioningResult = { success: false, logs: [e instanceof Error ? e.message : 'Unknown provisioning error'] };
       }
     }
 
-    // Trigger initial status check (running in background so response isn't delayed too much, 
+    // Trigger initial status check (running in background so response isn't delayed too much,
     // or await it if fast enough. 5s timeout is acceptable for "Add" action)
     try {
       const { checkSingleMikroTikRouterStatus } = await import('@/modules/network/services/mikrotik-ping-check')
@@ -316,7 +321,7 @@ export async function POST(req: NextRequest) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'MikroTik Router',
-        userId: session.user.id,
+        userId: session.user.id!,
         details: { id: router.id, name: name, ip: ipAddress }
       })
     } catch (e) {
@@ -324,7 +329,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ id: router.id })
-  } catch (e: any) {
+  } catch (_e: unknown) {
     return NextResponse.json({ error: 'IP Address sudah terpakai atau terjadi kesalahan' }, { status: 409 })
   }
 }

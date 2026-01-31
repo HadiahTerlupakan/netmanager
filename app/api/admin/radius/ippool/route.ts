@@ -10,7 +10,6 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
-import type { IRadIpPool } from '@/modules/network/repositories/IRadiusRepository';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
@@ -69,7 +68,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { poolName, framedIpAddress, nasIpAddress, poolKey } = body;
+        const { poolName, framedIpAddress } = body;
 
         // Validation
         if (!poolName || !framedIpAddress) {
@@ -96,7 +95,11 @@ export async function POST(req: NextRequest) {
                 action: 'CREATE',
                 subject: 'IP Pool',
                 ...(session.user.id ? { userId: session.user.id } : {}),
-                details: { id: (newPool as any).id, poolName: (newPool as any).poolName, ip: (newPool as any).framedIpAddress }
+                details: {
+                    id: (newPool as unknown as { id: string }).id,
+                    poolName: (newPool as { poolName: string }).poolName,
+                    ip: (newPool as { framedIpAddress: string }).framedIpAddress
+                }
             })
         } catch (e) {
             console.error('Logging failed', e)

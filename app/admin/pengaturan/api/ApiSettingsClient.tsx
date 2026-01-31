@@ -60,7 +60,7 @@ function CaptchaSettingsSection() {
       if (!res.ok) throw new Error('Gagal menyimpan')
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
-    } catch (err) {
+    } catch (_err) {
       setError('Gagal menyimpan pengaturan Captcha')
     } finally {
       setSaving(false)
@@ -220,9 +220,9 @@ export function ClientComponent() {
         const errorData = await res.json()
         setError(errorData.error || 'Gagal memuat pengaturan')
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading settings:', err)
-      setError(err.message || 'Terjadi kesalahan saat memuat pengaturan')
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat pengaturan')
     } finally {
       setLoading(false)
     }
@@ -248,9 +248,9 @@ export function ClientComponent() {
 
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving settings:', err)
-      setError(err.message || 'Terjadi kesalahan saat menyimpan pengaturan')
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan pengaturan')
     } finally {
       setSaving(false)
     }
@@ -288,9 +288,9 @@ export function ClientComponent() {
 
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error testing API key:', err)
-      setError(err.message || 'API Key tidak valid atau terjadi kesalahan')
+      setError(err instanceof Error ? err.message : 'API Key tidak valid atau terjadi kesalahan')
     } finally {
       setSaving(false)
     }
@@ -337,9 +337,9 @@ export function ClientComponent() {
 
       setTestSuccess(true)
       setTimeout(() => setTestSuccess(false), 3000)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error testing R2 connection:', err)
-      setError(err.message || 'Koneksi ke R2 gagal')
+      setError(err instanceof Error ? err.message : 'Koneksi ke R2 gagal')
     } finally {
       setTesting(false)
     }

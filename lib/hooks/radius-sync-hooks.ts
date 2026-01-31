@@ -129,7 +129,7 @@ export function logSyncResult(
  * Helper: Determine if sync is needed
  * Skip sync for test/demo accounts or specific conditions
  */
-export function shouldSync(username: string, status?: Status): boolean {
+export function shouldSync(username: string, _status?: Status): boolean {
     // Skip sync for demo accounts
     if (username.startsWith('demo_') || username.startsWith('test_')) {
         return false;

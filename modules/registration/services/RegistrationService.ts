@@ -74,7 +74,7 @@ export class RegistrationService {
             })
 
             return { success: true, data: registration }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[RegistrationService] Error creating registration:', error)
             return {
                 success: false,

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { paymentSchema } from '@/lib/validations/payment'
 import { randomUUID } from 'crypto'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { Prisma } from '@prisma/client'
 
 /**
  * @swagger
@@ -89,7 +90,7 @@ import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
  */
 export async function GET(req: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return ApiErrors.unauthorized()
     }
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const where: any = {}
+    const where: Record<string, unknown> = {}
     if (pelangganId) {
       where.pelangganId = pelangganId
     }
@@ -114,20 +115,21 @@ export async function GET(req: NextRequest) {
       where.paymentMethod = paymentMethod
     }
     if (startDate || endDate) {
-      where.paymentDate = {}
+      const paymentDate: Record<string, Date> = {}
       if (startDate) {
-        where.paymentDate.gte = new Date(startDate)
+        paymentDate.gte = new Date(startDate)
       }
       if (endDate) {
-        where.paymentDate.lte = new Date(endDate)
+        paymentDate.lte = new Date(endDate)
       }
+      where.paymentDate = paymentDate
     }
 
     const skip = (page - 1) * limit
 
     const [payments, total] = await Promise.all([
       prisma.payment.findMany({
-        where,
+        where: where as Prisma.PaymentWhereInput,
         include: {
           invoice: {
             include: {
@@ -143,7 +145,7 @@ export async function GET(req: NextRequest) {
         skip,
         take: limit,
       }),
-      prisma.payment.count({ where }),
+      prisma.payment.count({ where: where as Prisma.PaymentWhereInput }),
     ])
 
     const totalPages = Math.ceil(total / limit)
@@ -159,9 +161,9 @@ export async function GET(req: NextRequest) {
         hasPrev: page > 1,
       },
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching payments:', error)
-    return apiError(ErrorCodes.INTERNAL_ERROR, error?.message || 'Internal Server Error')
+    return apiError(ErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : 'Internal Server Error')
   }
 }
 
@@ -241,8 +243,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
+    const session = await getServerSession(authConfig)
+    if (!session?.user?.id) {
       return ApiErrors.unauthorized()
     }
 
@@ -283,12 +285,12 @@ export async function POST(req: NextRequest) {
         id: randomUUID(),
         paymentDate: paymentData.paymentDate,
         paymentMethod: paymentData.paymentMethod,
-        reference: paymentData.reference,
-        notes: paymentData.notes,
+        reference: paymentData.reference ?? null,
+        notes: paymentData.notes ?? null,
         invoiceId: invoiceId || null,
         pelangganId,
         amount: amountInCents,
-        verifiedBy: session.user?.id,
+        verifiedBy: session.user.id,
         updatedAt: new Date(),
       },
       include: {
@@ -344,19 +346,19 @@ export async function POST(req: NextRequest) {
         userId: session.user.id,
         details: { id: payment.id, amount: Number(amountInCents) / 100, method: paymentData.paymentMethod }
       })
-    } catch (e) {
-      console.error('Logging failed', e)
+    } catch (_e) {
+      console.error('Logging failed', _e)
     }
 
     return apiSuccess(payment, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating payment:', error)
 
     // Handle foreign key constraint violation
-    if (error.code === 'P2003') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
       return apiError(ErrorCodes.VALIDATION_ERROR, 'Pelanggan atau Invoice tidak ditemukan')
     }
 
-    return apiError(ErrorCodes.INTERNAL_ERROR, error?.message || 'Internal Server Error')
+    return apiError(ErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : 'Internal Server Error')
   }
 }

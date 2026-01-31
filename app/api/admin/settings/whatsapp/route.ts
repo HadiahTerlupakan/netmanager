@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
             whatsappDeviceId: settingsMap['WABLAS_DEVICE_ID'] || '',
             whatsappDomain: settingsMap['WABLAS_DOMAIN'] || ''
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching WhatsApp settings:', error)
         return ApiErrors.internalError('Gagal mengambil pengaturan WhatsApp')
     }
@@ -107,7 +107,7 @@ export async function PUT(request: NextRequest) {
         console.log('[WhatsApp Settings] Saved configuration:', whatsappProvider)
 
         return apiSuccess(null, { message: 'Pengaturan WhatsApp berhasil disimpan' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error saving WhatsApp settings:', error)
         return ApiErrors.internalError('Gagal menyimpan pengaturan WhatsApp')
     }

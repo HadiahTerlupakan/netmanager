@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { TicketStatus, TicketCategory, TicketPriority } from '@prisma/client'
+import { TicketStatus, TicketCategory, TicketPriority, Prisma } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 import { randomUUID } from 'crypto'
@@ -52,9 +52,9 @@ export class AdminSupportTicketService {
         user: UserContext,
         hasSiteRestriction: boolean
     ): Promise<ServiceResult<{
-        tickets: any[]
+        tickets: unknown[]
         pagination: { page: number; limit: number; total: number; totalPages: number }
-        stats: Record<string, any>
+        stats: Record<string, unknown>
     }>> {
         try {
             const {
@@ -68,7 +68,7 @@ export class AdminSupportTicketService {
             } = filters
 
             const skip = (page - 1) * limit
-            const where: any = {}
+            const where: Prisma.SupportTicketsWhereInput = {}
 
             // Site restriction check
             if (hasSiteRestriction && user.role !== 'SUPER_ADMIN') {
@@ -147,13 +147,14 @@ export class AdminSupportTicketService {
             const { avgRating, ratedCount } = await this.calculateAverageRating(where)
 
             // Format response
-            const formattedTickets = tickets.map((ticket) => ({
-                ...ticket,
-                lastReply: ticket.replies[0] || null,
-                replyCount: ticket._count.replies,
-                replies: undefined,
-                _count: undefined,
-            }))
+            const formattedTickets = tickets.map((ticket) => {
+                const { replies, _count, ...rest } = ticket
+                return {
+                    ...rest,
+                    lastReply: replies[0] || null,
+                    replyCount: _count.replies,
+                }
+            })
 
             return {
                 success: true,
@@ -185,7 +186,7 @@ export class AdminSupportTicketService {
         id: string,
         user: UserContext,
         hasSiteRestriction: boolean
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<unknown>> {
         try {
             const ticket = await prisma.supportTickets.findUnique({
                 where: { id },
@@ -251,7 +252,7 @@ export class AdminSupportTicketService {
         },
         user: UserContext,
         hasSiteRestriction: boolean
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<unknown>> {
         try {
             const existing = await prisma.supportTickets.findUnique({
                 where: { id },
@@ -271,7 +272,7 @@ export class AdminSupportTicketService {
                 }
             }
 
-            const updateData: any = {}
+            const updateData: Prisma.SupportTicketsUpdateInput = {}
 
             // Status update
             if (data.status && Object.values(TicketStatus).includes(data.status)) {
@@ -292,7 +293,8 @@ export class AdminSupportTicketService {
 
             // Assignee update
             if (data.assignedToId !== undefined) {
-                updateData.assignedToId = data.assignedToId || null
+                // Use explicit type casting or handle relations if needed
+                updateData.user = data.assignedToId ? { connect: { id: data.assignedToId } } : { disconnect: true }
             }
 
             const ticket = await prisma.supportTickets.update({
@@ -375,7 +377,7 @@ export class AdminSupportTicketService {
 
     // ====== PRIVATE HELPERS ======
 
-    private async getStatusCounts(baseWhere: any) {
+    private async getStatusCounts(baseWhere: Prisma.SupportTicketsWhereInput) {
         // Optimization: Use groupBy instead of 5 separate count queries
         const counts = await prisma.supportTickets.groupBy({
             by: ['status'],
@@ -406,7 +408,7 @@ export class AdminSupportTicketService {
         }
     }
 
-    private async calculateAverageRating(baseWhere: any) {
+    private async calculateAverageRating(baseWhere: Prisma.SupportTicketsWhereInput) {
         // Optimization: parse logic is still heavy in application layer due to string storage
         // but we ensure we only select minimal data
         const closedTicketsWithReplies = await prisma.supportTickets.findMany({
@@ -448,7 +450,7 @@ export class AdminSupportTicketService {
         }
     }
 
-    private async logActivity(action: string, subject: string, userId: string, details: any) {
+    private async logActivity(action: string, subject: string, userId: string, details: Record<string, unknown>) {
         try {
             await logger.logActivity({ action, subject, userId, details })
         } catch (e) {

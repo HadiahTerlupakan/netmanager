@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, use } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useEffect, useState, use, useCallback } from 'react'
 import Link from 'next/link'
 import {
     MdArrowBack,
@@ -48,7 +47,6 @@ interface IpInfo {
 
 export function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params)
-    const router = useRouter()
     const [registration, setRegistration] = useState<Registration | null>(null)
     const [ipInfo, setIpInfo] = useState<IpInfo | null>(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -57,11 +55,18 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
     const [rejectionReason, setRejectionReason] = useState('')
     const [error, setError] = useState('')
 
-    useEffect(() => {
-        fetchRegistration()
-    }, [resolvedParams.id])
+    const fetchIpInfo = useCallback(async (ip: string) => {
+        try {
+            const res = await fetch(`/api/ip-info?ip=${encodeURIComponent(ip)}`)
+            if (res.ok) {
+                setIpInfo(await res.json())
+            }
+        } catch (e) {
+            console.error('Failed to fetch IP info', e)
+        }
+    }, [])
 
-    const fetchRegistration = async () => {
+    const fetchRegistration = useCallback(async () => {
         try {
             const res = await fetch(`/api/admin/registrations/${resolvedParams.id}`)
             if (res.ok) {
@@ -79,18 +84,11 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [resolvedParams.id, fetchIpInfo])
 
-    const fetchIpInfo = async (ip: string) => {
-        try {
-            const res = await fetch(`/api/ip-info?ip=${encodeURIComponent(ip)}`)
-            if (res.ok) {
-                setIpInfo(await res.json())
-            }
-        } catch (e) {
-            console.error('Failed to fetch IP info', e)
-        }
-    }
+    useEffect(() => {
+        fetchRegistration()
+    }, [fetchRegistration])
 
     const updateStatus = async (newStatus: string, reason?: string) => {
         setIsSaving(true)

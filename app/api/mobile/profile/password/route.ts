@@ -39,7 +39,7 @@ export async function POST(request: Request) {
         }
 
         const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: user.id as string },
             select: { id: true, passwordHash: true }
         })
 
@@ -53,15 +53,16 @@ export async function POST(request: Request) {
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, 10)
-        
+
         await prisma.user.update({
-            where: { id: user.id },
+            where: { id: user.id as string },
             data: { passwordHash: newPasswordHash }
         })
 
         return NextResponse.json({ success: true, message: 'Password updated successfully' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Password change error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

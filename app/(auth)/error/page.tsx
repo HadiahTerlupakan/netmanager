@@ -8,17 +8,18 @@ import { useEffect, useState, Suspense } from 'react'
 function AuthErrorPageContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
-  const [countdown, setCountdown] = useState<number | null>(null)
-
   // Decode error message dari URL
   const errorMessage = error ? decodeURIComponent(error) : 'Terjadi kesalahan saat autentikasi'
+  const isRateLimitError = errorMessage.includes('Terlalu banyak percobaan')
+
+  const [countdown, setCountdown] = useState<number | null>(isRateLimitError ? 300 : null)
 
   // Jika error terkait rate limiting, tampilkan countdown
   useEffect(() => {
-    if (errorMessage.includes('Terlalu banyak percobaan')) {
+    if (isRateLimitError) {
       // Rate limit adalah 5 menit (300 detik)
-      setCountdown(300)
-      
+      // setCountdown(300) // Initial value is now set in useState
+
       const interval = setInterval(() => {
         setCountdown((prev) => {
           if (prev === null || prev <= 1) {
@@ -31,15 +32,13 @@ function AuthErrorPageContent() {
 
       return () => clearInterval(interval)
     }
-  }, [errorMessage])
+  }, [isRateLimitError])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
-
-  const isRateLimitError = errorMessage.includes('Terlalu banyak percobaan')
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">

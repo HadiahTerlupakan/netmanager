@@ -12,6 +12,9 @@ export async function GET(request: Request) {
   }
 
   const token = authHeader.split(' ')[1]
+  if (!token) {
+    return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+  }
   const payload = await verifyMobileToken(token)
 
   if (!payload) {
@@ -238,7 +241,7 @@ export async function GET(request: Request) {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching topology data:', error)
     return NextResponse.json({ error: 'Failed to fetch topology data' }, { status: 500 })
   }

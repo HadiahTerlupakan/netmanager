@@ -40,13 +40,13 @@ export function decryptApiKey(encryptedText: string): string {
         const key = getEncryptionKey()
 
         // Split iv and encrypted data
-        const parts = encryptedText.split(':')
-        if (parts.length !== 2) {
+        const [ivHex, encryptedHex] = encryptedText.split(':')
+        if (!ivHex || !encryptedHex) {
             throw new Error('Invalid encrypted format')
         }
 
-        const iv = Buffer.from(parts[0], 'hex')
-        const encrypted = parts[1]
+        const iv = Buffer.from(ivHex, 'hex')
+        const encrypted = encryptedHex
 
         const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv)
 

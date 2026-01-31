@@ -53,7 +53,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(({
     const errors: string[] = []
     const validFiles: File[] = []
 
-    files.forEach((file, index) => {
+    files.forEach((file, _index) => {
       // Check if it's an image
       if (!file.type.startsWith('image/')) {
         errors.push(`File "${file.name}" bukan gambar yang valid`)
@@ -155,7 +155,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(({
       const formData = new FormData()
 
       // Add all photos to FormData
-      photos.forEach((photo, index) => {
+      photos.forEach((photo, _index) => {
         formData.append('photos', photo.file)
       })
 

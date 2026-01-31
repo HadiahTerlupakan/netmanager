@@ -10,7 +10,7 @@ import { testR2Connection } from '@/lib/utils/r2-client'
 export async function POST(req: NextRequest) {
     try {
         // Cek autentikasi
-        const session: any = await getServerSession(authConfig as any)
+        const session = await getServerSession(authConfig)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
@@ -51,10 +51,10 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             )
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error testing R2 connection:', error)
         return NextResponse.json(
-            { error: error.message || 'Internal Server Error' },
+            { error: (error as Error).message || 'Internal Server Error' },
             { status: 500 }
         )
     }

@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+        }
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
@@ -53,9 +56,9 @@ export async function GET(request: NextRequest) {
                 isNational: holidayRecord.isNational
             } : null
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Mobile Overtime GET Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
     }
 }
 
@@ -68,6 +71,9 @@ export async function POST(request: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+        }
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
@@ -116,11 +122,15 @@ export async function POST(request: NextRequest) {
                  );
             }
 
-            const result = await service.startOvertime(userId, overtimeId, {
+            const startParams: { photo: string; location?: string; timestamp?: Date } = {
                 photo: photoUrl,
-                location,
-                timestamp: timestamp ? new Date(timestamp) : undefined
-            });
+                location: location as string,
+            };
+            if (timestamp) {
+                startParams.timestamp = new Date(timestamp);
+            }
+
+            const result = await service.startOvertime(userId, overtimeId, startParams);
             return NextResponse.json(result);
         }
 
@@ -147,18 +157,22 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            const result = await service.stopOvertime(userId, overtimeId, {
+            const stopParams: { photo: string; location?: string; timestamp?: Date } = {
                 photo: photoUrl,
-                location,
-                timestamp: timestamp ? new Date(timestamp) : undefined
-            });
+                location: location as string,
+            };
+            if (timestamp) {
+                stopParams.timestamp = new Date(timestamp);
+            }
+
+            const result = await service.stopOvertime(userId, overtimeId, stopParams);
             return NextResponse.json(result);
         }
 
         return NextResponse.json({ error: 'Aksi tidak valid' }, { status: 400 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Mobile Overtime POST Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 400 });
     }
 }

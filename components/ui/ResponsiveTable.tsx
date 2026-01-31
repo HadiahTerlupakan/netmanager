@@ -155,13 +155,13 @@ function DefaultMobileCard<T>({
             ? column.render(item, index)
             : getNestedValue(item, String(column.key))
 
-          return (
-            <div key={String(column.key)} className={colIndex === 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-sm text-gray-600 dark:text-gray-400'}>
-              {value as any}
-            </div>
-          )
-        })}
-      </div>
+            return (
+              <div key={String(column.key)} className={colIndex === 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-sm text-gray-600 dark:text-gray-400'}>
+                {value as React.ReactNode}
+              </div>
+            )
+          })}
+        </div>
 
       {/* Other Info - Grid Layout */}
       {(otherColumns.length > 0 || primaryColumns.length > 2) && (
@@ -177,7 +177,7 @@ function DefaultMobileCard<T>({
                   {column.mobileLabel || column.header}
                 </span>
                 <span className="text-gray-900 dark:text-white font-medium">
-                  {value as any ?? '-'}
+                  {(value as React.ReactNode) ?? '-'}
                 </span>
               </div>
             )
@@ -219,6 +219,8 @@ export function ResponsiveTable<T>({
   totalPages,
   onPageChange
 }: ResponsiveTableProps<T>) {
+  // Ensure data is always an array
+  const safeData = Array.isArray(data) ? data : []
   const totalColumns = columns.length + (showRowNumbers ? 1 : 0) + (renderActions ? 1 : 0)
 
   // Loading State
@@ -276,7 +278,7 @@ export function ResponsiveTable<T>({
   }
 
   // Empty State
-  if (!data || data.length === 0) {
+  if (!safeData || safeData.length === 0) {
     return (
       <div className={`${className}`}>
         {/* Desktop Empty */}
@@ -371,7 +373,7 @@ export function ResponsiveTable<T>({
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-            {data.map((item, index) => (
+            {safeData.map((item, index) => (
               <tr
                 key={String(item[keyField])}
                 className={`
@@ -396,7 +398,7 @@ export function ResponsiveTable<T>({
                       key={String(column.key)}
                       className={`px-4 py-3 text-sm text-gray-900 dark:text-white ${getAlignmentClass(column.align)} ${getPriorityClasses(column.priority)} ${column.className || ''}`}
                     >
-                      {value as any ?? '-'}
+                      {(value as React.ReactNode) ?? '-'}
                     </td>
                   )
                 })}

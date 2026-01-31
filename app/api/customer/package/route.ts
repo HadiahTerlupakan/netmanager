@@ -19,17 +19,17 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        if (!(customer as any).hargaPaket) {
+        if (!customer.hargaPaket) {
             return NextResponse.json(
                 { error: 'Paket langganan tidak ditemukan' },
                 { status: 404 }
             )
         }
 
-        const paket = (customer as any).hargaPaket
+        const paket = customer.hargaPaket
 
         // Calculate next bill amount with discounts and PPN
-        let basePrice = paket.harga
+        const basePrice = paket.harga
         let discountAmount = 0
         let ppnAmount = 0
 
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
                 } : null,
             })),
         })
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Customer Package Error]:', error)
         return NextResponse.json(
             { error: 'Terjadi kesalahan server' },

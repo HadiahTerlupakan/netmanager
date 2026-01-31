@@ -1,0 +1,341 @@
+
+> web@1.0.0 lint
+> eslint .
+
+
+/Users/rohadimraja/Documents/netmanager/app/admin/salary/users/SalaryUsersClient.tsx
+  66:12  warning  'components' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/app/admin/support/SupportContent.tsx
+  66:12  warning  'total' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/app/api/admin/attendance/[id]/route.ts
+  41:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/admin/workorders/dashboard/route.ts
+   54:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  267:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  268:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  269:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  270:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  271:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  272:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  274:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/bandwidths/route.ts
+   38:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/inventory/opname/calculate/route.ts
+  19:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/invoices/[id]/send/route.ts
+  126:45  warning  'message' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/app/api/ktp-ocr/route.ts
+  162:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mikrotik-routers/route.ts
+  243:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mobile/leaves/route.ts
+   22:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   44:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  169:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mobile/location/route.ts
+  54:111  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mobile/work-orders/[id]/tasks/route.ts
+  25:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/network/backups/[id]/restore/route.ts
+  129:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/profileppps/route.ts
+  288:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/roles/[id]/route.ts
+  72:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/roles/route.ts
+  98:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/sites/route.ts
+  6:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/speedprofiles/route.ts
+  27:146  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:46   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/components/common/MapPicker.tsx
+  167:135  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/components/inventory/TransferForm.tsx
+  32:11  warning  'Photo' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/lib/database/security.ts
+  284:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/lib/middleware/error-handler.ts
+   6:10  warning  'NextRequest' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  87:22  warning  Unexpected any. Specify a different type                                       @typescript-eslint/no-explicit-any
+  87:37  warning  Unexpected any. Specify a different type                                       @typescript-eslint/no-explicit-any
+  89:26  warning  Unexpected any. Specify a different type                                       @typescript-eslint/no-explicit-any
+  89:41  warning  Unexpected any. Specify a different type                                       @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/lib/middleware/rate-limit.ts
+  42:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  63:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/lib/repositories/USORepository.ts
+   22:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   27:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   37:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   44:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   46:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   53:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   59:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   61:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   67:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   72:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   78:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   80:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   82:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   89:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   91:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   93:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+  100:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+  102:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+
+/Users/rohadimraja/Documents/netmanager/lib/utils/snmp-helpers.ts
+  1290:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/finance/repositories/PemasukanRepository.ts
+    6:1  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  141:7  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  261:7  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  320:7  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  367:7  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/rohadimraja/Documents/netmanager/modules/finance/repositories/PengeluaranRepository.ts
+    6:1   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+    8:1   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   10:1   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   12:1   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  276:5   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  471:7   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  518:7   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  571:7   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  604:7   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  637:7   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  658:31  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/finance/services/FinanceService.ts
+  257:13  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/rohadimraja/Documents/netmanager/modules/finance/services/payment-gateway/providers/dana-provider.ts
+  156:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  181:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:74  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  186:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  186:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  272:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/inventory/repositories/InventoryRepository.ts
+  182:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  212:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  284:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  328:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  350:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  362:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  409:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  523:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  624:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  656:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  695:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  770:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  794:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/inventory/services/AssetService.ts
+  139:13  error  'depCategory' is never reassigned. Use 'const' instead  prefer-const
+
+/Users/rohadimraja/Documents/netmanager/modules/network/repositories/OnuRepository.ts
+  395:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  500:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  588:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  602:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  611:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/network/services/OnuService.ts
+  113:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/network/services/onu-sync-bulk-optimized.ts
+  423:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  436:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/pelanggan/services/AdminSupportTicketService.ts
+  150:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/salary/services/SalaryCalculatorService.ts
+   46:6   warning  'UserSalaryData' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   86:87  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  112:16  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  278:88  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/modules/work-order/repositories/IWorkOrderRepository.ts
+  40:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/prisma/seed.ts
+  131:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  144:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/lib/authorization-middleware.test.ts
+  239:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/mocks/prisma.ts
+   2:15  warning  'PrismaClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   5:32  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  43:36  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  52:18  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/attendance/GeofenceService.test.ts
+   14:7   warning  'prismaMock' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   14:41  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  102:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  121:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  138:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  157:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  177:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  190:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  207:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/finance/AutomaticBillingService.test.ts
+  3:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/finance/AutomaticIsolationService.test.ts
+  3:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/inventory/InventoryRepository.test.ts
+    3:41  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+    5:15  warning  'Barang' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+    5:23  warning  'BarangGudang' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    5:37  warning  'BarangMasuk' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+    5:50  warning  'BarangKeluar' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    5:64  warning  'Gudang' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   35:75  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   49:29  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   52:72  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   61:66  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   74:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   82:72  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   97:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  100:68  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  113:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  117:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  133:70  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  143:64  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  151:64  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/network/OdpRepository.test.ts
+    3:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   25:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   89:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  169:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  188:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  197:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  207:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/network/OnuRepository.test.ts
+    3:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  167:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/notification/NotificationService.test.ts
+    3:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   26:81  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   52:81  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:84  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/pelanggan/PelangganService.test.ts
+    3:41  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+    5:15  warning  'Pelanggan' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+    5:26  warning  'HargaPaket' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   57:12  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+   70:12  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  102:85  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  104:74  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  123:78  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  124:74  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  146:78  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/tests/modules/work-order/WorkOrderRepository.test.ts
+    3:41   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+    5:47   warning  'User' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    5:75   warning  'WorkOrderUpdates' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+    5:98   warning  'WorkOrderAssignments' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    5:125  warning  'WorkOrderTasks' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   79:10   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   84:39   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   93:83   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   94:69   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  107:69   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  108:68   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  131:49   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  133:46   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  133:91   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  135:75   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  153:63   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  155:82   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  157:75   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  175:50   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  177:82   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  179:73   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  196:49   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  198:82   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  200:69   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  216:70   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  226:64   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  227:50   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  227:83   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  229:73   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  255:68   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  273:104  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  274:76   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  276:50   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  294:44   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  299:12   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  325:12   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  342:64   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  343:53   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  348:12   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  351:12   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  355:12   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  356:62   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+
+✖ 235 problems (17 errors, 218 warnings)
+  1 error and 18 warnings potentially fixable with the `--fix` option.
+

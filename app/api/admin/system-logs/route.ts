@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
-import { LogType } from '@prisma/client'
+import { LogType, Prisma } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
         const limit = parseInt(searchParams.get('limit') || '20')
         const skip = (page - 1) * limit
 
-        const where: any = {}
+        const where: Prisma.SystemLogWhereInput = {}
         if (typeKey && Object.values(LogType).includes(typeKey as LogType)) {
             where.type = typeKey as LogType
         }
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
         }
 
         // SITE RESTRICTION LOGIC
-        const user = session.user as any
+        const user = session.user as { role: string; siteId?: string }
         const isSuperAdmin = user.role === 'SUPER_ADMIN'
         const isSiteRestricted = await hasPermission('system_log:site_only') && !isSuperAdmin
 

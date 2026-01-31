@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma'
-import type { 
-    Salary, 
-    SalaryStatus, 
+import type {
+    Salary,
+    SalaryStatus,
     SalaryDetail,
     SalaryRevision,
-    Prisma 
+    EmployeeType,
+    Prisma
 } from '@prisma/client'
 
 
@@ -104,7 +105,7 @@ export class SalaryRepository {
             where.user = {
                 ...(filters.departmentId && { departmentId: filters.departmentId }),
                 ...(filters.siteId && { siteId: filters.siteId }),
-                ...(filters.employeeType && { employeeType: filters.employeeType as any })
+                ...(filters.employeeType && { employeeType: filters.employeeType as EmployeeType })
             }
         }
 

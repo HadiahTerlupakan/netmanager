@@ -74,7 +74,7 @@ export async function POST(
         const { socketEmitter } = await import('@/lib/websocket/emitter');
         const woResult = await workOrderService.getWorkOrderById(id);
         if (woResult.success && woResult.data) {
-            socketEmitter.updateWorkOrder(woResult.data as any);
+            socketEmitter.updateWorkOrder(woResult.data as unknown as Parameters<typeof socketEmitter.updateWorkOrder>[0]);
 
             // Send Push Notification
             const woForNotify = await prisma.workOrders.findUnique({

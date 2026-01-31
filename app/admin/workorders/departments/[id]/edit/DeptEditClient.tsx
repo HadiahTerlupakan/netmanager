@@ -48,7 +48,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                     isReminderTarget: dept.isReminderTarget || false,
                     showInMobileWO: dept.showInMobileWO || false,
                 })
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error('Error fetching department:', error)
                 setError(error instanceof Error ? error.message : 'Gagal memuat data department')
             } finally {
@@ -80,7 +80,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
             }
 
             router.push('/admin/workorders/departments')
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error updating department:', error)
             setError(error instanceof Error ? error.message : 'Gagal mengupdate department')
         } finally {

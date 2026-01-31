@@ -1,16 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
 
-// Mock prisma
-vi.mock('@/lib/prisma', () => ({
-    prisma: {
-        user: {
-            findUnique: vi.fn()
-        }
-    }
-}))
-
-import { prisma } from '@/lib/prisma'
+import { prismaMock } from '../../setup'
+import type { User } from '@prisma/client'
 
 describe('GeofenceService', () => {
     let service: GeofenceService
@@ -95,9 +87,9 @@ describe('GeofenceService', () => {
 
     describe('validateGeofence', () => {
         it('should return isInside=true if user has no site assigned', async () => {
-            vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+            vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
                 sites: null
-            } as any)
+            } as unknown as User)
 
             const result = await service.validateGeofence('user-1', -6.1754, 106.8272)
 
@@ -107,7 +99,7 @@ describe('GeofenceService', () => {
         })
 
         it('should return isInside=true if site has no coordinates', async () => {
-            vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+            vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
                 sites: {
                     id: 'site-1',
                     name: 'Test Site',
@@ -116,7 +108,7 @@ describe('GeofenceService', () => {
                     attendanceRadius: 100,
                     isActive: true
                 }
-            } as any)
+            } as unknown as User)
 
             const result = await service.validateGeofence('user-1', -6.1754, 106.8272)
 
@@ -124,7 +116,7 @@ describe('GeofenceService', () => {
         })
 
         it('should return isInside=true when user is within site radius', async () => {
-            vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+            vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
                 sites: {
                     id: 'site-1',
                     name: 'Kantor Jakarta',
@@ -133,7 +125,7 @@ describe('GeofenceService', () => {
                     attendanceRadius: 100,
                     isActive: true
                 }
-            } as any)
+            } as unknown as User)
 
             const result = await service.validateGeofence('user-1', -6.1754, 106.8272)
 
@@ -143,7 +135,7 @@ describe('GeofenceService', () => {
         })
 
         it('should return isInside=false when user is outside site radius', async () => {
-            vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+            vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
                 sites: {
                     id: 'site-1',
                     name: 'Kantor Jakarta',
@@ -152,7 +144,7 @@ describe('GeofenceService', () => {
                     attendanceRadius: 100,
                     isActive: true
                 }
-            } as any)
+            } as unknown as User)
 
             // User at Monas (~2km from Bundaran HI)
             const result = await service.validateGeofence('user-1', -6.1754, 106.8272)
@@ -163,7 +155,7 @@ describe('GeofenceService', () => {
         })
 
         it('should return isInside=true for inactive site', async () => {
-            vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+            vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
                 sites: {
                     id: 'site-1',
                     name: 'Inactive Site',
@@ -172,7 +164,7 @@ describe('GeofenceService', () => {
                     attendanceRadius: 100,
                     isActive: false
                 }
-            } as any)
+            } as unknown as User)
 
             const result = await service.validateGeofence('user-1', -6.1754, 106.8272)
 
@@ -183,9 +175,9 @@ describe('GeofenceService', () => {
 
     describe('getZonesForUser', () => {
         it('should return empty array if user has no site', async () => {
-            vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+            vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
                 sites: null
-            } as any)
+            } as unknown as User)
 
             const result = await service.getZonesForUser('user-1')
 
@@ -193,7 +185,7 @@ describe('GeofenceService', () => {
         })
 
         it('should return zone info for user with active site', async () => {
-            vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+            vi.mocked(prismaMock.user.findUnique).mockResolvedValueOnce({
                 sites: {
                     id: 'site-1',
                     name: 'Kantor Jakarta',
@@ -202,7 +194,7 @@ describe('GeofenceService', () => {
                     attendanceRadius: 150,
                     isActive: true
                 }
-            } as any)
+            } as unknown as User)
 
             const result = await service.getZonesForUser('user-1')
 

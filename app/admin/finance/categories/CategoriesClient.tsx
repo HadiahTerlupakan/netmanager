@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { HiPlus, HiTrash } from 'react-icons/hi2'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import type { Category } from '@/types'
 
 interface CategoriesClientProps {
-  initialData: any[]
+  initialData: Category[]
 }
 
 export default function CategoriesClient({ initialData }: CategoriesClientProps) {
@@ -25,7 +26,7 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
   // Actions
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<any>(null)
+  const [selectedItem, setSelectedItem] = useState<Category | null>(null)
 
   // View State
   const [activeTab, setActiveTab] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL')
@@ -38,7 +39,7 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
 
     setLoading(true)
     try {
-      const payload: any = { name, type, description }
+      const payload: Record<string, string> = { name, type, description }
       if (type === 'EXPENSE') {
         payload.expenseType = expenseType
       }
@@ -59,8 +60,8 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
       setModalOpen(false)
       
       router.refresh()
-    } catch (e: any) {
-        alert(e.message)
+    } catch (e: unknown) {
+        alert(e instanceof Error ? e.message : 'Terjadi kesalahan')
     } finally {
         setLoading(false)
     }
@@ -70,7 +71,7 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
       if (!name || !selectedItem) return
       setLoading(true)
       try {
-        const payload: any = { name, type, description }
+        const payload: Record<string, string> = { name, type, description }
         if (type === 'EXPENSE') payload.expenseType = expenseType
 
         const res = await fetch(`/api/finance/categories?id=${selectedItem.id}`, {
@@ -87,8 +88,8 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
         setEditModalOpen(false)
         resetForm()
         router.refresh()
-      } catch (e: any) {
-          alert(e.message)
+      } catch (e: unknown) {
+          alert(e instanceof Error ? e.message : 'Terjadi kesalahan')
       } finally {
           setLoading(false)
       }
@@ -107,14 +108,14 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
           setDeleteModalOpen(false)
           setSelectedItem(null)
           router.refresh()
-      } catch (e: any) {
-          alert(e.message)
+      } catch (e: unknown) {
+          alert(e instanceof Error ? e.message : 'Terjadi kesalahan')
       } finally {
           setLoading(false)
       }
   }
 
-  const openEdit = (item: any) => {
+  const openEdit = (item: Category) => {
       setSelectedItem(item)
       setName(item.name)
       setType(item.type)
@@ -123,7 +124,7 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
       setEditModalOpen(true)
   }
 
-  const openDelete = (item: any) => {
+  const openDelete = (item: Category) => {
       setSelectedItem(item)
       setDeleteModalOpen(true)
   }

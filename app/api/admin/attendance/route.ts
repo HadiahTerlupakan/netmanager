@@ -3,10 +3,11 @@
  * Migrated to use standardized middleware and validation
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { withAuth, withPermission, withErrorHandler, applyRBACRestrictions, withRateLimit, RateLimits } from '@/lib/middleware'
-import { apiSuccess, apiPaginatedWithSummary } from '@/lib/api-response'
+import { apiPaginatedWithSummary } from '@/lib/api-response'
 import { attendanceFilterSchema } from '@/lib/validations/attendance'
 import { ValidationError } from '@/lib/middleware/error-handler'
 
@@ -19,7 +20,7 @@ export const GET = withErrorHandler(
           departmentPermission: 'attendance:department_only' 
         },
         withRateLimit(RateLimits.STANDARD,
-          async ({ user, request, filters }) => {
+          async ({ user: _user, request: _request, filters }) => {
             // filters is already sanitized by applyRBACRestrictions using parseQuery
             
             // Validate query params with Zod
@@ -33,7 +34,7 @@ export const GET = withErrorHandler(
 
             const skip = (page - 1) * limit
 
-            const where: any = {}
+            const where: Prisma.AttendanceWhereInput = {}
 
             // Apply date range filter
             if (startDateStr && endDateStr) {

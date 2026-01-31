@@ -49,8 +49,8 @@ export async function POST(request: Request) {
         })
 
         return apiSuccess(updated, { message: 'Foto profil berhasil diperbarui' })
-    } catch (error: any) {
-        console.error('Profile photo upload error:', error)
+    } catch (error) {
+        console.error('Profile photo upload error:', error instanceof Error ? error.message : error)
         return ApiErrors.internalError('Gagal upload foto profil')
     }
 }

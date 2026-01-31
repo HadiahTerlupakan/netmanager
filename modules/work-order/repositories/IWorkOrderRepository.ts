@@ -1,4 +1,4 @@
-import type { WorkOrders, WorkOrderTasks, WorkOrderAssignments, WorkOrderUpdates, WorkOrderAttachments, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client';
+import type { WorkOrders, WorkOrderTasks, WorkOrderAssignments, WorkOrderUpdates, WorkOrderAttachments, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus, WorkOrderMaterial } from '@prisma/client';
 
 export interface WorkOrderWithRelations extends WorkOrders {
     pelanggan?: {
@@ -30,11 +30,14 @@ export interface WorkOrderWithRelations extends WorkOrders {
         };
     })[];
     updates?: (WorkOrderUpdates & {
-        createdBy?: {
+        user?: {
+            id: string;
             name: string | null;
+            email?: string | null;
         } | null;
     })[];
     attachments?: WorkOrderAttachments[];
+    materials?: WorkOrderMaterial[];
     createdBy?: {
         id: string;
         name: string | null;
@@ -62,7 +65,7 @@ export interface CreateWorkOrderData {
     scheduledTimeEnd?: string;
     estimatedHours?: number;
     estimatedCost?: number;
-    requiredMaterials?: any;
+    requiredMaterials?: unknown;
     internalNotes?: string;
     disconnectionReason?: string;
     createdById?: string;
@@ -91,9 +94,9 @@ export interface UpdateWorkOrderData {
     actualHours?: number;
     estimatedCost?: number;
     actualCost?: number;
-    requiredMaterials?: any;
-    usedMaterials?: any;
-    returnedMaterials?: any;
+    requiredMaterials?: unknown;
+    usedMaterials?: unknown;
+    returnedMaterials?: unknown;
     internalNotes?: string;
     resolutionNotes?: string;
     customerFeedback?: string;
@@ -281,7 +284,7 @@ export interface IWorkOrderRepository {
     getAdminResponseStats(dateFrom: Date, dateTo: Date, departmentId?: string): Promise<Array<{ userName: string; totalResponses: number; avgResponseTimeMinutes: number }>>;
 
     // Comments
-    addComment(workOrderId: string, message: string, userId: string): Promise<any>;
+    addComment(workOrderId: string, message: string, userId: string): Promise<unknown>;
 
     // Utilities
     generateWorkOrderNumber(): Promise<string>;

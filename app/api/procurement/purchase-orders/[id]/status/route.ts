@@ -1,22 +1,23 @@
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth, hasPermission } from '@/lib/auth'
 import { InventoryRepository } from '@/modules/inventory/repositories/InventoryRepository'
 
 export async function PATCH(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
+    req: NextRequest,
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
         // Use verifyAuth for API routes
         // We cast req to any or NextRequest if strict typing allows, or just pass req as any
-        const session = await verifyAuth(req as any)
+        const session = await verifyAuth(req)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { id } = await params
+        const params = await props.params
+        const { id } = params
         const body = await req.json()
         const { action, items, closePO } = body
 
@@ -132,7 +133,7 @@ export async function PATCH(
 
 
                         // Use InventoryRepository logic to ensure consistent behavior (Asset Creation, etc.)
-                        const inventoryRepo = new InventoryRepository()
+                        const _inventoryRepo = new InventoryRepository()
                         
                         // We need to call addStock within the transaction if possible.
                         // However, InventoryRepository.addStock creates its own transaction. 
@@ -220,9 +221,9 @@ export async function PATCH(
                                     currentValue: item.unitPrice, // Correct Value
                                     usefulLife: usefulLife,
                                     residualValue: 0,
-                                    status: 'ACTIVE' as const, 
+                                    status: 'ACTIVE' as const,
                                     location: masuk.gudang?.nama || 'Gudang Utama',
-                                    assignedTo: undefined
+                                    assignedTo: null
                                 })
                             }
                             
@@ -274,8 +275,8 @@ export async function PATCH(
                 const updatedPO = await tx.purchaseOrder.update({
                     where: { id },
                     data: {
-                        status: newStatus as any, // Cast enum
-                        receivedById: newStatus === 'RECEIVED' ? session.id : undefined,
+                        status: newStatus as "RECEIVED" | "PARTIAL", // Cast to specific enum values
+                        ...(newStatus === 'RECEIVED' && { receivedById: session.id }),
                         totalAmount: updatedTotalAmount,
                         updatedAt: new Date()
                     }
@@ -289,8 +290,9 @@ export async function PATCH(
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating PO:', error)
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 })
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: message }, { status: 500 })
     }
 }

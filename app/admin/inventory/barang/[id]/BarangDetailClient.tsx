@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   FiArrowLeft,
@@ -14,13 +14,40 @@ import {
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 
+interface Gudang {
+  kode: string
+  nama: string
+}
+
+interface RawBarangGudang {
+  gudangId: string
+  gudang?: Gudang
+  stok: number
+}
+
+interface BarangGudang {
+  gudangId: string
+  gudangKode: string
+  gudangNama: string
+  stok: number
+}
+
+interface BarangDetail {
+  id: string
+  kode: string
+  nama: string
+  satuan: string
+  stockPerGudang?: BarangGudang[]
+  barangGudang?: RawBarangGudang[]
+  stok?: RawBarangGudang[]
+}
+
 export function ClientComponent() {
   const params = useParams()
-  const router = useRouter()
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('barang:update')
 
-  const [barang, setBarang] = useState<any>(null)
+  const [barang, setBarang] = useState<BarangDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -39,16 +66,16 @@ export function ClientComponent() {
         // Map stok/barangGudang to stockPerGudang if needed
         const rawStock = barangData.barangGudang || barangData.stok
         if (rawStock && !barangData.stockPerGudang) {
-          barangData.stockPerGudang = rawStock.map((s: any) => ({
+          barangData.stockPerGudang = rawStock.map((s: RawBarangGudang) => ({
             gudangId: s.gudangId,
-            gudangKode: s.gudang?.kode,
-            gudangNama: s.gudang?.nama,
+            gudangKode: s.gudang?.kode || '',
+            gudangNama: s.gudang?.nama || '',
             stok: s.stok
           }))
         }
 
         setBarang(barangData)
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error fetching barang:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data barang')
       } finally {
@@ -101,7 +128,7 @@ export function ClientComponent() {
     return 'bg-green-100 text-green-800'
   }
 
-  const totalStock = barang.stockPerGudang?.reduce((sum: number, stock: any) => sum + stock.stok, 0) || 0
+  const totalStock = barang.stockPerGudang?.reduce((sum: number, stock: BarangGudang) => sum + stock.stok, 0) || 0
 
   return (
     <div className="space-y-6">
@@ -273,7 +300,7 @@ export function ClientComponent() {
                     key: 'gudangNama',
                     header: 'Gudang',
                     priority: 'primary',
-                    render: (item: any) => (
+                    render: (item: BarangGudang) => (
                       <div className="font-medium text-gray-900 dark:text-white">
                         {item.gudangNama}
                         <div className="text-xs text-gray-500 dark:text-gray-400 sm:hidden">
@@ -286,7 +313,7 @@ export function ClientComponent() {
                     key: 'gudangKode',
                     header: 'Kode',
                     priority: 'secondary',
-                    render: (item: any) => (
+                    render: (item: BarangGudang) => (
                       <span className="text-gray-500 dark:text-gray-400">{item.gudangKode}</span>
                     )
                   },
@@ -294,7 +321,7 @@ export function ClientComponent() {
                     key: 'stok',
                     header: 'Stok',
                     priority: 'primary',
-                    render: (item: any) => (
+                    render: (item: BarangGudang) => (
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(item.stok)}`}>
                         {item.stok} {barang.satuan}
                       </span>
@@ -304,14 +331,14 @@ export function ClientComponent() {
                     key: 'status',
                     header: 'Status',
                     priority: 'secondary',
-                    render: (item: any) => (
+                    render: (item: BarangGudang) => (
                       <span className="text-gray-500 dark:text-gray-400">
                         {item.stok === 0 ? 'Habis' : item.stok < 5 ? 'Menipis' : 'Tersedia'}
                       </span>
                     )
                   }
                 ]}
-                renderActions={(item: any) => (
+                renderActions={(_item: BarangGudang) => (
                   <div className="flex justify-end space-x-2">
                     <Link
                       href="/admin/inventory/masuk"

@@ -17,6 +17,10 @@ export async function POST(
         }
 
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
@@ -133,9 +137,9 @@ export async function POST(
                 actionType: 'PARTNER_RESPONSE',
                 actionMessage: response === 'APPROVED' ? 'Menerima undangan sebagai partner kerja' : 'Menolak undangan sebagai partner kerja',
                 triggeredByUserId: payload.id as string,
-                triggeredByName: (payload.name as string) || undefined,
-                departmentId: workOrder.departmentId || undefined,
-                siteId: workOrder.siteId || undefined,
+                triggeredByName: (payload.name as string) || 'Unknown',
+                ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+                ...(workOrder.siteId && { siteId: workOrder.siteId }),
             });
         }
 

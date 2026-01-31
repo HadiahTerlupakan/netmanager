@@ -1,5 +1,5 @@
 import { RoleRepository } from '../repositories/RoleRepository'
-import type { CreateRoleDTO, UpdateRoleDTO, RoleWithCount, RoleWithPermissions, FilterOptions } from '../repositories/RoleRepository'
+import type { RoleWithCount, RoleWithPermissions, FilterOptions } from '../repositories/RoleRepository'
 import type { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'

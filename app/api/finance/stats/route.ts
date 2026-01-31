@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { hasPermission } from "@/lib/rbac"
 import { FinanceStatsService } from "@/modules/finance/services/FinanceStatsService"
@@ -11,9 +12,9 @@ const financeStatsService = new FinanceStatsService()
  * GET - Finance statistics endpoint
  * Refactored to use FinanceStatsService (thin controller pattern)
  */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
     try {
-        const user = await verifyAuth(req as any)
+        const user = await verifyAuth(req)
         if (!user) {
             return ApiErrors.unauthorized('Session tidak valid')
         }
@@ -36,8 +37,8 @@ export async function GET(req: Request) {
         }
 
         const stats = await financeStatsService.getStats({
-            startDate,
-            endDate,
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
             type,
         })
 

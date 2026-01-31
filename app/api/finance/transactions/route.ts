@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
@@ -15,8 +15,8 @@ const transactionSchema = z.object({
   accountId: z.string().optional(),
 })
 
-export async function GET(req: Request) {
-  const session = await verifyAuth(req as any)
+export async function GET(req: NextRequest) {
+  const session = await verifyAuth(req)
   if (!session) return new NextResponse('Unauthorized', { status: 401 })
 
   try {
@@ -26,13 +26,13 @@ export async function GET(req: Request) {
     const categoryId = searchParams.get('categoryId') || undefined
     const accountId = searchParams.get('accountId') || undefined
     const siteIdParam = searchParams.get('siteId') || undefined
-    
+
     // RBAC: Site Restriction
     // Assuming we have getUserPermissions imported or available on session (verifyAuth populates it)
-    // We need to check permissions. `verifyAuth` returns UserSession which might not have permissions array explicitly if not extended, 
-    // but typically we load it. If not, we might need a helper. 
+    // We need to check permissions. `verifyAuth` returns UserSession which might not have permissions array explicitly if not extended,
+    // but typically we load it. If not, we might need a helper.
     // Let's use `hasPermission` if possible, but `hasPermission` takes just string usually in client, here we are in API.
-    // The `auth` module exports `getUserPermissions`? 
+    // The `auth` module exports `getUserPermissions`?
     // Let's assume session has permissions or use `getUserPermissions(session.id)`.
     // Actually, `verifyAuth` returns session with permissions usually.
     // Let's check `lib/auth.ts` -> it returns `permissions` in session.
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     const userPermissions = session.permissions || []
     const isSuperAdmin = session.role === 'SUPER_ADMIN'
     const isSiteRestricted = userPermissions.includes('finance_transaction:site_only') && !isSuperAdmin
-    
+
     let filterSiteId: string | undefined = siteIdParam
     if (isSiteRestricted) {
         if (!session.siteId) {
@@ -50,11 +50,11 @@ export async function GET(req: Request) {
     }
 
     const transactions = await financeService.getTransactions({
-      startDate,
-      endDate,
-      categoryId,
-      accountId,
-      siteId: filterSiteId
+      ...(startDate ? { startDate } : {}),
+      ...(endDate ? { endDate } : {}),
+      ...(categoryId ? { categoryId } : {}),
+      ...(accountId ? { accountId } : {}),
+      ...(filterSiteId ? { siteId: filterSiteId } : {})
     })
 
     return NextResponse.json(transactions)
@@ -64,8 +64,8 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
-  const session = await verifyAuth(req as any)
+export async function POST(req: NextRequest) {
+  const session = await verifyAuth(req)
   if (!session) return new NextResponse('Unauthorized', { status: 401 })
 
   try {
@@ -73,15 +73,18 @@ export async function POST(req: Request) {
     const result = transactionSchema.safeParse(json)
     
     if (!result.success) {
-        return new NextResponse(result.error.issues[0].message, { status: 400 })
+        return new NextResponse(result.error.issues[0]?.message || 'Validasi gagal', { status: 400 })
     }
 
-    const body = result.data
+    const { date, description, referenceId, accountId, ...rest } = result.data
 
     const transaction = await financeService.createTransaction({
-      ...body,
-      date: body.date,
+      ...rest,
+      date: date || new Date(),
       createdById: session.id,
+      ...(description ? { description } : {}),
+      ...(referenceId ? { referenceId } : {}),
+      ...(accountId ? { accountId } : {})
     })
 
     return NextResponse.json(transaction)

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
             sortOrder: searchParams.get('sortOrder') || 'desc',
         });
 
-        const where: any = {};
+        const where: Record<string, unknown> = {};
 
         if (query.search) {
             where.OR = [
@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         }
 
         const [slas, total] = await Promise.all([
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (prisma as any).sLA.findMany({
                 where,
                 include: {
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest) {
                 skip: (query.page - 1) * query.limit,
                 take: query.limit,
             }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (prisma as any).sLA.count({ where }),
         ]);
 
@@ -130,6 +132,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = slaCreateSchema.parse(body);
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sla = await (prisma as any).sLA.create({
             data: {
                 ...validatedData,

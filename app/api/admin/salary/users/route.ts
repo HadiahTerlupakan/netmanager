@@ -26,7 +26,7 @@ const addSalaryUserSchema = z.object({
 })
 
 // GET - List users with salary setup
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {

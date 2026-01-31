@@ -1,5 +1,4 @@
 import { SalaryRepository } from '../repositories/SalaryRepository'
-import { SalaryStatus } from '@prisma/client'
 
 export class SalaryAuditService {
     private salaryRepo: SalaryRepository

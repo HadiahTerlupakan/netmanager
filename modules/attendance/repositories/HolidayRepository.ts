@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { cache } from '@/lib/cache'
 
+type Holiday = Prisma.HolidayGetPayload<object>
+
 export class HolidayRepository {
     async create(data: Prisma.HolidayCreateInput) {
         const holiday = await prisma.holiday.create({ data })
@@ -36,13 +38,13 @@ export class HolidayRepository {
         return prisma.holiday.findMany(params)
     }
 
-    async isHoliday(date: Date): Promise<{ isHoliday: boolean, holiday?: any }> {
+    async isHoliday(date: Date): Promise<{ isHoliday: boolean, holiday?: Holiday | null }> {
         // Check cache first (24h TTL)
         const cacheKey = `holiday:${date.toISOString().split('T')[0]}`
-        const cached = cache.get<{ isHoliday: boolean, holiday?: any }>(cacheKey)
-        
+        const cached = cache.get<{ isHoliday: boolean, holiday?: Holiday | null }>(cacheKey)
+
         if (cached) return cached
-        
+
         // Normalize date to YYYY-MM-DD for comparison
         const startOfDay = new Date(date)
         startOfDay.setHours(0, 0, 0, 0)
@@ -63,18 +65,18 @@ export class HolidayRepository {
             isHoliday: !!holiday,
             holiday
         }
-        
+
         // Cache result for 24 hours
         cache.set(cacheKey, result, 86400)
-        
+
         return result
     }
 
-    async getHolidaysByYear(year: number) {
+    async getHolidaysByYear(year: number): Promise<Holiday[]> {
         // Check cache first (24h TTL)
         const cacheKey = `holidays:year:${year}`
-        const cached = cache.get<any[]>(cacheKey)
-        
+        const cached = cache.get<Holiday[]>(cacheKey)
+
         if (cached) return cached
         
         const startDate = new Date(year, 0, 1) // Jan 1st

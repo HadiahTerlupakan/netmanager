@@ -134,7 +134,7 @@ export async function GET(
   try {
     const { id } = await params
     // Check authentication
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -314,10 +314,10 @@ export async function GET(
         nasIpAddress: activeSession.nasIpAddress,
       } : null,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching customer usage:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

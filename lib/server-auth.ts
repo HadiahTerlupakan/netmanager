@@ -11,7 +11,11 @@ export async function ensureEmployeeAccess(permission?: string) {
     }
 
     // 2. Check Employee Portal Access
-    const user = session.user as any
+    const user = session.user as {
+        role: string;
+        accessEmployeePanel?: boolean;
+        permissions?: string[];
+    }
     // SUPER_ADMIN bypass
     if (user.role === 'SUPER_ADMIN') {
         return user
@@ -46,7 +50,11 @@ export async function ensureAdminAccess(permission?: string) {
     }
 
     // 2. Check Admin Portal Access
-    const user = session.user as any
+    const user = session.user as {
+        role: string;
+        accessAdminPanel?: boolean;
+        permissions?: string[];
+    }
 
     // SUPER_ADMIN bypass
     if (user.role === 'SUPER_ADMIN') {

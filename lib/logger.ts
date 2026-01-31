@@ -12,7 +12,7 @@ export enum LogLevel {
 }
 
 interface LogContext {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 class Logger {
@@ -36,7 +36,7 @@ class Logger {
     return `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr}`
   }
 
-  private log(level: LogLevel, message: string, context?: LogContext, error?: Error) {
+  private async log(level: LogLevel, message: string, context?: LogContext, error?: Error) {
     if (!this.shouldLog(level)) return
 
     const formattedMessage = this.formatMessage(level, message, context)
@@ -58,17 +58,6 @@ class Logger {
         console.error(formattedMessage)
         if (error) {
           console.error('Error stack:', error.stack)
-        }
-        // Send to Sentry for production error tracking
-        try {
-          const Sentry = require('@sentry/nextjs')
-          if (error) {
-            Sentry.captureException(error, { extra: context })
-          } else {
-            Sentry.captureMessage(message, { level: 'error', extra: context })
-          }
-        } catch (e) {
-          // Sentry not available, silently fail
         }
         break
     }
@@ -113,8 +102,8 @@ class Logger {
   }
 
   // Database Logging Methods
-  async logActivity(data: { action: string; subject: string; details?: any; userId?: string; ipAddress?: string; userAgent?: string }) {
-    this.info(`[ACTIVITY] ${data.action} ${data.subject}`, data)
+  async logActivity(data: { action: string; subject: string; details?: Record<string, unknown>; userId?: string; ipAddress?: string; userAgent?: string }) {
+    this.info(`[ACTIVITY] ${data.action} ${data.subject}`, data as unknown as LogContext)
     try {
       // Dynamic import to avoid circular dependency if any, though prisma is safe here
       const { prisma } = await import('@/lib/prisma')
@@ -136,8 +125,8 @@ class Logger {
     }
   }
 
-  async logAuth(data: { action: string; userId?: string; details?: any; ipAddress?: string; userAgent?: string }) {
-    this.info(`[AUTH] ${data.action}`, data)
+  async logAuth(data: { action: string; userId?: string; details?: Record<string, unknown>; ipAddress?: string; userAgent?: string }) {
+    this.info(`[AUTH] ${data.action}`, data as unknown as LogContext)
     try {
       const { prisma } = await import('@/lib/prisma')
 

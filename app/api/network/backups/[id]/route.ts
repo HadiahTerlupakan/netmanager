@@ -4,8 +4,8 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -62,9 +62,9 @@ export async function GET(
       }
 
       return NextResponse.json({ data: backup })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json(
           { error: 'Device backups will be available after database migration' },
           { status: 503 }
@@ -72,10 +72,10 @@ export async function GET(
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching device backup:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal memuat data backup perangkat' },
+      { error: error instanceof Error ? error.message : 'Gagal memuat data backup perangkat' },
       { status: 500 }
     )
   }
@@ -137,7 +137,7 @@ export async function DELETE(
         await logger.logActivity({
           action: 'DELETE',
           subject: 'Device Backup',
-          userId: session.user.id,
+          userId: (session as { user: { id: string } }).user.id,
           details: { id, name: backup.backupName }
         })
       } catch (e) {
@@ -145,9 +145,9 @@ export async function DELETE(
       }
 
       return NextResponse.json({ message: 'Backup berhasil dihapus' })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json(
           { error: 'Device backups will be available after database migration' },
           { status: 503 }
@@ -155,10 +155,10 @@ export async function DELETE(
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting device backup:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal menghapus backup perangkat' },
+      { error: error instanceof Error ? error.message : 'Gagal menghapus backup perangkat' },
       { status: 500 }
     )
   }

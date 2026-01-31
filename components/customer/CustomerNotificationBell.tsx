@@ -27,7 +27,6 @@ export function CustomerNotificationBell() {
 
     const [isOpen, setIsOpen] = useState(false)
     const [announcements, setAnnouncements] = useState<Announcement[]>([])
-    const [announcementsLoading, setAnnouncementsLoading] = useState(true)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     // Close dropdown when clicking outside
@@ -52,8 +51,6 @@ export function CustomerNotificationBell() {
                 }
             } catch (error) {
                 console.error('Failed to fetch announcements', error)
-            } finally {
-                setAnnouncementsLoading(false)
             }
         }
         fetchAnnouncements()

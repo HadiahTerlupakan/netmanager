@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { HiPlus, HiRefresh, HiSearch, HiPencil, HiTrash, HiDocumentText, HiChevronLeft, HiChevronRight, HiDotsVertical, HiOutlineShoppingBag, HiOutlineArchive, HiEye, HiClipboardList, HiCollection } from 'react-icons/hi'
+import { HiPlus, HiRefresh, HiSearch, HiPencil, HiTrash, HiChevronLeft, HiChevronRight, HiOutlineShoppingBag, HiOutlineArchive, HiEye, HiClipboardList, HiCollection } from 'react-icons/hi'
 import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 
@@ -24,6 +24,13 @@ interface PurchaseOrder {
     creator?: { name: string } | null
     processedBy?: { name: string } | null
     receivedBy?: { name: string } | null
+    items?: Array<{
+        id: string
+        name: string
+        quantity: number
+        price: number
+        total: number
+    }>
 }
 
 export default function PurchaseOrderListPage() {
@@ -53,13 +60,7 @@ export default function PurchaseOrderListPage() {
         return () => clearTimeout(timer)
     }, [search])
 
-    useEffect(() => {
-        if (session && canRead && activeTab === 'po') {
-            fetchData()
-        }
-    }, [session, page, debouncedSearch, canRead, activeTab])
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true)
         try {
             const skip = (page - 1) * limit
@@ -68,10 +69,10 @@ export default function PurchaseOrderListPage() {
                 take: limit.toString(),
                 ...(debouncedSearch && { search: debouncedSearch })
             })
-            
+
             const res = await fetch(`/api/procurement/purchase-orders?${params}`)
             if (!res.ok) throw new Error('Failed to fetch purchase orders')
-            
+
             const json = await res.json()
             setData(json.data)
             setTotal(json.total)
@@ -81,7 +82,13 @@ export default function PurchaseOrderListPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [page, limit, debouncedSearch])
+
+    useEffect(() => {
+        if (session && canRead && activeTab === 'po') {
+            fetchData()
+        }
+    }, [session, canRead, activeTab, fetchData])
 
     const handleDelete = async (id: string) => {
         if (!confirm('Apakah anda yakin ingin menghapus PO ini?')) return
@@ -90,7 +97,7 @@ export default function PurchaseOrderListPage() {
             if (!res.ok) throw new Error('Failed to delete')
             toast.success('PO berhasil dihapus')
             fetchData()
-        } catch (error) {
+        } catch (_error) {
             toast.error('Gagal menghapus PO')
         }
     }
@@ -112,9 +119,9 @@ export default function PurchaseOrderListPage() {
     const [processingId, setProcessingId] = useState<string | null>(null)
     
     // Modal Receive Goods State
-    const [selectedPO, setSelectedPO] = useState<any>(null)
+    const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null)
     const [showReceiveModal, setShowReceiveModal] = useState(false)
-    const [loadingDetail, setLoadingDetail] = useState(false)
+    const [_loadingDetail, setLoadingDetail] = useState(false)
 
     const handleStartShopping = async (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation()
@@ -131,7 +138,7 @@ export default function PurchaseOrderListPage() {
             
             toast.success('Status update: Sedang Dibelanjakan')
             fetchData()
-        } catch (e) {
+        } catch (_e) {
             toast.error('Gagal update status')
         } finally {
             setProcessingId(null)
@@ -150,7 +157,7 @@ export default function PurchaseOrderListPage() {
             
             setSelectedPO(po)
             setShowReceiveModal(true)
-        } catch (error) {
+        } catch (_error) {
             toast.error("Gagal memuat detail PO")
         } finally {
             setLoadingDetail(false)

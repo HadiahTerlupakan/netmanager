@@ -24,10 +24,10 @@ import { prisma } from '@/lib/prisma'
  *                   type: string
  *                   example: "68001234"
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
           where: { idPelanggan: id }
         })
         return pelanggan !== null
-      } catch (error) {
+      } catch (_error) {
         // Jika error (misalnya tabel belum ada), anggap ID belum ada
         return false
       }
@@ -74,10 +74,10 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ idPelanggan })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error generating pelanggan ID:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

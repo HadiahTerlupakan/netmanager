@@ -3,7 +3,7 @@
  * Provides custom error classes and standardized error handling for API routes
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { apiError, ErrorCodes } from '@/lib/api-response'
 
 /**
@@ -73,7 +73,7 @@ export class ConflictError extends AppError {
 
 /**
  * Wraps an async API route handler with standardized error handling
- * 
+ *
  * @example
  * ```ts
  * export const GET = withErrorHandler(async (request: NextRequest) => {
@@ -83,10 +83,10 @@ export class ConflictError extends AppError {
  * })
  * ```
  */
-export function withErrorHandler<T = any>(
-  handler: (request: any, context?: any) => Promise<NextResponse<T>>
+export function withErrorHandler<T = unknown>(
+  handler: (request: NextRequest, context?: unknown) => Promise<NextResponse<T>>
 ) {
-  return async (request: any, context?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, context?: unknown): Promise<NextResponse> => {
     try {
       return await handler(request, context)
     } catch (error) {
@@ -102,7 +102,7 @@ export function withErrorHandler<T = any>(
 
       // Handle Zod validation errors
       if (error && typeof error === 'object' && 'issues' in error) {
-        const zodError = error as any
+        const zodError = error as { issues: unknown[] }
         return apiError(
           'Validation failed',
           ErrorCodes.VALIDATION_ERROR,
@@ -115,7 +115,7 @@ export function withErrorHandler<T = any>(
 
       // Handle Prisma errors
       if (error && typeof error === 'object' && 'code' in error) {
-        const prismaError = error as any
+        const prismaError = error as { code: string }
         
         // Unique constraint violation
         if (prismaError.code === 'P2002') {

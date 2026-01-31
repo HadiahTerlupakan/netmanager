@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { HiPencil, HiTrash, HiExclamationCircle } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -70,11 +70,7 @@ export default function ProfilePPPPage() {
     siteId: '',
   })
 
-  useEffect(() => {
-    loadData()
-  }, [siteId]) // Reload when siteId changes
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       const queryParams = new URLSearchParams()
@@ -93,7 +89,7 @@ export default function ProfilePPPPage() {
           if (errorData && typeof errorData === 'object' && 'error' in errorData) {
             errorMessage = errorData.error || errorMessage
           }
-        } catch (e) {
+        } catch (_e: unknown) {
           errorMessage = `Gagal memuat data profile PPP: ${profilePPPsRes.status} ${profilePPPsRes.statusText || ''}`
         }
         throw new Error(errorMessage)
@@ -101,19 +97,23 @@ export default function ProfilePPPPage() {
 
       const profilePPPsData = await profilePPPsRes.json()
       const routersData = routersRes.ok ? await routersRes.json() : { routers: [] }
-      const bandwidthsData = bandwidthsRes.ok ? await bandwidthsRes.json() : []
+      const bandwidthsData = bandwidthsRes.ok ? await bandwidthsRes.json() : { data: [] }
 
-      setProfilePPPs(profilePPPsData)
-      setMikroTikRouters(routersData.routers || [])
-      setBandwidths(bandwidthsData || [])
+      setProfilePPPs(profilePPPsData.data || profilePPPsData || [])
+      setMikroTikRouters(routersData.routers || routersData.data || [])
+      setBandwidths(bandwidthsData.data || [])
       setError(null)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading data:', error)
-      setError(error.message || 'Gagal memuat data')
+      setError(error instanceof Error ? error.message : 'Gagal memuat data')
     } finally {
       setLoading(false)
     }
-  }
+  }, [siteId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -156,8 +156,8 @@ export default function ProfilePPPPage() {
 
       await loadData()
       handleCloseModal()
-    } catch (error: any) {
-      alert(error.message || 'Terjadi kesalahan')
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Terjadi kesalahan')
     }
   }
 
@@ -205,7 +205,7 @@ export default function ProfilePPPPage() {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching profile detail:', error)
       // Jika gagal, tetap lanjutkan dengan data yang ada
     }
@@ -586,7 +586,7 @@ export default function ProfilePPPPage() {
             </label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' })}
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
               <option value="AKTIF">AKTIF</option>

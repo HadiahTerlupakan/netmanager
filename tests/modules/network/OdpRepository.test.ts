@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { prismaMock } from '../../setup'
 import { OdpRepository } from '@/modules/network/repositories/OdpRepository'
+import type { Odp, PrismaClient } from '@prisma/client'
 
 describe('OdpRepository', () => {
   let repository: OdpRepository
 
   beforeEach(() => {
-    repository = new OdpRepository(prismaMock as any)
+    repository = new OdpRepository(prismaMock as unknown as PrismaClient)
   })
 
   describe('create', () => {
@@ -18,10 +19,10 @@ describe('OdpRepository', () => {
         status: 'AKTIF' as const
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
+      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
         prismaMock.odp.create.mockResolvedValueOnce({
           id: 'odp-1'
-        } as any)
+        } as unknown as Odp)
         return callback(prismaMock)
       })
 
@@ -42,8 +43,8 @@ describe('OdpRepository', () => {
         ]
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
-        prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-2' } as any)
+      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+        prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-2' } as unknown as Odp)
         prismaMock.odpOutput.createMany.mockResolvedValueOnce({ count: 2 })
         return callback(prismaMock)
       })
@@ -60,8 +61,8 @@ describe('OdpRepository', () => {
         // No status provided
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
-        prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-3' } as any)
+      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+        prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-3' } as unknown as Odp)
         return callback(prismaMock)
       })
 
@@ -84,8 +85,8 @@ describe('OdpRepository', () => {
         location: 'New Location'
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
-        prismaMock.odp.update.mockResolvedValueOnce({} as any)
+      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+        prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp)
         return callback(prismaMock)
       })
 
@@ -107,8 +108,8 @@ describe('OdpRepository', () => {
         ]
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
-        prismaMock.odp.update.mockResolvedValueOnce({} as any)
+      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+        prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp)
         prismaMock.odpOutput.deleteMany.mockResolvedValueOnce({ count: 2 })
         prismaMock.odpOutput.createMany.mockResolvedValueOnce({ count: 1 })
         return callback(prismaMock)
@@ -128,7 +129,7 @@ describe('OdpRepository', () => {
 
   describe('delete', () => {
     it('should delete ODP', async () => {
-      prismaMock.odp.delete.mockResolvedValueOnce({} as any)
+      prismaMock.odp.delete.mockResolvedValueOnce({} as unknown as Odp)
 
       await repository.delete('odp-1')
 
@@ -145,7 +146,7 @@ describe('OdpRepository', () => {
         { id: 'odp-1', name: 'ODP-001', createdAt: new Date('2024-01-01') }
       ]
 
-      prismaMock.odp.findMany.mockResolvedValueOnce(mockOdps as any)
+      prismaMock.odp.findMany.mockResolvedValueOnce(mockOdps as unknown as Odp[])
 
       const result = await repository.findAll()
 
@@ -165,7 +166,7 @@ describe('OdpRepository', () => {
     })
 
     it('should filter by siteId when provided', async () => {
-      prismaMock.odp.findMany.mockResolvedValueOnce([])
+      prismaMock.odp.findMany.mockResolvedValueOnce([] as unknown as Odp[])
 
       await repository.findAll('site-1')
 
@@ -184,7 +185,7 @@ describe('OdpRepository', () => {
         name: 'ODP-001'
       }
 
-      prismaMock.odp.findUnique.mockResolvedValueOnce(mockOdp as any)
+      prismaMock.odp.findUnique.mockResolvedValueOnce(mockOdp as unknown as Odp)
 
       const result = await repository.findById('odp-1')
 

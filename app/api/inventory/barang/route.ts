@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
@@ -193,7 +192,15 @@ export async function GET(req: NextRequest) {
       // Calculate total stock per item and filter by gudang if needed
       const barangsWithStock = barangs.map(barang => {
         let totalStock = 0
-        let stockPerGudang: any[] = []
+        let stockPerGudang: {
+          gudangId: string;
+          gudangKode: string;
+          gudangNama: string;
+          stok: number;
+          stokBaru: number;
+          stokBekas: number;
+          stokRusak: number;
+        }[] = []
 
         if (barang.barangGudang) {
           // Filter stocks by gudangId if specified, otherwise show all
@@ -212,9 +219,9 @@ export async function GET(req: NextRequest) {
             gudangKode: stock.gudang.kode,
             gudangNama: stock.gudang.nama,
             stok: stock.stok,
-            stokBaru: (stock as any).stokBaru || 0,
-            stokBekas: (stock as any).stokBekas || 0,
-            stokRusak: (stock as any).stokRusak || 0
+            stokBaru: (stock as unknown as Record<string, number>).stokBaru || 0,
+            stokBekas: (stock as unknown as Record<string, number>).stokBekas || 0,
+            stokRusak: (stock as unknown as Record<string, number>).stokRusak || 0
           }))
         }
 
@@ -257,8 +264,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching barangs', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error fetching barangs', err, {
       path: '/api/inventory/barang',
       method: 'GET',
     })
@@ -351,11 +359,13 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error creating barang', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error creating barang', err, {
       path: '/api/inventory/barang',
       method: 'POST',
     })
-    return ApiErrors.internalError(error.message || 'Gagal membuat barang')
+    const message = error instanceof Error ? error.message : 'Gagal membuat barang'
+    return ApiErrors.internalError(message)
   }
 }

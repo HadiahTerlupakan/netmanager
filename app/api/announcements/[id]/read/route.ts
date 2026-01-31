@@ -9,6 +9,9 @@ export async function POST(
 ) {
     try {
         const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
+        }
         const { id } = await params;
         const body = await request.json().catch(() => ({}));
         const portal = body.portal || 'admin';
@@ -63,7 +66,10 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireAuth(request);
+        const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
+        }
         const { id } = await params;
 
         const [announcement, readCount, recentReaders] = await Promise.all([

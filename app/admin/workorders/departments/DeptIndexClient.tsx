@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { HiOutlineBuildingOffice2, HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlineUserGroup } from 'react-icons/hi2'
 import { FiEdit, FiTrash2 } from 'react-icons/fi'
@@ -31,11 +31,7 @@ export function ClientComponent() {
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
 
-    useEffect(() => {
-        fetchDepartments()
-    }, [search])
-
-    const fetchDepartments = async () => {
+    const fetchDepartments = useCallback(async () => {
         try {
             setLoading(true)
             const params = new URLSearchParams()
@@ -49,13 +45,17 @@ export function ClientComponent() {
             }
 
             setDepartments(data.data || [])
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to fetch departments:', error)
             setError(error instanceof Error ? error.message : 'Gagal memuat data')
         } finally {
             setLoading(false)
         }
-    }
+    }, [search])
+
+    useEffect(() => {
+        fetchDepartments()
+    }, [fetchDepartments])
 
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`Apakah Anda yakin ingin menghapus department "${name}"?`)) {
@@ -75,7 +75,7 @@ export function ClientComponent() {
 
             // Refresh data
             fetchDepartments()
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to delete department:', error)
             alert(error instanceof Error ? error.message : 'Gagal menghapus department')
         }

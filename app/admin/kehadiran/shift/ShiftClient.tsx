@@ -48,7 +48,7 @@ export default function ShiftClient() {
             if (!res.ok) throw new Error('Failed to fetch shifts')
             const data = await res.json()
             setShifts(data)
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error fetching shifts:', err)
         } finally {
             setLoading(false)
@@ -100,8 +100,8 @@ export default function ShiftClient() {
 
             setShowModal(false)
             fetchShifts()
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'An error occurred')
         } finally {
             setSaving(false)
         }
@@ -121,8 +121,8 @@ export default function ShiftClient() {
             }
 
             fetchShifts()
-        } catch (err: any) {
-            alert(err.message)
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : 'An error occurred')
         }
     }
 

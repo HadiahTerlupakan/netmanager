@@ -16,8 +16,8 @@ export class CouponRepository implements ICouponRepository {
         const [items, total] = await Promise.all([
             this.db.coupon.findMany({
                 orderBy: { createdAt: 'desc' },
-                skip,
-                take
+                ...(skip !== undefined ? { skip } : {}),
+                ...(take !== undefined ? { take } : {})
             }),
             this.db.coupon.count()
         ])
@@ -44,8 +44,8 @@ export class CouponRepository implements ICouponRepository {
 
     async incrementUsage(id: string, tx?: Prisma.TransactionClient): Promise<Coupon> {
         const db = tx || this.db
-        // Cast to any to bypass potential typing issues with the transaction client if strictly typed
-        const delegate = (db as any).coupon
+        // Use unknown as intermediate cast to avoid direct any
+        const delegate = (db as unknown as { coupon: Prisma.CouponDelegate<undefined> }).coupon
         return delegate.update({
             where: { id },
             data: { usedCount: { increment: 1 } }
@@ -54,7 +54,7 @@ export class CouponRepository implements ICouponRepository {
 
     async recordUsage(couponId: string, pelangganId: string, tx?: Prisma.TransactionClient): Promise<CouponUsage> {
         const db = tx || this.db
-        const delegate = (db as any).couponUsage
+        const delegate = (db as unknown as { couponUsage: Prisma.CouponUsageDelegate<undefined> }).couponUsage
         return delegate.create({
             data: {
                 id: randomUUID(),

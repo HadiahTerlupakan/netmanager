@@ -1,5 +1,15 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import { Prisma, InvoiceStatus } from '@prisma/client'
+
+/**
+ * Type for invoice with its relations used in this repository
+ */
+type InvoiceWithRelations = Prisma.InvoiceGetPayload<{
+    include: {
+        invoiceItem: true,
+        payment: true,
+    }
+}>
 
 /**
  * Repository for customer invoice operations
@@ -11,7 +21,7 @@ export class CustomerInvoiceRepository {
      * Includes invoice items and last payment
      */
     async findAllForCustomer(
-        pelangganId: string, 
+        pelangganId: string,
         options: {
             page: number
             limit: number
@@ -23,7 +33,7 @@ export class CustomerInvoiceRepository {
 
         const where: Prisma.InvoiceWhereInput = { pelangganId }
         if (status) {
-            where.status = status as any
+            where.status = status as InvoiceStatus
         }
 
         const [invoices, total] = await Promise.all([
@@ -49,7 +59,7 @@ export class CustomerInvoiceRepository {
     /**
      * Format invoices for API response
      */
-    formatInvoicesForResponse(invoices: any[]) {
+    formatInvoicesForResponse(invoices: InvoiceWithRelations[]) {
         return invoices.map((inv) => ({
             id: inv.id,
             invoiceNumber: inv.invoiceNumber,
@@ -62,7 +72,7 @@ export class CustomerInvoiceRepository {
             totalAmount: Number(inv.totalAmount),
             paidAmount: Number(inv.paidAmount),
             remainingAmount: Number(inv.totalAmount) - Number(inv.paidAmount),
-            items: inv.invoiceItem.map((item: any) => ({
+            items: inv.invoiceItem.map((item) => ({
                 description: item.description,
                 quantity: item.quantity,
                 unitPrice: Number(item.unitPrice),

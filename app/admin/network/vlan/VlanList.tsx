@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { HiArrowPath, HiPencil, HiTrash } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -15,7 +14,6 @@ type Vlan = {
 }
 
 export default function VlanPage() {
-  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +23,6 @@ export default function VlanPage() {
   const [vlans, setVlans] = useState<Vlan[]>([])
   const [warning, setWarning] = useState<string | null>(null)
   const [editingVlan, setEditingVlan] = useState<Vlan | null>(null)
-  const [deleteVlanId, setDeleteVlanId] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -36,10 +33,11 @@ export default function VlanPage() {
         const res = await fetch('/api/olts')
         if (!res.ok) throw new Error('Gagal memuat data OLT')
         const j = await res.json()
-        const rows = (j?.olts || []).map((o: any) => ({ id: o.id, name: o.name, ipAddress: o.ipAddress }))
+        const rows = (j?.olts || []).map((o: Olt) => ({ id: o.id, name: o.name, ipAddress: o.ipAddress }))
         setOlts(rows)
-      } catch (e: any) {
-        setError(e.message)
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error'
+        setError(errorMessage)
       } finally {
         setLoading(false)
       }
@@ -61,8 +59,9 @@ export default function VlanPage() {
       if (data.warning) {
         setWarning(data.warning)
       }
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error'
+      setError(errorMessage)
       setVlans([])
       setWarning(null)
     } finally {
@@ -114,11 +113,11 @@ export default function VlanPage() {
 
       // Reload VLAN list
       await loadVlans(selectedOlt.id)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error'
+      setError(errorMessage)
     } finally {
       setIsDeleting(false)
-      setDeleteVlanId(null)
     }
   }
 
@@ -149,8 +148,9 @@ export default function VlanPage() {
       // Reload VLAN list
       await loadVlans(selectedOlt.id)
       setEditingVlan(null)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error'
+      setError(errorMessage)
     } finally {
       setIsEditing(false)
     }

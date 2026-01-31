@@ -15,7 +15,7 @@ import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 const radiusRepository = new RadiusRepository(prisma);
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {

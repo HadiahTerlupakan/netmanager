@@ -74,7 +74,7 @@ export function validateCoordinates(
  * @returns Validation result
  */
 export function validateAttendanceStatus(status: string): ValidationResult {
-    if (!VALID_ATTENDANCE_STATUSES.includes(status as any)) {
+    if (!VALID_ATTENDANCE_STATUSES.includes(status as AttendanceStatusType)) {
         return {
             valid: false,
             error: `Status tidak valid. Pilihan: ${VALID_ATTENDANCE_STATUSES.join(', ')}`,

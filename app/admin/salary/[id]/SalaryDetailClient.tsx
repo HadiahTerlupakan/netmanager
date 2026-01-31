@@ -5,9 +5,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
-    HiOutlineArrowLeft, 
-    HiOutlinePrinter, 
-    HiOutlineDocumentArrowDown,
+    HiOutlineArrowLeft,
+    HiOutlinePrinter,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
     HiOutlineBanknotes,
@@ -16,15 +15,60 @@ import {
     HiOutlineArrowPath,
     HiOutlineChatBubbleLeftRight,
     HiOutlinePlusCircle,
-    HiOutlineMinusCircle
 } from 'react-icons/hi2'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 
+interface SalaryRevision {
+    field: string | null
+    reason: string
+    oldValue: string | null
+    newValue: string | null
+    createdAt: string | Date
+    createdBy?: {
+        name: string | null
+    } | null
+}
+
+interface SalaryDetailItem {
+    id: string
+    name: string
+    type: 'EARNING' | 'DEDUCTION'
+    amount: number
+    quantity?: number | null
+    rate?: number | null
+    notes?: string | null
+}
+
+interface SalaryWithDetails {
+    id: string
+    year: number
+    month: number
+    status: string
+    basicSalary: number
+    totalEarnings: number
+    totalDeductions: number
+    netSalary: number
+    paidAt?: string | Date | null
+    createdAt: string | Date
+    user: {
+        name: string | null
+        email: string | null
+        employeeType: string
+        departments?: {
+            name: string
+        } | null
+    }
+    details: SalaryDetailItem[]
+    revisions?: SalaryRevision[]
+    auditedBy?: { name: string | null } | null
+    approvedBy?: { name: string | null } | null
+}
+
 interface SalaryDetailClientProps {
-    salary: any // We use any here to avoid complex date serialization types, but structure matches SalaryWithDetails
+    salary: SalaryWithDetails
     currentUser: {
         id: string
         name?: string | null
@@ -32,7 +76,7 @@ interface SalaryDetailClientProps {
     }
 }
 
-export default function SalaryDetailClient({ salary, currentUser }: SalaryDetailClientProps) {
+export default function SalaryDetailClient({ salary, currentUser: _currentUser }: SalaryDetailClientProps) {
     const router = useRouter()
     const { hasPermission } = usePermission()
     const [loading, setLoading] = useState(false)
@@ -68,7 +112,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
 
         try {
             let endpoint = `/api/admin/salary/${salary.id}/`
-            let method = 'POST'
+            const method = 'POST'
             let body = {}
 
             if (action === 'audit') {
@@ -101,8 +145,9 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
             toast.success('Berhasil!', { id: toastId })
             router.refresh()
             setShowRevisionInput(false)
-        } catch (error: any) {
-            toast.error(error.message, { id: toastId })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
+            toast.error(message, { id: toastId })
         } finally {
             setLoading(false)
         }
@@ -145,15 +190,16 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
             setShowAdjustModal(false)
             setAdjustData({ name: '', type: 'EARNING', amount: '', notes: '' })
             router.refresh()
-        } catch (error: any) {
-            toast.error(error.message, { id: toastId })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
+            toast.error(message, { id: toastId })
         } finally {
             setLoading(false)
         }
     }
 
-    const earnings = salary.details.filter((d: any) => d.type === 'EARNING')
-    const deductions = salary.details.filter((d: any) => d.type === 'DEDUCTION')
+    const earnings = salary.details.filter((d: SalaryDetailItem) => d.type === 'EARNING')
+    const deductions = salary.details.filter((d: SalaryDetailItem) => d.type === 'DEDUCTION')
 
     return (
         <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -245,7 +291,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                                         <span className="text-gray-600 dark:text-gray-300">Gaji Pokok</span>
                                         <span className="font-medium">{formatCurrency(salary.basicSalary)}</span>
                                     </div>
-                                    {earnings.filter((item: any) => item.name !== 'Gaji Pokok').map((item: any) => (
+                                    {earnings.filter((item: SalaryDetailItem) => item.name !== 'Gaji Pokok').map((item: SalaryDetailItem) => (
                                         <div key={item.id} className="flex justify-between items-center text-sm">
                                             <span className="text-gray-600 dark:text-gray-300">
                                                 {item.name}
@@ -284,7 +330,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                                     )}
                                 </div>
                                 <div className="space-y-3">
-                                    {deductions.length > 0 ? deductions.map((item: any) => (
+                                    {deductions.length > 0 ? deductions.map((item: SalaryDetailItem) => (
                                         <div key={item.id} className="flex justify-between items-center text-sm">
                                             <span className="text-gray-600 dark:text-gray-300">
                                                 {item.name}
@@ -322,7 +368,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {salary.revisions.map((rev: any, idx: number) => {
+                                {salary.revisions.map((rev: SalaryRevision, idx: number) => {
                                     // Helper to format field name
                                     const getActionLabel = (field: string) => {
                                         if (field === 'status') return 'Perubahan Status'
@@ -372,7 +418,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                                                             {getActionLabel(rev.field || 'General')}
                                                         </span>
                                                         <p className="text-gray-600 dark:text-gray-300 italic">
-                                                            "{displayReason}"
+                                                            &quot;{displayReason}&quot;
                                                         </p>
                                                     </div>
                                                     <span className="text-xs text-gray-400">
@@ -448,7 +494,7 @@ export default function SalaryDetailClient({ salary, currentUser }: SalaryDetail
                                             Tips: Gunakan tombol <strong>+ Tambah Pendapatan/Potongan Manual</strong> di bagian rincian gaji untuk menambahkan komponen revisi.
                                          </div>
                                     )}
-                                    
+
                                     {/* Minta Revisi - Only show if current status is NOT Revised */}
                                     {salary.status !== 'REVISED' && (
                                         !showRevisionInput ? (

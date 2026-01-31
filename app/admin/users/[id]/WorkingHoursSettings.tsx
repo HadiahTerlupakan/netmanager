@@ -17,6 +17,15 @@ interface Shift {
     endTime: string
 }
 
+interface WorkingHoursData {
+    workingHourMode: WorkingHourMode
+    startWorkTime?: string | null
+    endWorkTime?: string | null
+    workDays?: string | null
+    flexibleTargetHour?: number | null
+    shiftId?: string | null
+}
+
 interface WorkingHoursSettingsProps {
     initialData: {
         workingHourMode: string
@@ -26,7 +35,7 @@ interface WorkingHoursSettingsProps {
         flexibleTargetHour?: number | null
         shiftId?: string | null
     }
-    onChange: (data: any) => void
+    onChange: (data: WorkingHoursData) => void
 }
 
 export default function WorkingHoursSettings({ initialData, onChange }: WorkingHoursSettingsProps) {
@@ -51,35 +60,51 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
 
     // Fetch shifts when mode is SHIFT
     useEffect(() => {
+        let isMounted = true;
+
         if (mode === WorkingHourMode.SHIFT && shifts.length === 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoadingShifts(true)
             fetch('/api/admin/shifts')
                 .then(res => res.json())
-                .then(data => setShifts(data))
+                .then(data => {
+                    if (isMounted) setShifts(data)
+                })
                 .catch(err => console.error('Error fetching shifts:', err))
-                .finally(() => setLoadingShifts(false))
+                .finally(() => {
+                    if (isMounted) setLoadingShifts(false)
+                })
+        }
+
+        return () => {
+            isMounted = false;
         }
     }, [mode, shifts.length])
 
     useEffect(() => {
         // Notify parent of changes
-        const data: any = { workingHourMode: mode }
+        // Use timeout to break sync render loop if parent updates state immediately
+        const timer = setTimeout(() => {
+             const data: WorkingHoursData = { workingHourMode: mode }
 
-        if (mode === WorkingHourMode.FIXED) {
-            data.startWorkTime = startTime
-            data.endWorkTime = endTime
-            data.workDays = selectedDays.join(',')
-            data.shiftId = null
-        } else if (mode === WorkingHourMode.FLEXIBLE) {
-            data.flexibleTargetHour = targetHours
-            data.shiftId = null
-        } else if (mode === WorkingHourMode.SHIFT) {
-            data.shiftId = selectedShiftId || null
-            data.workDays = selectedDays.join(',')
-        }
+            if (mode === WorkingHourMode.FIXED) {
+                data.startWorkTime = startTime
+                data.endWorkTime = endTime
+                data.workDays = selectedDays.join(',')
+                data.shiftId = null
+            } else if (mode === WorkingHourMode.FLEXIBLE) {
+                data.flexibleTargetHour = targetHours
+                data.shiftId = null
+            } else if (mode === WorkingHourMode.SHIFT) {
+                data.shiftId = selectedShiftId || null
+                data.workDays = selectedDays.join(',')
+            }
 
-        onChange(data)
-    }, [mode, startTime, endTime, selectedDays, targetHours, selectedShiftId])
+            onChange(data)
+        }, 0)
+
+        return () => clearTimeout(timer)
+    }, [mode, startTime, endTime, selectedDays, targetHours, selectedShiftId, onChange])
 
     const toggleDay = (dayId: string) => {
         if (selectedDays.includes(dayId)) {

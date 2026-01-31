@@ -6,7 +6,7 @@ import { authConfig } from '@/lib/auth'
 function logSecurityEvent(
   request: NextRequest,
   event: string,
-  details: any = null
+  details: unknown = null
 ) {
   const timestamp = new Date().toISOString()
   const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
@@ -23,9 +23,9 @@ function logSecurityEvent(
 }
 
 // Verify JWT token and get session
-export async function verifySession(request: NextRequest) {
+export async function verifySession(_request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     return session
   } catch (error) {
     console.error('[AUTH] Error verifying session:', error)
@@ -63,8 +63,8 @@ export async function protectRoute(
   }
 
   // If session exists, extract user info
-  const sessionData = session as any
-  const userId = sessionData?.user?.id as string | undefined
+  const sessionData = session as { user?: { id?: string } } | null
+  const userId = sessionData?.user?.id
 
   // Check self-access (for routes like /api/users/[id] where users can access their own data)
   if (allowSelf && session && request.url.includes('/')) {

@@ -3,7 +3,7 @@ import { createHmac } from 'crypto';
 // In production, this should be a robust secret loaded from strict environment variables
 const SIGNING_KEY = process.env.OFFLINE_SIGNING_KEY || 'dev-key-change-in-prod-v1';
 
-export function verifySignature(data: any, signature: string): boolean {
+export function verifySignature(data: unknown, signature: string): boolean {
     try {
         // Ensure consistent serialization (e.g. key order) by rebuilding object if needed
         // For simplicity, we assume the input 'data' is the exact payload used for signing

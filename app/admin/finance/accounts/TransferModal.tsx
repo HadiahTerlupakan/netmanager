@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { HiOutlineArrowRight } from 'react-icons/hi2'
-import clsx from 'clsx'
+import type { Account, Category } from '@/types'
 
 interface TransferModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  accounts: any[]
+  accounts: Account[]
 }
 
 export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: TransferModalProps) {
@@ -22,21 +22,11 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
     description: ''
   })
   
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (isOpen) {
-        fetchCategories()
-        // Default to first account if not selected
-        if (!formData.sourceAccountId && accounts.length > 0) {
-            setFormData(prev => ({ ...prev, sourceAccountId: accounts[0].id }))
-        }
-    }
-  }, [isOpen])
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
       try {
           const res = await fetch('/api/finance/categories')
           if (res.ok) {
@@ -46,7 +36,17 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
       } catch (e) {
           console.error("Failed to fetch categories", e)
       }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+        fetchCategories()
+        // Default to first account if not selected
+        if (!formData.sourceAccountId && accounts.length > 0 && accounts[0]) {
+            setFormData(prev => ({ ...prev, sourceAccountId: accounts[0]!.id }))
+        }
+    }
+  }, [isOpen, accounts, formData.sourceAccountId, fetchCategories])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,8 +86,8 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
         date: new Date().toISOString().split('T')[0],
         description: ''
       })
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan')
     } finally {
       setLoading(false)
     }

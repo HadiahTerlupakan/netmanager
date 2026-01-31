@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+        }
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
@@ -49,8 +52,8 @@ export async function GET(request: NextRequest) {
         const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
         const isSiteRestricted = userPermissions.includes('k_barang:site_only');
 
-        let whereClauseMasuk: any = { userId };
-        let whereClauseKeluar: any = { userId };
+        const whereClauseMasuk: Record<string, unknown> = { userId };
+        const whereClauseKeluar: Record<string, unknown> = { userId };
 
         if (isSiteRestricted && user.sites?.id) {
             // Filter transactions where the specific Gudang belongs to the user's Site
@@ -65,7 +68,7 @@ export async function GET(request: NextRequest) {
              whereClauseKeluar.tanggal = { lt: cursorDate };
         }
 
-        let transactions: any[] = [];
+        let transactions: Record<string, unknown>[] = [];
 
         if (filterType === 'masuk') {
             const barangMasuk = await prisma.barangMasuk.findMany({
@@ -201,7 +204,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ 
             success: true,
-            data: transactions.map(({ rawDate, ...rest }) => rest), // Remove internal helper
+            data: transactions.map(({ rawDate: _, ...rest }) => rest), // Remove internal helper
             nextCursor,
         });
 

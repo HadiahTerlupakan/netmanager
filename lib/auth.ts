@@ -1,8 +1,8 @@
 import _NextAuth from 'next-auth'
-import type { NextAuthOptions } from 'next-auth'
+import type { NextAuthOptions, Session } from 'next-auth'
 
 // Fix for default import interop in tsx/ESM
-const NextAuth = (_NextAuth as any).default || _NextAuth
+const NextAuth = (_NextAuth as { default?: unknown }).default as typeof _NextAuth || _NextAuth
 import _CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
@@ -12,7 +12,7 @@ import { checkRateLimit } from '@/lib/redis'
 import { redis } from '@/lib/redis'
 
 // Fix for default import interop in tsx/ESM
-const CredentialsProvider = (_CredentialsProvider as any).default || _CredentialsProvider
+const CredentialsProvider = (_CredentialsProvider as { default?: unknown }).default as typeof _CredentialsProvider || _CredentialsProvider
 
 // Database connection validation
 async function validateDatabaseConnection(): Promise<boolean> {
@@ -46,7 +46,7 @@ async function validateRedisConnection(): Promise<boolean> {
 
 // Auth configuration with credentials provider only
 export const authConfig: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma) as NextAuthOptions['adapter'],
   // IMPORTANT: Secret is required for JWT signing
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || '',
   // Enable debug mode in development
@@ -201,7 +201,7 @@ export const authConfig: NextAuthOptions = {
             email: user.email,
             name: user.name ?? null,
             image: user.image ?? null,
-          } as any
+          } as unknown as import('next-auth').User
         } catch (error) {
           console.error('[AUTH] Error in authorize:', error)
           throw error
@@ -215,7 +215,7 @@ export const authConfig: NextAuthOptions = {
       return true
     },
 
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session: _session }) {
       // Initial sign in
       if (user) {
         token.id = user.id
@@ -349,33 +349,34 @@ export const authConfig: NextAuthOptions = {
           // If user doesn't exist, is inactive, or token version mismatch - invalidate session
           if (!dbUser || !dbUser.isActive) {
             console.log(`[AUTH SESSION] User ${token.id} not found or inactive. Invalidating session.`);
-            return { ...session, user: undefined as any, expires: new Date(0).toISOString() };
+            return { ...session, user: undefined as unknown as Session['user'], expires: new Date(0).toISOString() };
           }
 
           const tokenVersion = (token.tokenVersion as number) ?? 0;
           if (dbUser.tokenVersion > tokenVersion) {
             console.log(`[AUTH SESSION] Token version mismatch for user ${token.id}. DB: ${dbUser.tokenVersion}, Token: ${tokenVersion}. Forcing logout.`);
-            return { ...session, user: undefined as any, expires: new Date(0).toISOString() };
+            return { ...session, user: undefined as unknown as Session['user'], expires: new Date(0).toISOString() };
           }
         } catch (error) {
           console.error('[AUTH SESSION] Error validating tokenVersion:', error);
           // SECURITY: Fail-closed - invalidate session on validation error
           console.warn('[AUTH SESSION] SECURITY: Invalidating session due to validation error');
-          return { ...session, user: undefined as any, expires: new Date(0).toISOString() };
+          return { ...session, user: undefined as unknown as Session['user'], expires: new Date(0).toISOString() };
         }
 
-        (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
-        (session.user as any).accessAdminPanel = token.accessAdminPanel;
-        (session.user as any).accessEmployeePanel = token.accessEmployeePanel;
+        const sessionUser = session.user as Record<string, unknown>;
+        sessionUser.id = token.id;
+        sessionUser.role = token.role;
+        sessionUser.accessAdminPanel = token.accessAdminPanel;
+        sessionUser.accessEmployeePanel = token.accessEmployeePanel;
         // Don't include permissions in session - they will be loaded at runtime
-        (session.user as any).permissionsCount = token.permissionsCount;
-        (session.user as any).departmentId = token.departmentId;
-        (session.user as any).departmentName = token.departmentName;
-        (session.user as any).siteId = token.siteId; // Legacy: primary site
-        (session.user as any).siteIds = token.siteIds; // Multi-site: all site IDs
-        (session.user as any).primarySiteId = token.primarySiteId; // Multi-site: primary
-        (session.user as any).isSales = token.isSales;
+        sessionUser.permissionsCount = token.permissionsCount;
+        sessionUser.departmentId = token.departmentId;
+        sessionUser.departmentName = token.departmentName;
+        sessionUser.siteId = token.siteId; // Legacy: primary site
+        sessionUser.siteIds = token.siteIds; // Multi-site: all site IDs
+        sessionUser.primarySiteId = token.primarySiteId; // Multi-site: primary
+        sessionUser.isSales = token.isSales;
       }
       return session
     },
@@ -465,15 +466,15 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
       
       if (mobilePayload) {
         console.log('[AUTH_VERIFY] Mobile token verified for:', mobilePayload.email)
-        const mp = mobilePayload as any
+        const mp = mobilePayload as Record<string, unknown>
         return {
           id: mobilePayload.userId,
           email: mobilePayload.email as string,
           name: mobilePayload.name as string | null,
           role: mobilePayload.role as string | undefined,
           departmentId: mp.departmentId as string | undefined,
-          siteId: mp.primarySiteId || mp.siteId as string | undefined,
-          siteIds: mp.siteIds || (mp.siteId ? [mp.siteId] : []),
+          siteId: (mp.primarySiteId || mp.siteId) as string | undefined,
+          siteIds: (mp.siteIds as string[]) || (mp.siteId ? [mp.siteId as string] : []),
           primarySiteId: mp.primarySiteId as string | undefined,
           permissions: mp.permissions as string[] | undefined,
         }
@@ -484,7 +485,7 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
 
     // 2. Check for NextAuth token (Web)
     const token = await getToken({
-      req: request as any,
+      req: request,
       secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || ''
     })
 
@@ -494,9 +495,9 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
     }
 
     return {
-      id: token.id as string,
-      email: token.email as string,
-      name: token.name as string | null,
+      id: (token.id as string) || '',
+      email: (token.email as string) || '',
+      name: (token.name as string) || null,
       role: token.role as string | undefined,
       departmentId: token.departmentId as string | undefined,
       siteId: token.siteId as string | undefined,

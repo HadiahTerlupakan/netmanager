@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 
 interface PhotoUploadProps {
@@ -47,7 +47,7 @@ export function PhotoUpload({
     const errors: string[] = []
     const validFiles: File[] = []
 
-    files.forEach((file, index) => {
+    files.forEach((file, _index) => {
       // Check if it's an image
       if (!file.type.startsWith('image/')) {
         errors.push(`File "${file.name}" bukan gambar yang valid`)
@@ -108,8 +108,8 @@ export function PhotoUpload({
           progress: 0,
           status: 'pending'
         })
-      } catch (error) {
-        console.error('Error creating preview:', error)
+      } catch (_error) {
+        console.error('Error creating preview:', _error)
       }
     }
 
@@ -129,7 +129,7 @@ export function PhotoUpload({
   }, [photos, disabled, notifyPhotosChange])
 
   // Upload photos to server
-  const uploadPhotos = useCallback(async () => {
+  const _uploadPhotos = useCallback(async () => {
     if (!transactionId || photos.length === 0) {
       setUploadError('Transaction ID diperlukan untuk upload foto')
       return
@@ -150,7 +150,7 @@ export function PhotoUpload({
       const formData = new FormData()
 
       // Add all photos to FormData
-      photos.forEach((photo, index) => {
+      photos.forEach((photo, _index) => {
         formData.append('photos', photo.file)
       })
 

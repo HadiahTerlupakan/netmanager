@@ -12,7 +12,8 @@ import {
   withRateLimit,
   RateLimits,
   ValidationError,
-  ConflictError
+  ConflictError,
+  type AuthContext
 } from '@/lib/middleware'
 import { apiSuccess } from '@/lib/api-response'
 import { z } from 'zod'
@@ -40,7 +41,7 @@ export const GET = withErrorHandler(
   withAuth(
     withPermission('holiday:read',
       withRateLimit(RateLimits.STANDARD,
-        async ({ request }) => {
+        async ({ request }: AuthContext) => {
           const { searchParams } = new URL(request.url)
 
           // Validate query params
@@ -69,7 +70,7 @@ export const GET = withErrorHandler(
 export const POST = withErrorHandler(
   withAuth(
     withPermission('holiday:create',
-      async ({ request }) => {
+      async ({ request }: AuthContext) => {
         const body = await request.json()
         
         // Validate with Zod
@@ -92,8 +93,8 @@ export const POST = withErrorHandler(
           })
 
           return apiSuccess(holiday, { status: 201, message: 'Hari libur berhasil dibuat' })
-        } catch (error: any) {
-          if (error.code === 'P2002') {
+        } catch (error: unknown) {
+          if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
             throw new ConflictError('Hari libur untuk tanggal ini sudah ada')
           }
           throw error

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { FiEdit2, FiTrash2, FiEye, FiMinusCircle } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { getWithAuth, deleteWithAuth } from '@/lib/api-client'
@@ -57,21 +57,13 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
     gudangId: '',
     search: ''
   })
-  const [barangs, setBarangs] = useState<any[]>([])
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [barangs, setBarangs] = useState<{ id: string; kode: string; nama: string }[]>([])
+  const [gudangs, setGudangs] = useState<{ id: string; kode: string; nama: string }[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const limit = 20
 
-  useEffect(() => {
-    fetchBarangsAndGudangs()
-  }, [])
-
-  useEffect(() => {
-    fetchOpnameList()
-  }, [currentPage, filters, refreshTrigger])
-
-  async function fetchBarangsAndGudangs() {
+  const fetchBarangsAndGudangs = useCallback(async () => {
     try {
       const [barangRes, gudangRes] = await Promise.all([
         getWithAuth('/api/inventory/barang?limit=100'),
@@ -98,9 +90,9 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
       setBarangs([])
       setGudangs([])
     }
-  }
+  }, [])
 
-  async function fetchOpnameList() {
+  const fetchOpnameList = useCallback(async () => {
     setLoading(true)
     setError('')
 
@@ -128,7 +120,15 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, filters.barangId, filters.gudangId])
+
+  useEffect(() => {
+    fetchBarangsAndGudangs()
+  }, [fetchBarangsAndGudangs])
+
+  useEffect(() => {
+    fetchOpnameList()
+  }, [fetchOpnameList, refreshTrigger])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus record stock opname ini? Stok akan dikembalikan ke nilai sistem sebelum opname.')) {

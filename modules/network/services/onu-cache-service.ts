@@ -25,7 +25,7 @@ export class OnuCacheService {
      * Cache ONU list for a specific OLT
      * OPTIMIZATION: Added size limit check to prevent unbounded memory
      */
-    async cacheOltOnus(oltId: string, onus: any[]): Promise<void> {
+    async cacheOltOnus(oltId: string, onus: Record<string, unknown>[]): Promise<void> {
         try {
             const key = this.getOltCacheKey(oltId)
             const jsonStr = JSON.stringify(onus)
@@ -61,7 +61,7 @@ export class OnuCacheService {
     /**
      * Get cached ONU list for a specific OLT
      */
-    async getCachedOltOnus(oltId: string): Promise<any[] | null> {
+    async getCachedOltOnus(oltId: string): Promise<Record<string, unknown>[] | null> {
         try {
             const key = this.getOltCacheKey(oltId)
             const cached = await redis.get(key)
@@ -90,7 +90,7 @@ export class OnuCacheService {
     /**
      * Cache search results
      */
-    async cacheSearchResults(query: string, results: any[]): Promise<void> {
+    async cacheSearchResults(query: string, results: Record<string, unknown>[]): Promise<void> {
         try {
             const key = this.getSearchCacheKey(query)
             await redis.setex(key, SEARCH_CACHE_TTL, JSON.stringify(results))
@@ -108,7 +108,7 @@ export class OnuCacheService {
     /**
      * Get cached search results
      */
-    async getCachedSearchResults(query: string): Promise<any[] | null> {
+    async getCachedSearchResults(query: string): Promise<Record<string, unknown>[] | null> {
         try {
             const key = this.getSearchCacheKey(query)
             const cached = await redis.get(key)
@@ -264,7 +264,7 @@ export class OnuCacheService {
         try {
             const key = `${CACHE_PREFIX}stats:hits`
             await redis.incr(key)
-        } catch (error) {
+        } catch (_error) {
             // Silently fail - stats are not critical
         }
     }
@@ -276,7 +276,7 @@ export class OnuCacheService {
         try {
             const key = `${CACHE_PREFIX}stats:misses`
             await redis.incr(key)
-        } catch (error) {
+        } catch (_error) {
             // Silently fail - stats are not critical
         }
     }

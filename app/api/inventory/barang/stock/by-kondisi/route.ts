@@ -115,8 +115,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching stock by condition', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error fetching stock by condition', err, {
       path: '/api/inventory/barang/stock/by-kondisi',
       method: 'GET',
     })

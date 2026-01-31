@@ -31,7 +31,7 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
     const [routers, setRouters] = useState<Router[]>([])
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(false)
-    const [processing, setProcessing] = useState(false)
+    const [_processing, setProcessing] = useState(false)
     const [results, setResults] = useState<ReconfigureResult[]>([])
     const [step, setStep] = useState<'select' | 'processing' | 'result'>('select')
 
@@ -58,8 +58,8 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
                     .map((r: Router) => r.id)
                 setSelectedIds(new Set(onlineIds))
             }
-        } catch (error) {
-            console.error('Failed to fetch routers', error)
+        } catch (_error) {
+            console.error('Failed to fetch routers', _error)
             toast.error('Gagal memuat list router')
         } finally {
             setLoading(false)
@@ -107,7 +107,7 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
                 toast.error(data.error || 'Terjadi kesalahan')
                 setStep('select')
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error('Gagal menghubungi server')
             setStep('select')
         } finally {

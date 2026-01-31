@@ -13,6 +13,9 @@ export async function POST(request: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+        }
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest) {
 
         // Check available stock based on kondisi
         const stockField = kondisi === 'BEKAS' ? 'stokBekas' : kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru';
-        const availableStock = barangGudang ? (barangGudang as any)[stockField] || 0 : 0;
+        const availableStock = barangGudang ? (barangGudang as unknown as Record<string, number>)[stockField] || 0 : 0;
 
         if (!barangGudang || availableStock < jumlah) {
             return NextResponse.json({ 

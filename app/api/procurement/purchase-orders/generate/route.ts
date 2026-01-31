@@ -17,18 +17,18 @@ export async function POST(req: NextRequest) {
         }
 
         // Pass user ID from session
-        const userId = session.user?.email || session.user?.name || 'system'; 
+        const _userId = session.user?.email || session.user?.name || 'system';
         // Ideally ID, but if session doesn't expose ID cleanly, I'll use email.
         // User schema has id. NextAuth session usually has id if configured defined callback.
         // I will assume session.user.id exists? Or I'll use email check.
-        // Usually session.user.id is populated in callbacks. 
-        // I'll try (session.user as any).id || session.user.email
-        
-        const actualUserId = (session.user as any).id || session.user?.email || 'unknown';
+        // Usually session.user.id is populated in callbacks.
+
+        const actualUserId = (session.user as { id?: string })?.id || session.user?.email || 'unknown';
 
         const result = await service.generatePOFromPRs(prIds, actualUserId, supplierId);
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

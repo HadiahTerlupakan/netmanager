@@ -79,7 +79,7 @@ export async function GET() {
                 totalPending
             }
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching sales users:', error)
         return ApiErrors.internalError('Gagal mengambil data sales')
     }

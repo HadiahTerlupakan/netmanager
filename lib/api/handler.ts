@@ -1,31 +1,31 @@
 /**
  * Unified API Route Handler
- * 
+ *
  * This module provides a unified wrapper for API routes that handles:
  * - Authentication (NextAuth session)
  * - Authorization (RBAC permissions via existing authorize middleware)
  * - Request validation (Zod schemas)
- * - Error handling (with Sentry integration)
+ * - Error handling
  * - Standard response format
- * 
+ *
  * NOTE: For routes that need complex auth (site restriction, etc.),
  * continue using the existing `authorize` middleware from `@/lib/authorization-middleware`.
  * This handler is for simpler cases or new routes.
- * 
+ *
  * @example
  * // Simple authenticated route
  * import { createHandler, apiSuccess } from '@/lib/api'
- * 
+ *
  * export const GET = createHandler({
  *   auth: true,
  * }, async (req, ctx) => {
  *   return apiSuccess({ userId: ctx.session?.user.id })
  * })
- * 
+ *
  * // With validation
  * import { z } from 'zod'
  * const schema = z.object({ name: z.string() })
- * 
+ *
  * export const POST = createHandler({
  *   auth: true,
  *   schema,
@@ -37,9 +37,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import type { ZodSchema, ZodError } from 'zod'
-import * as Sentry from '@sentry/nextjs'
 import { authOptions, getUserPermissions } from '@/lib/auth'
-import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 import type { ErrorResponse } from '@/lib/api-response'
 import { parseQuery } from './query-parser'
 
@@ -86,7 +85,6 @@ type RouteHandler<T> = (
  * - Permission checking
  * - Request validation
  * - Error handling
- * - Sentry integration
  */
 export function createHandler<T = unknown>(
     options: HandlerOptions<T>,
@@ -127,8 +125,9 @@ export function createHandler<T = unknown>(
                 }
 
                 // Load permissions from session or cache
-                if ((session.user as any).permissions && Array.isArray((session.user as any).permissions)) {
-                    ctx.permissions = (session.user as any).permissions
+                const userPermissions = (session.user as { permissions?: string[] }).permissions
+                if (userPermissions && Array.isArray(userPermissions)) {
+                    ctx.permissions = userPermissions
                 } else {
                     // Fallback: Fetch permissions at runtime
                     ctx.permissions = await getUserPermissions(ctx.session!.user.id)
@@ -199,7 +198,7 @@ function formatValidationError(error: ZodError): NextResponse<ErrorResponse> {
 }
 
 /**
- * Centralized error handler with Sentry integration
+ * Centralized error handler
  */
 function handleError(error: unknown, request: NextRequest): NextResponse<ErrorResponse> {
     // Log to console
@@ -207,14 +206,6 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
         url: request.nextUrl.pathname,
         method: request.method,
         error,
-    })
-    
-    // Send to Sentry
-    Sentry.captureException(error, {
-        extra: {
-            url: request.nextUrl.pathname,
-            method: request.method,
-        },
     })
     
     // Handle known error types

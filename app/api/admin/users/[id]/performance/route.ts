@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
@@ -77,7 +76,7 @@ export const GET = createHandler({
 
   attendanceStats.forEach(stat => {
     const status = stat.status
-    const count = (stat._count as any)._all || 0
+    const count = (stat._count as { _all: number })._all || 0
     if (status === 'ON_TIME') attendance.present += count
     else if (status === 'LATE') attendance.late += count
     else if (status === 'ABSENT' || status === 'DAY_OFF') attendance.absent += count
@@ -157,7 +156,7 @@ export const GET = createHandler({
   }
 
   leaveStats.forEach(stat => {
-      const count = (stat._count as any)._all || 0
+      const count = (stat._count as { _all: number })._all || 0
       leaves.total += count;
       if (stat.type === 'CUTI') leaves.cuti = count;
       else if (stat.type === 'SAKIT') leaves.sakit = count;

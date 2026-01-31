@@ -55,7 +55,7 @@ const periodLabels: Record<string, string> = {
 export default function SalesPerformanceStats({ data, period = 'month' }: { data: SalesPerformanceData | null; period?: string }) {
     if (!data) return null
 
-    const { canvasing, points, target, recentActivity, totalAllTime, totalPointsAllTime } = data
+    const { canvasing, points, target, recentActivity, totalPointsAllTime } = data
 
     return (
         <div className="space-y-6">
@@ -202,7 +202,15 @@ export default function SalesPerformanceStats({ data, period = 'month' }: { data
     )
 }
 
-function StatCard({ label, value, icon: Icon, color, subtext }: any) {
+interface StatCardProps {
+    label: string
+    value: number
+    icon: React.ComponentType<{ className?: string }>
+    color: string
+    subtext: string
+}
+
+function StatCard({ label, value, icon: Icon, color, subtext }: StatCardProps) {
     const colorClasses: Record<string, string> = {
         emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400',
         amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400',

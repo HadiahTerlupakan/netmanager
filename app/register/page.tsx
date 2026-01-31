@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
     MdArrowBack,
@@ -19,7 +18,16 @@ import SearchableDropdown from '@/components/common/SearchableDropdown'
 // Extend window interface for Turnstile
 declare global {
     interface Window {
-        turnstile?: any
+        turnstile?: {
+            render: (
+                container: string | HTMLElement,
+                options: {
+                    sitekey: string;
+                    callback?: (token: string) => void;
+                    [key: string]: unknown;
+                }
+            ) => string;
+        }
         onloadTurnstileCallback?: () => void
     }
 }
@@ -44,44 +52,19 @@ export default function RegistrationPage() {
     const [turnstileToken, setTurnstileToken] = useState('')
     const turnstileContainerRef = useRef<HTMLDivElement>(null)
 
-    useEffect(() => {
-        const init = async () => {
-            await fetchLocations()
-            await fetchCaptchaSettings()
-        }
-        init()
-    }, [])
-
-    const fetchLocations = async () => {
+    const fetchLocations = useCallback(async () => {
         try {
             const res = await fetch('/api/odcs/locations')
             if (res.ok) {
                 const data = await res.json()
                 if (Array.isArray(data)) setExistingLocations(data)
             }
-        } catch (e) {
-            console.error('Failed to fetch locations', e)
+        } catch (_e) {
+            console.error('Failed to fetch locations', _e)
         }
-    }
+    }, [])
 
-    const fetchCaptchaSettings = async () => {
-        try {
-            // Use public endpoint (no auth required)
-            const res = await fetch('/api/public/captcha-settings')
-            if (res.ok) {
-                const data = await res.json()
-                if (data.enabled && data.siteKey) {
-                    setCaptchaEnabled(true)
-                    setSiteKey(data.siteKey)
-                    loadTurnstileScript()
-                }
-            }
-        } catch (e) {
-            console.error('Failed to fetch captcha settings', e)
-        }
-    }
-
-    const loadTurnstileScript = () => {
+    const loadTurnstileScript = useCallback(() => {
         if (document.getElementById('turnstile-script')) return
 
         const script = document.createElement('script')
@@ -94,15 +77,36 @@ export default function RegistrationPage() {
         window.onloadTurnstileCallback = () => {
             if (window.turnstile && turnstileContainerRef.current) {
                 window.turnstile.render(turnstileContainerRef.current, {
-                    sitekey: siteKey, // Will be read from closure or state? State might be empty here due to closure
-                    // Better to rely on the fact that if this runs, siteKey should be available or passed differently.
-                    // Actually, since siteKey is state, accessing it inside this callback created in useEffect might leverage closure stale value if not careful.
-                    // But we call loadTurnstileScript AFTER setting state? No, async nature.
-                    // Let's rely on explicit render call inside a useEffect dependency on siteKey.
+                    sitekey: siteKey,
                 })
             }
         }
-    }
+    }, [siteKey])
+
+    const fetchCaptchaSettingsLocal = useCallback(async () => {
+        try {
+            // Use public endpoint (no auth required)
+            const res = await fetch('/api/public/captcha-settings')
+            if (res.ok) {
+                const data = await res.json()
+                if (data.enabled && data.siteKey) {
+                    setCaptchaEnabled(true)
+                    setSiteKey(data.siteKey)
+                    loadTurnstileScript()
+                }
+            }
+        } catch (_e) {
+            console.error('Failed to fetch captcha settings', _e)
+        }
+    }, [loadTurnstileScript])
+
+    useEffect(() => {
+        const init = async () => {
+            await fetchLocations()
+            await fetchCaptchaSettingsLocal()
+        }
+        init()
+    }, [fetchLocations, fetchCaptchaSettingsLocal])
 
     // Effect to render turnstile when siteKey is available and script is loaded
     useEffect(() => {
@@ -113,7 +117,7 @@ export default function RegistrationPage() {
                     sitekey: siteKey,
                     callback: (token: string) => setTurnstileToken(token),
                 })
-            } catch (e) {
+            } catch (_e) {
                 // Ignore if already rendered
             }
         }
@@ -167,8 +171,8 @@ export default function RegistrationPage() {
             } else {
                 alert(data.error || 'Terjadi kesalahan. Silakan coba lagi.')
             }
-        } catch (error) {
-            console.error(error)
+        } catch (_error) {
+            console.error(_error)
             alert('Terjadi kesalahan koneksi.')
         } finally {
             setIsLoading(false)

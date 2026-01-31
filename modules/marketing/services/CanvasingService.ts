@@ -63,14 +63,14 @@ export class CanvasingService {
       priority: 'NORMAL',
       type: 'INSTALLATION',
       // Site from sales user
-      siteId: request.sales?.siteId || undefined,
+      ...(request.sales?.siteId ? { siteId: request.sales.siteId } : {}),
       // Contact info
       contactName: request.nama,
       contactPhone: request.noTelpon,
       // Location
       locationAddress: request.alamat,
-      locationLat: request.latitude || undefined,
-      locationLng: request.longitude || undefined,
+      ...(request.latitude ? { locationLat: request.latitude } : {}),
+      ...(request.longitude ? { locationLng: request.longitude } : {}),
       createdById: approverId,
     })
 
@@ -101,7 +101,7 @@ export class CanvasingService {
     // 5. Update Canvasing status
     const approved = await this.repository.update(id, {
       status: 'APPROVED',
-      // @ts-ignore - approvedBy and workOrderId exist in schema now
+      // @ts-expect-error - approvedBy and workOrderId fields exist in schema but may not be in type definition
       approvedBy: approverId,
       approvedAt: new Date(),
       workOrderId: workOrder.id
@@ -159,7 +159,7 @@ export class CanvasingService {
     // Reset to PENDING and unlink from WO
     return this.repository.update(id, {
       status: 'PENDING',
-      // @ts-ignore - These fields exist in schema
+      // @ts-expect-error - These fields exist in schema
       workOrderId: null,
       approvedBy: null,
       approvedAt: null

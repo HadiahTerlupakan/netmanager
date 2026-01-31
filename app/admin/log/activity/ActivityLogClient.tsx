@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { HiOutlineRefresh, HiOutlineClock, HiOutlineDocumentText } from 'react-icons/hi'
 import { HiOutlineUser, HiOutlineTag } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
@@ -28,7 +28,7 @@ export function ClientComponent() {
     const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null)
     const [siteId, setSiteId] = useState<string | undefined>(undefined)
 
-    const fetchLogs = async (page = 1) => {
+    const fetchLogs = useCallback(async (page = 1) => {
         setLoading(true)
         try {
             const params = new URLSearchParams()
@@ -49,15 +49,20 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [siteId])
 
-    useEffect(() => { fetchLogs() }, [siteId])
+    useEffect(() => { fetchLogs() }, [fetchLogs])
 
     const handlePageChange = (newPage: number) => {
         if (newPage > 0 && newPage <= pagination.totalPages) {
             fetchLogs(newPage)
         }
     }
+
+    // Callback for PageLoader
+    const renderPageLoader = useCallback(() => (
+        <PageLoader variant="section" message="Memuat log aktivitas..." />
+    ), []);
 
     return (
         <div className="space-y-6">
@@ -84,7 +89,7 @@ export function ClientComponent() {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {loading && logs.length === 0 ? (
-                    <PageLoader variant="section" message="Memuat log aktivitas..." />
+                    renderPageLoader()
                 ) : logs.length === 0 ? (
                     <div className="p-12 text-center text-gray-500">
                         <HiOutlineDocumentText className="w-12 h-12 mx-auto mb-4 text-gray-300" />

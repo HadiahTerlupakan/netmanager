@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSocketEvent } from '@/hooks/useSocket'
 import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiUser } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { getWithAuth } from '@/lib/api-client'
 
 interface BarangMasuk {
   id: string
@@ -15,7 +17,7 @@ interface BarangMasuk {
   createdAt: string
   employeeId?: string | null
   fotoBukti: string[]
-  fotoMetadata?: any
+  fotoMetadata?: Record<string, unknown>
   barang: {
     id: string
     kode: string
@@ -66,44 +68,52 @@ export function MasukTable({
     totalPages: 0
   })
 
+  const fetchMasukList = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20'
+      })
+
+      if (search) params.append('search', search)
+      if (startDate) params.append('startDate', new Date(startDate).toISOString())
+      if (endDate) params.append('endDate', new Date(endDate).toISOString())
+      if (siteId) params.append('siteId', siteId)
+      if (gudangId) params.append('gudangId', gudangId)
+
+      const response = await getWithAuth(`/api/inventory/masuk?${params}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal memuat data')
+      }
+
+      const responseData = data.data || data
+      setMasukList(responseData.masukList || [])
+      if (responseData.pagination) {
+        setPagination(prev => ({ ...prev, ...responseData.pagination }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch barang masuk:', error)
+      setError(error instanceof Error ? error.message : 'Gagal memuat data')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, startDate, endDate, siteId, gudangId])
+
   // Fetch data
   useEffect(() => {
-    async function fetchMasukList() {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: '20'
-        })
-
-        if (search) params.append('search', search)
-        if (startDate) params.append('startDate', new Date(startDate).toISOString())
-        if (endDate) params.append('endDate', new Date(endDate).toISOString())
-        if (siteId) params.append('siteId', siteId)
-        if (gudangId) params.append('gudangId', gudangId)
-
-        const response = await fetch(`/api/inventory/masuk?${params}`)
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Gagal memuat data')
-        }
-
-        const responseData = data.data || data
-        setMasukList(responseData.masukList || [])
-        setPagination(responseData.pagination || pagination)
-      } catch (error) {
-        console.error('Failed to fetch barang masuk:', error)
-        setError(error instanceof Error ? error.message : 'Gagal memuat data')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchMasukList()
-  }, [page, refreshTrigger, search, startDate, endDate, siteId, gudangId])
+  }, [fetchMasukList, refreshTrigger])
+
+  // Listen for inventory updates
+  useSocketEvent('inventory:update', () => {
+    console.log('[Inventory] MasukTable received update, refreshing...')
+    fetchMasukList()
+  })
 
   const handleDelete = async (id: string, kode: string, jumlah: number) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus record barang masuk ${kode} (${jumlah} pcs)?\n\nPeringatan: Ini akan mengurangi stok barang!`)) {

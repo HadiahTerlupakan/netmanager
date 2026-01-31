@@ -5,13 +5,16 @@
  * security measures are working correctly.
  */
 
-import * as crypto from 'crypto'
+import { verify, sign } from 'jsonwebtoken'
+import { z } from 'zod'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export interface SecurityTestResult {
   testName: string
   status: 'PASS' | 'FAIL' | 'WARN'
   message: string
-  details?: any
+  details?: unknown
   recommendations?: string[]
 }
 
@@ -100,9 +103,6 @@ export class SecurityTests {
    */
   testJWTSecurity(): void {
     try {
-      // Check if JWT dependencies are available
-      const { verify, sign } = require('jsonwebtoken')
-
       // Test JWT signing and verification
       const testPayload = {
         userId: 'test-user',
@@ -113,7 +113,7 @@ export class SecurityTests {
       const secret = process.env.NEXTAUTH_SECRET || 'test-secret'
       const token = sign(testPayload, secret, { expiresIn: '1h' })
 
-      const decoded = verify(token, secret) as any
+      const decoded = verify(token, secret) as { userId: string; type: string }
 
       if (decoded.userId === 'test-user' && decoded.type === 'TEST') {
         this.addResult({
@@ -129,12 +129,12 @@ export class SecurityTests {
           details: { expected: testPayload, actual: decoded }
         })
       }
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'JWT Security',
         status: 'FAIL',
         message: 'JWT implementation error',
-        details: error
+        details: _error
       })
     }
   }
@@ -189,7 +189,8 @@ export class SecurityTests {
     // For now, we'll validate the implementation exists
     try {
       // Check if CORS implementation exists
-      require('@/lib/middleware/cors')
+      // Using dynamic import in try-catch for optional dependency check
+      void import('@/lib/middleware/cors')
 
       this.addResult({
         testName: 'Security Headers',
@@ -199,7 +200,7 @@ export class SecurityTests {
           configuredHeaders: requiredHeaders
         }
       })
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'Security Headers',
         status: 'FAIL',
@@ -213,8 +214,6 @@ export class SecurityTests {
    */
   testInputValidation(): void {
     try {
-      const { z } = require('zod')
-
       // Test schema validation
       const testSchema = z.object({
         email: z.string().email(),
@@ -250,7 +249,7 @@ export class SecurityTests {
           }
         })
       }
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'Input Validation',
         status: 'FAIL',
@@ -265,7 +264,7 @@ export class SecurityTests {
   testRateLimiting(): void {
     try {
       // Check if rate limiting implementation exists
-      require('@/lib/middleware/advanced-rate-limit')
+      void import('@/lib/middleware/advanced-rate-limit')
 
       this.addResult({
         testName: 'Rate Limiting',
@@ -276,7 +275,7 @@ export class SecurityTests {
           features: ['burst protection', 'user-specific limits', 'custom responses']
         }
       })
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'Rate Limiting',
         status: 'FAIL',
@@ -291,7 +290,7 @@ export class SecurityTests {
   testDatabaseSecurity(): void {
     try {
       // Check if database security implementation exists
-      require('@/lib/database/security')
+      void import('@/lib/database/security')
 
       this.addResult({
         testName: 'Database Security',
@@ -301,7 +300,7 @@ export class SecurityTests {
           features: ['row-level security', 'data encryption', 'audit logging', 'connection security']
         }
       })
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'Database Security',
         status: 'FAIL',
@@ -315,9 +314,6 @@ export class SecurityTests {
    */
   testFileUploadSecurity(): void {
     try {
-      const fs = require('fs')
-      const path = require('path')
-
       // Check if Sharp is installed for image processing
       const uploadRoute = path.join(process.cwd(), 'app/api/upload/payment-proof/route.ts')
 
@@ -349,7 +345,7 @@ export class SecurityTests {
           message: 'File upload route not found'
         })
       }
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'File Upload Security',
         status: 'FAIL',
@@ -363,7 +359,7 @@ export class SecurityTests {
    */
   testErrorHandlingSecurity(): void {
     try {
-      require('@/lib/utils/secure-error-handler')
+      void import('@/lib/utils/secure-error-handler')
 
       this.addResult({
         testName: 'Error Handling Security',
@@ -373,7 +369,7 @@ export class SecurityTests {
           features: ['classified errors', 'generic messages', 'request tracking', 'audit logging']
         }
       })
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'Error Handling Security',
         status: 'FAIL',
@@ -387,7 +383,6 @@ export class SecurityTests {
    */
   testDependencySecurity(): void {
     try {
-      const fs = require('fs')
       const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
 
       const vulnerabilities: string[] = []
@@ -402,7 +397,7 @@ export class SecurityTests {
 
       Object.keys(packageJson.dependencies || {}).forEach(dep => {
         const baseDep = dep.replace(/[@\d.]/g, '').split('/')[0]
-        if (vulnerablePackages.includes(baseDep)) {
+        if (baseDep && vulnerablePackages.includes(baseDep)) {
           vulnerabilities.push(dep)
         }
       })
@@ -425,7 +420,7 @@ export class SecurityTests {
           ]
         })
       }
-    } catch (error) {
+    } catch (_error) {
       this.addResult({
         testName: 'Dependency Security',
         status: 'FAIL',

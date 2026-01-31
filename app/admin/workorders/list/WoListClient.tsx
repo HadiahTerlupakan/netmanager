@@ -17,7 +17,7 @@ import {
     HiBellAlert,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
-import { useToast } from '@/components/common/ToastProvider'
+import { useToast } from '@/hooks/use-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 
@@ -86,12 +86,11 @@ const priorityColors: Record<string, string> = {
 export function ClientComponent() {
     const { data: session, status } = useSession()
     const router = useRouter()
-    const { show } = useToast()
+    const { showToast } = useToast()
     const { hasPermission } = usePermission()
     
     // CRUD permissions
     const canCreate = hasPermission('list:create')
-    const canUpdate = hasPermission('list:update')  // Edit data
     const canDelete = hasPermission('list:delete')  // Hapus permanen
     
     // Workflow action permissions (terpisah dari CRUD)
@@ -155,20 +154,6 @@ export function ClientComponent() {
     const [showReminderModal, setShowReminderModal] = useState(false)
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('')
 
-    useEffect(() => {
-        if (status === 'unauthenticated') {
-            router.push('/login')
-            return
-        }
-
-        if (session?.user && status === 'authenticated') {
-            fetchWorkOrders()
-            fetchSites()
-            fetchDepartments()
-        }
-    // PHASE 5: Use debouncedSearch instead of search for API calls
-    }, [session, status, router, page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, filterWoType, unassignedOnly])
-
     const fetchSites = async () => {
         try {
             const response = await fetch('/api/admin/sites?activeOnly=true')
@@ -176,7 +161,7 @@ export function ClientComponent() {
                 const data = await response.json()
                 setSites(data.data || [])
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error fetching sites:', error)
         }
     }
@@ -189,12 +174,12 @@ export function ClientComponent() {
                 const data = await response.json()
                 setDepartments(data.data || data || [])
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error fetching departments:', error)
         }
     }
 
-    const fetchWorkOrders = async () => {
+    const fetchWorkOrders = useCallback(async () => {
         setLoading(true)
         try {
             const params = new URLSearchParams({
@@ -219,12 +204,26 @@ export function ClientComponent() {
                 setTotal(data.total || 0)
                 setTotalPages(data.totalPages || 1)
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error fetching work orders:', error)
         } finally {
             setLoading(false)
         }
-    }
+    }, [page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, filterWoType, unassignedOnly])
+
+    useEffect(() => {
+        if (status === 'unauthenticated') {
+            router.push('/login')
+            return
+        }
+
+        if (session?.user && status === 'authenticated') {
+            fetchWorkOrders()
+            fetchSites()
+            fetchDepartments()
+        }
+    // PHASE 5: Use debouncedSearch instead of search for API calls
+    }, [session, status, router, fetchWorkOrders])
 
     const handleVerify = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation()
@@ -243,7 +242,7 @@ export function ClientComponent() {
             } else {
                 alert('Failed to verify work order')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error verifying:', error)
             alert('An error occurred')
         } finally {
@@ -284,7 +283,7 @@ export function ClientComponent() {
             } else {
                 alert('Failed to reject work order')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error rejecting:', error)
             alert('An error occurred')
         } finally {
@@ -320,7 +319,7 @@ export function ClientComponent() {
             } else {
                 alert('Failed to cancel work order')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error cancelling:', error)
             alert('An error occurred')
         } finally {
@@ -346,14 +345,14 @@ export function ClientComponent() {
             if (response.ok) {
                 setShowDeleteModal(false)
                 setSelectedWorkOrderId(null)
-                show({ type: 'success', message: 'Work Order berhasil dihapus permanen' })
+                showToast('success', 'Work Order berhasil dihapus permanen')
                 fetchWorkOrders()
             } else {
-                show({ type: 'error', message: 'Gagal menghapus work order' })
+                showToast('error', 'Gagal menghapus work order')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error deleting:', error)
-            show({ type: 'error', message: 'Terjadi kesalahan' })
+            showToast('error', 'Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -383,14 +382,14 @@ export function ClientComponent() {
             const data = await response.json()
             
             if (response.ok) {
-                show({ type: 'success', message: data.message || 'Reminder terkirim' })
+                showToast('success', data.message || 'Reminder terkirim')
                 setShowReminderModal(false)
             } else {
-                show({ type: 'error', message: data.error || 'Gagal mengirim reminder' })
+                showToast('error', data.error || 'Gagal mengirim reminder')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error sending reminder:', error)
-            show({ type: 'error', message: 'Terjadi kesalahan' })
+            showToast('error', 'Terjadi kesalahan')
         } finally {
             setSendingReminderId(null)
             setSelectedWorkOrderId(null)
@@ -411,16 +410,16 @@ export function ClientComponent() {
             const data = await response.json()
             
             if (response.ok) {
-                show({ type: 'success', message: 'WO Request berhasil disetujui' })
+                showToast('success', 'WO Request berhasil disetujui')
                 setShowApproveRequestModal(false)
                 setSelectedWorkOrderId(null)
                 fetchWorkOrders()
             } else {
-                show({ type: 'error', message: data.error || 'Gagal menyetujui request' })
+                showToast('error', data.error || 'Gagal menyetujui request')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error approving request:', error)
-            show({ type: 'error', message: 'Terjadi kesalahan' })
+            showToast('error', 'Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -429,7 +428,7 @@ export function ClientComponent() {
     // Handler untuk Reject WO Request
     const handleRejectRequest = async () => {
         if (!selectedWorkOrderId || !rejectRequestReason.trim()) {
-            show({ type: 'error', message: 'Alasan penolakan wajib diisi' })
+            showToast('error', 'Alasan penolakan wajib diisi')
             return
         }
         
@@ -443,17 +442,17 @@ export function ClientComponent() {
             const data = await response.json()
             
             if (response.ok) {
-                show({ type: 'success', message: 'WO Request berhasil ditolak' })
+                showToast('success', 'WO Request berhasil ditolak')
                 setShowRejectRequestModal(false)
                 setRejectRequestReason('')
                 setSelectedWorkOrderId(null)
                 fetchWorkOrders()
             } else {
-                show({ type: 'error', message: data.error || 'Gagal menolak request' })
+                showToast('error', data.error || 'Gagal menolak request')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error rejecting request:', error)
-            show({ type: 'error', message: 'Terjadi kesalahan' })
+            showToast('error', 'Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }

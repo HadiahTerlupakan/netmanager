@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig, getUserPermissions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
 import { randomUUID } from 'crypto'
-import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/opname')
       return ApiErrors.unauthorized()
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
       const dbStart = Date.now()
 
       // Build where clause
-      const where: any = {}
+      const where: Prisma.StockOpnameWhereInput = {}
       if (barangId) where.barangId = barangId
       if (gudangId) where.gudangId = gudangId
 
@@ -111,8 +112,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching stock opname', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error fetching stock opname', err, {
       path: '/api/inventory/opname',
       method: 'GET',
     })
@@ -127,7 +129,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/opname')
       return ApiErrors.unauthorized()
@@ -149,7 +151,7 @@ export async function POST(req: NextRequest) {
       lokasiPenyimpanan,
       nomorRak,
       nomorBox,
-      pic,
+      pic: _pic,
       suhuPenyimpanan,
       kelembaban,
       tanggalExpire,
@@ -328,17 +330,18 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error creating stock opname', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error creating stock opname', err, {
       path: '/api/inventory/opname',
       method: 'POST',
     })
 
-    if (error.message === 'Barang tidak ditemukan') {
+    if (err.message === 'Barang tidak ditemukan') {
       return ApiErrors.notFound('Barang tidak ditemukan')
     }
-    if (error.message === 'Gudang tidak ditemukan atau tidak aktif') {
-      return ApiErrors.badRequest(error.message)
+    if (err.message === 'Gudang tidak ditemukan atau tidak aktif') {
+      return ApiErrors.badRequest(err.message)
     }
 
     return ApiErrors.internalError('Gagal mencatat stock opname')

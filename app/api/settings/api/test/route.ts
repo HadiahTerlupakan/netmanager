@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
+import type { AuthOptions } from 'next-auth'
 
 /**
  * POST /api/settings/api/test
@@ -9,7 +10,7 @@ import { authConfig } from '@/lib/auth'
 export async function POST(req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig as AuthOptions)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -62,8 +63,8 @@ export async function POST(req: NextRequest) {
             if (listResponse.ok) {
                 const listData = await listResponse.json()
                 const availableModels = listData.models
-                    ?.filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-                    .map((m: any) => m.name.replace('models/', ''))
+                    ?.filter((m: { supportedGenerationMethods?: string[] }) => m.supportedGenerationMethods?.includes('generateContent'))
+                    .map((m: { name: string }) => m.name.replace('models/', ''))
                     .join(', ')
                 
                 if (availableModels) {
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
                     errorMessage += `\n\nTidak ada model yang tersedia untuk key ini (Mungkin perlu aktifkan Generative Language API).`
                 }
             }
-        } catch (e) {
+        } catch (e: unknown) {
             console.error('Failed to list models:', e)
         }
       }
@@ -92,11 +93,11 @@ export async function POST(req: NextRequest) {
       valid: true,
       message: 'API Key valid dan dapat digunakan',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error testing API key:', error)
     return NextResponse.json(
       {
-        error: error.message || 'Terjadi kesalahan saat menguji API Key',
+        error: error instanceof Error ? error.message : 'Terjadi kesalahan saat menguji API Key',
         valid: false,
       },
       { status: 500 }

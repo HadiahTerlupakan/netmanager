@@ -1,7 +1,6 @@
 'use client'
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react'
-import * as Sentry from '@sentry/nextjs'
 import { HiExclamationTriangle, HiArrowPath, HiHome } from 'react-icons/hi2'
 
 interface ErrorBoundaryProps {
@@ -19,9 +18,9 @@ interface ErrorBoundaryState {
 }
 
 /**
- * Error Boundary component that catches JavaScript errors in child components,
- * reports them to Sentry, and displays a fallback UI.
- * 
+ * Error Boundary component that catches JavaScript errors in child components
+ * and displays a fallback UI.
+ *
  * @example
  * ```tsx
  * <ErrorBoundary>
@@ -49,14 +48,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
     // Update state with error info
     this.setState({ errorInfo })
-
-    // Report to Sentry with additional context
-    Sentry.withScope((scope) => {
-      scope.setTag('error_boundary', 'true')
-      scope.setExtra('componentStack', errorInfo.componentStack)
-      scope.setLevel('error')
-      Sentry.captureException(error)
-    })
 
     // Call optional error handler
     this.props.onError?.(error, errorInfo)
@@ -99,7 +90,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
               {/* Error Description */}
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Maaf, terjadi kesalahan yang tidak terduga. Tim kami telah diberitahu dan sedang menangani masalah ini.
+                Maaf, terjadi kesalahan yang tidak terduga. Silakan coba lagi atau hubungi tim support.
               </p>
 
               {/* Error Details (Development Only) */}

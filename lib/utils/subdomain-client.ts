@@ -21,7 +21,7 @@ export function getSubdomainFromWindow(): string | null {
   if (hostname.includes('localhost')) {
     const parts = hostname.split('.')
     if (parts.length > 1 && parts[0] !== 'localhost') {
-      return parts[0] // admin, pelanggan, dll
+      return parts[0] ?? null // admin, pelanggan, dll
     }
     return null // localhost tanpa subdomain
   }
@@ -35,7 +35,7 @@ export function getSubdomainFromWindow(): string | null {
   }
 
   // Ambil subdomain pertama
-  return parts[0]
+  return parts[0] ?? null
 }
 
 /**

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
+// Skip rate limiting in development mode
+const isDevelopment = process.env.NODE_ENV === 'development'
+const DISABLE_RATE_LIMIT = process.env.DISABLE_RATE_LIMIT === 'true' || isDevelopment
+
 export interface AdvancedRateLimitOptions {
   maxRequests: number
   windowSeconds: number
@@ -49,18 +53,23 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    request: NextRequest
+    _request: NextRequest
   ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
+    // Skip rate limiting in development mode
+    if (DISABLE_RATE_LIMIT) {
+      return { allowed: true, retryAfter: 0, remaining: maxRequests, resetTime: Date.now() + windowSeconds * 1000 }
+    }
+
     try {
       switch (this.algorithm) {
         case 'sliding-window':
-          return await this.slidingWindowAlgorithm(key, maxRequests, windowSeconds, request)
+          return await this.slidingWindowAlgorithm(key, maxRequests, windowSeconds, _request)
         case 'token-bucket':
-          return await this.tokenBucketAlgorithm(key, maxRequests, windowSeconds, request)
+          return await this.tokenBucketAlgorithm(key, maxRequests, windowSeconds, _request)
         case 'exponential-backoff':
-          return await this.exponentialBackoffAlgorithm(key, maxRequests, windowSeconds, request)
+          return await this.exponentialBackoffAlgorithm(key, maxRequests, windowSeconds, _request)
         default:
-          return await this.fixedWindowAlgorithm(key, maxRequests, windowSeconds, request)
+          return await this.fixedWindowAlgorithm(key, maxRequests, windowSeconds, _request)
       }
     } catch (error) {
       console.error('Rate limiting error:', error)
@@ -76,7 +85,7 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    request: NextRequest
+    _request: NextRequest
   ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
     const now = Date.now()
     const windowStart = Math.floor(now / (windowSeconds * 1000)) * (windowSeconds * 1000)
@@ -119,7 +128,7 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    request: NextRequest
+    _request: NextRequest
   ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
     const now = Date.now()
     const windowMs = windowSeconds * 1000
@@ -171,7 +180,7 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    request: NextRequest
+    _request: NextRequest
   ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
     const now = Date.now()
     const refillRate = maxRequests / windowSeconds // tokens per second
@@ -225,7 +234,7 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    request: NextRequest
+    _request: NextRequest
   ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
     const now = Date.now()
 
@@ -338,8 +347,8 @@ export async function advancedRateLimit(
       algorithm,
       enableBurstProtection,
       burstLimit,
-      skipSuccessfulRequests: options.skipSuccessfulRequests,
-      skipFailedRequests: options.skipFailedRequests
+      skipSuccessfulRequests: options.skipSuccessfulRequests ?? false,
+      skipFailedRequests: options.skipFailedRequests ?? false
     })
 
     const result = await rateLimiter.checkRateLimit(key, maxRequests, windowSeconds, request)
@@ -395,13 +404,8 @@ function defaultKeyGenerator(request: NextRequest): string {
   }
 
   // Fallback to IP address
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  const realIp = request.headers.get('x-real-ip')
-  const ip = (request as any).ip
-
-  const clientIp = forwardedFor
-    ? forwardedFor.split(',')[0]?.trim()
-    : realIp || ip || 'unknown'
+  const forwarded = request.headers.get('x-forwarded-for')
+  const clientIp = forwarded ? forwarded.split(',')[0].trim() : request.headers.get('x-real-ip') || 'unknown'
 
   return `rate-limit:ip:${crypto.createHash('sha256').update(clientIp).digest('hex').substring(0, 16)}`
 }

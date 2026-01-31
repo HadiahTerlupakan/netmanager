@@ -10,6 +10,10 @@ export async function GET(request: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
@@ -24,12 +28,14 @@ export async function GET(request: NextRequest) {
             where: {
                 id: { not: userId },
                 isActive: true,
-                OR: search ? [
-                    { name: { contains: search, mode: 'insensitive' } },
-                    { email: { contains: search, mode: 'insensitive' } }
-                ] : undefined,
+                ...(search && {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { email: { contains: search, mode: 'insensitive' } }
+                    ]
+                }),
                 // Optional: Filter by site or role if needed
-                // siteId: ... 
+                // siteId: ...
             },
             select: {
                 id: true,

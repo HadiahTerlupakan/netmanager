@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
-import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { Modal } from '@/components/ui/Modal'
 import { PhotoThumbnail, PhotoThumbnailWithCount } from './PhotoThumbnail'
 import {
   HiXMark,
@@ -48,11 +48,11 @@ export function PhotoGallery({
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [zoomLevel, setZoomLevel] = useState(1)
-  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Reset zoom when photo changes
   useEffect(() => {
-    setZoomLevel(1)
+    // Use queueMicrotask to avoid synchronous setState
+    queueMicrotask(() => setZoomLevel(1))
   }, [selectedPhoto])
 
   const handlePhotoClick = useCallback((photo: Photo) => {
@@ -70,7 +70,7 @@ export function PhotoGallery({
     if (currentIndex > 0) {
       const newIndex = currentIndex - 1
       setCurrentIndex(newIndex)
-      setSelectedPhoto(photos[newIndex])
+      setSelectedPhoto(photos[newIndex] ?? null)
     }
   }, [currentIndex, photos])
 
@@ -78,7 +78,7 @@ export function PhotoGallery({
     if (currentIndex < photos.length - 1) {
       const newIndex = currentIndex + 1
       setCurrentIndex(newIndex)
-      setSelectedPhoto(photos[newIndex])
+      setSelectedPhoto(photos[newIndex] ?? null)
     }
   }, [currentIndex, photos])
 
@@ -199,7 +199,7 @@ export function PhotoGallery({
       {maxThumbnails && photos.length > maxThumbnails && (
         <div className="mt-4 text-center">
           <button
-            onClick={() => setSelectedPhoto(photos[0])}
+            onClick={() => setSelectedPhoto(photos[0] ?? null)}
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             Lihat {photos.length - maxThumbnails} foto lagi
@@ -385,10 +385,6 @@ export function CompactGallery({
 }: CompactGalleryProps) {
   if (photos.length === 0) {
     return null
-  }
-
-  const handleClick = () => {
-    onViewAll?.(photos)
   }
 
   return (

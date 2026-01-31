@@ -57,9 +57,10 @@ export async function checkRateLimit(
     }
     
     return count <= maxAttempts
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Jika Redis gagal (misconfig/NOAUTH), jangan blokir request (fail open)
-    console.error('Redis rate limit error:', error?.message || error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Redis rate limit error:', errorMessage)
     return true
   }
 }
@@ -78,8 +79,9 @@ export async function checkDelay(key: string): Promise<number> {
   try {
     const ttl = await redis.ttl(delayKey)
     return ttl > 0 ? ttl : 0
-  } catch (error: any) {
-    console.error('Redis delay check error:', error?.message || error)
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Redis delay check error:', errorMessage)
     return 0
   }
 }

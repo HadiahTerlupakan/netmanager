@@ -2,20 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  HiOutlineBuildingLibrary, 
-  HiOutlineBanknotes, 
-  HiOutlineCreditCard, 
+import {
+  HiOutlineBuildingLibrary,
+  HiOutlineBanknotes,
+  HiOutlineCreditCard,
   HiOutlinePlus,
   HiOutlineArrowRight
 } from 'react-icons/hi2'
-import { Modal } from '@/components/ui/Modal'
 import TransferModal from './TransferModal'
 import AddAccountModal from './AddAccountModal'
 import clsx from 'clsx'
+import type { Account } from '@/types'
 
 interface TreasuryClientProps {
-  accounts: any[]
+  accounts: Account[]
 }
 
 export default function TreasuryClient({ accounts }: TreasuryClientProps) {

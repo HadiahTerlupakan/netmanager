@@ -39,7 +39,7 @@ export function ClientComponent() {
             }
 
             router.push('/admin/workorders/departments')
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error creating department:', error)
             setError(error instanceof Error ? error.message : 'Gagal membuat department')
         } finally {

@@ -4,7 +4,7 @@ interface ExpoPushMessage {
     to: string
     title: string
     body: string
-    data?: Record<string, any>
+    data?: Record<string, unknown>
     sound?: 'default' | null
     badge?: number
     channelId?: string
@@ -14,7 +14,7 @@ interface ExpoPushTicket {
     status: 'ok' | 'error'
     id?: string
     message?: string
-    details?: any
+    details?: unknown
 }
 
 /**
@@ -24,7 +24,7 @@ export async function sendPushNotification(
     userId: string,
     title: string,
     body: string,
-    data?: Record<string, any>
+    data?: Record<string, unknown>
 ): Promise<boolean> {
     try {
         // Get user's push token
@@ -60,7 +60,7 @@ export async function sendPushToUsers(
     userIds: string[],
     title: string,
     body: string,
-    data?: Record<string, any>
+    data?: Record<string, unknown>
 ): Promise<number> {
     try {
         // Get all users' push tokens
@@ -164,7 +164,7 @@ export async function sendPushToDepartment(
     departmentId: string,
     title: string,
     body: string,
-    data?: Record<string, any>
+    data?: Record<string, unknown>
 ): Promise<number> {
     try {
         // Get all users in department with push tokens

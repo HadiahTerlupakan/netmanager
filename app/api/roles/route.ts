@@ -36,7 +36,7 @@ export async function GET(req: Request) {
         if (filterRestricted) {
             const session = await getServerSession(authConfig)
 
-            if (session?.user) {
+            if (session?.user?.id) {
                 // Get current user's role info
                 const currentUser = await prisma.user.findUnique({
                     where: { id: session.user.id },
@@ -47,8 +47,8 @@ export async function GET(req: Request) {
 
                 const roles = await roleService.getAllRoles({
                     filterRestricted: true,
-                    currentUserRoleId: currentUser?.roleId,
-                    currentUserRoleName: currentUser?.role?.name
+                    currentUserRoleId: currentUser?.roleId ?? null,
+                    currentUserRoleName: currentUser?.role?.name ?? null
                 })
 
                 return NextResponse.json(roles)
@@ -81,14 +81,28 @@ export async function POST(req: Request) {
         const validated = roleSchema.parse(body)
 
         const roleService = getRoleService()
-        const newRole = await roleService.createRole({
+
+        // Build the role data conditionally to avoid passing undefined
+        const roleData: Record<string, unknown> = {
             name: validated.name,
-            description: validated.description,
             permissions: validated.permissions,
-            accessAdminPanel: validated.accessAdminPanel,
-            accessEmployeePanel: validated.accessEmployeePanel,
-            isRestricted: validated.isRestricted,
-            isTechnical: validated.isTechnical
+        }
+
+        // Only include optional properties if they have values
+        if (validated.description !== undefined) roleData.description = validated.description
+        if (validated.accessAdminPanel !== undefined) roleData.accessAdminPanel = validated.accessAdminPanel
+        if (validated.accessEmployeePanel !== undefined) roleData.accessEmployeePanel = validated.accessEmployeePanel
+        if (validated.isRestricted !== undefined) roleData.isRestricted = validated.isRestricted
+        if (validated.isTechnical !== undefined) roleData.isTechnical = validated.isTechnical
+
+        const newRole = await roleService.createRole(roleData as {
+            name: string;
+            permissions: string[];
+            description?: string;
+            accessAdminPanel?: boolean;
+            accessEmployeePanel?: boolean;
+            isRestricted?: boolean;
+            isTechnical?: boolean;
         })
 
         // System Log
@@ -111,7 +125,7 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error('Error creating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: error.issues[0].message }, { status: 400 })
+            return NextResponse.json({ error: error.issues[0]?.message || 'Validation error' }, { status: 400 })
         }
         if (error instanceof Error) {
             return NextResponse.json({ error: error.message }, { status: 400 })

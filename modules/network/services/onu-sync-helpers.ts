@@ -15,7 +15,7 @@ export function calculateOnuBaseIndex(portName: string): number | null {
   const portMatch = portName.match(/^gpon_(\d+)\/(\d+)\/(\d+)$/i)
   if (!portMatch) return null
 
-  const frame = parseInt(portMatch[1], 10)
+  const _frame = parseInt(portMatch[1], 10)
   const slot = parseInt(portMatch[2], 10)
   const ponPort = parseInt(portMatch[3], 10)
 
@@ -77,8 +77,9 @@ export async function buildGponPortMap(
     }
     
     return gponPortMap
-  } catch (error: any) {
-    console.warn(`[C300-GPON-SNMP] Failed to build GPON port map: ${error.message || error}`)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`[C300-GPON-SNMP] Failed to build GPON port map: ${message}`)
     return gponPortMap
   }
 }

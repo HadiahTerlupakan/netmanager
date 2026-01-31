@@ -37,7 +37,7 @@ export async function GET(
             else if (invoice.status === 'CANCELLED') status = 'LUNAS' // Or handle as null? Keep it simple for now.
 
             const date = new Date(invoice.createdAt)
-            const paymentMethod = invoice.payment.length > 0 ? invoice.payment[0].paymentMethod : null
+            const paymentMethod = invoice.payment.length > 0 ? invoice.payment[0]?.paymentMethod : null
 
             return {
                 id: invoice.id,

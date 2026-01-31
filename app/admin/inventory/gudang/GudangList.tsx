@@ -39,7 +39,7 @@ export default function GudangPage() {
         }
 
         setGudangs(result.gudangs || [])
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to fetch gudangs:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data')
       } finally {
@@ -66,7 +66,7 @@ export default function GudangPage() {
 
       // Refresh data
       window.location.reload()
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to delete gudang:', error)
       alert('Gagal menghapus gudang')
     }

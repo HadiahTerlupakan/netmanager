@@ -193,9 +193,9 @@ export class OnuRepository implements IOnuRepository {
         // Format: Frame/Slot/Port:OnuID
         const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):/)
         if (match) {
-          const onuFrame = parseInt(match[1], 10)
-          const onuSlot = parseInt(match[2], 10)
-          const onuPort = parseInt(match[3], 10)
+          const onuFrame = parseInt(match[1] ?? '0', 10)
+          const onuSlot = parseInt(match[2] ?? '0', 10)
+          const onuPort = parseInt(match[3] ?? '0', 10)
           return onuFrame === frame && onuSlot === slot && onuPort === portNum
         }
         return false
@@ -235,8 +235,8 @@ export class OnuRepository implements IOnuRepository {
         // Format: Frame/Slot/Port:OnuID
         const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):/)
         if (match) {
-          const onuFrame = parseInt(match[1], 10)
-          const onuSlot = parseInt(match[2], 10)
+          const onuFrame = parseInt(match[1] ?? '0', 10)
+          const onuSlot = parseInt(match[2] ?? '0', 10)
           return onuFrame === frame && onuSlot === slot
         }
         return false
@@ -348,7 +348,7 @@ export class OnuRepository implements IOnuRepository {
 
     if (existing) {
       // Hanya update field yang berubah untuk optimasi
-      const updateData: any = {}
+      const updateData: Prisma.OnuUpdateInput = {}
       let hasChanges = false
 
       // Compare dan hanya update field yang berbeda
@@ -392,7 +392,7 @@ export class OnuRepository implements IOnuRepository {
           }
 
           if (isDifferent) {
-            updateData[field] = newValue
+            (updateData as Record<string, unknown>)[field as string] = newValue
             hasChanges = true
           }
         }
@@ -497,7 +497,7 @@ export class OnuRepository implements IOnuRepository {
         const paginatedData = cached.slice(skip, skip + limit)
 
         return {
-          onus: paginatedData,
+          onus: paginatedData as unknown as OnuPublic[],
           total,
           page,
           limit,
@@ -585,7 +585,7 @@ export class OnuRepository implements IOnuRepository {
     // Cache if no filters (just oltId pagination)
     if (useCache && oltId && !search && !status && page === 1) {
       // Only cache first page of unfiltered data
-      await onuCacheService.cacheOltOnus(oltId, onus as any[])
+      await onuCacheService.cacheOltOnus(oltId, onus as unknown as Record<string, unknown>[])
     }
 
     return result
@@ -599,7 +599,7 @@ export class OnuRepository implements IOnuRepository {
     if (useCache) {
       const cached = await onuCacheService.getCachedOltOnus(oltId)
       if (cached) {
-        return cached
+        return cached as unknown as OnuPublic[]
       }
     }
 
@@ -608,7 +608,7 @@ export class OnuRepository implements IOnuRepository {
 
     // Cache result
     if (useCache) {
-      await onuCacheService.cacheOltOnus(oltId, onus)
+      await onuCacheService.cacheOltOnus(oltId, onus as unknown as Record<string, unknown>[])
     }
 
     return onus
@@ -695,7 +695,7 @@ export class OnuRepository implements IOnuRepository {
       goodSignal: good,
       warningSignal: warning,
       criticalSignal: critical
-    } as any // Temporary cast until interface updated
+    } as OnuSummaryStats
   }
 
   /**

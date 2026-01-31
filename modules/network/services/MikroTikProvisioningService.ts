@@ -74,10 +74,10 @@ export class MikroTikProvisioningService {
 
             // --- 1. RADIUS Provisioning ---
             // Check if RADIUS entry for this server already exists
-            const existingRadius: any[] = await conn.write('/radius/print', [
+            const existingRadius = await conn.write('/radius/print', [
                 '?address=' + finalServerIp,
                 '?comment=added by netmanager'
-            ]) as any[];
+            ]) as Array<{ '.id': string }>;
 
             if (existingRadius && existingRadius.length > 0) {
                 // Update existing
@@ -117,14 +117,14 @@ export class MikroTikProvisioningService {
                     // Extract hostname
                     const domain = isolirUrl.replace(/^https?:\/\//, '').split('/')[0];
                     if (domain) addressListItems.push({ address: domain, comment: `accept.${domain}` });
-                } catch (e) { console.warn('Invalid Isolir URL format'); }
+                } catch (_e) { console.warn('Invalid Isolir URL format'); }
             }
 
             for (const item of addressListItems) {
                 const existingList = await conn.write('/ip/firewall/address-list/print', [
                     '?list=netmanager_allow',
                     '?address=' + item.address
-                ]) as any[];
+                ]) as Array<{ '.id': string }>;
 
                 if (existingList.length === 0) {
                     await conn.write('/ip/firewall/address-list/add', [
@@ -141,14 +141,14 @@ export class MikroTikProvisioningService {
             let placeBeforeArgs: string[] = [];
             try {
                 // Get the ID of the first rule to place explicitly before it
-                const firstRule = await conn.write('/ip/firewall/filter/print', ['=.proplist=.id', '=.limit=1']) as any[];
+                const firstRule = await conn.write('/ip/firewall/filter/print', ['=.proplist=.id', '=.limit=1']) as Array<{ '.id': string }>;
                 if (firstRule && firstRule.length > 0) {
                     placeBeforeArgs = ['=place-before=' + firstRule[0]['.id']];
                 }
-            } catch (e) { /* ignore */ }
+            } catch (_e) { /* ignore */ }
 
             // Rule 1: Input (Router Access from Server)
-            const inputRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-input-bypass']) as any[];
+            const inputRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-input-bypass']) as Array<{ '.id': string }>;
             if (inputRule.length === 0) {
                 await conn.write('/ip/firewall/filter/add', [
                     '=chain=input',
@@ -161,7 +161,7 @@ export class MikroTikProvisioningService {
             }
 
             // Rule 2: Forward (User Access to Server/Isolir)
-            const forwardRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-forward-bypass']) as any[];
+            const forwardRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-forward-bypass']) as Array<{ '.id': string }>;
             if (forwardRule.length === 0) {
                 await conn.write('/ip/firewall/filter/add', [
                     '=chain=forward',
@@ -174,7 +174,7 @@ export class MikroTikProvisioningService {
             }
 
             // Rule 3: Drop Expired TCP
-            const dropTcpRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-drop-expired-tcp']) as any[];
+            const dropTcpRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-drop-expired-tcp']) as Array<{ '.id': string }>;
             if (dropTcpRule.length === 0) {
                 await conn.write('/ip/firewall/filter/add', [
                     '=chain=forward',
@@ -188,7 +188,7 @@ export class MikroTikProvisioningService {
             }
 
             // Rule 4: Drop Expired UDP (Except DNS)
-            const dropUdpRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-drop-expired-udp']) as any[];
+            const dropUdpRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-drop-expired-udp']) as Array<{ '.id': string }>;
             if (dropUdpRule.length === 0) {
                 await conn.write('/ip/firewall/filter/add', [
                     '=chain=forward',
@@ -203,7 +203,7 @@ export class MikroTikProvisioningService {
             }
 
             // --- 4. IP Pool (Expired Users) ---
-            const expiredPool = await conn.write('/ip/pool/print', ['?name=expired-pool']) as any[];
+            const expiredPool = await conn.write('/ip/pool/print', ['?name=expired-pool']) as Array<{ '.id': string }>;
             if (expiredPool.length === 0) {
                 await conn.write('/ip/pool/add', [
                     '=name=expired-pool',
@@ -214,7 +214,7 @@ export class MikroTikProvisioningService {
             }
 
             // --- 5. PPP Profile (Expired Users) ---
-            const expiredProfile = await conn.write('/ppp/profile/print', ['?name=expired users']) as any[];
+            const expiredProfile = await conn.write('/ppp/profile/print', ['?name=expired users']) as Array<{ '.id': string }>;
             if (expiredProfile.length === 0) {
                 await conn.write('/ppp/profile/add', [
                     '=name=expired users',
@@ -237,7 +237,7 @@ export class MikroTikProvisioningService {
 
             // --- 5. Web Proxy (Isolir Redirection) ---
             console.log(`[Provisioning] Isolir URL provided: "${isolirUrl}"`);
-            
+
             if (isolirUrl) {
                 console.log('[Provisioning] Configuring Web Proxy...');
                 try {
@@ -253,7 +253,7 @@ export class MikroTikProvisioningService {
                         // 2. Add Access Rule for Expired Users
                         const proxyRule = await conn.write('/ip/proxy/access/print', [
                             '?comment=added by netmanager - 10.127.0.0/18'
-                        ]) as any[];
+                        ]) as Array<{ '.id': string }>;
 
                         if (proxyRule.length === 0) {
                             await conn.write('/ip/proxy/access/add', [
@@ -265,9 +265,10 @@ export class MikroTikProvisioningService {
                             logs.push(`Added Web Proxy Access Rule: Redirect 10.127.0.0/18 to ${domain}`);
                         }
                     }
-                } catch (e: any) {
-                    console.error(`[Provisioning] Web Proxy Error: ${e.message}`);
-                    logs.push(`Failed to configure Web Proxy: ${e.message}`);
+                } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    console.error(`[Provisioning] Web Proxy Error: ${msg}`);
+                    logs.push(`Failed to configure Web Proxy: ${msg}`);
                 }
             } else {
                  console.log('[Provisioning] No Isolir URL provided, skipping Web Proxy.');
@@ -277,10 +278,11 @@ export class MikroTikProvisioningService {
             conn.close();
             return { success: true, logs };
 
-        } catch (error: any) {
-            logs.push(`Error: ${error.message}`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            logs.push(`Error: ${msg}`);
             // Ensure connection is closed
-            try { conn.close(); } catch(e) {}
+            try { conn.close(); } catch(_e) {}
             return { success: false, logs };
         }
     }
@@ -296,7 +298,7 @@ export class MikroTikProvisioningService {
     ): Promise<{ success: boolean; logs: string[] }> {
         const logs: string[] = [];
         const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
-        
+
         console.log(`[Deprovisioning] Starting removal for Router: ${routerDetails.ip}`);
 
         const conn = new RouterOSAPI({
@@ -312,10 +314,10 @@ export class MikroTikProvisioningService {
             logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
 
             // 1. Remove RADIUS Config
-            const existingRadius: any[] = await conn.write('/radius/print', [
+            const existingRadius = await conn.write('/radius/print', [
                 '?address=' + finalServerIp,
                 '?comment=added by netmanager'
-            ]) as any[];
+            ]) as Array<{ '.id': string }>;
 
             if (existingRadius && existingRadius.length > 0) {
                 for (const r of existingRadius) {
@@ -332,14 +334,14 @@ export class MikroTikProvisioningService {
                 try {
                     const domain = isolirUrl.replace(/^https?:\/\//, '').split('/')[0];
                     if (domain) ipsToRemove.push(domain);
-                } catch (e) {}
+                } catch (_e) {}
             }
-            
+
             for (const addr of ipsToRemove) {
                  const items = await conn.write('/ip/firewall/address-list/print', [
                      '?list=netmanager_allow',
                      '?address=' + addr
-                 ]) as any[];
+                 ]) as Array<{ '.id': string }>;
                  for (const item of items) {
                      await conn.write('/ip/firewall/address-list/remove', ['=.id=' + item['.id']]);
                      logs.push(`Removed Firewall Address List: ${addr}`);
@@ -354,7 +356,7 @@ export class MikroTikProvisioningService {
                 'netmanager-drop-expired-udp'
             ];
             for (const comment of filterComments) {
-                 const rules = await conn.write('/ip/firewall/filter/print', ['?comment=' + comment]) as any[];
+                 const rules = await conn.write('/ip/firewall/filter/print', ['?comment=' + comment]) as Array<{ '.id': string }>;
                  for (const rule of rules) {
                      await conn.write('/ip/firewall/filter/remove', ['=.id=' + rule['.id']]);
                      logs.push(`Removed Firewall Filter: ${comment}`);
@@ -362,14 +364,14 @@ export class MikroTikProvisioningService {
             }
 
             // 4. Remove PPP Profile
-            const pppProfiles = await conn.write('/ppp/profile/print', ['?name=expired users']) as any[];
+            const pppProfiles = await conn.write('/ppp/profile/print', ['?name=expired users']) as Array<{ '.id': string }>;
             for (const p of pppProfiles) {
                  await conn.write('/ppp/profile/remove', ['=.id=' + p['.id']]);
                  logs.push('Removed PPP Profile: expired users');
             }
 
             // 5. Remove Web Proxy Access Rule
-            const proxyRules = await conn.write('/ip/proxy/access/print', ['?comment=added by netmanager - 10.127.0.0/18']) as any[];
+            const proxyRules = await conn.write('/ip/proxy/access/print', ['?comment=added by netmanager - 10.127.0.0/18']) as Array<{ '.id': string }>;
             for (const r of proxyRules) {
                  await conn.write('/ip/proxy/access/remove', ['=.id=' + r['.id']]);
                  logs.push('Removed Web Proxy Access Rule');
@@ -380,8 +382,9 @@ export class MikroTikProvisioningService {
                 // Disable RADIUS Incoming
                 await conn.write('/radius/incoming/set', ['=accept=no']);
                 logs.push('Disabled RADIUS Incoming (CoA)');
-            } catch (e: any) {
-                logs.push(`Failed to disable Radius Incoming: ${e.message}`);
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                logs.push(`Failed to disable Radius Incoming: ${msg}`);
             }
 
             if (isolirUrl) {
@@ -389,17 +392,19 @@ export class MikroTikProvisioningService {
                     // Disable Web Proxy (only if we likely enabled it via Isolir)
                     await conn.write('/ip/proxy/set', ['=enabled=no']);
                     logs.push('Disabled Web Proxy');
-                } catch (e: any) {
-                     logs.push(`Failed to disable Web Proxy: ${e.message}`);
+                } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    logs.push(`Failed to disable Web Proxy: ${msg}`);
                 }
             }
 
             conn.close();
             return { success: true, logs };
 
-        } catch (error: any) {
-            logs.push(`Error: ${error.message}`);
-            try { conn.close(); } catch(e) {}
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            logs.push(`Error: ${msg}`);
+            try { conn.close(); } catch(_e) {}
             return { success: false, logs };
         }
     }
@@ -442,9 +447,9 @@ export class MikroTikProvisioningService {
             logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
 
             // --- 1. Check/Create Group ---
-            const existingGroups: any[] = await conn.write('/user/group/print', [
+            const existingGroups = await conn.write('/user/group/print', [
                 '?name=' + GROUP_NAME
-            ]) as any[];
+            ]) as Array<{ '.id': string }>;
 
             if (existingGroups && existingGroups.length > 0) {
                 // Update existing group policy
@@ -465,15 +470,15 @@ export class MikroTikProvisioningService {
             }
 
             // --- 2. Remove old NetManager users (cleanup) ---
-            const oldUsers: any[] = await conn.write('/user/print', [
+            const oldUsers = await conn.write('/user/print', [
                 '?comment=NetManager API User - DO NOT DELETE'
-            ]) as any[];
-            
+            ]) as Array<{ '.id': string; name: string }>;
+
             for (const user of oldUsers) {
                 try {
                     await conn.write('/user/remove', ['=.id=' + user['.id']]);
                     logs.push(`Removed old API user: ${user.name}`);
-                } catch (e) {
+                } catch (_e) {
                     // Ignore errors when removing
                 }
             }
@@ -489,18 +494,19 @@ export class MikroTikProvisioningService {
 
             conn.close();
             console.log(`[API User] Successfully created API user: ${generatedUsername}`);
-            
-            return { 
-                success: true, 
-                logs, 
-                username: generatedUsername, 
-                password: generatedPassword 
+
+            return {
+                success: true,
+                logs,
+                username: generatedUsername,
+                password: generatedPassword
             };
 
-        } catch (error: any) {
-            logs.push(`Error: ${error.message}`);
-            console.error(`[API User] Error creating API user:`, error.message);
-            try { conn.close(); } catch(e) {}
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            logs.push(`Error: ${msg}`);
+            console.error(`[API User] Error creating API user:`, msg);
+            try { conn.close(); } catch(_e) {}
             return { success: false, logs };
         }
     }

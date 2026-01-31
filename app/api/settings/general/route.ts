@@ -179,22 +179,26 @@ type GeneralSettings = {
   namaAplikasi: string
   alamat: string
   nomorHp: string
+  email: string
   deskripsiInvoice: string
   rekeningBank: BankAccount[]
   invoiceOtomatis: string
   disablePerpanjanganPaket: string
   timezone: string
   attendanceTolerance: string
+  pppConnectionMode?: string
+  autoIsolirEnabled?: boolean
+  autoIsolirHariToleransi?: string
 }
 
 /**
  * GET /api/settings/general
  * Mengambil pengaturan umum
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -258,10 +262,10 @@ export async function GET(req: NextRequest) {
       autoIsolirEnabled: settingsMap.get('GENERAL_AUTO_ISOLASI_ENABLED') !== 'false',
       autoIsolirHariToleransi: settingsMap.get('GENERAL_AUTO_ISOLASI_HARI_TOLERANSI') || '1',
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching general settings:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -274,7 +278,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -309,7 +313,7 @@ export async function POST(req: NextRequest) {
       pppConnectionMode,
       autoIsolirEnabled,
       autoIsolirHariToleransi,
-    } = body as any
+    } = body
 
     // Upsert semua pengaturan
     await Promise.all([
@@ -583,10 +587,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error saving general settings:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

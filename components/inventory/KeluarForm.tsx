@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   FiCheckCircle,
   FiAlertTriangle,
@@ -13,7 +12,17 @@ import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
 
 interface KeluarFormProps {
-  initialData?: any
+  initialData?: {
+    id?: string
+    barangId: string
+    gudangId: string
+    jumlah: number
+    kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
+    isHilang?: boolean
+    tujuanPenggunaan?: string
+    keterangan?: string
+    tanggal?: string
+  }
   onClose: () => void
 }
 
@@ -28,22 +37,26 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     keterangan: '',
     tanggal: new Date().toISOString().split('T')[0]
   })
-  const [barangs, setBarangs] = useState<any[]>([])
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [barangs, setBarangs] = useState<{
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+    stockPerGudang?: Array<{ gudangId: string; stok: number }>;
+  }[]>([])
+  const [gudangs, setGudangs] = useState<{ id: string; kode: string; nama: string; lokasi?: string }[]>([])
   const [stockByCondition, setStockByCondition] = useState({
     BARU: 0,
     BEKAS: 0,
     RUSAK: 0,
     totalStok: 0
   })
-  const [currentStock, setCurrentStock] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ status: string; error?: string }[]>([])
   const [transactionId, setTransactionId] = useState<string | null>(null)
   const photoUploadRef = useRef<PhotoUploadRef>(null)
-  const router = useRouter()
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -100,14 +113,18 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
                 RUSAK: result.stokByKondisi.RUSAK,
                 totalStok: result.stokByKondisi.total
               })
-              setCurrentStock(result.stokByKondisi.total)
             }
           } else {
             // Fallback to old method if API fails
             const selectedBarang = barangs.find(b => b.id === formData.barangId)
             if (selectedBarang) {
-              const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId)
-              setCurrentStock(stockInfo?.stok || 0)
+              const stockInfo = selectedBarang.stockPerGudang?.find((s: { gudangId: string; stok: number }) => s.gudangId === formData.gudangId)
+              setStockByCondition({
+                BARU: 0,
+                BEKAS: 0,
+                RUSAK: 0,
+                totalStok: stockInfo?.stok || 0
+              })
             }
           }
         } catch (error) {
@@ -115,12 +132,16 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           // Fallback to old method
           const selectedBarang = barangs.find(b => b.id === formData.barangId)
           if (selectedBarang) {
-            const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId)
-            setCurrentStock(stockInfo?.stok || 0)
+            const stockInfo = selectedBarang.stockPerGudang?.find((s: { gudangId: string; stok: number }) => s.gudangId === formData.gudangId)
+            setStockByCondition({
+              BARU: 0,
+              BEKAS: 0,
+              RUSAK: 0,
+              totalStok: stockInfo?.stok || 0
+            })
           }
         }
       } else {
-        setCurrentStock(0)
         setStockByCondition({
           BARU: 0,
           BEKAS: 0,
@@ -153,14 +174,14 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
       }
 
       // Reset jumlah to 1 if switching to a condition with stock but no valid current value
-      if (kondisiStok > 0 && (parseInt(formData.jumlah) > kondisiStok || parseInt(formData.jumlah) === 0)) {
+      if (kondisiStok > 0 && (parseInt(formData.jumlah || '0') > kondisiStok || parseInt(formData.jumlah || '0') === 0)) {
         setFormData(prev => ({ ...prev, jumlah: '1' }))
       } else if (kondisiStok === 0) {
         // Clear jumlah if switching to condition with no stock
         setFormData(prev => ({ ...prev, jumlah: '' }))
       }
     }
-  }, [formData.kondisi, stockByCondition, formData.barangId, formData.gudangId])
+  }, [formData.kondisi, stockByCondition, formData.barangId, formData.gudangId, formData.jumlah])
 
   // Effect to handle photo upload completion
   useEffect(() => {
@@ -184,7 +205,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             keterangan: '',
             tanggal: new Date().toISOString().split('T')[0],
           })
-          setCurrentStock(0)
+          setStockByCondition(prev => ({ ...prev, totalStok: 0 }))
           setUploadedPhotos([])
           setTransactionId(null)
           onClose()
@@ -239,7 +260,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     try {
       // Upload photos first if any exist
       let fotoBuktiUrls: string[] = []
-      let uploadedPhotosList: any[] = []
+      let uploadedPhotosList: { status: string; file?: File; error?: string }[] = []
 
       if (photoUploadRef.current) {
         const currentPhotos = photoUploadRef.current.getPhotos()
@@ -312,9 +333,9 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         }
       }, 1500)
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error in handleSubmit:', error)
-      setError(error.message || 'Gagal menyimpan barang keluar')
+      setError(error instanceof Error ? error.message : 'Gagal menyimpan barang keluar')
       setSuccess('')
     } finally {
       setLoading(false)

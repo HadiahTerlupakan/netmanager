@@ -35,7 +35,7 @@ export async function GET(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id
+                    userId: user.id as string
                 }
             }
         })
@@ -73,7 +73,7 @@ export async function GET(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id
+                    userId: user.id as string
                 }
             },
             data: { lastReadAt: new Date() }
@@ -114,7 +114,7 @@ export async function GET(
                     senderName: m.sender.name,
                     senderImage: m.sender.image,
                     createdAt: m.createdAt.toISOString(),
-                    isOwn: m.senderId === user.id
+                    isOwn: m.senderId === (user.id as string)
                 })),
                 hasMore,
                 nextCursor: hasMore ? displayMessages[displayMessages.length - 1]?.id : null
@@ -158,7 +158,7 @@ export async function POST(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id
+                    userId: user.id as string
                 }
             }
         })
@@ -171,7 +171,7 @@ export async function POST(
         const newMessage = await prisma.message.create({
             data: {
                 conversationId,
-                senderId: user.id,
+                senderId: user.id as string,
                 content: content?.trim() || null,
                 imageUrl: imageUrl || null
             },
@@ -197,7 +197,7 @@ export async function POST(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id
+                    userId: user.id as string
                 }
             },
             data: { lastReadAt: new Date() }
@@ -210,7 +210,7 @@ export async function POST(
                 const otherParticipants = await prisma.conversationParticipant.findMany({
                     where: {
                         conversationId,
-                        userId: { not: user.id }
+                        userId: { not: user.id as string }
                     },
                     select: { userId: true }
                 })
@@ -226,7 +226,7 @@ export async function POST(
                     
                     const chatName = conversation?.isGlobal 
                         ? 'Global Chat' 
-                        : conversation?.name || user.name || 'Chat'
+                        : conversation?.name || (user.name as string) || 'Chat'
                     
                     const notificationBody = newMessage.imageUrl 
                         ? '📷 Mengirim gambar' 
@@ -235,7 +235,7 @@ export async function POST(
                     await sendPushToUsers(
                         otherUserIds,
                         `💬 ${chatName}`,
-                        `${user.name}: ${notificationBody}`,
+                        `${user.name as string}: ${notificationBody}`,
                         {
                             type: 'chat_message',
                             conversationId,

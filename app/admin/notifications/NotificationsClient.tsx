@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
     HiOutlineBell,
@@ -34,7 +34,7 @@ export function ClientComponent() {
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL')
     const limit = 20
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         setLoading(true)
         try {
             const offset = (page - 1) * limit
@@ -56,7 +56,7 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [page, activeFilter, limit])
 
     useEffect(() => {
         setPage(1)
@@ -64,7 +64,7 @@ export function ClientComponent() {
 
     useEffect(() => {
         fetchNotifications()
-    }, [page, activeFilter])
+    }, [fetchNotifications])
 
     const markAsRead = async (notificationId: string) => {
         try {
@@ -86,7 +86,7 @@ export function ClientComponent() {
 
     const markAllAsRead = async () => {
         try {
-            const body: any = { markAllRead: true }
+            const body: { markAllRead: boolean; type?: FilterType } = { markAllRead: true }
             if (activeFilter !== 'ALL') {
                 body.type = activeFilter
             }

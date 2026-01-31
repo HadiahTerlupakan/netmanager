@@ -11,10 +11,10 @@ import { unlink } from 'fs/promises'
  * GET /api/settings/logo
  * Mengambil pengaturan logo
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -40,10 +40,10 @@ export async function GET(req: NextRequest) {
       logoInvoice: settingsMap.get('LOGO_INVOICE') || null,
       logoAplikasi: settingsMap.get('LOGO_APLIKASI') || null,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching logo settings:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const formData: any = await req.formData()
+    const formData = await req.formData()
     const file = formData.get('file') as File
     const type = formData.get('type') as string
 
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     try {
       await fs.access(fullPath)
       console.log('Logo file verified:', fullPath)
-    } catch (accessError) {
+    } catch (_accessError) {
       console.error('Logo file not found after upload:', fullPath)
       throw new Error('File logo gagal disimpan')
     }
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Simpan path ke database
-    const updated = await prisma.settings.upsert({
+    await prisma.settings.upsert({
       where: { key: settingKey },
       update: {
         value: normalizedPath,
@@ -181,10 +181,10 @@ export async function POST(req: NextRequest) {
       success: true,
       logoPath: normalizedPath,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error uploading logo:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -254,10 +254,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error deleting logo:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

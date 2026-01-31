@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
 
         // Format as receipt/slip
-        const slip = formatAsReceipt(result.data)
+        const slip = formatAsReceipt(result.data as unknown as SalaryData)
 
         return apiSuccess({ slip, salary: result.data })
     } catch (error) {
@@ -44,10 +44,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 }
 
+interface SalaryDetail {
+    type: 'EARNING' | 'DEDUCTION';
+    name: string;
+    amount: number;
+    quantity?: number;
+}
+
+interface SalaryData {
+    month: number;
+    year: number;
+    user: {
+        name: string | null;
+        employeeType: string | null;
+        departments?: { name: string };
+        sites?: { name: string };
+    };
+    details: SalaryDetail[];
+    totalEarnings: number;
+    totalDeductions: number;
+    netSalary: number;
+    status: string;
+    paidAt?: string | Date | null;
+}
+
 /**
  * Format salary data as receipt (struk) format
  */
-function formatAsReceipt(salary: any): string {
+function formatAsReceipt(salary: SalaryData): string {
     const LINE_WIDTH = 40
     const separator = '='.repeat(LINE_WIDTH)
     const dotLine = '-'.repeat(LINE_WIDTH)
@@ -100,25 +124,25 @@ function formatAsReceipt(salary: any): string {
     
     // Earnings
     slip += 'PENDAPATAN:\n'
-    const earnings = salary.details.filter((d: any) => d.type === 'EARNING')
+    const earnings = salary.details.filter((d) => d.type === 'EARNING')
     for (const item of earnings) {
-        const label = item.quantity 
+        const label = item.quantity
             ? `${item.name} (${item.quantity}x)`
             : item.name
         slip += formatLine(label, formatCurrency(item.amount), 2) + '\n'
     }
-    
+
     slip += dotLine + '\n'
     slip += formatLine('Total Pendapatan', formatCurrency(salary.totalEarnings)) + '\n'
-    
+
     slip += dotLine + '\n'
-    
+
     // Deductions
-    const deductions = salary.details.filter((d: any) => d.type === 'DEDUCTION')
+    const deductions = salary.details.filter((d) => d.type === 'DEDUCTION')
     if (deductions.length > 0) {
         slip += 'POTONGAN:\n'
         for (const item of deductions) {
-            const label = item.quantity 
+            const label = item.quantity
                 ? `${item.name} (${item.quantity}x)`
                 : item.name
             slip += formatLine(label, formatCurrency(item.amount), 2) + '\n'

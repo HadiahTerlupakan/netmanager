@@ -43,8 +43,8 @@ async function main() {
       } else {
         console.log(`❌ Failed: ${result.logs.join(', ')}`);
       }
-    } catch (error: any) {
-      console.log(`❌ Error: ${error.message}`);
+    } catch (error: unknown) {
+      console.log(`❌ Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

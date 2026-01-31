@@ -32,7 +32,7 @@ async function testMikroTikAPI(
         resolved = true
         try {
           conn.close()
-        } catch (e) {
+        } catch (_e) {
           // Ignore cleanup errors
         }
       }
@@ -54,7 +54,7 @@ async function testMikroTikAPI(
           cleanup()
           clearTimeout(timer)
           resolve({ success: true, userOnline })
-        } catch (error: any) {
+        } catch (_error: unknown) {
           // Jika gagal ambil data, tetap anggap koneksi berhasil
           cleanup()
           clearTimeout(timer)
@@ -105,7 +105,7 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
 
         updatedCount++
         return { id: router.id, success: apiResult.success, userOnline: apiResult.userOnline ?? 0 }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`Error checking router ${router.id}:`, error)
         // Update ke offline jika error
         try {
@@ -114,7 +114,7 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
             userOnline: 0,
             lastStatusCheck: new Date(),
           })
-        } catch (updateError) {
+        } catch (updateError: unknown) {
           console.error(`Error updating router ${router.id}:`, updateError)
         }
         return { id: router.id, success: false, userOnline: 0 }
@@ -124,7 +124,7 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
     await Promise.all(checkPromises)
 
     return updatedCount
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error checking MikroTik router status:', error)
     throw error
   }
@@ -161,7 +161,7 @@ export async function checkSingleMikroTikRouterStatus(id: string): Promise<boole
     })
 
     return apiResult.success
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(`Error checking single router ${id}:`, error)
     return false
   }

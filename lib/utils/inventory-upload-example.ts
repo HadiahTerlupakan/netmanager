@@ -41,7 +41,7 @@ export async function handleInventoryMasukPhotos(
       return {
         url,
         filename: fileName,
-        size: file.size,
+        size: file?.size ?? 0,
         format: 'webp',
         uploadedAt: new Date().toISOString(),
         uploadedBy: userId
@@ -52,10 +52,11 @@ export async function handleInventoryMasukPhotos(
       success: true,
       photos: photoMetadata
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
     return {
       success: false,
-      errors: [error.message]
+      errors: [errorMessage]
     }
   }
 }
@@ -95,7 +96,7 @@ export async function handleInventoryKeluarPhotos(
       return {
         url,
         filename: fileName,
-        size: file.size,
+        size: file?.size ?? 0,
         format: 'webp',
         uploadedAt: new Date().toISOString(),
         uploadedBy: userId,
@@ -107,10 +108,11 @@ export async function handleInventoryKeluarPhotos(
       success: true,
       photos: photoMetadata
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
     return {
       success: false,
-      errors: [error.message]
+      errors: [errorMessage]
     }
   }
 }

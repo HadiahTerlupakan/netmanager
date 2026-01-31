@@ -26,7 +26,7 @@ export async function GET(
         }
 
         return apiSuccess(shift)
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Shifts API] Error:', error)
         return ApiErrors.internalError('Gagal mengambil data shift')
     }
@@ -57,9 +57,10 @@ export async function PATCH(
         })
 
         return apiSuccess(shift, { message: 'Shift berhasil diperbarui' })
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Shifts API] Error:', error)
-        return apiError(error.message || 'Gagal memperbarui shift', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+        const errorMessage = error instanceof Error ? error.message : 'Gagal memperbarui shift'
+        return apiError(errorMessage, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 }
 
@@ -82,8 +83,9 @@ export async function DELETE(
         await shiftService.deleteShift(id, force)
 
         return apiSuccess(null, { message: 'Shift berhasil dihapus' })
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Shifts API] Error:', error)
-        return apiError(error.message || 'Gagal menghapus shift', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+        const errorMessage = error instanceof Error ? error.message : 'Gagal menghapus shift'
+        return apiError(errorMessage, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 }

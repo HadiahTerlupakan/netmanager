@@ -43,12 +43,15 @@ export async function GET(request: NextRequest) {
         const cachedData = await workOrderCacheService.getCachedDashboardData(
             user.id,
             period,
-            { departmentId, siteId }
+            { 
+                ...(departmentId ? { departmentId } : {}), 
+                ...(siteId ? { siteId } : {}) 
+            }
         );
 
         if (cachedData) {
             return apiSuccess({
-                ...cachedData,
+                ...(cachedData as Record<string, unknown>),
                 cached: true,
             });
         }
@@ -71,11 +74,13 @@ export async function GET(request: NextRequest) {
         ] = await Promise.all([
             // Stats
             workOrderRepo.getStatistics({
-                departmentId,
-                siteId,
+                ...(departmentId ? { departmentId } : {}),
+                ...(siteId ? { siteId } : {})
             }),
             // Recent work orders (optimized - only 5)
-            workOrderRepo.getRecentWorkOrders(5, { departmentId }),
+            workOrderRepo.getRecentWorkOrders(5, { 
+                ...(departmentId ? { departmentId } : {}) 
+            }),
             // Department workload
             workOrderRepo.getDepartmentWorkload(departmentId),
             // Top performers
@@ -142,7 +147,10 @@ export async function GET(request: NextRequest) {
             user.id,
             period,
             dashboardData,
-            { departmentId, siteId }
+            { 
+                ...(departmentId ? { departmentId } : {}), 
+                ...(siteId ? { siteId } : {}) 
+            }
         );
 
         return apiSuccess({
@@ -188,13 +196,16 @@ function buildDateRange(period: string): { dateFrom?: Date; dateTo?: Date } {
             break;
     }
 
-    return { dateFrom, dateTo };
+    return { 
+        ...(dateFrom ? { dateFrom } : {}),
+        ...(dateTo ? { dateTo } : {})
+    };
 }
 
 /**
  * Build access restriction filters based on user permissions
  */
-function buildAccessFilters(user: any): {
+function buildAccessFilters(user: { id: string; permissions?: string[]; role?: string; departmentId?: string | null; siteId?: string | null }): {
     departmentId?: string;
     siteId?: string;
     emptyResponse: boolean;
@@ -225,7 +236,11 @@ function buildAccessFilters(user: any): {
         }
     }
 
-    return { departmentId, siteId, emptyResponse };
+    return { 
+        ...(departmentId ? { departmentId } : {}),
+        ...(siteId ? { siteId } : {}),
+        emptyResponse 
+    };
 }
 
 /**
@@ -246,17 +261,17 @@ function getEmptyDashboardData() {
             urgentOpen: 0,
             avgCompletionTimeHours: 0,
             totalCost: 0,
-            avgRating: null,
+            avgRating: null as number | null,
             totalWithRating: 0
         },
-        recentWorkOrders: [],
-        departmentWorkload: [],
-        topPerformers: [],
-        topAssists: [],
-        issueStats: [],
-        siteStats: [],
-        disconnectionStats: [],
-        responseStats: [],
+        recentWorkOrders: [] as unknown[],
+        departmentWorkload: [] as unknown[],
+        topPerformers: [] as unknown[],
+        topAssists: [] as unknown[],
+        issueStats: [] as unknown[],
+        siteStats: [] as unknown[],
+        disconnectionStats: [] as unknown[],
+        responseStats: [] as unknown[],
         adminKPI: {
             pendingVerification: 0,
             avgVerificationTimeMinutes: 0,

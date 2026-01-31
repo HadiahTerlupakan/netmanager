@@ -7,12 +7,29 @@ import { HiOutlineTag } from 'react-icons/hi2'
 import { Combobox } from '@/components/ui/Combobox'
 import type { ComboboxOption } from '@/components/ui/Combobox'
 import toast from 'react-hot-toast'
-import Link from 'next/link'
 import { MarketPriceCheck } from '@/components/procurement/MarketPriceCheck'
 import { Modal } from '@/components/ui/Modal'
 
 interface PurchaseOrderFormProps {
-    initialData?: any
+    initialData?: {
+        id?: string
+        poNumber?: string
+        notes?: string
+        items?: Array<{
+            id: string
+            barangId: string
+            barang?: {
+                nama: string
+                satuan?: string
+                hargaBeli?: number
+            }
+            quantity: number
+            unitPrice: number
+        }>
+        creator?: {
+            name: string
+        }
+    }
     isEdit?: boolean
     disabled?: boolean
     readOnly?: boolean
@@ -21,26 +38,37 @@ interface PurchaseOrderFormProps {
 type ItemRow = {
     id: string
     barangId: string
-    barangName: string // For display if combobox needs it or just cache
+    barangName: string
     satuan?: string
     quantity: number
     unitPrice: number
 }
 
-// Helper to format currency input
-const formatNumber = (num: number) => num.toString()
+interface ProductDetail {
+    id: string
+    nama: string
+    satuan?: string
+    hargaBeli?: number
+}
+
+interface GudangDetail {
+    id: string
+    nama: string
+    lokasi?: string
+}
 
 export default function PurchaseOrderForm({ initialData, isEdit = false, disabled = false, readOnly = false }: PurchaseOrderFormProps) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const isReadOnly = disabled || readOnly
-    
+
     // Form State
     const [items, setItems] = useState<ItemRow[]>(
-        initialData?.items?.map((i: any) => ({
+        initialData?.items?.map((i) => ({
             id: i.id,
             barangId: i.barangId,
             barangName: i.barang?.nama || 'Unknown',
+            satuan: i.barang?.satuan,
             quantity: i.quantity,
             unitPrice: i.unitPrice
         })) || []
@@ -48,14 +76,13 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
 
     // Option State
     const [productOptions, setProductOptions] = useState<ComboboxOption[]>([])
-    const [productDetails, setProductDetails] = useState<Record<string, any>>({}) // Cache for product info
+    const [productDetails, setProductDetails] = useState<Record<string, ProductDetail>>({}) // Cache for product info
     const [loadingProducts, setLoadingProducts] = useState(false)
 
     // Gudang State
-    const [gudangId, setGudangId] = useState<string>('')
-    const [gudangOptions, setGudangOptions] = useState<ComboboxOption[]>([])
-    const [loadingGudangs, setLoadingGudangs] = useState(false)
-    const [gudangDetails, setGudangDetails] = useState<Record<string, any>>({})
+    const [gudangId] = useState<string>('')
+    const [_loadingGudangs, setLoadingGudangs] = useState(false)
+    const [gudangDetails, setGudangDetails] = useState<Record<string, GudangDetail>>({})
     const [notes, setNotes] = useState<string>('')
 
     // Company Profile State
@@ -77,62 +104,15 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
 
-    // Initial Load
-    useEffect(() => {
-        // Load initial products (first page)
-        searchProducts('')
-
-        // Load Gudangs
-        searchGudangs('')
-        
-        // Load Company Settings
-        fetch('/api/settings/general')
-            .then(res => res.json())
-            .then(data => {
-                if (data.perusahaan) {
-                    setCompanyProfile({
-                        perusahaan: data.perusahaan,
-                        namaAplikasi: data.namaAplikasi,
-                        alamat: data.alamat,
-                        nomorHp: data.nomorHp,
-                        email: data.email
-                    })
-                }
-            })
-            .catch(err => console.error('Failed to load company settings', err))
-        
-        if (initialData) {
-            setNotes(initialData.notes || '')
-            // Pre-fill options with initial data to ensure they render
-            if (initialData.items) {
-                 const newOpts: ComboboxOption[] = []
-                 initialData.items.forEach((i: any) => {
-                     newOpts.push({ value: i.barangId, label: i.barang?.nama || 'Unknown' })
-                 })
-                 setProductOptions(prev => {
-                     // Merge unique
-                     const existing = new Set(prev.map(p => p.value))
-                     const unique = newOpts.filter(n => !existing.has(n.value))
-                     return [...prev, ...unique]
-                 })
-            }
-        }
-    }, [initialData])
-
-    const searchGudangs = useCallback(async (query: string) => {
+    const searchGudangs = useCallback(async (_query: string) => {
         setLoadingGudangs(true)
         try {
             // Re-using GET /api/inventory/gudang logic. It might filter by site if user is restricted
             const res = await fetch(`/api/inventory/gudang`)
             const json = await res.json()
             if (json.gudangs) {
-                // Filter client side if needed, or api handles it
-                setGudangOptions(json.gudangs.map((g: any) => ({
-                    value: g.id,
-                    label: g.nama
-                })))
                 // cache details for address display
-                const details = json.gudangs.reduce((acc: any, g: any) => ({ ...acc, [g.id]: g }), {})
+                const details = json.gudangs.reduce((acc: Record<string, GudangDetail>, g: GudangDetail) => ({ ...acc, [g.id]: g }), {})
                 setGudangDetails(prev => ({ ...prev, ...details }))
             }
         } catch (e) {
@@ -149,12 +129,12 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
             const res = await fetch(`/api/inventory/barang?${params}`)
             const json = await res.json()
             if (json.barangs) {
-                setProductOptions(json.barangs.map((b: any) => ({
+                setProductOptions(json.barangs.map((b: ProductDetail) => ({
                     value: b.id,
                     label: b.nama
                 })))
                 // Update cache
-                const newDetails = json.barangs.reduce((acc: any, b: any) => ({ ...acc, [b.id]: b }), {})
+                const newDetails = json.barangs.reduce((acc: Record<string, ProductDetail>, b: ProductDetail) => ({ ...acc, [b.id]: b }), {})
                 setProductDetails(prev => ({ ...prev, ...newDetails }))
             }
         } catch (e) {
@@ -163,6 +143,48 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
             setLoadingProducts(false)
         }
     }, [])
+
+    // Initial Load
+    useEffect(() => {
+        // Load initial products (first page)
+        searchProducts('')
+
+        // Load Gudangs
+        searchGudangs('')
+
+        // Load Company Settings
+        fetch('/api/settings/general')
+            .then(res => res.json())
+            .then(data => {
+                if (data.perusahaan) {
+                    setCompanyProfile({
+                        perusahaan: data.perusahaan,
+                        namaAplikasi: data.namaAplikasi,
+                        alamat: data.alamat,
+                        nomorHp: data.nomorHp,
+                        email: data.email
+                    })
+                }
+            })
+            .catch(err => console.error('Failed to load company settings', err))
+
+        if (initialData) {
+            setNotes(initialData.notes || '')
+            // Pre-fill options with initial data to ensure they render
+            if (initialData.items) {
+                 const newOpts: ComboboxOption[] = []
+                 initialData.items.forEach((i) => {
+                     newOpts.push({ value: i.barangId, label: i.barang?.nama || 'Unknown' })
+                 })
+                 setProductOptions(prev => {
+                     // Merge unique
+                     const existing = new Set(prev.map(p => p.value))
+                     const unique = newOpts.filter(n => !existing.has(n.value))
+                     return [...prev, ...unique]
+                 })
+            }
+        }
+    }, [initialData, searchProducts, searchGudangs])
 
     const handleAddItem = () => {
         setItems([...items, {
@@ -180,15 +202,15 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
         setItems(newItems)
     }
 
-    const updateItem = (index: number, field: keyof ItemRow, value: any) => {
+    const updateItem = (index: number, field: keyof ItemRow, value: string | number) => {
         const newItems = [...items]
         // Auto-fill details if product changed
         if (field === 'barangId') {
-            const detail = productDetails[value]
+            const detail = productDetails[value as string]
             if (detail) {
-                newItems[index] = { 
-                    ...newItems[index], 
-                    [field]: value,
+                newItems[index] = {
+                    ...newItems[index],
+                    [field]: value as string,
                     barangName: detail.nama, // Update name for market price search
                     satuan: detail.satuan,
                     unitPrice: detail.hargaBeli || 0
@@ -238,18 +260,15 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
 
         setLoading(true)
         try {
-            const itemsPayload: any = {
+            const itemsPayload = {
                 create: items.map(i => ({
                     barangId: i.barangId,
                     quantity: Number(i.quantity),
                     unitPrice: Number(i.unitPrice),
                     totalPrice: Number(i.quantity) * Number(i.unitPrice),
                     id: generateId() // Use safe generator
-                }))
-            }
-
-            if (isEdit) {
-                itemsPayload.deleteMany = {}
+                })),
+                deleteMany: isEdit ? {} : undefined
             }
 
             // Append Ship To to notes if selected
@@ -270,9 +289,9 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                 notes: finalNotes
             }
 
-            const url = isEdit ? `/api/procurement/purchase-orders/${initialData.id}` : '/api/procurement/purchase-orders'
+            const url = isEdit ? `/api/procurement/purchase-orders/${initialData?.id}` : '/api/procurement/purchase-orders'
             const method = isEdit ? 'PUT' : 'POST'
-            
+
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -284,9 +303,13 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
 
             toast.success("Purchase Order berhasil disimpan")
             router.push('/admin/procurement/purchase-orders')
-        } catch (e: any) {
+        } catch (e) {
             console.error(e)
-            toast.error(e.message)
+            if (e instanceof Error) {
+                toast.error(e.message)
+            } else {
+                toast.error('Gagal menyimpan PO')
+            }
         } finally {
             setLoading(false)
         }

@@ -10,7 +10,7 @@ import { apiSuccess, ApiErrors } from '@/lib/api-response'
  * Mengambil lokasi live semua karyawan yang sedang checked-in
  * Untuk admin portal Live Map
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user) {
@@ -22,7 +22,12 @@ export async function GET(request: NextRequest) {
             return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat live tracking')
         }
 
-        const user = session.user as any;
+        const user = session.user as {
+            role: string;
+            permissions?: string[];
+            siteId?: string;
+            departmentId?: string;
+        };
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
 
         // Prepare RBAC filters
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
         }
 
         const locationService = new LocationTrackingService()
-        const liveLocations = await locationService.getLiveLocations({ 
+        const liveLocations = await locationService.getLiveLocations({
             ...(siteId ? { siteId } : {}),
             ...(departmentId ? { departmentId } : {})
         })
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
             timestamp: new Date().toISOString()
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching live locations:', error)
         return ApiErrors.internalError('Gagal mengambil lokasi live')
     }

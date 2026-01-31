@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { logger } from '@/lib/logger'
 
@@ -32,9 +33,9 @@ export class DepartmentService {
     /**
      * Get all departments with filters
      */
-    async getDepartments(filters: DepartmentFilters = {}): Promise<ServiceResult<any[]>> {
+    async getDepartments(filters: DepartmentFilters = {}): Promise<ServiceResult<unknown[]>> {
         try {
-            const where: any = {}
+            const where: Prisma.DepartmentsWhereInput = {}
 
             if (filters.search) {
                 where.OR = [
@@ -70,7 +71,7 @@ export class DepartmentService {
     /**
      * Get single department by ID
      */
-    async getDepartmentById(id: string): Promise<ServiceResult<any>> {
+    async getDepartmentById(id: string): Promise<ServiceResult<unknown>> {
         try {
             const department = await prisma.departments.findUnique({
                 where: { id },
@@ -106,7 +107,7 @@ export class DepartmentService {
     /**
      * Create new department
      */
-    async createDepartment(data: CreateDepartmentData, createdById: string): Promise<ServiceResult<any>> {
+    async createDepartment(data: CreateDepartmentData, createdById: string): Promise<ServiceResult<unknown>> {
         try {
             if (!data.name) {
                 return { success: false, error: 'Name is required', code: 'VALIDATION_ERROR' }
@@ -147,7 +148,7 @@ export class DepartmentService {
     /**
      * Update department
      */
-    async updateDepartment(id: string, data: UpdateDepartmentData, updatedById: string): Promise<ServiceResult<any>> {
+    async updateDepartment(id: string, data: UpdateDepartmentData, updatedById: string): Promise<ServiceResult<unknown>> {
         try {
             const existing = await prisma.departments.findUnique({
                 where: { id },
@@ -243,7 +244,7 @@ export class DepartmentService {
         }
     }
 
-    private async logActivity(action: string, subject: string, userId: string, details: Record<string, any>): Promise<void> {
+    private async logActivity(action: string, subject: string, userId: string, details: Record<string, unknown>): Promise<void> {
         try {
             await logger.logActivity({ action, subject, userId, details })
         } catch (e) {

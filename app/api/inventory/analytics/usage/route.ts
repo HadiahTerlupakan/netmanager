@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig) as Session | null
+  if (!session) {
     return null
   }
   return session
@@ -140,8 +140,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching usage analytics', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error fetching usage analytics', err, {
       path: '/api/inventory/analytics/usage',
       method: 'GET',
     })

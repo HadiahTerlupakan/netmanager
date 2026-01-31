@@ -12,7 +12,6 @@
  */
 
 import { OnuRepository } from '../repositories'
-import { onuCacheService } from './onu-cache-service';
 import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 
@@ -36,7 +35,7 @@ export class OnuIncrementalSyncService {
     /**
      * Calculate hash for ONU data (key fields only)
      */
-    private calculateOnuHash(onu: any): string {
+    private calculateOnuHash(onu: { status?: string; rxOlt?: string | null; rxOnu?: string | null; txOlt?: string | null; txOnu?: string | null; serialNumber?: string | null; actualType?: string | null; temperature?: string | number | null }): string {
         // Only hash fields that matter for change detection
         const keyData = {
             status: onu.status,
@@ -46,7 +45,7 @@ export class OnuIncrementalSyncService {
             txOnu: onu.txOnu,
             serialNumber: onu.serialNumber,
             actualType: onu.actualType,
-            temperature: onu.temperature,
+            temperature: onu.temperature ? String(onu.temperature) : null,
         }
 
         const dataString = JSON.stringify(keyData)
@@ -78,10 +77,10 @@ export class OnuIncrementalSyncService {
      */
     async detectChanges(
         oltId: string,
-        newOnuData: any[]
+        newOnuData: Array<{ gponOnu: string; status?: string; rxOlt?: string | null; rxOnu?: string | null; txOlt?: string | null; txOnu?: string | null; serialNumber?: string | null; actualType?: string | null; temperature?: string | null; name?: string; description?: string; pppoe?: string }>
     ): Promise<{
-        toCreate: any[]
-        toUpdate: any[]
+        toCreate: Array<{ gponOnu: string; status?: string; rxOlt?: string | null; rxOnu?: string | null; txOlt?: string | null; txOnu?: string | null; serialNumber?: string | null; actualType?: string | null; temperature?: string | null; name?: string; description?: string; pppoe?: string }>
+        toUpdate: Array<{ gponOnu: string; status?: string; rxOlt?: string | null; rxOnu?: string | null; txOlt?: string | null; txOnu?: string | null; serialNumber?: string | null; actualType?: string | null; temperature?: string | null; name?: string; description?: string; pppoe?: string }>
         toDelete: string[]
         unchanged: string[]
         delta: SyncDelta
@@ -91,8 +90,8 @@ export class OnuIncrementalSyncService {
         // Get current state from database
         const currentSnapshot = await this.getCurrentSnapshot(oltId)
 
-        const toCreate: any[] = []
-        const toUpdate: any[] = []
+        const toCreate: Array<{ gponOnu: string; status?: string; rxOlt?: string | null; rxOnu?: string | null; txOlt?: string | null; txOnu?: string | null; serialNumber?: string | null; actualType?: string | null; temperature?: string | null; name?: string; description?: string; pppoe?: string }> = []
+        const toUpdate: Array<{ gponOnu: string; status?: string; rxOlt?: string | null; rxOnu?: string | null; txOlt?: string | null; txOnu?: string | null; serialNumber?: string | null; actualType?: string | null; temperature?: string | null; name?: string; description?: string; pppoe?: string }> = []
         const unchanged: string[] = []
         const newGponOnus = new Set<string>()
 
@@ -150,7 +149,7 @@ export class OnuIncrementalSyncService {
      */
     async syncIncremental(
         oltId: string,
-        newOnuData: any[],
+        newOnuData: Array<{ gponOnu: string; status?: string; rxOlt?: string | null; rxOnu?: string | null; txOlt?: string | null; txOnu?: string | null; serialNumber?: string | null; actualType?: string | null; temperature?: string | null; name?: string; description?: string; pppoe?: string }>,
         options: {
             deleteRemovedOnus?: boolean // Default: false for safety
             maxDeletePercent?: number // Max % of ONUs that can be deleted (safety)
@@ -197,7 +196,7 @@ export class OnuIncrementalSyncService {
                         txOnu: onu.txOnu,
                         serialNumber: onu.serialNumber,
                         actualType: onu.actualType,
-                        temperature: onu.temperature,
+                        temperature: onu.temperature ? Number(onu.temperature) : null,
                         lastSeen: new Date(),
                     })
                     processedCount++
@@ -222,7 +221,7 @@ export class OnuIncrementalSyncService {
                         txOnu: onu.txOnu,
                         serialNumber: onu.serialNumber,
                         actualType: onu.actualType,
-                        temperature: onu.temperature,
+                        temperature: onu.temperature ? Number(onu.temperature) : null,
                         lastSeen: new Date(),
                     })
                     processedCount++

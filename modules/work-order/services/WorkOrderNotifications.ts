@@ -13,7 +13,8 @@ import {
     createNotification,
 } from '@/modules/notification';
 import { prisma } from '@/lib/prisma';
-import { sendPushToDepartment, sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
+import { Prisma } from '@prisma/client';
+import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 
 interface WorkOrderData {
     id: string;
@@ -222,7 +223,7 @@ export async function sendWorkOrderReminder(
         }
 
         // Build query: teknisi aktif di site WO dengan push token
-        const whereClause: any = {
+        const whereClause: Prisma.UserWhereInput = {
             isActive: true,
             pushToken: { not: null },
             OR: [

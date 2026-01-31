@@ -16,6 +16,9 @@ export async function GET(req: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1]
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+        }
         const decoded = await verifyMobileToken(token)
 
         if (!decoded || !decoded.id) {
@@ -81,7 +84,7 @@ export async function GET(req: NextRequest) {
         }
 
         // MODE: KELUAR (default) - Return only barang with existing stock in gudang
-        let whereClause: any = {
+        const whereClause: Record<string, unknown> = {
             gudangId
         }
 

@@ -6,7 +6,7 @@ export const sendExpoPushNotifications = async (
     tokens: string[],
     title: string,
     body: string,
-    data?: any
+    data?: Record<string, unknown>
 ) => {
     if (!tokens.length) return;
 

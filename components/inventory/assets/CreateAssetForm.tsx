@@ -13,12 +13,19 @@ const USEFUL_LIFE_MAP: Record<string, number> = {
     'LAINNYA': 48
 }
 
+interface Barang {
+    id: string
+    kode: string
+    nama: string
+    kategoriAset?: string
+}
+
 export function CreateAssetForm() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
-    const [barangs, setBarangs] = useState<any[]>([])
-    
+    const [barangs, setBarangs] = useState<Barang[]>([])
+
     const [formData, setFormData] = useState({
         barangId: '',
         kodeAsset: '',
@@ -94,8 +101,8 @@ export function CreateAssetForm() {
 
             router.push('/admin/inventory/assets')
             router.refresh()
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan aset')
             setLoading(false)
         }
     }

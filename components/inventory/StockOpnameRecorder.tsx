@@ -1,17 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FiPackage,
-  FiTrendingUp,
-  FiTrendingDown,
-  FiCalendar,
   FiMapPin,
-  FiUser,
-  FiFileText,
   FiCheck,
-  FiX,
   FiAlertTriangle,
   FiBarChart2
 } from 'react-icons/fi'
@@ -41,11 +35,22 @@ interface CalculatedOpnameData {
   catatanDetail?: string
 }
 
+interface Gudang {
+  id: string
+  kode: string
+  nama: string
+}
+
+interface OpnameSummary {
+  totalBarang: number
+  totalStok: number
+}
+
 export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderProps) {
   const [gudangId, setGudangId] = useState('')
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [gudangs, setGudangs] = useState<Gudang[]>([])
   const [calculatedData, setCalculatedData] = useState<CalculatedOpnameData[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [summary, setSummary] = useState<OpnameSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [error, setError] = useState('')
@@ -67,13 +72,7 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
     fetchGudangs()
   }, [])
 
-  useEffect(() => {
-    if (gudangId) {
-      fetchCalculatedData()
-    }
-  }, [gudangId])
-
-  const fetchCalculatedData = async () => {
+  const fetchCalculatedData = useCallback(async () => {
     setFetching(true)
     setError('')
 
@@ -91,7 +90,13 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
     } finally {
       setFetching(false)
     }
-  }
+  }, [gudangId])
+
+  useEffect(() => {
+    if (gudangId) {
+      fetchCalculatedData()
+    }
+  }, [gudangId, fetchCalculatedData])
 
   const handleRecordOpname = async (e: React.FormEvent) => {
     e.preventDefault()

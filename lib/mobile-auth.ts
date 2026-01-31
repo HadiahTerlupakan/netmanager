@@ -5,12 +5,13 @@ const secret = new TextEncoder().encode(
     process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
 )
 
-export async function signMobileToken(payload: any) {
+export async function signMobileToken(payload: Record<string, unknown>) {
     // Fetch current tokenVersion from database
     let tokenVersion = 0
     try {
+        const id = (payload.id || payload.sub) as string
         const user = await prisma.user.findUnique({
-            where: { id: payload.id || payload.sub },
+            where: { id },
             select: { tokenVersion: true }
         })
         tokenVersion = user?.tokenVersion ?? 0
@@ -21,7 +22,7 @@ export async function signMobileToken(payload: any) {
     // Set sub (subject) to user id if not already set
     const jwtPayload = {
         ...payload,
-        sub: payload.sub || payload.id,
+        sub: (payload.sub || payload.id) as string,
         tokenVersion
     }
     return await new SignJWT(jwtPayload)
@@ -35,7 +36,11 @@ export interface MobileTokenPayload {
     sub: string
     userId: string
     tokenVersion?: number
-    [key: string]: any
+    role?: string
+    permissions?: string[]
+    isSales?: boolean
+    siteId?: string | null
+    [key: string]: unknown
 }
 
 export async function verifyMobileToken(token: string): Promise<MobileTokenPayload | null> {
@@ -43,8 +48,8 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
         console.log('[MOBILE_AUTH] Verifying token...')
         const { payload } = await jwtVerify(token, secret)
         // Support both 'sub' and 'id' for backwards compatibility
-        const userId = payload.sub || (payload as any).id
-        
+        const userId = (payload.sub || payload.id) as string
+
         console.log('[MOBILE_AUTH] Token payload verified for user:', userId)
 
         // Validate tokenVersion against database
@@ -74,7 +79,7 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
         }
 
         // Check if token version matches (force logout feature)
-        const tokenVersion = (payload as any).tokenVersion ?? 0
+        const tokenVersion = (payload.tokenVersion as number) ?? 0
         if (dbUser.tokenVersion > tokenVersion) {
             console.log(`[MOBILE_AUTH] Token revoked for user ${userId}. DB version: ${dbUser.tokenVersion}, Token version: ${tokenVersion}`)
             return null
@@ -83,15 +88,15 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
         const permissions = dbUser.role?.permission.map(p => `${p.resource}:${p.action}`) || []
         console.log(`[MOBILE_AUTH] Permissions for ${userId}:`, permissions.length)
 
-        return { 
-            ...payload, 
-            sub: userId, 
+        return {
+            ...payload,
+            sub: userId,
             userId,
             role: dbUser.role?.name,
             permissions,
             isSales: dbUser.isSales,
             siteId: dbUser.siteId
-        } as any
+        } as unknown as MobileTokenPayload
     } catch (error) {
         console.error('[MOBILE_AUTH] Token verification failed:', error)
         return null

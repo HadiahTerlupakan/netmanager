@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText, HiMapPin } from 'react-icons/hi2'
+import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiMapPin } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { MapPickerWithSearch } from '@/components/common/MapPicker'
 
@@ -56,9 +56,9 @@ export function ClientComponent() {
   const [fileKTP, setFileKTP] = useState<File | null>(null)
   const [fileRumahSekitar, setFileRumahSekitar] = useState<File | null>(null)
   const [fileBAST, setFileBAST] = useState<File | null>(null)
-  const [existingFileKTP, setExistingFileKTP] = useState<string | null>(null)
-  const [existingFileRumahSekitar, setExistingFileRumahSekitar] = useState<string | null>(null)
-  const [existingFileBAST, setExistingFileBAST] = useState<string | null>(null)
+  const [_existingFileKTP, setExistingFileKTP] = useState<string | null>(null)
+  const [_existingFileRumahSekitar, setExistingFileRumahSekitar] = useState<string | null>(null)
+  const [_existingFileBAST, setExistingFileBAST] = useState<string | null>(null)
   const [originalIdPelanggan, setOriginalIdPelanggan] = useState<string | null>(null)
   const [scanningKTP, setScanningKTP] = useState(false)
   const [ktpScanError, setKtpScanError] = useState<string | null>(null)
@@ -187,8 +187,9 @@ export function ClientComponent() {
       setOriginalIdPelanggan(data.idPelanggan || null)
       // Reset flag manual edit saat data dimuat
       setJatuhTempoManuallyEdited(false)
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat memuat data')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data'
+      setError(message)
     } finally {
       setLoadingData(false)
     }
@@ -211,7 +212,7 @@ export function ClientComponent() {
         const data = await res.json()
         setHargaPakets(data || [])
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading harga pakets:', err)
     } finally {
       setLoading(false)
@@ -225,7 +226,7 @@ export function ClientComponent() {
         const data = await res.json()
         setOdps(data.odps || [])
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading ODPs:', err)
     }
   }
@@ -320,7 +321,7 @@ export function ClientComponent() {
         let errorData
         try {
           errorData = await res.json()
-        } catch (e) {
+        } catch (_e) {
           errorData = { error: `HTTP ${res.status}: ${res.statusText}` }
         }
         console.error('[Frontend PUT] Error response:', errorData)
@@ -340,8 +341,9 @@ export function ClientComponent() {
       // Berhasil, redirect ke halaman list dengan refresh
       router.push('/admin/pelanggan/ppp')
       router.refresh() // Force refresh untuk memastikan data terbaru dimuat
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat menyimpan data')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan data'
+      setError(message)
     } finally {
       setSubmitting(false)
     }
@@ -681,7 +683,7 @@ export function ClientComponent() {
       console.log('Response status:', res.status, res.statusText)
 
       if (!res.ok) {
-        let errorData: any = {}
+        let errorData: { error?: string; message?: string } = {}
         let errorMessage = `HTTP ${res.status}: ${res.statusText}`
 
         try {
@@ -690,8 +692,8 @@ export function ClientComponent() {
             errorData = JSON.parse(text)
             errorMessage = errorData.error || errorMessage
           }
-        } catch (e) {
-          console.error('Failed to parse error response:', e)
+        } catch (_e) {
+          console.error('Failed to parse error response:', _e)
           errorData = { error: errorMessage }
         }
 
@@ -703,9 +705,11 @@ export function ClientComponent() {
 
 
 
-        const finalErrorMessage = typeof errorMessage === 'string'
-          ? errorMessage
-          : (errorMessage as any)?.message || 'Gagal memproses KTP'
+        let finalErrorMessage = errorMessage
+        if (typeof errorMessage !== 'string') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          finalErrorMessage = (errorMessage as any)?.message || 'Gagal memproses KTP'
+        }
 
         throw new Error(finalErrorMessage)
       }
@@ -810,9 +814,9 @@ export function ClientComponent() {
       setTimeout(() => {
         setKtpScanSuccess(false)
       }, 3000)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error scanning KTP:', err)
-      const errorMessage = err.message || 'Terjadi kesalahan saat memproses KTP'
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses KTP'
       setKtpScanError(errorMessage)
       setKtpScanSuccess(false)
     } finally {

@@ -38,8 +38,9 @@ export async function POST(req: NextRequest) {
         message: `Successfully ${result.action} customer record`
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API] MixRadius Sync Error:', error)
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }

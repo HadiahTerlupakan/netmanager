@@ -20,6 +20,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
         const payload = await verifyMobileToken(token);
         if (!payload) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -63,12 +67,13 @@ export async function POST(request: NextRequest) {
             description: body.description,
             priority: body.priority || 'NORMAL',
             departmentId: body.departmentId,
-            siteId: body.siteId || (payload.siteId as string) || undefined,
+            ...(body.siteId && { siteId: body.siteId }),
+            ...(!body.siteId && payload.siteId && { siteId: payload.siteId as string }),
             contactName: body.contactName || userName,
             contactPhone: body.contactPhone,
             locationAddress: body.locationAddress,
-            locationLat: body.latitude ? parseFloat(body.latitude) : undefined,
-            locationLng: body.longitude ? parseFloat(body.longitude) : undefined,
+            ...(body.latitude && { locationLat: parseFloat(body.latitude) }),
+            ...(body.longitude && { locationLng: parseFloat(body.longitude) }),
             internalNotes: body.notes,
             requestedById: userId,
         });
@@ -83,9 +88,11 @@ export async function POST(request: NextRequest) {
                 type: workOrder.type,
                 status: workOrder.status,
                 priority: workOrder.priority,
-                departmentId: workOrder.departmentId || undefined,
-                department: workOrder.departmentId ? { id: workOrder.departmentId, name: '' } : undefined,
-                assignedToId: workOrder.assignedToId || undefined,
+                ...(workOrder.departmentId && {
+                    departmentId: workOrder.departmentId,
+                    department: { id: workOrder.departmentId, name: '' }
+                }),
+                assignedToId: workOrder.assignedToId || null,
                 createdAt: workOrder.createdAt.toISOString()
             }, workOrder.departmentId || undefined, workOrder.siteId || undefined);
             console.log('[Mobile WO Request] WebSocket broadcast sent to portal admin');

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { bandwidthSchema } from '@/lib/validations/bandwidth'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { getServerSession } from 'next-auth'
@@ -22,12 +23,12 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status')
     const siteIdParam = searchParams.get('siteId')
 
-    const where: any = {}
+    const where: { status?: string; siteId?: string } = {}
     if (status) {
       where.status = status
     }
 
-    const user = session.user as any
+    const user = session.user as { role: string; siteId?: string; id?: string }
     if (user.role !== 'SUPER_ADMIN' && user.siteId) {
       where.siteId = user.siteId
     } else if (siteIdParam) {
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     const bandwidths = await prisma.bandwidth.findMany({
-      where,
+      where: where as Prisma.BandwidthWhereInput,
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -45,9 +46,10 @@ export async function GET(req: NextRequest) {
     })
 
     return apiSuccess(bandwidths)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching bandwidths:', error)
-    return ApiErrors.internalError(error?.message || 'Gagal mengambil data bandwidth')
+    const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil data bandwidth'
+    return ApiErrors.internalError(errorMessage)
   }
 }
 
@@ -63,14 +65,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const user = session.user as any
+    const user = session.user as { role: string; siteId?: string; id?: string }
 
     let siteIdToSave = body.siteId
     if (user.role !== 'SUPER_ADMIN' && user.siteId) {
       siteIdToSave = user.siteId
     }
 
-    const sanitizedBody: any = {
+    const sanitizedBody: Record<string, string | number | boolean | undefined | null> = {
       name: body.name ? sanitizeInput(body.name) : undefined,
       maxLimitDownload: body.maxLimitDownload ? sanitizeInput(body.maxLimitDownload) : undefined,
       maxLimitUpload: body.maxLimitUpload ? sanitizeInput(body.maxLimitUpload) : undefined,
@@ -96,31 +98,31 @@ export async function POST(req: NextRequest) {
 
     const validation = bandwidthSchema.safeParse(sanitizedBody)
     if (!validation.success) {
-      return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
-        status: 400, 
-        details: { errors: validation.error.flatten() } 
+      return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+        details: { errors: validation.error.flatten() }
       })
     }
 
-    const dataToCreate: any = {}
+    const dataToCreate: Record<string, string | number | boolean | null> = {}
     Object.keys(validation.data).forEach(key => {
       if (validation.data[key as keyof typeof validation.data] !== undefined) {
-        dataToCreate[key] = validation.data[key as keyof typeof validation.data]
+        dataToCreate[key] = validation.data[key as keyof typeof validation.data] as string | number | boolean | null
       }
     })
-    
+
     if (siteIdToSave) {
         dataToCreate.siteId = siteIdToSave
     }
 
     const { randomUUID } = await import('crypto')
-    
+
     const bandwidth = await prisma.bandwidth.create({
       data: {
         id: randomUUID(),
         updatedAt: new Date(),
         ...dataToCreate,
-      },
+      } as Prisma.BandwidthCreateInput,
     })
 
     try {
@@ -128,7 +130,7 @@ export async function POST(req: NextRequest) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'Bandwidth',
-        userId: session.user.id,
+        ...(session.user.id ? { userId: session.user.id } : {}),
         details: { id: bandwidth.id, name: bandwidth.name, siteId: siteIdToSave }
       })
     } catch (e) {
@@ -136,13 +138,14 @@ export async function POST(req: NextRequest) {
     }
 
     return apiSuccess(bandwidth, { status: 201, message: 'Bandwidth berhasil dibuat' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating bandwidth:', error)
 
-    if (error.code === 'P2002') {
+    const prismaError = error as { code?: string; message?: string }
+    if (prismaError.code === 'P2002') {
       return apiError('Nama bandwidth sudah digunakan', ErrorCodes.CONFLICT, { status: 409 })
     }
 
-    return ApiErrors.internalError(error?.message || 'Gagal membuat bandwidth')
+    return ApiErrors.internalError(prismaError.message || 'Gagal membuat bandwidth')
   }
 }

@@ -241,8 +241,8 @@ export class ONUDataFetcher {
         console.log(`[ONU-DataFetcher] ${name} (main): ${Object.keys(data).length} entries`)
         return data
       }
-    } catch (error: any) {
-      console.warn(`[ONU-DataFetcher] SNMP Walk failed for ${name} (main): ${error.message}`)
+    } catch (error) {
+      console.warn(`[ONU-DataFetcher] SNMP Walk failed for ${name} (main): ${error instanceof Error ? error.message : String(error)}`)
     }
 
     if (altOID) {
@@ -250,8 +250,8 @@ export class ONUDataFetcher {
         const data = await snmpGetBulkSimple(ipAddress, port, community, version, altOID, 300000)
         console.log(`[ONU-DataFetcher] ${name} (alt): ${Object.keys(data).length} entries`)
         return data
-      } catch (error: any) {
-        console.warn(`[ONU-DataFetcher] SNMP Walk failed for ${name} (alt): ${error.message}`)
+      } catch (error) {
+        console.warn(`[ONU-DataFetcher] SNMP Walk failed for ${name} (alt): ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 

@@ -9,6 +9,25 @@ import type {
     TestResult
 } from '../provider-interface'
 
+interface DanaTransactionData {
+    status?: string
+    merchantOrderId?: string
+    orderId?: string
+    transactionId?: string
+    paidTime?: string | number
+    amount?: { value: string } | string
+}
+
+interface WebhookPayload extends Record<string, unknown> {
+    status?: string
+    orderStatus?: string
+    merchantOrderId?: string
+    orderId?: string
+    transactionId?: string
+    paidTime?: string | number
+    amount?: { value: string } | string | number
+}
+
 export class DANAProvider implements PaymentProvider {
     name = 'DANA'
     private config: ProviderConfig | null = null
@@ -87,7 +106,13 @@ export class DANAProvider implements PaymentProvider {
                 body: signaturePayload
             })
 
-            const result = await response.json()
+            const result = await response.json() as {
+                responseCode?: string;
+                responseMessage?: string;
+                message?: string;
+                resultInfo?: { paymentUrl?: string; checkoutUrl?: string; qrCodeUrl?: string; orderId?: string; transactionId?: string };
+                data?: { paymentUrl?: string; checkoutUrl?: string; qrCodeUrl?: string; orderId?: string; transactionId?: string };
+            }
 
             if (!response.ok || result.responseCode !== 'SUCCESS') {
                 return {
@@ -98,6 +123,13 @@ export class DANAProvider implements PaymentProvider {
 
             const data = result.resultInfo || result.data
 
+            if (!data) {
+                return {
+                    success: false,
+                    error: 'Invalid response from DANA'
+                }
+            }
+
             return {
                 success: true,
                 paymentUrl: data.paymentUrl || data.checkoutUrl,
@@ -106,11 +138,12 @@ export class DANAProvider implements PaymentProvider {
                 expiresAt: new Date(expiryTime)
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('DANA create payment error:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Failed to create payment'
             return {
                 success: false,
-                error: error.message || 'Failed to create payment'
+                error: errorMessage
             }
         }
     }
@@ -124,13 +157,19 @@ export class DANAProvider implements PaymentProvider {
                 headers: this.getHeaders()
             })
 
-            const result = await response.json()
+            const result = await response.json() as {
+                responseCode?: string;
+                responseMessage?: string;
+                message?: string;
+                resultInfo?: unknown;
+                data?: unknown;
+            }
 
             if (!response.ok || result.responseCode !== 'SUCCESS') {
                 throw new Error(result.responseMessage || result.message || 'Failed to check status')
             }
 
-            const data = result.resultInfo || result.data
+            const data = (result.resultInfo || result.data) as DanaTransactionData
             let status: TransactionStatus['status'] = 'PENDING'
 
             switch (data.status) {
@@ -157,16 +196,20 @@ export class DANAProvider implements PaymentProvider {
                     break
             }
 
+            const amountValue = typeof data.amount === 'object' && data.amount !== null 
+                ? data.amount.value 
+                : (typeof data.amount === 'string' ? data.amount : '0')
+
             return {
                 orderId: data.merchantOrderId || orderId,
                 status,
-                paidAt: data.paidTime ? new Date(data.paidTime) : undefined,
+                ...(data.paidTime ? { paidAt: new Date(data.paidTime as string | number) } : {}),
                 paymentMethod: 'DANA',
-                amount: parseFloat(data.amount?.value || data.amount || '0'),
-                transactionId: data.orderId || data.transactionId
+                amount: parseFloat(amountValue),
+                transactionId: data.orderId || data.transactionId || ''
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('DANA check status error:', error)
             throw error
         }
@@ -191,13 +234,13 @@ export class DANAProvider implements PaymentProvider {
                 },
                 body: JSON.stringify(payload)
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('DANA cancel payment error:', error)
             // Don't throw, just log - cancellation might not be critical
         }
     }
 
-    verifyWebhook(payload: any, signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
         if (!this.config?.apiSecret) return false
         if (!signature) return false
 
@@ -212,12 +255,13 @@ export class DANAProvider implements PaymentProvider {
         return calculatedSignature === signature
     }
 
-    async processWebhook(payload: any): Promise<WebhookResult> {
+    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
         // Payload is the parsed JSON body from DANA webhook
+        const typedPayload = payload as WebhookPayload
 
         let status: WebhookResult['status'] = 'PENDING'
 
-        const orderStatus = payload.status || payload.orderStatus
+        const orderStatus = (typedPayload.status) || (typedPayload.orderStatus)
 
         switch (orderStatus) {
             case 'SUCCESS':
@@ -243,13 +287,18 @@ export class DANAProvider implements PaymentProvider {
                 break
         }
 
+        const amountObj = typedPayload.amount
+        const amountValue = typeof amountObj === 'object' && amountObj !== null 
+            ? (amountObj as { value: string }).value 
+            : (typeof amountObj === 'string' || typeof amountObj === 'number' ? String(amountObj) : '0')
+
         return {
-            orderId: payload.merchantOrderId || payload.orderId,
+            orderId: typedPayload.merchantOrderId || typedPayload.orderId || '',
             status,
-            paidAt: payload.paidTime ? new Date(payload.paidTime) : (status === 'PAID' ? new Date() : undefined),
+            ...(typedPayload.paidTime ? { paidAt: new Date(typedPayload.paidTime) } : (status === 'PAID' ? { paidAt: new Date() } : {})),
             paymentMethod: 'DANA',
-            transactionId: payload.orderId || payload.transactionId,
-            amount: parseFloat(payload.amount?.value || payload.amount || '0'),
+            transactionId: typedPayload.orderId || typedPayload.transactionId || '',
+            amount: parseFloat(amountValue),
             raw: payload
         }
     }
@@ -266,7 +315,7 @@ export class DANAProvider implements PaymentProvider {
                 headers: this.getHeaders()
             })
 
-            const result = await response.json()
+            const result = await response.json() as { responseCode?: string; success?: boolean; responseMessage?: string; message?: string }
 
             if (response.ok && (result.responseCode === 'SUCCESS' || result.success)) {
                 return {
@@ -295,7 +344,7 @@ export class DANAProvider implements PaymentProvider {
                     message: result.responseMessage || result.message || 'Failed to connect to DANA'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             // If endpoint doesn't exist, we'll consider it a connection test issue
             // but not necessarily a failure if credentials are provided
             if (this.config.apiKey && this.config.merchantId) {
@@ -309,9 +358,10 @@ export class DANAProvider implements PaymentProvider {
                 }
             }
 
+            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
             return {
                 success: false,
-                message: error.message || 'Connection failed'
+                message: errorMessage
             }
         }
     }

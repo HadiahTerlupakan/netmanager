@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     let sequence = 1
     if (lastPR) {
-        const lastSeq = parseInt(lastPR.nomorRequest.split('-')[2])
+        const lastSeq = parseInt(lastPR.nomorRequest.split('-')[2] || '0')
         if (!isNaN(lastSeq)) {
             sequence = lastSeq + 1
         }
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
                 keterangan,
                 status: 'DRAFT',
                 items: {
-                    create: items.map((item: any) => ({
+                    create: items.map((item: { barangId: string; quantity: number }) => ({
                         id: crypto.randomUUID(),
                         barangId: item.barangId,
                         jumlah: item.quantity,
@@ -108,8 +108,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(pr, { status: 201 })
 
-  } catch (error: any) {
-    logger.error('Error creating purchase request', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error creating purchase request', err, {
       path: '/api/inventory/procurement/purchase-request',
       method: 'POST',
     })

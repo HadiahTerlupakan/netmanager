@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
 import {
     MdArrowBack,
-    MdAccountCircle,
     MdRefresh,
     MdChatBubble,
 } from 'react-icons/md'

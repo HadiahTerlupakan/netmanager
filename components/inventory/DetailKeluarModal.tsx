@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FiX, FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiZoomIn } from 'react-icons/fi'
+import { FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiZoomIn } from 'react-icons/fi'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
 
@@ -18,7 +18,10 @@ interface BarangKeluar {
   employeeId?: string | null
   purpose?: string | null
   fotoBukti: string[]
-  fotoMetadata?: any
+  fotoMetadata?: {
+    uploadedAt?: string
+    [key: string]: unknown
+  }
   barang: {
     id: string
     kode: string

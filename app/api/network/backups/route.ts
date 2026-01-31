@@ -4,10 +4,11 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { deviceBackupCreateSchema, deviceBackupQuerySchema } from '@/lib/validations/device-backup'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -113,7 +114,7 @@ export async function GET(req: Request) {
     }
 
     const filters = parsed.data
-    const where: any = {}
+    const where: Record<string, unknown> = {}
 
     if (filters.deviceId) where.deviceId = filters.deviceId
     if (filters.deviceType) where.deviceType = filters.deviceType
@@ -121,16 +122,17 @@ export async function GET(req: Request) {
     if (filters.status) where.status = filters.status
 
     if (filters.startDate || filters.endDate) {
-      where.createdAt = {}
-      if (filters.startDate) where.createdAt.gte = new Date(filters.startDate)
-      if (filters.endDate) where.createdAt.lte = new Date(filters.endDate)
+      const createdAt: Record<string, Date> = {}
+      if (filters.startDate) createdAt.gte = new Date(filters.startDate)
+      if (filters.endDate) createdAt.lte = new Date(filters.endDate)
+      where.createdAt = createdAt
     }
 
     const page = filters.page || 1
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Record<string, string> = {}
     if (filters.sortBy) {
       orderBy[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
@@ -140,12 +142,12 @@ export async function GET(req: Request) {
     try {
       const [data, total] = await Promise.all([
         prisma.deviceBackups.findMany({
-          where,
+          where: where as Prisma.DeviceBackupsWhereInput,
           orderBy,
           skip,
           take: limit,
         }),
-        prisma.deviceBackups.count({ where }),
+        prisma.deviceBackups.count({ where: where as Prisma.DeviceBackupsWhereInput }),
       ])
 
       return NextResponse.json({
@@ -157,9 +159,9 @@ export async function GET(req: Request) {
           totalPages: Math.ceil(total / limit),
         },
       })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json({
           data: [],
           pagination: {
@@ -173,10 +175,10 @@ export async function GET(req: Request) {
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching device backups:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal memuat data backup perangkat' },
+      { error: error instanceof Error ? error.message : 'Gagal memuat data backup perangkat' },
       { status: 500 }
     )
   }
@@ -275,19 +277,19 @@ export async function POST(req: Request) {
           deviceId: data.deviceId,
           deviceType: data.deviceType,
           backupName: data.backupName,
-          description: data.description,
+          description: data.description ?? null,
           backupType: data.backupType,
           filePath: data.filePath,
           fileSize: data.fileSize,
-          fileHash: data.fileHash,
-          compressionType: data.compressionType,
+          fileHash: data.fileHash ?? null,
+          compressionType: data.compressionType ?? null,
           isEncrypted: data.isEncrypted,
-          encryptionKey: data.encryptionKey,
-          backupMethod: data.backupMethod,
+          encryptionKey: data.encryptionKey ?? null,
+          backupMethod: data.backupMethod ?? null,
           status: data.status,
-          scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
-          createdBy: session.user?.id,
-          retentionDays: data.retentionDays,
+          scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
+          createdBy: session.user?.id ?? null,
+          retentionDays: data.retentionDays ?? null,
           isAutoCleanup: data.isAutoCleanup,
           updatedAt: new Date(),
         },
@@ -299,21 +301,21 @@ export async function POST(req: Request) {
         await logger.logActivity({
           action: 'CREATE',
           subject: 'Device Backup',
-          userId: session?.user?.id,
+          userId: (session as { user?: { id?: string } })?.user?.id ?? '',
           details: { id: result.id, name: data.backupName, deviceId: data.deviceId }
         })
-      } catch (e) {
-        console.error('Logging failed', e)
+      } catch (_e: unknown) {
+        console.error('Logging failed', _e)
       }
 
       return NextResponse.json({ id: result.id }, { status: 201 })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating device backup:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal membuat backup perangkat' },
+      { error: error instanceof Error ? error.message : 'Gagal membuat backup perangkat' },
       { status: 500 }
     )
   }

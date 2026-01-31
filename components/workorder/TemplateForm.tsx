@@ -55,7 +55,7 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
         }))
     }
 
-    const handleItemChange = (index: number, field: keyof TemplateItem, value: any) => {
+    const handleItemChange = (index: number, field: keyof TemplateItem, value: string | boolean | number) => {
         const newItems = [...formData.items]
         newItems[index] = { ...newItems[index], [field]: value } as TemplateItem
         setFormData({ ...formData, items: newItems })

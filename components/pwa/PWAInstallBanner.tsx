@@ -8,25 +8,27 @@ export function PWAInstallBanner() {
     const { canInstall, installPWA, isInstalled } = usePWA()
     const [dismissed, setDismissed] = useState(true) // Start hidden to avoid flash
     const [isIOS, setIsIOS] = useState(false)
-    const [isAndroid, setIsAndroid] = useState(false)
     const [showIOSInstructions, setShowIOSInstructions] = useState(false)
 
     useEffect(() => {
         // Check if already dismissed
         const wasDismissed = localStorage.getItem('pwa-banner-dismissed')
-        if (wasDismissed) {
-            setDismissed(true)
-        } else {
-            setDismissed(false)
-        }
 
         // Detect iOS
         const userAgent = navigator.userAgent || navigator.vendor
-        const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream
+        const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream
         const isAndroidDevice = /android/i.test(userAgent)
 
-        setIsIOS(isIOSDevice)
-        setIsAndroid(isAndroidDevice)
+        // Use setTimeout to avoid synchronous setState
+        setTimeout(() => {
+            if (wasDismissed) {
+                setDismissed(true)
+            } else {
+                setDismissed(false)
+            }
+            
+            setIsIOS(isIOSDevice)
+        }, 0)
 
         console.log('[PWA Banner] Device detection:', { isIOS: isIOSDevice, isAndroid: isAndroidDevice })
     }, [])

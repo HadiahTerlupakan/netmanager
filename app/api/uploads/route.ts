@@ -8,7 +8,7 @@ const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'
 
 export async function POST(request: NextRequest) {
     try {
-        const formData: any = await request.formData()
+        const formData = await request.formData()
         const file = formData.get('file') as File | null
 
         if (!file) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         // Use convertAndSaveImage which handles both Local and R2 storage
         // It also handles webp conversion for optimization
         const uploadDir = 'public/uploads/tickets'
-        const fileExtension = file.name.split('.').pop()
+        const _fileExtension = file.name.split('.').pop()
         const uniqueId = uuidv4()
 
         // Note: convertAndSaveImage will append .webp extension

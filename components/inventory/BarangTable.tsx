@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { FiEdit, FiTrash2, FiEye, FiSearch } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -36,7 +36,7 @@ export function BarangTable() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [gudangId, setGudangId] = useState('')
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [gudangs, setGudangs] = useState<{ id: string; kode: string; nama: string }[]>([])
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({
     page: 1,
@@ -70,7 +70,7 @@ export function BarangTable() {
   }, [])
 
   // Fetch barang data
-  const fetchBarangs = async () => {
+  const fetchBarangs = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -78,7 +78,7 @@ export function BarangTable() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '10',
-        ...(search && { search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
         ...(gudangId && { gudangId })
       })
 
@@ -89,23 +89,21 @@ export function BarangTable() {
         throw new Error(data.error || 'Gagal memuat data')
       }
 
-      // Standardized apiSuccess response: { success: true, data: { barangs, pagination } }
-      // We need to handle both direct structure (if changed) or wrapped structure
       const result = data.data || data
-      
+
       setBarangs(result.barangs || [])
-      setPagination(result.pagination || pagination)
+      setPagination(prev => result.pagination || prev)
     } catch (error) {
       console.error('Failed to fetch barang:', error)
       setError(error instanceof Error ? error.message : 'Gagal memuat data')
     } finally {
       setLoading(false)
     }
-  }
+  }, [debouncedSearch, gudangId, page])
 
   useEffect(() => {
     fetchBarangs()
-  }, [debouncedSearch, gudangId, page])
+  }, [fetchBarangs])
 
   const handleDelete = async (id: string, kode: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus barang ${kode}?`)) {
@@ -303,7 +301,7 @@ export function BarangTable() {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
             <option value="">Semua Gudang</option>
-            {gudangs.map((gudang: any) => (
+            {gudangs.map((gudang) => (
               <option key={gudang.id} value={gudang.id}>
                 {gudang.kode} - {gudang.nama}
               </option>

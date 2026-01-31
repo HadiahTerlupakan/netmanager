@@ -13,13 +13,13 @@ import type {
 export class XenditProvider implements PaymentProvider {
     name = 'Xendit'
     private config?: ProviderConfig
-    private xendit: any
+    private xendit: unknown = null
 
-    initialize(config: ProviderConfig): void {
+    async initialize(config: ProviderConfig): Promise<void> {
         this.config = config
 
         // Initialize Xendit SDK
-        const Xendit = require('xendit-node')
+        const { default: Xendit } = await import('xendit-node')
         this.xendit = new Xendit({
             secretKey: config.apiKey
         })
@@ -31,7 +31,7 @@ export class XenditProvider implements PaymentProvider {
                 throw new Error('Xendit not initialized')
             }
 
-            const { Invoice } = this.xendit
+            const { Invoice } = this.xendit as { Invoice: { createInvoice: (params: unknown) => Promise<{ invoice_url: string; id: string; expiry_date: string }> } }
 
             // Calculate expiry time (default 24 hours)
             const expiryHours = params.expiryHours || 24
@@ -61,11 +61,12 @@ export class XenditProvider implements PaymentProvider {
                 transactionId: invoice.id,
                 expiresAt: new Date(invoice.expiry_date)
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Xendit createPayment error:', error)
+            const message = error instanceof Error ? error.message : 'Failed to create payment'
             return {
                 success: false,
-                error: error.message || 'Failed to create payment'
+                error: message
             }
         }
     }
@@ -76,7 +77,7 @@ export class XenditProvider implements PaymentProvider {
                 throw new Error('Xendit not initialized')
             }
 
-            const { Invoice } = this.xendit
+            const { Invoice } = this.xendit as { Invoice: { getInvoices: (params: unknown) => Promise<Array<{ status: string; paid_at?: string; payment_method: string; amount: number; id: string }>> } }
 
             // Get invoice by external ID
             const invoices = await Invoice.getInvoices({
@@ -110,12 +111,12 @@ export class XenditProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: invoice.paid_at ? new Date(invoice.paid_at) : undefined,
+                ...(invoice.paid_at ? { paidAt: new Date(invoice.paid_at) } : {}),
                 paymentMethod: invoice.payment_method,
                 amount: invoice.amount,
                 transactionId: invoice.id
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Xendit checkStatus error:', error)
             throw error
         }
@@ -127,7 +128,7 @@ export class XenditProvider implements PaymentProvider {
                 throw new Error('Xendit not initialized')
             }
 
-            const { Invoice } = this.xendit
+            const { Invoice } = this.xendit as { Invoice: { getInvoices: (params: unknown) => Promise<Array<{ id: string }>>; expireInvoice: (params: { invoiceId: string }) => Promise<void> } }
 
             // Get invoice first
             const invoices = await Invoice.getInvoices({
@@ -140,13 +141,13 @@ export class XenditProvider implements PaymentProvider {
                     invoiceId: invoices[0].id
                 })
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Xendit cancelPayment error:', error)
             throw error
         }
     }
 
-    verifyWebhook(payload: any, signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown>, _signature?: string): boolean {
         try {
             if (!this.config) {
                 return false
@@ -164,13 +165,13 @@ export class XenditProvider implements PaymentProvider {
         }
     }
 
-    async processWebhook(payload: any): Promise<WebhookResult> {
+    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
         try {
-            const orderId = payload.external_id
+            const orderId = payload.external_id as string
 
             // Map Xendit status
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
-            switch (payload.status) {
+            switch (payload.status as string) {
                 case 'PAID':
                 case 'SETTLED':
                     status = 'PAID'
@@ -188,13 +189,13 @@ export class XenditProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: payload.paid_at ? new Date(payload.paid_at) : undefined,
-                paymentMethod: payload.payment_method,
-                transactionId: payload.id,
-                amount: payload.amount,
+                ...(payload.paid_at ? { paidAt: new Date(payload.paid_at as string) } : {}),
+                paymentMethod: payload.payment_method as string,
+                transactionId: payload.id as string,
+                amount: payload.amount as number,
                 raw: payload
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Xendit processWebhook error:', error)
             throw error
         }
@@ -210,13 +211,13 @@ export class XenditProvider implements PaymentProvider {
             }
 
             // Initialize with test credentials
-            const Xendit = require('xendit-node')
+            const { default: Xendit } = await import('xendit-node')
             const testXendit = new Xendit({
                 secretKey: this.config.apiKey
             })
 
             // Try to get balance (this will validate the API key)
-            const { Balance } = testXendit
+            const { Balance } = testXendit as unknown as { Balance: { getBalance: (params: { accountType: string }) => Promise<{ balance: number; currency?: string }> } }
             const balance = await Balance.getBalance({
                 accountType: 'CASH'
             })
@@ -226,15 +227,17 @@ export class XenditProvider implements PaymentProvider {
                 message: 'Connection successful',
                 details: {
                     balance: balance.balance,
-                    currency: balance.currency
+                    currency: balance.currency || 'IDR'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Connection failed'
+            const err = error as { error_code?: string; code?: string }
             return {
                 success: false,
-                message: error.message || 'Connection failed',
+                message,
                 details: {
-                    error: error.error_code || error.code
+                    error: err.error_code || err.code
                 }
             }
         }

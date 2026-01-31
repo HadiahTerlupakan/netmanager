@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { Mock } from 'vitest'
 import { OnuService, getOnuService } from '@/modules/network/services/OnuService'
 import type { Server as SocketIOServer } from 'socket.io'
 
@@ -62,7 +63,7 @@ describe('OnuService', () => {
           snmpVersion: '2c'
         })
       };
-      (getOLTRepository as any).mockReturnValue(mockOltRepo)
+      (getOLTRepository as unknown as Mock).mockReturnValue(mockOltRepo)
 
       // Mock ONU repository
       const mockOnuRepo = {
@@ -73,10 +74,10 @@ describe('OnuService', () => {
         }),
         upsert: vi.fn().mockResolvedValue({ id: 'onu-1', updated: true })
       };
-      (getOnuRepository as any).mockReturnValue(mockOnuRepo);
+      (getOnuRepository as unknown as Mock).mockReturnValue(mockOnuRepo);
 
       // Mock SNMP update
-      (updateMultipleOnusViaGetWithOids as any).mockResolvedValue([
+      (updateMultipleOnusViaGetWithOids as unknown as Mock).mockResolvedValue([
         { gponOnu: '1/1/1:1', status: 'Online', rxOlt: '-20.5', rxOnu: '-18.0' }
       ])
 
@@ -102,7 +103,7 @@ describe('OnuService', () => {
           snmpConnected: false // Not connected!
         })
       };
-      (getOLTRepository as any).mockReturnValue(mockOltRepo)
+      (getOLTRepository as unknown as Mock).mockReturnValue(mockOltRepo)
 
       const result = await service.updateOnus([
         { gponOnu: '1/1/1:1', oltId: 'olt-1' }
@@ -128,7 +129,7 @@ describe('OnuService', () => {
           snmpVersion: '2c'
         })
       };
-      (getOLTRepository as any).mockReturnValue(mockOltRepo)
+      (getOLTRepository as unknown as Mock).mockReturnValue(mockOltRepo)
 
       const mockOnuRepo = {
         findManyByOltIdMinimal: vi.fn().mockResolvedValue([
@@ -142,9 +143,9 @@ describe('OnuService', () => {
         ]),
         upsert: vi.fn().mockResolvedValue({ id: 'onu-1', updated: true })
       };
-      (getOnuRepository as any).mockReturnValue(mockOnuRepo);
+      (getOnuRepository as unknown as Mock).mockReturnValue(mockOnuRepo);
 
-      (updateMultipleOnusViaGetWithOids as any).mockResolvedValue([
+      (updateMultipleOnusViaGetWithOids as unknown as Mock).mockResolvedValue([
         { gponOnu: '1/1/1:1', status: 'Online' }
       ])
 
@@ -172,7 +173,7 @@ describe('OnuService', () => {
   describe('setSocketServer', () => {
     it('should set socket server', () => {
       const newService = new OnuService()
-      const mockIO = { to: vi.fn(), emit: vi.fn() } as any
+      const mockIO = { to: vi.fn(), emit: vi.fn() } as unknown as SocketIOServer
 
       newService.setSocketServer(mockIO)
 

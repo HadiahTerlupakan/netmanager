@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { FiInfo } from 'react-icons/fi'
 import { validateBarangForm, sanitizeInput } from '@/lib/validations/barang'
 import { useToast } from '@/hooks/use-toast'
@@ -16,28 +15,33 @@ interface BarangFormProps {
     jenis?: 'HABIS_PAKAI' | 'ASET'
     kategoriAset?: string
   }
-  onSubmit: (data: any) => void
+  onSubmit: (data: {
+    nama: string
+    satuan: string
+    isWorkOrderMaterial: boolean
+    jenis: 'HABIS_PAKAI' | 'ASET'
+    kategoriAset: string | null
+  }) => void
   onCancel: () => void
 }
+
+const SATUAN_OPTIONS = [
+  'pcs', 'meter', 'box', 'roll', 'pack', 'karton', 'liter', 'kg', 'set', 'buah', 'unit'
+]
 
 export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps) {
   const [formData, setFormData] = useState({
     nama: initialData?.nama || '',
     satuan: initialData?.satuan || '',
     isWorkOrderMaterial: initialData?.isWorkOrderMaterial || false,
-    jenis: initialData?.jenis || 'HABIS_PAKAI',
+    jenis: (initialData?.jenis as 'HABIS_PAKAI' | 'ASET') || 'HABIS_PAKAI',
     kategoriAset: initialData?.kategoriAset || 'ELEKTRONIK'
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isCustomSatuan, setIsCustomSatuan] = useState(false)
-  const router = useRouter()
   const { showToast } = useToast()
-
-  const satuanOptions = [
-    'pcs', 'meter', 'box', 'roll', 'pack', 'karton', 'liter', 'kg', 'set', 'buah', 'unit'
-  ]
 
   useEffect(() => {
     if (initialData) {
@@ -49,7 +53,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
         kategoriAset: initialData.kategoriAset || 'ELEKTRONIK'
       })
       // Check if initial satuan is custom
-      if (initialData.satuan && !satuanOptions.includes(initialData.satuan)) {
+      if (initialData.satuan && !SATUAN_OPTIONS.includes(initialData.satuan)) {
         setIsCustomSatuan(true)
       }
     }
@@ -190,7 +194,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
                  name="jenis"
                  value="HABIS_PAKAI"
                  checked={formData.jenis === 'HABIS_PAKAI'}
-                 onChange={(e) => setFormData({ ...formData, jenis: e.target.value as any })}
+                 onChange={(e) => setFormData({ ...formData, jenis: e.target.value as 'HABIS_PAKAI' | 'ASET' })}
                />
                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Habis Pakai</span>
              </label>
@@ -201,13 +205,13 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
                  name="jenis"
                  value="ASET"
                  checked={formData.jenis === 'ASET'}
-                 onChange={(e) => setFormData({ ...formData, jenis: 'ASET', kategoriAset: formData.kategoriAset || 'ELEKTRONIK' })}
+                 onChange={(_e) => setFormData({ ...formData, jenis: 'ASET', kategoriAset: formData.kategoriAset || 'ELEKTRONIK' })}
                />
                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Aset Tetap</span>
              </label>
            </div>
            <p className="mt-1 text-xs text-gray-500">
-             {formData.jenis === 'ASET' 
+             {formData.jenis === 'ASET'
                 ? 'Item akan ditrack per unit (Serial Number) dan memiliki nilai penyusutan'
                 : 'Item hanya ditrack jumlah stok (Qty) saja'}
            </p>
@@ -222,7 +226,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
             <select
               id="kategoriAset"
               value={formData.kategoriAset || ''}
-              onChange={(e) => setFormData({ ...formData, kategoriAset: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, kategoriAset: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="ELEKTRONIK">Elektronik (4 Tahun)</option>
@@ -296,7 +300,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           disabled={loading}
         >
           <option value="">Pilih satuan</option>
-          {satuanOptions.map((satuan) => (
+          {SATUAN_OPTIONS.map((satuan) => (
             <option key={satuan} value={satuan}>
               {satuan}
             </option>

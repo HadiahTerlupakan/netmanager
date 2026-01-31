@@ -83,9 +83,9 @@ async function main() {
     // Use raw query to add permissions to role
     for (const perm of newPermissions) {
       const existing = await prisma.$queryRaw`
-        SELECT * FROM "_PermissionToRole" 
+        SELECT * FROM "_PermissionToRole"
         WHERE "A" = ${perm.id} AND "B" = ${superAdminRole.id}
-      ` as any[]
+      ` as unknown[]
 
       if (existing.length === 0) {
         await prisma.$executeRaw`

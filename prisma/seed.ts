@@ -11,7 +11,7 @@ const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flatMap(group => {
   if (Array.isArray(group)) {
     return group
   }
-  return (group as any).resources || []
+  return (group as { resources?: string[] }).resources || []
 })
 const MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat()
 const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...MOBILE_RESOURCES])]
@@ -128,7 +128,7 @@ async function main() {
       permission: {
         set: [], // Clear existing
         connect: permissions
-          .filter((p) => !MOBILE_RESOURCES.includes(p.resource as any))
+          .filter((p) => !(MOBILE_RESOURCES as string[]).includes(p.resource as string))
           .map((p) => ({ id: p.id })),
       },
     },
@@ -141,7 +141,7 @@ async function main() {
       accessEmployeePanel: false,
       permission: {
         connect: permissions
-          .filter((p) => !MOBILE_RESOURCES.includes(p.resource as any))
+          .filter((p) => !(MOBILE_RESOURCES as string[]).includes(p.resource as string))
           .map((p) => ({ id: p.id })),
       },
     },
@@ -265,7 +265,7 @@ async function main() {
   })
   console.log('   ✅ Department: Technical')
 
-  const csDept = await prisma.departments.upsert({
+  await prisma.departments.upsert({
     where: { name: 'Customer Service' },
     update: {},
     create: {
@@ -317,7 +317,7 @@ async function main() {
   })
   console.log('   ✅ Department: Marketing')
 
-  const hrDept = await prisma.departments.upsert({
+  await prisma.departments.upsert({
     where: { name: 'HR' },
     update: {},
     create: {
@@ -367,7 +367,7 @@ async function main() {
   })
   console.log('   ✅ Site: JKT01')
 
-  const jkt02Site = await prisma.sites.upsert({
+  await prisma.sites.upsert({
     where: { code: 'JKT02' },
     update: {},
     create: {

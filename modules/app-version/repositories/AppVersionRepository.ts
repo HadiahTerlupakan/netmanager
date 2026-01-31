@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma, User } from '@prisma/client'
 
 // Infer AppVersion type dari Prisma client
-export type AppVersion = Prisma.AppVersionGetPayload<{}>
+export type AppVersion = Prisma.AppVersionGetPayload<Record<string, never>>
 
 export type AppVersionWithUser = AppVersion & {
     user: Pick<User, 'id' | 'name' | 'email'> | null
@@ -131,21 +131,26 @@ export class AppVersionRepository {
      * Create new app version
      */
     async create(data: CreateAppVersionDTO): Promise<AppVersion> {
+        const createData: Prisma.AppVersionUncheckedCreateInput = {
+            version: data.version,
+            buildNumber: data.buildNumber,
+            versionCode: data.versionCode,
+            platform: data.platform || 'android',
+            apkUrl: data.apkUrl ?? null,
+            apkSize: data.apkSize ?? null,
+            releaseNotes: data.releaseNotes ?? null,
+            isForceUpdate: data.isForceUpdate || false,
+            minVersion: data.minVersion ?? null,
+            isActive: data.isActive ?? true,
+            publishedAt: data.publishedAt || new Date(),
+        }
+
+        if (data.createdBy) {
+            createData.createdBy = data.createdBy
+        }
+
         return prisma.appVersion.create({
-            data: {
-                version: data.version,
-                buildNumber: data.buildNumber,
-                versionCode: data.versionCode,
-                platform: data.platform || 'android',
-                apkUrl: data.apkUrl,
-                apkSize: data.apkSize,
-                releaseNotes: data.releaseNotes,
-                isForceUpdate: data.isForceUpdate || false,
-                minVersion: data.minVersion,
-                isActive: data.isActive ?? true,
-                publishedAt: data.publishedAt || new Date(),
-                createdBy: data.createdBy
-            }
+            data: createData
         })
     }
 

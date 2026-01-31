@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HiPlus, HiTrash, HiXCircle, HiPaperClip } from 'react-icons/hi2'
 import { Modal } from '@/components/ui/Modal'
@@ -8,10 +8,11 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { PhotoUpload, type PhotoUploadRef } from '@/components/inventory/PhotoUpload'
 import { MarketPriceCheck } from '@/components/procurement/MarketPriceCheck'
 import { SiteFilter } from '@/components/common/SiteFilter'
+import type { Category, Account, Transaction } from '@/types'
 
 interface TransactionsClientProps {
-  categories: any[]
-  accounts: any[]
+  categories: Category[]
+  accounts: Account[]
 }
 
 export default function TransactionsClient({ categories, accounts }: TransactionsClientProps) {
@@ -21,7 +22,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
   
   const photoUploadRef = useRef<PhotoUploadRef>(null)
   
-  const [data, setData] = useState<any[]>([])
+  const [data, setData] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
   // Filters
@@ -33,7 +34,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<any>(null)
+  const [selectedItem, setSelectedItem] = useState<Transaction | null>(null)
 
   const [form, setForm] = useState({
     type: 'EXPENSE',
@@ -48,7 +49,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
   // Summary State
   const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 })
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -57,14 +58,14 @@ export default function TransactionsClient({ categories, accounts }: Transaction
       if (startDate) params.append('startDate', startDate)
       if (endDate) params.append('endDate', endDate)
       if (accountIdParam) params.append('accountId', accountIdParam)
-      
+
       const res = await fetch(`/api/finance/transactions?${params.toString()}`)
       const json = await res.json()
       setData(json)
 
       // Calculate Summary on Client for current filtered view
-      const income = json.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0)
-      const expense = json.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0)
+      const income = json.filter((t: Transaction) => t.type === 'INCOME').reduce((acc: number, t: Transaction) => acc + t.amount, 0)
+      const expense = json.filter((t: Transaction) => t.type === 'EXPENSE').reduce((acc: number, t: Transaction) => acc + t.amount, 0)
       setSummary({
           income,
           expense,
@@ -76,7 +77,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterCategory, filterSiteId, startDate, endDate, accountIdParam])
 
   const handleDelete = async () => {
       if (!selectedItem) return
@@ -90,21 +91,21 @@ export default function TransactionsClient({ categories, accounts }: Transaction
           setDeleteModalOpen(false)
           setSelectedItem(null)
           fetchTransactions() // Refresh data
-      } catch (e: any) {
-          alert(e.message)
+      } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'An unknown error occurred')
       } finally {
           setLoading(false)
       }
   }
 
-  const openDelete = (item: any) => {
+  const openDelete = (item: Transaction) => {
       setSelectedItem(item)
       setDeleteModalOpen(true)
   }
 
   useEffect(() => {
     fetchTransactions()
-  }, [filterCategory, filterSiteId, startDate, endDate, accountIdParam])
+  }, [fetchTransactions])
 
   const handleCreate = async () => {
     if (!form.categoryId || form.amount <= 0 || !form.accountId) {
@@ -152,8 +153,8 @@ export default function TransactionsClient({ categories, accounts }: Transaction
       })
       if (photoUploadRef.current) photoUploadRef.current.resetPhotos()
 
-    } catch (e: any) {
-        alert(e.message)
+    } catch (e: unknown) {
+        alert(e instanceof Error ? e.message : 'An unknown error occurred')
     } finally {
         setLoading(false) // Ensure loading is off in all cases
     }

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AssetService } from '@/modules/inventory/services/AssetService'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { z } from 'zod'
 
 const assetService = new AssetService()
 
@@ -26,7 +25,8 @@ export async function POST(
         }
 
         return NextResponse.json({ log: result })
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+    } catch (error) {
+        const err = error as Error
+        return NextResponse.json({ error: err.message }, { status: 500 })
     }
 }

@@ -4,9 +4,7 @@ import { SalaryComponentRepository } from '../repositories/SalaryComponentReposi
 import { AttendanceRepository } from '../../attendance/repositories/AttendanceRepository'
 import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
 import { LeaveBalanceRepository } from '../../attendance/repositories/LeaveBalanceRepository'
-import { 
-    SalaryStatus, 
-    SalaryComponentType, 
+import {
     RateType,
     Prisma,
     EmployeeType
@@ -45,6 +43,28 @@ interface OvertimeStats {
     totalCount: number
 }
 
+export type UserCalculationData = {
+    id: string
+    name: string | null
+    basicSalary: number | null
+    employeeType: EmployeeType
+    departmentId: string | null
+    siteId: string | null
+    payPeriodDay: number | null
+    payDay: number | null
+    woIncentiveEnabled: boolean
+    woIncentiveRate: number | null
+    lateDeductionRate: number | null
+    absentDeductionRate: number | null
+    overtimeRateNormal: number | null
+    overtimeRateHoliday: number | null
+    overtimeRateNational: number | null
+    overtimeCalcTypeNormal: RateType | null
+    overtimeCalcTypeHoliday: RateType | null
+    overtimeCalcTypeNational: RateType | null
+    workDays: string | null
+}
+
 export class SalaryCalculatorService {
     private salaryRepo: SalaryRepository
     private componentRepo: SalaryComponentRepository
@@ -63,9 +83,9 @@ export class SalaryCalculatorService {
     /**
      * Calculate salary for a single user for a given month
      */
-    async calculateSalary(userId: string, month: number, year: number, existingUser?: any): Promise<SalaryCalculationResult> {
+    async calculateSalary(userId: string, month: number, year: number, existingUser?: UserCalculationData): Promise<SalaryCalculationResult> {
         // Get user data and components
-        const user = existingUser || await prisma.user.findUnique({
+        const user = (existingUser || await prisma.user.findUnique({
             where: { id: userId },
             select: {
                 id: true,
@@ -89,7 +109,7 @@ export class SalaryCalculatorService {
                 overtimeCalcTypeNational: true,
                 workDays: true
             }
-        })
+        })) as UserCalculationData | null
 
         if (!user) {
             throw new Error(`User ${userId} tidak ditemukan`)
@@ -100,9 +120,10 @@ export class SalaryCalculatorService {
         if (!user.basicSalary) {
             throw new Error(`Gaji pokok untuk ${user.name || userId} belum diset`)
         }
+        const basicSalary = user.basicSalary as number
 
         // Calculate date range for the period using user's Pay Period Day
-        const { startDate, endDate } = this.getPeriodDateRange(month, year, user.payPeriodDay)
+        const { startDate, endDate } = this.getPeriodDateRange(month, year, user.payPeriodDay ?? 25)
 
         // Gather data from various modules
         const [attendanceStats, overtimeStats, woStats] = await Promise.all([
@@ -117,7 +138,7 @@ export class SalaryCalculatorService {
         // 1. Basic Salary - always included
         earnings.push({
             name: 'Gaji Pokok',
-            amount: user.basicSalary
+            amount: basicSalary
         })
 
         // 2. User-assigned components (tunjangan tetap)
@@ -126,7 +147,7 @@ export class SalaryCalculatorService {
             let rate: number | undefined = undefined
 
             if (uc.component.rateType === 'PERCENTAGE') {
-                amount = Math.round((user.basicSalary * uc.amount) / 100)
+                amount = Math.round((basicSalary * uc.amount) / 100)
                 rate = uc.amount // Save the percentage (e.g., 5 or 10) as rate
             }
 
@@ -161,7 +182,7 @@ export class SalaryCalculatorService {
                 effectiveOtRateNormal,
                 effectiveOtRateHoliday,
                 effectiveOtRateNational,
-                user.basicSalary,
+                basicSalary,
                 attendanceStats.workDays
             )
 
@@ -242,7 +263,7 @@ export class SalaryCalculatorService {
             userId,
             month,
             year,
-            basicSalary: user.basicSalary,
+            basicSalary: basicSalary,
             earnings,
             deductions,
             totalEarnings,
@@ -254,7 +275,7 @@ export class SalaryCalculatorService {
     /**
      * Calculate and save salary for a user
      */
-    async calculateAndSave(userId: string, month: number, year: number, existingUser?: any): Promise<string> {
+    async calculateAndSave(userId: string, month: number, year: number, existingUser?: UserCalculationData): Promise<string> {
         const result = await this.calculateSalary(userId, month, year, existingUser)
 
         // Upsert salary record
@@ -427,7 +448,7 @@ export class SalaryCalculatorService {
             const trimmed = d.trim()
             const parsed = parseInt(trimmed)
             return isNaN(parsed) ? dayMap[trimmed] : parsed
-        }).filter(d => d !== undefined)
+        }).filter((d): d is number => d !== undefined)
 
         let count = 0
         const cur = new Date(startDate)

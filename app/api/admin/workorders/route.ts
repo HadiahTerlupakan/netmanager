@@ -1,11 +1,8 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository, getWorkOrderService } from '@/modules/work-order';
+import { getWorkOrderService } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
-
-const workOrderRepo = new WorkOrderRepository(prisma);
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response';
 
 /**
  * @swagger
@@ -41,7 +38,7 @@ export async function GET(request: NextRequest) {
         const woType = searchParams.get('woType'); // 'customer' | 'internal'
 
         // Build filters
-        const filters: any = {};
+        const filters: Record<string, string | string[] | boolean> = {};
         if (status) filters.status = status.includes(',') ? status.split(',') : status;
         if (priority) filters.priority = priority.includes(',') ? priority.split(',') : priority;
         if (type) filters.type = type.includes(',') ? type.split(',') : type;
@@ -66,9 +63,9 @@ export async function GET(request: NextRequest) {
             filters,
             userId: user.id,
             userPermissions: user.permissions || [],
-            userDepartmentId: user.departmentId,
-            userSiteId: user.siteId,
-            userRole: user.role,
+            ...(user.departmentId ? { userDepartmentId: user.departmentId } : {}),
+            ...(user.siteId ? { userSiteId: user.siteId } : {}),
+            ...(user.role ? { userRole: user.role } : {}),
         });
 
         if (!result.success) {

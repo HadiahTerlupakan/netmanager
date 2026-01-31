@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { HiXMark, HiMagnifyingGlass, HiCube, HiCheck } from 'react-icons/hi2'
+import { HiMagnifyingGlass, HiCube, HiCheck } from 'react-icons/hi2'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { toast } from 'react-hot-toast'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -52,7 +52,7 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
         if (isOpen) {
             fetchItems(debouncedSearch)
         }
-    }, [debouncedSearch])
+    }, [debouncedSearch, isOpen])
 
     const fetchItems = async (query: string) => {
         setSearching(true)
@@ -60,12 +60,12 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
             // Reusing the inventory API
             const res = await fetch(`/api/inventory/barang?search=${query}&limit=20`)
             if (res.ok) {
-                const data = await res.json()
+                const data = await res.json() as { data?: { barangs?: Barang[] } | Barang[] }
                 // Handle different response structures if necessary, assuming standardized response
-                const list = data.data?.barangs || data.data || []
+                const list = (Array.isArray(data.data) ? data.data : data.data?.barangs) || []
                 setItems(list)
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error fetching items:', error)
         } finally {
             setSearching(false)
@@ -109,10 +109,10 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
                 onSuccess()
                 onClose()
             } else {
-                const err = await res.json()
+                const err = await res.json() as { error?: string }
                 toast.error(err.error || 'Gagal menambahkan material')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error adding material:', error)
             toast.error('Terjadi kesalahan')
         } finally {

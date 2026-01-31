@@ -46,9 +46,10 @@ export async function GET(request: NextRequest) {
                 totalPages: Math.ceil(result.total / result.limit)
             }
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching app versions:', error)
-        return ApiErrors.internalError(error.message || 'Gagal mengambil daftar versi aplikasi')
+        const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil daftar versi aplikasi'
+        return ApiErrors.internalError(errorMessage)
     }
 }
 
@@ -150,8 +151,9 @@ export async function POST(request: NextRequest) {
         }
 
         return apiSuccess(appVersion, { status: 201, message: 'Versi aplikasi berhasil diupload' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[API] Error uploading app version:', error)
-        return ApiErrors.internalError(error?.message || 'Gagal upload versi aplikasi')
+        const errorMessage = error instanceof Error ? error.message : 'Gagal upload versi aplikasi'
+        return ApiErrors.internalError(errorMessage)
     }
 }

@@ -11,10 +11,17 @@ import {
   withRateLimit,
   RateLimits,
   ValidationError,
-  applyRBACRestrictions
+  applyRBACRestrictions,
+  type RBACFilterContext
 } from '@/lib/middleware'
 import { apiSuccess } from '@/lib/api-response'
 import { lemburFilterSchema } from '@/lib/validations/lembur'
+import { OvertimeStatus } from '@prisma/client'
+
+interface LemburFilters {
+  siteId?: string;
+  departmentId?: string;
+}
 
 /**
  * GET /api/admin/lembur
@@ -24,14 +31,14 @@ export const GET = withErrorHandler(
   withAuth(
     withPermission('lembur:read',
       applyRBACRestrictions(
-        { 
-          sitePermission: 'lembur:site_only', 
-          departmentPermission: 'lembur:department_only' 
+        {
+          sitePermission: 'lembur:site_only',
+          departmentPermission: 'lembur:department_only'
         },
         withRateLimit(RateLimits.STANDARD,
-          async ({ user, request, filters }) => {
+          async ({ user: _user, request: _request, filters }: RBACFilterContext<LemburFilters>) => {
             // filters is already sanitized by applyRBACRestrictions using parseQuery
-            
+
             // Validate query params with Zod
             const parseResult = lemburFilterSchema.safeParse(filters)
 
@@ -43,10 +50,19 @@ export const GET = withErrorHandler(
             const skip = (page - 1) * limit
 
             // Build filters for service
-            const serviceFilters: any = { 
-              skip, 
+            const serviceFilters: {
+              skip: number;
+              take: number;
+              status?: OvertimeStatus;
+              holidayType?: string;
+              siteId?: string;
+              departmentId?: string;
+              startDate?: Date;
+              endDate?: Date;
+            } = {
+              skip,
               take: limit,
-              status,
+              status: status as OvertimeStatus | undefined,
               holidayType // Pass to service
             }
 

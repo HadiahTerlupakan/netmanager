@@ -54,8 +54,11 @@ export default function AnnouncementBanner({ portal }: AnnouncementBannerProps) 
 
     const current = announcements[currentIndex];
 
+    // Safety check - if current is undefined, don't render
+    if (!current) return null;
+
     // Auto rotate if multiple
-    // useEffect(() => { ... }, [currentIndex, announcements.length]); 
+    // useEffect(() => { ... }, [currentIndex, announcements.length]);
 
     return (
         <div className="bg-indigo-600 text-white px-4 py-3 relative shadow-sm">

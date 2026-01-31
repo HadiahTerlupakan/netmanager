@@ -41,8 +41,9 @@ export default function CouponForm() {
 
             router.push('/admin/marketing/coupons')
             router.refresh()
-        } catch (error: any) {
-            alert(error.message)
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
+            alert(message)
         } finally {
             setLoading(false)
         }

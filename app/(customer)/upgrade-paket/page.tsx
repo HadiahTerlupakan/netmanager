@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
 import {
     MdArrowBack,

@@ -17,10 +17,15 @@ interface OwnerGroup {
   updatedAt: string
 }
 
+interface Site {
+  id: string
+  name: string
+}
+
 export default function MixRadiusGroupsClient() {
   const [groups, setGroups] = useState<OwnerGroup[]>([])
   const [owners, setOwners] = useState<string[]>([])
-  const [sites, setSites] = useState<any[]>([])
+  const [sites, setSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -55,11 +60,12 @@ export default function MixRadiusGroupsClient() {
       const ownersData = await ownersRes.json()
       const sitesData = await sitesRes.json()
 
-      setGroups(groupsData)
-      setOwners(ownersData.data || [])
-      setSites(sitesData.data || [])
-    } catch (error: any) {
-      toast.error(error.message)
+      // Handle both { data: [...] } and direct array response
+      setGroups(Array.isArray(groupsData) ? groupsData : (groupsData.data || []))
+      setOwners(Array.isArray(ownersData) ? ownersData : (ownersData.data || []))
+      setSites(Array.isArray(sitesData) ? sitesData : (sitesData.data || []))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch data')
     } finally {
       setLoading(false)
     }
@@ -98,8 +104,8 @@ export default function MixRadiusGroupsClient() {
       toast.success(editingId ? 'Site berhasil diperbarui' : 'Site berhasil dibuat')
       setIsModalOpen(false)
       fetchData()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save')
     }
   }
 
@@ -115,8 +121,8 @@ export default function MixRadiusGroupsClient() {
 
       toast.success('Site berhasil dihapus')
       fetchData()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete')
     }
   }
 

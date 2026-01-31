@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // Common base schemas
-const baseUserSchema = {
+const _baseUserSchema = {
   email: z.string().email('Invalid email format').max(255),
   name: z.string().min(1, 'Name is required').max(100),
 }

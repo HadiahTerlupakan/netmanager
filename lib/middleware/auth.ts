@@ -20,15 +20,15 @@ export interface AuthContext {
 /**
  * Handler function with authentication context
  */
-export type AuthenticatedHandler<T = any> = (
+export type AuthenticatedHandler<T = unknown> = (
   context: AuthContext,
-  routeContext?: any
+  routeContext?: unknown
 ) => Promise<NextResponse<T>>
 
 /**
  * Middleware to require authentication
  * Supports both web (NextAuth JWT) and mobile (Bearer token) authentication
- * 
+ *
  * @example
  * ```ts
  * export const GET = withAuth(async ({ user, request }) => {
@@ -37,12 +37,12 @@ export type AuthenticatedHandler<T = any> = (
  * })
  * ```
  */
-export function withAuth<T = any>(
+export function withAuth<T = unknown>(
   handler: AuthenticatedHandler<T>
 ) {
-  return async (request: NextRequest, routeContext?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, routeContext?: unknown): Promise<NextResponse> => {
     const user = await verifyAuth(request)
-    
+
     if (!user) {
       throw new UnauthorizedError('Authentication required')
     }
@@ -54,7 +54,7 @@ export function withAuth<T = any>(
 /**
  * Middleware to require admin panel access
  * Checks that user has accessAdminPanel permission
- * 
+ *
  * @example
  * ```ts
  * export const GET = withAdminAuth(async ({ user, request }) => {
@@ -63,12 +63,12 @@ export function withAuth<T = any>(
  * })
  * ```
  */
-export function withAdminAuth<T = any>(
+export function withAdminAuth<T = unknown>(
   handler: AuthenticatedHandler<T>
 ) {
-  return async (request: NextRequest, routeContext?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, routeContext?: unknown): Promise<NextResponse> => {
     const user = await verifyAuth(request)
-    
+
     if (!user) {
       throw new UnauthorizedError('Authentication required')
     }
@@ -87,12 +87,12 @@ export function withAdminAuth<T = any>(
  * Middleware to require employee panel access
  * Checks that user has accessEmployeePanel permission
  */
-export function withEmployeeAuth<T = any>(
+export function withEmployeeAuth<T = unknown>(
   handler: AuthenticatedHandler<T>
 ) {
-  return async (request: NextRequest, routeContext?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, routeContext?: unknown): Promise<NextResponse> => {
     const user = await verifyAuth(request)
-    
+
     if (!user) {
       throw new UnauthorizedError('Authentication required')
     }
@@ -174,10 +174,10 @@ async function checkEmployeeAccess(user: UserSession): Promise<boolean> {
  * })
  * ```
  */
-export function withOptionalAuth<T = any>(
-  handler: (context: { user: UserSession | null; request: NextRequest }, routeContext?: any) => Promise<NextResponse<T>>
+export function withOptionalAuth<T = unknown>(
+  handler: (context: { user: UserSession | null; request: NextRequest }, routeContext?: { params: Record<string, string | string[]> }) => Promise<NextResponse<T>>
 ) {
-  return async (request: NextRequest, routeContext?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, routeContext?: { params: Record<string, string | string[]> }): Promise<NextResponse> => {
     const user = await verifyAuth(request)
     return handler({ user, request }, routeContext)
   }

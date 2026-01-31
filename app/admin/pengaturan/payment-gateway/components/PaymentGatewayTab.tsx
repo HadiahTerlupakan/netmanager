@@ -2,18 +2,36 @@
 
 import { useState, useEffect } from 'react'
 import {
-    HiCheckCircle,
-    HiXCircle,
-    HiInformationCircle,
-    HiOutlineArrowPath,
     HiXMark,
-    HiOutlineCreditCard,
     HiOutlineCog6Tooth,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
     HiCube
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+
+interface GatewayConfig {
+    id: string;
+    provider: string;
+    isEnabled: boolean;
+    isProduction: boolean;
+    priority: number;
+    apiKey?: string;
+    apiSecret?: string;
+    clientKey?: string;
+    merchantId?: string;
+    lastTestedAt?: string;
+    testStatus?: 'SUCCESS' | 'FAILED';
+}
+
+interface FormData {
+    isProduction: boolean;
+    priority: number;
+    apiKey: string;
+    apiSecret: string;
+    clientKey: string;
+    merchantId: string;
+}
 
 const PROVIDERS = [
     { id: 'XENDIT', name: 'Xendit', icon: HiCube, color: 'text-green-500' },
@@ -26,11 +44,18 @@ const PROVIDERS = [
 ]
 
 export default function PaymentGatewayTab() {
-    const [configs, setConfigs] = useState<any[]>([])
+    const [configs, setConfigs] = useState<GatewayConfig[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
     const [modalOpen, setModalOpen] = useState(false)
-    const [formData, setFormData] = useState<any>({})
+    const [formData, setFormData] = useState<FormData>({
+        isProduction: false,
+        priority: 1,
+        apiKey: '',
+        apiSecret: '',
+        clientKey: '',
+        merchantId: '',
+    })
     const [testing, setTesting] = useState(false)
     const [saving, setSaving] = useState(false)
 
@@ -44,7 +69,8 @@ export default function PaymentGatewayTab() {
             const response = await fetch('/api/admin/payment-gateway/configs')
             if (response.ok) {
                 const data = await response.json()
-                setConfigs(data)
+                // Handle both { data: [...] } and direct array response
+                setConfigs(Array.isArray(data) ? data : (data.data || []))
             }
         } catch (error) {
             console.error('Error fetching configs:', error)
@@ -54,7 +80,8 @@ export default function PaymentGatewayTab() {
     }
 
     const getProviderConfig = (providerId: string) => {
-        return configs.find(c => c.provider === providerId)
+        const safeConfigs = Array.isArray(configs) ? configs : []
+        return safeConfigs.find(c => c.provider === providerId)
     }
 
     const handleOpenModal = (providerId: string) => {

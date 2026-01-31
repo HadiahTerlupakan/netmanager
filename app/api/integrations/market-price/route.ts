@@ -42,6 +42,37 @@ const SEARCH_QUERY = `
   }
 `
 
+interface TokopediaProduct {
+  id: string
+  name: string
+  price: string
+  originalPrice: string
+  ratingAverage: string
+  countReview: number
+  url: string
+  imageUrl: string
+  badges: Array<{ title: string; imageUrl: string }>
+  labelGroups: Array<{ position: string; title: string }>
+  shop: { name: string; city: string }
+}
+
+interface MarketPriceResult {
+  id: string
+  name: string
+  price: number
+  priceText: string
+  originalPrice: number
+  discount: number
+  rating: string
+  reviewCount: number
+  sold: string
+  badge: string
+  shopLocation: string
+  shopName: string
+  url: string
+  image: string
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const keyword = searchParams.get('keyword')
@@ -92,21 +123,21 @@ export async function GET(request: NextRequest) {
     }
 
     const json = await response.json()
-    // console.log('Tokopedia GQL Response for:', keyword) 
-    // console.log(JSON.stringify(json, null, 2)) 
-    
+    // console.log('Tokopedia GQL Response for:', keyword)
+    // console.log(JSON.stringify(json, null, 2))
+
     // Safety check for data structure
-    const products = json.data?.ace_search_product_v4?.data?.products || []
-    
+    const products: TokopediaProduct[] = json.data?.ace_search_product_v4?.data?.products || []
+
     // Map to comprehensive structure
-    const results = products.map((p: any) => {
+    const results: MarketPriceResult[] = products.map((p) => {
         const price = parseInt(p.price.replace(/[^0-9]/g, ''))
         const originalPrice = p.originalPrice ? parseInt(p.originalPrice.replace(/[^0-9]/g, '')) : 0
         const discount = originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0
-        
+
         // Extract "Terjual" info
-        const soldLabel = p.labelGroups?.find((l: any) => l.position === 'cost_per_unit' || l.title.toLowerCase().includes('terjual'))?.title || ''
-        
+        const soldLabel = p.labelGroups?.find((l) => l.position === 'cost_per_unit' || l.title.toLowerCase().includes('terjual'))?.title || ''
+
         // Extract Badge
         const badge = p.badges?.[0]?.title || 'Merchant'
 
@@ -126,26 +157,27 @@ export async function GET(request: NextRequest) {
             url: p.url,
             image: p.imageUrl
         }
-    }).filter((p: any) => p.price > 0)
+    }).filter((p) => p.price > 0)
 
     // Calculate Average
-    const total = results.reduce((sum: number, p: any) => sum + p.price, 0)
+    const total = results.reduce((sum: number, p) => sum + p.price, 0)
     const average = results.length > 0 ? total / results.length : 0
 
     return NextResponse.json({
         source: 'Tokopedia',
         keyword,
         averagePrice: average,
-        minPrice: Math.min(...results.map((p: any) => p.price)),
-        maxPrice: Math.max(...results.map((p: any) => p.price)),
+        minPrice: Math.min(...results.map((p) => p.price)),
+        maxPrice: Math.max(...results.map((p) => p.price)),
         products: results
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Market Price API Error:', error)
-    return NextResponse.json({ 
+    return NextResponse.json({
         error: 'Failed to fetch market prices',
-        details: error.message 
+        details: message
     }, { status: 500 })
   }
 }

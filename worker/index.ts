@@ -89,7 +89,7 @@ self.addEventListener('notificationclose', (event: NotificationEvent) => {
 });
 
 // Push subscription change event handler
-self.addEventListener('pushsubscriptionchange', (event) => {
+self.addEventListener('pushsubscriptionchange', (_event) => {
     console.log('[SW] Push subscription changed');
     // Re-subscribe logic can be added here
 });

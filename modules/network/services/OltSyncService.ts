@@ -40,7 +40,7 @@ export class OltSyncService {
     ): Promise<string | null> {
         return new Promise((resolve) => {
             let resolved = false
-            let session: any = null
+            let session: { close: () => void; get: (oids: string[], callback: (error: Error | null, varbinds: Array<{ value: unknown }>) => void) => void; setMaxListeners?: (n: number) => void } | null = null
             let timeoutId: ReturnType<typeof setTimeout> | null = null
 
             const finish = (value: string | null) => {
@@ -50,7 +50,7 @@ export class OltSyncService {
                 if (session) {
                     try {
                         session.close()
-                    } catch (e) {
+                    } catch (_e) {
                         // Ignore close errors
                     }
                 }
@@ -71,20 +71,20 @@ export class OltSyncService {
                     version: snmpVersion,
                     retries: 2,
                     timeout: 5000,
-                })
+                }) as unknown as { close: () => void; get: (oids: string[], callback: (error: Error | null, varbinds: Array<{ value: unknown }>) => void) => void; setMaxListeners?: (n: number) => void }
 
                 if (session && session.setMaxListeners) {
                     session.setMaxListeners(20)
                 }
 
-                session.get([oid], (error: any, varbinds: any[]) => {
+                session.get([oid], (error: Error | null, varbinds: Array<{ value: unknown }>) => {
                     if (resolved) return
 
                     if (error || !varbinds || varbinds.length === 0) {
                         finish(null)
                     } else {
                         const varbind = varbinds[0]
-                        if (varbind.value !== null && varbind.value !== undefined) {
+                        if (varbind && varbind.value !== null && varbind.value !== undefined) {
                             finish(varbind.value.toString())
                         } else {
                             finish(null)
@@ -95,7 +95,7 @@ export class OltSyncService {
                 timeoutId = setTimeout(() => {
                     finish(null)
                 }, 10000)
-            } catch (error) {
+            } catch (_error) {
                 finish(null)
             }
         })
@@ -174,7 +174,7 @@ export class OltSyncService {
             // Start progress 10%
             const startProgress = '10'
 
-            const updateData: any = {
+            const updateData: Record<string, unknown> = {
                 syncStatus: startProgress,
                 syncDate: new Date(),
             }
@@ -245,12 +245,13 @@ export class OltSyncService {
 
             console.log(`[OltSyncService] Background sync completed for OLT ${olt.name}`)
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(`[OltSyncService] Error:`, error)
             try {
                 await oltRepository.update(oltId, { syncStatus: '0' })
-                emitProgress(0, `Error: ${error.message}`)
-            } catch (e) {
+                const message = error instanceof Error ? error.message : String(error)
+                emitProgress(0, `Error: ${message}`)
+            } catch (_e) {
                 console.error(`[OltSyncService] Failed to update error status`)
             }
         }

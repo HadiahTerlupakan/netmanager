@@ -1,16 +1,14 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import next from "eslint-config-next";
+import tseslint from "typescript-eslint";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...next,
+  ...tseslint.configs.recommended,
   {
     ignores: [
       "**/node_modules/**",
@@ -20,7 +18,12 @@ const eslintConfig = [
       "**/*.d.ts",
       "**/*.config.js",
       "**/*.config.mjs",
-      "**/*.config.ts"
+      "**/*.config.ts",
+      "tmp/**",
+      "dist/**",
+      "public/sw.js",
+      "public/workbox-*.js",
+      "public/worker-*.js"
     ]
   },
   {

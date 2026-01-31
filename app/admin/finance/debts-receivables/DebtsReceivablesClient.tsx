@@ -5,12 +5,13 @@ import { HiOutlineBanknotes, HiOutlineDocumentText } from 'react-icons/hi2'
 import clsx from 'clsx'
 import UnpaidBillsClient from '../unpaid/UnpaidBillsClient'
 import ReceivablesClient from '../receivables/ReceivablesClient'
+import type { UnpaidBill, Receivable, Category, Account } from '@/types'
 
 interface DebtsReceivablesClientProps {
-  unpaidData: any[]
-  receivablesData: any[]
-  categories: any[]
-  accounts: any[]
+  unpaidData: UnpaidBill[]
+  receivablesData: Receivable[]
+  categories: Category[]
+  accounts: Account[]
 }
 
 export default function DebtsReceivablesClient({ 

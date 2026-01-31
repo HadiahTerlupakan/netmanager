@@ -3,10 +3,9 @@
  * Lebih efisien karena hanya mengambil field yang berubah saja
  */
 
-import { snmpGet, snmpGetMultiple, snmpGetBulkSimple, snmpTable } from '@/lib/utils/snmp-helpers'
+import { snmpGetMultiple, snmpGetBulkSimple, snmpTable } from '@/lib/utils/snmp-helpers'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
-import { onuCacheService } from './onu-cache-service';
 import { buildCompositeIndex } from './onu-sync-helpers'
 import {
   parseStatus,
@@ -14,9 +13,6 @@ import {
   parseRxOnu,
   parseName,
   parseDescription,
-  parseSerialNumber,
-  parseActualType,
-  parsePppoe,
 } from '@/lib/utils/onu-data-parsers'
 
 /**
@@ -188,8 +184,8 @@ export async function updateOnuDataViaGet(
 
     console.log(`[ONU-Update-Get] Successfully updated ONU ${gponOnu} via SNMP GET`)
     return updatedData
-  } catch (error: any) {
-    console.error(`[ONU-Update-Get] Error updating ONU ${gponOnu}:`, error.message || error)
+  } catch (error) {
+    console.error(`[ONU-Update-Get] Error updating ONU ${gponOnu}:`, error instanceof Error ? error.message : String(error))
     return null
   }
 }
@@ -305,8 +301,8 @@ export async function updateMultipleOnusViaGet(
 
     console.log(`[ONU-Update-Get] Successfully updated ${results.length}/${onuList.length} ONUs via GETBULK`)
     return results
-  } catch (error: any) {
-    console.error(`[ONU-Update-Get] Error updating multiple ONUs:`, error.message || error)
+  } catch (error) {
+    console.error(`[ONU-Update-Get] Error updating multiple ONUs:`, error instanceof Error ? error.message : String(error))
     return []
   }
 }
@@ -538,8 +534,8 @@ export async function updateMultipleOnusViaTable(
 
     console.log(`[ONU-Update-Table] Successfully updated ${updatedOnus.length}/${onuList.length} ONUs via SNMP TABLE`)
     return updatedOnus
-  } catch (error: any) {
-    console.error(`[ONU-Update-Table] Error:`, error.message || error)
+  } catch (error) {
+    console.error(`[ONU-Update-Table] Error:`, error instanceof Error ? error.message : String(error))
     // Fallback ke GET multiple jika TABLE gagal
     console.log(`[ONU-Update-Table] Falling back to GET multiple...`)
     return await updateMultipleOnusViaGet(ipAddress, port, community, version, onuList)

@@ -91,7 +91,7 @@ export function sanitizeRichText(dirty: string | null | undefined): string {
  * @param deep - Apakah perlu deep sanitization (default: true)
  * @returns Object yang sudah di-sanitize
  */
-export function sanitizeObject<T extends Record<string, any>>(
+export function sanitizeObject<T extends Record<string, unknown>>(
   obj: T,
   deep: boolean = true
 ): T {
@@ -107,20 +107,20 @@ export function sanitizeObject<T extends Record<string, any>>(
 
       if (typeof value === 'string') {
         // Sanitize string values
-        sanitized[key] = sanitizeText(value) as any
+        (sanitized as Record<string, unknown>)[key] = sanitizeText(value)
       } else if (deep && typeof value === 'object' && value !== null && !Array.isArray(value)) {
         // Recursive sanitization untuk nested objects
-        sanitized[key] = sanitizeObject(value, deep) as any
+        (sanitized as Record<string, unknown>)[key] = sanitizeObject(value as Record<string, unknown>, deep)
       } else if (deep && Array.isArray(value)) {
         // Sanitize array items
-        sanitized[key] = value.map((item: any) => {
+        (sanitized as Record<string, unknown>)[key] = value.map((item: unknown) => {
           if (typeof item === 'string') {
             return sanitizeText(item)
           } else if (typeof item === 'object' && item !== null) {
-            return sanitizeObject(item, deep)
+            return sanitizeObject(item as Record<string, unknown>, deep)
           }
           return item
-        }) as any
+        })
       }
     }
   }
@@ -148,6 +148,6 @@ export function escapeHtml(text: string | null | undefined): string {
     "'": '&#039;',
   }
 
-  return text.replace(/[&<>"']/g, (m) => map[m])
+  return text.replace(/[&<>"']/g, (m) => map[m] ?? m)
 }
 

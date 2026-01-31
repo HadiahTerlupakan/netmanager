@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { verifyAuth } from '@/lib/auth';
+import crypto from 'crypto';
 import { workOrderEscalationCreateSchema, workOrderEscalationQuerySchema } from '@/lib/validations/workorder-escalation';
 import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
+import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
 /**
  * @swagger
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
             sortOrder: searchParams.get('sortOrder') || 'desc',
         });
 
-        const where: any = {};
+        const where: Prisma.WorkOrderEscalationsWhereInput = {};
 
         if (query.search) {
             where.OR = [
@@ -72,7 +74,7 @@ export async function GET(request: NextRequest) {
         }
 
         const [escalations, total] = await Promise.all([
-            (prisma as any).workOrderEscalations.findMany({
+            prisma.workOrderEscalations.findMany({
                 where,
                 include: {
                     sla: {
@@ -102,7 +104,7 @@ export async function GET(request: NextRequest) {
                 skip: (query.page - 1) * query.limit,
                 take: query.limit,
             }),
-            (prisma as any).workOrderEscalations.count({ where }),
+            prisma.workOrderEscalations.count({ where }),
         ]);
 
         return apiSuccess({
@@ -139,12 +141,16 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const validatedData = workOrderEscalationCreateSchema.parse(body);
+        const { departmentId, slaId, ...data } = workOrderEscalationCreateSchema.parse(body);
 
-        const escalation = await (prisma as any).workOrderEscalations.create({
+        const escalation = await prisma.workOrderEscalations.create({
             data: {
-                ...validatedData,
-                createdById: user.id,
+                ...data,
+                id: crypto.randomUUID(),
+                updatedAt: new Date(),
+                departments: departmentId ? { connect: { id: departmentId } } : undefined,
+                sla: slaId ? { connect: { id: slaId } } : undefined,
+                user: { connect: { id: user.id } },
             },
             include: {
                 sla: {

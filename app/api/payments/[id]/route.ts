@@ -48,7 +48,7 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -74,10 +74,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json(payment)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching payment:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

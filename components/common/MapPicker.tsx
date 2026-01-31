@@ -1,7 +1,9 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from 'react'
-import 'ol/ol.css'
+import React, { useRef, useEffect, useState } from 'react'
+import type Map from 'ol/Map'
+import type VectorLayer from 'ol/layer/Vector'
+import type VectorSource from 'ol/source/Vector'
 
 // Komponen peta berbasis OpenLayers. Pastikan memasang dependency: npm i ol
 // Minimal init: tile OSM, click untuk set koordinat, serta marker sederhana.
@@ -9,18 +11,15 @@ import 'ol/ol.css'
 type MapPickerProps = {
   lat?: number | null
   lon?: number | null
-  height?: number
+  height?: number | undefined
   onChange: (lat: number, lon: number) => void
 }
 
 export default function MapPicker({ lat, lon, height = 360, onChange }: MapPickerProps) {
   const mapEl = useRef<HTMLDivElement | null>(null)
-  const mapRef = useRef<any>(null)
-  const markerLayerRef = useRef<any>(null)
+  const mapRef = useRef<Map | null>(null)
+  const markerLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const onChangeRef = useRef(onChange)
-  const [query, setQuery] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [results, setResults] = useState<Array<{ displayName: string; lat: number; lon: number }>>([])
 
   // Keep onChange ref updated
   useEffect(() => {
@@ -73,22 +72,26 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
           markerSource.clear(); markerSource.addFeature(f)
         }
 
-        const clickHandler = (evt: any) => {
+        const clickHandler = (evt: { coordinate: [number, number] }) => {
           if (!isMounted) return
           const coord3857 = evt.coordinate
           const [lonC, latC] = toLonLat(coord3857)
+          if (typeof latC !== 'number' || typeof lonC !== 'number') return
           const f = new Feature({ geometry: new Point(coord3857) })
           f.setStyle(new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({ color: '#2563eb' }), stroke: new Stroke({ color: '#ffffff', width: 2 }) }) }))
           markerSource.clear(); markerSource.addFeature(f)
-          try { const view = map.getView(); view.animate({ center: coord3857, zoom: Math.max(17, view.getZoom() || 0), duration: 400 }) } catch { }
+          try {
+            const view = map.getView();
+            view.animate({ center: coord3857, zoom: Math.max(17, view.getZoom() || 0), duration: 400 })
+          } catch { }
           onChangeRef.current(Number(latC.toFixed(6)), Number(lonC.toFixed(6)))
         }
 
-        map.on('click', clickHandler)
-        const externalSetHandler = (e: any) => {
+        map.on('click', clickHandler as never)
+        const externalSetHandler = (e: CustomEvent<{ lat?: number; lon?: number }>) => {
           if (!isMounted) return
           try {
-            const { lat: la, lon: lo } = (e?.detail || {}) as { lat?: number; lon?: number }
+            const { lat: la, lon: lo } = e.detail || {}
             if (typeof la === 'number' && typeof lo === 'number') {
               const f = new Feature({ geometry: new Point(fromLonLat([lo, la])) })
               f.setStyle(new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({ color: '#2563eb' }), stroke: new Stroke({ color: '#ffffff', width: 2 }) }) }))
@@ -99,19 +102,19 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
             }
           } catch { }
         }
-        window.addEventListener('mappicker-set', externalSetHandler as any)
+        window.addEventListener('mappicker-set', externalSetHandler as EventListener)
 
         cleanup = () => {
           isMounted = false
           try {
-            window.removeEventListener('mappicker-set', externalSetHandler as any)
+            window.removeEventListener('mappicker-set', externalSetHandler as EventListener)
             if (mapRef.current) {
-              mapRef.current.un('click', clickHandler)
+              mapRef.current.un('click', clickHandler as never)
               mapRef.current.setTarget(undefined)
               mapRef.current.dispose()
               mapRef.current = null
             }
-          } catch (e) {
+          } catch (_e) {
             // Ignore cleanup errors
           }
         }
@@ -127,13 +130,13 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
   useEffect(() => {
     ; (async () => {
       if (!markerLayerRef.current || !mapRef.current) return
-      const { default: VectorSource } = await import('ol/source/Vector')
       const { default: Feature } = await import('ol/Feature')
       const { default: Point } = await import('ol/geom/Point')
       const { fromLonLat } = await import('ol/proj')
       const { Style, Fill, Stroke } = await import('ol/style')
       const { default: CircleStyle } = await import('ol/style/Circle')
-      const source: any = markerLayerRef.current.getSource() as typeof VectorSource
+      const source = markerLayerRef.current.getSource()
+      if (!source) return
       if (typeof lat === 'number' && typeof lon === 'number') {
         const f = new Feature({ geometry: new Point(fromLonLat([lon, lat])) })
         f.setStyle(new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({ color: '#2563eb' }), stroke: new Stroke({ color: '#ffffff', width: 2 }) }) }))
@@ -161,7 +164,7 @@ export function MapPickerWithSearch(props: MapPickerProps) {
     setSearching(true)
     try {
       const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(query)}`)
-      const j = await res.json().catch(() => ({ results: [] }))
+      const j: { results: Array<{ displayName: string; lat: number; lon: number }> } = await res.json().catch(() => ({ results: [] as Array<{ displayName: string; lat: number; lon: number }> }))
       setResults(j.results || [])
     } finally {
       setSearching(false)
@@ -177,7 +180,7 @@ export function MapPickerWithSearch(props: MapPickerProps) {
       {results.length > 0 && (
         <div className="max-h-40 overflow-auto rounded-md border border-gray-200 dark:border-gray-800">
           {results.map((r, i) => (
-            <button key={i} type="button" onClick={() => { setLat(r.lat); setLon(r.lon); setResults([]); try { window.dispatchEvent(new CustomEvent('mappicker-set', { detail: { lat: r.lat, lon: r.lon } })) } catch { }; props.onChange(r.lat, r.lon) }} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+            <button key={i} type="button" onClick={() => { setLat(r.lat); setLon(r.lon); setResults([]); try { window.dispatchEvent(new CustomEvent('mappicker-set', { detail: { lat: r.lat, lon: r.lon } })) } catch (_e) { }; props.onChange(r.lat, r.lon) }} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
               {r.displayName}
             </button>
           ))}

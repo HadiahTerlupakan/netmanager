@@ -20,9 +20,18 @@ import {
     MdPerson
 } from 'react-icons/md'
 
+interface ConnectionData {
+    success: boolean
+    connection?: {
+        isOnline: boolean
+        ipAddress: string | null
+        sessionDurationFormatted?: string
+    }
+}
+
 export default function CustomerConnectionPage() {
     const { isLoading: authLoading, isAuthenticated } = useCustomerAuth()
-    const [data, setData] = useState<any>(null)
+    const [data, setData] = useState<ConnectionData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
 

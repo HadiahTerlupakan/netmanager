@@ -14,13 +14,12 @@ import {
     ArcElement
 } from 'chart.js'
 import { Bar, Line } from 'react-chartjs-2'
-import { FaCalendarAlt, FaSearch, FaFileExport } from 'react-icons/fa'
+import { FaSearch, FaFileExport } from 'react-icons/fa'
 import { MdTrendingUp, MdAccessTime, MdPeople, MdPersonOff, MdTimer } from 'react-icons/md'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
 import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
-import { formatDateDisplay } from '@/lib/utils/datetime'
 import { validateDateRange } from '@/lib/utils/validation'
 
 ChartJS.register(
@@ -35,10 +34,84 @@ ChartJS.register(
     ArcElement
 )
 
+// Interfaces for report data
+interface AttendanceTrend {
+    date: string
+    present: number
+    late: number
+}
+
+interface OvertimeTrend {
+    date: string
+    duration: number
+}
+
+interface DepartmentStat {
+    name: string
+    present: number
+    late: number
+    duration?: number
+}
+
+interface SiteStat {
+    name: string
+    present: number
+    late: number
+    duration?: number
+}
+
+interface EmployeeSummary {
+    userId: string
+    user?: {
+        name: string
+        image?: string
+        site?: { name: string }
+        department?: { name: string }
+    }
+    hadir: number
+    terlambat: number
+    izin: number
+    alpha: number
+    lemburJam: number
+    totalJamKerja: number
+}
+
+interface AttendanceSummary {
+    totalAttendance: number
+    attendanceRate: number
+    avgDurationMinutes: number
+    lateCount: number
+    lateRate: number
+    alphaCount: number
+    alphaRate: number
+}
+
+interface OvertimeSummary {
+    totalRequests: number
+    totalDuration: number
+    avgDuration: number
+}
+
+interface ReportData {
+    attendance: {
+        summary: AttendanceSummary
+        trends: AttendanceTrend[]
+        byDepartment: DepartmentStat[]
+        bySite: SiteStat[]
+        employeeSummary: EmployeeSummary[]
+    }
+    overtime: {
+        summary: OvertimeSummary
+        trends: OvertimeTrend[]
+        byDepartment: DepartmentStat[]
+        bySite: SiteStat[]
+    }
+}
+
 export function ClientComponent() {
     const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<any>(null)
+    const [data, setData] = useState<ReportData | null>(null)
     const [retryCountdown, setRetryCountdown] = useState<number | null>(null)
 
     // Filters
@@ -75,7 +148,7 @@ export function ClientComponent() {
         }
     }, [retryCountdown])
 
-    const fetchOptions = async () => {
+    const fetchOptionsCallback = useCallback(async () => {
         try {
             const response = await fetchWithHandling<{ sites: { id: string, name: string }[], departments: { id: string, name: string }[] }>('/api/admin/options')
             if (response.data) {
@@ -87,7 +160,7 @@ export function ClientComponent() {
                 showToast('error', formatErrorMessage(error))
             }
         }
-    }
+    }, [showToast])
 
     const fetchReport = useCallback(async () => {
         if (retryCountdown !== null) return
@@ -110,7 +183,7 @@ export function ClientComponent() {
 
             const query = new URLSearchParams(params)
 
-            const response = await fetchWithHandling<any>(`/api/admin/reports/presence?${query.toString()}`)
+            const response = await fetchWithHandling<ReportData>(`/api/admin/reports/presence?${query.toString()}`)
             setData(response.data)
         } catch (error) {
             if (isFetchError(error)) {
@@ -125,8 +198,8 @@ export function ClientComponent() {
     }, [debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, retryCountdown, showToast])
 
     useEffect(() => {
-        fetchOptions()
-    }, [])
+        fetchOptionsCallback()
+    }, [fetchOptionsCallback])
 
     useEffect(() => {
         fetchReport()
@@ -142,7 +215,7 @@ export function ClientComponent() {
         if (!data?.attendance?.employeeSummary) return
         
         const headers = ['Nama', 'Site', 'Departemen', 'Hadir', 'Terlambat', 'Izin', 'Alpha', 'Lembur (Jam)', 'Total Jam Kerja']
-        const rows = data.attendance.employeeSummary.map((e: any) => [
+        const rows = data.attendance.employeeSummary.map((e: EmployeeSummary) => [
             `"${e.user?.name || '-'}"`,
             `"${e.user?.site?.name || '-'}"`,
             `"${e.user?.department?.name || '-'}"`,
@@ -153,8 +226,8 @@ export function ClientComponent() {
             e.lemburJam,
             e.totalJamKerja
         ])
-        
-        const csvContent = [headers.join(','), ...rows.map((r: any[]) => r.join(','))].join('\n')
+
+        const csvContent = [headers.join(','), ...rows.map((r: (string | number)[]) => r.join(','))].join('\n')
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -166,7 +239,7 @@ export function ClientComponent() {
         document.body.removeChild(link)
     }
 
-    const rekapColumns: Column<any>[] = [
+    const rekapColumns: Column<EmployeeSummary>[] = [
         {
             key: 'name',
             header: 'Karyawan',
@@ -174,7 +247,7 @@ export function ClientComponent() {
             render: (item) => (
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0 relative">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        { }
                         <img
                             src={item.user?.image || `https://ui-avatars.com/api/?name=${item.user?.name}&background=random`}
                             alt=""
@@ -432,18 +505,18 @@ export function ClientComponent() {
                             <div className="h-64">
                                 <Line
                                     data={{
-                                        labels: data.attendance.trends.map((t: any) => t.date),
+                                        labels: data.attendance.trends.map((t: AttendanceTrend) => t.date),
                                         datasets: [
                                             {
                                                 label: 'Hadir',
-                                                data: data.attendance.trends.map((t: any) => t.present),
+                                                data: data.attendance.trends.map((t: AttendanceTrend) => t.present),
                                                 borderColor: 'rgb(59, 130, 246)',
                                                 backgroundColor: 'rgba(59, 130, 246, 0.5)',
                                                 tension: 0.3
                                             },
                                             {
                                                 label: 'Terlambat',
-                                                data: data.attendance.trends.map((t: any) => t.late),
+                                                data: data.attendance.trends.map((t: AttendanceTrend) => t.late),
                                                 borderColor: 'rgb(234, 179, 8)',
                                                 backgroundColor: 'rgba(234, 179, 8, 0.5)',
                                                 tension: 0.3
@@ -467,11 +540,11 @@ export function ClientComponent() {
                             <div className="h-64">
                                 <Bar
                                     data={{
-                                        labels: data.overtime.trends.map((t: any) => t.date),
+                                        labels: data.overtime.trends.map((t: OvertimeTrend) => t.date),
                                         datasets: [
                                             {
                                                 label: 'Durasi Lembur (Menit)',
-                                                data: data.overtime.trends.map((t: any) => t.duration),
+                                                data: data.overtime.trends.map((t: OvertimeTrend) => t.duration),
                                                 backgroundColor: 'rgba(147, 51, 234, 0.6)',
                                                 borderRadius: 4
                                             }
@@ -494,7 +567,7 @@ export function ClientComponent() {
                         {/* By Department */}
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
                             <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Performa per Departemen</h3>
-                            <ResponsiveTable<any>
+                            <ResponsiveTable<DepartmentStat>
                                 data={data.attendance.byDepartment}
                                 loading={loading}
                                 keyField="name"
@@ -525,8 +598,8 @@ export function ClientComponent() {
                                         priority: 'secondary',
                                         align: 'center',
                                         render: (item) => {
-                                            const ot = data.overtime.byDepartment.find((o: any) => o.name === item.name)
-                                            return <span className="text-purple-600 font-medium">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
+                                            const ot = data.overtime.byDepartment.find((o: DepartmentStat) => o.name === item.name)
+                                            return <span className="text-purple-600 font-medium">{ot?.duration ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
                                         }
                                     }
                                 ]}
@@ -536,7 +609,7 @@ export function ClientComponent() {
                         {/* By Site */}
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
                             <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Performa per Site</h3>
-                            <ResponsiveTable<any>
+                            <ResponsiveTable<SiteStat>
                                 data={data.attendance.bySite}
                                 loading={loading}
                                 keyField="name"
@@ -567,8 +640,8 @@ export function ClientComponent() {
                                         priority: 'secondary',
                                         align: 'center',
                                         render: (item) => {
-                                            const ot = data.overtime.bySite.find((o: any) => o.name === item.name)
-                                            return <span className="text-purple-600 font-medium">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
+                                            const ot = data.overtime.bySite.find((o: SiteStat) => o.name === item.name)
+                                            return <span className="text-purple-600 font-medium">{ot?.duration ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
                                         }
                                     }
                                 ]}
@@ -605,21 +678,21 @@ export function ClientComponent() {
                         </div>
                     </div>
                     
-                    <ResponsiveTable<any>
+                    <ResponsiveTable<EmployeeSummary>
                         data={(() => {
                             let filtered = data?.attendance?.employeeSummary || []
-                            
+
                             // Search filter
                             if (searchQuery) {
-                                filtered = filtered.filter((e: any) => 
+                                filtered = filtered.filter((e: EmployeeSummary) =>
                                     e.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
                                 )
                             }
-                            
+
                             // Sort
-                            filtered = [...filtered].sort((a: any, b: any) => {
-                                const aVal = a[sortConfig.key] || 0
-                                const bVal = b[sortConfig.key] || 0
+                            filtered = [...filtered].sort((a: EmployeeSummary, b: EmployeeSummary) => {
+                                const aVal = (a as unknown as Record<string, unknown>)[sortConfig.key] as number || 0
+                                const bVal = (b as unknown as Record<string, unknown>)[sortConfig.key] as number || 0
                                 return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal
                             })
                             

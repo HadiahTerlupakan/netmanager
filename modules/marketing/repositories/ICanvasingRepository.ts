@@ -1,5 +1,4 @@
 import type { Canvasing, CanvasingStatus } from '@prisma/client'
-import { Prisma } from '@prisma/client'
 
 export interface CreateCanvasingInput {
   nama: string

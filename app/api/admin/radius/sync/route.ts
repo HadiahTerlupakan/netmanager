@@ -11,7 +11,7 @@ import { RadiusSyncService } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
         if (!session?.user) {

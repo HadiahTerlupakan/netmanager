@@ -48,19 +48,22 @@ export async function GET(request: NextRequest) {
         // Transform to notification format
         const notifications = ticketsWithNewReplies
             .filter(ticket => ticket.replies.length > 0)
-            .map(ticket => ({
-                id: `ticket-reply-${ticket.replies[0].id}`,
-                type: 'TICKET_REPLY',
-                title: 'Balasan Tiket',
-                message: `Tiket #${ticket.ticketNumber.split('-').pop()} telah dibalas`,
-                preview: ticket.replies[0].message.substring(0, 100) + (ticket.replies[0].message.length > 100 ? '...' : ''),
-                ticketId: ticket.id,
-                ticketNumber: ticket.ticketNumber,
-                ticketSubject: ticket.subject,
-                createdAt: ticket.replies[0].createdAt,
-                isRead: ticket.status === 'CLOSED' || ticket.status === 'RESOLVED',
-                sender: ticket.replies[0].user?.name || 'Tim Dukungan',
-            }))
+            .map(ticket => {
+                const reply = ticket.replies[0]!
+                return {
+                    id: `ticket-reply-${reply.id}`,
+                    type: 'TICKET_REPLY',
+                    title: 'Balasan Tiket',
+                    message: `Tiket #${ticket.ticketNumber.split('-').pop()} telah dibalas`,
+                    preview: reply.message.substring(0, 100) + (reply.message.length > 100 ? '...' : ''),
+                    ticketId: ticket.id,
+                    ticketNumber: ticket.ticketNumber,
+                    ticketSubject: ticket.subject,
+                    createdAt: reply.createdAt,
+                    isRead: ticket.status === 'CLOSED' || ticket.status === 'RESOLVED',
+                    sender: reply.user?.name || 'Tim Dukungan',
+                }
+            })
 
         return NextResponse.json({
             success: true,

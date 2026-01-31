@@ -1,12 +1,46 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, use, useCallback } from 'react'
 import Link from 'next/link'
 import { HiOutlineArrowLeft } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { toast } from 'react-hot-toast'
 import SalesPerformanceStats from './SalesPerformanceStats'
+
+interface SalesPerformanceData {
+    user: {
+        id: string
+        name: string | null
+    }
+    period?: string
+    target: number
+    canvasing: {
+        approved: number
+        rejected: number
+        pending: number
+        total: number
+        progress: number
+    }
+    points?: {
+        approved: number
+        approvedValue: number
+        rejected: number
+        pending: number
+        pendingValue: number
+        total: number
+        totalValue: number
+    }
+    totalAllTime: number
+    totalPointsAllTime?: number
+    recentActivity: {
+        id: string
+        pelangganName: string
+        status: string
+        createdAt: string
+        address: string | null
+        pointClaim?: { status: string; pointValue: number } | null
+    }[]
+}
 
 const periodLabels: Record<string, string> = {
     day: 'Hari Ini',
@@ -18,14 +52,10 @@ const periodLabels: Record<string, string> = {
 export default function SalesDetailClient({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
     const [loading, setLoading] = useState(true)
-    const [data, setData] = useState<any>(null)
+    const [data, setData] = useState<SalesPerformanceData | null>(null)
     const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month')
 
-    useEffect(() => {
-        fetchData()
-    }, [id, period])
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true)
             const res = await fetch(`/api/admin/users/${id}/sales-performance?period=${period}`)
@@ -41,7 +71,11 @@ export default function SalesDetailClient({ params }: { params: Promise<{ id: st
         } finally {
             setLoading(false)
         }
-    }
+    }, [id, period])
+
+    useEffect(() => {
+        fetchData()
+    }, [fetchData])
 
     if (loading && !data) return <PageLoader message="Memuat statistik sales..." />
 

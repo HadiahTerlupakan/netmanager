@@ -30,8 +30,9 @@ export async function syncOltDataFromSnmp(oltId: string): Promise<boolean> {
     // Import dan call fungsi sync langsung (untuk menghindari auth issues)
     const { syncOltDataDirect } = await import('./olt-sync-direct')
     return await syncOltDataDirect(oltId)
-  } catch (error: any) {
-    console.error(`[OLT-Sync] Error syncing OLT ${oltId}:`, error?.message || error)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error(`[OLT-Sync] Error syncing OLT ${oltId}:`, message)
     return false
   }
 }
@@ -55,15 +56,17 @@ export async function syncAllOltData(): Promise<number> {
       try {
         const success = await syncOltDataFromSnmp(olt.id)
         if (success) syncedCount++
-      } catch (error: any) {
-        console.error(`[OLT-Sync] Error syncing OLT ${olt.name}:`, error?.message || error)
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(`[OLT-Sync] Error syncing OLT ${olt.name}:`, message)
       }
     }
 
     console.log(`[OLT-Sync] Completed sync for all OLTs. Successfully synced: ${syncedCount}/${connectedOlts.length}`)
     return syncedCount
-  } catch (error: any) {
-    console.error(`[OLT-Sync] Error in syncAllOltData:`, error?.message || error)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error(`[OLT-Sync] Error in syncAllOltData:`, message)
     throw error
   }
 }

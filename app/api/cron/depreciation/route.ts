@@ -29,8 +29,9 @@ export async function GET(req: NextRequest) {
         return apiSuccess({ 
             processed: results.length,
         }, { message: `Depreciation run completed. Processed ${results.length} assets.` })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Depreciation Cron Failed:', error)
-        return ApiErrors.internalError(error.message || 'Depreciation cron failed')
+        const errorMessage = error instanceof Error ? error.message : 'Depreciation cron failed'
+        return ApiErrors.internalError(errorMessage)
     }
 }

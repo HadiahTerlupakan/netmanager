@@ -10,8 +10,8 @@ interface Site {
 
 interface SiteFilterProps {
   onSiteChange: (siteId: string | undefined) => void
-  className?: string
-  isInput?: boolean // If true, behaves like a form input (auto-selects & shows static if single site)
+  className?: string | undefined
+  isInput?: boolean | undefined // If true, behaves like a form input (auto-selects & shows static if single site)
   value?: string | undefined
 }
 
@@ -36,7 +36,10 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
   // Sync with value prop if provided
   useEffect(() => {
     if (value !== undefined) {
-      setSelectedSite(value)
+      // Defer state update to avoid synchronous setState in effect
+      requestAnimationFrame(() => {
+        setSelectedSite(value)
+      })
     }
   }, [value])
 
@@ -55,8 +58,11 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
     if (isInput && !loading && sites.length === 1 && !selectedSite) {
         const singleSite = sites[0]
         if (singleSite) {
-            setSelectedSite(singleSite.id)
-            onSiteChange(singleSite.id)
+            // Defer state updates to avoid synchronous setState in effect
+            requestAnimationFrame(() => {
+              setSelectedSite(singleSite.id)
+              onSiteChange(singleSite.id)
+            })
         }
     }
     // If filter mode, we usually default to "Semua Site" (''), unless we want to force?

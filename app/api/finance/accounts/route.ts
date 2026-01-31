@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { z } from 'zod'
@@ -11,9 +11,9 @@ const accountSchema = z.object({
   initialBalance: z.number().optional().default(0)
 })
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const session = await verifyAuth(req as any)
+    const session = await verifyAuth(req)
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
@@ -29,13 +29,19 @@ export async function POST(req: Request) {
     }
 
     const financeService = new FinanceService()
-    const account = await financeService.createAccount(validation.data)
+    const { accountNumber, description, ...rest } = validation.data
+    const account = await financeService.createAccount({
+        ...rest,
+        ...(accountNumber ? { accountNumber } : {}),
+        ...(description ? { description } : {})
+    })
 
     return NextResponse.json({ success: true, data: account })
-  } catch (error: any) {
-    console.error('Create Account Error:', error)
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    console.error('Create Account Error:', err)
     return NextResponse.json(
-      { error: error.message || 'Terjadi kesalahan saat membuat akun' },
+      { error: err.message || 'Terjadi kesalahan saat membuat akun' },
       { status: 500 }
     )
   }

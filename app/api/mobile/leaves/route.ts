@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { LeaveRepository } from '@/modules/attendance/repositories/LeaveRepository'
-import { LeaveBalanceRepository, DEFAULT_LEAVE_QUOTAS } from '@/modules/attendance/repositories/LeaveBalanceRepository'
+import { LeaveBalanceRepository } from '@/modules/attendance/repositories/LeaveBalanceRepository'
 import { verifyMobileToken } from '@/lib/mobile-auth'
-import { LeaveType, LeaveStatus } from '@prisma/client'
+import { LeaveType, LeaveStatus, Prisma } from '@prisma/client'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveBase64 } from '@/lib/utils/image-upload'
@@ -19,15 +19,16 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Token required' }, { status: 401 })
         }
 
-        const user = await verifyMobileToken(token) as { id: string } | null
+        const user = await verifyMobileToken(token) as unknown as { id: string };
         if (!user) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
         }
 
         const leaves = await repo.findAll({ userId: user.id })
         return NextResponse.json({ success: true, data: leaves })
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
 
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Token required' }, { status: 401 })
         }
 
-        const user = await verifyMobileToken(token) as { id: string } | null
+        const user = await verifyMobileToken(token) as unknown as { id: string };
         if (!user) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
         }
@@ -100,20 +101,21 @@ export async function POST(request: Request) {
                 const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
                 // 1. Validate Start Date (Must be a Work Day)
-                if (!workDays.includes(startDayName)) {
-                     return NextResponse.json({ 
-                        error: `Tanggal izin (${startDate}) harus merupakan Hari Kerja.` 
+                if (!startDayName || !workDays.includes(startDayName)) {
+                     return NextResponse.json({
+                        error: `Tanggal izin (${startDate}) harus merupakan Hari Kerja.`
                     }, { status: 400 })
                 }
 
                 // 2. Validate Replacement Date (Must be Off Day OR Holiday)
                 // Check if it's an Off Day
-                const isOffDay = !workDays.includes(replacementDayName);
+                const isOffDay = replacementDayName ? !workDays.includes(replacementDayName) : false;
 
                 // Check if it's a Holiday
-                const holiday = await prisma.holiday.findUnique({
-                    where: { date: new Date(formatDate(replacement)) }
-                });
+                const formattedReplacementDate = formatDate(replacement);
+                const holiday = formattedReplacementDate ? await prisma.holiday.findUnique({
+                    where: { date: new Date(formattedReplacementDate) }
+                }) : null;
 
                 if (!isOffDay && !holiday) {
                      return NextResponse.json({ 
@@ -149,17 +151,22 @@ export async function POST(request: Request) {
             }
         }
 
-        const requestData = await repo.create({
+        const createData: Record<string, unknown> = {
             user: { connect: { id: user.id } },
             type: type as LeaveType,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             replacementDate: replacementDate ? new Date(replacementDate) : null,
             reason,
-            attachmentUrl: attachments.length > 0 ? attachments[0] : null,
             attachments: attachments,
             status: LeaveStatus.PENDING
-        })
+        }
+
+        if (attachments.length > 0) {
+            createData.attachmentUrl = attachments[0]
+        }
+
+        const requestData = await repo.create(createData as unknown as Prisma.LeaveRequestCreateInput)
 
         // Notify Admins
         try {
@@ -201,8 +208,8 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json({ success: true, data: requestData }, { status: 201 })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Leave request error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
     }
 }

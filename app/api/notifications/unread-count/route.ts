@@ -17,9 +17,10 @@ export async function GET(request: NextRequest) {
         const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
 
         const permissions = await getUserPermissions(session.user.id);
-        const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+        const user = session.user as { role?: string; siteId?: string };
+        const isSuperAdmin = user.role === 'SUPER_ADMIN'
         const siteId = (!isSuperAdmin && permissions.includes('site_only'))
-            ? (session.user as any).siteId
+            ? user.siteId
             : undefined;
 
         const count = await getUnreadCount(session.user.id, excludeTypes, siteId);

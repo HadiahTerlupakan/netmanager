@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
 import { UserService, type CreateUserInput } from '@/modules/users/services/UserService'
-import { WorkingHourMode } from '@prisma/client'
+import { WorkingHourMode, type User } from '@prisma/client'
 
 // Mock bcryptjs
 vi.mock('bcryptjs', () => ({
@@ -12,26 +12,26 @@ vi.mock('bcryptjs', () => ({
 vi.mock('@/modules/users/repositories/UserRepository', () => ({
   UserRepository: class MockUserRepository {
     findAll = vi.fn().mockImplementation(() => prismaMock.user.findMany())
-    findById = vi.fn().mockImplementation((id: string) => 
+    findById = vi.fn().mockImplementation((id: string) =>
       prismaMock.user.findUnique({ where: { id } })
     )
-    findByEmail = vi.fn().mockImplementation((email: string) => 
+    findByEmail = vi.fn().mockImplementation((email: string) =>
       prismaMock.user.findFirst({ where: { email } })
     )
-    findByIdWithRelations = vi.fn().mockImplementation((id: string) => 
+    findByIdWithRelations = vi.fn().mockImplementation((id: string) =>
       prismaMock.user.findUnique({ where: { id } })
     )
-    create = vi.fn().mockImplementation((data: any) => 
-      prismaMock.user.create({ data })
+    create = vi.fn().mockImplementation((data: unknown) =>
+      prismaMock.user.create({ data: data as unknown as User })
     )
-    update = vi.fn().mockImplementation((id: string, data: any) => 
-      prismaMock.user.update({ where: { id }, data })
+    update = vi.fn().mockImplementation((id: string, data: unknown) =>
+      prismaMock.user.update({ where: { id }, data: data as unknown as User })
     )
-    delete = vi.fn().mockImplementation((id: string) => 
+    delete = vi.fn().mockImplementation((id: string) =>
       prismaMock.user.delete({ where: { id } })
     )
-    updateWorkingHours = vi.fn().mockImplementation((id: string, data: any) => 
-      prismaMock.user.update({ where: { id }, data })
+    updateWorkingHours = vi.fn().mockImplementation((id: string, data: unknown) =>
+      prismaMock.user.update({ where: { id }, data: data as unknown as User })
     )
   }
 }))
@@ -56,7 +56,7 @@ describe('UserService', () => {
       prismaMock.user.findFirst.mockResolvedValueOnce({
         id: 'existing-user',
         email: 'newuser@example.com'
-      } as any)
+      } as unknown as User)
 
       await expect(service.createUser(validInput))
         .rejects.toThrow('Email already exists')
@@ -64,14 +64,14 @@ describe('UserService', () => {
 
     it('should hash password before creating user', async () => {
       const { hash } = await import('bcryptjs')
-      
+
       // Mock: Email not exists
       prismaMock.user.findFirst.mockResolvedValueOnce(null)
       prismaMock.user.create.mockResolvedValueOnce({
         id: 'new-user-id',
         email: 'newuser@example.com',
         passwordHash: 'hashed_password'
-      } as any)
+      } as unknown as User)
 
       await service.createUser(validInput)
 
@@ -84,7 +84,7 @@ describe('UserService', () => {
         id: 'new-user-id',
         email: 'newuser@example.com',
         name: 'New User'
-      } as any)
+      } as unknown as User)
 
       const result = await service.createUser(validInput)
 
@@ -106,13 +106,13 @@ describe('UserService', () => {
       prismaMock.user.findUnique.mockResolvedValueOnce({
         id: 'user-1',
         email: 'original@example.com'
-      } as any)
+      } as unknown as User)
 
       // Mock: New email already taken by another user
       prismaMock.user.findFirst.mockResolvedValueOnce({
         id: 'another-user',
         email: 'taken@example.com'
-      } as any)
+      } as unknown as User)
 
       await expect(service.updateUser('user-1', { email: 'taken@example.com' }))
         .rejects.toThrow('Email already exists')
@@ -125,16 +125,16 @@ describe('UserService', () => {
         name: 'User'
       }
 
-      prismaMock.user.findUnique.mockResolvedValueOnce(existingUser as any)
+      prismaMock.user.findUnique.mockResolvedValueOnce(existingUser as unknown as User)
       prismaMock.user.update.mockResolvedValueOnce({
         ...existingUser,
         name: 'New Name'
-      } as any)
+      } as unknown as User)
 
       // Update name only, keeping same email
-      const result = await service.updateUser('user-1', { 
+      const result = await service.updateUser('user-1', {
         email: 'same@example.com',
-        name: 'New Name' 
+        name: 'New Name'
       })
 
       expect(result.name).toBe('New Name')
@@ -151,8 +151,8 @@ describe('UserService', () => {
 
     it('should delete user successfully', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com' }
-      prismaMock.user.findUnique.mockResolvedValueOnce(mockUser as any)
-      prismaMock.user.delete.mockResolvedValueOnce(mockUser as any)
+      prismaMock.user.findUnique.mockResolvedValueOnce(mockUser as unknown as User)
+      prismaMock.user.delete.mockResolvedValueOnce(mockUser as unknown as User)
 
       const result = await service.deleteUser('user-1')
 
@@ -186,7 +186,7 @@ describe('UserService', () => {
         startWorkTime: '08:00',
         endWorkTime: '17:00',
         workDays: 'MON,TUE,WED,THU,FRI'
-      } as any)
+      } as unknown as User)
 
       const result = await service.updateWorkingHours('user-1', {
         workingHourMode: WorkingHourMode.FIXED,

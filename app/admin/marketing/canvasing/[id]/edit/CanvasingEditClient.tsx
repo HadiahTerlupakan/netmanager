@@ -57,8 +57,12 @@ export default function CanvasingEditClient({ id }: { id: string }) {
             toast.success('Data berhasil diperbarui');
             router.push('/admin/marketing/canvasing');
             router.refresh();
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Gagal memperbarui data');
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                toast.error(error.response?.data?.error || 'Gagal memperbarui data');
+            } else {
+                toast.error('Gagal memperbarui data');
+            }
         } finally {
             setIsProcessing(false);
         }

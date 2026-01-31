@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
 import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
@@ -21,7 +21,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         orderBy: { createdAt: 'desc' },
       })
       return routers
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error in MikroTikRouterRepository.findAll:', error)
       throw error
     }
@@ -35,7 +35,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     const { page, limit } = pagination
     const skip = (page - 1) * limit
 
-    const whereClause: any = {} // Using any to avoid complex Prisma types import for now, or use Prisma.MikroTikRouterWhereInput
+    const whereClause: Prisma.MikroTikRouterWhereInput = {}
 
     if (search) {
       whereClause.OR = [
@@ -95,7 +95,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         description: data.description ?? null,
         pingStatus: 'offline',
         userOnline: 0,
-        siteId: data.siteId ?? undefined,
+        siteId: data.siteId ?? null,
       },
       select: { id: true, ipAddress: true, secretRadius: true, name: true, description: true },
     })
@@ -127,7 +127,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       select: { ipAddress: true, secretRadius: true, name: true }
     });
 
-    const router = await this.client.mikroTikRouter.update({
+    await this.client.mikroTikRouter.update({
       where: { id },
       data: {
         updatedAt: new Date(),
@@ -165,7 +165,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
             nasname: data.ipAddress ?? existingRouter.ipAddress,
             secret: data.secretRadius ?? existingRouter.secretRadius,
             shortname: data.name ?? existingRouter.name,
-            description: data.description ?? undefined, // Only update if provided
+            ...(data.description !== undefined ? { description: data.description ?? '' } : {}),
           };
 
           if (existingNas && existingNas.id) {
@@ -241,13 +241,13 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   }
 
   async count(siteId?: string): Promise<number> {
-    const where: any = {}
+    const where: Prisma.MikroTikRouterWhereInput = {}
     if (siteId) where.siteId = siteId
     return await this.client.mikroTikRouter.count({ where })
   }
 
   async getStatistics(siteId?: string): Promise<MikroTikRouterStatistics> {
-    const where: any = {}
+    const where: Prisma.MikroTikRouterWhereInput = {}
     if (siteId) where.siteId = siteId
 
     const total = await this.client.mikroTikRouter.count({ where })

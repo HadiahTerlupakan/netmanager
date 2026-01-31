@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, use } from 'react'
+import { useEffect, useState, use, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'react-hot-toast'
@@ -22,7 +22,6 @@ import {
   HiOutlineIdentification,
   HiOutlineStar
 } from 'react-icons/hi2'
-import { RateType } from '@prisma/client'
 import WorkingHoursSettings from './WorkingHoursSettings'
 import LeaveBalanceSettings from './LeaveBalanceSettings'
 import LeaveQuotaSummary from './LeaveQuotaSummary'
@@ -122,55 +121,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     isSales: false,
   })
 
-  useEffect(() => {
-    Promise.all([
-      fetchUser(),
-      fetchDepartments(),
-      fetchRoles(),
-      fetchSites(),
-    ]).finally(() => setLoading(false))
-  }, [id])
-
-  const fetchDepartments = async () => {
-    try {
-      const res = await fetch('/api/admin/departments')
-      if (res.status === 403) return // Ignore forbidden
-      const data = await res.json()
-      if (res.ok) {
-        setDepartments(data.data || [])
-      }
-    } catch (error) {
-      console.error('Error fetching departments:', error)
-    }
-  }
-
-  const fetchRoles = async () => {
-    try {
-      const res = await fetch('/api/roles')
-      if (res.status === 403) return // Ignore forbidden
-      const data = await res.json()
-      if (res.ok) {
-        setRoles(Array.isArray(data) ? data : [])
-      }
-    } catch (error) {
-      console.error('Error fetching roles:', error)
-    }
-  }
-
-  const fetchSites = async () => {
-    try {
-      const res = await fetch('/api/admin/sites?activeOnly=true')
-      if (res.status === 403) return // Ignore forbidden
-      const data = await res.json()
-      if (res.ok) {
-        setSites(data.data || [])
-      }
-    } catch (error) {
-      console.error('Error fetching sites:', error)
-    }
-  }
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/users/${id}`)
       const data = await res.json()
@@ -197,7 +148,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         })
         // Multi-site: Load userSites
         if (usr.userSites && usr.userSites.length > 0) {
-          setSelectedSites(usr.userSites.map((us: any) => ({
+          setSelectedSites(usr.userSites.map((us: { siteId: string; isPrimary: boolean }) => ({
             siteId: us.siteId,
             isPrimary: us.isPrimary
           })))
@@ -206,12 +157,58 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           setSelectedSites([{ siteId: usr.siteId, isPrimary: true }])
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching user:', error)
-      toast.error('Gagal memuat data user: ' + (error.message || 'Unknown error'))
-      setErrors({ fetch: error.message || 'Gagal memuat data' })
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      toast.error('Gagal memuat data user: ' + message)
+      setErrors({ fetch: message })
     }
-  }
+  }, [id])
+
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/departments')
+      if (res.ok) {
+        const data = await res.json()
+        setDepartments(data.departments || data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching departments:', error)
+    }
+  }, [])
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/roles')
+      if (res.ok) {
+        const data = await res.json()
+        setRoles(data.roles || data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error)
+    }
+  }, [])
+
+  const fetchSites = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sites')
+      if (res.ok) {
+        const data = await res.json()
+        setSites(data.sites || data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching sites:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    Promise.all([
+      fetchUser(),
+      fetchDepartments(),
+      fetchRoles(),
+      fetchSites(),
+    ]).finally(() => setLoading(false))
+  }, [fetchUser, fetchDepartments, fetchRoles, fetchSites])
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
+  const session = await getServerSession(authConfig)
   if (!session || false) {
     return null
   }
@@ -85,8 +85,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error getting stock opname summary', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    logger.error('Error getting stock opname summary', err, {
       path: '/api/inventory/opname/summary',
       method: 'GET',
     })

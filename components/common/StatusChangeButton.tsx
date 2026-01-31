@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useToast } from '@/components/common/ToastProvider'
+import { useToast } from '@/hooks/use-toast'
 import { FiCheckCircle, FiXCircle, FiSettings, FiZap } from 'react-icons/fi'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 
@@ -11,9 +11,9 @@ type StatusChangeButtonProps = {
   entityName: string
 }
 
-export function StatusChangeButton({ id, currentStatus, apiEndpoint, entityName }: StatusChangeButtonProps) {
+export function StatusChangeButton({ currentStatus, apiEndpoint, entityName }: StatusChangeButtonProps) {
   const router = useRouter()
-  const { show } = useToast()
+  const { showToast } = useToast()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -29,28 +29,16 @@ export function StatusChangeButton({ id, currentStatus, apiEndpoint, entityName 
       })
 
       if (res.ok) {
-        show({
-          type: 'success',
-          title: 'Berhasil',
-          message: `Status ${entityName} berhasil diubah menjadi ${newStatus}`,
-        })
+        showToast('success', `Status ${entityName} berhasil diubah menjadi ${newStatus}`)
         router.refresh()
         setOpen(false)
       } else {
         const json = await res.json()
         const errorMessage = typeof json.error === 'string' ? json.error : 'Gagal mengubah status'
-        show({
-          type: 'error',
-          title: 'Gagal',
-          message: errorMessage,
-        })
+        showToast('error', errorMessage)
       }
-    } catch (error: any) {
-      show({
-        type: 'error',
-        title: 'Error',
-        message: error.message || 'Terjadi kesalahan',
-      })
+    } catch (error: unknown) {
+      showToast('error', error instanceof Error ? error.message : 'Terjadi kesalahan')
     } finally {
       setLoading(false)
     }

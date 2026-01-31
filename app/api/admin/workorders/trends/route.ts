@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 /**
  * Build access restriction filters based on user permissions
  */
-function buildAccessFilters(user: any): {
+function buildAccessFilters(user: { id: string; permissions?: string[]; role?: string; departmentId?: string | null; siteId?: string | null }): {
     departmentId?: string;
     siteId?: string;
 } {
@@ -95,5 +95,8 @@ function buildAccessFilters(user: any): {
         siteId = user.siteId;
     }
 
-    return { departmentId, siteId };
+    return { 
+        ...(departmentId ? { departmentId } : {}), 
+        ...(siteId ? { siteId } : {}) 
+    };
 }

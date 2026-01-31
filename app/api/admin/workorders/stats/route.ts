@@ -7,7 +7,7 @@ import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 const EMPTY_STATS = {
     total: 0, pending: 0, assigned: 0, inProgress: 0, onHold: 0,
     completed: 0, verified: 0, closed: 0, cancelled: 0, urgentOpen: 0,
-    avgCompletionTimeHours: 0, totalCost: 0, avgRating: null, totalWithRating: 0
+    avgCompletionTimeHours: 0, totalCost: 0, avgRating: null as number | null, totalWithRating: 0
 };
 
 // GET /api/admin/workorders/stats - Get statistics
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         const departmentId = searchParams.get('departmentId');
         const assignedToId = searchParams.get('assignedToId');
 
-        const filters: any = {};
+        const filters: Record<string, string> = {};
         if (departmentId) filters.departmentId = departmentId;
         if (assignedToId) filters.assignedToId = assignedToId;
 

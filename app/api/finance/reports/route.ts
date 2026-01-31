@@ -1,22 +1,17 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
-import { z } from 'zod'
 
 const financeService = new FinanceService()
 
-const reportSchema = z.object({
-    type: z.enum(['CAPEX_OPEX', 'TAX'])
-})
-
-export async function GET(req: Request) {
-    const session = await verifyAuth(req as any)
+export async function GET(req: NextRequest) {
+    const session = await verifyAuth(req)
     if (!session) return new NextResponse('Unauthorized', { status: 401 })
 
     try {
         const { searchParams } = new URL(req.url)
         const type = searchParams.get('type')
-        
+
         if (!type || (type !== 'CAPEX_OPEX' && type !== 'TAX')) {
             return new NextResponse('Invalid report type', { status: 400 })
         }
@@ -24,8 +19,9 @@ export async function GET(req: Request) {
         const data = await financeService.getReports(type as 'CAPEX_OPEX' | 'TAX')
         return NextResponse.json(data)
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Report Error:', error)
-        return new NextResponse(error.message || 'Error generating report', { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Error generating report'
+        return new NextResponse(errorMessage, { status: 500 })
     }
 }

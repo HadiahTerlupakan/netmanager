@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { HiXMark, HiCheck } from 'react-icons/hi2'
 
@@ -49,6 +49,26 @@ export default function SpeedProfileModal({ isOpen, onClose, onSubmit }: SpeedPr
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const loadOlts = useCallback(async () => {
+    try {
+      setLoadingOlts(true)
+      setError(null)
+      const res = await fetch('/api/olts')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Gagal memuat data OLT')
+      }
+      const data = await res.json()
+      const oltList = (data.olts || []) as Array<{ id: string; name: string; ipAddress?: string }>
+      setOlts(oltList.map((o) => ({ id: o.id, name: o.name, ipAddress: o.ipAddress })))
+    } catch (e: unknown) {
+      console.error('Error loading OLTs:', e)
+      setError(e instanceof Error ? e.message : 'Gagal memuat data OLT')
+    } finally {
+      setLoadingOlts(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (isOpen) {
       loadOlts()
@@ -65,68 +85,7 @@ export default function SpeedProfileModal({ isOpen, onClose, onSubmit }: SpeedPr
       setMaximum(null)
       setError(null)
     }
-  }, [isOpen])
-
-  // Update fields berdasarkan type yang dipilih (hanya untuk Download)
-  useEffect(() => {
-    if (profileType === 'Download') {
-      if (type === 1) {
-        // Fixed bandwidth
-        setFixed(bandwidthSir)
-        setAssured(null)
-        setMaximum(null)
-      } else if (type === 2) {
-        // Assured bandwidth
-        setFixed(null)
-        setAssured(bandwidthSir)
-        setMaximum(burstPir)
-      } else if (type === 3) {
-        // Assured bandwidth and non-assured bandwidth
-        setFixed(null)
-        setAssured(bandwidthSir)
-        setMaximum(burstPir)
-      } else if (type === 4) {
-        // Best-effort bandwidth
-        setFixed(null)
-        setAssured(null)
-        setMaximum(burstPir)
-      } else if (type === 5) {
-        // The super set of all of T-CONT types
-        setFixed(bandwidthSir)
-        setAssured(bandwidthSir)
-        setMaximum(burstPir)
-      } else {
-        setFixed(null)
-        setAssured(null)
-        setMaximum(null)
-      }
-    } else {
-      // Untuk Upload, reset semua field
-      setFixed(null)
-      setAssured(null)
-      setMaximum(null)
-    }
-  }, [type, bandwidthSir, burstPir, profileType])
-
-  const loadOlts = async () => {
-    try {
-      setLoadingOlts(true)
-      setError(null)
-      const res = await fetch('/api/olts')
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Gagal memuat data OLT')
-      }
-      const data = await res.json()
-      const oltList = data.olts || []
-      setOlts(oltList.map((o: any) => ({ id: o.id, name: o.name, ipAddress: o.ipAddress })))
-    } catch (e: any) {
-      console.error('Error loading OLTs:', e)
-      setError(e.message || 'Gagal memuat data OLT')
-    } finally {
-      setLoadingOlts(false)
-    }
-  }
+  }, [isOpen, loadOlts])
 
   const formatKbpsToMbps = (kbps: number) => {
     return (kbps / 1000).toFixed(2) + ' Mbps'
@@ -182,8 +141,8 @@ export default function SpeedProfileModal({ isOpen, onClose, onSubmit }: SpeedPr
         maximum,
       })
       onClose()
-    } catch (err: any) {
-      setError(err.message || 'Gagal menyimpan Speed Profile')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Gagal menyimpan Speed Profile')
     } finally {
       setLoading(false)
     }

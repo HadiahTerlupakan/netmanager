@@ -52,35 +52,44 @@ async function setupMocks(context: BrowserContext) {
   await context.addInitScript(() => {
     // Mock Geolocation
     const mockGeolocation = {
-      getCurrentPosition: (success: any) => {
+      getCurrentPosition: (success: PositionCallback) => {
         success({
           coords: {
             latitude: -6.2000,
             longitude: 106.8167,
             accuracy: 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+            toJSON: () => ({}),
           },
           timestamp: Date.now(),
+          toJSON: () => ({}),
         });
       },
-      watchPosition: (success: any) => {
+      watchPosition: (success: PositionCallback) => {
         success({
           coords: {
             latitude: -6.2000,
             longitude: 106.8167,
             accuracy: 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+            toJSON: () => ({}),
           },
           timestamp: Date.now(),
+          toJSON: () => ({}),
         });
         return 1;
       },
     };
-    // @ts-ignore
-    navigator.geolocation.getCurrentPosition = mockGeolocation.getCurrentPosition;
-    // @ts-ignore
-    navigator.geolocation.watchPosition = mockGeolocation.watchPosition;
+    navigator.geolocation.getCurrentPosition = mockGeolocation.getCurrentPosition as typeof navigator.geolocation.getCurrentPosition;
+    navigator.geolocation.watchPosition = mockGeolocation.watchPosition as typeof navigator.geolocation.watchPosition;
 
     // Mock Camera
-    // @ts-ignore
     navigator.mediaDevices.getUserMedia = async () => {
       const canvas = document.createElement('canvas');
       canvas.width = 640;
@@ -90,12 +99,11 @@ async function setupMocks(context: BrowserContext) {
         ctx.fillStyle = 'blue';
         ctx.fillRect(0, 0, 640, 480);
         ctx.fillStyle = 'white';
-        // @ts-ignore
         ctx.font = '30px Arial';
         ctx.fillText('Mock Camera', 200, 240);
       }
-      
-      const stream = (canvas as any).captureStream(30);
+
+      const stream = (canvas as unknown as { captureStream: (fps: number) => MediaStream }).captureStream(30);
       return stream;
     };
   });

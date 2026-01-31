@@ -1,7 +1,6 @@
 import { AssetRepository } from '../repositories/AssetRepository'
 import type { CreateAssetInput, UpdateAssetInput, AssetWithRelations } from '../repositories/AssetRepository'
 import { FinanceService } from '../../finance/services/FinanceService'
-import type { Asset } from '@prisma/client'
 import { AssetStatus } from '@prisma/client'
 import { logger } from '@/lib/logger'
 
@@ -16,10 +15,7 @@ export class AssetService {
 
     async createAsset(data: CreateAssetInput, userId: string) {
         // Create the asset
-        const asset = await this.assetRepo.createAsset({
-            ...data,
-            assignedTo: data.assignedTo // Optional
-        })
+        const asset = await this.assetRepo.createAsset(data)
 
         // Log Activity
         try {
@@ -140,21 +136,15 @@ export class AssetService {
         // For now, we search for a category named "Depreciation" or "Penyusutan" or "Beban Penyusutan"
         // TODO: Refactor to have a System Config for default categories
         const categories = await this.financeService.getAllCategories()
-        let depCategory = categories.find(c => 
+        const depCategory = categories.find(c => 
             c.name.toLowerCase().includes('penyusutan') || 
             c.name.toLowerCase().includes('depreciation')
         )
         
         if (!depCategory) {
-            // Fallback: Create if not exists (or throw?)
-            // Better to not auto-create without permission, use first Expense category or throw.
-            // Let's rely on user having setup. If not found, look for "Operational" or similar.
-            // Or create one for now to ensure logic flows.
-            depCategory = await this.financeService.createCategory({
-                name: 'Beban Penyusutan',
-                type: 'EXPENSE',
-                description: 'Auto-generated for Asset Depreciation'
-            })
+            // Recommendation: Do not auto-create "Beban Penyusutan" to prevent polluting Chart of Accounts.
+            // Throw an explicit error asking the admin to configure it.
+            throw new Error('Finance Category for Depreciation (e.g. "Beban Penyusutan") not found. Please create it in Finance Settings.')
         }
 
         await this.financeService.createTransaction({

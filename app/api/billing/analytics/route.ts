@@ -15,7 +15,7 @@ const analyticsService = new BillingAnalyticsService()
  */
 export async function GET(req: NextRequest) {
     try {
-        const session: any = await getServerSession(authConfig as any)
+        const session = await getServerSession(authConfig)
         if (!session) {
             return ApiErrors.unauthorized('Session tidak valid')
         }
@@ -26,14 +26,15 @@ export async function GET(req: NextRequest) {
         const endDate = searchParams.get('endDate') || undefined
 
         const analytics = await analyticsService.getAnalytics({
-            period,
-            startDate,
-            endDate,
+            ...(period ? { period } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {})
         })
 
         return apiSuccess(analytics)
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Billing Analytics Error]:', error)
-        return ApiErrors.internalError(error?.message || 'Gagal mengambil analytics billing')
+        const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil analytics billing'
+        return ApiErrors.internalError(errorMessage)
     }
 }

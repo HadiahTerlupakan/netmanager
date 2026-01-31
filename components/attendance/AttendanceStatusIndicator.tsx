@@ -29,18 +29,23 @@ export function AttendanceStatusIndicator({
   }, [])
   
   useEffect(() => {
-    const endTime = checkOutTime || currentTime
-    const diff = differenceInSeconds(endTime, checkInTime)
-    const hours = Math.floor(diff / 3600)
-    const minutes = Math.floor((diff % 3600) / 60)
-    setDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`)
-    
-    // Calculate progress for flexible users
-    if (workingHourMode === 'FLEXIBLE' && !checkOutTime) {
-      const durationHours = diff / 3600
-      const progressPercent = Math.min((durationHours / targetHours) * 100, 100)
-      setProgress(progressPercent)
+    const updateDuration = () => {
+      const endTime = checkOutTime || currentTime
+      const diff = differenceInSeconds(endTime, checkInTime)
+      const hours = Math.floor(diff / 3600)
+      const minutes = Math.floor((diff % 3600) / 60)
+      setDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`)
+
+      // Calculate progress for flexible users
+      if (workingHourMode === 'FLEXIBLE' && !checkOutTime) {
+        const durationHours = diff / 3600
+        const progressPercent = Math.min((durationHours / targetHours) * 100, 100)
+        setProgress(progressPercent)
+      }
     }
+
+    // Defer state updates to avoid synchronous setState in effect
+    requestAnimationFrame(updateDuration)
   }, [currentTime, checkInTime, checkOutTime, targetHours, workingHourMode])
   
   const isLate = status === 'LATE'

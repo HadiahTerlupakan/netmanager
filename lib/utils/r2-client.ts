@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, HeadBucketCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, HeadBucketCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import { prisma } from '@/lib/prisma'
 
@@ -134,20 +134,21 @@ export async function testR2Connection(settings: Omit<R2Settings, 'enabled'>): P
         }))
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error) {
         console.error('R2 connection test failed:', error)
 
+        const err = error as { name?: string; Code?: string; message?: string }
         let errorMessage = 'Koneksi ke R2 gagal'
-        if (error.name === 'NoSuchBucket') {
+        if (err.name === 'NoSuchBucket') {
             errorMessage = 'Bucket tidak ditemukan'
-        } else if (error.name === 'AccessDenied' || error.Code === 'AccessDenied') {
+        } else if (err.name === 'AccessDenied' || err.Code === 'AccessDenied') {
             errorMessage = 'Akses ditolak. Periksa kredensial Anda.'
-        } else if (error.name === 'InvalidAccessKeyId') {
+        } else if (err.name === 'InvalidAccessKeyId') {
             errorMessage = 'Access Key ID tidak valid'
-        } else if (error.name === 'SignatureDoesNotMatch') {
+        } else if (err.name === 'SignatureDoesNotMatch') {
             errorMessage = 'Secret Access Key tidak valid'
-        } else if (error.message) {
-            errorMessage = error.message
+        } else if (err.message) {
+            errorMessage = err.message
         }
 
         return { success: false, error: errorMessage }
@@ -199,9 +200,10 @@ export async function uploadToR2(
             // Default R2.dev URL
             return `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${key}`
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error uploading to R2:', error)
-        throw new Error(`Gagal mengupload file ke R2: ${error.message}`)
+        const err = error as Error
+        throw new Error(`Gagal mengupload file ke R2: ${err.message}`)
     }
 }
 
@@ -233,7 +235,7 @@ export async function deleteFromR2(key: string): Promise<boolean> {
  * Generate upload key for different upload types
  */
 export function generateR2Key(
-    type: 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'app-version' | 'marketing',
+    type: 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'app-version' | 'marketing' | 'general',
     filename: string,
     subFolder?: string
 ): string {

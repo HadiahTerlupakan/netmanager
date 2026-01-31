@@ -21,6 +21,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import Image from 'next/image'
 
 interface PointClaim {
     id: string;
@@ -92,8 +93,9 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             router.refresh();
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
             setItem(res.data);
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Gagal menyetujui request');
+        } catch (error: unknown) {
+            const axiosError = error as { response?: { data?: { error?: string } } }
+            toast.error(axiosError.response?.data?.error || 'Gagal menyetujui request');
         } finally {
             setIsProcessing(false);
         }
@@ -109,7 +111,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             router.refresh();
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
             setItem(res.data);
-        } catch (error) {
+        } catch (_error: unknown) {
             toast.error('Gagal menolak request');
         } finally {
             setIsProcessing(false);
@@ -125,8 +127,9 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             toast.success('Claim poin berhasil disetujui');
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
             setItem(res.data);
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Gagal menyetujui claim');
+        } catch (error: unknown) {
+            const axiosError = error as { response?: { data?: { error?: string } } }
+            toast.error(axiosError.response?.data?.error || 'Gagal menyetujui claim');
         } finally {
             setIsProcessing(false);
         }
@@ -148,8 +151,9 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             toast.success('Claim poin ditolak');
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
             setItem(res.data);
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Gagal menolak claim');
+        } catch (error: unknown) {
+            const axiosError = error as { response?: { data?: { error?: string } } }
+            toast.error(axiosError.response?.data?.error || 'Gagal menolak claim');
         } finally {
             setIsProcessing(false);
         }
@@ -336,7 +340,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                             >
                                 {item.fotoKtp ? (
                                     <div className="relative w-full h-full group">
-                                        <img src={item.fotoKtp} alt="KTP" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <Image src={item.fotoKtp} alt="KTP" fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
                                         <div className="absolute inset-x-0 bottom-0 h-12 bg-black/50" />
                                         <span className="absolute bottom-3 left-3 text-white text-sm font-medium">Foto KTP</span>
                                     </div>
@@ -359,7 +363,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                             >
                                 {item.foto ? (
                                     <div className="relative w-full h-full group">
-                                        <img src={item.foto} alt="Lokasi" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <Image src={item.foto} alt="Lokasi" fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
                                         <div className="absolute inset-x-0 bottom-0 h-12 bg-black/50" />
                                         <span className="absolute bottom-3 left-3 text-white text-sm font-medium">Foto Lokasi</span>
                                     </div>
@@ -436,13 +440,15 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Bukti Foto:</p>
                                             <div className="flex gap-2 flex-wrap">
                                                 {claim.buktiUrls.map((url, idx) => (
-                                                    <img 
-                                                        key={idx} 
-                                                        src={url} 
-                                                        alt={`Bukti ${idx + 1}`}
-                                                        className="w-20 h-20 rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600"
-                                                        onClick={() => setZoomImage(url)}
-                                                    />
+                                                    <div key={idx} className="relative w-20 h-20">
+                                                        <Image
+                                                            src={url}
+                                                            alt={`Bukti ${idx + 1}`}
+                                                            fill
+                                                            className="rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600"
+                                                            onClick={() => setZoomImage(url)}
+                                                        />
+                                                    </div>
                                                 ))}
                                             </div>
                                         </div>
@@ -522,11 +528,13 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
 
             {/* Zoom Modal */}
             {zoomImage && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
                     onClick={() => setZoomImage(null)}
                 >
-                    <img src={zoomImage} alt="Zoomed" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                    <div className="relative w-full h-full max-w-4xl max-h-[90vh]">
+                        <Image src={zoomImage} alt="Zoomed" fill className="object-contain rounded-lg shadow-2xl" />
+                    </div>
                     <button className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
                         <HiOutlineXMark className="w-8 h-8" />
                     </button>

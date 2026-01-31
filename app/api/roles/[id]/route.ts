@@ -59,15 +59,25 @@ export async function PUT(req: Request, { params }: Params) {
         const validated = roleUpdateSchema.parse(body)
 
         const roleService = getRoleService()
-        const updatedRole = await roleService.updateRole(id, {
+        const updateData: {
+            name: string;
+            permissions: string[];
+            description?: string;
+            accessAdminPanel?: boolean;
+            accessEmployeePanel?: boolean;
+            isRestricted?: boolean;
+            isTechnical?: boolean;
+        } = {
             name: validated.name,
-            description: validated.description,
             permissions: validated.permissions,
-            accessAdminPanel: validated.accessAdminPanel,
-            accessEmployeePanel: validated.accessEmployeePanel,
-            isRestricted: validated.isRestricted,
-            isTechnical: validated.isTechnical
-        })
+        }
+        if (validated.description !== undefined) updateData.description = validated.description
+        if (validated.accessAdminPanel !== undefined) updateData.accessAdminPanel = validated.accessAdminPanel
+        if (validated.accessEmployeePanel !== undefined) updateData.accessEmployeePanel = validated.accessEmployeePanel
+        if (validated.isRestricted !== undefined) updateData.isRestricted = validated.isRestricted
+        if (validated.isTechnical !== undefined) updateData.isTechnical = validated.isTechnical
+
+        const updatedRole = await roleService.updateRole(id, updateData)
 
         // Invalidate permission cache for all users with this role
         // This ensures the changes take effect immediately without re-login
@@ -80,16 +90,16 @@ export async function PUT(req: Request, { params }: Params) {
             await logger.logActivity({
                 action: 'UPDATE',
                 subject: 'Role',
-                userId: session.user.id,
+                userId: session.user.id ?? 'unknown',
                 details: { id, updates: validated }
             })
-        } catch (e) { console.error('Logging failed', e) }
+        } catch (e: unknown) { console.error('Logging failed', e) }
 
         return NextResponse.json(updatedRole)
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error updating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: error.issues[0].message }, { status: 400 })
+            return NextResponse.json({ error: error.issues[0]?.message || 'Validation error' }, { status: 400 })
         }
         if (error instanceof Error) {
             if (error.message === 'Role not found') {
@@ -127,13 +137,13 @@ export async function DELETE(req: Request, { params }: Params) {
             await logger.logActivity({
                 action: 'DELETE',
                 subject: 'Role',
-                userId: session.user.id,
+                userId: session.user.id ?? 'unknown',
                 details: { id }
             })
-        } catch (e) { console.error('Logging failed', e) }
+        } catch (e: unknown) { console.error('Logging failed', e) }
 
         return NextResponse.json({ success: true })
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error deleting role:', error)
         if (error instanceof Error) {
             if (error.message === 'Role not found') {

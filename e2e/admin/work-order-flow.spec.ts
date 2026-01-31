@@ -38,7 +38,7 @@ async function loginAsAdmin(page: Page) {
 }
 
 // Helper: Employee login
-async function loginAsEmployee(page: Page) {
+async function _loginAsEmployee(page: Page) {
   await page.goto('/karyawan/login')
   await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 10000 })
   await page.fill('input[type="email"]', EMPLOYEE.email)
@@ -48,7 +48,7 @@ async function loginAsEmployee(page: Page) {
 }
 
 test.describe.serial('Work Order Flow', () => {
-  let createdWoNumber: string | null = null
+  let _createdWoNumber: string | null = null
 
   test('Scenario 1: Admin can view Work Order dashboard', async ({ page }) => {
     await loginAsAdmin(page)
@@ -94,12 +94,12 @@ test.describe.serial('Work Order Flow', () => {
     // Capture WO number if visible
     const woLink = page.locator('a[href*="workorders"]').filter({ hasText: /WO-/ }).first()
     if (await woLink.count() > 0) {
-      createdWoNumber = await woLink.textContent()
+      _createdWoNumber = await woLink.textContent()
     }
   })
 
   // SKIP: This test requires /karyawan portal which is not yet implemented
-  test.skip('Scenario 4: Employee can view pending Work Orders', async ({ page }) => {
+  test.skip('Scenario 4: Employee can view pending Work Orders', async ({ page: _page }) => {
     // TODO: Enable once employee portal (/karyawan) routes are created
     // await loginAsEmployee(page)
     // await page.goto('/karyawan/work-order')

@@ -28,6 +28,7 @@ export async function GET(
 
         const { id } = await params;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sla = await (prisma as any).sLA.findUnique({
             where: { id },
             include: {
@@ -103,6 +104,7 @@ export async function PUT(
         const validatedData = slaUpdateSchema.parse(body);
 
         // Check if SLA exists
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const existingSLA = await (prisma as any).sLA.findUnique({
             where: { id },
         });
@@ -111,6 +113,7 @@ export async function PUT(
             return ApiErrors.notFound('Aturan SLA');
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sla = await (prisma as any).sLA.update({
             where: { id },
             data: {
@@ -171,6 +174,7 @@ export async function DELETE(
         const { id } = await params;
 
         // Check if SLA exists
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const existingSLA = await (prisma as any).sLA.findUnique({
             where: { id },
         });
@@ -180,6 +184,7 @@ export async function DELETE(
         }
 
         // Check if SLA is being used by any work orders
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const workOrdersCount = await (prisma as any).workOrder.count({
             where: { slaId: id },
         });
@@ -192,6 +197,7 @@ export async function DELETE(
             );
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (prisma as any).sLA.delete({
             where: { id },
         });

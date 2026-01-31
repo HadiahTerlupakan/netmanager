@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+        }
         const payload = await verifyMobileToken(token);
         if (!payload) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });

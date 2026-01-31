@@ -115,7 +115,7 @@ export class PointClaimService {
       status: 'APPROVED',
       reviewedById: reviewerId,
       reviewedAt: new Date(),
-      reviewNotes: notes,
+      ...(notes ? { reviewNotes: notes } : {}),
     })
 
     // Notify sales that claim was approved

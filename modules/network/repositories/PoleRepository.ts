@@ -32,7 +32,7 @@ export class PoleRepository implements IPoleRepository {
         longitude: data.longitude ?? null,
         status: data.status ?? 'AKTIF',
         cableSlack: data.cableSlack ?? false,
-        siteId: data.siteId,
+        siteId: data.siteId ?? null,
       },
       select: { id: true },
     })

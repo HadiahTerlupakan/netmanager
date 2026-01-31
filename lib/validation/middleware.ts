@@ -6,7 +6,7 @@ export * from './schemas'
 
 export interface ValidationResponse {
   success: boolean
-  data?: any
+  data?: unknown
   errors?: Array<{
     field: string
     message: string
@@ -59,7 +59,7 @@ export function validateQuery<T>(
   schema: ZodSchema<T>
 ): ValidationResponse {
   try {
-    const query: Record<string, any> = {}
+    const query: Record<string, string | string[]> = {}
 
     // Convert URLSearchParams to object
     for (const [key, value] of searchParams.entries()) {
@@ -111,7 +111,7 @@ export function withValidation<T>(
   schema: ZodSchema<T>,
   handler: (request: NextRequest, context: { data: T; validated: T }) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest, context?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, _context?: unknown): Promise<NextResponse> => {
     // Validate request body
     const validation = await validateRequestBody(request, schema)
 
@@ -127,8 +127,8 @@ export function withValidation<T>(
 
     // Call the handler with validated data
     return handler(request, {
-      data: validation.data!,
-      validated: validation.data!
+      data: validation.data as T,
+      validated: validation.data as T
     })
   }
 }
@@ -140,7 +140,7 @@ export function withQueryValidation<T>(
   schema: ZodSchema<T>,
   handler: (request: NextRequest, context: { query: T; validated: T }) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest, context?: any): Promise<NextResponse> => {
+  return async (request: NextRequest, _context?: unknown): Promise<NextResponse> => {
     // Validate query parameters
     const validation = validateQuery(request.nextUrl.searchParams, schema)
 
@@ -156,8 +156,8 @@ export function withQueryValidation<T>(
 
     // Call the handler with validated query
     return handler(request, {
-      query: validation.data!,
-      validated: validation.data!
+      query: validation.data as T,
+      validated: validation.data as T
     })
   }
 }

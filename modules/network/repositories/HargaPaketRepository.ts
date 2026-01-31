@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma, Status } from '@prisma/client'
+import { Prisma, Status, DurasiUnit } from '@prisma/client'
 
 export interface HargaPaketCreateInput {
     name: string
@@ -86,21 +86,21 @@ export class HargaPaketRepository {
      * Create new harga paket
      */
     async create(data: HargaPaketCreateInput) {
-        const createData: any = {
+        const createData: Prisma.HargaPaketCreateInput = {
             id: crypto.randomUUID(),
             updatedAt: new Date(),
             name: data.name,
             harga: data.harga,
             durasi: data.durasi,
-            durasiUnit: data.durasiUnit || 'BULAN',
-            profilePPPId: data.profilePPPId,
+            durasiUnit: (data.durasiUnit || 'BULAN') as DurasiUnit,
+            profilePPP: { connect: { id: data.profilePPPId } },
             description: data.description,
             featured: data.featured ?? false,
             status: data.status || 'AKTIF',
         }
 
         if (data.bandwidthId && data.bandwidthId.trim() !== '') {
-            createData.bandwidthId = data.bandwidthId
+            createData.bandwidth = { connect: { id: data.bandwidthId } }
         }
 
         return prisma.hargaPaket.create({
@@ -120,24 +120,24 @@ export class HargaPaketRepository {
      * Update harga paket
      */
     async update(id: string, data: HargaPaketUpdateInput) {
-        const updateData: any = {
+        const updateData: Prisma.HargaPaketUpdateInput = {
             updatedAt: new Date(),
         }
 
         if (data.name !== undefined) updateData.name = data.name
         if (data.harga !== undefined) updateData.harga = data.harga
         if (data.durasi !== undefined) updateData.durasi = data.durasi
-        if (data.durasiUnit !== undefined) updateData.durasiUnit = data.durasiUnit
-        if (data.profilePPPId !== undefined) updateData.profilePPPId = data.profilePPPId
+        if (data.durasiUnit !== undefined) updateData.durasiUnit = data.durasiUnit as DurasiUnit
+        if (data.profilePPPId !== undefined) updateData.profilePPP = { connect: { id: data.profilePPPId } }
         if (data.description !== undefined) updateData.description = data.description
         if (data.featured !== undefined) updateData.featured = data.featured
         if (data.status !== undefined) updateData.status = data.status
-        
+
         // Handle optional bandwidth
         if (data.bandwidthId === null) {
-            updateData.bandwidthId = null
+            updateData.bandwidth = { disconnect: true }
         } else if (data.bandwidthId && data.bandwidthId.trim() !== '') {
-            updateData.bandwidthId = data.bandwidthId
+            updateData.bandwidth = { connect: { id: data.bandwidthId } }
         }
 
         return prisma.hargaPaket.update({

@@ -16,10 +16,10 @@ export const workOrderTemplateCreateSchema = z.object({
 
 export const workOrderTemplateUpdateSchema = z.object({
   name: z.string().trim().min(1, 'Nama template wajib diisi').max(100, 'Nama template maksimal 100 karakter').optional(),
-  description: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  description: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
   type: z.enum(['INSTALLATION', 'TROUBLESHOOT', 'MAINTENANCE', 'UPGRADE', 'RELOCATION', 'DISCONNECTION', 'OTHER']).optional(),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT', 'CRITICAL']).optional(),
-  departmentId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  departmentId: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
   estimatedHours: z.number().min(0, 'Estimasi jam tidak boleh negatif').optional().nullable(),
   estimatedCost: z.number().min(0, 'Estimasi biaya tidak boleh negatif').optional().nullable(),
   requiredMaterials: z.any().optional(),

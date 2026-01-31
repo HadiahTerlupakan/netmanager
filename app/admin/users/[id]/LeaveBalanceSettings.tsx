@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { HiOutlineCalendarDays } from 'react-icons/hi2'
 
 interface LeaveBalanceData {
@@ -25,7 +25,7 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   TUKAR_LIBUR: 'Tukar Libur'
 }
 
-export default function LeaveBalanceSettings({ userId, year, workingHourMode, onChange }: Props) {
+export default function LeaveBalanceSettings({ userId, year, workingHourMode, onChange: _onChange }: Props) {
   const currentYear = year || new Date().getFullYear()
   const [loading, setLoading] = useState(true)
   const [balances, setBalances] = useState<LeaveBalanceData[]>([])
@@ -34,20 +34,7 @@ export default function LeaveBalanceSettings({ userId, year, workingHourMode, on
   // Check if user is FLEXIBLE (skip fetching and rendering for FLEXIBLE users)
   const isFlexible = workingHourMode === 'FLEXIBLE'
 
-  useEffect(() => {
-    if (!isFlexible) {
-      fetchBalances()
-    }
-  }, [userId, currentYear, isFlexible])
-
-  // Notify parent when quotas change
-  useEffect(() => {
-    if (onChange && Object.keys(quotas).length > 0) {
-      onChange(quotas)
-    }
-  }, [quotas, onChange])
-
-  const fetchBalances = async () => {
+  const fetchBalances = useCallback(async () => {
     try {
       setLoading(true)
       const res = await fetch(`/api/admin/leave-balance?userId=${userId}&year=${currentYear}`)
@@ -67,7 +54,13 @@ export default function LeaveBalanceSettings({ userId, year, workingHourMode, on
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, currentYear])
+
+  useEffect(() => {
+    if (!isFlexible) {
+      fetchBalances()
+    }
+  }, [isFlexible, fetchBalances])
 
   const handleQuotaChange = (type: string, value: number) => {
     setQuotas(prev => ({ ...prev, [type]: value }))
@@ -146,7 +139,7 @@ export default function LeaveBalanceSettings({ userId, year, workingHourMode, on
         </div>
         
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 italic">
-          * Kuota akan tersimpan saat menekan tombol "Simpan Perubahan"
+          * Kuota akan tersimpan saat menekan tombol &quot;Simpan Perubahan&quot;
         </p>
       </div>
     </div>

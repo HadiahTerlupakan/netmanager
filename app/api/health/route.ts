@@ -58,7 +58,7 @@ export async function GET() {
       status: 'healthy',
       responseTime: dbTime,
     }
-  } catch (error: any) {
+  } catch (_error) {
     health.status = 'unhealthy'
     health.services.database = {
       status: 'unhealthy',
@@ -71,12 +71,12 @@ export async function GET() {
     const redisStart = Date.now()
     await redis.ping()
     const redisTime = Date.now() - redisStart
-    
+
     health.services.redis = {
       status: 'healthy',
       responseTime: redisTime,
     }
-  } catch (error: any) {
+  } catch (_error) {
     // Redis tidak critical, jadi tidak mengubah status overall
     health.services.redis = {
       status: 'unhealthy',

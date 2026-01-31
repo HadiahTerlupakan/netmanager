@@ -1,4 +1,4 @@
-import { getAttendanceRepository, getWorkOrderRepository, getUserRepository } from '@/lib/repositories';
+import { getAttendanceRepository, getWorkOrderRepository } from '@/lib/repositories';
 import { prisma } from '@/lib/prisma'; // Optional if repos are enough, but we need User details efficiently.
 
 export type TopEmployee = {
@@ -23,7 +23,7 @@ export type TopEmployee = {
 export async function getTopEmployees(limit: number = 5): Promise<TopEmployee[]> {
     const attendanceRepo = getAttendanceRepository();
     const workOrderRepo = getWorkOrderRepository();
-    const userRepo = getUserRepository(); // Or use prisma directly for batch fetch
+    // userRepo not used, removed to fix linting
 
     // Default to last 30 days
     const endDate = new Date();

@@ -63,7 +63,7 @@ export default function SupportContext() {
     const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
-    const [total, setTotal] = useState(0)
+    const [_total, setTotal] = useState(0)
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
     const [categoryFilter, setCategoryFilter] = useState('')

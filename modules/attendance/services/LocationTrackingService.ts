@@ -22,8 +22,9 @@ export class LocationTrackingService {
     private io: SocketIOServer | null = null
 
     constructor() {
-        if ((globalThis as any).socketIOServer) {
-            this.io = (globalThis as any).socketIOServer
+        const globalAny = globalThis as unknown as { socketIOServer: SocketIOServer | null }
+        if (globalAny.socketIOServer) {
+            this.io = globalAny.socketIOServer
         }
     }
 
@@ -36,11 +37,11 @@ export class LocationTrackingService {
                 userId,
                 latitude: data.latitude,
                 longitude: data.longitude,
-                accuracy: data.accuracy,
-                altitude: data.altitude,
-                speed: data.speed,
-                heading: data.heading,
-                batteryLevel: data.batteryLevel,
+                accuracy: data.accuracy ?? null,
+                altitude: data.altitude ?? null,
+                speed: data.speed ?? null,
+                heading: data.heading ?? null,
+                batteryLevel: data.batteryLevel ?? null,
                 isMoving: data.isMoving ?? false,
                 recordedAt: data.recordedAt ?? new Date()
             }
@@ -72,11 +73,11 @@ export class LocationTrackingService {
                 userId,
                 latitude: loc.latitude,
                 longitude: loc.longitude,
-                accuracy: loc.accuracy,
-                altitude: loc.altitude,
-                speed: loc.speed,
-                heading: loc.heading,
-                batteryLevel: loc.batteryLevel,
+                accuracy: loc.accuracy ?? null,
+                altitude: loc.altitude ?? null,
+                speed: loc.speed ?? null,
+                heading: loc.heading ?? null,
+                batteryLevel: loc.batteryLevel ?? null,
                 isMoving: loc.isMoving ?? false,
                 recordedAt: loc.recordedAt ?? new Date()
             }))
@@ -158,7 +159,7 @@ export class LocationTrackingService {
         const todayUTC = new Date(todayWIB.getTime() - totalOffset * 60 * 1000)
 
         // Build user filter for RBAC restrictions
-        const userFilter: any = {};
+        const userFilter: { siteId?: string; departmentId?: string } = {};
         if (filters?.siteId) {
             userFilter.siteId = filters.siteId;
         }
@@ -344,18 +345,26 @@ export class LocationTrackingService {
         // Calculate total distance traveled
         let totalDistance = 0
         for (let i = 1; i < locations.length; i++) {
-            totalDistance += this.calculateDistance(
-                locations[i - 1].latitude,
-                locations[i - 1].longitude,
-                locations[i].latitude,
-                locations[i].longitude
-            )
+            const prev = locations[i - 1]
+            const curr = locations[i]
+
+            if (prev && curr) {
+                totalDistance += this.calculateDistance(
+                    prev.latitude,
+                    prev.longitude,
+                    curr.latitude,
+                    curr.longitude
+                )
+            }
         }
+
+        const first = locations[0]
+        const last = locations[locations.length - 1]
 
         return {
             totalPoints: locations.length,
-            firstLocation: locations[0].recordedAt,
-            lastLocation: locations[locations.length - 1].recordedAt,
+            firstLocation: first?.recordedAt ?? null,
+            lastLocation: last?.recordedAt ?? null,
             totalDistance: Math.round(totalDistance)
         }
     }

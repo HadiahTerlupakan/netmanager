@@ -23,19 +23,6 @@ export default function LoginForm() {
   const defaultCallback = isEmployeePortal ? '/employee' : '/admin'
   const callbackUrlParam = search.get('callbackUrl') || defaultCallback
 
-  // Dapatkan URL lengkap dengan subdomain untuk callback
-  const getCallbackUrl = () => {
-    const subdomain = getSubdomainFromWindow()
-    // Jika sudah di admin subdomain, gunakan path relatif
-    if (subdomain === 'admin') {
-      return callbackUrlParam
-    }
-    // Jika tidak di subdomain atau di subdomain lain, redirect ke admin subdomain
-    return getAdminUrl(callbackUrlParam)
-  }
-
-  const callbackUrl = getCallbackUrl()
-
   const {
     register,
     handleSubmit,
@@ -86,9 +73,10 @@ export default function LoginForm() {
       // Cek apakah kita sudah di admin subdomain
       const subdomain = getSubdomainFromWindow()
       // Extract path dari res.url (bisa berisi URL lengkap atau path relatif)
-      let targetPath = res.url
+      const targetPathBase = res.url
         ? (res.url.startsWith('http') ? new URL(res.url).pathname : res.url)
         : callbackUrlParam
+      let targetPath = targetPathBase
 
       // Use the appropriate callback based on portal type
       if (isEmployeePortal) {
@@ -126,7 +114,7 @@ export default function LoginForm() {
         // Untuk localhost, gunakan window.location untuk memastikan redirect terjadi
         // dan session cookie ter-set dengan benar
         console.log('[LoginForm] Using window.location redirect for localhost')
-        window.location.href = targetPath
+        window.location.assign(targetPath)
         return
       }
 
@@ -138,7 +126,7 @@ export default function LoginForm() {
 
       // Di production dengan subdomain, redirect ke admin subdomain dengan URL lengkap
       const adminUrl = getAdminUrl(targetPath)
-      window.location.href = adminUrl
+      window.location.assign(adminUrl)
     } catch (error) {
       console.error('[LoginForm] Unexpected error:', error)
       setError('password', { message: 'Terjadi kesalahan tak terduga. Silakan coba lagi.' })

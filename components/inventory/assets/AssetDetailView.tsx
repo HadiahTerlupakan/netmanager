@@ -2,11 +2,35 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FiActivity, FiUser, FiMapPin, FiCalendar, FiDollarSign, FiBox } from 'react-icons/fi'
+import { FiUser, FiMapPin, FiCalendar, FiDollarSign } from 'react-icons/fi'
 import { formatCurrency } from '@/lib/utils'
 
+interface DepreciationLog {
+    id: string
+    date: string
+    amount: number | string
+    notes?: string
+}
+
+interface Asset {
+    id: string
+    kodeAsset: string
+    status: string
+    currentValue: number | string
+    purchasePrice: number | string
+    usefulLife: number
+    purchaseDate: string
+    location?: string
+    residualValue: number | string
+    assignedTo?: string
+    barang: {
+        nama: string
+    }
+    depreciationLogs?: DepreciationLog[]
+}
+
 interface AssetDetailProps {
-    asset: any // Using any for simplicity with complex relations, or definte proper type
+    asset: Asset
 }
 
 export function AssetDetailView({ asset: initialAsset }: AssetDetailProps) {
@@ -32,8 +56,8 @@ export function AssetDetailView({ asset: initialAsset }: AssetDetailProps) {
             // Or fetch updated
             const updated = await fetch(`/api/inventory/assets/${asset.id}`).then(r => r.json())
             setAsset(updated.asset)
-        } catch (err: any) {
-            alert(err.message)
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : 'Gagal memproses penyusutan')
         } finally {
             setLoading(false)
         }
@@ -125,12 +149,12 @@ export function AssetDetailView({ asset: initialAsset }: AssetDetailProps) {
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {asset.depreciationLogs?.length === 0 ? (
+                            {(!asset.depreciationLogs || asset.depreciationLogs.length === 0) ? (
                                 <tr>
                                     <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">Belum ada riwayat penyusutan</td>
                                 </tr>
                             ) : (
-                                asset.depreciationLogs?.map((log: any) => (
+                                asset.depreciationLogs.map((log) => (
                                     <tr key={log.id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                             {new Date(log.date).toLocaleDateString()}

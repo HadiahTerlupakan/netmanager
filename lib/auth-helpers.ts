@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import type { Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 
 // Log security events
 function logSecurityEvent(
   request: NextRequest,
   event: string,
-  details: any = null
+  details: unknown = null
 ) {
   const timestamp = new Date().toISOString()
   const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
@@ -24,24 +25,24 @@ function logSecurityEvent(
 
 /**
  * Fungsi autentikasi terpusat untuk memeriksa session user
- * @param request NextRequest object
+ * @param _request NextRequest object (unused but kept for signature)
  * @returns session object atau null jika tidak authenticated
  */
-export async function getCurrentSession(request: NextRequest) {
+export async function getCurrentSession(_request: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    
+    const session = await getServerSession(authConfig) as (Session & { user: { role?: string, id: string, employee?: unknown } }) | null
+
     if (!session) {
       return null
     }
-    
+
     if (session?.user) {
       // Jika session ada dan user ada, tapi role tidak ada, set role sebagai ADMIN
       if (!session.user.role) {
         session.user.role = 'ADMIN'
       }
     }
-    
+
     return session
   } catch (error) {
     console.error('[AUTH] Error getting session:', error)
@@ -56,8 +57,8 @@ export async function getCurrentSession(request: NextRequest) {
  * @returns NextResponse error jika belum login, null jika sudah login
  */
 export async function requireAuth(request: NextRequest) {
-  const session: any = await getCurrentSession(request)
-  
+  const session = await getCurrentSession(request)
+
   if (!session?.user) {
     logSecurityEvent(request, 'UNAUTHORIZED_ACCESS', {
       reason: 'No session found'
@@ -79,8 +80,8 @@ export async function requireAuth(request: NextRequest) {
  * @returns NextResponse error jika belum login, null jika sudah login
  */
 export async function requireAdmin(request: NextRequest) {
-  const session: any = await getCurrentSession(request)
-  
+  const session = await getCurrentSession(request)
+
   if (!session) {
     logSecurityEvent(request, 'UNAUTHORIZED_ACCESS', {
       reason: 'No session found'
@@ -105,8 +106,8 @@ export async function requireAdmin(request: NextRequest) {
  * @returns NextResponse error jika tidak punya akses, null jika boleh akses
  */
 export async function requireSelfAccess(request: NextRequest, resourceId: string) {
-  const session: any = await getCurrentSession(request)
-  
+  const session = await getCurrentSession(request)
+
   if (!session) {
     logSecurityEvent(request, 'UNAUTHORIZED_ACCESS', {
       reason: 'No session found'
@@ -142,7 +143,7 @@ export async function requireSelfAccess(request: NextRequest, resourceId: string
  * @returns user ID atau null
  */
 export async function getCurrentUserId(request: NextRequest): Promise<string | null> {
-  const session: any = await getCurrentSession(request)
+  const session = await getCurrentSession(request)
   return session?.user?.id || null
 }
 
@@ -152,7 +153,7 @@ export async function getCurrentUserId(request: NextRequest): Promise<string | n
  * @returns employee data atau null
  */
 export async function getCurrentEmployee(request: NextRequest) {
-  const session: any = await getCurrentSession(request)
+  const session = await getCurrentSession(request)
   return session?.user?.employee || null
 }
 
@@ -162,7 +163,7 @@ export async function getCurrentEmployee(request: NextRequest) {
  * @returns true jika admin, false jika tidak
  */
 export async function isAdmin(request: NextRequest): Promise<boolean> {
-  const session: any = await getCurrentSession(request)
+  const session = await getCurrentSession(request)
   return session?.user?.role === 'ADMIN'
 }
 

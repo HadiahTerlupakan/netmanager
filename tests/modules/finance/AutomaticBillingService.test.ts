@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { prismaMock } from '../../setup'
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
+import type { Pelanggan, Invoice, Settings } from '@prisma/client'
 
 // Mock notification
 vi.mock('@/modules/notification', () => ({
@@ -30,7 +31,7 @@ describe('AutomaticBillingService', () => {
       prismaMock.settings.findUnique.mockResolvedValueOnce({
         key: 'GENERAL_INVOICE_OTOMATIS',
         value: '5'
-      } as any)
+      } as unknown as Settings)
 
       // Mock: No active customers
       prismaMock.pelanggan.findMany.mockResolvedValueOnce([])
@@ -49,7 +50,7 @@ describe('AutomaticBillingService', () => {
       prismaMock.settings.findUnique.mockResolvedValueOnce({
         key: 'GENERAL_INVOICE_OTOMATIS',
         value: '5'
-      } as any)
+      } as unknown as Settings)
 
       // Mock: Active customer with jatuhTempo on day 6
       const mockCustomer = {
@@ -67,7 +68,7 @@ describe('AutomaticBillingService', () => {
         }
       }
       prismaMock.pelanggan.findMany
-        .mockResolvedValueOnce([mockCustomer] as any)
+        .mockResolvedValueOnce([mockCustomer] as unknown as Pelanggan[])
         .mockResolvedValueOnce([])
 
       // Mock: No existing invoice (batch check)
@@ -84,7 +85,7 @@ describe('AutomaticBillingService', () => {
         subtotal: 100000n,
         taxAmount: 11000n
       }
-      prismaMock.$transaction.mockResolvedValueOnce(mockInvoice)
+      prismaMock.$transaction.mockResolvedValueOnce(mockInvoice as unknown as Invoice)
 
       await AutomaticBillingService.generateDailyInvoices()
 
@@ -98,7 +99,7 @@ describe('AutomaticBillingService', () => {
       prismaMock.settings.findUnique.mockResolvedValueOnce({
         key: 'GENERAL_INVOICE_OTOMATIS',
         value: '5'
-      } as any)
+      } as unknown as Settings)
 
       const mockCustomer = {
         id: 'customer-1',
@@ -107,13 +108,13 @@ describe('AutomaticBillingService', () => {
         hargaPaket: { id: 'paket-1', name: 'Paket', harga: 100000n }
       }
       prismaMock.pelanggan.findMany
-        .mockResolvedValueOnce([mockCustomer] as any)
+        .mockResolvedValueOnce([mockCustomer] as unknown as Pelanggan[])
         .mockResolvedValueOnce([])
 
       // Mock: Invoice already exists (batch check returns matching pelangganId)
       prismaMock.invoice.findMany.mockResolvedValueOnce([
         { pelangganId: 'customer-1' }
-      ] as any)
+      ] as unknown as Invoice[])
 
       await AutomaticBillingService.generateDailyInvoices()
 
@@ -127,7 +128,7 @@ describe('AutomaticBillingService', () => {
       prismaMock.settings.findUnique.mockResolvedValueOnce({
         key: 'GENERAL_INVOICE_OTOMATIS',
         value: '5'
-      } as any)
+      } as unknown as Settings)
 
       const mockCustomer = {
         id: 'customer-1',
@@ -144,7 +145,7 @@ describe('AutomaticBillingService', () => {
         }
       }
       prismaMock.pelanggan.findMany
-        .mockResolvedValueOnce([mockCustomer] as any)
+        .mockResolvedValueOnce([mockCustomer] as unknown as Pelanggan[])
         .mockResolvedValueOnce([])
       prismaMock.invoice.findMany.mockResolvedValueOnce([])
       prismaMock.invoice.count.mockResolvedValueOnce(0)
@@ -157,7 +158,7 @@ describe('AutomaticBillingService', () => {
         subtotal: 100000n,
         taxAmount: 11000n // 11% of 100000
       }
-      prismaMock.$transaction.mockResolvedValueOnce(mockInvoice)
+      prismaMock.$transaction.mockResolvedValueOnce(mockInvoice as unknown as Invoice)
 
       await AutomaticBillingService.generateDailyInvoices()
 

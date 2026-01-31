@@ -11,6 +11,15 @@ interface StatsData {
   lowStock: number
 }
 
+interface BarangItem {
+  id: string
+  totalStock?: number
+  stockPerGudang?: Array<{
+    gudangId: string
+    stok: number
+  }>
+}
+
 export function StatsCards() {
   const [stats, setStats] = useState<StatsData>({
     totalBarang: 0,
@@ -27,7 +36,7 @@ export function StatsCards() {
       // Standardized apiSuccess: { success: true, data: { barangs, pagination } }
       const result = data.data || data
       const totalBarang = result.pagination?.total || 0
-      const totalStok = result.barangs?.reduce((sum: number, item: any) => sum + (item.totalStock || 0), 0)
+      const totalStok = result.barangs?.reduce((sum: number, item: BarangItem) => sum + (item.totalStock || 0), 0)
 
       // Get gudang count
       const gudangResponse = await fetch('/api/inventory/gudang')
@@ -39,8 +48,8 @@ export function StatsCards() {
       const lowStockResponse = await fetch('/api/inventory/barang?limit=100')
       const lowStockData = await lowStockResponse.json()
       const lowStockResult = lowStockData.data || lowStockData
-      const lowStock = lowStockResult.barangs?.filter((item: any) => {
-        const minStock = Math.min(...(item.stockPerGudang?.map((s: any) => s.stok) || [Infinity]))
+      const lowStock = lowStockResult.barangs?.filter((item: BarangItem) => {
+        const minStock = Math.min(...(item.stockPerGudang?.map((s: { stok: number }) => s.stok) || [Infinity]))
         return minStock < 5
       }).length || 0
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireAdmin } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
@@ -8,6 +8,12 @@ import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
+
+interface ExtendedUser {
+  id: string;
+  role: string;
+  siteId?: string;
+}
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -49,6 +55,10 @@ async function verifyPelangganToken(token: string): Promise<string | null> {
   try {
     const tokenData = Buffer.from(token, 'base64').toString('utf-8')
     const [pelangganId] = tokenData.split(':')
+
+    if (!pelangganId) {
+      return null
+    }
 
     // Verifikasi token dengan secret
     const pelanggan = await prisma.pelanggan.findUnique({
@@ -234,7 +244,8 @@ export async function GET(
     if (isAdmin) {
       const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
       if (isSiteRestricted) {
-        const userSiteId = (session.user as any).siteId
+        const user = session.user as ExtendedUser;
+        const userSiteId = user.siteId
         if (pelanggan.siteId !== userSiteId) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
@@ -242,7 +253,7 @@ export async function GET(
     }
 
     // Hapus password dari response
-    const { password, passwordLogin, ...pelangganData } = pelanggan
+    const { password: _, passwordLogin: __, ...pelangganData } = pelanggan
 
     return NextResponse.json(pelangganData, {
       headers: {
@@ -251,10 +262,10 @@ export async function GET(
         'Expires': '0',
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching pelanggan:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -542,13 +553,14 @@ export async function PUT(
 
     const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
     if (isSiteRestricted) {
-        const userSiteId = (session.user as any).siteId
+        const user = session.user as ExtendedUser;
+        const userSiteId = user.siteId
         if (existingPelanggan.siteId !== userSiteId) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     }
 
-    const formData: any = await req.formData()
+    const formData = await req.formData()
 
     // Extract form fields
     const idPelanggan = formData.get('idPelanggan') as string
@@ -672,7 +684,7 @@ export async function PUT(
           await fs.access(oldPelangganUploadDir)
           // Pindahkan folder ke lokasi baru
           await fs.rename(oldPelangganUploadDir, pelangganUploadDir)
-        } catch (error) {
+        } catch (_error) {
           // Folder lama tidak ada, buat folder baru
           await fs.mkdir(pelangganUploadDir, { recursive: true })
         }
@@ -685,7 +697,7 @@ export async function PUT(
           try {
             const oldFilePath = path.join(process.cwd(), 'public', existingPelanggan.fileKTP)
             await fs.unlink(oldFilePath)
-          } catch (error) {
+          } catch (_error) {
             // File tidak ada, lanjutkan
           }
         }
@@ -705,7 +717,7 @@ export async function PUT(
           try {
             const oldFilePath = path.join(process.cwd(), 'public', existingPelanggan.fileRumahSekitar)
             await fs.unlink(oldFilePath)
-          } catch (error) {
+          } catch (_error) {
             // File tidak ada, lanjutkan
           }
         }
@@ -725,7 +737,7 @@ export async function PUT(
           try {
             const oldFilePath = path.join(process.cwd(), 'public', existingPelanggan.fileBAST)
             await fs.unlink(oldFilePath)
-          } catch (error) {
+          } catch (_error) {
             // File tidak ada, lanjutkan
           }
         }
@@ -737,7 +749,7 @@ export async function PUT(
           fileBASTPath = await saveFile(fileBAST, pelangganUploadDir, `bast${ext}`)
         }
       }
-    } catch (fileError: any) {
+    } catch (fileError: unknown) {
       console.error('Error saving files:', fileError)
       // Continue without files if there's an error
     }
@@ -747,6 +759,9 @@ export async function PUT(
       // Parse tanggal sebagai local date untuk menghindari timezone issue
       // Format: YYYY-MM-DD
       const [year, month, day] = tanggalAktif.split('-').map(Number)
+      if (!year || !month || !day) {
+        throw new Error('Invalid tanggalAktif format')
+      }
       return new Date(year, month - 1, day)
     })()
 
@@ -754,6 +769,9 @@ export async function PUT(
       // Parse tanggal sebagai local date untuk menghindari timezone issue
       // Format: YYYY-MM-DD
       const [year, month, day] = jatuhTempo.split('-').map(Number)
+      if (!year || !month || !day) {
+        throw new Error('Invalid jatuhTempo format')
+      }
       return new Date(year, month - 1, day)
     })()
 
@@ -885,18 +903,19 @@ export async function PUT(
         'Expires': '0',
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating pelanggan:', error)
 
+    const prismaError = error as { code?: string; message?: string };
     // Handle Prisma unique constraint error
-    if (error.code === 'P2002') {
+    if (prismaError.code === 'P2002') {
       return NextResponse.json(
         { error: 'ID Pelanggan sudah digunakan. Silakan gunakan ID lain.' },
         { status: 409 }
       )
     }
 
-    if (error.code === 'P2025') {
+    if (prismaError.code === 'P2025') {
       return NextResponse.json(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
@@ -904,7 +923,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: prismaError.message || 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -1070,7 +1089,7 @@ export async function DELETE(
           })
           console.log('[DELETE Pelanggan] Semua ID di database:', allIds)
         }
-      } catch (dbError: any) {
+      } catch (dbError: unknown) {
         console.error('[DELETE Pelanggan] Error saat retry query:', dbError)
       }
 
@@ -1082,7 +1101,8 @@ export async function DELETE(
 
     const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
     if (isSiteRestricted) {
-        const userSiteId = (session.user as any).siteId
+        const user = session.user as ExtendedUser;
+        const userSiteId = user.siteId
         if (pelanggan.siteId !== userSiteId) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
@@ -1140,17 +1160,18 @@ export async function DELETE(
         'Expires': '0',
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting pelanggan:', error)
 
-    if (error.code === 'P2025') {
+    const prismaError = error as { code?: string; message?: string }
+    if (prismaError.code === 'P2025') {
       return NextResponse.json(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
       )
     }
 
-    if (error.code === 'P2003') {
+    if (prismaError.code === 'P2003') {
       return NextResponse.json(
         { error: 'Pelanggan tidak dapat dihapus karena masih digunakan' },
         { status: 400 }
@@ -1158,7 +1179,7 @@ export async function DELETE(
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

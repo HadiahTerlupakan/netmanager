@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { HiPlus, HiPencil, HiTrash, HiDocumentText } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { toast } from 'react-hot-toast'
@@ -27,7 +26,6 @@ interface Template {
 export default function TemplatesClient() {
     const [templates, setTemplates] = useState<Template[]>([])
     const [loading, setLoading] = useState(true)
-    const router = useRouter()
 
     useEffect(() => {
         fetchTemplates()
@@ -40,7 +38,7 @@ export default function TemplatesClient() {
                 const data = await res.json()
                 setTemplates(data.data || [])
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to fetch templates', error)
             toast.error('Gagal memuat template')
         } finally {
@@ -61,7 +59,7 @@ export default function TemplatesClient() {
             } else {
                 toast.error('Gagal menghapus template')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error deleting template', error)
             toast.error('Terjadi kesalahan')
         }

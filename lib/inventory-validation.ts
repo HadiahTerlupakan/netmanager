@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import type { Session } from 'next-auth'
+import type { UserSession } from '@/lib/auth'
 
 /**
  * Validate if user has access to the target Gudang based on RBAC and Site restrictions.
@@ -10,13 +11,14 @@ import type { Session } from 'next-auth'
  */
 export async function validateGudangAccess(session: Session, gudangId: string): Promise<{ allowed: boolean; error?: string }> {
   // 1. Check Super Admin
-  const userRole = (session.user as any).role
+  const user = session.user as UserSession
+  const userRole = user.role
   if (userRole === 'SUPER_ADMIN') {
     return { allowed: true }
   }
 
   // 2. Check Permission
-  const permissions = (session.user as any).permissions || []
+  const permissions = user.permissions || []
   const hasSiteRestriction = permissions.includes('k_barang:site_only')
 
   if (!hasSiteRestriction) {
@@ -24,7 +26,7 @@ export async function validateGudangAccess(session: Session, gudangId: string): 
   }
 
   // 3. Check Site Match
-  const userSiteId = (session.user as any).siteId
+  const userSiteId = user.siteId
   if (!userSiteId) {
     return { allowed: false, error: 'User tidak memiliki Site ID namun dibatasi aksesnya per Site.' }
   }

@@ -11,6 +11,9 @@ export async function GET(req: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1]
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+        }
         const decoded = await verifyMobileToken(token)
 
         if (!decoded || !decoded.id) {
@@ -44,7 +47,7 @@ export async function GET(req: NextRequest) {
         // Strict default: Restricted unless Super Admin
         const isSiteRestricted = !isSuperAdmin; 
 
-        let whereClause: any = { isActive: true }
+        const whereClause: Record<string, unknown> = { isActive: true }
 
         if (isSiteRestricted) {
             const { searchParams } = new URL(req.url)

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const limit = parseInt(searchParams.get('limit') || '5');
 
-        const filters: any = {};
+        const filters: { departmentId?: string } = {};
         
         // Access Control
         const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');

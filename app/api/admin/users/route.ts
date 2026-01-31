@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { getUserService } from '@/modules/users'
 import { createUserSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
 import { getSiteFilter, checkSiteRestriction } from '@/lib/site-restriction'
 import { prisma } from '@/lib/prisma'
+import type { Session } from 'next-auth'
 
 /**
  * @swagger
@@ -33,7 +33,7 @@ export const GET = createHandler({
   }
 
   // Get site filter
-  const siteIdFilter = getSiteFilter(sessionWithPermissions as any, 'users')
+  const siteIdFilter = getSiteFilter(sessionWithPermissions as Session, 'users')
 
   const userService = getUserService()
   const users = await userService.getAllUsers(siteIdFilter)
@@ -65,7 +65,7 @@ export const POST = createHandler({
   if (!session) return ApiErrors.unauthorized()
 
   // Site restriction check using centralized helper
-  const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session as any, 'users')
+  const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session as Session, 'users')
 
   if (isRestricted) {
     if (!userSiteId) {
@@ -141,8 +141,8 @@ export const POST = createHandler({
     })
 
     return apiSuccess({ id: user.id }, { status: 201, message: 'User berhasil dibuat' })
-  } catch (e: any) {
-    if (e.message === 'Email already exists') {
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === 'Email already exists') {
       return ApiErrors.conflict('Email sudah terdaftar')
     }
     throw e // Let createHandler deal with general errors

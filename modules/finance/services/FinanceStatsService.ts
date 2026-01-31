@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { startOfDay, endOfDay } from 'date-fns'
 
 interface DateRange {
@@ -97,7 +98,7 @@ export class FinanceStatsService {
      */
     private async getExpenses(dateRange: DateRange) {
         try {
-            // @ts-ignore - expense model may not exist in some setups
+            // expense model may not exist in some database setups
             return await prisma.expense.findMany({
                 where: {
                     date: {
@@ -116,8 +117,8 @@ export class FinanceStatsService {
      * Calculate monthly breakdown for charts
      */
     private getMonthlyBreakdown(
-        payments: any[],
-        expenses: any[],
+        payments: { paymentDate: Date; amount: number | bigint | Prisma.Decimal }[],
+        expenses: { date: Date; amount: number | bigint | Prisma.Decimal }[],
         dateRange: DateRange
     ): MonthlyBreakdown[] {
         const months: MonthlyBreakdown[] = []

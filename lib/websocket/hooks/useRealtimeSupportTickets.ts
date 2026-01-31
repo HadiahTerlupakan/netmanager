@@ -42,7 +42,7 @@ export function useRealtimeSupportTickets(
     options: UseRealtimeSupportTicketsOptions = {}
 ): UseRealtimeSupportTicketsResult {
     const { limit = 5, autoFetch = true } = options
-    const { socket, isConnected } = useSocket()
+    const { isConnected } = useSocket()
 
     const [tickets, setTickets] = useState<TicketPreview[]>([])
     const [unreadCount, setUnreadCount] = useState(0)
@@ -96,8 +96,8 @@ export function useRealtimeSupportTickets(
             // Play notification sound
             try {
                 const audio = new Audio('/sounds/notification.mp3');
-                audio.play().catch((err) => console.log('Audio play failed:', err));
-            } catch (error) {
+                audio.play().catch((_err) => console.log('Audio play failed:', _err));
+            } catch (_error) {
                 // Ignore audio errors
             }
             
@@ -131,8 +131,8 @@ export function useRealtimeSupportTickets(
             // Play notification sound
             try {
                 const audio = new Audio('/sounds/notification.mp3');
-                audio.play().catch((err) => console.log('Audio play failed:', err));
-            } catch (error) {
+                audio.play().catch((_err) => console.log('Audio play failed:', _err));
+            } catch (_error) {
                 // Ignore audio errors
             }
 

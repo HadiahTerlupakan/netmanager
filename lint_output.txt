@@ -1,0 +1,97 @@
+
+> web@1.0.0 lint
+> eslint .
+
+
+/Users/rohadimraja/Documents/netmanager/app/admin/salary/users/SalaryUsersClient.tsx
+  66:12  warning  'components' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/app/admin/support/SupportContent.tsx
+  66:12  warning  'total' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/app/api/admin/attendance/[id]/route.ts
+  41:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/admin/workorders/dashboard/route.ts
+   54:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  267:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  268:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  269:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  270:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  271:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  272:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  274:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/bandwidths/route.ts
+   38:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/inventory/opname/calculate/route.ts
+  19:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/invoices/[id]/send/route.ts
+  126:45  warning  'message' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/app/api/ktp-ocr/route.ts
+  162:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mikrotik-routers/route.ts
+  243:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mobile/leaves/route.ts
+   22:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   44:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  169:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mobile/location/route.ts
+  54:111  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/mobile/work-orders/[id]/tasks/route.ts
+  25:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/network/backups/[id]/restore/route.ts
+  129:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/profileppps/route.ts
+  288:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/roles/[id]/route.ts
+  72:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/roles/route.ts
+  98:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/sites/route.ts
+  6:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/app/api/speedprofiles/route.ts
+  27:146  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:46   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/rohadimraja/Documents/netmanager/components/inventory/TransferForm.tsx
+  32:11  warning  'Photo' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/rohadimraja/Documents/netmanager/lib/repositories/USORepository.ts
+   22:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   27:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   37:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   44:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   46:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   53:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   59:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   61:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   67:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   72:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   78:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   80:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   82:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   89:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   91:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+   93:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+  100:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+  102:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+
+✖ 49 problems (0 errors, 49 warnings)
+  0 errors and 18 warnings potentially fixable with the `--fix` option.
+

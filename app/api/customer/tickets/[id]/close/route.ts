@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Close the ticket with rating
-        const updateData: any = {
+        const updateData = {
             status: TicketStatus.CLOSED,
             closedAt: new Date(),
         }
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             success: true,
             message: 'Tiket berhasil ditutup. Terima kasih telah menghubungi kami!',
         })
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Customer Ticket Close] Error:', error)
         return NextResponse.json(
             { success: false, error: 'Gagal menutup tiket' },

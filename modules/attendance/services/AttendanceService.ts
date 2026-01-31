@@ -148,7 +148,7 @@ export class AttendanceService {
         })
     }
 
-    private async processAutoCheckout(userId: string, userDetails: any, effectiveToday: Date) {
+    private async processAutoCheckout(userId: string, userDetails: { endWorkTime: string | null; workingHourMode: string | null } | null, effectiveToday: Date) {
         // Skip for flexible users
         if (userDetails?.workingHourMode === 'FLEXIBLE') return
 
@@ -222,7 +222,7 @@ export class AttendanceService {
         longitude?: number
         offlineTime?: Date
     }): Promise<{
-        attendance: any
+        attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>
         warning?: string
     }> {
         const { userId, photoUrl, location, notes, latitude, longitude, offlineTime } = params
@@ -305,7 +305,7 @@ export class AttendanceService {
             data: updateData
         })
 
-        const result: { attendance: any; warning?: string } = { attendance: updatedAttendance }
+        const result: { attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>; warning?: string } = { attendance: updatedAttendance as Prisma.AttendanceGetPayload<{ include: { user: true } }> }
         if (warning) result.warning = warning
         
         return result
@@ -494,9 +494,19 @@ export class AttendanceService {
         const topScorers = scoredUsers.slice(0, 5)
 
         // Fetch User Details
-        let combinedTopEmployees: any[] = []
+        let combinedTopEmployees: Array<{
+            user: {
+                id: string;
+                name: string | null;
+                image: string | null;
+                sites: { name: string } | null;
+                departments: { name: string } | null;
+        } | undefined;
+        score: number;
+        details: Record<string, unknown>;
+    }> = []
 
-        if (topScorers.length > 0) {
+    if (topScorers.length > 0) {
             const topScorerDetails = await prisma.user.findMany({
                 where: { id: { in: topScorers.map(u => u.userId) } },
                 select: { 

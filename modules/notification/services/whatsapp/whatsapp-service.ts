@@ -108,11 +108,11 @@ export class WhatsAppService {
             }
 
             return result
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[WhatsApp] Error:', error)
             return {
                 success: false,
-                error: error.message
+                error: error instanceof Error ? error.message : 'Unknown error'
             }
         }
     }
@@ -150,11 +150,11 @@ export class WhatsAppService {
             }
 
             return result
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[WhatsApp] Error:', error)
             return {
                 success: false,
-                error: error.message
+                error: error instanceof Error ? error.message : 'Unknown error'
             }
         }
     }

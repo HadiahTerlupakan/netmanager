@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth-helpers'
+import { NextRequest } from 'next/server'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
-import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
-import { authConfig } from '@/lib/auth'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { authOptions } from '@/lib/auth'
 import { getServerSession } from 'next-auth'
 import { hasPermission } from '@/lib/rbac'
 
@@ -17,7 +16,7 @@ export async function GET(
 ) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return ApiErrors.unauthorized()
     }
@@ -49,8 +48,9 @@ export async function GET(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching transfer record', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error fetching transfer record', err, {
       path: '/api/inventory/transfer/[id]',
       method: 'GET',
     })
@@ -68,7 +68,7 @@ export async function PUT(
 ) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return ApiErrors.unauthorized()
     }
@@ -99,13 +99,14 @@ export async function PUT(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error updating transfer record', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error updating transfer record', err, {
       path: '/api/inventory/transfer/[id]',
       method: 'PUT',
     })
 
-    if (error.code === 'P2025') {
+    if ((err as Error & { code?: string }).code === 'P2025') {
       return ApiErrors.notFound('Record transfer tidak ditemukan')
     }
 
@@ -123,7 +124,7 @@ export async function DELETE(
 ) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return ApiErrors.unauthorized()
     }
@@ -151,17 +152,18 @@ export async function DELETE(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error deleting transfer record', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error deleting transfer record', err, {
       path: '/api/inventory/transfer/[id]',
       method: 'DELETE',
     })
 
-    if (error.message === 'Record transfer tidak ditemukan') {
+    if (err.message === 'Record transfer tidak ditemukan') {
       return ApiErrors.notFound('Record transfer tidak ditemukan')
     }
-    if (error.message.includes('tidak mencukupi untuk pembatalan transfer') || error.message.includes('tidak ditemukan di gudang tujuan')) {
-      return ApiErrors.badRequest(error.message)
+    if (err.message.includes('tidak mencukupi untuk pembatalan transfer') || err.message.includes('tidak ditemukan di gudang tujuan')) {
+      return ApiErrors.badRequest(err.message)
     }
 
     return ApiErrors.internalError('Gagal membatalkan transfer')

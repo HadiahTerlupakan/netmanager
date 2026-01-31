@@ -9,6 +9,15 @@ import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService
 import { createNotification } from '@/modules/notification';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
+interface ExtendedUser {
+  id: string
+  role?: string
+  permissions?: string[]
+  siteId?: string
+  departmentId?: string
+  employee?: unknown
+}
+
 // Note: PATCH and DELETE handlers still use workOrderRepo for complex status transitions
 // GET handler uses WorkOrderService
 const workOrderRepo = new WorkOrderRepository(prisma);
@@ -26,10 +35,11 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await requireAuth(request);
-        if (user instanceof NextResponse) {
-            return user;
+        const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
         }
+        const user = session.user as ExtendedUser;
 
         // Permission check
         if (!await hasPermission('list:read')) {
@@ -51,7 +61,7 @@ export async function GET(
 
         // Access Control (Site & Department) - stays in route as context-specific
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
-        
+
         if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
             if (workOrder.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Anda hanya bisa mengakses work order di Site Anda');
@@ -84,10 +94,11 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await requireAuth(request);
-        if (user instanceof NextResponse) {
-            return user;
+        const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
         }
+        const user = session.user as ExtendedUser;
 
         const { id } = await params;
         const body = await request.json();
@@ -119,7 +130,7 @@ export async function PATCH(
                 return ApiErrors.forbidden('Anda hanya bisa mengupdate work order di Site Anda');
             }
         }
-        
+
         // 2. Department Check
         if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
              if (existingWO.departmentId !== user.departmentId) {
@@ -133,7 +144,7 @@ export async function PATCH(
                 workOrderId: id,
                 updateType: 'NOTE',
                 message: `[REJECTED] ${body.rejectionReason}`,
-                createdById: user.user.id,
+                createdById: user.id,
             });
             delete body.rejectionReason;
         }
@@ -141,7 +152,7 @@ export async function PATCH(
         // Handle status change separately if provided
         if (body.status) {
             const oldStatus = existingWO.status;
-            await workOrderRepo.updateStatus(id, body.status, user.user.id);
+            await workOrderRepo.updateStatus(id, body.status, user.id);
 
             // Re-fetch to get assigned user
             const updatedWO = await prisma.workOrders.findUnique({
@@ -213,10 +224,10 @@ export async function PATCH(
                     title: updatedWO?.title || existingWO.title,
                     type: updatedWO?.type || existingWO.type,
                     priority: updatedWO?.priority || existingWO.priority,
-                    departmentId: updatedWO?.departmentId ?? undefined,
-                    siteId: updatedWO?.siteId ?? undefined,
-                    assignedToId: updatedWO?.assignedToId ?? undefined,
-                }, oldStatus, body.status, user.user.id);
+                    departmentId: updatedWO?.departmentId ?? null,
+                    siteId: updatedWO?.siteId ?? null,
+                    assignedToId: updatedWO?.assignedToId ?? null,
+                }, oldStatus, body.status, user.id);
 
                 console.log(`[Notification] Status change ${oldStatus} → ${body.status} for WO ${updatedWO?.workOrderNumber}`);
             } catch (notifyError) {
@@ -239,7 +250,7 @@ export async function PATCH(
             await logger.logActivity({
                 action: 'UPDATE',
                 subject: 'Work Order',
-                userId: user.user.id,
+                userId: user.id,
                 details: { id, updates: body }
             })
         } catch (e) {
@@ -269,10 +280,11 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await requireAuth(request);
-        if (user instanceof NextResponse) {
-            return user;
+        const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
         }
+        const user = session.user as ExtendedUser;
 
         const { id } = await params;
         const { searchParams } = new URL(request.url);
@@ -283,7 +295,7 @@ export async function DELETE(
         // Permanent delete requires list:delete
         // Cancel requires list:cancel
         const requiredPermission = isPermanent ? 'list:delete' : 'list:cancel';
-        
+
         if (!await hasPermission(requiredPermission)) {
             return ApiErrors.forbidden('Anda tidak memiliki permission untuk tindakan ini');
         }
@@ -302,7 +314,7 @@ export async function DELETE(
                 return ApiErrors.forbidden('Anda hanya bisa menghapus work order di Site Anda');
             }
         }
-        
+
         // 2. Department Check
         if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
              if (existingWO.departmentId !== user.departmentId) {
@@ -330,7 +342,7 @@ export async function DELETE(
                 await logger.logActivity({
                     action: 'DELETE',
                     subject: 'Work Order',
-                    userId: user.user.id,
+                    userId: user.id,
                     details: { id, type: 'PERMANENT' }
                 })
             } catch (e) {
@@ -343,7 +355,7 @@ export async function DELETE(
             return apiSuccess(null, { message: 'Work order berhasil dihapus permanen' });
         }
 
-        await workOrderRepo.cancel(id, reason, user.user.id);
+        await workOrderRepo.cancel(id, reason, user.id);
 
         // Notify assigned technician about cancellation
         try {
@@ -379,10 +391,10 @@ export async function DELETE(
                     title: existingWO.title,
                     type: existingWO.type,
                     priority: existingWO.priority,
-                    departmentId: existingWO.departmentId ?? undefined,
-                    siteId: existingWO.siteId ?? undefined,
-                    assignedToId: existingWO.assignedToId ?? undefined,
-                }, existingWO.status, 'CANCELLED', user.user.id);
+                    departmentId: existingWO.departmentId ?? null,
+                    siteId: existingWO.siteId ?? null,
+                    assignedToId: existingWO.assignedToId ?? null,
+                }, existingWO.status, 'CANCELLED', user.id);
 
                 console.log(`[Notification] Cancel notification sent for WO ${existingWO.workOrderNumber}`);
             }
@@ -396,7 +408,7 @@ export async function DELETE(
             await logger.logActivity({
                 action: 'DELETE',
                 subject: 'Work Order',
-                userId: user.user.id,
+                userId: user.id,
                 details: { id, reason, type: 'CANCEL' }
             })
         } catch (e) {

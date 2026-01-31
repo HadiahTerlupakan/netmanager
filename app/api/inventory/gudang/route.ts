@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
@@ -70,8 +70,8 @@ export async function GET(req: NextRequest) {
     // Check for site restriction
     // const permissions = (session.user as any).permissions || []
     const permissions = await getUserPermissions(session.user.id!);
-    const siteId = (session.user as any).siteId
-    const role = (session.user as any).role
+    const siteId = (session.user as { siteId?: string }).siteId
+    const role = (session.user as { role?: string }).role
 
     // Only restrict if:
     // 1. User has restriction permission
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
     // Check strict site restriction
     // Support both administrative 'gudang:site_only' and mobile 'k_barang:site_only'
     const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
-    let shouldRestrict = hasRestriction && siteId
+    let shouldRestrict: boolean = !!(hasRestriction && siteId)
 
     if (viewAll && canViewAll) {
       shouldRestrict = false
@@ -99,16 +99,17 @@ export async function GET(req: NextRequest) {
       logger.dbOperation('findMany', 'Gudang', Date.now() - dbStart)
 
       logger.apiRequest('GET', '/api/inventory/gudang', 200, Date.now() - startTime, {
-        userId: session.user.id,
         gudangCount: gudangs.length,
+        ...(session.user.id ? { userId: session.user.id } : {})
       })
 
       return apiSuccess({ gudangs })
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching gudangs', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error fetching gudangs', err, {
       path: '/api/inventory/gudang',
       method: 'GET',
     })
@@ -210,8 +211,8 @@ export async function POST(req: NextRequest) {
       // NEW: Enforce Site Restriction on Creation
       // const permissions = (session.user as any).permissions || []
       const permissions = await getUserPermissions(session.user.id!);
-      const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
-      const userSiteId = (session.user as any).siteId
+      const isSuperAdmin = (session.user as { role?: string }).role === 'SUPER_ADMIN'
+      const userSiteId = (session.user as { siteId?: string }).siteId
 
       let finalSiteIds = siteIds
       const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
@@ -225,17 +226,17 @@ export async function POST(req: NextRequest) {
       const gudang = await inventoryRepository.createGudang({
         kode,
         nama,
-        lokasi,
         isActive: isActive ?? true,
-        siteIds: finalSiteIds
+        ...(lokasi ? { lokasi } : {}),
+        ...(finalSiteIds ? { siteIds: finalSiteIds } : {})
       })
 
       logger.dbOperation('create', 'Gudang', Date.now() - dbStart)
 
       logger.apiRequest('POST', '/api/inventory/gudang', 201, Date.now() - startTime, {
-        userId: session.user.id,
         gudangId: gudang.id,
         kode: gudang.kode,
+        ...(session.user.id ? { userId: session.user.id } : {})
       })
 
       // System Log
@@ -243,8 +244,8 @@ export async function POST(req: NextRequest) {
         await logger.logActivity({
           action: 'CREATE',
           subject: 'Gudang',
-          userId: session.user.id,
-          details: { id: gudang.id, name: gudang.nama, code: gudang.kode }
+          details: { id: gudang.id, name: gudang.nama, code: gudang.kode },
+          ...(session.user.id ? { userId: session.user.id } : {})
         })
       } catch (e) {
         console.error('Logging failed', e)
@@ -254,8 +255,9 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error creating gudang', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error creating gudang', err, {
       path: '/api/inventory/gudang',
       method: 'POST',
     })

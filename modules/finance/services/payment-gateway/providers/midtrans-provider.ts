@@ -9,18 +9,17 @@ import type {
     WebhookResult,
     TestResult
 } from '../provider-interface'
+import midtransClient from 'midtrans-client'
+import * as crypto from 'crypto'
 
 export class MidtransProvider implements PaymentProvider {
     name = 'Midtrans'
     private config?: ProviderConfig
-    private snap: any
-    private coreApi: any
+    private snap: unknown = null
+    private coreApi: unknown = null
 
     initialize(config: ProviderConfig): void {
         this.config = config
-
-        // Initialize Midtrans SDK
-        const midtransClient = require('midtrans-client')
 
         // Snap for payment page
         this.snap = new midtransClient.Snap({
@@ -44,7 +43,7 @@ export class MidtransProvider implements PaymentProvider {
             }
 
             // Create transaction
-            const transaction = await this.snap.createTransaction({
+            const transaction = await (this.snap as { createTransaction: (p: unknown) => Promise<{ redirect_url: string, token: string }> }).createTransaction({
                 transaction_details: {
                     order_id: params.orderId,
                     gross_amount: params.amount
@@ -73,11 +72,12 @@ export class MidtransProvider implements PaymentProvider {
                 transactionId: transaction.token,
                 expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Midtrans createPayment error:', error)
+            const message = error instanceof Error ? error.message : 'Failed to create payment'
             return {
                 success: false,
-                error: error.message || 'Failed to create payment'
+                error: message
             }
         }
     }
@@ -88,7 +88,15 @@ export class MidtransProvider implements PaymentProvider {
                 throw new Error('Midtrans not initialized')
             }
 
-            const statusResponse = await this.coreApi.transaction.status(orderId)
+            interface MidtransStatusResponse {
+                transaction_status: string;
+                transaction_time: string;
+                payment_type: string;
+                gross_amount: string;
+                transaction_id: string;
+            }
+
+            const statusResponse = await (this.coreApi as { transaction: { status: (id: string) => Promise<MidtransStatusResponse> } }).transaction.status(orderId)
 
             // Map Midtrans status to our status
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
@@ -115,12 +123,12 @@ export class MidtransProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: status === 'PAID' ? new Date(statusResponse.transaction_time) : undefined,
+                ...(status === 'PAID' ? { paidAt: new Date(statusResponse.transaction_time) } : {}),
                 paymentMethod: statusResponse.payment_type,
                 amount: parseFloat(statusResponse.gross_amount),
                 transactionId: statusResponse.transaction_id
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Midtrans checkStatus error:', error)
             throw error
         }
@@ -132,27 +140,26 @@ export class MidtransProvider implements PaymentProvider {
                 throw new Error('Midtrans not initialized')
             }
 
-            await this.coreApi.transaction.cancel(orderId)
-        } catch (error: any) {
+            await (this.coreApi as { transaction: { cancel: (id: string) => Promise<void> } }).transaction.cancel(orderId)
+        } catch (error: unknown) {
             console.error('Midtrans cancelPayment error:', error)
             throw error
         }
     }
 
-    verifyWebhook(payload: any, signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown>, _signature?: string): boolean {
         try {
             if (!this.config) {
                 return false
             }
 
             // Midtrans signature verification
-            const orderId = payload.order_id
-            const statusCode = payload.status_code
-            const grossAmount = payload.gross_amount
+            const orderId = payload.order_id as string
+            const statusCode = payload.status_code as string
+            const grossAmount = payload.gross_amount as string
             const serverKey = this.config.apiKey
-            const signatureKey = payload.signature_key
+            const signatureKey = payload.signature_key as string
 
-            const crypto = require('crypto')
             const hash = crypto
                 .createHash('sha512')
                 .update(`${orderId}${statusCode}${grossAmount}${serverKey}`)
@@ -165,14 +172,14 @@ export class MidtransProvider implements PaymentProvider {
         }
     }
 
-    async processWebhook(payload: any): Promise<WebhookResult> {
+    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
         try {
-            const orderId = payload.order_id
+            const orderId = payload.order_id as string
 
             // Map Midtrans status
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
 
-            switch (payload.transaction_status) {
+            switch (payload.transaction_status as string) {
                 case 'capture':
                 case 'settlement':
                     status = 'PAID'
@@ -194,13 +201,13 @@ export class MidtransProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: status === 'PAID' ? new Date(payload.transaction_time) : undefined,
-                paymentMethod: payload.payment_type,
-                transactionId: payload.transaction_id,
-                amount: parseFloat(payload.gross_amount),
+                ...(status === 'PAID' ? { paidAt: new Date(payload.transaction_time as string) } : {}),
+                paymentMethod: payload.payment_type as string,
+                transactionId: payload.transaction_id as string,
+                amount: parseFloat(payload.gross_amount as string),
                 raw: payload
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Midtrans processWebhook error:', error)
             throw error
         }
@@ -216,19 +223,19 @@ export class MidtransProvider implements PaymentProvider {
             }
 
             // Try to check a dummy transaction status (will fail but validates API key)
-            const midtransClient = require('midtrans-client')
             const testCoreApi = new midtransClient.CoreApi({
                 isProduction: this.config.isProduction,
                 serverKey: this.config.apiKey,
                 clientKey: this.config.clientKey
-            })
+            }) as unknown as { transaction: { status: (id: string) => Promise<unknown> } }
 
             // Ping the API
             try {
                 await testCoreApi.transaction.status('test-order-id')
-            } catch (error: any) {
+            } catch (error: unknown) {
+                const err = error as Record<string, unknown>
                 // If we get 404, it means API key is valid (order not found)
-                if (error.httpStatusCode === 404 || error.ApiResponse?.status_code === '404') {
+                if (err.httpStatusCode === 404 || (err.ApiResponse as Record<string, unknown>)?.status_code === '404') {
                     return {
                         success: true,
                         message: 'Connection successful (API key valid)',
@@ -239,7 +246,7 @@ export class MidtransProvider implements PaymentProvider {
                 }
 
                 // 401 means unauthorized (invalid API key)
-                if (error.httpStatusCode === 401) {
+                if (err.httpStatusCode === 401) {
                     return {
                         success: false,
                         message: 'Invalid API key',
@@ -257,12 +264,13 @@ export class MidtransProvider implements PaymentProvider {
                     environment: this.config.isProduction ? 'Production' : 'Sandbox'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as Record<string, unknown>
             return {
                 success: false,
-                message: error.message || 'Connection failed',
+                message: (error as Error).message || 'Connection failed',
                 details: {
-                    error: error.code || error.error_code
+                    error: (err.code as string) || (err.error_code as string)
                 }
             }
         }

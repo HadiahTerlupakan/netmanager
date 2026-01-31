@@ -1,17 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { HiOutlineDocumentText, HiMagnifyingGlass, HiOutlineExclamationCircle } from 'react-icons/hi2'
 import clsx from 'clsx'
+import type { Invoice } from '@/types'
 
 interface ReceivablesClientProps {
-  initialData: any[]
+  initialData: Invoice[]
   hideHeader?: boolean
 }
 
 export default function ReceivablesClient({ initialData, hideHeader = false }: ReceivablesClientProps) {
-  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
 
   const formatCurrency = (val: number) => {

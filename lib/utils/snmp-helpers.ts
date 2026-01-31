@@ -8,28 +8,28 @@
 import snmp from 'net-snmp'
 
 // Global handler untuk suppress error dari net-snmp library bug
-if (typeof process !== 'undefined' && !(global as any).__SNMP_ERROR_HANDLER_ADDED) {
+if (typeof process !== 'undefined' && !(global as unknown as { __SNMP_ERROR_HANDLER_ADDED?: boolean }).__SNMP_ERROR_HANDLER_ADDED) {
   try {
     const originalConsoleError = console.error
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       const errorStr = args.join(' ')
       if (errorStr.includes('req.doneCb is not a function')) {
         return
       }
       originalConsoleError.apply(console, args)
     }
-    
+
     const snmpErrorHandler = (error: Error) => {
       if (error && error.message && error.message.includes('req.doneCb is not a function')) {
         return
       }
       originalConsoleError('[Uncaught Exception]', error)
     }
-    
+
     process.on('uncaughtException', snmpErrorHandler)
-    ;(global as any).__SNMP_ERROR_HANDLER_ADDED = true
-  } catch (e) {
-    console.warn('[SNMP] Failed to setup error handler:', e)
+    ;(global as unknown as { __SNMP_ERROR_HANDLER_ADDED?: boolean }).__SNMP_ERROR_HANDLER_ADDED = true
+  } catch (_e) {
+    console.warn('[SNMP] Failed to setup error handler:', _e)
   }
 }
 
@@ -46,7 +46,7 @@ export async function snmpGet(
 ): Promise<string | null> {
   return new Promise((resolve) => {
     let resolved = false
-    let session: any = null
+    let session: snmp.Session | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     const finish = (value: string | null) => {
@@ -57,14 +57,14 @@ export async function snmpGet(
         try {
           setTimeout(() => {
             try {
-              if (typeof session.close === 'function') {
+              if (session && typeof session.close === 'function') {
                 session.close()
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore
             }
           }, 100)
-        } catch (e) {
+        } catch (_e) {
           // Ignore
         }
         session = null
@@ -87,7 +87,7 @@ export async function snmpGet(
         timeout: 5000,
       })
 
-      session.get([oid], (error: any, varbinds: any[]) => {
+      session.get([oid], (error: Error | null, varbinds: snmp.Varbind[]) => {
         if (resolved) return
 
         if (error || !varbinds || varbinds.length === 0) {
@@ -116,7 +116,7 @@ export async function snmpGet(
       timeoutId = setTimeout(() => {
         finish(null)
       }, timeout)
-    } catch (error) {
+    } catch (_error) {
       finish(null)
     }
   })
@@ -150,7 +150,7 @@ export async function snmpGetMultiple(
     oids.map(oid => 
       snmpGet(ipAddress, port, community, version, oid, timeout)
         .then(value => ({ oid, value }))
-        .catch(() => ({ oid, value: null }))
+        .catch(() => ({ oid, value: null as string | null }))
     )
   )
 
@@ -193,15 +193,15 @@ export async function snmpTable(
 
   return new Promise((resolve) => {
     let resolved = false
-    let session: any = null
+    let session: snmp.Session | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const results: Record<string, string> = {}
-    
+
     // Map untuk menyimpan base OID untuk setiap kolom (untuk extract index)
     const columnBaseOids: Record<string, string> = {}
     const columnNames: Record<string, string> = {}
 
-    const finish = (error?: any) => {
+    const finish = (error?: Error | string | null) => {
       if (resolved) return
       resolved = true
       if (timeoutId) clearTimeout(timeoutId)
@@ -209,25 +209,27 @@ export async function snmpTable(
         try {
           setTimeout(() => {
             try {
-              if (typeof session.close === 'function') {
+              if (session && typeof session.close === 'function') {
                 session.close()
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore
             }
           }, 100)
-        } catch (e) {
+        } catch (_e) {
           // Ignore
         }
         session = null
       }
-      
+
       if (error) {
         if (Object.keys(results).length > 0) {
-          console.log(`[SNMP-Table] Completed with ${Object.keys(results).length} entries despite error: ${error.message || error}`)
+          const errorMsg = typeof error === 'string' ? error : error.message
+          console.log(`[SNMP-Table] Completed with ${Object.keys(results).length} entries despite error: ${errorMsg}`)
           resolve(results)
         } else {
-          console.error(`[SNMP-Table] Failed:`, error.message || error)
+          const errorMsg = typeof error === 'string' ? error : error.message
+          console.error(`[SNMP-Table] Failed:`, errorMsg)
           resolve({})
         }
       } else {
@@ -252,7 +254,7 @@ export async function snmpTable(
       })
 
       // Build full OIDs untuk setiap kolom
-      const fullOids = columns.map((col, idx) => {
+      const fullOids = columns.map((col) => {
         // Jika column sudah full OID, gunakan langsung
         if (col.includes(baseOid)) {
           // Base OID untuk matching adalah full OID column (termasuk column number)
@@ -307,41 +309,42 @@ export async function snmpTable(
         }
 
         console.log(`[SNMP-Table] GETBULK request: ${currentOids.length} OIDs, nonRepeaters=${nonRepeaters}, maxRepetitions=${maxRepetitions}`)
-        
-        session.getBulk(currentOids, nonRepeaters, maxRepetitions, (error: any, varbinds: any[]) => {
-          if (resolved) return
 
-          if (error) {
-            console.warn(`[SNMP-Table] GETBULK error: ${error.message || error}`)
-            // Jika sudah ada hasil, anggap berhasil
-            if (Object.keys(results).length > 0) {
+        if (session) {
+          session.getBulk(currentOids, nonRepeaters, maxRepetitions, (error: Error | null, varbinds: (snmp.Varbind | snmp.Varbind[])[]) => {
+            if (resolved) return
+
+            if (error) {
+              console.warn(`[SNMP-Table] GETBULK error: ${error.message}`)
+              // Jika sudah ada hasil, anggap berhasil
+              if (Object.keys(results).length > 0) {
+                finish()
+              } else {
+                finish(error)
+              }
+              return
+            }
+
+            if (!varbinds || varbinds.length === 0) {
+              console.log(`[SNMP-Table] No more varbinds, completing with ${Object.keys(results).length} entries`)
+              hasMoreData = false
               finish()
-            } else {
-              finish(error)
+              return
             }
-            return
-          }
 
-          if (!varbinds || varbinds.length === 0) {
-            console.log(`[SNMP-Table] No more varbinds, completing with ${Object.keys(results).length} entries`)
-            hasMoreData = false
-            finish()
-            return
-          }
+            console.log(`[SNMP-Table] Received ${varbinds.length} varbinds`)
 
-          console.log(`[SNMP-Table] Received ${varbinds.length} varbinds`)
-
-          // Flatten varbinds jika ada nested arrays
-          const flatVarbinds: any[] = []
-          for (const item of varbinds) {
-            if (Array.isArray(item)) {
-              flatVarbinds.push(...item)
-            } else {
-              flatVarbinds.push(item)
+            // Flatten varbinds jika ada nested arrays
+            const flatVarbinds: snmp.Varbind[] = []
+            for (const item of varbinds) {
+              if (Array.isArray(item)) {
+                flatVarbinds.push(...item)
+              } else {
+                flatVarbinds.push(item)
+              }
             }
-          }
 
-          console.log(`[SNMP-Table] Flattened to ${flatVarbinds.length} varbinds`)
+            console.log(`[SNMP-Table] Flattened to ${flatVarbinds.length} varbinds`)
 
           // Process varbinds - match dengan kolom berdasarkan OID prefix
           // Track next OID untuk setiap kolom (gunakan OID terakhir dari setiap kolom)
@@ -365,6 +368,7 @@ export async function snmpTable(
               // Tandai kolom yang sesuai sebagai selesai
               for (let colIdx = 0; colIdx < normalizedOids.length; colIdx++) {
                 const fullOid = normalizedOids[colIdx]
+                if (!fullOid) continue
                 const baseOidForColumn = columnBaseOids[fullOid]
                 if (baseOidForColumn && varbindOid.startsWith(baseOidForColumn)) {
                   // Kolom ini sudah selesai
@@ -381,6 +385,7 @@ export async function snmpTable(
             let matched = false
             for (let colIdx = 0; colIdx < normalizedOids.length; colIdx++) {
               const fullOid = normalizedOids[colIdx]
+              if (!fullOid) continue
               const baseOidForColumn = columnBaseOids[fullOid]
               
               if (!baseOidForColumn) {
@@ -425,7 +430,8 @@ export async function snmpTable(
                   
                   // Update next OID untuk kolom ini menggunakan OID comparison yang benar
                   // Gunakan compareOids untuk membandingkan OID secara numerik
-                  if (!nextOids[colIdx] || compareOids(varbindOid, nextOids[colIdx]) > 0) {
+                  const currentNextOid = nextOids[colIdx]
+                  if (!currentNextOid || compareOids(varbindOid, currentNextOid) > 0) {
                     nextOids[colIdx] = varbindOid
                   }
                   
@@ -446,28 +452,30 @@ export async function snmpTable(
           // Untuk kolom yang sudah selesai, tetap gunakan currentOids (tidak akan diupdate lagi)
           let hasActiveColumns = false
           currentOids = nextOids.map((oid, idx) => {
+            const currentOid = currentOids[idx] || ''
+
             // Jika kolom sudah selesai, jangan update
             if (columnFinished[idx]) {
-              return currentOids[idx]
+              return currentOid
             }
-            
+
             // Jika ada nextOid untuk kolom ini, gunakan untuk request berikutnya
             if (oid && oid.length > 0) {
               hasActiveColumns = true
               return oid.startsWith('.') ? oid.substring(1) : oid
             }
-            
+
             // Jika tidak ada nextOid tapi kolom ini sudah pernah dapat data,
             // berarti mungkin sudah selesai (tapi belum dapat EndOfMibView)
             // Tetap gunakan currentOids untuk request berikutnya
             if (columnHasData[idx]) {
               // Tetap lanjutkan untuk memastikan semua data terambil
               hasActiveColumns = true
-              return currentOids[idx]
+              return currentOid
             }
-            
+
             // Kolom ini belum pernah dapat data, tetap gunakan currentOids
-            return currentOids[idx]
+            return currentOid
           })
 
           // Jika semua kolom sudah selesai, selesai
@@ -501,12 +509,14 @@ export async function snmpTable(
           }
         })
       }
+    }
 
       // Start GETBULK
       doGetBulk()
-    } catch (error: any) {
-      console.error(`[SNMP-Table] Error:`, error.message || error)
-      finish(error)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.error(`[SNMP-Table] Error:`, errorMsg)
+      finish(errorMsg)
     }
   })
 }
@@ -518,17 +528,17 @@ export async function snmpTable(
 function compareOids(oid1: string, oid2: string): number {
   const parts1 = oid1.split('.').map(p => parseInt(p, 10) || 0)
   const parts2 = oid2.split('.').map(p => parseInt(p, 10) || 0)
-  
+
   const maxLength = Math.max(parts1.length, parts2.length)
-  
+
   for (let i = 0; i < maxLength; i++) {
     const part1 = parts1[i] || 0
     const part2 = parts2[i] || 0
-    
+
     if (part1 < part2) return -1
     if (part1 > part2) return 1
   }
-  
+
   return 0
 }
 
@@ -539,7 +549,7 @@ function compareOids(oid1: string, oid2: string): number {
  * @returns Object dengan isValid, gaps, dan warnings
  */
 function validateOidSequence(
-  results: Array<{ oid: string; value: any; type?: number }>,
+  results: Array<{ oid: string; value: unknown; type?: number }>,
   baseOid: string
 ): { isValid: boolean; gaps: Array<{ from: string; to: string; count: number }>; warnings: string[] } {
   if (results.length === 0) {
@@ -558,8 +568,13 @@ function validateOidSequence(
   
   // Validasi urutan OID
   for (let i = 1; i < sortedResults.length; i++) {
-    const prevOid = sortedResults[i - 1].oid
-    const currOid = sortedResults[i].oid
+    const prevResult = sortedResults[i - 1]
+    const currResult = sortedResults[i]
+
+    if (!prevResult || !currResult) continue
+
+    const prevOid = prevResult.oid
+    const currOid = currResult.oid
     
     const prevParts = prevOid.split('.').filter(p => p.length > 0)
     const currParts = currOid.split('.').filter(p => p.length > 0)
@@ -577,8 +592,8 @@ function validateOidSequence(
         // Jika index hanya berbeda 1, itu normal (sequential)
         // Jika berbeda lebih dari 1, ada gap
         if (prevIndex.length === currIndex.length && prevIndex.length > 0) {
-          const lastPrev = parseInt(prevIndex[prevIndex.length - 1], 10)
-          const lastCurr = parseInt(currIndex[currIndex.length - 1], 10)
+          const lastPrev = parseInt(prevIndex[prevIndex.length - 1] ?? '0', 10)
+          const lastCurr = parseInt(currIndex[currIndex.length - 1] ?? '0', 10)
           
           if (!isNaN(lastPrev) && !isNaN(lastCurr) && lastCurr - lastPrev > 1) {
             const gapCount = lastCurr - lastPrev - 1
@@ -615,46 +630,47 @@ export async function snmpWalkWithGetNext(
   oid: string,
   timeout: number = 300000,
   expectedCount?: number
-): Promise<Array<{ oid: string; value: any; type?: number }>> {
+): Promise<Array<{ oid: string; value: unknown; type?: number }>> {
   return new Promise((resolve, reject) => {
     let resolved = false
-    let session: any = null
+    let session: snmp.Session | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
-    const results: Array<{ oid: string; value: any; type?: number }> = []
+    const results: Array<{ oid: string; value: unknown; type?: number }> = []
     let currentOid: string | null = null
     let isEndOfMibView = false
     let consecutiveErrors = 0
     const maxConsecutiveErrors = 3
-    
-    const finish = (error?: any) => {
+
+    const finish = (error?: Error | string | null) => {
       if (resolved) return
       resolved = true
-      
+
       if (timeoutId) {
         clearTimeout(timeoutId)
         timeoutId = null
       }
-      
+
       if (session) {
         try {
           setTimeout(() => {
             try {
-              if (typeof session.close === 'function') {
+              if (session && typeof session.close === 'function') {
                 session.close()
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore
             }
           }, 100)
-        } catch (e) {
+        } catch (_e) {
           // Ignore
         }
         session = null
       }
-      
+
       if (error) {
         if (results.length > 0) {
-          console.log(`[SNMP-GetNext] Completed with ${results.length} results despite error: ${error.message || error}`)
+          const errorMsg = typeof error === 'string' ? error : error.message
+          console.log(`[SNMP-GetNext] Completed with ${results.length} results despite error: ${errorMsg}`)
           resolve(results)
         } else {
           reject(error)
@@ -662,31 +678,31 @@ export async function snmpWalkWithGetNext(
       } else {
         // Sort results berdasarkan OID untuk konsistensi
         results.sort((a, b) => compareOids(a.oid, b.oid))
-        
+
         // Validasi urutan OID
         const validation = validateOidSequence(results, oid)
         if (!validation.isValid) {
           console.warn(`[SNMP-GetNext] OID sequence validation found ${validation.gaps.length} gaps`)
           validation.warnings.forEach(w => console.warn(`[SNMP-GetNext] ${w}`))
         }
-        
+
         // Validasi expected count jika diberikan
         if (expectedCount !== undefined && results.length !== expectedCount) {
           const diff = Math.abs(results.length - expectedCount)
           const diffPercentage = (diff / expectedCount) * 100
-          
+
           if (diffPercentage > 5) {
             console.warn(`[SNMP-GetNext] Count mismatch: expected ${expectedCount}, got ${results.length} (${diffPercentage.toFixed(1)}% difference)`)
           } else if (diffPercentage > 1) {
             console.log(`[SNMP-GetNext] Count slight mismatch: expected ${expectedCount}, got ${results.length} (${diffPercentage.toFixed(1)}% difference)`)
           }
         }
-        
+
         console.log(`[SNMP-GetNext] Completed with ${results.length} results${expectedCount ? ` (expected: ${expectedCount})` : ''}`)
         resolve(results)
       }
     }
-    
+
     try {
       let snmpVersion: 0 | 1 | undefined = 1
       if (version === '1') {
@@ -695,14 +711,14 @@ export async function snmpWalkWithGetNext(
         console.warn(`[SNMP-GetNext] SNMP v3 is not supported, using v2c instead`)
         snmpVersion = 1
       }
-      
+
       session = snmp.createSession(ipAddress, community, {
         port: port,
         version: snmpVersion,
         retries: 3,
         timeout: 10000,
       })
-      
+
       // Set timeout
       timeoutId = setTimeout(() => {
         if (!resolved) {
@@ -714,11 +730,11 @@ export async function snmpWalkWithGetNext(
           }
         }
       }, timeout)
-      
+
       // Normalize OID (remove leading dot if present)
       const normalizedOid = oid.startsWith('.') ? oid.substring(1) : oid
       currentOid = normalizedOid
-      
+
       // Helper function untuk melakukan getNext
       const doGetNext = () => {
         if (resolved || isEndOfMibView || !currentOid) {
@@ -728,104 +744,111 @@ export async function snmpWalkWithGetNext(
           }
           return
         }
-        
-        session.getNext([currentOid], (error: any, varbinds: any[]) => {
-          if (resolved) return
-          
-          if (error) {
-            consecutiveErrors++
-            if (consecutiveErrors >= maxConsecutiveErrors) {
-              console.warn(`[SNMP-GetNext] ${maxConsecutiveErrors} consecutive errors, stopping...`)
-              finish(new Error(`SNMP getNext failed after ${maxConsecutiveErrors} consecutive errors: ${error.message || error}`))
+
+        if (session) {
+          session.getNext([currentOid], (error: Error | null, varbinds: snmp.Varbind[]) => {
+            if (resolved) return
+
+            if (error) {
+              consecutiveErrors++
+              if (consecutiveErrors >= maxConsecutiveErrors) {
+                console.warn(`[SNMP-GetNext] ${maxConsecutiveErrors} consecutive errors, stopping...`)
+                finish(new Error(`SNMP getNext failed after ${maxConsecutiveErrors} consecutive errors: ${error.message}`))
+                return
+              }
+
+              // Retry dengan delay kecil
+              setTimeout(() => {
+                if (!resolved) {
+                  doGetNext()
+                }
+              }, 500)
               return
             }
-            
-            // Retry dengan delay kecil
-            setTimeout(() => {
-              if (!resolved) {
-                doGetNext()
+
+            consecutiveErrors = 0 // Reset error counter
+
+            if (!varbinds || varbinds.length === 0) {
+              finish(new Error('SNMP getNext returned no varbinds'))
+              return
+            }
+
+            const varbind = varbinds[0]
+
+            if (!varbind) {
+              finish(new Error('SNMP getNext returned empty varbind'))
+              return
+            }
+
+            // Check untuk EndOfMibView
+            if (snmp.isVarbindError(varbind)) {
+              if (varbind.type === snmp.ObjectType.EndOfMibView) {
+                isEndOfMibView = true
+                console.log(`[SNMP-GetNext] EndOfMibView reached, total results: ${results.length}`)
+                finish()
+                return
               }
-            }, 500)
-            return
-          }
-          
-          consecutiveErrors = 0 // Reset error counter
-          
-          if (!varbinds || varbinds.length === 0) {
-            finish(new Error('SNMP getNext returned no varbinds'))
-            return
-          }
-          
-          const varbind = varbinds[0]
-          
-          // Check untuk EndOfMibView
-          if (snmp.isVarbindError(varbind)) {
-            if (varbind.type === snmp.ObjectType.EndOfMibView) {
-              isEndOfMibView = true
-              console.log(`[SNMP-GetNext] EndOfMibView reached, total results: ${results.length}`)
+              // Skip error varbinds yang bukan EndOfMibView
+              finish(new Error(`SNMP getNext error: ${varbind.type}`))
+              return
+            }
+
+            const nextOid = varbind.oid.toString()
+
+            // Check apakah OID masih dalam subtree yang diinginkan
+            if (!nextOid.startsWith(normalizedOid)) {
+              // OID sudah keluar dari subtree, selesai
+              console.log(`[SNMP-GetNext] OID ${nextOid} is outside subtree ${normalizedOid}, stopping...`)
               finish()
               return
             }
-            // Skip error varbinds yang bukan EndOfMibView
-            finish(new Error(`SNMP getNext error: ${varbind.type}`))
-            return
-          }
-          
-          const nextOid = varbind.oid.toString()
-          
-          // Check apakah OID masih dalam subtree yang diinginkan
-          if (!nextOid.startsWith(normalizedOid)) {
-            // OID sudah keluar dari subtree, selesai
-            console.log(`[SNMP-GetNext] OID ${nextOid} is outside subtree ${normalizedOid}, stopping...`)
-            finish()
-            return
-          }
-          
-          // Check expected count jika diberikan
-          if (expectedCount !== undefined && results.length >= expectedCount) {
-            console.log(`[SNMP-GetNext] Reached expected count (${expectedCount}), stopping...`)
-            finish()
-            return
-          }
-          
-          // Tambahkan hasil
-          if (varbind.value !== null && varbind.value !== undefined) {
-            results.push({
-              oid: nextOid,
-              value: varbind.value,
-              type: varbind.type,
-            })
-            
-            // Log progress setiap 50 atau 100 entries untuk tracking
-            if (results.length % 50 === 0 || results.length % 100 === 0) {
-              console.log(`[SNMP-GetNext] Progress: ${results.length} results collected...`)
+
+            // Check expected count jika diberikan
+            if (expectedCount !== undefined && results.length >= expectedCount) {
+              console.log(`[SNMP-GetNext] Reached expected count (${expectedCount}), stopping...`)
+              finish()
+              return
             }
-            
-            // Log progress lebih sering untuk dataset besar (> 500)
-            if (expectedCount && expectedCount > 500 && results.length % 200 === 0) {
-              console.log(`[SNMP-GetNext] Progress: ${results.length}/${expectedCount} results collected (${((results.length / expectedCount) * 100).toFixed(1)}%)...`)
+
+            // Tambahkan hasil
+            if (varbind.value !== null && varbind.value !== undefined) {
+              results.push({
+                oid: nextOid,
+                value: varbind.value,
+                type: varbind.type,
+              })
+
+              // Log progress setiap 50 atau 100 entries untuk tracking
+              if (results.length % 50 === 0 || results.length % 100 === 0) {
+                console.log(`[SNMP-GetNext] Progress: ${results.length} results collected...`)
+              }
+
+              // Log progress lebih sering untuk dataset besar (> 500)
+              if (expectedCount && expectedCount > 500 && results.length % 200 === 0) {
+                console.log(`[SNMP-GetNext] Progress: ${results.length}/${expectedCount} results collected (${((results.length / expectedCount) * 100).toFixed(1)}%)...`)
+              }
             }
-          }
-          
-          // Update currentOid untuk getNext berikutnya
-          currentOid = nextOid
-          
-          // Lakukan getNext berikutnya dengan delay kecil untuk mengurangi beban
-          // Delay lebih kecil untuk performa lebih baik, tapi tetap memberi waktu untuk OLT
-          setTimeout(() => {
-            if (!resolved && !isEndOfMibView) {
-              doGetNext()
-            }
-          }, 10) // 10ms delay antar getNext (dikurangi dari 50ms untuk performa lebih baik)
-        })
+
+            // Update currentOid untuk getNext berikutnya
+            currentOid = nextOid
+
+            // Lakukan getNext berikutnya dengan delay kecil untuk mengurangi beban
+            // Delay lebih kecil untuk performa lebih baik, tapi tetap memberi waktu untuk OLT
+            setTimeout(() => {
+              if (!resolved && !isEndOfMibView) {
+                doGetNext()
+              }
+            }, 10) // 10ms delay antar getNext (dikurangi dari 50ms untuk performa lebih baik)
+          })
+        }
       }
-      
+
       // Mulai getNext loop
       console.log(`[SNMP-GetNext] Starting getNext walk for OID: ${normalizedOid}${expectedCount ? ` (expected: ${expectedCount})` : ''}`)
       doGetNext()
-      
-    } catch (error: any) {
-      finish(error)
+
+    } catch (error) {
+      finish(error instanceof Error ? error : String(error))
     }
   })
 }
@@ -842,64 +865,65 @@ export async function snmpWalk(
   timeout: number = 60000,
   maxResults?: number,
   expectedCount?: number
-): Promise<Array<{ oid: string; value: any; type?: number }>> {
+): Promise<Array<{ oid: string; value: unknown; type?: number }>> {
   return new Promise((resolve, reject) => {
     let resolved = false
-    let session: any = null
+    let session: snmp.Session | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     let stableCheckTimeout: ReturnType<typeof setTimeout> | null = null
     let batchProcessingTimeout: ReturnType<typeof setTimeout> | null = null
-    const results: Array<{ oid: string; value: any; type?: number }> = []
+    const results: Array<{ oid: string; value: unknown; type?: number }> = []
     let isClosing = false
     let lastResultCount = 0
     let stableCount = 0
     let varbindsAsErrorCount = 0
 
-    const finish = (error?: any) => {
+    const finish = (error?: Error | string | null) => {
       if (resolved) return
       resolved = true
-      
+
       if (timeoutId) {
         clearTimeout(timeoutId)
         timeoutId = null
       }
-      
+
       if (stableCheckTimeout) {
         clearTimeout(stableCheckTimeout)
         stableCheckTimeout = null
       }
-      
+
       // Clear batch processing timeout
       if (batchProcessingTimeout) {
         clearTimeout(batchProcessingTimeout)
         batchProcessingTimeout = null
       }
-      
+
       isClosing = true
-      
+
       if (session) {
         try {
           setTimeout(() => {
             try {
-              if (typeof session.close === 'function') {
+              if (session && typeof session.close === 'function') {
                 session.close()
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore
             }
           }, 200)
-        } catch (e) {
+        } catch (_e) {
           // Ignore
         }
         session = null
       }
-      
+
       if (error) {
         if (results.length > 0) {
+          const errorMsg = typeof error === 'string' ? error : error.message
           if (varbindsAsErrorCount > 0) {
             console.log(`[SNMP-Walk] Completed with ${results.length} results. Note: ${varbindsAsErrorCount} varbinds received as error parameter (net-snmp bug, already handled)`)
           } else {
-            console.log(`[SNMP-Walk] Completed with ${results.length} results despite error: ${error.message || error}`)
+            console.log(`[SNMP-Walk] Completed with ${results.length} results despite error: ${errorMsg}`)
           }
           resolve(results)
         } else {
@@ -949,7 +973,7 @@ export async function snmpWalk(
       }, adjustedTimeout)
 
       // Track history untuk melihat apakah data masih terus masuk
-      let resultHistory: number[] = []
+      const resultHistory: number[] = []
       const maxHistorySize = 4 // Track 4 checks terakhir
       let stabilityCheckStartTime: number | null = null
       const checkInterval = 3000 // 3 detik default untuk stability check interval
@@ -1003,9 +1027,12 @@ export async function snmpWalk(
           
           // Cek apakah data masih terus masuk dalam history
           if (resultHistory.length >= 2) {
-            const recentGrowth = resultHistory[resultHistory.length - 1] - resultHistory[resultHistory.length - 2]
-            const growthPercentage = resultHistory[resultHistory.length - 2] > 0 
-              ? (recentGrowth / resultHistory[resultHistory.length - 2]) * 100 
+            const lastValue = resultHistory[resultHistory.length - 1] ?? 0
+            const secondLastValue = resultHistory[resultHistory.length - 2] ?? 0
+
+            const recentGrowth = lastValue - secondLastValue
+            const growthPercentage = secondLastValue > 0
+              ? (recentGrowth / secondLastValue) * 100
               : 0
             
             // Jika growth >= 1%, data masih terus masuk dengan signifikan
@@ -1076,12 +1103,12 @@ export async function snmpWalk(
       // Batch processing: pause setiap 20 entries untuk mengurangi beban SNMP
       const BATCH_SIZE = 20 // Process 20 entries per batch
       let isProcessingBatch = false
-      let pendingVarbinds: any[] = []
+      const pendingVarbinds: snmp.Varbind[] = []
       // batchProcessingTimeout sudah dideklarasikan di scope luar
-      
+
       // Normalize OID untuk validasi subtree
       const normalizedOidForValidation = oid.startsWith('.') ? oid.substring(1) : oid
-      
+
       const processBatch = () => {
         if (isProcessingBatch || pendingVarbinds.length === 0) {
           if (pendingVarbinds.length === 0 && !isProcessingBatch) {
@@ -1090,10 +1117,10 @@ export async function snmpWalk(
           return
         }
         if (resolved || isClosing) return
-        
+
         isProcessingBatch = true
         const batch = pendingVarbinds.splice(0, BATCH_SIZE)
-        
+
         // Process batch dengan validasi subtree
         for (const varbind of batch) {
           if (snmp.isVarbindError(varbind)) {
@@ -1131,7 +1158,7 @@ export async function snmpWalk(
               value: varbind.value,
               type: varbind.type,
             })
-            
+
             if (maxResults && results.length >= maxResults) {
               console.log(`[SNMP-Walk] Reached maxResults (${maxResults}), stopping early...`)
               finish()
@@ -1144,14 +1171,14 @@ export async function snmpWalk(
             }
           }
         }
-        
+
         // Log progress setiap batch
         if (results.length % 20 === 0 || results.length % 100 === 0) {
           console.log(`[SNMP-Walk] Processed batch: ${results.length} results collected...`)
         }
-        
+
         isProcessingBatch = false
-        
+
         // Pause sebentar (200ms) untuk mengurangi beban SNMP sebelum lanjut batch berikutnya
         if (pendingVarbinds.length > 0) {
           if (batchProcessingTimeout) {
@@ -1166,7 +1193,7 @@ export async function snmpWalk(
         }
       }
 
-      const processCallback = (error: any, varbinds: any[]) => {
+      const processCallback = (error: Error | snmp.Varbind[] | null, varbinds: snmp.Varbind[]) => {
         if (resolved || isClosing) return
 
         if (error && Array.isArray(error) && error.length > 0 && error[0]?.oid) {
@@ -1182,15 +1209,15 @@ export async function snmpWalk(
               errorMsg = error.message
             } else if (typeof error === 'string') {
               errorMsg = error
-            } else if (error?.message) {
-              errorMsg = error.message
+            } else if ((error as unknown as Error).message) {
+              errorMsg = (error as unknown as Error).message
             } else {
               errorMsg = JSON.stringify(error)
             }
-          } catch (e) {
+          } catch (_e) {
             errorMsg = String(error)
           }
-          
+
           if (errorMsg.includes('req.doneCb') || errorMsg.includes('doneCb is not a function')) {
             console.log(`[SNMP-Walk] Ignoring net-snmp internal bug (req.doneCb), current results: ${results.length}`)
             if (results.length > 0) {
@@ -1198,9 +1225,9 @@ export async function snmpWalk(
             }
             return
           }
-          
+
           console.warn(`[SNMP-Walk] Callback error: ${errorMsg}, current results: ${results.length}`)
-          
+
           if (results.length > 0) {
             console.log(`[SNMP-Walk] Error but have ${results.length} results, waiting 5 seconds for more data...`)
             if (stableCheckTimeout) clearTimeout(stableCheckTimeout)
@@ -1233,18 +1260,19 @@ export async function snmpWalk(
 
         // Tambahkan varbinds ke pending queue untuk batch processing
         pendingVarbinds.push(...varbinds)
-        
+
         // Process batch jika belum sedang processing
         if (!isProcessingBatch) {
           processBatch()
         }
       }
 
-      const wrappedCallback = (error: any, varbinds: any[]) => {
+      const wrappedCallback = (error: Error | snmp.Varbind[] | null, varbinds: snmp.Varbind[]) => {
         try {
           processCallback(error, varbinds)
-        } catch (callbackError: any) {
-          console.error(`[SNMP-Walk] Error in processCallback:`, callbackError?.message || String(callbackError))
+        } catch (callbackError) {
+          const cbErrorMsg = callbackError instanceof Error ? callbackError.message : String(callbackError)
+          console.error(`[SNMP-Walk] Error in processCallback:`, cbErrorMsg)
           if (results.length > 0) {
             console.log(`[SNMP-Walk] Callback error but have ${results.length} results, continuing...`)
             checkStability()
@@ -1257,16 +1285,23 @@ export async function snmpWalk(
         // Untuk SNMP v2c, subtree() menggunakan GETBULK (bulkwalk) secara otomatis
         // Sesuai dengan snmpbulkwalk -v2c -Cr<max-repeaters>
         console.log(`[SNMP-Walk] Using bulkwalk (GETBULK via subtree) for OID: ${oidString} (will only fetch data within this subtree)`)
-        session.subtree(oidString, wrappedCallback)
-      } catch (subtreeError: any) {
-        console.error(`[SNMP-Walk] Error calling session.subtree:`, subtreeError?.message || String(subtreeError))
-        finish(subtreeError)
+        if (session) {
+          // Use type assertion to a structural interface to avoid 'any' and match the call signature exactly
+          const sessionWithSubtree = session as unknown as { 
+            subtree: (oid: string, maxRepeaters: number, callback: (error: Error | snmp.Varbind[] | null, varbinds: snmp.Varbind[]) => void) => void 
+          };
+          sessionWithSubtree.subtree(oidString, 20, wrappedCallback)
+        }
+      } catch (subtreeError) {
+        const subErrorMsg = subtreeError instanceof Error ? subtreeError.message : String(subtreeError)
+        console.error(`[SNMP-Walk] Error calling session.subtree:`, subErrorMsg)
+        finish(subErrorMsg)
         return
       }
-      
+
       setTimeout(checkStability, 1000) // Mulai check lebih cepat (1 detik, bukan 2 detik)
-    } catch (error: any) {
-      finish(error)
+    } catch (error) {
+      finish(error instanceof Error ? error : String(error))
     }
   })
 }
@@ -1299,26 +1334,27 @@ export async function snmpWalkSimple(
       
       // Jika GETBULK return 0 results, fallback ke subtree
       console.log(`[SNMP-WalkSimple] GETBULK returned 0 results, falling back to subtree...`)
-    } catch (bulkError: any) {
+    } catch (bulkError: unknown) {
       // Jika GETBULK gagal, fallback ke subtree
-      console.warn(`[SNMP-WalkSimple] GETBULK failed: ${bulkError.message || bulkError}, falling back to subtree...`)
+      const errorMsg = bulkError instanceof Error ? bulkError.message : String(bulkError)
+      console.warn(`[SNMP-WalkSimple] GETBULK failed: ${errorMsg}, falling back to subtree...`)
     }
   }
-  
+
   // Fallback: Gunakan subtree (yang juga menggunakan GETBULK untuk SNMP v2c)
   let walkResults = await snmpWalk(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
-  
+
   // Validasi hasil: jika ada expected count dan tidak sesuai, coba dengan getNext
   // OPTIMASI: Lebih agresif menggunakan GET NEXT untuk menangani data yang terputus-putus
   if (expectedCount !== undefined && walkResults.length < expectedCount) {
     const missing = expectedCount - walkResults.length
     const missingPercentage = (missing / expectedCount) * 100
-    
+
     // Jika missing > 1% (lebih agresif dari 5%), coba dengan getNext untuk memastikan semua data terambil
     // GET NEXT lebih reliable untuk data yang terputus-putus
     if (missingPercentage > 1) {
       console.log(`[SNMP-WalkSimple] Subtree incomplete (got ${walkResults.length}, expected ${expectedCount}, missing ${missing} = ${missingPercentage.toFixed(1)}%), trying getNext to handle fragmented data...`)
-      
+
       try {
         const getNextResults = await snmpWalkWithGetNext(
           ipAddress,
@@ -1329,7 +1365,7 @@ export async function snmpWalkSimple(
           timeout,
           expectedCount
         )
-        
+
         // Gunakan hasil getNext jika lebih lengkap
         if (getNextResults.length >= walkResults.length) {
           const improvement = getNextResults.length - walkResults.length
@@ -1338,8 +1374,9 @@ export async function snmpWalkSimple(
         } else {
           console.log(`[SNMP-WalkSimple] GetNext returned fewer results (${getNextResults.length} vs ${walkResults.length}), keeping subtree results`)
         }
-      } catch (getNextError: any) {
-        console.warn(`[SNMP-WalkSimple] GetNext fallback failed: ${getNextError.message || getNextError}, using subtree results`)
+      } catch (getNextError: unknown) {
+        const errorMsg = getNextError instanceof Error ? getNextError.message : String(getNextError)
+        console.warn(`[SNMP-WalkSimple] GetNext fallback failed: ${errorMsg}, using subtree results`)
         // Gunakan hasil subtree meskipun tidak lengkap
       }
     } else if (missingPercentage > 0) {
@@ -1355,13 +1392,13 @@ export async function snmpWalkSimple(
           Math.min(timeout, 60000), // Timeout lebih pendek untuk minor missing
           expectedCount
         )
-        
+
         if (getNextResults.length > walkResults.length) {
           const improvement = getNextResults.length - walkResults.length
           console.log(`[SNMP-WalkSimple] GetNext found ${improvement} additional results, using getNext results`)
           walkResults = getNextResults
         }
-      } catch (getNextError: any) {
+      } catch (_getNextError: unknown) {
         // Ignore error untuk minor missing, gunakan subtree results
       }
     }
@@ -1445,7 +1482,7 @@ async function snmpGetBulk(
 ): Promise<Record<string, string>> {
   return new Promise((resolve, reject) => {
     let resolved = false
-    let session: any = null
+    let session: snmp.Session | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const results: Record<string, string> = {}
     let currentOid: string = oid
@@ -1453,35 +1490,36 @@ async function snmpGetBulk(
     const maxRepetitions = expectedCount && expectedCount > 100 ? 100 : 50 // GETBULK max repetitions per request
     const nonRepeaters = 0 // Number of non-repeating OIDs (seperti snmpbulkget -Cn)
 
-    const finish = (error?: any) => {
+    const finish = (error?: Error | string | null) => {
       if (resolved) return
       resolved = true
-      
+
       if (timeoutId) {
         clearTimeout(timeoutId)
         timeoutId = null
       }
-      
+
       if (session) {
         try {
           setTimeout(() => {
             try {
-              if (typeof session.close === 'function') {
+              if (session && typeof session.close === 'function') {
                 session.close()
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore
             }
           }, 100)
-        } catch (e) {
+        } catch (_e) {
           // Ignore
         }
         session = null
       }
-      
+
       if (error) {
         if (Object.keys(results).length > 0) {
-          console.log(`[SNMP-GetBulk] Completed with ${Object.keys(results).length} results despite error: ${error.message || error}`)
+          const errorMsg = typeof error === 'string' ? error : error.message
+          console.log(`[SNMP-GetBulk] Completed with ${Object.keys(results).length} results despite error: ${errorMsg}`)
           resolve(results)
         } else {
           reject(error)
@@ -1552,168 +1590,178 @@ async function snmpGetBulk(
         // Sesuai dengan snmpbulkget: -Cn<nonrepeaters> -Cr<maxrepeaters>
         const normalizedOidForRequest = currentOid.startsWith('.') ? currentOid.substring(1) : currentOid
         console.log(`[SNMP-GetBulk] Requesting: OID=${normalizedOidForRequest}, nonRepeaters=${nonRepeaters}, maxRepetitions=${maxRepetitions}`)
-        
-        session.getBulk([normalizedOidForRequest], nonRepeaters, maxRepetitions, (error: any, varbinds: any[]) => {
-          if (resolved) return
 
-          if (error) {
-            console.log(`[SNMP-GetBulk] Error in callback: ${error.message || error}, current results: ${Object.keys(results).length}`)
-            // Jika sudah ada hasil, anggap berhasil
-            if (Object.keys(results).length > 0) {
-              console.log(`[SNMP-GetBulk] Error but have ${Object.keys(results).length} results, completing...`)
-              finish()
-            } else {
-              finish(error)
-            }
-            return
-          }
+        if (session) {
+          session.getBulk([normalizedOidForRequest], nonRepeaters, maxRepetitions, (error: Error | null, varbinds: (snmp.Varbind | snmp.Varbind[])[]) => {
+            if (resolved) return
 
-          console.log(`[SNMP-GetBulk] Received ${varbinds ? varbinds.length : 0} varbinds, current results: ${Object.keys(results).length}`)
-
-          if (!varbinds || varbinds.length === 0) {
-            // Jika belum ada hasil sama sekali dan ini request pertama, mungkin GETBULK tidak cocok
-            if (Object.keys(results).length === 0) {
-              // Langsung finish dengan error untuk trigger fallback ke WALK
-              finish(new Error('GETBULK returned empty varbinds on first request'))
-              return
-            }
-            // Jika sudah ada hasil, tidak ada data lagi, selesai
-            console.log(`[SNMP-GetBulk] No more varbinds, completing with ${Object.keys(results).length} results`)
-            finish()
-            return
-          }
-
-          let hasNewData = false
-          let nextOid: string | null = null
-          let hasValidVarbinds = false
-          let reachedEndOfMib = false
-
-          // Base OID untuk validasi subtree (gunakan OID awal, bukan currentOid yang mungkin sudah berubah)
-          const baseOidParts = normalizedOid.split('.').filter(p => p.length > 0)
-          
-          for (const varbind of varbinds) {
-            if (!varbind || !varbind.oid) continue
-
-            const varbindOid = varbind.oid.toString()
-            const varbindOidParts = varbindOid.split('.').filter((p: string) => p.length > 0)
-            
-            // Check EndOfMibView terlebih dahulu
-            if (snmp.isVarbindError(varbind) && varbind.value === snmp.ObjectType.EndOfMibView) {
-              console.log(`[SNMP-GetBulk] EndOfMibView reached, total results: ${Object.keys(results).length}`)
-              reachedEndOfMib = true
-              break // Keluar dari loop, tapi jangan langsung finish - proses varbind yang sudah ada dulu
-            }
-
-            // Skip error varbinds (kecuali EndOfMibView yang sudah di-handle di atas)
-            if (snmp.isVarbindError(varbind)) {
-              continue
-            }
-            
-            // Check jika OID masih dalam subtree (hanya ambil OID yang masih dalam base OID)
-            // Pastikan varbind OID masih dalam subtree
-            if (varbindOidParts.length < baseOidParts.length) {
-              // OID lebih pendek dari base, sudah keluar dari subtree
-              console.log(`[SNMP-GetBulk] OID ${varbindOid} is shorter than base, stopping...`)
-              finish()
-              return
-            }
-            
-            // Bandingkan base OID parts
-            let isInSubtree = true
-            for (let i = 0; i < baseOidParts.length; i++) {
-              if (varbindOidParts[i] !== baseOidParts[i]) {
-                isInSubtree = false
-                break
-              }
-            }
-            
-            if (!isInSubtree) {
-              // OID sudah keluar dari subtree, selesai
-              console.log(`[SNMP-GetBulk] OID ${varbindOid} is outside subtree ${normalizedOid}, stopping...`)
-              finish()
-              return
-            }
-
-            hasValidVarbinds = true
-
-            // Extract index dari OID
-            if (varbindOidParts.length > baseOidParts.length) {
-              const index = varbindOidParts.slice(baseOidParts.length).join('.')
-              
-              // Convert value to string
-              let valueStr: string
-              if (Buffer.isBuffer(varbind.value)) {
-                valueStr = Array.from(varbind.value as Uint8Array)
-                  .map((b: number) => b.toString(16).toUpperCase().padStart(2, '0'))
-                  .join(' ')
+            if (error) {
+              console.log(`[SNMP-GetBulk] Error in callback: ${error.message}, current results: ${Object.keys(results).length}`)
+              // Jika sudah ada hasil, anggap berhasil
+              if (Object.keys(results).length > 0) {
+                console.log(`[SNMP-GetBulk] Error but have ${Object.keys(results).length} results, completing...`)
+                finish()
               } else {
-                valueStr = varbind.value.toString()
+                finish(error)
               }
-
-              if (!results[index]) {
-                results[index] = valueStr
-                hasNewData = true
-              }
+              return
             }
 
-            // Simpan OID terakhir yang valid untuk next request
-            // Gunakan compareOids untuk memastikan kita selalu menggunakan OID terbesar
-            if (!nextOid || compareOids(varbindOid, nextOid) > 0) {
-              nextOid = varbindOid
+            console.log(`[SNMP-GetBulk] Received ${varbinds ? varbinds.length : 0} varbinds, current results: ${Object.keys(results).length}`)
+
+            if (!varbinds || varbinds.length === 0) {
+              // Jika belum ada hasil sama sekali dan ini request pertama, mungkin GETBULK tidak cocok
+              if (Object.keys(results).length === 0) {
+                // Langsung finish dengan error untuk trigger fallback ke WALK
+                finish(new Error('GETBULK returned empty varbinds on first request'))
+                return
+              }
+              // Jika sudah ada hasil, tidak ada data lagi, selesai
+              console.log(`[SNMP-GetBulk] No more varbinds, completing with ${Object.keys(results).length} results`)
+              finish()
+              return
             }
-          }
 
-          // Jika mencapai EndOfMibView, selesai
-          if (reachedEndOfMib) {
-            console.log(`[SNMP-GetBulk] EndOfMibView reached, completing with ${Object.keys(results).length} results`)
-            finish()
-            return
-          }
+            let hasNewData = false
+            let nextOid: string | null = null
+            let hasValidVarbinds = false
+            let reachedEndOfMib = false
 
-          // Jika tidak ada varbind yang valid sama sekali, selesai
-          if (!hasValidVarbinds) {
-            console.log(`[SNMP-GetBulk] No valid varbinds, completing with ${Object.keys(results).length} results`)
-            finish()
-            return
-          }
+            // Base OID untuk validasi subtree (gunakan OID awal, bukan currentOid yang mungkin sudah berubah)
+            const baseOidParts = normalizedOid.split('.').filter(p => p.length > 0)
 
-          // Update currentOid untuk next request (gunakan OID terakhir yang valid)
-          // PENTING: Lanjutkan loop meskipun tidak ada data baru dalam batch ini,
-          // karena mungkin masih ada data di batch berikutnya
-          if (nextOid) {
-            // Increment nextOid untuk memastikan kita tidak stuck di OID yang sama
-            // Tapi hanya jika nextOid sama dengan currentOid (untuk menghindari loop tak terbatas)
-            if (nextOid === currentOid) {
-              // Jika nextOid sama dengan currentOid, berarti mungkin sudah selesai
-              // Tapi cek dulu apakah kita sudah mencapai expectedCount
-              if (expectedCount !== undefined && Object.keys(results).length >= expectedCount) {
-                console.log(`[SNMP-GetBulk] Reached expected count (${expectedCount}), completing...`)
+            // Flatten varbinds as they come as an array of arrays from getBulk
+            const flatVarbinds: snmp.Varbind[] = varbinds.reduce<snmp.Varbind[]>((acc, val) => {
+              if (Array.isArray(val)) {
+                return acc.concat(val);
+              }
+              return acc.concat([val]);
+            }, []);
+
+            for (const varbind of flatVarbinds) {
+              if (!varbind || !varbind.oid) continue
+
+              const varbindOid = varbind.oid.toString()
+              const varbindOidParts = varbindOid.split('.').filter((p: string) => p.length > 0)
+
+              // Check EndOfMibView terlebih dahulu
+              if (snmp.isVarbindError(varbind) && varbind.value === snmp.ObjectType.EndOfMibView) {
+                console.log(`[SNMP-GetBulk] EndOfMibView reached, total results: ${Object.keys(results).length}`)
+                reachedEndOfMib = true
+                break // Keluar dari loop, tapi jangan langsung finish - proses varbind yang sudah ada dulu
+              }
+
+              // Skip error varbinds (kecuali EndOfMibView yang sudah di-handle di atas)
+              if (snmp.isVarbindError(varbind)) {
+                continue
+              }
+
+              // Check jika OID masih dalam subtree (hanya ambil OID yang masih dalam base OID)
+              // Pastikan varbind OID masih dalam subtree
+              if (varbindOidParts.length < baseOidParts.length) {
+                // OID lebih pendek dari base, sudah keluar dari subtree
+                console.log(`[SNMP-GetBulk] OID ${varbindOid} is shorter than base, stopping...`)
                 finish()
                 return
               }
-              // Jika belum mencapai expectedCount, mungkin ada masalah - tetap lanjutkan sekali lagi
-              console.log(`[SNMP-GetBulk] Warning: nextOid same as currentOid, but continuing...`)
-            }
-            
-            currentOid = nextOid
-            console.log(`[SNMP-GetBulk] Next OID: ${nextOid}, total results so far: ${Object.keys(results).length}${hasNewData ? ' (new data)' : ' (no new data, but continuing)'}`)
-          } else {
-            // Jika tidak ada nextOid, berarti tidak ada varbind yang valid
-            console.log(`[SNMP-GetBulk] No next OID, completing with ${Object.keys(results).length} results`)
-            finish()
-            return
-          }
 
-          // Continue dengan GETBULK berikutnya (tanpa delay untuk lebih cepat)
-          doGetBulk()
-        })
+              // Bandingkan base OID parts
+              let isInSubtree = true
+              for (let i = 0; i < baseOidParts.length; i++) {
+                if (varbindOidParts[i] !== baseOidParts[i]) {
+                  isInSubtree = false
+                  break
+                }
+              }
+
+              if (!isInSubtree) {
+                // OID sudah keluar dari subtree, selesai
+                console.log(`[SNMP-GetBulk] OID ${varbindOid} is outside subtree ${normalizedOid}, stopping...`)
+                finish()
+                return
+              }
+
+              hasValidVarbinds = true
+
+              // Extract index dari OID
+              if (varbindOidParts.length > baseOidParts.length) {
+                const index = varbindOidParts.slice(baseOidParts.length).join('.')
+
+                // Convert value to string
+                let valueStr: string
+                if (Buffer.isBuffer(varbind.value)) {
+                  valueStr = Array.from(varbind.value as Uint8Array)
+                    .map((b: number) => b.toString(16).toUpperCase().padStart(2, '0'))
+                    .join(' ')
+                } else {
+                  valueStr = varbind.value.toString()
+                }
+
+                if (!results[index]) {
+                  results[index] = valueStr
+                  hasNewData = true
+                }
+              }
+
+              // Simpan OID terakhir yang valid untuk next request
+              // Gunakan compareOids untuk memastikan kita selalu menggunakan OID terbesar
+              if (!nextOid || compareOids(varbindOid, nextOid) > 0) {
+                nextOid = varbindOid
+              }
+            }
+
+            // Jika mencapai EndOfMibView, selesai
+            if (reachedEndOfMib) {
+              console.log(`[SNMP-GetBulk] EndOfMibView reached, completing with ${Object.keys(results).length} results`)
+              finish()
+              return
+            }
+
+            // Jika tidak ada varbind yang valid sama sekali, selesai
+            if (!hasValidVarbinds) {
+              console.log(`[SNMP-GetBulk] No valid varbinds, completing with ${Object.keys(results).length} results`)
+              finish()
+              return
+            }
+
+            // Update currentOid untuk next request (gunakan OID terakhir yang valid)
+            // PENTING: Lanjutkan loop meskipun tidak ada data baru dalam batch ini,
+            // karena mungkin masih ada data di batch berikutnya
+            if (nextOid) {
+              // Increment nextOid untuk memastikan kita tidak stuck di OID yang sama
+              // Tapi hanya jika nextOid sama dengan currentOid (untuk menghindari loop tak terbatas)
+              if (nextOid === currentOid) {
+                // Jika nextOid sama dengan currentOid, berarti mungkin sudah selesai
+                // Tapi cek dulu apakah kita sudah mencapai expectedCount
+                if (expectedCount !== undefined && Object.keys(results).length >= expectedCount) {
+                  console.log(`[SNMP-GetBulk] Reached expected count (${expectedCount}), completing...`)
+                  finish()
+                  return
+                }
+                // Jika belum mencapai expectedCount, mungkin ada masalah - tetap lanjutkan sekali lagi
+                console.log(`[SNMP-GetBulk] Warning: nextOid same as currentOid, but continuing...`)
+              }
+
+              currentOid = nextOid
+              console.log(`[SNMP-GetBulk] Next OID: ${nextOid}, total results so far: ${Object.keys(results).length}${hasNewData ? ' (new data)' : ' (no new data, but continuing)'}`)
+            } else {
+              // Jika tidak ada nextOid, berarti tidak ada varbind yang valid
+              console.log(`[SNMP-GetBulk] No next OID, completing with ${Object.keys(results).length} results`)
+              finish()
+              return
+            }
+
+            // Continue dengan GETBULK berikutnya (tanpa delay untuk lebih cepat)
+            doGetBulk()
+          })
+        }
       }
 
       console.log(`[SNMP-GetBulk] Using GETBULK for OID: ${normalizedOid}${expectedCount ? ` (expected: ${expectedCount})` : ''}`)
       doGetBulk()
 
-    } catch (error: any) {
-      finish(error)
+    } catch (error) {
+      finish(error instanceof Error ? error : String(error))
     }
   })
 }
@@ -1735,15 +1783,15 @@ export async function snmpGetBulkSimple(
   try {
     // Coba menggunakan GETBULK yang sebenarnya
     const result = await snmpGetBulk(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
-    
+
     const resultCount = Object.keys(result).length
-    
+
     // OPTIMASI: Jika hasil 0, langsung fallback ke WALK (GETBULK mungkin tidak cocok untuk OID ini)
     if (resultCount === 0) {
       console.warn(`[SNMP-GetBulkSimple] GETBULK returned 0 results, falling back to WALK...`)
       return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
     }
-    
+
     // Validasi hasil jika ada expectedCount
     // Perbaikan: Gunakan threshold 95% untuk dataset besar (lebih ketat)
     if (expectedCount !== undefined) {
@@ -1755,11 +1803,12 @@ export async function snmpGetBulkSimple(
         return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
       }
     }
-    
+
     return result
-  } catch (error: any) {
+  } catch (error) {
     // Jika GETBULK gagal, fallback ke WALK
-    console.warn(`[SNMP-GetBulkSimple] GETBULK failed: ${error.message || error}, falling back to WALK...`)
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.warn(`[SNMP-GetBulkSimple] GETBULK failed: ${errorMsg}, falling back to WALK...`)
     return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
   }
 }

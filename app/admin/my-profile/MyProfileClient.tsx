@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { HiOutlineUser, HiOutlineCamera, HiOutlineLockClosed, HiOutlineEnvelope, HiOutlinePhone, HiOutlineBuildingOffice, HiOutlineMapPin, HiOutlineClock } from 'react-icons/hi2'
 import { HiSave } from 'react-icons/hi'
@@ -58,7 +58,7 @@ export default function MyProfileClient() {
         }
     }, [retryCountdown])
 
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         try {
             const response = await fetchWithHandling<ProfileData>('/api/admin/profile')
             if (response.data) {
@@ -73,11 +73,11 @@ export default function MyProfileClient() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [showToast])
 
     useEffect(() => {
         fetchProfile()
-    }, [])
+    }, [fetchProfile])
 
     const handleSave = async () => {
         // Validate
@@ -226,7 +226,7 @@ export default function MyProfileClient() {
                         <div className="relative">
                             <div className="w-24 h-24 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center border-4 border-white dark:border-gray-800 shadow-lg overflow-hidden shrink-0">
                                 {profile?.image ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
+                                     
                                     <img 
                                         src={profile.image} 
                                         alt="Profile" 

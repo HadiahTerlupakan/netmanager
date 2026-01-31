@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         }))
 
         return apiSuccess(sanitizedConfigs)
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching gateway configs:', error)
         return ApiErrors.internalError('Gagal mengambil konfigurasi payment gateway')
     }

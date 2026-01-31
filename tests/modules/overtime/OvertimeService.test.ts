@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { prismaMock } from '../../setup'
 import { OvertimeStatus } from '@prisma/client'
 
 // Since OvertimeService has complex dependencies, we'll test the business logic
@@ -118,7 +117,7 @@ describe('OvertimeService', () => {
     it('should delete overtime record', async () => {
       mockOvertimeRepo.delete.mockResolvedValueOnce({ id: 'overtime-1' })
 
-      const result = await service.deleteOvertime('overtime-1')
+      await service.deleteOvertime('overtime-1')
 
       expect(mockOvertimeRepo.delete).toHaveBeenCalledWith('overtime-1')
     })

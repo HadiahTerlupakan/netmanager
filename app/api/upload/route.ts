@@ -42,11 +42,11 @@ export async function POST(req: Request) {
       return apiError('Tidak ada gambar valid yang diupload', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
     
-    return apiSuccess({ 
-      url: uploadedUrls[0], 
-      urls: uploadedUrls 
+    return apiSuccess({
+      url: uploadedUrls[0],
+      urls: uploadedUrls
     }, { message: 'Upload berhasil' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Upload error:', error)
     return ApiErrors.internalError('Gagal mengupload gambar')
   }

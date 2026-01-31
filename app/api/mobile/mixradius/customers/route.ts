@@ -14,6 +14,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+        }
         const payload = await verifyMobileToken(token);
         if (!payload) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -34,11 +37,14 @@ export async function GET(request: NextRequest) {
         const userSiteId = payload.siteId as string | undefined;
 
         const mixRadius = new MixRadiusService();
-        const result = await mixRadius.fetchCustomersPPP({
+        const params: { search: string; length: number; siteId?: string } = {
             search,
             length: 20,
-            siteId: userSiteId, // Filter customers by user's site -> owner group mapping
-        });
+        };
+        if (userSiteId) {
+            params.siteId = userSiteId;
+        }
+        const result = await mixRadius.fetchCustomersPPP(params);
 
         // Map to simpler format for mobile
         const customers = result.data.map(c => ({

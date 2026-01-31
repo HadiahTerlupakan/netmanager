@@ -35,10 +35,10 @@ export async function GET(req: NextRequest) {
 
     // SITE RESTRICTION
     const permissions = await getUserPermissions(session.user.id!);
-    const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
-    
+    const isSuperAdmin = (session.user as { role?: string }).role === 'SUPER_ADMIN'
+
     if (!isSuperAdmin && (permissions.includes('masuk:site_only') || permissions.includes('k_barang:site_only'))) {
-        siteId = (session.user as any).siteId
+        siteId = (session.user as { siteId?: string }).siteId ?? null
     }
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
@@ -51,10 +51,10 @@ export async function GET(req: NextRequest) {
       const { items: masukList, total } = await inventoryRepository.getHistoryMasuk({
         skip: offset,
         take: limit,
-        barangId: barangId || undefined,
-        gudangId: gudangId || undefined,
-        search: search || undefined,
-        siteId: siteId || undefined
+        ...(barangId && { barangId }),
+        ...(gudangId && { gudangId }),
+        ...(search && { search }),
+        ...(siteId && { siteId })
       })
 
       logger.dbOperation('findMany', 'BarangMasuk+Relations', Date.now() - dbStart)
@@ -81,8 +81,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching barang masuk', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error fetching barang masuk', err, {
       path: '/api/inventory/masuk',
       method: 'GET',
     })
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
         jumlah: parsedJumlah,
         kondisi: kondisi || 'BARU',
         keterangan,
-        userId: session.user.id,
+        userId: session.user.id!,
         fotoBukti: fotoBukti || [],
         fotoMetadata: fotoMetadata || null,
         tanggal: new Date()
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest) {
         await logger.logActivity({
           action: 'CREATE',
           subject: 'Inventory In',
-          userId: session.user.id,
+          userId: session.user.id!,
           details: { id: masukRecord.id, barangId, gudangId, quantity: parsedJumlah }
         })
       } catch (e) {
@@ -201,16 +202,17 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error creating barang masuk', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error creating barang masuk', err, {
       path: '/api/inventory/masuk',
       method: 'POST',
     })
 
-    if (error.message === 'Barang tidak ditemukan') {
+    if (err.message === 'Barang tidak ditemukan') {
       return ApiErrors.notFound('Barang')
     }
-    if (error.message === 'Gudang tidak ditemukan atau tidak aktif') {
+    if (err.message === 'Gudang tidak ditemukan atau tidak aktif') {
       return apiError('Gudang tidak ditemukan atau tidak aktif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 

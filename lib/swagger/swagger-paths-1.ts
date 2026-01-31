@@ -22,8 +22,8 @@ export const swaggerPaths = {
 
     // ==================== USERS ====================
     '/api/users': {
-        get: { summary: 'Get all users', tags: ['Users'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'List of users' } } },
-        post: { summary: 'Create user', tags: ['Users'], security: [{ bearerAuth: [] }], responses: { 201: { description: 'User created' } } }
+        get: { summary: 'Get all users', tags: ['Users'], security: [{ bearerAuth: [] as string[] }], responses: { 200: { description: 'List of users' } } },
+        post: { summary: 'Create user', tags: ['Users'], security: [{ bearerAuth: [] as string[] }], responses: { 201: { description: 'User created' } } }
     },
     '/api/users/{id}': {
         get: { summary: 'Get user by ID', tags: ['Users'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'User details' } } },
@@ -36,8 +36,8 @@ export const swaggerPaths = {
         get: { summary: 'Get all departments', tags: ['Departments'], responses: { 200: { description: 'List of departments' } } }
     },
     '/api/admin/departments': {
-        get: { summary: 'Get departments (admin)', tags: ['Departments'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'List of departments' } } },
-        post: { summary: 'Create department', tags: ['Departments'], security: [{ bearerAuth: [] }], responses: { 201: { description: 'Department created' } } }
+        get: { summary: 'Get departments (admin)', tags: ['Departments'], security: [{ bearerAuth: [] as string[] }], responses: { 200: { description: 'List of departments' } } },
+        post: { summary: 'Create department', tags: ['Departments'], security: [{ bearerAuth: [] as string[] }], responses: { 201: { description: 'Department created' } } }
     },
     '/api/admin/departments/{id}': {
         get: { summary: 'Get department by ID', tags: ['Departments'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Department details' } } },
@@ -47,8 +47,8 @@ export const swaggerPaths = {
 
     // ==================== SITES ====================
     '/api/admin/sites': {
-        get: { summary: 'Get all sites', tags: ['Sites'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'List of sites' } } },
-        post: { summary: 'Create site', tags: ['Sites'], security: [{ bearerAuth: [] }], responses: { 201: { description: 'Site created' } } }
+        get: { summary: 'Get all sites', tags: ['Sites'], security: [{ bearerAuth: [] as string[] }], responses: { 200: { description: 'List of sites' } } },
+        post: { summary: 'Create site', tags: ['Sites'], security: [{ bearerAuth: [] as string[] }], responses: { 201: { description: 'Site created' } } }
     },
     '/api/admin/sites/{id}': {
         get: { summary: 'Get site by ID', tags: ['Sites'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Site details' } } },
@@ -63,8 +63,8 @@ export const swaggerPaths = {
 
     // ==================== BANDWIDTHS ====================
     '/api/bandwidths': {
-        get: { summary: 'Get all bandwidths', tags: ['Bandwidth'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'List of bandwidths' } } },
-        post: { summary: 'Create bandwidth', tags: ['Bandwidth'], security: [{ bearerAuth: [] }], responses: { 201: { description: 'Bandwidth created' } } }
+        get: { summary: 'Get all bandwidths', tags: ['Bandwidth'], security: [{ bearerAuth: [] as string[] }], responses: { 200: { description: 'List of bandwidths' } } },
+        post: { summary: 'Create bandwidth', tags: ['Bandwidth'], security: [{ bearerAuth: [] as string[] }], responses: { 201: { description: 'Bandwidth created' } } }
     },
     '/api/bandwidths/{id}': {
         get: { summary: 'Get bandwidth by ID', tags: ['Bandwidth'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Bandwidth details' } } },
@@ -74,8 +74,8 @@ export const swaggerPaths = {
 
     // ==================== PROFILE PPP ====================
     '/api/profileppps': {
-        get: { summary: 'Get all PPP profiles', tags: ['Profile PPP'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'List of PPP profiles' } } },
-        post: { summary: 'Create PPP profile', tags: ['Profile PPP'], security: [{ bearerAuth: [] }], responses: { 201: { description: 'Profile created' } } }
+        get: { summary: 'Get all PPP profiles', tags: ['Profile PPP'], security: [{ bearerAuth: [] as string[] }], responses: { 200: { description: 'List of PPP profiles' } } },
+        post: { summary: 'Create PPP profile', tags: ['Profile PPP'], security: [{ bearerAuth: [] as string[] }], responses: { 201: { description: 'Profile created' } } }
     },
     '/api/profileppps/{id}': {
         get: { summary: 'Get PPP profile by ID', tags: ['Profile PPP'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Profile details' } } },
@@ -85,8 +85,8 @@ export const swaggerPaths = {
 
     // ==================== HARGA PAKET ====================
     '/api/hargapakets': {
-        get: { summary: 'Get all pricing packages', tags: ['Harga Paket'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'List of packages' } } },
-        post: { summary: 'Create pricing package', tags: ['Harga Paket'], security: [{ bearerAuth: [] }], responses: { 201: { description: 'Package created' } } }
+        get: { summary: 'Get all pricing packages', tags: ['Harga Paket'], security: [{ bearerAuth: [] as string[] }], responses: { 200: { description: 'List of packages' } } },
+        post: { summary: 'Create pricing package', tags: ['Harga Paket'], security: [{ bearerAuth: [] as string[] }], responses: { 201: { description: 'Package created' } } }
     },
     '/api/hargapakets/{id}': {
         get: { summary: 'Get package by ID', tags: ['Harga Paket'], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Package details' } } },

@@ -5,21 +5,32 @@ import { useRouter } from 'next/navigation'
 import {
   FiPackage,
   FiMapPin,
-  FiUser,
-  FiThermometer,
-  FiDroplet,
-  FiCalendar,
-  FiInfo,
   FiAlertCircle,
-  FiCheckCircle,
-  FiXCircle,
-  FiClock
+  FiCheckCircle
 } from 'react-icons/fi'
 
 interface EnhancedOpnameFormProps {
   onClose?: () => void
   onSuccess?: () => void
   defaultGudangId?: string
+}
+
+interface GudangItem {
+  id: string
+  kode: string
+  nama: string
+  lokasi?: string
+}
+
+interface BarangItem {
+  id: string
+  kode: string
+  nama: string
+  satuan: string
+  stockPerGudang: Array<{
+    gudangId: string
+    stok: number
+  }>
 }
 
 interface OpnameData {
@@ -40,10 +51,9 @@ interface OpnameData {
 
 export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: EnhancedOpnameFormProps) {
   const [gudangId, setGudangId] = useState(defaultGudangId || '')
-  const [gudangs, setGudangs] = useState<any[]>([])
-  const [barangList, setBarangList] = useState<any[]>([])
+  const [gudangs, setGudangs] = useState<GudangItem[]>([])
+  const [barangList, setBarangList] = useState<BarangItem[]>([])
   const [opnameData, setOpnameData] = useState<{ [key: string]: OpnameData }>({})
-  const [selectedBarang, setSelectedBarang] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [error, setError] = useState('')
@@ -75,7 +85,14 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
           const data = await response.json()
 
           // Map the items to barangList format for display
-          const barangs = data.items?.map((item: any) => ({
+          const barangs: BarangItem[] = data.items?.map((item: {
+            barangId: string;
+            barangKode: string;
+            barangNama: string;
+            barangSatuan: string;
+            gudangId: string;
+            stokSistem: number;
+          }) => ({
             id: item.barangId,
             kode: item.barangKode,
             nama: item.barangNama,
@@ -90,7 +107,22 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
 
           // Initialize opnameData with actual condition breakdown from API
           const initialData: { [key: string]: OpnameData } = {}
-          data.items?.forEach((item: any) => {
+          data.items?.forEach((item: {
+            barangId: string;
+            stokSistem?: number;
+            kondisiBaik?: number;
+            kondisiRusak?: number;
+            kondisiExpire?: number;
+            lokasiPenyimpanan?: string;
+            nomorRak?: string;
+            nomorBox?: string;
+            pic?: string;
+            suhuPenyimpanan?: number;
+            kelembaban?: number;
+            tanggalExpire?: string;
+            nomorBatch?: string;
+            catatanDetail?: string;
+          }) => {
             initialData[item.barangId] = {
               stokFisik: item.stokSistem?.toString() || '0',
               kondisiBaik: item.kondisiBaik?.toString() || '0', // Use actual breakdown from API
@@ -121,10 +153,26 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
   }, [gudangId])
 
   const handleOpnameChange = (barangId: string, field: keyof OpnameData, value: string) => {
+    const defaultOpnameData: OpnameData = {
+      stokFisik: '0',
+      kondisiBaik: '0',
+      kondisiRusak: '0',
+      kondisiExpire: '0',
+      lokasiPenyimpanan: '',
+      nomorRak: '',
+      nomorBox: '',
+      pic: '',
+      suhuPenyimpanan: '',
+      kelembaban: '',
+      tanggalExpire: '',
+      nomorBatch: '',
+      catatanDetail: ''
+    }
+    
     setOpnameData(prev => ({
       ...prev,
       [barangId]: {
-        ...prev[barangId],
+        ...(prev[barangId] ?? defaultOpnameData),
         [field]: value
       }
     }))
@@ -132,25 +180,26 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
     // Auto-calculate stokFisik when kondisi fields change
     if (field === 'kondisiBaik' || field === 'kondisiRusak' || field === 'kondisiExpire') {
       const data = opnameData[barangId]
-      const total = parseInt(value || '0') +
-        parseInt(field === 'kondisiBaik' ? '0' : data.kondisiBaik || '0') +
-        parseInt(field === 'kondisiRusak' ? '0' : data.kondisiRusak || '0') +
-        parseInt(field === 'kondisiExpire' ? '0' : data.kondisiExpire || '0')
+      if (data) {
+        const total = parseInt(value || '0') +
+          parseInt(field === 'kondisiBaik' ? '0' : data.kondisiBaik || '0') +
+          parseInt(field === 'kondisiRusak' ? '0' : data.kondisiRusak || '0') +
+          parseInt(field === 'kondisiExpire' ? '0' : data.kondisiExpire || '0')
 
-      setOpnameData(prev => ({
-        ...prev,
-        [barangId]: {
-          ...prev[barangId],
-          stokFisik: total.toString()
-        }
-      }))
+        setOpnameData(prev => ({
+          ...prev,
+          [barangId]: {
+            ...prev[barangId]!,
+            stokFisik: total.toString()
+          }
+        }))
+      }
     }
   }
 
   const validateOpnameData = (barangId: string): string[] => {
     const data = opnameData[barangId]
     const errors: string[] = []
-    const barang = barangList.find(b => b.id === barangId)
 
     if (!data) return errors
 
@@ -187,7 +236,7 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
     }
 
     // Validate all data
-    let validationErrors: string[] = []
+    const validationErrors: string[] = []
     Object.keys(opnameData).forEach(barangId => {
       const errors = validateOpnameData(barangId)
       if (errors.length > 0) {
@@ -267,12 +316,12 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
 
   const selectedGudang = gudangs.find(g => g.id === gudangId)
   const hasChanges = barangList.some(barang => {
-    const currentStok = barang.stockPerGudang?.find((s: any) => s.gudangId === gudangId)?.stok || 0
+    const currentStok = barang.stockPerGudang?.find((s: { gudangId: string; stok: number }) => s.gudangId === gudangId)?.stok || 0
     const newStok = parseInt(opnameData[barang.id]?.stokFisik || '0')
     return currentStok !== newStok
   })
 
-  const getConditionSummary = (barangId: string) => {
+  const _getConditionSummary = (barangId: string) => {
     const data = opnameData[barangId]
     if (!data) return null
 
@@ -288,12 +337,6 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
     const persentaseExpire = (expire / total) * 100
 
     return { baik, rusak, expire, total, persentaseBaik, persentaseRusak, persentaseExpire }
-  }
-
-  const getConditionColor = (persentase: number) => {
-    if (persentase >= 90) return 'text-green-600'
-    if (persentase >= 70) return 'text-yellow-600'
-    return 'text-red-600'
   }
 
   return (
@@ -402,10 +445,9 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {barangList.map((barang) => {
-                    const data = opnameData[barang.id] || {}
-                    const currentStok = barang.stockPerGudang?.find((s: any) => s.gudangId === gudangId)?.stok || 0
-                    const newStok = parseInt(data.stokFisik || '0')
-                    const conditionSummary = getConditionSummary(barang.id)
+                    const data: OpnameData | undefined = opnameData[barang.id]
+                    const currentStok = barang.stockPerGudang?.find((s: { gudangId: string; stok: number }) => s.gudangId === gudangId)?.stok || 0
+                    const newStok = parseInt(data?.stokFisik || '0')
                     const diff = newStok - currentStok
 
                     return (
@@ -429,7 +471,7 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                         <td className="px-2 py-3">
                           <input
                             type="number"
-                            value={data.kondisiBaik || ''}
+                            value={data?.kondisiBaik || ''}
                             onChange={(e) => handleOpnameChange(barang.id, 'kondisiBaik', e.target.value)}
                             className="w-16 px-1 py-1 text-center border border-gray-300 rounded text-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             min="0"
@@ -440,7 +482,7 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                         <td className="px-2 py-3">
                           <input
                             type="number"
-                            value={data.kondisiRusak || ''}
+                            value={data?.kondisiRusak || ''}
                             onChange={(e) => handleOpnameChange(barang.id, 'kondisiRusak', e.target.value)}
                             className="w-16 px-1 py-1 text-center border border-gray-300 rounded text-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             min="0"
@@ -451,7 +493,7 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                         <td className="px-2 py-3">
                           <input
                             type="number"
-                            value={data.kondisiExpire || ''}
+                            value={data?.kondisiExpire || ''}
                             onChange={(e) => handleOpnameChange(barang.id, 'kondisiExpire', e.target.value)}
                             className="w-16 px-1 py-1 text-center border border-gray-300 rounded text-sm focus:outline-none focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             min="0"
@@ -474,7 +516,7 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                         <td className="px-4 py-3">
                           <input
                             type="text"
-                            value={data.nomorRak || ''}
+                            value={data?.nomorRak || ''}
                             onChange={(e) => handleOpnameChange(barang.id, 'nomorRak', e.target.value)}
                             className="w-20 px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             placeholder="Rak"
@@ -484,7 +526,7 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                         <td className="px-2 py-3 text-center">
                           <input
                             type="text"
-                            value={data.pic || ''}
+                            value={data?.pic || ''}
                             onChange={(e) => handleOpnameChange(barang.id, 'pic', e.target.value)}
                             className="w-20 px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             placeholder="PIC"
@@ -496,40 +538,6 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                   })}
                 </tbody>
               </table>
-            </div>
-
-            {/* Condition Summary */}
-            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-700">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Ringkasan Kondisi Barang</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {barangList.slice(0, 6).map((barang) => {
-                  const conditionSummary = getConditionSummary(barang.id)
-                  if (!conditionSummary || conditionSummary.total === 0) return null
-
-                  return (
-                    <div key={barang.id} className="text-xs">
-                      <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {barang.kode}
-                      </div>
-                      <div className="flex space-x-2">
-                        <span className="text-green-600">
-                          Baru: {conditionSummary.baik} ({conditionSummary.persentaseBaik.toFixed(0)}%)
-                        </span>
-                        {conditionSummary.rusak > 0 && (
-                          <span className="text-yellow-600">
-                            Rusak: {conditionSummary.rusak}
-                          </span>
-                        )}
-                        {conditionSummary.expire > 0 && (
-                          <span className="text-blue-600">
-                            Bekas: {conditionSummary.expire}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
             </div>
 
             <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">

@@ -29,9 +29,10 @@ export async function GET(request: NextRequest) {
         )
 
         return apiSuccess(result)
-    } catch (error: any) {
-        console.error('[Customer Payments GET Error]:', error)
-        return ApiErrors.internalError(error.message || 'Terjadi kesalahan server')
+    } catch (error) {
+        const err = error as Error
+        console.error('[Customer Payments GET Error]:', err)
+        return ApiErrors.internalError(err.message || 'Terjadi kesalahan server')
     }
 }
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
             return apiError('Pilih minimal satu tagihan untuk dibayar', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
-        const { invoices, totalAmount } = await pelangganService.validateInvoicesForPayment(
+        const { totalAmount } = await pelangganService.validateInvoicesForPayment(
             invoiceIds,
             authResult.session.id
         )
@@ -62,8 +63,8 @@ export async function POST(request: NextRequest) {
 
         if (couponCode) {
             const verification = await couponService.verifyCoupon(
-                couponCode, 
-                totalAmount, 
+                couponCode,
+                totalAmount,
                 authResult.session.id
             )
 
@@ -102,13 +103,14 @@ export async function POST(request: NextRequest) {
 
         return apiSuccess({ payment: result }, { message: 'Pembayaran berhasil diproses' })
 
-    } catch (error: any) {
-        console.error('[Payment Create Error]:', error)
-        
-        if (error.message === 'Beberapa tagihan tidak valid atau sudah dibayar') {
-            return apiError(error.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    } catch (error) {
+        const err = error as Error
+        console.error('[Payment Create Error]:', err)
+
+        if (err.message === 'Beberapa tagihan tidak valid atau sudah dibayar') {
+            return apiError(err.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
-        
-        return ApiErrors.internalError(error.message || 'Gagal memproses pembayaran')
+
+        return ApiErrors.internalError(err.message || 'Gagal memproses pembayaran')
     }
 }

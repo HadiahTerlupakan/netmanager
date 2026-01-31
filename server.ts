@@ -31,7 +31,7 @@ app.prepare().then(() => {
     // Keep reference to billing cron task to stop it later
     let billingCronTask: ScheduledTask | null = null
     // Keep reference to MikroTik monitor to stop it later
-    let mikroTikMonitorRef: any = null
+    let mikroTikMonitorRef: { stop: () => void; setSocketServer: (io: SocketIOServer) => void; start: () => void } | null = null
 
     const server = createServer(async (req, res) => {
         const parsedUrl = parse(req.url!, true)
@@ -40,8 +40,7 @@ app.prepare().then(() => {
         if (req.method === 'POST' && parsedUrl.pathname === '/api/admin/app-version') {
             const formidable = await import('formidable')
             const fs = await import('fs')
-            const path = await import('path')
-            
+
             // Parse multipart form with higher file size limit (200MB)
             // Use system temp directory for uploads to avoid permission issues in Docker
             const os = await import('os')
@@ -101,7 +100,7 @@ app.prepare().then(() => {
                 const userRole = dbUser.role?.name || ''
                 const hasAdminPanelAccess = dbUser.role?.accessAdminPanel === true
                 // 'permission' is singular in Prisma schema but holds an array
-                const userPermissions = dbUser.role?.permission?.map((p: any) => `${p.resource}:${p.action}`) || []
+                const userPermissions = dbUser.role?.permission?.map((p: { resource: string; action: string }) => `${p.resource}:${p.action}`) || []
                 
                 // Allow if:
                 // 1. Role is SUPER_ADMIN (case-insensitive)
@@ -174,7 +173,7 @@ app.prepare().then(() => {
                 if (apkFile) {
                     try {
                         fs.unlinkSync(apkFile.filepath)
-                    } catch (e) {
+                    } catch (_e) {
                          // Ignore if file already moved or deleted
                     }
                 }
@@ -199,18 +198,19 @@ app.prepare().then(() => {
                     message: 'Versi aplikasi berhasil diupload'
                 }))
                 return
-            } catch (error: any) {
+            } catch (error) {
                 console.error('[Server] Error uploading app version:', error)
-                
+
+                const err = error as { message?: string; code?: string; name?: string; stack?: string }
                 // Safe error object construction
-                const errorMessage = error?.message || 'Failed to upload app version'
+                const errorMessage = err?.message || 'Failed to upload app version'
                 // Avoid passing entire error object to JSON.stringify as it might cause circular reference
                 const errorDetails = {
                     error: errorMessage,
                     // Only include safe properties
-                    code: error?.code, 
-                    name: error?.name,
-                    stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+                    code: err?.code,
+                    name: err?.name,
+                    stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined
                 }
                 
                 try {
@@ -383,7 +383,7 @@ app.prepare().then(() => {
              console.log('[Cron] Running monthly asset depreciation')
              try {
                 // Fetch System Admin for context
-                let systemUser = await prisma.user.findFirst({
+                const systemUser = await prisma.user.findFirst({
                     where: { role: { name: 'SUPER_ADMIN' } }
                 }) || await prisma.user.findFirst()
 

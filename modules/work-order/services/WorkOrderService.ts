@@ -77,7 +77,7 @@ export class WorkOrderService {
      * Get paginated list of work orders with site/department restrictions
      */
     async getWorkOrders(options: WorkOrderListOptions): Promise<ServiceResult<{
-        workOrders: any[]
+        workOrders: unknown[]
         total: number
         page: number
         totalPages: number
@@ -87,7 +87,6 @@ export class WorkOrderService {
                 page = 1,
                 limit = 20,
                 filters = {},
-                userId,
                 userPermissions = [],
                 userDepartmentId,
                 userSiteId,
@@ -150,7 +149,7 @@ export class WorkOrderService {
         page: number = 1,
         limit: number = 20
     ): Promise<ServiceResult<{
-        workOrders: any[]
+        workOrders: unknown[]
         total: number
         page: number
         totalPages: number
@@ -167,7 +166,7 @@ export class WorkOrderService {
     /**
      * Get work order statistics
      */
-    async getStatistics(filters: { departmentId?: string; siteId?: string; assignedToId?: string }): Promise<ServiceResult<any>> {
+    async getStatistics(filters: { departmentId?: string; siteId?: string; assignedToId?: string }): Promise<ServiceResult<unknown>> {
         try {
             const stats = await this.repository.getStatistics(filters)
             return { success: true, data: stats }
@@ -180,7 +179,7 @@ export class WorkOrderService {
     /**
      * Get recent work orders
      */
-    async getRecentWorkOrders(limit: number = 5, filters: { departmentId?: string }): Promise<ServiceResult<any[]>> {
+    async getRecentWorkOrders(limit: number = 5, filters: { departmentId?: string }): Promise<ServiceResult<unknown[]>> {
         try {
             const workOrders = await this.repository.getRecentWorkOrders(limit, filters)
             return { success: true, data: workOrders }
@@ -328,11 +327,10 @@ export class WorkOrderService {
             const previousStatus = existing.status
 
             // Update status
-            let updated
             if (status === 'COMPLETED' && resolutionNotes) {
-                updated = await this.repository.complete(id, resolutionNotes, userId)
+                await this.repository.complete(id, resolutionNotes, userId)
             } else {
-                updated = await this.repository.updateStatus(id, status, userId)
+                await this.repository.updateStatus(id, status, userId)
             }
 
             // Fetch full WO data for notification
@@ -578,8 +576,9 @@ export class WorkOrderService {
         barangId: string,
         quantity: number,
         actorId: string,
-        notes?: string
-    ): Promise<ServiceResult<any>> {
+        notes?: string,
+        preferredGudangId?: string
+    ): Promise<ServiceResult<unknown>> {
         try {
             return await prisma.$transaction(async (tx) => {
                 // Check work order
@@ -589,11 +588,21 @@ export class WorkOrderService {
                 }
 
                 // Check barang
+                // If preferredGudangId is provided, look there first.
+                // If not, we still fail-safe by explicitly requiring one or falling back to "highest stock" 
+                // but user concern suggests we should be safer. 
+                // Logic: 
+                // 1. If preferredGudangId, filter by it.
+                // 2. If not, defaults to "highest stock" (existing behavior), but we can log unique warehouse usage if needed.
+                
                 const barang = await tx.barang.findUnique({ 
                     where: { id: barangId },
                     include: {
                         barangGudang: {
-                            where: { stok: { gt: 0 } },
+                            where: { 
+                                stok: { gt: 0 },
+                                ...(preferredGudangId ? { gudangId: preferredGudangId } : {})
+                            },
                             orderBy: { stok: 'desc' }, // Use warehouse with most stock first
                             take: 1
                         }
@@ -673,7 +682,7 @@ export class WorkOrderService {
     async createTasksFromTemplate(
         workOrderId: string,
         templateId: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<unknown>> {
         try {
             // Check work order
             const workOrder = await this.repository.findById(workOrderId)
@@ -717,54 +726,81 @@ export class WorkOrderService {
 
     // ==================== PRIVATE HELPERS ====================
 
-    private async notifyWorkOrderCreated(workOrder: any): Promise<void> {
+    private async notifyWorkOrderCreated(workOrder: unknown): Promise<void> {
         try {
+            const wo = workOrder as {
+                id: string;
+                workOrderNumber: string;
+                title: string;
+                type: string;
+                priority: string;
+                departmentId?: string | null;
+                siteId?: string | null;
+                assignedToId?: string | null;
+            };
             await onWorkOrderCreated({
-                id: workOrder.id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: workOrder.type,
-                priority: workOrder.priority,
-                departmentId: workOrder.departmentId,
-                siteId: workOrder.siteId,
-                assignedToId: workOrder.assignedToId,
+                id: wo.id,
+                workOrderNumber: wo.workOrderNumber,
+                title: wo.title,
+                type: wo.type,
+                priority: wo.priority,
+                departmentId: wo.departmentId,
+                siteId: wo.siteId,
+                assignedToId: wo.assignedToId,
             })
         } catch (err) {
             logger.error('Failed to send work order notification', err instanceof Error ? err : undefined)
         }
     }
 
-    private broadcastWorkOrderCreated(workOrder: any): void {
+    private broadcastWorkOrderCreated(workOrder: unknown): void {
         try {
+            const wo = workOrder as {
+                id: string;
+                workOrderNumber: string;
+                title: string;
+                type: string;
+                status: string;
+                priority: string;
+                departmentId?: string | null;
+                assignedToId?: string | null;
+                createdAt: Date;
+            };
             socketEmitter.newWorkOrder({
-                id: workOrder.id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: workOrder.type,
-                status: workOrder.status,
-                priority: workOrder.priority,
-                departmentId: workOrder.departmentId || undefined,
-                assignedToId: workOrder.assignedToId || undefined,
-                createdAt: workOrder.createdAt.toISOString(),
-            }, workOrder.departmentId || undefined)
+                id: wo.id,
+                workOrderNumber: wo.workOrderNumber,
+                title: wo.title,
+                type: wo.type,
+                status: wo.status as WorkOrderStatus,
+                priority: wo.priority as WorkOrderPriority,
+                departmentId: wo.departmentId || undefined,
+                assignedToId: wo.assignedToId || undefined,
+                createdAt: wo.createdAt.toISOString(),
+            }, wo.departmentId || undefined)
         } catch (err) {
             logger.error('Failed to broadcast work order event', err instanceof Error ? err : undefined)
         }
     }
 
     private async linkToTicket(
-        workOrder: any,
+        workOrder: unknown,
         ticketId: string,
         userId: string
     ): Promise<void> {
         try {
-            const scheduledTime = workOrder.scheduledDate
-                ? format(new Date(workOrder.scheduledDate), 'dd MMMM yyyy HH:mm', { locale: localeId })
+            const wo = workOrder as {
+                workOrderNumber: string;
+                title: string;
+                type: string;
+                scheduledDate?: Date | string | null;
+            };
+            const scheduledTime = wo.scheduledDate
+                ? format(new Date(wo.scheduledDate), 'dd MMMM yyyy HH:mm', { locale: localeId })
                 : 'Belum Dijadwalkan'
 
-            const replyMessage = `Work Order #${workOrder.workOrderNumber} telah dibuat untuk tiket ini.\n\n` +
-                `Judul: ${workOrder.title}\n` +
-                `Tipe: ${workOrder.type}\n` +
+            const replyMessage = `Work Order #${wo.workOrderNumber} telah dibuat untuk tiket ini.\n\n` +
+                `Judul: ${wo.title}\n` +
+                `Tipe: ${wo.type}\n` +
                 `Jadwal: ${scheduledTime}`
 
             await prisma.ticketReplies.create({
@@ -790,7 +826,7 @@ export class WorkOrderService {
         action: string,
         subject: string,
         userId: string,
-        details: Record<string, any>
+        details: Record<string, unknown>
     ): Promise<void> {
         try {
             await logger.logActivity({ action, subject, userId, details })
@@ -808,7 +844,7 @@ export class WorkOrderService {
         workOrderId: string,
         message: string,
         userId: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<unknown>> {
         try {
             const comment = await this.repository.addComment(workOrderId, message, userId)
             return { success: true, data: comment }
@@ -828,7 +864,7 @@ export class WorkOrderService {
             description?: string
             order?: number
         }
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<unknown>> {
         try {
             const task = await this.repository.addTask({
                 workOrderId,

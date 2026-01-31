@@ -46,9 +46,9 @@ export default function SupplierForm({ initialData }: SupplierFormProps) {
 
             router.push('/admin/procurement/suppliers')
             router.refresh()
-        } catch (error: any) {
+        } catch (error) {
             console.error(error)
-            alert(error.message)
+            alert(error instanceof Error ? error.message : 'Something went wrong')
         } finally {
             setIsLoading(false)
         }

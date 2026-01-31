@@ -30,7 +30,7 @@ export function KaryawanNotificationBell() {
     const [isOpen, setIsOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [announcements, setAnnouncements] = useState<Announcement[]>([])
-    const [announcementsLoading, setAnnouncementsLoading] = useState(true)
+    const [_announcementsLoading, setAnnouncementsLoading] = useState(true)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -52,8 +52,8 @@ export function KaryawanNotificationBell() {
                     const data = await res.json()
                     setAnnouncements(data)
                 }
-            } catch (error) {
-                console.error('Failed to fetch announcements', error)
+            } catch (_error) {
+                console.error('Failed to fetch announcements', _error)
             } finally {
                 setAnnouncementsLoading(false)
             }

@@ -2,7 +2,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useMemo, createContext, useContext, useCallback } from 'react'
-import type { ReactNode } from 'react'
 import {
   HiOutlineChartBar,
   HiOutlineGlobeAlt,
@@ -164,7 +163,7 @@ export default function Sidebar() {
   const appName = settings?.namaAplikasi || 'NetManager'
   const [isOpen, setIsOpen] = useState(false)
 
-  const { hasPermission, isLoading } = usePermission()
+  const { hasPermission } = usePermission()
 
   // Filter menu items based on permissions
   const filterNavItem = useCallback((item: MenuConfig): MenuConfig | null => {
@@ -257,9 +256,10 @@ export default function Sidebar() {
 
   // Mobile toggle integration
   useEffect(() => {
-    ; (window as any).toggleAdminSidebar = () => setIsOpen(!isOpen)
+    const win = window as Window & { toggleAdminSidebar?: () => void }
+    win.toggleAdminSidebar = () => setIsOpen(!isOpen)
     return () => {
-      delete (window as any).toggleAdminSidebar
+      delete win.toggleAdminSidebar
     }
   }, [isOpen])
 
@@ -427,7 +427,7 @@ export default function Sidebar() {
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm">
               <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-100 to-violet-100 dark:from-indigo-900 dark:to-violet-900 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm shrink-0">
                 {session?.user?.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={session.user.image} alt={session.user.name || 'User'} className="w-full h-full rounded-full object-cover" />
                 ) : (
                   <span className="text-lg font-bold text-indigo-600 dark:text-indigo-300">

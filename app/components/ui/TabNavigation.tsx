@@ -32,14 +32,18 @@ export function TabNavigation({
   // Update indicator position when active tab changes
   useEffect(() => {
     if (variant === 'underline') {
-      const activeTabElement = document.getElementById(`tab-${activeTab}`)
-      if (activeTabElement) {
-        const { offsetLeft, offsetWidth } = activeTabElement
-        setIndicatorStyle({
-          left: `${offsetLeft}px`,
-          width: `${offsetWidth}px`
-        })
+      const updateIndicator = () => {
+        const activeTabElement = document.getElementById(`tab-${activeTab}`)
+        if (activeTabElement) {
+          const { offsetLeft, offsetWidth } = activeTabElement
+          setIndicatorStyle({
+            left: `${offsetLeft}px`,
+            width: `${offsetWidth}px`
+          })
+        }
       }
+      // Use requestAnimationFrame to defer state update
+      requestAnimationFrame(updateIndicator)
     }
   }, [activeTab, variant])
 

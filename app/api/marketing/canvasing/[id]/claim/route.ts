@@ -24,18 +24,19 @@ export async function POST(
     })
 
     return NextResponse.json(claim, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
     // Handle specific errors with appropriate status codes
-    if (error.message.includes('tidak ditemukan')) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+    if (message.includes('tidak ditemukan')) {
+      return NextResponse.json({ error: message }, { status: 404 })
     }
-    if (error.message.includes('tidak memiliki akses') || error.message.includes('sudah dikunci')) {
-      return NextResponse.json({ error: error.message }, { status: 403 })
+    if (message.includes('tidak memiliki akses') || message.includes('sudah dikunci')) {
+      return NextResponse.json({ error: message }, { status: 403 })
     }
-    if (error.message.includes('belum') || error.message.includes('sudah pernah')) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    if (message.includes('belum') || message.includes('sudah pernah')) {
+      return NextResponse.json({ error: message }, { status: 400 })
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
@@ -57,7 +58,8 @@ export async function GET(
     }
 
     return NextResponse.json({ claim })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

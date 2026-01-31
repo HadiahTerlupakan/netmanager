@@ -9,6 +9,9 @@ import { SOCKET_EVENTS } from '@/lib/websocket/types';
 export async function GET(request: NextRequest) {
     try {
         const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
+        }
         const { searchParams } = new URL(request.url);
 
         const target = searchParams.get('target') as TargetAudience | undefined;
@@ -16,7 +19,12 @@ export async function GET(request: NextRequest) {
         const portal = searchParams.get('portal'); // 'admin', 'customer', 'employee'
 
         // Base query
-        let where: any = {};
+        let where: {
+            target?: TargetAudience | { in: TargetAudience[] };
+            isActive?: boolean;
+            startDate?: { lte: Date };
+            OR?: Array<{ endDate: null } | { endDate: { gte: Date } }>;
+        } = {};
 
         // If accessed from a specific portal, filter accordingly
         if (portal === 'customer') {
@@ -81,6 +89,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
+        }
         // Verify admin role if needed, assuming requireAuth checks login
         // if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
@@ -122,7 +133,11 @@ export async function POST(request: NextRequest) {
         if (isActive !== false && target !== 'CUSTOMER') {
             try {
                 // Determine user filter based on target
-                let userFilter: any = {
+                const userFilter: {
+                    pushToken: { not: null };
+                    isActive: boolean;
+                    Role?: { name: string | { in: string[] } };
+                } = {
                     pushToken: { not: null },
                     isActive: true
                 };

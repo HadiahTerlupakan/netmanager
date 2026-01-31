@@ -15,26 +15,32 @@ export async function GET(req: NextRequest) {
     const take = parseInt(searchParams.get('take') || '10');
 
     try {
-        const result = await service.getSuppliers({ search, skip, take });
+        const result = await service.getSuppliers({
+            ...(search && { search }),
+            skip,
+            take
+        });
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    
+
     // Check permission?
     // const { hasPermission } = usePermission() // Hook not avail here.
-    // Ideally verify session.user.role permissions. 
-    
+    // Ideally verify session.user.role permissions.
+
     try {
         const body = await req.json();
         const result = await service.createSupplier(body);
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

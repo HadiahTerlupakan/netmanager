@@ -115,13 +115,13 @@ export class ProcurementService {
         // 2. Group by Supplier
         const prsBySupplier = new Map<string | null, typeof prs>();
         
-        for (const pr of prs as any[]) {
+        for (const pr of prs) {
             // Determine supplier for this PR
             let supplierId = overrideSupplierId || null;
-            
+
             if (!supplierId) {
                 // Try to find common supplier in items
-                const suppliers = new Set(pr.items.map((i: any) => i.barang.supplierId).filter(Boolean));
+                const suppliers = new Set(pr.items.map((i) => i.barang.supplierId).filter(Boolean));
                 if (suppliers.size === 1) {
                     supplierId = Array.from(suppliers)[0] as string;
                 } else if (suppliers.size > 1) {
@@ -175,9 +175,9 @@ export class ProcurementService {
                         supplierId: realSupplierId,
                         status: 'DRAFT',
                         createdBy: userId,
-                        totalAmount: Array.from(itemMap.values()).reduce((sum, i: any) => sum + (i.qty * i.price), 0),
+                        totalAmount: Array.from(itemMap.values()).reduce((sum, i) => sum + (i.qty * i.price), 0),
                         items: {
-                            create: Array.from(itemMap.values()).map((i: any) => ({
+                            create: Array.from(itemMap.values()).map((i) => ({
                                 id: randomUUID(),
                                 barangId: i.barangId,
                                 quantity: i.qty,

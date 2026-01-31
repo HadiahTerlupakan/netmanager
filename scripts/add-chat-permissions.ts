@@ -63,7 +63,6 @@ async function main() {
 
     if (superAdminRole) {
         // Find the permissions we just upserted
-        const pNames = permissions.map(p => p.name)
         // Note: Can't search by name efficiently if not unique, but for this script it's practically unique
         // Better to search by resource/action again or just fetch all that match our list
         

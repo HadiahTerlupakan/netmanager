@@ -22,7 +22,12 @@ export async function GET(request: NextRequest) {
         let departmentId = searchParams.get('departmentId') || undefined
 
         // NEW: Enforce RBAC Restrictions
-        const user = session.user as any
+        const user = session.user as {
+            role?: string;
+            permissions?: string[];
+            siteId?: string;
+            departmentId?: string;
+        }
         const isSuperAdmin = user.role === 'SUPER_ADMIN'
 
         if (user.permissions?.includes('attendance:site_only') && !isSuperAdmin) {
@@ -54,8 +59,8 @@ export async function GET(request: NextRequest) {
             overtime: overtimeReport
         })
 
-    } catch (error: any) {
-        console.error('Error fetching reports:', error)
+    } catch (error) {
+        console.error('Error fetching reports:', error instanceof Error ? error.message : error)
         return ApiErrors.internalError('Gagal mengambil laporan')
     }
 }

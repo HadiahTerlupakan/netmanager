@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
 
 // Encryption keys (in production, use proper key management)
@@ -74,9 +74,15 @@ export class DatabaseSecurity {
         return encryptedText // Not encrypted
       }
 
-      const iv = Buffer.from(parts[0], 'hex')
-      const authTag = Buffer.from(parts[1], 'hex')
-      const encrypted = parts[2]
+      const [p0, p1, p2] = parts
+
+      if (!p0 || !p1 || !p2) {
+        return encryptedText
+      }
+
+      const iv = Buffer.from(p0, 'hex')
+      const authTag = Buffer.from(p1, 'hex')
+      const encrypted = p2
 
       const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv)
       decipher.setAAD(Buffer.from('netmanager-db'))
@@ -97,9 +103,9 @@ export class DatabaseSecurity {
    */
   async checkDataAccess(
     userId: string,
-    resourceType: string,
-    resourceId: string,
-    action: 'READ' | 'WRITE' | 'DELETE'
+    _resourceType: string,
+    _resourceId: string,
+    _action: 'READ' | 'WRITE' | 'DELETE'
   ): Promise<boolean> {
     if (!this.options.enableRowLevelSecurity) {
       return true
@@ -134,7 +140,7 @@ export class DatabaseSecurity {
     action: string,
     resourceType: string,
     resourceId: string,
-    metadata?: Record<string, any>
+    _metadata?: Record<string, unknown>
   ): Promise<void> {
     if (!this.options.enableAuditLogging) {
       return
@@ -195,7 +201,7 @@ export class DatabaseSecurity {
   /**
    * Sanitize data for output (remove or encrypt sensitive fields)
    */
-  sanitizeData<T extends Record<string, any>>(
+  sanitizeData<T extends Record<string, unknown>>(
     data: T,
     context: 'output' | 'logging' = 'output'
   ): Partial<T> {
@@ -205,14 +211,14 @@ export class DatabaseSecurity {
       // Remove sensitive fields from API output
       this.options.encryptSensitiveFields.forEach(field => {
         if (field in sanitized) {
-          delete (sanitized as any)[field]
+          delete (sanitized as Record<string, unknown>)[field]
         }
       })
     } else if (context === 'logging') {
       // Encrypt sensitive fields for logging
       this.options.encryptSensitiveFields.forEach(field => {
-        if (field in sanitized && (sanitized as any)[field]) {
-          (sanitized as any)[field] = this.encrypt(String((sanitized as any)[field]))
+        if (field in sanitized && (sanitized as Record<string, unknown>)[field]) {
+          (sanitized as Record<string, unknown>)[field] = this.encrypt(String((sanitized as Record<string, unknown>)[field]))
         }
       })
     }
@@ -231,13 +237,13 @@ export class DatabaseSecurity {
    * Validate data integrity using checksums
    */
   async validateDataIntegrity(
-    tableName: string,
-    recordId: string,
-    data: Record<string, any>
+    _tableName: string,
+    _recordId: string,
+    data: Record<string, unknown>
   ): Promise<boolean> {
     try {
       // Calculate checksum of current data
-      const checksum = crypto
+      crypto
         .createHash('sha256')
         .update(JSON.stringify(data))
         .digest('hex')
@@ -269,9 +275,13 @@ export class DatabaseSecurity {
     secureUrl.searchParams.set('connect_timeout', '10')
 
     return new PrismaClient({
-      datasourceUrl: secureUrl.toString(),
+      datasources: {
+        db: {
+          url: secureUrl.toString(),
+        },
+      },
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
-    } as any)
+    } as Prisma.PrismaClientOptions)
   }
 
   /**
@@ -306,17 +316,17 @@ export class DatabaseSecurity {
 /**
  * Middleware for database security
  */
-export function withDatabaseSecurity<T extends Record<string, any>>(
+export function withDatabaseSecurity(
   options: DatabaseSecurityOptions = {}
 ) {
-  return (target: any, propertyName: string, descriptor: PropertyDescriptor) => {
+  return (_target: unknown, propertyName: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value
 
-    descriptor.value = async function (this: any, ...args: any[]) {
+    descriptor.value = async function (this: { prisma: PrismaClient }, ...args: unknown[]) {
       const dbSecurity = new DatabaseSecurity(this.prisma, options)
 
       // Extract user context from first argument (usually request)
-      const request = args[0]
+      const request = args[0] as { headers: Headers; user?: { id: string } }
       const userId = request.headers.get('x-user-id') ||
         request.user?.id ||
         'anonymous'
@@ -394,7 +404,7 @@ export const dbSecurity = {
       }
 
       return true
-    } catch (error) {
+    } catch (_error) {
       return false
     }
   },

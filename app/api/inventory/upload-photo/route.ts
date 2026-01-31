@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse form data
-    const formData: any = await request.formData()
+    const formData = await request.formData()
 
     // Extract photos (can be multiple)
     // FormData getAll method to get all files with the same name
@@ -131,8 +131,9 @@ export async function POST(request: NextRequest) {
         }
 
         logger.dbOperation('findUnique', transactionType, Date.now() - dbStart)
-      } catch (dbError: any) {
-        logger.error('Error verifying inventory transaction', dbError, {
+      } catch (dbError) {
+        const err = dbError as Error
+        logger.error('Error verifying inventory transaction', err, {
           transactionId,
           transactionType
         })
@@ -162,14 +163,15 @@ export async function POST(request: NextRequest) {
         transactionType,
         uploadDir
       )
-    } catch (uploadError: any) {
-      logger.error('Error uploading inventory photos', uploadError, {
+    } catch (uploadError) {
+      const err = uploadError as Error
+      logger.error('Error uploading inventory photos', err, {
         transactionId,
         transactionType,
         photoCount: photos.length
       })
       return NextResponse.json(
-        { error: uploadError.message || 'Failed to upload photos' },
+        { error: err.message || 'Failed to upload photos' },
         { status: 500 }
       )
     }
@@ -212,8 +214,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-  } catch (error: any) {
-    logger.error('Error in inventory photo upload endpoint', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error in inventory photo upload endpoint', err, {
       path: '/api/inventory/upload-photo',
       method: 'POST',
       ip: request.headers.get('x-forwarded-for') || 'unknown',
@@ -286,8 +289,9 @@ export async function GET(request: NextRequest) {
       }
     })
 
-  } catch (error: any) {
-    logger.error('Error in inventory photo GET endpoint', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error in inventory photo GET endpoint', err, {
       path: '/api/inventory/upload-photo',
       method: 'GET'
     })

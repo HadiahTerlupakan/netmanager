@@ -62,13 +62,27 @@ export class UserRepository {
 
         const users = await prisma.user.findMany(query)
 
-        return users.map((user: any) => ({
-            ...user,
-            department: user.departments,
-            site: user.sites,
-            role: user.role,
-            userSites: user.userSites
-        }))
+        return users.map((user) => {
+            const userWithMeta = user as unknown as {
+                departments: { id: string; name: string } | null;
+                sites: { id: string; code: string; name: string } | null;
+                role: { id: string; name: string } | null;
+                userSites: Array<{
+                    id: string;
+                    siteId: string;
+                    isPrimary: boolean;
+                    site: { id: string; code: string; name: string };
+                }>;
+            } & User;
+
+            return {
+                ...user,
+                department: userWithMeta.departments,
+                site: userWithMeta.sites,
+                role: userWithMeta.role,
+                userSites: userWithMeta.userSites
+            };
+        })
     }
 
     async findById(id: string): Promise<User | null> {
@@ -91,9 +105,9 @@ export class UserRepository {
 
         return {
             ...user,
-            department: (user as any).departments,
-            site: (user as any).sites,
-            role: (user as any).role
+            department: (user as Record<string, unknown>).departments as { id: string; name: string } | null,
+            site: (user as Record<string, unknown>).sites as { id: string; code: string; name: string } | null,
+            role: (user as Record<string, unknown>).role as { id: string; name: string } | null
         }
     }
 

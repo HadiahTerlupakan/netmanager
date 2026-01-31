@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 /**
  * Component to display security warning in browser console
  * Similar to Facebook's "Stop!" warning to prevent Self-XSS attacks
  */
-export default function ConsoleWarning() {
+export default function ConsoleWarning(): React.ReactElement | null {
     useEffect(() => {
         // Only run in browser
         if (typeof window === 'undefined') return;

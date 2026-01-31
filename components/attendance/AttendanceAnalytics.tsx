@@ -1,12 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { MdTrendingUp, MdTrendingDown, MdAccessTime } from 'react-icons/md'
 
 interface AttendanceAnalyticsProps {
-  userId?: string
+  userId?: string | undefined
+}
+
+interface RecentAttendance {
+  id: string
+  checkIn: string
+  checkOut: string | null
+  status: 'ON_TIME' | 'LATE'
 }
 
 interface AnalyticsData {
@@ -27,24 +34,20 @@ interface AnalyticsData {
     onTimeDays: number
     lateDays: number
   }>
-  recentAttendance: any[]
+  recentAttendance: RecentAttendance[]
 }
 
-export function AttendanceAnalytics({ userId }: AttendanceAnalyticsProps) {
+export function AttendanceAnalytics({ userId: _userId }: AttendanceAnalyticsProps) {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [days, setDays] = useState(30)
-  
-  useEffect(() => {
-    fetchAnalytics()
-  }, [days])
-  
-  const fetchAnalytics = async () => {
+
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/attendance/analytics?days=${days}`)
       const result = await response.json()
-      
+
       if (result.success) {
         setData(result.data)
       }
@@ -53,7 +56,11 @@ export function AttendanceAnalytics({ userId }: AttendanceAnalyticsProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [days])
+
+  useEffect(() => {
+    fetchAnalytics()
+  }, [fetchAnalytics])
   
   if (loading) {
     return (

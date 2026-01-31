@@ -4,10 +4,11 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { networkPerformanceQuerySchema } from '@/lib/validations/network-performance'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -101,22 +102,23 @@ export async function GET(req: Request) {
     }
 
     const filters = parsed.data
-    const where: any = {}
+    const where: Record<string, unknown> = {}
 
     if (filters.deviceId) where.deviceId = filters.deviceId
     if (filters.deviceType) where.deviceType = filters.deviceType
 
     if (filters.startDate || filters.endDate) {
-      where.timestamp = {}
-      if (filters.startDate) where.timestamp.gte = new Date(filters.startDate)
-      if (filters.endDate) where.timestamp.lte = new Date(filters.endDate)
+      const timestamp: Record<string, Date> = {}
+      if (filters.startDate) timestamp.gte = new Date(filters.startDate)
+      if (filters.endDate) timestamp.lte = new Date(filters.endDate)
+      where.timestamp = timestamp
     }
 
     const page = filters.page || 1
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Record<string, string> = {}
     if (filters.sortBy) {
       orderBy[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
@@ -127,15 +129,13 @@ export async function GET(req: Request) {
     // This will work once the Prisma schema is updated and migrations are run
     try {
       const [data, total] = await Promise.all([
-        // @ts-ignore - Will work after schema update
         prisma.networkPerformance.findMany({
-          where,
+          where: where as Prisma.NetworkPerformanceWhereInput,
           orderBy,
           skip,
           take: limit,
         }),
-        // @ts-ignore - Will work after schema update
-        prisma.networkPerformance.count({ where }),
+        prisma.networkPerformance.count({ where: where as Prisma.NetworkPerformanceWhereInput }),
       ])
 
       return NextResponse.json({
@@ -147,9 +147,9 @@ export async function GET(req: Request) {
           totalPages: Math.ceil(total / limit),
         },
       })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json({
           data: [],
           pagination: {
@@ -163,10 +163,10 @@ export async function GET(req: Request) {
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching network performance data:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal memuat data performa jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal memuat data performa jaringan' },
       { status: 500 }
     )
   }
@@ -297,36 +297,36 @@ export async function POST(req: Request) {
           id: randomUUID(),
           deviceId: data.deviceId,
           deviceType: data.deviceType,
-          cpuUsage: data.cpuUsage,
-          memoryUsage: data.memoryUsage,
-          temperature: data.temperature,
-          uptime: data.uptime ? BigInt(data.uptime) : undefined,
-          rxBytes: data.rxBytes ? BigInt(data.rxBytes) : undefined,
-          txBytes: data.txBytes ? BigInt(data.txBytes) : undefined,
-          rxPackets: data.rxPackets ? BigInt(data.rxPackets) : undefined,
-          txPackets: data.txPackets ? BigInt(data.txPackets) : undefined,
-          rxDrops: data.rxDrops ? BigInt(data.rxDrops) : undefined,
-          txDrops: data.txDrops ? BigInt(data.txDrops) : undefined,
-          rxErrors: data.rxErrors ? BigInt(data.rxErrors) : undefined,
-          txErrors: data.txErrors ? BigInt(data.txErrors) : undefined,
-          interfaceStatus: data.interfaceStatus,
-          connectionCount: data.connectionCount,
-          bandwidthUsage: data.bandwidthUsage,
-          signalStrength: data.signalStrength,
-          powerLevel: data.powerLevel,
-          customMetrics: data.customMetrics,
+          cpuUsage: data.cpuUsage ?? null,
+          memoryUsage: data.memoryUsage ?? null,
+          temperature: data.temperature ?? null,
+          uptime: data.uptime ? BigInt(data.uptime) : null,
+          rxBytes: data.rxBytes ? BigInt(data.rxBytes) : null,
+          txBytes: data.txBytes ? BigInt(data.txBytes) : null,
+          rxPackets: data.rxPackets ? BigInt(data.rxPackets) : null,
+          txPackets: data.txPackets ? BigInt(data.txPackets) : null,
+          rxDrops: data.rxDrops ? BigInt(data.rxDrops) : null,
+          txDrops: data.txDrops ? BigInt(data.txDrops) : null,
+          rxErrors: data.rxErrors ? BigInt(data.rxErrors) : null,
+          txErrors: data.txErrors ? BigInt(data.txErrors) : null,
+          interfaceStatus: data.interfaceStatus ?? null,
+          connectionCount: data.connectionCount ?? null,
+          bandwidthUsage: data.bandwidthUsage ?? null,
+          signalStrength: data.signalStrength ?? null,
+          powerLevel: data.powerLevel ?? null,
+          customMetrics: data.customMetrics ?? null,
           updatedAt: new Date(),
         },
       })
 
       return NextResponse.json({ id: result.id }, { status: 201 })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating network performance data:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal membuat data performa jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal membuat data performa jaringan' },
       { status: 500 }
     )
   }

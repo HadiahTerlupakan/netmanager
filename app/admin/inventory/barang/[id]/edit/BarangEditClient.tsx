@@ -6,10 +6,17 @@ import Link from 'next/link'
 import { FiArrowLeft } from 'react-icons/fi'
 import { BarangForm } from '@/components/inventory/BarangForm'
 
+interface BarangData {
+  id: string
+  kode: string
+  nama: string
+  satuan: string
+}
+
 export function ClientComponent() {
   const router = useRouter()
   const params = useParams()
-  const [initialData, setInitialData] = useState<any>(null)
+  const [initialData, setInitialData] = useState<BarangData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -24,7 +31,7 @@ export function ClientComponent() {
 
         const data = await response.json()
         setInitialData(data.barang || data)
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error fetching barang:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data barang')
       } finally {
@@ -37,7 +44,7 @@ export function ClientComponent() {
     }
   }, [params.id])
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async () => {
     // Redirect to inventory page after successful update
     router.push('/admin/inventory')
   }

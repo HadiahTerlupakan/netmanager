@@ -8,7 +8,7 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await requireAuth(request);
+        await requireAuth(request);
         // Verify admin role
         // if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
@@ -24,8 +24,8 @@ export async function PUT(
                 target,
                 isActive,
                 isPinned,
-                startDate: startDate ? new Date(startDate) : undefined,
-                endDate: endDate ? new Date(endDate) : undefined,
+                ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
+                ...(endDate !== undefined ? { endDate: endDate ? new Date(endDate) : null } : {}),
             }
         });
 
@@ -40,7 +40,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await requireAuth(request);
+        await requireAuth(request);
         // Verify admin role
         // if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 

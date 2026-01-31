@@ -86,7 +86,7 @@ import { sendInvoiceSchema } from '@/lib/validations/invoice'
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
     }
 
-    const { recipientEmail, recipientPhone, message, sendMethod } = validation.data
+    const { recipientEmail, recipientPhone, message: _message, sendMethod } = validation.data
 
     // Determine recipients
     const email = recipientEmail || invoice.pelanggan.email
@@ -154,10 +154,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // For now, just log and mark as sent
         console.log(`Sending invoice ${invoice.invoiceNumber} to ${email}`)
         sentVia.push('EMAIL')
-      } catch (emailError: any) {
-        console.error('Error sending email:', emailError)
+      } catch (emailError: unknown) {
+        const err = emailError instanceof Error ? emailError : new Error('Unknown error')
+        console.error('Error sending email:', err)
         return NextResponse.json(
-          { error: `Gagal mengirim email: ${emailError?.message}` },
+          { error: `Gagal mengirim email: ${err.message}` },
           { status: 500 }
         )
       }
@@ -179,10 +180,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // For now, just log and mark as sent
         console.log(`Sending invoice ${invoice.invoiceNumber} to ${phone} via WhatsApp`)
         sentVia.push('WHATSAPP')
-      } catch (whatsappError: any) {
-        console.error('Error sending WhatsApp:', whatsappError)
+      } catch (whatsappError: unknown) {
+        const err = whatsappError instanceof Error ? whatsappError : new Error('Unknown error')
+        console.error('Error sending WhatsApp:', err)
         return NextResponse.json(
-          { error: `Gagal mengirim WhatsApp: ${whatsappError?.message}` },
+          { error: `Gagal mengirim WhatsApp: ${err.message}` },
           { status: 500 }
         )
       }
@@ -201,10 +203,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       message: 'Invoice berhasil dikirim',
       sentVia,
     })
-  } catch (error: any) {
-    console.error('Error sending invoice:', error)
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    console.error('Error sending invoice:', err)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: err.message || 'Internal Server Error' },
       { status: 500 }
     )
   }

@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 
 export async function DELETE(
-  req: Request,
+  req: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
   const params = await props.params;
   try {
-    const session = await verifyAuth(req as any)
+    const session = await verifyAuth(req)
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
@@ -22,10 +22,11 @@ export async function DELETE(
     await financeService.deleteTransaction(id, session.id)
 
     return NextResponse.json({ success: true, message: 'Transaksi berhasil dihapus' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Delete Transaction Error:', error)
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan saat menghapus transaksi'
     return NextResponse.json(
-      { error: error.message || 'Terjadi kesalahan saat menghapus transaksi' },
+      { error: message },
       { status: 500 }
     )
   }

@@ -6,8 +6,8 @@ import { networkAlertCreateSchema, networkAlertQuerySchema } from '@/lib/validat
 import { prisma } from '@/lib/prisma'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -111,7 +111,7 @@ export async function GET(req: Request) {
     }
 
     const filters = parsed.data
-    const where: any = { isActive: true }
+    const where: Record<string, unknown> = { isActive: true }
 
     if (filters.deviceId) where.deviceId = filters.deviceId
     if (filters.deviceType) where.deviceType = filters.deviceType
@@ -125,7 +125,7 @@ export async function GET(req: Request) {
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Record<string, string> = {}
     if (filters.sortBy) {
       orderBy[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
@@ -152,9 +152,9 @@ export async function GET(req: Request) {
           totalPages: Math.ceil(total / limit),
         },
       })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json({
           data: [],
           pagination: {
@@ -168,10 +168,10 @@ export async function GET(req: Request) {
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching network alerts:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal memuat data alert jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal memuat data alert jaringan' },
       { status: 500 }
     )
   }
@@ -270,21 +270,20 @@ export async function POST(req: Request) {
     const data = parsed.data
 
     try {
-      // @ts-ignore - Will work after schema update
       const result = await prisma.networkAlerts.create({
         data: {
           id: randomUUID(),
           deviceId: data.deviceId,
           deviceType: data.deviceType,
-          alertType: data.alertType as any,
+          alertType: data.alertType,
           title: data.title,
           message: data.message,
-          severity: data.severity as any,
-          threshold: data.threshold,
-          currentValue: data.currentValue,
-          metricName: data.metricName,
+          severity: data.severity,
+          threshold: data.threshold ?? null,
+          currentValue: data.currentValue ?? null,
+          metricName: data.metricName ?? null,
           autoResolve: data.autoResolve || false,
-          autoResolveTime: data.autoResolveTime,
+          autoResolveTime: data.autoResolveTime ?? null,
           updatedAt: new Date(),
         },
       })
@@ -295,7 +294,7 @@ export async function POST(req: Request) {
         await logger.logActivity({
           action: 'CREATE',
           subject: 'Network Alert',
-          userId: session.user.id,
+          userId: (session as { user: { id: string } }).user.id,
           details: { id: result.id, title: data.title, severity: data.severity, deviceId: data.deviceId }
         })
       } catch (e) {
@@ -303,9 +302,9 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json({ id: result.id }, { status: 201 })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json(
           { error: 'Network alerts will be available after database migration' },
           { status: 503 }
@@ -313,10 +312,10 @@ export async function POST(req: Request) {
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating network alert:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal membuat alert jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal membuat alert jaringan' },
       { status: 500 }
     )
   }

@@ -48,9 +48,9 @@ export class BCAProvider implements PaymentProvider {
                 throw new Error('Failed to get BCA access token')
             }
 
-            const data = await response.json()
+            const data = await response.json() as { access_token: string }
             return data.access_token
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BCA getAccessToken error:', error)
             throw error
         }
@@ -100,7 +100,7 @@ export class BCAProvider implements PaymentProvider {
                 CorporateID: this.config.merchantId,
                 CustomerID: params.orderId,
                 CustomerName: params.customerName.substring(0, 50), // Max 50 chars
-                ExpiredDate: expiryDate.toISOString().split('T')[0].replace(/-/g, ''), // Format: YYYYMMDD
+                ExpiredDate: (expiryDate.toISOString().split('T')[0] ?? '').replace(/-/g, ''), // Format: YYYYMMDD
                 TotalAmount: {
                     Value: params.amount.toFixed(2),
                     Currency: 'IDR'
@@ -147,11 +147,12 @@ export class BCAProvider implements PaymentProvider {
                 paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/bca/${data.VirtualAccountNumber}`, // Custom payment instruction page
                 expiresAt: expiryDate
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BCA createPayment error:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Failed to create payment'
             return {
                 success: false,
-                error: error.message || 'Failed to create payment'
+                error: errorMessage
             }
         }
     }
@@ -184,7 +185,13 @@ export class BCAProvider implements PaymentProvider {
                 throw new Error('Failed to check BCA payment status')
             }
 
-            const data = await response.json()
+            const data = await response.json() as {
+                TransactionStatus?: string;
+                PaidStatus?: string;
+                PaidDate?: string;
+                TotalAmount?: { Value?: string };
+                TransactionID?: string;
+            }
 
             // Map BCA status to our standard status
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
@@ -203,12 +210,12 @@ export class BCAProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: data.PaidDate ? new Date(data.PaidDate) : undefined,
+                ...(data.PaidDate ? { paidAt: new Date(data.PaidDate) } : {}),
                 paymentMethod: 'BCA Virtual Account',
                 amount: parseFloat(data.TotalAmount?.Value || '0'),
                 transactionId: data.TransactionID
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BCA checkStatus error:', error)
             throw error
         }
@@ -219,7 +226,7 @@ export class BCAProvider implements PaymentProvider {
         console.log(`BCA VA will auto-expire for order: ${orderId}`)
     }
 
-    verifyWebhook(payload: any, signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
         try {
             if (!this.config || !signature) {
                 return false
@@ -249,10 +256,10 @@ export class BCAProvider implements PaymentProvider {
         }
     }
 
-    async processWebhook(payload: any): Promise<WebhookResult> {
+    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
         try {
             // TODO: Customize based on actual BCA webhook payload structure
-            const orderId = payload.CustomerID || payload.TransactionID
+            const orderId = (payload.CustomerID as string) || (payload.TransactionID as string)
 
             let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
 
@@ -267,13 +274,13 @@ export class BCAProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                paidAt: payload.PaidDate ? new Date(payload.PaidDate) : undefined,
+                ...(payload.PaidDate ? { paidAt: new Date(payload.PaidDate as string) } : {}),
                 paymentMethod: 'BCA Virtual Account',
-                transactionId: payload.TransactionID,
-                amount: parseFloat(payload.TotalAmount?.Value || '0'),
+                transactionId: payload.TransactionID as string,
+                amount: parseFloat((payload.TotalAmount as { Value?: string })?.Value || '0'),
                 raw: payload
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('BCA processWebhook error:', error)
             throw error
         }
@@ -307,12 +314,14 @@ export class BCAProvider implements PaymentProvider {
                 success: false,
                 message: 'Failed to obtain access token'
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            const errorCode = (error as { code?: string })?.code
             return {
                 success: false,
-                message: error.message || 'Connection failed',
+                message: errorMessage,
                 details: {
-                    error: error.code
+                    error: errorCode
                 }
             }
         }

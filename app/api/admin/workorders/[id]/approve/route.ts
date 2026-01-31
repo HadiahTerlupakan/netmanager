@@ -103,7 +103,7 @@ export async function POST(
                 ? 'Work order request berhasil disetujui'
                 : 'Work order request ditolak',
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error processing work order request:', error);
         return ApiErrors.internalError('Gagal memproses work order request');
     }

@@ -11,7 +11,8 @@ import {
   withRateLimit,
   RateLimits,
   ValidationError,
-  NotFoundError
+  NotFoundError,
+  type AuthContext
 } from '@/lib/middleware'
 import { apiSuccess } from '@/lib/api-response'
 import { z } from 'zod'
@@ -40,7 +41,7 @@ const changePasswordSchema = z.object({
 export const GET = withErrorHandler(
   withAuth(
     withRateLimit(RateLimits.STANDARD,
-      async ({ user }) => {
+      async ({ user }: AuthContext) => {
         const profile = await prisma.user.findUnique({
           where: { id: user.id },
           select: {

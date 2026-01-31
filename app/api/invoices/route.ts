@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { invoiceSchema } from '@/lib/validations/invoice'
 import { randomUUID } from 'crypto'
 import { hasPermission } from '@/lib/rbac'
@@ -77,7 +78,7 @@ import { hasPermission } from '@/lib/rbac'
  */
 export async function GET(req: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -89,11 +90,11 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const search = searchParams.get('search')
 
-    const where: any = {}
+    const where: Record<string, unknown> = {}
     
     // RBAC: Check site restrictions
     if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
         if (userSiteId) {
             where.siteId = userSiteId
         } else {
@@ -158,10 +159,11 @@ export async function GET(req: NextRequest) {
         hasPrev: page > 1,
       },
     })
-  } catch (error: any) {
-    console.error('Error fetching invoices:', error)
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    console.error('Error fetching invoices:', err)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: err.message || 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -281,7 +283,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -315,7 +317,7 @@ export async function POST(req: NextRequest) {
     const isRestricted = (await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN'
     
     if (isRestricted) {
-         const userSiteId = (session.user as any).siteId
+         const userSiteId = (session.user as { siteId?: string }).siteId
          if (!userSiteId) {
              return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
          }
@@ -373,22 +375,30 @@ export async function POST(req: NextRequest) {
     const discountAmount = BigInt(Math.round(invoiceData.discountAmount * 100)) / 100n
     const totalAmount = subtotal + taxAmount - discountAmount
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        id: randomUUID(),
-        invoiceNumber,
-        ...invoiceData,
-        siteId: finalSiteId,
-        subtotal,
-        taxAmount,
-        discountAmount,
-        totalAmount,
-        createdBy: session.user?.id,
-        updatedAt: new Date(),
-        invoiceItem: {
-          create: processedItems,
-        },
+    const createData: Record<string, unknown> = {
+      id: randomUUID(),
+      invoiceNumber,
+      pelangganId: invoiceData.pelangganId,
+      issueDate: invoiceData.issueDate,
+      dueDate: invoiceData.dueDate,
+      status: invoiceData.status,
+      subtotal,
+      taxAmount,
+      discountAmount,
+      totalAmount,
+      createdBy: session.user?.id,
+      updatedAt: new Date(),
+      invoiceItem: {
+        create: processedItems,
       },
+    }
+
+    if (invoiceData.notes) createData.notes = invoiceData.notes
+    if (invoiceData.terms) createData.terms = invoiceData.terms
+    if (finalSiteId) createData.siteId = finalSiteId
+
+    const invoice = await prisma.invoice.create({
+      data: createData as Prisma.InvoiceCreateInput,
       include: {
         pelanggan: {
           include: {
@@ -406,7 +416,7 @@ export async function POST(req: NextRequest) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'Invoice',
-        userId: session.user.id,
+        userId: session.user.id!,
         details: { id: invoice.id, number: invoice.invoiceNumber, total: Number(totalAmount) / 100 }
       })
     } catch (e) {
@@ -414,11 +424,13 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(invoice, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating invoice:', error)
 
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+
     // Handle unique constraint violation
-    if (error.code === 'P2002') {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Nomor invoice sudah digunakan' },
         { status: 400 }
@@ -426,7 +438,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle foreign key constraint violation
-    if (error.code === 'P2003') {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2003') {
       return NextResponse.json(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 400 }
@@ -434,7 +446,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: message },
       { status: 500 }
     )
   }

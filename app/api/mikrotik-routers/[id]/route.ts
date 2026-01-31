@@ -70,16 +70,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
         if (!userSiteId || router.siteId !== userSiteId) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     }
 
     return NextResponse.json({ router })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching MikroTik Router:', error)
-    return NextResponse.json({ error: error.message || 'Gagal memuat data Router' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Gagal memuat data Router'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 
@@ -207,7 +208,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
         if (!userSiteId || existingRouter.siteId !== userSiteId) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
@@ -215,20 +216,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data.siteId = userSiteId
     }
 
-    await routerRepository.update(id, {
-      name: data.name,
-      ipAddress: data.ipAddress,
-      timezone: data.timezone,
-      apiPort: data.apiPort,
-      apiUsername: data.apiUsername,
-      apiPassword: data.apiPassword,
-      authPort: data.authPort,
-      accountingPort: data.accountingPort,
-      secretRadius: data.secretRadius,
-      isolirUrl: data.isolirUrl,
-      description: data.description,
-      siteId: data.siteId,
-    })
+    const updateData: Record<string, unknown> = {}
+    if (data.name) updateData.name = data.name
+    if (data.ipAddress) updateData.ipAddress = data.ipAddress
+    if (data.timezone !== undefined) updateData.timezone = data.timezone
+    if (data.apiPort !== undefined) updateData.apiPort = data.apiPort
+    if (data.apiUsername !== undefined) updateData.apiUsername = data.apiUsername
+    if (data.apiPassword !== undefined) updateData.apiPassword = data.apiPassword
+    if (data.authPort !== undefined) updateData.authPort = data.authPort
+    if (data.accountingPort !== undefined) updateData.accountingPort = data.accountingPort
+    if (data.secretRadius !== undefined) updateData.secretRadius = data.secretRadius
+    if (data.isolirUrl !== undefined) updateData.isolirUrl = data.isolirUrl
+    if (data.description !== undefined) updateData.description = data.description
+    if (data.siteId !== undefined) updateData.siteId = data.siteId
+
+    await routerRepository.update(id, updateData)
 
     // System Log
     try {
@@ -236,7 +238,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await logger.logActivity({
         action: 'UPDATE',
         subject: 'MikroTik Router',
-        userId: session.user.id,
+        userId: session.user.id!,
         details: { id, changes: data }
       })
     } catch (e) {
@@ -244,7 +246,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ success: true })
-  } catch (e: any) {
+  } catch (_e: unknown) {
     return NextResponse.json({ error: 'Gagal mengupdate router atau IP Address sudah terpakai' }, { status: 409 })
   }
 }
@@ -306,7 +308,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     
     if (router) {
          if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-            const userSiteId = (session.user as any).siteId
+            const userSiteId = (session.user as { siteId?: string }).siteId
             if (!userSiteId || router.siteId !== userSiteId) {
                 return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
             }
@@ -355,7 +357,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     return NextResponse.json({ success: true })
-  } catch (e: any) {
+  } catch (_e: unknown) {
     return NextResponse.json({ error: 'Gagal menghapus router' }, { status: 500 })
   }
 }

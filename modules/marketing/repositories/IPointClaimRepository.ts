@@ -4,7 +4,7 @@ export interface CreatePointClaimInput {
   canvasingId: string
   salesId: string
   buktiUrls: string[]
-  buktiMetadata?: any
+  buktiMetadata?: Record<string, unknown>
   keterangan?: string
 }
 

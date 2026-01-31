@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import type { WorkOrders, WorkOrderTasks, WorkOrderAssignments, WorkOrderUpdates, WorkOrderAttachments, WorkOrderStatus, WorkOrderPriority, TaskStatus, WorkOrderType } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
+import type { WorkOrders, WorkOrderTasks, WorkOrderAssignments, WorkOrderUpdates, WorkOrderAttachments, WorkOrderStatus, WorkOrderType } from '@prisma/client';
 import type {
     IWorkOrderRepository,
     WorkOrderWithRelations,
@@ -95,7 +95,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         scheduledTimeEnd: restData.scheduledTimeEnd ?? null,
                         estimatedHours: restData.estimatedHours ?? null,
                         estimatedCost: restData.estimatedCost ?? null,
-                        requiredMaterials: restData.requiredMaterials ?? undefined,
+                        requiredMaterials: restData.requiredMaterials as Prisma.InputJsonValue,
                         internalNotes: restData.internalNotes ?? null,
                         disconnectionReason: restData.disconnectionReason || null,
                         isInternal: restData.isInternal || false, // Internal FOC flag
@@ -106,11 +106,16 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 // and resolve "Cannot find name notifyNewWorkOrder" error
 
                 return result;
-            } catch (error: any) {
+            } catch (error: unknown) {
                 // Check if this is a unique constraint violation on workOrderNumber
-                if (error?.code === 'P2002' && error?.meta?.target?.includes('workOrderNumber')) {
+                const prismaError = error as { code?: string; meta?: { target?: string[] } };
+                if (prismaError?.code === 'P2002' && prismaError?.meta?.target?.includes('workOrderNumber')) {
                     console.warn(`[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`);
-                    lastError = error;
+                    if (error instanceof Error) {
+                        lastError = error;
+                    } else {
+                        lastError = new Error(String(error));
+                    }
                     // Wait a bit before retrying with exponential backoff
                     await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(2, attempt)));
                     continue;
@@ -266,7 +271,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     include: {
                         user: {
                             select: {
+                                id: true,
                                 name: true,
+                                email: true,
                             },
                         },
                     },
@@ -289,7 +296,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         page: number;
         totalPages: number;
     }> {
-        const where: any = {};
+        const where: Prisma.WorkOrdersWhereInput = {};
 
         if (filters?.status) {
             where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
@@ -313,7 +320,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         if (filters?.involvedUserId) {
             // Filter for assignments that are NOT rejected (PENDING or APPROVED)
-            const userFilter = {
+            const userFilter: Prisma.WorkOrdersWhereInput = {
                 OR: [
                     { assignedToId: filters.involvedUserId },
                     {
@@ -329,9 +336,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
             if (where.OR) {
                 // If there's already an OR (e.g. from search), we need to wrap everything in AND
+                const currentAnd = Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : []);
                 where.AND = [
-                    ...(where.AND || []),
-                    { OR: where.OR },
+                    ...currentAnd,
+                    { OR: where.OR as Prisma.WorkOrdersWhereInput[] },
                     userFilter
                 ];
                 delete where.OR;
@@ -372,18 +380,20 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
         
         if (filters?.search) {
-            const searchFilter = {
+            const searchFilter: Prisma.WorkOrdersWhereInput = {
                 OR: [
-                    { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
-                    { title: { contains: filters.search, mode: 'insensitive' } },
-                    { description: { contains: filters.search, mode: 'insensitive' } },
+                    { workOrderNumber: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
+                    { title: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
+                    { description: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                 ]
             };
 
             if (where.OR) {
                 // involvedUserId already set an OR
+                const currentAnd = Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : []);
                 where.AND = [
-                    { OR: where.OR },
+                    ...currentAnd,
+                    { OR: where.OR as Prisma.WorkOrdersWhereInput[] },
                     searchFilter // This has its own OR
                 ];
                 delete where.OR;
@@ -399,9 +409,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         if (filters?.scheduledDateFrom || filters?.scheduledDateTo) {
-            where.scheduledDate = {};
-            if (filters.scheduledDateFrom) where.scheduledDate.gte = filters.scheduledDateFrom;
-            if (filters.scheduledDateTo) where.scheduledDate.lte = filters.scheduledDateTo;
+            const scheduledDateFilter: Prisma.DateTimeNullableFilter = {};
+            if (filters.scheduledDateFrom) scheduledDateFilter.gte = filters.scheduledDateFrom;
+            if (filters.scheduledDateTo) scheduledDateFilter.lte = filters.scheduledDateTo;
+            where.scheduledDate = scheduledDateFilter;
         }
 
         const [workOrders, total] = await Promise.all([
@@ -452,7 +463,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         include: {
                             user: {
                                 select: {
+                                    id: true,
                                     name: true,
+                                    email: true,
                                 },
                             },
                         },
@@ -492,7 +505,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         page: number;
         totalPages: number;
     }> {
-        const where: any = {};
+        const where: Prisma.WorkOrdersWhereInput = {};
 
         if (filters?.status) {
             where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
@@ -515,7 +528,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         if (filters?.involvedUserId) {
-            const userFilter = {
+            const userFilter: Prisma.WorkOrdersWhereInput = {
                 OR: [
                     { assignedToId: filters.involvedUserId },
                     {
@@ -530,9 +543,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             };
 
             if (where.OR) {
+                const currentAnd = Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : []);
                 where.AND = [
-                    ...(where.AND || []),
-                    { OR: where.OR },
+                    ...currentAnd,
+                    { OR: where.OR as Prisma.WorkOrdersWhereInput[] },
                     userFilter
                 ];
                 delete where.OR;
@@ -569,17 +583,19 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         if (filters?.search) {
-            const searchFilter = {
+            const searchFilter: Prisma.WorkOrdersWhereInput = {
                 OR: [
-                    { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
-                    { title: { contains: filters.search, mode: 'insensitive' } },
-                    { description: { contains: filters.search, mode: 'insensitive' } },
+                    { workOrderNumber: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
+                    { title: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
+                    { description: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                 ]
             };
 
             if (where.OR) {
+                const currentAnd = Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : []);
                 where.AND = [
-                    { OR: where.OR },
+                    ...currentAnd,
+                    { OR: where.OR as Prisma.WorkOrdersWhereInput[] },
                     searchFilter
                 ];
                 delete where.OR;
@@ -672,7 +688,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             data: {
                 ...data,
                 updatedAt: new Date(),
-            },
+            } as Prisma.WorkOrdersUncheckedUpdateInput,
         });
     }
 
@@ -691,7 +707,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         // CRITICAL: Validate status transition
         validateStatusTransition(workOrder.status, status);
 
-        const woUpdateData: any = { status };
+        const woUpdateData: Record<string, unknown> = { status };
         const eventTime = timestamp || new Date();
 
         if (status === 'IN_PROGRESS' && !workOrder.startedAt) {
@@ -712,8 +728,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             workOrderId: id,
             updateType: 'STATUS_CHANGE',
             message: `Status changed from ${workOrder.status} to ${status}`,
-            oldStatus: workOrder.status as any,
-            newStatus: status as any,
+            oldStatus: workOrder.status as WorkOrderStatus,
+            newStatus: status as WorkOrderStatus,
         };
 
         if (userId) {
@@ -738,7 +754,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async complete(id: string, resolutionNotes?: string, userId?: string, timestamp?: Date): Promise<WorkOrders> {
-        const updateData: any = { status: 'COMPLETED' };
+        const updateData: Record<string, unknown> = { status: 'COMPLETED' };
         if (resolutionNotes) {
             updateData.resolutionNotes = resolutionNotes;
         }
@@ -817,10 +833,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 // Only notify admins with approval permission (handled in route)
 
                 return result;
-            } catch (error: any) {
-                if (error?.code === 'P2002' && error?.meta?.target?.includes('workOrderNumber')) {
+            } catch (error: unknown) {
+                const prismaError = error as { code?: string; meta?: { target?: string[] } };
+                if (prismaError?.code === 'P2002' && prismaError?.meta?.target?.includes('workOrderNumber')) {
                     console.warn(`[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`);
-                    lastError = error;
+                    lastError = error instanceof Error ? error : new Error(String(error));
                     await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(2, attempt)));
                     continue;
                 }
@@ -920,7 +937,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         page: number;
         totalPages: number;
     }> {
-        const where: any = {
+        const where: Record<string, unknown> = {
             status: 'REQUESTED',
         };
 
@@ -1023,7 +1040,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async updateTask(taskId: string, data: UpdateTaskData): Promise<WorkOrderTasks> {
-        const updateData: any = { ...data };
+        const updateData: Record<string, unknown> = { ...data };
 
         if (data.status === 'COMPLETED' && data.completedById) {
             updateData.completedAt = new Date();
@@ -1145,16 +1162,17 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async getStatistics(filters?: Omit<WorkOrderFilters, 'search'>): Promise<WorkOrderStatistics> {
-        const where: any = {};
+        const where: Prisma.WorkOrdersWhereInput = {};
         
         if (filters?.siteId) where.siteId = filters.siteId;
         if (filters?.departmentId) where.departmentId = filters.departmentId;
         if (filters?.assignedToId !== undefined) where.assignedToId = filters.assignedToId;
         if (filters?.pelangganId) where.pelangganId = filters.pelangganId;
         if (filters?.dateFrom || filters?.dateTo) {
-            where.createdAt = {};
-            if (filters.dateFrom) where.createdAt.gte = filters.dateFrom;
-            if (filters.dateTo) where.createdAt.lte = filters.dateTo;
+            const createdAtFilter: Prisma.DateTimeFilter = {};
+            if (filters.dateFrom) createdAtFilter.gte = filters.dateFrom;
+            if (filters.dateTo) createdAtFilter.lte = filters.dateTo;
+            where.createdAt = createdAtFilter;
         }
 
         const [total, statusCounts, completedOrders, ratingData, urgentOpen] = await Promise.all([
@@ -1237,7 +1255,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get top performers based on completed tasks and average completion time
      */
     async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<TopPerformer[]> {
-        const where: any = {
+        const where: Prisma.WorkOrdersWhereInput = {
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
             assignedToId: { not: null },
             completedAt: { not: null },
@@ -1249,9 +1267,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         if (dateFrom || dateTo) {
-            where.completedAt = {};
-            if (dateFrom) where.completedAt.gte = dateFrom;
-            if (dateTo) where.completedAt.lte = dateTo;
+            const completedAtFilter: Prisma.DateTimeNullableFilter = {};
+            if (dateFrom) completedAtFilter.gte = dateFrom;
+            if (dateTo) completedAtFilter.lte = dateTo;
+            where.completedAt = completedAtFilter;
         }
 
         const completedWorkOrders = await this.prisma.workOrders.findMany({
@@ -1325,7 +1344,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get top assists - employees who assist as partners the most
      */
     async getTopAssists(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<TopPerformer[]> {
-        const workOrderWhere: any = {
+        const workOrderWhere: Prisma.WorkOrdersWhereInput = {
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
         };
         if (departmentId) {
@@ -1333,9 +1352,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         if (dateFrom || dateTo) {
-            workOrderWhere.completedAt = {};
-            if (dateFrom) workOrderWhere.completedAt.gte = dateFrom;
-            if (dateTo) workOrderWhere.completedAt.lte = dateTo;
+            const completedAtFilter: Prisma.DateTimeNullableFilter = {};
+            if (dateFrom) completedAtFilter.gte = dateFrom;
+            if (dateTo) completedAtFilter.lte = dateTo;
+            workOrderWhere.completedAt = completedAtFilter;
         }
 
         // Find all partner assignments on completed work orders
@@ -1409,7 +1429,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get user work order statistics (count of completed orders)
      */
     async getUserWorkOrderStats(dateFrom: Date, dateTo: Date): Promise<Array<{ userId: string; count: number }>> {
-        const where: any = {
+        const where: Record<string, unknown> = {
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
             assignedToId: { not: null },
             completedAt: {
@@ -1438,7 +1458,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get site statistics by work order type
      */
     async getSiteStatsByType(types: WorkOrderType[], limit: number, dateFrom: Date, dateTo: Date): Promise<Array<{ siteId: string; siteName: string; count: number }>> {
-        const where: any = {
+        const where: Record<string, unknown> = {
             type: { in: types },
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
             siteId: { not: null },
@@ -1490,7 +1510,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get recent work orders for dashboard
      */
     async getRecentWorkOrders(limit: number = 5, filters?: WorkOrderFilters): Promise<WorkOrderWithRelations[]> {
-        const where: any = {};
+        const where: Record<string, unknown> = {};
 
         if (filters?.departmentId) where.departmentId = filters.departmentId;
         if (filters?.assignedToId !== undefined) where.assignedToId = filters.assignedToId;
@@ -1550,7 +1570,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         inProgress: number;
         completed: number;
     }>> {
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (departmentId) {
             where.id = departmentId;
         }
@@ -1621,7 +1641,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             completed: number;
         };
     }> {
-        const where: any = {
+        const where: Record<string, unknown> = {
             OR: [
                 { departmentId },
                 { assignedToId: employeeId },
@@ -1757,7 +1777,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get statistics on most common issues (based on Title keywords)
      */
     async getIssueStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ issue: string; count: number }>> {
-        const where: any = {};
+        const where: Prisma.WorkOrdersWhereInput = {};
         if (siteId) {
             where.siteId = siteId;
         }
@@ -1765,9 +1785,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.departmentId = departmentId;
         }
         if (dateFrom || dateTo) {
-            where.createdAt = {};
-            if (dateFrom) where.createdAt.gte = dateFrom;
-            if (dateTo) where.createdAt.lte = dateTo;
+            const createdAtFilter: Prisma.DateTimeFilter = {};
+            if (dateFrom) createdAtFilter.gte = dateFrom;
+            if (dateTo) createdAtFilter.lte = dateTo;
+            where.createdAt = createdAtFilter;
         }
 
         // Fetch all work orders for the period
@@ -1808,7 +1829,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get statistics on sites with most work orders and their most common issue
      */
     async getSiteStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ siteName: string; count: number; mostCommonIssue: string }>> {
-        const where: any = {};
+        const where: Prisma.WorkOrdersWhereInput = {};
         if (siteId) {
             where.siteId = siteId;
         }
@@ -1817,9 +1838,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         if (dateFrom || dateTo) {
-            where.createdAt = {};
-            if (dateFrom) where.createdAt.gte = dateFrom;
-            if (dateTo) where.createdAt.lte = dateTo;
+            const createdAtFilter: Prisma.DateTimeFilter = {};
+            if (dateFrom) createdAtFilter.gte = dateFrom;
+            if (dateTo) createdAtFilter.lte = dateTo;
+            where.createdAt = createdAtFilter;
         }
 
         // 1. Find top sites (Group by pelangganId)
@@ -1881,7 +1903,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get statistics on disconnection reasons
      */
     async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ reason: string; count: number }>> {
-        const where: any = {
+        const where: Prisma.WorkOrdersWhereInput = {
             type: 'DISCONNECTION',
             // Include all completed states, not just COMPLETED
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
@@ -1892,9 +1914,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         // Use createdAt for date filtering (more reliable than completedAt which might be null)
         if (dateFrom || dateTo) {
-            where.createdAt = {};
-            if (dateFrom) where.createdAt.gte = dateFrom;
-            if (dateTo) where.createdAt.lte = dateTo;
+            const createdAtFilter: Prisma.DateTimeFilter = {};
+            if (dateFrom) createdAtFilter.gte = dateFrom;
+            if (dateTo) createdAtFilter.lte = dateTo;
+            where.createdAt = createdAtFilter;
         }
 
         const groupBy = await this.prisma.workOrders.groupBy({
@@ -1916,7 +1939,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             .sort((a, b) => b.count - a.count); // Sort by count descending
     }
 
-    async addComment(workOrderId: string, message: string, userId: string): Promise<any> {
+    async addComment(workOrderId: string, message: string, userId: string): Promise<WorkOrderUpdates> {
         return this.prisma.workOrderUpdates.create({
             data: {
                 id: randomUUID(),
@@ -1945,7 +1968,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         canvasingCount: number;
         avgCanvasingTimeMinutes: number;
     }>> {
-        const where: any = {
+        const where: Prisma.WorkOrderUpdatesWhereInput = {
             createdAt: { gte: dateFrom, lte: dateTo },
             createdById: { not: null }
         };
@@ -2001,7 +2024,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const userStats: Record<string, UserKPIStats> = {};
         const processedResponsePairs = new Set<string>();
         const processedVerifyPairs = new Set<string>();
-        const processedOnHoldPairs = new Set<string>();
+        // const processedOnHoldPairs = new Set<string>(); // Removed unused variable
 
         // Track ON_HOLD events for matching
         const onHoldEvents: Record<string, { createdAt: Date }> = {};
@@ -2192,7 +2215,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const dateFrom = new Date();
         dateFrom.setDate(dateFrom.getDate() - 30);
 
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (departmentId) where.departmentId = departmentId;
         if (siteId) where.siteId = siteId;
 
@@ -2290,7 +2313,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         departmentId?: string, 
         siteId?: string
     ): Promise<Array<{ month: string; created: number; completed: number; requested: number }>> {
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (departmentId) where.departmentId = departmentId;
         if (siteId) where.siteId = siteId;
 
@@ -2381,7 +2404,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         departmentId?: string, 
         siteId?: string
     ): Promise<Array<{ month: string; issues: Array<{ issue: string; count: number }> }>> {
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (departmentId) where.departmentId = departmentId;
         if (siteId) where.siteId = siteId;
 
@@ -2436,7 +2459,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         departmentId?: string, 
         siteId?: string
     ): Promise<Array<{ month: string; avgCompletionHours: number; avgRating: number | null; totalCompleted: number }>> {
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (departmentId) where.departmentId = departmentId;
         if (siteId) where.siteId = siteId;
 
@@ -2512,7 +2535,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         departmentId?: string, 
         siteId?: string
     ): Promise<Array<{ month: string; types: Array<{ type: string; count: number }> }>> {
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (departmentId) where.departmentId = departmentId;
         if (siteId) where.siteId = siteId;
 

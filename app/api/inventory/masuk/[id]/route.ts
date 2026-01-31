@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig) as Session | null
+  if (!session) {
     return null
   }
   return session
@@ -69,8 +69,9 @@ export async function GET(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching barang masuk', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error fetching barang masuk', err, {
       path: '/api/inventory/masuk/[id]',
       method: 'GET',
     })
@@ -174,16 +175,17 @@ export async function PUT(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error updating barang masuk', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error updating barang masuk', err, {
       path: '/api/inventory/masuk/[id]',
       method: 'PUT',
     })
 
-    if (error.message === 'Record barang masuk tidak ditemukan') {
+    if (err.message === 'Record barang masuk tidak ditemukan') {
       return ApiErrors.notFound('Record barang masuk')
     }
-    if (error.message === 'Stok tidak bisa negatif') {
+    if (err.message === 'Stok tidak bisa negatif') {
       return apiError('Stok tidak bisa negatif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
@@ -264,13 +266,14 @@ export async function DELETE(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error deleting barang masuk', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error deleting barang masuk', err, {
       path: '/api/inventory/masuk/[id]',
       method: 'DELETE',
     })
 
-    if (error.message === 'Record barang masuk tidak ditemukan') {
+    if (err.message === 'Record barang masuk tidak ditemukan') {
       return ApiErrors.notFound('Record barang masuk')
     }
 

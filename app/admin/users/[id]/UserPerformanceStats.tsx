@@ -1,15 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { 
-    HiOutlineBriefcase, 
-    HiOutlineCheckCircle, 
-    HiOutlineClock, 
-    HiOutlineStar, 
-    HiOutlineUserGroup,
+import {
+    HiOutlineBriefcase,
+    HiOutlineClock,
+    HiOutlineStar,
     HiOutlineCalendarDays,
-    HiOutlineXCircle,
-    HiOutlineExclamationCircle
 } from 'react-icons/hi2'
 
 interface PerformanceData {
@@ -60,15 +56,16 @@ export default function UserPerformanceStats({ userId }: { userId: string }) {
                     try {
                         const errorJson = JSON.parse(errorText)
                         throw new Error(errorJson.error || `Request failed with status ${res.status}`)
-                    } catch (e: any) {
+                    } catch (_e: unknown) {
                         throw new Error(`Request failed: ${res.status} ${errorText.substring(0, 50)}`)
                     }
                 }
                 const json = await res.json()
                 setData(json.data)
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error(err)
-                setError(err.message)
+                const message = err instanceof Error ? err.message : 'Terjadi kesalahan'
+                setError(message)
             } finally {
                 setLoading(false)
             }

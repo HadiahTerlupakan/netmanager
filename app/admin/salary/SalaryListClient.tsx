@@ -7,11 +7,8 @@ import Link from 'next/link'
 import {
     HiOutlineBanknotes,
     HiOutlineCalculator,
-    HiOutlineCheckCircle,
-    HiOutlineClock,
     HiOutlineDocumentText,
     HiOutlineEye,
-    HiOutlineFunnel,
     HiOutlineArrowPath,
 } from 'react-icons/hi2'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -65,7 +62,7 @@ const MONTHS = [
 ]
 
 export default function SalaryListClient() {
-    const { data: session } = useSession()
+    const { data: _session } = useSession()
     const router = useRouter()
     const [salaries, setSalaries] = useState<Salary[]>([])
     const [stats, setStats] = useState<PeriodStats | null>(null)

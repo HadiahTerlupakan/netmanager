@@ -164,9 +164,9 @@ export class MixRadiusService {
   constructor() {
     // Initial credentials from environment variables (fallback)
     this.credentials = {
-      username: process.env.MIXRADIUS_USERNAME || 'rudihartono',
-      password: process.env.MIXRADIUS_PASSWORD || 'rudihartono12#',
-      baseUrl: process.env.MIXRADIUS_URL || 'https://sblnet.topsetting.com:973'
+      username: process.env.MIXRADIUS_USERNAME || '',
+      password: process.env.MIXRADIUS_PASSWORD || '',
+      baseUrl: process.env.MIXRADIUS_URL || ''
     }
 
     // Note: MixRadius server now has valid SSL certificate from Sectigo (*.topsetting.com)
@@ -216,14 +216,17 @@ export class MixRadiusService {
         console.log('[MixRadius] No active config in DB, using fallback Env vars')
         // Fallback to env (already set in constructor, but ensuring update if needed)
         this.credentials = {
-          username: process.env.MIXRADIUS_USERNAME || 'rudihartono',
-          password: process.env.MIXRADIUS_PASSWORD || 'rudihartono12#',
-          baseUrl: (process.env.MIXRADIUS_URL || 'https://sblnet.topsetting.com:973').replace(/\/$/, '')
+          username: process.env.MIXRADIUS_USERNAME || '',
+          password: process.env.MIXRADIUS_PASSWORD || '',
+          baseUrl: (process.env.MIXRADIUS_URL || '').replace(/\/$/, '')
+        }
+        
+        if (!this.credentials.username || !this.credentials.password || !this.credentials.baseUrl) {
+             console.warn('[MixRadius] Credentials missing in Env vars. MixRadius integration will fail until configured.');
         }
       }
-    } catch (error) {
-       console.error('[MixRadius] Failed to load credentials from DB:', error)
-       // Keep existing/default if DB fails
+    } catch (_error) {
+       // Silent failure for credential loading, will be caught by login() validation
     }
   }
 
@@ -275,6 +278,17 @@ export class MixRadiusService {
         return
     }
 
+    // Check for missing configuration
+    if (!this.credentials.baseUrl || !this.credentials.baseUrl.startsWith('http')) {
+      console.warn('[MixRadius] Invalid or missing Base URL')
+      throw new Error('URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.')
+    }
+
+    if (!this.credentials.username || !this.credentials.password) {
+      console.warn('[MixRadius] Missing credentials')
+      throw new Error('Username atau Password MixRadius belum dikonfigurasi.')
+    }
+
     try {
       console.log('[MixRadius] Logging in...')
       console.log(`[MixRadius] URL: ${this.credentials.baseUrl}`)
@@ -316,10 +330,11 @@ export class MixRadiusService {
       } else {
         throw new Error('Login may have failed - unexpected response')
       }
-    } catch (error: any) {
-      console.error('[MixRadius] Login error:', error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[MixRadius] Login error:', message)
       this.isLoggedIn = false
-      throw new Error(`MixRadius login failed: ${error.message}`)
+      throw new Error(`MixRadius login failed: ${message}`)
     }
   }
 
@@ -331,7 +346,22 @@ export class MixRadiusService {
 
     try {
       // Ensure we're logged in
-      await this.login()
+      try {
+        await this.login()
+      } catch (loginError) {
+        const errorMsg = loginError instanceof Error ? loginError.message : String(loginError)
+        // If it's a configuration error, return empty data instead of crashing
+        if (errorMsg.includes('konfigurasi') || errorMsg.includes('valid')) {
+           console.warn(`[MixRadius] Integration not available: ${errorMsg}`)
+           return {
+             draw: 1,
+             recordsTotal: 0,
+             recordsFiltered: 0,
+             data: []
+           }
+        }
+        throw loginError
+      }
 
       console.log(`[MixRadius] Fetching customers: start=${start}, length=${length}, search="${search}", searchType=${searchType}, groupId=${params.groupId}`)
 
@@ -480,7 +510,7 @@ export class MixRadiusService {
         } else {
              // Specific column search
              allData = allData.filter(item => {
-                 const fieldVal = (item as any)[searchType]
+                 const fieldVal = (item as unknown as Record<string, unknown>)[searchType]
                  return fieldVal && String(fieldVal).toLowerCase().includes(lowerSearch)
              })
         }
@@ -506,22 +536,22 @@ export class MixRadiusService {
          allData = allData.filter(item => item.owner_name === params.ownerName)
       }
 
-      const recordsFiltered = allData.length
+      // const recordsFiltered = allData.length
 
       // FETCH ACTIVE SESSIONS and MERGE
-      let activeSessions = new Map<string, any>();
+      let activeSessions = new Map<string, { ip: string; uptime: string }>();
       try {
         activeSessions = await this.fetchActiveSessionsPPP()
-      } catch (err) {
+      } catch (_err) {
         // console.error("Active session fetch failed", err);
       }
-      
+
       // Merge online status
       let onlineCount = 0
-      allData = allData.map((customer, idx) => {
+      allData = allData.map((customer) => {
         const session = activeSessions.get(customer.username)
         if (session) onlineCount++
-        
+
         return {
           ...customer,
           online: !!session,
@@ -558,16 +588,17 @@ export class MixRadiusService {
         recordsFiltered: recordsFilteredCount,  // Filtered count
         data: pagedData
       }
-    } catch (error: any) {
-      console.error('[MixRadius] Fetch error:', error.message)
-      
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[MixRadius] Fetch error:', message)
+
       // If it's a session error, try to re-login
-      if (error.message.includes('session') || error.response?.status === 401) {
+      if (message.includes('session') || (error as { response?: { status: number } }).response?.status === 401) {
         this.isLoggedIn = false
         throw new Error('Session expired, please refresh')
       }
-      
-      throw new Error(`Failed to fetch MixRadius customers: ${error.message}`)
+
+      throw new Error(`Failed to fetch MixRadius customers: ${message}`)
     }
   }
 
@@ -579,6 +610,10 @@ export class MixRadiusService {
       // Reuse fetchCustomersPPP to get all data (using default "all" which fetches 10000 records)
       const result = await this.fetchCustomersPPP({ start: 0, length: 10000 })
       
+      if (!result.data || result.data.length === 0) {
+        return []
+      }
+
       const owners = new Set<string>()
       result.data.forEach(item => {
         if (item.owner_name) {
@@ -588,7 +623,7 @@ export class MixRadiusService {
       
       return Array.from(owners).sort()
     } catch (error) {
-      console.error('[MixRadius] Get owners error:', error)
+      console.error('[MixRadius] Get owners error:', error instanceof Error ? error.message : error)
       return []
     }
   }
@@ -673,12 +708,12 @@ export class MixRadiusService {
             console.log('[MixRadius] First session sample:', JSON.stringify(sessions[0], null, 2))
         }
         
-        sessions.forEach((session: any) => {
+        sessions.forEach((session: Record<string, unknown>) => {
           // Normalize fields based on NEW JSON structure:
           // username, nasshortname, acctsessionid, acctsessiontime, acctstarttime, calledstationid, callingstationid, framedipaddress, acctinputoctets, acctoutputoctets, member_id, fullname, expired_on, plan_name, owner_name, type, method
-          const username = session.username || session.member_id || ''
-          const ip = session.framedipaddress || ''
-          const uptime = session.acctsessiontime || ''
+          const username = String(session.username || session.member_id || '')
+          const ip = String(session.framedipaddress || '')
+          const uptime = String(session.acctsessiontime || '')
           
           if (username) {
             activeMap.set(username, { ip, uptime })
@@ -687,8 +722,9 @@ export class MixRadiusService {
       }
 
       return activeMap
-    } catch (error: any) {
-      console.error('[MixRadius] Failed to fetch active sessions:', error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[MixRadius] Failed to fetch active sessions:', message)
       // Return empty map instead of failing entire request
       return new Map()
     }
@@ -765,12 +801,12 @@ export class MixRadiusService {
     let rowMatch
     
     while ((rowMatch = rowRegex.exec(html)) !== null) {
-        const rowContent = rowMatch[1]
+        const rowContent = rowMatch[1] ?? ''
         const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
         const cols: string[] = []
         let colMatch
         while ((colMatch = colRegex.exec(rowContent)) !== null) {
-          cols.push(colMatch[1].replace(/<[^>]*>/g, '').trim())
+          cols.push((colMatch[1] ?? '').replace(/<[^>]*>/g, '').trim())
         }
         
         if (cols.length >= 7) {
@@ -783,7 +819,7 @@ export class MixRadiusService {
               else status = 'Unknown'
            }
 
-           let invoiceNum = cols[1]
+           let invoiceNum = cols[1] ?? ''
            if (invoiceNum.toUpperCase().endsWith('UNPAID')) {
                invoiceNum = invoiceNum.substring(0, invoiceNum.length - 6)
                if (!status || status === 'Unknown') status = 'Unpaid'
@@ -792,15 +828,18 @@ export class MixRadiusService {
                if (!status || status === 'Unknown') status = 'Paid'
            }
 
-           if (/^\d+$/.test(cols[0]) && (cols[3].includes('Rp') || /[\d,\.]+/.test(cols[3]))) {
+           const col0 = cols[0] ?? ''
+           const col3 = cols[3] ?? ''
+
+           if (/^\d+$/.test(col0) && (col3.includes('Rp') || /[\d,\.]+/.test(col3))) {
               invoices.push({
-                id: cols[0],
+                id: col0,
                 invoice_number: invoiceNum,
-                plan_name: cols[2],
-                amount: cols[3],
-                activation_date: cols[4],
-                deadline_date: cols[5],
-                owner: cols[6],
+                plan_name: cols[2] ?? '',
+                amount: col3,
+                activation_date: cols[4] ?? '',
+                deadline_date: cols[5] ?? '',
+                owner: cols[6] ?? '',
                 status: status
               })
            }
@@ -839,6 +878,16 @@ export class MixRadiusService {
         throw new Error('Session expired, please refresh')
       }
 
+      // Scraping Canary: Verify we are on the correct page by checking for known headers or unique markers
+      // MixRadius usually has an "Edit Customer" or similar title and common icons
+      const hasCorrectHeader = /<h4>\s*<i[^>]*class="[^"]*fa-edit[^"]*"[^>]*><\/i>[\s\S]*?(Edit|Detail)[\s\S]*?<\/h4>/i.test(html) || 
+                               (html.includes('id_plan') && html.includes('username'))
+      
+      if (!hasCorrectHeader) {
+          console.warn(`[MixRadius] Page structure check failed for customer ${customerId}. Marker elements not found.`)
+          // We'll still try to proceed, but if core fields fail later, the existing check will catch it.
+      }
+
       // Extract customer data from HTML form fields
       const extractValue = (name: string): string => {
         // Find input tag with specific name
@@ -850,7 +899,7 @@ export class MixRadiusService {
             // Extract value attribute from the found tag
             const valueRegex = /value=['"]([^'"]*)['"]/i
             const valueMatch = inputTag.match(valueRegex)
-            if (valueMatch) return valueMatch[1]
+            if (valueMatch) return valueMatch[1] ?? ''
         }
         return ''
       }
@@ -858,26 +907,26 @@ export class MixRadiusService {
       const extractTextarea = (name: string): string => {
         const regex = new RegExp(`name="${name}"[^>]*>([^<]*)</textarea>`, 'i')
         const match = html.match(regex)
-        return match ? match[1] : ''
+        return match ? match[1] ?? '' : ''
       }
 
       // Extract text content of selected open
       const extractSelect = (name: string): string => {
         const selectBlockRegex = new RegExp(`<select[^>]*name="${name}"[^>]*>([\\s\\S]*?)</select>`, 'i')
         const selectBlockMatch = html.match(selectBlockRegex)
-        
+
         if (selectBlockMatch) {
-          const selectContent = selectBlockMatch[1]
+          const selectContent = selectBlockMatch[1] ?? ''
           // Find option with selected attribute (flexible order)
           // Matches <option ... selected ... >TEXT</option>
           // Changed ([^<]*) to ([\s\S]*?) to allow HTML tags inside the option text
           const selectedOptionRegex = /<option[^>]*selected[^>]*>([\s\S]*?)<\/option>/i
           const match = selectContent.match(selectedOptionRegex)
-          if (match) return match[1].replace(/<[^>]*>/g, '').trim()
+          if (match) return (match[1] ?? '').replace(/<[^>]*>/g, '').trim()
 
           // Fallback: looking for value match if possible (assuming value is present)
            const valueMatch = selectContent.match(/<option[^>]*value="([^"]*)"[^>]*selected[^>]*>([\s\S]*?)<\/option>/i)
-           if (valueMatch) return valueMatch[2].replace(/<[^>]*>/g, '').trim()
+           if (valueMatch) return (valueMatch[2] ?? '').replace(/<[^>]*>/g, '').trim()
         }
         return ''
       }
@@ -886,17 +935,17 @@ export class MixRadiusService {
       const extractSelectValue = (name: string): string => {
         const selectBlockRegex = new RegExp(`<select[^>]*name="${name}"[^>]*>([\\s\\S]*?)</select>`, 'i')
         const selectBlockMatch = html.match(selectBlockRegex)
-        
+
         if (selectBlockMatch) {
-          const selectContent = selectBlockMatch[1]
+          const selectContent = selectBlockMatch[1] ?? ''
           // Match selected option logic
           const valueRegex = /<option[^>]*value=['"]([^'"]*)['"][^>]*selected/i
           const valueMatch = selectContent.match(valueRegex)
-          if (valueMatch) return valueMatch[1]
-          
+          if (valueMatch) return valueMatch[1] ?? ''
+
           const valueRegex2 = /<option[^>]*selected[^>]*value=['"]([^'"]*)['"]/i
           const valueMatch2 = selectContent.match(valueRegex2)
-          if (valueMatch2) return valueMatch2[1]
+          if (valueMatch2) return valueMatch2[1] ?? ''
         }
         return ''
       }
@@ -904,7 +953,7 @@ export class MixRadiusService {
       const extractRadio = (name: string): string => {
         const regex = new RegExp(`input[^>]*name="${name}"[^>]*value="([^"]*)"[^>]*checked`, 'i')
         const match = html.match(regex)
-        return match ? match[1] : ''
+        return match ? match[1] ?? '' : ''
       }
 
       // Handle specific field names from HTML
@@ -941,12 +990,12 @@ export class MixRadiusService {
         mac_address: extractValue('callerid') || (() => {
              const regex = /<i class="icon fa fa-server"><\/i>\s*([0-9A-Fa-f:]{12,17})/i
              const match = html.match(regex)
-             return match ? match[1].trim() : ''
+             return match ? (match[1] ?? '').trim() : ''
         })(),
-        total: '', 
+        total: '',
         latitude: extractValue('latitude'),
         longitude: extractValue('longitude'),
-        
+
         // Extended fields
         odp_name: extractSelect('odp_id'),
         owner_name: extractSelect('owner').replace(/^Saat ini\s*:\s*/i, ''),
@@ -954,30 +1003,40 @@ export class MixRadiusService {
         ip_type: extractSelect('ip_address_type'),
         portal_password: extractValue('portalpassword'),
         expired_action: extractSelect('expired_action'),
-        
+
         invoices: this.parseInvoicesFromHtml(html),
 
 
-        
+
         // Stats from alerts
         online: /Perangkat\s*\(\s*<b>\s*online\s*<\/b>\s*\)/i.test(html),
         uptime: (() => {
           const regex = /<i class="icon fa fa-calendar"><\/i>\s*([^<]+)\s*<\/h4>\s*Waktu Online/i
           const match = html.match(regex)
-          return match ? match[1].trim() : ''
+          return match ? (match[1] ?? '').trim() : ''
         })(),
         quota_usage: (() => {
           const regex = /<i class="icon fa fa-area-chart"><\/i>\s*([^<]+)\s*<\/h4>\s*Quota Terpakai/i
           const match = html.match(regex)
-          return match ? match[1].trim() : ''
+          return match ? (match[1] ?? '').trim() : ''
         })(),
       }
 
       console.log(`[MixRadius] Customer detail fetched: ${customerDetail.fullname}`)
+      
+      // Canary check: Validation for scraping robustness
+      // If we got a 200 OK but fail to find username OR member_id, the HTML layout likely changed.
+      if (!customerDetail.username && !customerDetail.member_id) {
+          // Log the HTML snippet for debugging (truncate for safety)
+          console.error(`[MixRadius] Scraping Validation Failed for ID ${customerId}. HTML snippet: ${html.substring(0, 500)}...`)
+          throw new Error('Integration Error: MixRadius Admin Panel layout may have changed. Failed to extract core customer data.')
+      }
+
       return customerDetail
-    } catch (error: any) {
-      console.error('[MixRadius] Fetch customer detail error:', error.message)
-      throw new Error(`Failed to fetch customer detail: ${error.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[MixRadius] Fetch customer detail error:', message)
+      throw new Error(`Failed to fetch customer detail: ${message}`)
     }
   }
 
@@ -1009,7 +1068,7 @@ export class MixRadiusService {
     if (!dms) return null
     
     // Clean up HTML entities and various quote formats
-    let cleaned = dms
+    const cleaned = dms
       .replace(/&#39;/g, "'")
       .replace(/&quot;/g, '"')
       .replace(/&#x27;/g, "'")
@@ -1026,10 +1085,10 @@ export class MixRadiusService {
     
     if (match) {
       const sign = match[1] === '-' ? -1 : 1
-      const degrees = parseFloat(match[2])
-      const minutes = parseFloat(match[3])
-      const seconds = parseFloat(match[4])
-      
+      const degrees = parseFloat(match[2] ?? '0')
+      const minutes = parseFloat(match[3] ?? '0')
+      const seconds = parseFloat(match[4] ?? '0')
+
       const result = sign * (degrees + minutes / 60 + seconds / 3600)
       return result
     }
@@ -1050,7 +1109,7 @@ export class MixRadiusService {
     if (!url) return null
     
     // Clean up HTML entities
-    let cleaned = url
+    const cleaned = url
       .replace(/&#39;/g, "'")
       .replace(/&quot;/g, '"')
       .replace(/&#x27;/g, "'")
@@ -1063,9 +1122,9 @@ export class MixRadiusService {
     const match = cleaned.match(placeRegex)
     
     if (match) {
-      const latStr = match[1]
-      const lngStr = match[2]
-      
+      const latStr = match[1] ?? ''
+      const lngStr = match[2] ?? ''
+
       const lat = this.parseDMSToDecimal(latStr)
       const lng = this.parseDMSToDecimal(lngStr)
       
@@ -1184,9 +1243,10 @@ export class MixRadiusService {
 
       console.log(`[MixRadius] Parsed ${odps.length} ODPs with valid coordinates`)
       return odps
-    } catch (error: any) {
-      console.error('[MixRadius] Fetch ODP list error:', error.message)
-      throw new Error(`Failed to fetch ODP list: ${error.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[MixRadius] Fetch ODP list error:', message)
+      throw new Error(`Failed to fetch ODP list: ${message}`)
     }
   }
 
@@ -1220,7 +1280,7 @@ export class MixRadiusService {
 
       // Extract ODP name
       const odpNameMatch = html.match(/name="name"[^>]*value="([^"]+)"/i)
-      const odpName = odpNameMatch ? odpNameMatch[1] : `ODP-${odpId}`
+      const odpName = odpNameMatch?.[1] ?? `ODP-${odpId}`
 
       // Parse customers from table in tab "Pelanggan"
       const customers: MixRadiusODPCustomer[] = []
@@ -1232,50 +1292,52 @@ export class MixRadiusService {
         return customers
       }
 
-      const tableContent = tableMatch[1]
-      
+      const tableContent = tableMatch[1] ?? ''
+
       // Parse each row in tbody
       const rowRegex = /<tr>([\s\S]*?)<\/tr>/gi
       let rowMatch
-      
+
       while ((rowMatch = rowRegex.exec(tableContent)) !== null) {
-        const rowHtml = rowMatch[1]
-        
+        const rowHtml = rowMatch[1] ?? ''
+
         // Skip header rows
         if (rowHtml.includes('<th>')) continue
-        
+
         // Extract cells
         const cells: string[] = []
         const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
         let cellMatch
-        
+
         while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
-          cells.push(cellMatch[1])
+          cells.push(cellMatch[1] ?? '')
         }
         
         if (cells.length >= 7) {
           // Extract customer ID from checkbox
-          const idMatch = cells[0].match(/value="(\d+)"/)
+          const cell0 = cells[0] ?? ''
+          const idMatch = cell0.match(/value="(\d+)"/)
           const customerId = idMatch ? idMatch[1] : ''
-          
+
           // Extract coordinates from Google Maps link
-          const mapsLinkMatch = cells[6].match(/href="([^"]*google\.com\/maps[^"]*)"/i)
-          const coords = mapsLinkMatch ? this.parseGoogleMapsCoords(mapsLinkMatch[1]) : null
-          
+          const cell6 = cells[6] ?? ''
+          const mapsLinkMatch = cell6.match(/href="([^"]*google\.com\/maps[^"]*)"/i)
+          const coords = mapsLinkMatch ? this.parseGoogleMapsCoords(mapsLinkMatch[1] ?? '') : null
+
           if (customerId && coords) {
             // Validate coordinates are within Indonesia bounds
             // Indonesia: lat -11 to 6, lng 95 to 141
-            const isValidCoord = coords.lat >= -12 && coords.lat <= 8 && 
+            const isValidCoord = coords.lat >= -12 && coords.lat <= 8 &&
                                  coords.lng >= 94 && coords.lng <= 142
-            
+
             if (isValidCoord) {
               customers.push({
                 id: customerId,
-                memberId: cells[1].replace(/<[^>]*>/g, '').trim(),
-                fullname: cells[2].replace(/<[^>]*>/g, '').trim(),
-                address: cells[3].replace(/<[^>]*>/g, '').trim(),
-                planName: cells[4].replace(/<[^>]*>/g, '').trim(),
-                ownerName: cells[5].replace(/<[^>]*>/g, '').trim(),
+                memberId: (cells[1] ?? '').replace(/<[^>]*>/g, '').trim(),
+                fullname: (cells[2] ?? '').replace(/<[^>]*>/g, '').trim(),
+                address: (cells[3] ?? '').replace(/<[^>]*>/g, '').trim(),
+                planName: (cells[4] ?? '').replace(/<[^>]*>/g, '').trim(),
+                ownerName: (cells[5] ?? '').replace(/<[^>]*>/g, '').trim(),
                 odpId: String(odpId), // Ensure ID is always a string
                 odpName: odpName,
                 latitude: coords.lat,
@@ -1290,8 +1352,9 @@ export class MixRadiusService {
 
       console.log(`[MixRadius] Found ${customers.length} customers for ODP ${odpId}`)
       return customers
-    } catch (error: any) {
-      console.error(`[MixRadius] Fetch ODP customers error for ${odpId}:`, error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`[MixRadius] Fetch ODP customers error for ${odpId}:`, message)
       return [] // Return empty instead of throwing to continue with other ODPs
     }
   }
@@ -1346,7 +1409,7 @@ export class MixRadiusService {
           batch.map(async (odp) => {
             try {
               return await this.fetchODPCustomers(odp.id)
-            } catch (error) {
+            } catch (_error) {
               console.error(`[MixRadius] Failed to fetch customers for ODP ${odp.id}`)
               return []
             }
@@ -1376,9 +1439,10 @@ export class MixRadiusService {
       console.log(`[MixRadius] Topology data cached (expires in 5 minutes)`)
       
       return result
-    } catch (error: any) {
-      console.error('[MixRadius] Fetch topology data error:', error.message)
-      throw new Error(`Failed to fetch topology data: ${error.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[MixRadius] Fetch topology data error:', message)
+      throw new Error(`Failed to fetch topology data: ${message}`)
     }
   }
 }

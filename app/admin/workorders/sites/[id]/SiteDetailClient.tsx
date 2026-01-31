@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
     HiOutlineMapPin,
@@ -51,11 +51,7 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
     const [error, setError] = useState<string | null>(null)
     const { hasPermission } = usePermission()
 
-    useEffect(() => {
-        fetchSite()
-    }, [siteId])
-
-    const fetchSite = async () => {
+    const fetchSite = useCallback(async () => {
         try {
             setLoading(true)
             const response = await fetch(`/api/admin/sites/${siteId}`)
@@ -66,12 +62,16 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
             }
 
             setSite(result.data)
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Unknown error')
         } finally {
             setLoading(false)
         }
-    }
+    }, [siteId])
+
+    useEffect(() => {
+        fetchSite()
+    }, [fetchSite])
 
     if (loading) {
         return (

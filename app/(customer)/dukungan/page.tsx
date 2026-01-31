@@ -8,13 +8,8 @@ import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import {
     MdSearch,
-    MdReceiptLong,
-    MdRouter,
-    MdSignalWifiOff,
     MdCall,
     MdMail,
-    MdSend,
-    MdHistory,
     MdCheckCircle,
     MdConfirmationNumber,
     MdExpandMore,
@@ -25,12 +20,23 @@ import {
     MdWarning
 } from 'react-icons/md'
 
+interface Ticket {
+    id: string
+    ticketNumber: string
+    subject: string
+    status: string
+    updatedAt: string
+    _count: {
+        replies: number
+    }
+}
+
 export default function CustomerSupportPage() {
     const { isLoading: authLoading, isAuthenticated, customer } = useCustomerAuth()
     const router = useRouter()
 
     // Data State
-    const [latestTicket, setLatestTicket] = useState<any>(null)
+    const [latestTicket, setLatestTicket] = useState<Ticket | null>(null)
     const [loadingTicket, setLoadingTicket] = useState(true)
 
     // Form State
@@ -104,7 +110,7 @@ export default function CustomerSupportPage() {
             } else {
                 setError(data.error || 'Gagal membuat tiket')
             }
-        } catch (err) {
+        } catch (_err) {
             setError('Terjadi kesalahan. Silakan coba lagi.')
         } finally {
             setSubmitting(false)
@@ -231,7 +237,7 @@ export default function CustomerSupportPage() {
                                 <MdExpandMore className="text-slate-400 group-open:rotate-180 transition-transform text-2xl" />
                             </summary>
                             <div className="px-4 pb-4 pt-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                                Anda dapat membayar tagihan melalui menu "Tagihan" di aplikasi ini, kemudian ikuti instruksi pembayaran via Transfer Bank atau QRIS.
+                                Anda dapat membayar tagihan melalui menu &quot;Tagihan&quot; di aplikasi ini, kemudian ikuti instruksi pembayaran via Transfer Bank atau QRIS.
                             </div>
                         </details>
 
@@ -253,7 +259,7 @@ export default function CustomerSupportPage() {
                                 <MdExpandMore className="text-slate-400 group-open:rotate-180 transition-transform text-2xl" />
                             </summary>
                             <div className="px-4 pb-4 pt-0 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                                Saat ini penggantian password wifi harus dilakukan melalui Admin. Silakan buat tiket dengan kategori "Lainnya" untuk permintaan ini.
+                                Saat ini penggantian password wifi harus dilakukan melalui Admin. Silakan buat tiket dengan kategori &quot;Lainnya&quot; untuk permintaan ini.
                             </div>
                         </details>
                     </div>

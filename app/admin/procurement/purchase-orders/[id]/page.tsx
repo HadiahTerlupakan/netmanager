@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PurchaseOrderForm from '../_components/PurchaseOrderForm'
 import ReceiveGoodsModal from '../_components/ReceiveGoodsModal'
@@ -9,16 +9,39 @@ import toast from 'react-hot-toast'
 import React from 'react'
 import { HiChevronDown } from 'react-icons/hi'
 
+interface PurchaseOrderItem {
+    id: string
+    barangId: string
+    barang?: {
+        nama: string
+        satuan?: string
+    }
+    quantity: number
+    unitPrice: number
+}
+
+interface PurchaseOrder {
+    id: string
+    poNumber: string
+    status: string
+    items: PurchaseOrderItem[]
+    totalAmount: number
+    notes?: string
+    creator?: {
+        name: string
+    }
+}
+
 export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter()
     const { hasPermission, isLoading: loadingAuth } = usePermission()
-    
+
     // Unwrapping params
     const resolvedParams = React.use(params)
     const id = resolvedParams.id
     const searchParams = useSearchParams()
 
-    const [po, setPo] = useState<any>(null)
+    const [po, setPo] = useState<PurchaseOrder | null>(null)
     const [loading, setLoading] = useState(true)
     const [showReceiveModal, setShowReceiveModal] = useState(false)
     const [showActions, setShowActions] = useState(false)
@@ -31,26 +54,26 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
         }
     }, [loadingAuth, hasPermission, router])
 
-    useEffect(() => {
-        if (!loadingAuth && hasPermission('purchase_orders:read')) {
-            fetchPO()
-        }
-    }, [id, loadingAuth, hasPermission])
-
-    const fetchPO = async () => {
+    const fetchPO = useCallback(async () => {
         setLoading(true)
         try {
             const res = await fetch(`/api/procurement/purchase-orders/${id}`)
             if (!res.ok) throw new Error('Not found')
             const json = await res.json()
             setPo(json)
-        } catch (error) { // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_error) {
             toast.error("Gagal memuat PO")
             router.push('/admin/procurement/purchase-orders')
         } finally {
             setLoading(false)
         }
-    }
+    }, [id, router])
+
+    useEffect(() => {
+        if (!loadingAuth && hasPermission('purchase_orders:read')) {
+            fetchPO()
+        }
+    }, [id, loadingAuth, hasPermission, fetchPO])
 
     const handleStartShopping = async () => {
         if (!confirm('Mulai proses belanja? Status akan berubah menjadi PROCESSING dan tidak bisa diedit lagi.')) return
@@ -66,7 +89,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
             
             toast.success('Status update: Sedang Dibelanjakan')
             fetchPO()
-        } catch (e) {
+        } catch (_e) {
             toast.error('Gagal update status')
         } finally {
             setProcessingAction(false)

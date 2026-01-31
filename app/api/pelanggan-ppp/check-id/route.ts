@@ -34,7 +34,7 @@ import { prisma } from '@/lib/prisma'
 export async function GET(req: NextRequest) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -58,15 +58,15 @@ export async function GET(req: NextRequest) {
         select: { id: true }
       })
       return NextResponse.json({ exists: pelanggan !== null })
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Jika error (misalnya tabel belum ada), anggap ID belum ada
-      console.warn('Error checking ID pelanggan (table mungkin belum ada):', error?.message)
+      console.warn('Error checking ID pelanggan (table mungkin belum ada):', error instanceof Error ? error.message : 'Unknown error')
       return NextResponse.json({ exists: false })
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error checking pelanggan ID:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

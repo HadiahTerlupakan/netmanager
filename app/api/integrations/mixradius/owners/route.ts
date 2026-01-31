@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
     const owners = await service.getUniqueOwners()
 
     return apiSuccess(owners)
-  } catch (error: any) {
-    console.error('[API] MixRadius Owners Error:', error.message)
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    console.error('[API] MixRadius Owners Error:', message)
+    return ApiErrors.internalError(message)
   }
 }

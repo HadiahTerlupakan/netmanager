@@ -104,8 +104,9 @@ export function ClientComponent() {
           const pakets = await paketRes.json()
           setHargaPakets(pakets || [])
         }
-      } catch (err: any) {
-        setError(err.message || 'Terjadi kesalahan')
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Terjadi kesalahan'
+        setError(message)
       } finally {
         setLoading(false)
       }
@@ -216,8 +217,9 @@ export function ClientComponent() {
       )
 
       router.push(`/admin/pelanggan/ppp/${id}`)
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat memperpanjang langganan')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat memperpanjang langganan'
+      setError(message)
     } finally {
       setSubmitting(false)
     }
@@ -340,7 +342,7 @@ export function ClientComponent() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
           </div>
         </div>

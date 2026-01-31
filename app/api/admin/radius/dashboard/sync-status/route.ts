@@ -11,7 +11,7 @@ import { authConfig } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
     try {
         // Auth check
         const session = await getServerSession(authConfig);

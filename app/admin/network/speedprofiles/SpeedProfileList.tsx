@@ -58,7 +58,7 @@ export default function SpeedProfilesPage() {
           if (errorData && typeof errorData === 'object' && 'error' in errorData) {
             errorMessage = errorData.error || errorMessage
           }
-        } catch (e) {
+        } catch (_e) {
           errorMessage = `Gagal memuat SpeedProfiles: ${speedProfilesRes.status} ${speedProfilesRes.statusText || ''}`
         }
         throw new Error(errorMessage)
@@ -71,7 +71,7 @@ export default function SpeedProfilesPage() {
           if (errorData && typeof errorData === 'object' && 'error' in errorData) {
             errorMessage = errorData.error || errorMessage
           }
-        } catch (e) {
+        } catch (_e) {
           errorMessage = `Gagal memuat OLTs: ${oltsRes.status} ${oltsRes.statusText || ''}`
         }
         throw new Error(errorMessage)
@@ -93,15 +93,15 @@ export default function SpeedProfilesPage() {
 
       setSpeedProfiles(speedProfilesWithOlt)
       const oltList = oltsData.olts || []
-      setOlts(oltList.map((o: any) => ({ id: o.id, name: o.name, ipAddress: o.ipAddress })))
+      setOlts(oltList.map((o: Olt) => ({ id: o.id, name: o.name, ipAddress: o.ipAddress })))
 
       // Auto-expand semua OLT yang memiliki SpeedProfile
       const allOltIds = new Set(speedProfilesWithOlt.map((p) => p.oltId))
       setExpandedOlts(allOltIds)
       setError(null)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading data:', error)
-      setError(error.message || 'Gagal memuat data')
+      setError(error instanceof Error ? error.message : 'Gagal memuat data')
     } finally {
       setLoading(false)
     }
@@ -385,7 +385,7 @@ export default function SpeedProfilesPage() {
             }
 
             await loadData()
-          } catch (err: any) {
+          } catch (err) {
             throw err
           }
         }}

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
     HiOutlinePlus,
-    HiOutlineArrowPath,
     HiOutlinePencil,
     HiOutlineTrash,
     HiOutlineUsers,
@@ -16,7 +15,6 @@ import {
 } from 'react-icons/hi2'
 import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/Modal'
 
 interface User {
@@ -64,8 +62,8 @@ export default function SalaryUsersClient() {
     const [showAddModal, setShowAddModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
-    const [components, setComponents] = useState<SalaryComponent[]>([])
     const [userComponents, setUserComponents] = useState<UserSalaryComponent[]>([])
+    const [_components, setComponents] = useState<SalaryComponent[]>([])
 
     // Form states untuk tambah karyawan
     const [selectedUserId, setSelectedUserId] = useState('')

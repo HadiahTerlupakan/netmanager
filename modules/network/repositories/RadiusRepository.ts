@@ -125,7 +125,10 @@ export class RadiusRepository implements IRadiusRepository {
         if (!reply) return null;
 
         // Parse "upload/download" format
-        const [upload, download] = reply.value.split('/').map(Number);
+        const parts = reply.value.split('/').map(Number);
+        const upload = parts[0] ?? 0;
+        const download = parts[1] ?? 0;
+
         return {
             uploadMbps: upload / 1000000,
             downloadMbps: download / 1000000,
@@ -316,7 +319,7 @@ export class RadiusRepository implements IRadiusRepository {
                 const match = speed.match(/^(\d+)([MK])?$/i);
                 if (!match) return 0;
 
-                const value = parseInt(match[1]);
+                const value = parseInt(match[1] ?? '0');
                 const unit = match[2]?.toUpperCase();
 
                 if (unit === 'M') return value;
@@ -380,12 +383,12 @@ export class RadiusRepository implements IRadiusRepository {
         const created = await this.prisma.nas.create({
             data: {
                 nasname: nas.nasname,
-                shortname: nas.shortname,
+                shortname: nas.shortname ?? null,
                 type: nas.type || 'other',
-                ports: nas.ports,
+                ports: nas.ports ?? null,
                 secret: nas.secret,
-                community: nas.community,
-                description: nas.description,
+                community: nas.community ?? null,
+                description: nas.description ?? null,
                 updatedAt: new Date(),
             },
         });
@@ -393,12 +396,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: created.id,
             nasname: created.nasname,
-            shortname: created.shortname || undefined,
-            type: created.type || undefined,
-            ports: created.ports || undefined,
             secret: created.secret,
-            community: created.community || undefined,
-            description: created.description || undefined,
+            ...(created.shortname ? { shortname: created.shortname } : {}),
+            ...(created.type ? { type: created.type } : {}),
+            ...(created.ports ? { ports: created.ports } : {}),
+            ...(created.community ? { community: created.community } : {}),
+            ...(created.description ? { description: created.description } : {}),
         };
     }
 
@@ -409,7 +412,13 @@ export class RadiusRepository implements IRadiusRepository {
         const updated = await this.prisma.nas.update({
             where: { id },
             data: {
-                ...nas,
+                ...(nas.nasname !== undefined ? { nasname: nas.nasname } : {}),
+                ...(nas.shortname !== undefined ? { shortname: nas.shortname } : {}),
+                ...(nas.type !== undefined ? { type: nas.type } : {}),
+                ...(nas.ports !== undefined ? { ports: nas.ports } : {}),
+                ...(nas.secret !== undefined ? { secret: nas.secret } : {}),
+                ...(nas.community !== undefined ? { community: nas.community } : {}),
+                ...(nas.description !== undefined ? { description: nas.description } : {}),
                 updatedAt: new Date(),
             },
         });
@@ -417,12 +426,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: updated.id,
             nasname: updated.nasname,
-            shortname: updated.shortname || undefined,
-            type: updated.type || undefined,
-            ports: updated.ports || undefined,
             secret: updated.secret,
-            community: updated.community || undefined,
-            description: updated.description || undefined,
+            ...(updated.shortname ? { shortname: updated.shortname } : {}),
+            ...(updated.type ? { type: updated.type } : {}),
+            ...(updated.ports ? { ports: updated.ports } : {}),
+            ...(updated.community ? { community: updated.community } : {}),
+            ...(updated.description ? { description: updated.description } : {}),
         };
     }
 
@@ -448,12 +457,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: nas.id,
             nasname: nas.nasname,
-            shortname: nas.shortname || undefined,
-            type: nas.type || undefined,
-            ports: nas.ports || undefined,
             secret: nas.secret,
-            community: nas.community || undefined,
-            description: nas.description || undefined,
+            ...(nas.shortname ? { shortname: nas.shortname } : {}),
+            ...(nas.type ? { type: nas.type } : {}),
+            ...(nas.ports ? { ports: nas.ports } : {}),
+            ...(nas.community ? { community: nas.community } : {}),
+            ...(nas.description ? { description: nas.description } : {}),
         };
     }
 
@@ -468,12 +477,12 @@ export class RadiusRepository implements IRadiusRepository {
         return nasList.map(nas => ({
             id: nas.id,
             nasname: nas.nasname,
-            shortname: nas.shortname || undefined,
-            type: nas.type || undefined,
-            ports: nas.ports || undefined,
             secret: nas.secret,
-            community: nas.community || undefined,
-            description: nas.description || undefined,
+            ...(nas.shortname ? { shortname: nas.shortname } : {}),
+            ...(nas.type ? { type: nas.type } : {}),
+            ...(nas.ports ? { ports: nas.ports } : {}),
+            ...(nas.community ? { community: nas.community } : {}),
+            ...(nas.description ? { description: nas.description } : {}),
         }));
     }
 
@@ -490,12 +499,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: nas.id,
             nasname: nas.nasname,
-            shortname: nas.shortname || undefined,
-            type: nas.type || undefined,
-            ports: nas.ports || undefined,
             secret: nas.secret,
-            community: nas.community || undefined,
-            description: nas.description || undefined,
+            ...(nas.shortname ? { shortname: nas.shortname } : {}),
+            ...(nas.type ? { type: nas.type } : {}),
+            ...(nas.ports ? { ports: nas.ports } : {}),
+            ...(nas.community ? { community: nas.community } : {}),
+            ...(nas.description ? { description: nas.description } : {}),
         };
     }
 
@@ -507,8 +516,8 @@ export class RadiusRepository implements IRadiusRepository {
             data: {
                 pool_name: pool.poolName,
                 framedipaddress: pool.framedIpAddress,
-                nasipaddress: pool.nasIpAddress,
-                pool_key: pool.poolKey,
+                nasipaddress: pool.nasIpAddress ?? null,
+                pool_key: pool.poolKey ?? null,
                 updatedAt: new Date(),
             },
         });
@@ -517,8 +526,8 @@ export class RadiusRepository implements IRadiusRepository {
             id: created.id,
             poolName: created.pool_name,
             framedIpAddress: created.framedipaddress,
-            nasIpAddress: created.nasipaddress || undefined,
-            poolKey: created.pool_key || undefined,
+            ...(created.nasipaddress ? { nasIpAddress: created.nasipaddress } : {}),
+            ...(created.pool_key ? { poolKey: created.pool_key } : {}),
         };
     }
 
@@ -598,8 +607,8 @@ export class RadiusRepository implements IRadiusRepository {
             id: pool.id,
             poolName: pool.pool_name,
             framedIpAddress: pool.framedipaddress,
-            nasIpAddress: pool.nasipaddress || undefined,
-            poolKey: pool.pool_key || undefined,
+            ...(pool.nasipaddress ? { nasIpAddress: pool.nasipaddress } : {}),
+            ...(pool.pool_key ? { poolKey: pool.pool_key } : {}),
         }));
 
     }

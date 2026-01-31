@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { FaCamera, FaCheck, FaSignOutAlt, FaMapMarkerAlt, FaSpinner } from 'react-icons/fa'
@@ -9,11 +8,9 @@ import { AttendanceStatusIndicator } from './AttendanceStatusIndicator'
 import { GeofenceStatusBadge } from './GeofenceStatusBadge'
 
 export default function AttendanceCard() {
-    const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [checkingStatus, setCheckingStatus] = useState(true)
     const [status, setStatus] = useState<'idle' | 'checked-in' | 'checked-out'>('idle')
-    const [attendanceId, setAttendanceId] = useState<string | null>(null)
     const [checkInTime, setCheckInTime] = useState<string | null>(null)
     const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
     const [checkInDate, setCheckInDate] = useState<Date | null>(null)
@@ -26,8 +23,8 @@ export default function AttendanceCard() {
     const [photo, setPhoto] = useState<string | null>(null)
     const [location, setLocation] = useState<string | null>(null)
     const [notes, setNotes] = useState('')
-    const [geofenceStatus, setGeofenceStatus] = useState<'INSIDE' | 'OUTSIDE' | 'UNKNOWN'>('UNKNOWN')
-    const [geofenceDistance, setGeofenceDistance] = useState<number | null>(null)
+    const geofenceStatus: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN' = 'UNKNOWN'
+    const geofenceDistance: number | null = null
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -43,7 +40,6 @@ export default function AttendanceCard() {
                 const attendanceDate = new Date(lastAttendance.checkIn).toDateString()
 
                 if (today === attendanceDate) {
-                    setAttendanceId(lastAttendance.id)
                     setCheckInTime(new Date(lastAttendance.checkIn).toLocaleTimeString())
                     setCheckInDate(new Date(lastAttendance.checkIn))
                     setAttendanceStatus(lastAttendance.status || 'ON_TIME')
@@ -179,8 +175,9 @@ export default function AttendanceCard() {
             // Delay agar user dapat melihat pesan sukses
             await new Promise(resolve => setTimeout(resolve, 500))
 
-        } catch (error: any) {
-            toast.error(error.message)
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
+            toast.error(message)
         } finally {
             setLoading(false)
         }
@@ -205,7 +202,7 @@ export default function AttendanceCard() {
                 {checkInDate && (
                     <AttendanceStatusIndicator
                         checkInTime={checkInDate}
-                        checkOutTime={checkOutDate || undefined}
+                        {...(checkOutDate && { checkOutTime: checkOutDate })}
                         targetHours={targetHours}
                         workingHourMode={workingHourMode}
                         status={attendanceStatus}

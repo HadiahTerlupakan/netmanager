@@ -31,8 +31,9 @@ export async function GET(
     }
 
     return apiSuccess(claim)
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Gagal mengambil data claim')
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil data claim'
+    return ApiErrors.internalError(errorMessage)
   }
 }
 
@@ -73,14 +74,15 @@ export async function PUT(
     }
 
     return apiSuccess(result, { message: `Claim berhasil di-${body.action}` })
-  } catch (error: any) {
-    if (error.message.includes('tidak ditemukan')) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes('tidak ditemukan')) {
       return ApiErrors.notFound('Claim')
     }
-    if (error.message.includes('Hanya claim')) {
-      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    if (message.includes('Hanya claim')) {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
-    return ApiErrors.internalError(error.message || 'Gagal memproses claim')
+    return ApiErrors.internalError(message || 'Gagal memproses claim')
   }
 }
 
@@ -106,13 +108,14 @@ export async function DELETE(
     await service.deleteClaim(id)
 
     return apiSuccess(null, { message: 'Claim berhasil dihapus' })
-  } catch (error: any) {
-    if (error.message.includes('tidak ditemukan')) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes('tidak ditemukan')) {
       return ApiErrors.notFound('Claim')
     }
-    if (error.message.includes('tidak bisa dihapus')) {
-      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    if (message.includes('tidak bisa dihapus')) {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
-    return ApiErrors.internalError(error.message || 'Gagal menghapus claim')
+    return ApiErrors.internalError(message || 'Gagal menghapus claim')
   }
 }

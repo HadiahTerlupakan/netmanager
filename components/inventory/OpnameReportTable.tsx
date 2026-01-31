@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { FiEdit2, FiTrash2, FiEye, FiFilter, FiDownload, FiMinusCircle } from 'react-icons/fi'
 import type { StockOpnameRecord } from '@/lib/types/inventory'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -19,7 +19,7 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
   const [totalPages, setTotalPages] = useState(0)
   const [total, setTotal] = useState(0)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [filters, setFilters] = useState({
+  const [_filters, _setFilters] = useState({
     tanggalMulai: '',
     tanggalSelesai: '',
     kondisi: 'semua',
@@ -41,11 +41,7 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
 
   const limit = 20
 
-  useEffect(() => {
-    fetchOpnameList()
-  }, [currentPage, filters, refreshTrigger])
-
-  async function fetchOpnameList() {
+  const fetchOpnameList = useCallback(async () => {
     setLoading(true)
     setError('')
 
@@ -53,8 +49,8 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: limit.toString(),
-        ...(filters.barangId && { barangId: filters.barangId }),
-        ...(filters.gudangId && { gudangId: filters.gudangId })
+        ...(_filters.barangId && { barangId: _filters.barangId }),
+        ...(_filters.gudangId && { gudangId: _filters.gudangId })
       })
 
       const response = await fetch(`/api/inventory/opname/list?${params}`)
@@ -72,7 +68,11 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, _filters.barangId, _filters.gudangId, limit])
+
+  useEffect(() => {
+    fetchOpnameList()
+  }, [fetchOpnameList, refreshTrigger])
 
   const handleDelete = async (id: string) => {
     // Check if ID is valid

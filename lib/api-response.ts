@@ -177,7 +177,7 @@ export function apiPaginated<T>(
  * Paginated response with summary data
  * Used when response includes both paginated data and aggregated summary
  */
-export interface PaginatedWithSummaryResponse<T, S = any> extends SuccessResponse<T[]> {
+export interface PaginatedWithSummaryResponse<T, S = unknown> extends SuccessResponse<T[]> {
     meta: {
         page: number
         limit: number
@@ -187,7 +187,7 @@ export interface PaginatedWithSummaryResponse<T, S = any> extends SuccessRespons
     summary?: S
 }
 
-export function apiPaginatedWithSummary<T, S = any>(
+export function apiPaginatedWithSummary<T, S = unknown>(
     data: T[],
     options: {
         page: number

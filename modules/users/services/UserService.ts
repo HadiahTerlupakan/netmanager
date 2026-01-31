@@ -1,5 +1,5 @@
 import { UserRepository } from '../repositories/UserRepository'
-import type { CreateUserDTO, UserWithRelations } from '../repositories/UserRepository'
+import type { UserWithRelations } from '../repositories/UserRepository'
 import { WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
 import { hash } from 'bcryptjs'

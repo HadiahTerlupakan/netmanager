@@ -46,8 +46,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await prisma.mikroTikRouter.update({
       where: { id: router.id },
       data: {
-        apiUsernameGenerated: result.username,
-        apiPasswordGenerated: result.password,
+        ...(result.username && { apiUsernameGenerated: result.username }),
+        ...(result.password && { apiPasswordGenerated: result.password }),
       }
     })
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await logger.logActivity({
         action: 'CREATE',
         subject: 'MikroTik API User',
-        userId: session.user.id,
+        userId: session.user.id!,
         details: { routerId: id, username: result.username }
       })
     } catch (e) {
@@ -69,10 +69,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ 
       success: true, 
       username: result.username,
-      logs: result.logs 
+      logs: result.logs
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Gagal membuat API user'
     console.error('Error generating API user:', error)
-    return NextResponse.json({ error: error.message || 'Gagal membuat API user' }, { status: 500 })
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

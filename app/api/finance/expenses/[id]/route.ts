@@ -39,7 +39,7 @@ export async function PUT(
 
         const { amount, date, category, description } = validation.data;
 
-        // @ts-ignore
+
         const expense = await prisma.expense.update({
             where: {
                 id: id,
@@ -48,7 +48,7 @@ export async function PUT(
                 amount,
                 date,
                 category,
-                description,
+                ...(description !== undefined ? { description } : {}),
             },
             include: {
                 user: {
@@ -82,7 +82,7 @@ export async function DELETE(
         const { id } = await params;
         if (!id) return apiError('ID tidak ditemukan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
 
-        // @ts-ignore
+        // Prisma delete type issue
         const expense = await prisma.expense.delete({
             where: {
                 id: id,

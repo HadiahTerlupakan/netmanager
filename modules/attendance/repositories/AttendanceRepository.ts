@@ -14,7 +14,9 @@ export class AttendanceRepository {
     }
 
     async count(where?: Prisma.AttendanceWhereInput) {
-        return prisma.attendance.count({ where })
+        return prisma.attendance.count({
+            ...(where ? { where } : {})
+        })
     }
 
     async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
@@ -155,11 +157,14 @@ export class AttendanceRepository {
         }
 
         // Seed Map with Holidays (to ensure they appear even if 0 attendance)
-        holidaySet.forEach(date => ensureDate(date))
+        holidaySet.forEach(date => {
+            if (date) ensureDate(date)
+        })
 
         // Process Attendance
         records.forEach(rec => {
-            const dateKey = rec.checkIn.toISOString().split('T')[0]
+            const dateKey = rec.checkIn.toISOString().split('T')[0] ?? ''
+            if (!dateKey) return;
             const stats = ensureDate(dateKey)
 
             // Assuming 'ON_TIME', 'LATE', and 'PRESENT' are valid statuses for present
@@ -169,12 +174,13 @@ export class AttendanceRepository {
 
         // Process Leaves
         leaves.forEach(leave => {
-            let current = new Date(leave.startDate)
+            const current = new Date(leave.startDate)
             const end = new Date(leave.endDate)
 
             while (current <= end) {
                 if (current >= startDate && current <= endDate) {
-                    const dateKey = current.toISOString().split('T')[0]
+                    const dateKey = current.toISOString().split('T')[0] ?? ''
+                    if (!dateKey) return;
                     const stats = ensureDate(dateKey)
 
                     if (leave.type === 'SAKIT') stats.sakit++

@@ -1,4 +1,5 @@
 
+import { Prisma } from '@prisma/client'
 import type { ICouponRepository, CreateCouponInput, VerifyCouponResult } from '../repositories/ICouponRepository'
 import { CouponRepository } from '../repositories/CouponRepository'
 
@@ -19,7 +20,7 @@ export class CouponService {
         return this.repo.create(data)
     }
 
-    async verifyCoupon(code: string, amount: number, pelangganId?: string): Promise<VerifyCouponResult> {
+    async verifyCoupon(code: string, amount: number, _pelangganId?: string): Promise<VerifyCouponResult> {
         if (!code) return { valid: false, error: 'Code required', discountAmount: 0, finalAmount: amount }
 
         const coupon = await this.repo.findByCode(code.toUpperCase())
@@ -58,11 +59,11 @@ export class CouponService {
         }
     }
 
-    async recordUsage(couponId: string, pelangganId: string, tx?: any) {
+    async recordUsage(couponId: string, pelangganId: string, tx?: Prisma.TransactionClient) {
         return this.repo.recordUsage(couponId, pelangganId, tx)
     }
 
-    async incrementUsage(couponId: string, tx?: any) {
+    async incrementUsage(couponId: string, tx?: Prisma.TransactionClient) {
         return this.repo.incrementUsage(couponId, tx)
     }
 }

@@ -47,9 +47,10 @@ export async function GET(
         }
 
         return NextResponse.json(pr)
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
         console.error('Error fetching purchase request:', error)
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
 
@@ -154,8 +155,8 @@ export async function PATCH(
             if (pos && pos.length > 0) {
                 generatedPO = pos[0]
             }
-        } catch (error: any) {
-            poError = error.message || 'Gagal auto-generate PO'
+        } catch (error: unknown) {
+            poError = error instanceof Error ? error.message : 'Gagal auto-generate PO'
             console.error('Auto-generate PO error:', error)
         }
 
@@ -198,12 +199,13 @@ export async function PATCH(
             } : null,
             _poError: poError
         })
-    } catch (error: any) {
-        logger.error('Error updating purchase request', error, {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        logger.error('Error updating purchase request', error instanceof Error ? error : new Error(errorMessage), {
             path: '/api/procurement/purchase-requests/[id]',
             method: 'PATCH'
         })
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
 

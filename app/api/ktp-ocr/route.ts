@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
-import { env } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
+
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+}
+
+interface KtpError {
+  model: string;
+  status?: number;
+  message: string;
+  details?: unknown;
+}
 
 /**
  * POST /api/ktp-ocr
@@ -16,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Ambil API Key dari database atau environment variable
-    let apiKey = env.GOOGLE_GEMINI_API_KEY
+    let apiKey = process.env.GOOGLE_GEMINI_API_KEY
 
     // Cek di database terlebih dahulu
     const settings = await prisma.settings.findUnique({
@@ -35,7 +54,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const formData: any = await req.formData()
+    const formData = await req.formData()
     const file = formData.get('file') as File
 
     if (!file) {
@@ -85,7 +104,7 @@ export async function POST(req: NextRequest) {
     // Panggil Google Gemini API - mengikuti implementasi yang berhasil
     // Gunakan model yang dikonfirmasi tersedia untuk Key ini
     const models = ['gemini-2.5-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest']
-    let lastError: any = null
+    let lastError: KtpError | null = null
     
     // Tentukan mimeType - mengikuti implementasi yang berhasil
     // Default ke image/jpeg seperti di referensi HTML
@@ -129,14 +148,19 @@ export async function POST(req: NextRequest) {
       })
 
       if (!response.ok) {
-        let errorBody: any = {}
-        let errorMessage = response.statusText
-        
+        let errorBody: GeminiResponse = {}
+        let errorMessage: string = response.statusText
+
         try {
           const text = await response.text()
           if (text) {
             errorBody = JSON.parse(text)
-            errorMessage = errorBody.error?.message || errorBody.error || errorMessage
+            const bodyMessage = errorBody.error?.message || errorBody.error
+            if (typeof bodyMessage === 'string') {
+                errorMessage = bodyMessage
+            } else if (bodyMessage && typeof bodyMessage === 'object' && 'message' in bodyMessage) {
+                errorMessage = (bodyMessage as { message?: string }).message || errorMessage
+            }
           }
         } catch (e) {
           console.error('Failed to parse error response:', e)
@@ -173,22 +197,23 @@ export async function POST(req: NextRequest) {
       }
 
       // Jika response OK, parse dan return
-      let result: any
+      let result: GeminiResponse
       try {
         const text = await response.text()
         if (!text) {
           throw new Error('Response body is empty')
         }
         result = JSON.parse(text)
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e)
         console.error('Failed to parse API response:', e)
         // Jika ini bukan model terakhir, coba model berikutnya
         if (model !== models[models.length - 1]) {
-          lastError = { model, message: e.message }
+          lastError = { model, message: errorMessage }
           continue
         }
         return NextResponse.json(
-          { error: `Gagal memparse respons API: ${e.message}` },
+          { error: `Gagal memparse respons API: ${errorMessage}` },
           { status: 500 }
         )
       }
@@ -205,16 +230,17 @@ export async function POST(req: NextRequest) {
           const ktpData = JSON.parse(result.candidates[0].content.parts[0].text)
           console.log(`Successfully extracted KTP data using model: ${model}`)
           return NextResponse.json({ data: ktpData })
-        } catch (e: any) {
+        } catch (e: unknown) {
+          const errorMessage = e instanceof Error ? e.message : String(e)
           console.error('Failed to parse KTP data:', e)
           console.error('Raw text:', result.candidates[0].content.parts[0].text)
           // Jika ini bukan model terakhir, coba model berikutnya
           if (model !== models[models.length - 1]) {
-            lastError = { model, message: `Failed to parse KTP data: ${e.message}` }
+            lastError = { model, message: `Failed to parse KTP data: ${errorMessage}` }
             continue
           }
           return NextResponse.json(
-            { error: `Gagal memparse data KTP: ${e.message}` },
+            { error: `Gagal memparse data KTP: ${errorMessage}` },
             { status: 500 }
           )
         }
@@ -248,10 +274,11 @@ export async function POST(req: NextRequest) {
       },
       { status: 500 }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat memproses KTP'
     console.error('Error processing KTP OCR:', error)
     return NextResponse.json(
-      { error: error.message || 'Terjadi kesalahan saat memproses KTP' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

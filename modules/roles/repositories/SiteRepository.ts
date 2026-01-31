@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
 interface SiteCreateInput {
@@ -37,7 +38,7 @@ export class SiteRepository {
      * Find all sites with optional filtering
      */
     async findAll(filter?: SiteFilter) {
-        const where: any = {}
+        const where: Prisma.SitesWhereInput = {}
 
         if (filter?.activeOnly) {
             where.isActive = true

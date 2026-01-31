@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
+import crypto from 'crypto';
 import { workOrderTemplateCreateSchema, workOrderTemplateQuerySchema } from '@/lib/validations/workorder-template';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors } from '@/lib/api-response';
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
             sortOrder: searchParams.get('sortOrder') || 'desc',
         });
 
-        const where: any = {};
+        const where: Record<string, unknown> = {};
 
         if (query.search) {
             where.OR = [
@@ -62,8 +63,8 @@ export async function GET(request: NextRequest) {
         }
 
         const [templates, total] = await Promise.all([
-            (prisma as any).workOrderTemplates.findMany({
-                where,
+            prisma.workOrderTemplates.findMany({
+                where: where as import('@prisma/client').Prisma.WorkOrderTemplatesWhereInput,
                 include: {
                     departments: {
                         select: {
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
                 skip: (query.page - 1) * query.limit,
                 take: query.limit,
             }),
-            (prisma as any).workOrderTemplates.count({ where }),
+            prisma.workOrderTemplates.count({ where: where as import('@prisma/client').Prisma.WorkOrderTemplatesWhereInput }),
         ]);
 
         return apiSuccess({
@@ -123,10 +124,15 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = workOrderTemplateCreateSchema.parse(body);
 
-        const template = await (prisma as any).workOrderTemplates.create({
+        const { departmentId, ...rest } = validatedData;
+
+        const template = await prisma.workOrderTemplates.create({
             data: {
-                ...validatedData,
-                createdById: user.id,
+                ...rest,
+                id: crypto.randomUUID(),
+                updatedAt: new Date(),
+                departments: departmentId ? { connect: { id: departmentId } } : undefined,
+                user: { connect: { id: user.id } },
             },
             include: {
                 departments: {

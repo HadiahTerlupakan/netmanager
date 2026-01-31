@@ -38,7 +38,7 @@ export class JoinboxRepository implements IJoinboxRepository {
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
           status: data.status ?? 'AKTIF',
-          siteId: data.siteId,
+          siteId: data.siteId ?? null,
         },
         select: { id: true },
       })

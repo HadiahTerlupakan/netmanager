@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
@@ -90,7 +89,7 @@ export const GET = createHandler({
   }
 
   canvasingStats.forEach(stat => {
-    const count = (stat._count as any)._all || 0
+    const count = (stat._count as Record<string, unknown>)._all as number || 0
     canvasing.total += count
     if (stat.status === 'APPROVED') canvasing.approved = count
     else if (stat.status === 'REJECTED') canvasing.rejected = count
@@ -124,7 +123,7 @@ export const GET = createHandler({
   }
 
   pointClaimStats.forEach(stat => {
-    const count = (stat._count as any)._all || 0
+    const count = (stat._count as Record<string, unknown>)._all as number || 0
     const value = stat._sum?.pointValue || 0
     points.total += count
     points.totalValue += value
@@ -165,7 +164,7 @@ export const GET = createHandler({
     status: activity.status,
     createdAt: activity.createdAt,
     address: activity.alamat,
-    pointClaim: (activity as any).pointClaims || null
+    pointClaim: (activity as Record<string, unknown>).pointClaims || null
   }))
 
   // 4. Total All Time

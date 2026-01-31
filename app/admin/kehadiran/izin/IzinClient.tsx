@@ -173,7 +173,7 @@ export function IzinClient() {
             } else {
                 toast.error('Gagal membuat pengajuan')
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error('Terjadi kesalahan')
         } finally {
             setActionLoading(false)

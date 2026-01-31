@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const canReadAll = isSuperAdmin || permissions.includes('canvasing:read') || permissions.includes('point_claims:read')
 
     const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status') as any
+    const status = searchParams.get('status')
     let salesId = searchParams.get('salesId') || undefined
 
     if (!canReadAll) {
@@ -23,10 +23,14 @@ export async function GET(req: NextRequest) {
     }
 
     const service = getPointClaimService()
-    const claims = await service.getAllClaims({ status, salesId })
+    const filterParams: Record<string, string | undefined> = {}
+    if (status) filterParams.status = status
+    if (salesId) filterParams.salesId = salesId
+    const claims = await service.getAllClaims(filterParams)
 
     return apiSuccess(claims)
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Gagal mengambil data claims')
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil data claims'
+    return ApiErrors.internalError(errorMessage)
   }
 }

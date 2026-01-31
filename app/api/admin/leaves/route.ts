@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getLeaveService } from '@/modules/attendance/services/LeaveService'
-import { LeaveType } from '@prisma/client'
+import { LeaveType, LeaveStatus } from '@prisma/client'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { z } from 'zod'
 
@@ -38,7 +38,12 @@ export async function GET(request: Request) {
         let departmentId = searchParams.get('departmentId')
 
         // Enforce RBAC Restrictions
-        const user = session.user as any
+        const user = session.user as {
+            role: string;
+            permissions?: string[];
+            siteId?: string;
+            departmentId?: string
+        }
         const isSuperAdmin = user.role === 'SUPER_ADMIN'
 
         if (user.permissions?.includes('izin:site_only') && !isSuperAdmin) {
@@ -49,7 +54,7 @@ export async function GET(request: Request) {
         }
 
         const result = await service.getLeaves({
-            ...(status ? { status: status as any } : {}),
+            ...(status ? { status: status as LeaveStatus } : {}),
             ...(siteId ? { siteId } : {}),
             ...(departmentId ? { departmentId } : {})
         })
@@ -59,7 +64,7 @@ export async function GET(request: Request) {
         }
 
         return apiSuccess(result.data?.leaves || [])
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching leaves:', error)
         return ApiErrors.internalError('Gagal mengambil data izin/cuti')
     }
@@ -109,7 +114,7 @@ export async function POST(request: Request) {
         }
 
         return apiSuccess(result.data, { status: 201, message: 'Izin/cuti berhasil dibuat' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating leave:', error)
         return ApiErrors.internalError('Gagal membuat izin/cuti')
     }

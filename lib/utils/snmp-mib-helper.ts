@@ -4,12 +4,22 @@
  * Menggunakan definisi OID yang terstruktur untuk mempermudah parsing dan akses data
  */
 
-import { snmpGet, snmpGetMultiple, snmpGetBulkSimple, snmpTable } from './snmp-helpers'
-import { ONU_OIDS } from './onu-oids'
+import { snmpGetMultiple, snmpTable } from './snmp-helpers'
+
+/**
+ * Interface untuk hasil data ONU
+ */
+export interface OnuData {
+  status?: string
+  name?: string
+  serial?: string
+  rxOlt?: string
+  rxOnu?: string
+  description?: string
+}
 
 /**
  * Definisi MIB Table untuk ONU
- * Setiap table memiliki baseOid dan kolom-kolomnya
  */
 export const ONU_MIB_TABLES = {
   // Status Table (zxGponOntStateTable)
@@ -116,14 +126,7 @@ export class SNMPMIBHelper {
     compositeIndex: number,
     onuId: number,
     timeout: number = 30000
-  ): Promise<{
-    status?: string
-    name?: string
-    serial?: string
-    rxOlt?: string
-    rxOnu?: string
-    description?: string
-  }> {
+  ): Promise<OnuData> {
     const results: Record<string, string> = {}
 
     // Build OIDs untuk ONU ini
@@ -141,14 +144,13 @@ export class SNMPMIBHelper {
     const values = await snmpGetMultiple(ipAddress, port, community, version, oidArray, timeout)
 
     // Map hasil ke format yang lebih mudah
-    const index = `${compositeIndex}.${onuId}`
     for (const [key, oid] of Object.entries(oids)) {
       if (values[oid]) {
         results[key] = values[oid]
       }
     }
 
-    return results as any
+    return results as OnuData
   }
 
   /**
@@ -162,15 +164,8 @@ export class SNMPMIBHelper {
     compositeIndex: number,
     onuIds: number[],
     timeout: number = 30000
-  ): Promise<Record<number, {
-    status?: string
-    name?: string
-    serial?: string
-    rxOlt?: string
-    rxOnu?: string
-    description?: string
-  }>> {
-    const results: Record<number, any> = {}
+  ): Promise<Record<number, OnuData>> {
+    const results: Record<number, OnuData> = {}
 
     // Fetch semua table sekaligus menggunakan snmpTable
     const [statusTable, nameTable, serialTable, rxOltTable, rxOnuTable, descTable] = await Promise.all([
@@ -214,7 +209,10 @@ export class SNMPMIBHelper {
       return null
     }
 
-    const [, frame, slot, port, onuId] = match.map(Number)
+    const frame = parseInt(match[1] || '0', 10)
+    const slot = parseInt(match[2] || '0', 10)
+    const port = parseInt(match[3] || '0', 10)
+    const onuId = parseInt(match[4] || '0', 10)
     
     // Calculate composite index: (frame * 256 * 256) + (slot * 256) + port
     const compositeIndex = (frame * 65536) + (slot * 256) + port

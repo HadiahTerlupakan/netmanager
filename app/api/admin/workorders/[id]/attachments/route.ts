@@ -4,15 +4,25 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
+interface ExtendedUser {
+  id: string
+  role?: string
+  permissions?: string[]
+  siteId?: string
+  departmentId?: string
+  employee?: unknown
+}
+
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await requireAuth(request)
-        if (user instanceof NextResponse) {
-            return user
+        const session = await requireAuth(request)
+        if (session instanceof NextResponse) {
+            return session
         }
+        const user = session.user as ExtendedUser
 
         // Permission check (Update permission required to add attachments)
         if (!await hasPermission('list:update')) {
@@ -55,10 +65,10 @@ export async function POST(
                 action: 'UPDATE',
                 subject: 'Work Order',
                 userId: user.id,
-                details: { 
-                    workOrderId: id, 
+                details: {
+                    workOrderId: id,
                     type: 'ATTACHMENT_UPLOAD',
-                    fileName 
+                    fileName
                 }
             })
         } catch (e) {

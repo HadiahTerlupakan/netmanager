@@ -29,7 +29,7 @@ export interface SecureErrorResponse {
   code?: string
   requestId?: string
   timestamp?: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 // Error log entry for internal monitoring
@@ -38,14 +38,14 @@ export interface ErrorLogEntry {
   type: ErrorType
   severity: ErrorSeverity
   message: string
-  originalError?: any
+  originalError?: unknown
   context: {
     method?: string
     url?: string
     ip?: string
     userAgent?: string
     userId?: string
-    [key: string]: any
+    [key: string]: unknown
   }
   timestamp: string
 }
@@ -56,7 +56,7 @@ export interface ErrorLogEntry {
 export function createSecureError(
   type: ErrorType,
   userMessage?: string,
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ): NextResponse {
   const requestId = crypto.randomUUID()
   const timestamp = new Date().toISOString()
@@ -101,7 +101,7 @@ export function createSecureError(
 
   // Include safe details (non-sensitive)
   if (details && Object.keys(details).length > 0) {
-    const safeDetails: Record<string, any> = {}
+    const safeDetails: Record<string, unknown> = {}
 
     // Only include non-sensitive fields
     const allowedFields = ['field', 'limit', 'maxSize', 'allowedTypes', 'retryAfter']
@@ -185,17 +185,18 @@ export function createFileUploadError(
 export function logSecureError(
   type: ErrorType,
   severity: ErrorSeverity,
-  originalError: any,
-  context: Record<string, any>,
+  originalError: unknown,
+  context: Record<string, unknown>,
   userMessage?: string
 ): void {
   const requestId = crypto.randomUUID()
 
+  const err = originalError as { message?: string }
   const logEntry: ErrorLogEntry = {
     requestId,
     type,
     severity,
-    message: userMessage || originalError?.message || 'Unknown error',
+    message: userMessage || err?.message || 'Unknown error',
     originalError: process.env.NODE_ENV === 'development' ? originalError : undefined,
     context: {
       ...context,
@@ -205,11 +206,11 @@ export function logSecureError(
       apiKey: undefined,
       secret: undefined,
       // Keep other fields for debugging
-      method: context.method,
-      url: context.url,
-      ip: context.ip,
-      userAgent: context.userAgent,
-      userId: context.userId
+      method: context.method as string,
+      url: context.url as string,
+      ip: context.ip as string,
+      userAgent: context.userAgent as string,
+      userId: context.userId as string
     },
     timestamp: new Date().toISOString()
   }
@@ -232,32 +233,34 @@ export function logSecureError(
  * Handles API route errors securely
  */
 export function handleApiError(
-  error: any,
-  context: Record<string, any>
+  error: unknown,
+  context: Record<string, unknown>
 ): NextResponse {
   // Classify the error type
   let type = ErrorType.SYSTEM
   let severity = ErrorSeverity.MEDIUM
 
-  if (error.name === 'ZodError' || error.type === 'validation') {
+  const err = error as { name?: string; type?: string; code?: string; message?: string; errors?: unknown }
+
+  if (err.name === 'ZodError' || err.type === 'validation') {
     type = ErrorType.VALIDATION
     severity = ErrorSeverity.LOW
-  } else if (error.code === 'P2002') { // Prisma unique constraint
+  } else if (err.code === 'P2002') { // Prisma unique constraint
     type = ErrorType.CONFLICT
     severity = ErrorSeverity.LOW
-  } else if (error.code === 'P2025') { // Prisma not found
+  } else if (err.code === 'P2025') { // Prisma not found
     type = ErrorType.NOT_FOUND
     severity = ErrorSeverity.LOW
-  } else if (error.message?.includes('auth') || error.type === 'authentication') {
+  } else if (err.message?.includes('auth') || err.type === 'authentication') {
     type = ErrorType.AUTHENTICATION
     severity = ErrorSeverity.HIGH
-  } else if (error.message?.includes('unauthorized') || error.type === 'authorization') {
+  } else if (err.message?.includes('unauthorized') || err.type === 'authorization') {
     type = ErrorType.AUTHORIZATION
     severity = ErrorSeverity.HIGH
-  } else if (error.message?.includes('rate limit') || error.type === 'rate_limit') {
+  } else if (err.message?.includes('rate limit') || err.type === 'rate_limit') {
     type = ErrorType.RATE_LIMIT
     severity = ErrorSeverity.MEDIUM
-  } else if (error.message?.includes('malicious') || error.type === 'malicious') {
+  } else if (err.message?.includes('malicious') || err.type === 'malicious') {
     type = ErrorType.MALICIOUS_REQUEST
     severity = ErrorSeverity.CRITICAL
   }
@@ -266,8 +269,8 @@ export function handleApiError(
   logSecureError(type, severity, error, context)
 
   // Return appropriate error response
-  if (type === ErrorType.VALIDATION && error.errors) {
-    return createValidationError(error.errors)
+  if (type === ErrorType.VALIDATION && err.errors) {
+    return createValidationError(err.errors as Array<{ field: string; message: string }>)
   }
 
   return createSecureError(type)
@@ -276,7 +279,7 @@ export function handleApiError(
 /**
  * Wrapper for API route handlers with secure error handling
  */
-export function withSecureErrorHandler<T extends Record<string, any> = {}>(
+export function withSecureErrorHandler<T extends Record<string, unknown> = Record<string, never>>(
   handler: (request: Request, context: T) => Promise<NextResponse>
 ) {
   return async (request: Request, context: T): Promise<NextResponse> => {
@@ -305,7 +308,7 @@ export const createSecureErrorResponse = createSecureError;
 export function createSuccessResponse<T>(
   data: T,
   message?: string,
-  meta?: Record<string, any>
+  meta?: Record<string, unknown>
 ): NextResponse {
   const response = {
     success: true,

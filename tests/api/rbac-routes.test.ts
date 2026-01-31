@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync } from 'fs'
+import { readFileSync } from 'fs'
 import { join } from 'path'
 
 const APP_ROOT = process.cwd()
@@ -75,7 +75,7 @@ describe('RBAC Route Coverage Analysis', () => {
         
         try {
           fileContent = readFileSync(fullPath, 'utf-8')
-        } catch (error) {
+        } catch (_error) {
           console.warn(`File not found: ${path}`)
           return // Skip if file doesn't exist
         }
@@ -93,7 +93,7 @@ describe('RBAC Route Coverage Analysis', () => {
         
         try {
           fileContent = readFileSync(fullPath, 'utf-8')
-        } catch (error) {
+        } catch (_error) {
           console.warn(`File not found: ${path}`)
           return
         }
@@ -118,7 +118,7 @@ describe('RBAC Route Coverage Analysis', () => {
         
         try {
           fileContent = readFileSync(fullPath, 'utf-8')
-        } catch (error) {
+        } catch (_error) {
           console.warn(`File not found: ${path}`)
           return
         }

@@ -13,20 +13,21 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || undefined;
     const skip = parseInt(searchParams.get('skip') || '0');
     const take = parseInt(searchParams.get('take') || '10');
-    
+
     // Status filter
     const statusParam = searchParams.get('status');
-    
+
     try {
-        const result = await service.getPurchaseOrders({ 
-            search, 
-            skip, 
+        const result = await service.getPurchaseOrders({
+            ...(search && { search }),
+            skip,
             take,
-            status: statusParam as any 
+            status: statusParam as "DRAFT" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED" | undefined
         });
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -36,15 +37,16 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        
-        const userId = (session.user as any).id || session.user?.email || 'unknown';
-        
-        // Remove poNumber and createdBy from body if present, as Service handles them or we trust service overrides
-        const { poNumber, createdBy, ...data } = body;
+
+        const userId = (session.user as { id?: string })?.id || session.user?.email || 'unknown';
+
+        // Remove unused fields from body if present
+        const { poNumber: _, createdBy: __, ...data } = body;
 
         const result = await service.createPurchaseOrder(data, userId);
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

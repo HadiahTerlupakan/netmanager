@@ -42,7 +42,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
         }
 
         setGudang(data.gudang)
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to fetch gudang:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data')
       } finally {

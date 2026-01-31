@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { Notifications } from '@prisma/client'
 import { prismaMock } from '../../setup'
+// const prismaMock = defaultPrismaMock as any
 
 // NotificationService uses prisma directly, so we test the prisma mock behavior
 // Note: The actual NotificationService has many dependencies (WebSocket, Push)
@@ -22,7 +24,7 @@ describe('NotificationService - Database Operations', () => {
         createdAt: new Date()
       }
 
-      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as any)
+      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as unknown as Notifications)
 
       const result = await prismaMock.notifications.create({
         data: {
@@ -48,7 +50,7 @@ describe('NotificationService - Database Operations', () => {
         isRead: false
       }
 
-      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as any)
+      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as unknown as Notifications)
 
       const result = await prismaMock.notifications.create({
         data: {
@@ -70,7 +72,7 @@ describe('NotificationService - Database Operations', () => {
         id: 'notif-1',
         isRead: true,
         readAt: new Date()
-      } as any)
+      } as unknown as Notifications)
 
       const result = await prismaMock.notifications.update({
         where: { id: 'notif-1' },
@@ -160,7 +162,7 @@ describe('NotificationService - Database Operations', () => {
         { id: 'notif-2', title: 'Notification 2' }
       ]
 
-      prismaMock.notifications.findMany.mockResolvedValueOnce(mockNotifications as any)
+      prismaMock.notifications.findMany.mockResolvedValueOnce(mockNotifications as unknown as Notifications[])
 
       const result = await prismaMock.notifications.findMany({
         where: {

@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { randomUUID } from 'crypto'
 import { notifyAdminsAboutMobileAction } from '@/modules/notification'
+
+interface UsedMaterial {
+    id: string;
+    nama: string;
+    jumlah: number;
+    satuan: string;
+    kondisi: string;
+    barangId: string;
+    gudangId: string;
+}
 
 // POST - Add materials/barang to work order (creates barang keluar)
 export async function POST(
@@ -16,6 +27,10 @@ export async function POST(
         }
 
         const token = authHeader.split(' ')[1]
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 })
+        }
+
         const decoded = await verifyMobileToken(token)
 
         if (!decoded || !decoded.id) {
@@ -99,7 +114,7 @@ export async function POST(
                 })
 
                 // Specific condition stock update
-                const updateData: any = {}
+                const updateData: Prisma.BarangGudangUpdateInput = {}
                 if (kondisi === 'BARU') updateData.stokBaru = { decrement: jumlah }
                 else if (kondisi === 'BEKAS') updateData.stokBekas = { decrement: jumlah }
                 else if (kondisi === 'RUSAK') updateData.stokRusak = { decrement: jumlah }
@@ -126,7 +141,7 @@ export async function POST(
             }
 
             // Update work order usedMaterials
-            const existingMaterials = (workOrder.usedMaterials as any[]) || []
+            const existingMaterials = (workOrder.usedMaterials as unknown as UsedMaterial[]) || []
             await tx.workOrders.update({
                 where: { id },
                 data: {
@@ -161,15 +176,15 @@ export async function POST(
             actionMessage: `Mengambil barang: ${materialList}`,
             triggeredByUserId: userId,
             triggeredByName: (user?.name as string) || (decoded.name as string),
-            departmentId: workOrder.departmentId || undefined,
-            siteId: workOrder.siteId || undefined,
+            ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+            ...(workOrder.siteId && { siteId: workOrder.siteId }),
         })
 
         return NextResponse.json({ success: true, items: results })
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error adding materials to work order (mobile):', error)
         return NextResponse.json({
-            error: error.message || 'Internal server error'
+            error: error instanceof Error ? error.message : 'Internal server error'
         }, { status: 500 })
     }
 }

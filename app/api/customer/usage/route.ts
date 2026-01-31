@@ -18,13 +18,15 @@ export async function GET(request: NextRequest) {
         const usageData = await usageService.getUsageData(authResult.session.id)
 
         return apiSuccess(usageData)
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Customer Usage Error]:', error)
-        
-        if (error.message === 'Data pelanggan tidak ditemukan') {
+
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
+
+        if (message === 'Data pelanggan tidak ditemukan') {
             return ApiErrors.notFound('Pelanggan')
         }
-        
-        return ApiErrors.internalError(error.message || 'Terjadi kesalahan server')
+
+        return ApiErrors.internalError(message)
     }
 }

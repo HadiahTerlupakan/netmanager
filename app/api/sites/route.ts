@@ -3,21 +3,18 @@ import { getHybridUser } from "@/lib/hybrid-auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
-  const user = await getHybridUser(req);
+  const user = await getHybridUser(req) as { role?: string; siteId?: string } | null;
 
   if (!user) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
   try {
-    const where: any = {};
-    
-    // Type assertion to access custom properties including siteId
-    const currentUser = user as any;
-    
+    const where: { id?: string } = {};
+
     // Check for site restriction: NOT Super Admin AND has siteId assigned
-    if (currentUser.role !== 'SUPER_ADMIN' && currentUser.siteId) {
-        where.id = currentUser.siteId;
+    if (user.role !== 'SUPER_ADMIN' && user.siteId) {
+        where.id = user.siteId;
     }
 
     const sites = await prisma.sites.findMany({

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { FaSearch, FaCalendarAlt, FaFileExport, FaUser, FaBuilding } from 'react-icons/fa'
+import { FaSearch, FaFileExport, FaBuilding } from 'react-icons/fa'
 import { MdDelete, MdCancel, MdLocationOn, MdEdit, MdSave, MdTimer } from 'react-icons/md'
 import Image from 'next/image'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -82,7 +82,7 @@ export function ClientComponent() {
         }
     }, [retryCountdown])
 
-    const fetchOptions = async () => {
+    const fetchOptions = useCallback(async () => {
         try {
             const response = await fetchWithHandling<{ sites: { id: string, name: string }[], departments: { id: string, name: string }[] }>('/api/admin/options')
             if (response.data) {
@@ -94,7 +94,7 @@ export function ClientComponent() {
                 showToast('error', formatErrorMessage(error))
             }
         }
-    }
+    }, [showToast])
 
     const fetchAttendances = useCallback(async () => {
         if (retryCountdown !== null) return
@@ -139,7 +139,7 @@ export function ClientComponent() {
 
     useEffect(() => {
         fetchOptions()
-    }, [])
+    }, [fetchOptions])
 
     useEffect(() => {
         fetchAttendances()

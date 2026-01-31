@@ -1,4 +1,4 @@
-import { PrismaClient, PointClaimStatus } from '@prisma/client'
+import { PrismaClient, PointClaimStatus, Prisma } from '@prisma/client'
 import type { PointClaim } from '@prisma/client'
 import type { 
   IPointClaimRepository, 
@@ -17,8 +17,8 @@ export class PointClaimRepository implements IPointClaimRepository {
         canvasingId: data.canvasingId,
         salesId: data.salesId,
         buktiUrls: data.buktiUrls,
-        buktiMetadata: data.buktiMetadata,
-        keterangan: data.keterangan,
+        buktiMetadata: (data.buktiMetadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        keterangan: data.keterangan ?? null,
       },
     })
   }
@@ -160,7 +160,7 @@ export class PointClaimRepository implements IPointClaimRepository {
       }
 
       // Poin Claim (+2 poin jika approved)
-      const claim = canvasing.pointClaims as any
+      const claim = canvasing.pointClaims as { status: string; pointValue: number } | null
       if (claim) {
         if (claim.status === 'APPROVED') {
           claimPoints += claim.pointValue

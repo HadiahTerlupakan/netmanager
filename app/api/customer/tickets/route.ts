@@ -32,10 +32,11 @@ export async function GET(request: NextRequest) {
             success: true,
             ...result,
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Customer Tickets GET] Error:', error)
+        const message = error instanceof Error ? error.message : 'Gagal mengambil daftar tiket'
         return NextResponse.json(
-            { success: false, error: error.message || 'Gagal mengambil daftar tiket' },
+            { success: false, error: message },
             { status: 500 }
         )
     }
@@ -68,18 +69,20 @@ export async function POST(request: NextRequest) {
             message: 'Tiket berhasil dibuat',
             ticket,
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Customer Tickets POST] Error:', error)
-        
+
+        const message = error instanceof Error ? error.message : 'Gagal membuat tiket'
+
         // Map validation errors to 400
         const validationErrors = [
             'Kategori, subjek, dan deskripsi wajib diisi',
             'Kategori tidak valid',
         ]
-        const statusCode = validationErrors.includes(error.message) ? 400 : 500
-        
+        const statusCode = validationErrors.includes(message) ? 400 : 500
+
         return NextResponse.json(
-            { success: false, error: error.message || 'Gagal membuat tiket' },
+            { success: false, error: message },
             { status: statusCode }
         )
     }

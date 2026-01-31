@@ -35,10 +35,10 @@ export async function GET(req: NextRequest) {
 
     // SITE RESTRICTION
     const permissions = await getUserPermissions(session.user.id!);
-    const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
-    
+    const isSuperAdmin = (session.user as { role?: string }).role === 'SUPER_ADMIN'
+
     if (!isSuperAdmin && (permissions.includes('keluar:site_only') || permissions.includes('k_barang:site_only'))) {
-        siteId = (session.user as any).siteId
+        siteId = (session.user as { siteId?: string }).siteId
     }
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
             total: stockByCondition.total
           }
         })
-      } catch (error) {
+      } catch (_error) {
         return ApiErrors.internalError('Gagal mengecek stok')
       }
     }
@@ -68,22 +68,22 @@ export async function GET(req: NextRequest) {
       const { items: keluarList, total } = await inventoryRepository.getHistoryKeluar({
         skip: offset,
         take: limit,
-        barangId: barangId || undefined,
-        gudangId: gudangId || undefined,
-        search: search || undefined,
-        siteId: siteId || undefined
+        ...(barangId ? { barangId } : {}),
+        ...(gudangId ? { gudangId } : {}),
+        ...(search ? { search } : {}),
+        ...(siteId ? { siteId } : {})
       })
 
       logger.dbOperation('findMany', 'BarangKeluar+Relations', Date.now() - dbStart)
 
       logger.apiRequest('GET', '/api/inventory/keluar', 200, Date.now() - startTime, {
-        userId: session.user.id,
         count: keluarList.length,
         page,
         limit,
         total,
-        barangId,
-        gudangId,
+        ...(session.user.id ? { userId: session.user.id } : {}),
+        ...(barangId ? { barangId } : {}),
+        ...(gudangId ? { gudangId } : {}),
       })
 
       return apiSuccess({
@@ -98,8 +98,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching barang keluar', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error fetching barang keluar', err, {
       path: '/api/inventory/keluar',
       method: 'GET',
     })
@@ -181,10 +182,10 @@ export async function POST(req: NextRequest) {
         tujuanPenggunaan,
         keterangan,
         isHilang: isHilang || false,
-        userId: finalEmployeeId,
         fotoBukti: fotoBukti || [],
         fotoMetadata: fotoMetadata || null,
-        tanggal: new Date()
+        tanggal: new Date(),
+        ...(finalEmployeeId ? { userId: finalEmployeeId } : {})
       })
 
       // Fetch updated stock for broadcast
@@ -193,12 +194,12 @@ export async function POST(req: NextRequest) {
       logger.dbOperation('transaction', 'BarangKeluar+BarangGudang', Date.now() - dbStart)
 
       logger.apiRequest('POST', '/api/inventory/keluar', 201, Date.now() - startTime, {
-        userId: session.user.id,
         barangId,
         gudangId,
         jumlah,
         keluarId: keluarRecord.id,
         newStock: finalStock,
+        ...(session.user.id ? { userId: session.user.id } : {})
       })
 
       // System Log
@@ -206,8 +207,8 @@ export async function POST(req: NextRequest) {
         await logger.logActivity({
           action: 'CREATE',
           subject: 'Inventory Out',
-          userId: session.user.id,
-          details: { id: keluarRecord.id, barangId, gudangId, quantity: jumlah }
+          details: { id: keluarRecord.id, barangId, gudangId, quantity: jumlah },
+          ...(session.user.id ? { userId: session.user.id } : {})
         })
       } catch (e) {
         console.error('Logging failed', e)
@@ -232,22 +233,23 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error creating barang keluar', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error creating barang keluar', err, {
       path: '/api/inventory/keluar',
       method: 'POST',
     })
 
-    if (error.message === 'Barang tidak ditemukan') {
+    if (err.message === 'Barang tidak ditemukan') {
       return ApiErrors.notFound('Barang')
     }
-    if (error.message === 'Gudang tidak ditemukan atau tidak aktif') {
+    if (err.message === 'Gudang tidak ditemukan atau tidak aktif') {
       return apiError('Gudang tidak ditemukan atau tidak aktif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
-    if (error.message.includes('Stok tidak mencukupi') || error.message.includes('tersedia')) {
-      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    if (err.message.includes('Stok tidak mencukupi') || err.message.includes('tersedia')) {
+      return apiError(err.message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
-    return ApiErrors.internalError(error.message || 'Gagal mencatat barang keluar')
+    return ApiErrors.internalError(err.message || 'Gagal mencatat barang keluar')
   }
 }

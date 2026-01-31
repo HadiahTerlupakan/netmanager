@@ -1,4 +1,6 @@
-import { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '@prisma/client'
+
+export type { PrismaClient }
 
 export interface NetworkAlertCreateData {
   deviceId: string
@@ -69,7 +71,7 @@ export interface NetworkAlertPublic {
 export interface INetworkAlertRepository {
   create(data: NetworkAlertCreateData): Promise<NetworkAlertPublic>
   findById(id: string): Promise<NetworkAlertPublic | null>
-  findMany(filters?: NetworkAlertFilters): Promise<{ data: NetworkAlertPublic[], pagination: any }>
+  findMany(filters?: NetworkAlertFilters): Promise<{ data: NetworkAlertPublic[], pagination: { page: number, limit: number, total: number, totalPages: number } }>
   update(id: string, data: NetworkAlertUpdateData): Promise<void>
   acknowledge(id: string, userId: string): Promise<void>
   resolve(id: string, userId: string): Promise<void>

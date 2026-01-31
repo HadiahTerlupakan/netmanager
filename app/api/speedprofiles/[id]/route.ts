@@ -5,8 +5,8 @@ import { getSpeedProfileRepository } from '@/lib/repositories'
 import { speedProfileUpdateSchema } from '@/lib/validations/speedprofile'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -34,7 +34,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
   const speedProfileRepository = getSpeedProfileRepository()
-  const data: any = {}
+  const data: Record<string, unknown> = {}
   if (parsed.data.profileType !== undefined) data.profileType = parsed.data.profileType
   if (parsed.data.name !== undefined) data.name = parsed.data.name
   if (parsed.data.type !== undefined) data.type = parsed.data.type
@@ -61,7 +61,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     }
 
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
+  } catch (_e) {
     return NextResponse.json({ error: 'Terjadi kesalahan saat mengupdate SpeedProfile' }, { status: 409 })
   }
 }

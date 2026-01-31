@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig, getUserPermissions } from '@/lib/auth'
+import { authConfig } from '@/lib/auth'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
@@ -18,7 +17,7 @@ export async function GET(
 ) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/gudang/[id]')
       return ApiErrors.unauthorized()
@@ -51,8 +50,9 @@ export async function GET(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching gudang', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    logger.error('Error fetching gudang', err, {
       path: '/api/inventory/gudang/[id]',
       method: 'GET',
       id: 'unknown',
@@ -72,7 +72,7 @@ export async function PUT(
   const { id } = await params
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/gudang/[id]')
       return ApiErrors.unauthorized()
@@ -139,8 +139,9 @@ export async function PUT(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error updating gudang', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    logger.error('Error updating gudang', err, {
       path: '/api/inventory/gudang/[id]',
       method: 'PUT',
       id: 'unknown',
@@ -160,7 +161,7 @@ export async function DELETE(
   const { id } = await params
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/gudang/[id]')
       return ApiErrors.unauthorized()
@@ -216,8 +217,9 @@ export async function DELETE(
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error deleting gudang', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    logger.error('Error deleting gudang', err, {
       path: '/api/inventory/gudang/[id]',
       method: 'DELETE',
       id: id ?? 'unknown',

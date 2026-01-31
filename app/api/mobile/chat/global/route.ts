@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
             where: {
                 conversationId_userId: {
                     conversationId: globalChat.id,
-                    userId: user.id
+                    userId: user.id as string
                 }
             }
         })
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
             await prisma.conversationParticipant.create({
                 data: {
                     conversationId: globalChat.id,
-                    userId: user.id
+                    userId: user.id as string
                 }
             })
         }

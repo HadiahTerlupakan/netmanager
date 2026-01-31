@@ -248,22 +248,32 @@ export class OvertimeService {
         ])
         
         // Enrich with holiday info on-the-fly (untuk data lama yang belum punya flag)
-        const enrichedData = await Promise.all(data.map(async (item: any) => {
+        const enrichedData = await Promise.all(data.map(async (item: unknown) => {
+            const overtimeItem = item as {
+                isHolidayOvertime?: boolean;
+                createdAt: Date;
+                user?: {
+                    workDays?: string | null;
+                    workingHourMode?: string | null;
+                };
+                [key: string]: unknown;
+            };
+
             // Skip jika sudah ada flag dari startOvertime
-            if (item.isHolidayOvertime === true) {
-                return item
+            if (overtimeItem.isHolidayOvertime === true) {
+                return overtimeItem
             }
-            
+
             // Cross-check dengan Holiday table berdasarkan createdAt
-            const overtimeDate = new Date(item.createdAt)
+            const overtimeDate = new Date(overtimeItem.createdAt)
             const { isHoliday, holiday } = await this.holidayRepository.isHoliday(overtimeDate)
-            
+
             // Cek user workDays jika ada user data
             let isOffDay = false
-            if (item.user?.workDays && item.user?.workingHourMode !== 'FLEXIBLE') {
-                isOffDay = this.isUserOffDay(item.user.workDays, item.user.workingHourMode, overtimeDate)
+            if (overtimeItem.user?.workDays && overtimeItem.user?.workingHourMode !== 'FLEXIBLE') {
+                isOffDay = this.isUserOffDay(overtimeItem.user.workDays, overtimeItem.user.workingHourMode, overtimeDate)
             }
-            
+
             // Determine holiday description
             let holidayDesc: string | null = null
             if (holiday?.description) {
@@ -271,9 +281,9 @@ export class OvertimeService {
             } else if (isOffDay) {
                 holidayDesc = 'Hari Libur Karyawan'
             }
-            
+
             return {
-                ...item,
+                ...overtimeItem,
                 isHolidayOvertime: isHoliday || isOffDay,
                 isNationalHoliday: isHoliday && holiday?.isNational === true,
                 isOffDay: isOffDay && !isHoliday,

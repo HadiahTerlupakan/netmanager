@@ -5,7 +5,7 @@ import { hasPermission } from '@/lib/rbac'
 
 const couponService = new CouponService()
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
     try {
         if (!await hasPermission('coupon:read')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -13,8 +13,9 @@ export async function GET(req: NextRequest) {
 
         const result = await couponService.getAllCoupons()
         return NextResponse.json(result.items)
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
 
@@ -50,16 +51,17 @@ export async function POST(req: NextRequest) {
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             minTransaction: Number(minTransaction || 0),
-            maxDiscount: maxDiscount ? Number(maxDiscount) : undefined,
+            ...(maxDiscount ? { maxDiscount: Number(maxDiscount) } : {}),
             quota: Number(quota || 0),
             isActive: isActive ?? true
         })
 
         return NextResponse.json(coupon)
-    } catch (error: any) {
-        if (error.message === 'Coupon code already exists') {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        if (errorMessage === 'Coupon code already exists') {
             return NextResponse.json({ error: 'Kode kupon sudah ada' }, { status: 409 })
         }
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

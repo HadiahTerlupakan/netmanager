@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         }
 
         const profile = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: user.id as string },
             select: {
                 id: true,
                 name: true,
@@ -66,9 +66,10 @@ export async function GET(request: Request) {
                 features // Array of feature names with canvasing override logic
             }
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Profile fetch error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
 
@@ -98,7 +99,7 @@ export async function PATCH(request: Request) {
         }
 
         const updated = await prisma.user.update({
-            where: { id: user.id },
+            where: { id: user.id as string },
             data: updateData,
             select: {
                 id: true,
@@ -110,8 +111,9 @@ export async function PATCH(request: Request) {
         })
 
         return NextResponse.json({ success: true, data: updated })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Profile update error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

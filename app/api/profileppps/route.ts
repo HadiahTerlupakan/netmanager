@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { randomUUID } from 'crypto'
+import { Prisma } from '@prisma/client'
 
 /**
  * GET /api/profileppps
@@ -37,9 +38,9 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status')
     const siteIdParam = searchParams.get('siteId')
 
-    const where: any = {}
+    const where: Prisma.ProfilePPPWhereInput = {}
     if (status) {
-      where.status = status
+      where.status = status as 'AKTIF' | 'NONAKTIF'
     }
     
     // User restriction logic
@@ -77,10 +78,10 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json(profilePPPs)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching profile PPPs:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -268,7 +269,15 @@ export async function POST(req: NextRequest) {
     // Pisahkan ipRange dan bandwidthId dari data untuk Prisma
     // ipRange tidak disimpan di database, hanya digunakan untuk membuat IP Pool di MikroTik
     // bandwidthId tidak disimpan di database, hanya digunakan untuk mengambil rate limit
-    const { ipRange, bandwidthId, ...prismaData } = validation.data
+    const { ipRange: _ipRange, bandwidthId, ...rawPrismaData } = validation.data
+
+    // Filter out undefined values to comply with exactOptionalPropertyTypes
+    const prismaData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(rawPrismaData)) {
+      if (value !== undefined) {
+        prismaData[key] = value
+      }
+    }
 
     // Simpan Profile PPP ke database
     const profilePPP = await prisma.profilePPP.create({
@@ -276,7 +285,7 @@ export async function POST(req: NextRequest) {
         id: randomUUID(),
         ...prismaData,
         updatedAt: new Date(),
-      },
+      } as unknown as Prisma.ProfilePPPCreateInput,
       include: {
         mikroTikRouter: true,
       },
@@ -305,11 +314,11 @@ export async function POST(req: NextRequest) {
             name: validation.data.name,
             localAddress: validation.data.localAddress,
             remoteAddress: validation.data.remoteAddress, // Nama IP Pool (sama dengan name)
-            ipRange: validation.data.ipRange || undefined, // Range IP untuk pool (contoh: "192.168.1.100-192.168.1.200")
-            dnsServer: validation.data.dnsServer || undefined,
-            sessionTimeout: validation.data.sessionTimeout || undefined,
-            idleTimeout: validation.data.idleTimeout || undefined,
-            rateLimit: rateLimit || undefined, // Rate limit dari Bandwidth (format: "10M/10M")
+            ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
+            ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
+            ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
+            ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
+            ...(rateLimit && { rateLimit }), // Rate limit dari Bandwidth (format: "10M/10M")
           }
         )
 
@@ -320,9 +329,11 @@ export async function POST(req: NextRequest) {
         } else {
           console.log('[API ProfilePPP] Successfully created PPP profile in MikroTik')
         }
-      } catch (mikrotikError: any) {
+      } catch (mikrotikError: unknown) {
         console.error('[API ProfilePPP] Error creating PPP profile in MikroTik:', mikrotikError)
-        console.error('[API ProfilePPP] Error stack:', mikrotikError.stack)
+        if (mikrotikError instanceof Error) {
+          console.error('[API ProfilePPP] Error stack:', mikrotikError.stack)
+        }
         // Jangan gagalkan request, hanya log error
         // Profile sudah dibuat di database, user bisa sync manual nanti jika diperlukan
       }
@@ -332,19 +343,21 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(profilePPP, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating profile PPP:', error)
 
     // Handle unique constraint violation
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Nama profile PPP sudah digunakan' },
-        { status: 400 }
-      )
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        return NextResponse.json(
+          { error: 'Nama profile PPP sudah digunakan' },
+          { status: 400 }
+        )
+      }
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

@@ -11,7 +11,7 @@ import {
   Legend,
   ArcElement
 } from 'chart.js'
-import { Pie, Bar } from 'react-chartjs-2'
+import { Pie } from 'react-chartjs-2'
 
 ChartJS.register(
   CategoryScale,
@@ -23,9 +23,28 @@ ChartJS.register(
   ArcElement
 )
 
+interface CapexOpexData {
+    CAPITAL: number;
+    OPERATIONAL: number;
+    OTHER: number;
+}
+
+interface TaxDetail {
+    poNumber: string;
+    ppnAmount: number;
+    supplier?: {
+        name: string;
+    };
+}
+
+interface TaxReportData {
+    totalPPN: number;
+    details?: TaxDetail[];
+}
+
 export default function ReportsClient() {
-    const [capexOpex, setCapexOpex] = useState<any>(null)
-    const [taxReport, setTaxReport] = useState<any>(null)
+    const [capexOpex, setCapexOpex] = useState<CapexOpexData | null>(null)
+    const [taxReport, setTaxReport] = useState<TaxReportData | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -170,7 +189,7 @@ export default function ReportsClient() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                {taxReport?.details?.map((po: any) => (
+                                {taxReport?.details?.map((po) => (
                                     <tr key={po.poNumber} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white font-mono">{po.poNumber}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 max-w-[150px] truncate" title={po.supplier?.name}>{po.supplier?.name}</td>

@@ -12,17 +12,55 @@ import {
 import { deleteWithAuth } from '@/lib/api-client'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
-interface TransferTableProps {
-  transfers: any[]
-  onRefresh: () => void
-  onViewDetails: (transfer: any) => void
-  onDelete: (transfer: any) => void
+interface Transfer {
+  id: string
+  kodeTransfer: string
+  tanggal: string
+  barangId: string
+  jumlah: number
+  kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
+  keterangan?: string
+  fotoBukti?: string[]
+  barang?: {
+    id: string
+    kode: string
+    nama: string
+    satuan: string
+  }
+  dariGudang?: {
+    kode: string
+    nama: string
+    lokasi?: string
+  }
+  keGudang?: {
+    kode: string
+    nama: string
+    lokasi?: string
+  }
+  createdBy?: {
+    name: string
+  }
+  keluar?: {
+    tanggal: string
+    keterangan: string
+  }
+  masuk?: {
+    tanggal: string
+    keterangan: string
+  }
 }
 
-export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete }: TransferTableProps) {
+interface TransferTableProps {
+  transfers: Transfer[]
+  onRefresh: () => void
+  onViewDetails: (transfer: Transfer) => void
+  onDelete: (transfer: Transfer) => void
+}
+
+export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete: _onDelete }: TransferTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const handleDelete = async (transfer: any) => {
+  const handleDelete = async (transfer: Transfer) => {
     if (!confirm(`Apakah Anda yakin ingin membatalkan transfer ini?\n\nKode: ${transfer.kodeTransfer}\nBarang: ${transfer.barang.nama}\nJumlah: ${transfer.jumlah} ${transfer.barang.satuan}\n\nStok akan dikembalikan ke gudang sumber.`)) {
       return
     }
@@ -62,7 +100,7 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete }:
     )
   }
 
-  const columns: Column<any>[] = [
+  const columns: Column<Transfer>[] = [
     {
       key: 'kodeTransfer',
       header: 'Kode',

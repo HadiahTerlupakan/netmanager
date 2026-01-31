@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
         // Get all balances for admin view
         const balances = await leaveBalanceRepo.getAllBalances(year)
         return apiSuccess({ balances, year })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching leave balances:', error)
         return ApiErrors.internalError('Gagal mengambil data saldo cuti')
     }
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         // Return updated balances
         const balances = await leaveBalanceRepo.getUserBalances(userId, targetYear)
         return apiSuccess({ balances }, { message: 'Kuota cuti berhasil diperbarui' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating leave quota:', error)
         return ApiErrors.internalError('Gagal memperbarui kuota cuti')
     }

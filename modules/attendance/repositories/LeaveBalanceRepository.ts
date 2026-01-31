@@ -133,8 +133,8 @@ export class LeaveBalanceRepository {
      * Get all balances with user info for admin view
      */
     async getAllBalances(year: number, filters?: { departmentId?: string; siteId?: string }) {
-        const where: any = { year }
-        
+        const where: { year: number; user?: { departmentId?: string; siteId?: string } } = { year }
+
         if (filters?.departmentId || filters?.siteId) {
             where.user = {
                 ...(filters.departmentId && { departmentId: filters.departmentId }),

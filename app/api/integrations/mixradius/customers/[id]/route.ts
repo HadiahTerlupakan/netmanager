@@ -29,7 +29,7 @@ export async function GET(
     const service = getMixRadiusService()
     const customerDetail = await service.fetchCustomerDetail(id)
 
-    return apiSuccess({ data: customerDetail })
+    return apiSuccess(customerDetail)
   } catch (error) {
     console.error('Error fetching customer detail:', error)
     return ApiErrors.internalError(error instanceof Error ? error.message : 'Failed to fetch customer detail')

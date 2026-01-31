@@ -20,8 +20,9 @@ export async function GET(req: NextRequest, { params }: Context) {
         const result = await service.getSupplierById(id);
         if (!result) return NextResponse.json({ error: 'Not found' }, { status: 404 });
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
@@ -34,8 +35,9 @@ export async function PUT(req: NextRequest, { params }: Context) {
         const body = await req.json();
         const result = await service.updateSupplier(id, body);
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
@@ -47,7 +49,8 @@ export async function DELETE(req: NextRequest, { params }: Context) {
         const { id } = await params;
         const result = await service.deleteSupplier(id);
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

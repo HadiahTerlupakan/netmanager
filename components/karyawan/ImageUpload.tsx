@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { MdCameraAlt, MdClose, MdImage } from 'react-icons/md'
-import Image from 'next/image'
 
 interface ImageUploadProps {
     images: File[]
@@ -24,7 +23,7 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
         for (let i = 0; i < files.length; i++) {
             if (images.length + newFiles.length >= maxImages) break
             const file = files[i]
-            if (file.type.startsWith('image/')) {
+            if (file && file.type.startsWith('image/')) {
                 newFiles.push(file)
                 newPreviews.push(URL.createObjectURL(file))
             }
@@ -44,7 +43,10 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
         const newPreviews = [...previews]
 
         // Revoke URL to prevent memory leaks
-        URL.revokeObjectURL(newPreviews[index])
+        const previewUrl = newPreviews[index]
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl)
+        }
 
         newImages.splice(index, 1)
         newPreviews.splice(index, 1)

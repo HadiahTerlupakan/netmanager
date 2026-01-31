@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
-import {
-    HiOutlineBuildingOffice,
-} from 'react-icons/hi2'
+
+interface DepartmentFormData {
+    name: string
+    description: string
+    jobDescription: string
+}
 
 export interface Department {
     id: string
@@ -20,7 +23,7 @@ interface DepartmentModalProps {
     isOpen: boolean
     onClose: () => void
     department: Department | null
-    onSave: (data: any) => Promise<void>
+    onSave: (data: DepartmentFormData) => Promise<void>
 }
 
 export default function DepartmentModal({

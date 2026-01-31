@@ -28,20 +28,20 @@ export async function POST(request: NextRequest) {
         // Unique Token Enforcement: Remove this token from any other users
         // This prevents "Shared Device" notification leaks
         await prisma.user.updateMany({
-            where: { 
+            where: {
                 pushToken: pushToken,
-                id: { not: user.id }
+                id: { not: user.id as string }
             },
-            data: { 
-                pushToken: null, 
-                pushTokenUpdatedAt: null 
+            data: {
+                pushToken: null,
+                pushTokenUpdatedAt: null
             }
         })
 
         // Update user with push token
         await prisma.user.update({
-            where: { id: user.id },
-            data: { 
+            where: { id: user.id as string },
+            data: {
                 pushToken: pushToken,
                 pushTokenUpdatedAt: new Date()
             }
@@ -49,9 +49,10 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, message: 'Push token registered' })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Push token registration error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
 
@@ -72,16 +73,17 @@ export async function DELETE(request: NextRequest) {
 
         // Remove push token
         await prisma.user.update({
-            where: { id: user.id },
-            data: { 
+            where: { id: user.id as string },
+            data: {
                 pushToken: null,
                 pushTokenUpdatedAt: null
             }
         })
 
         return NextResponse.json({ success: true, message: 'Push token removed' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Push token removal error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

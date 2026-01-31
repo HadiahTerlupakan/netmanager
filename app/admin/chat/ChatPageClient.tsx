@@ -14,6 +14,7 @@ import {
     HiOutlineMegaphone,
     HiXMark,
 } from 'react-icons/hi2'
+import Image from 'next/image'
 import { usePermission } from '@/hooks/use-permission'
 import { useSocket } from '@/lib/websocket/SocketContext'
 
@@ -145,7 +146,7 @@ export default function ChatPageClient() {
         }
     }, [])
 
-    const playNotificationSound = async (type: 'default' | 'chat' = 'default') => {
+    const playNotificationSound = useCallback(async (type: 'default' | 'chat' = 'default') => {
         try {
             // Check global enable setting
             const soundEnabled = localStorage.getItem('chat_sound_enabled')
@@ -213,7 +214,7 @@ export default function ChatPageClient() {
         } catch (e) {
             console.error('Audio init/play failed:', e)
         }
-    }
+    }, [])
 
     const showBrowserNotification = (sender: string, content: string) => {
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
@@ -261,7 +262,7 @@ export default function ChatPageClient() {
         } finally {
             if (!silent) setLoadingMessages(false)
         }
-    }, [])
+    }, [playNotificationSound])
 
     // Send message
     const sendMessage = async () => {
@@ -289,7 +290,7 @@ export default function ChatPageClient() {
     }
 
     // Search users for new chat
-    const searchUsers = async (query: string) => {
+    const searchUsers = useCallback(async (query: string) => {
         setSearchingUsers(true)
         try {
             const response = await fetch(`/api/admin/chat/users?search=${encodeURIComponent(query)}`)
@@ -302,7 +303,7 @@ export default function ChatPageClient() {
         } finally {
             setSearchingUsers(false)
         }
-    }
+    }, [])
 
     // Create new conversation
     const createConversation = async () => {
@@ -376,13 +377,13 @@ export default function ChatPageClient() {
         } else {
             searchUsers('')
         }
-    }, [userSearchInput])
+    }, [userSearchInput, searchUsers])
 
     // WebSocket Listener
     useEffect(() => {
         if (!socket) return
 
-        const handleNewMessage = (payload: any) => {
+        const handleNewMessage = (payload: ChatMessage & { conversationId: string }) => {
             // 1. Notification (if not own message)
             if (!payload.isOwn) {
                 playNotificationSound('chat')
@@ -588,14 +589,15 @@ export default function ChatPageClient() {
                                 {selectedConversation && conversationInfo && (
                                     <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
                                         <div className="flex items-center space-x-3">
-                                            <div className="relative">
-                                                {conversationInfo.image ? (
-                                                    <img 
-                                                        src={conversationInfo.image} 
-                                                        alt={conversationInfo.name} 
-                                                        className="w-10 h-10 rounded-full object-cover"
-                                                    />
-                                                ) : (
+                                            <div className="relative w-10 h-10">
+                                               {conversationInfo.image ? (
+                                                   <Image
+                                                       src={conversationInfo.image}
+                                                       alt={conversationInfo.name || 'Conversation'}
+                                                       fill
+                                                       className="rounded-full object-cover"
+                                                   />
+                                               ) : (
                                                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                                                         <HiOutlineUserGroup className="w-6 h-6 text-gray-500" />
                                                     </div>
@@ -664,11 +666,14 @@ export default function ChatPageClient() {
                                                     : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow'
                                             }`}>
                                                 {msg.imageUrl && (
-                                                    <img 
-                                                        src={msg.imageUrl} 
-                                                        alt="Chat image" 
-                                                        className="max-w-full rounded-lg mb-2"
-                                                    />
+                                                    <div className="relative w-full max-w-[300px] aspect-square mb-2">
+                                                        <Image
+                                                            src={msg.imageUrl}
+                                                            alt="Chat image"
+                                                            fill
+                                                            className="rounded-lg object-cover"
+                                                        />
+                                                    </div>
                                                 )}
                                                 {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
                                             </div>

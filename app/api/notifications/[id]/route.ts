@@ -10,6 +10,9 @@ export async function PATCH(
 ) {
     try {
         const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
+        }
         const { id } = await params;
 
         // Verify notification belongs to user

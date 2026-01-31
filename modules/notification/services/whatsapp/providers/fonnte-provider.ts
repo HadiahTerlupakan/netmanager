@@ -44,10 +44,10 @@ export class FonnteProvider implements WhatsAppProvider {
                     error: result.reason || result.message || 'Failed to send message'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             return {
                 success: false,
-                error: error.message || 'Network error'
+                error: error instanceof Error ? error.message : 'Network error'
             }
         }
     }
@@ -82,10 +82,10 @@ export class FonnteProvider implements WhatsAppProvider {
                     error: result.reason || result.message || 'Failed to send file'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             return {
                 success: false,
-                error: error.message || 'Network error'
+                error: error instanceof Error ? error.message : 'Network error'
             }
         }
     }

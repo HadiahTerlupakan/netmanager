@@ -14,10 +14,10 @@ export const slaCreateSchema = z.object({
 
 export const slaUpdateSchema = z.object({
   name: z.string().trim().min(1, 'Nama SLA wajib diisi').max(100, 'Nama SLA maksimal 100 karakter').optional(),
-  description: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  description: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
   workOrderType: z.enum(['INSTALLATION', 'TROUBLESHOOT', 'MAINTENANCE', 'UPGRADE', 'RELOCATION', 'DISCONNECTION', 'OTHER']).optional(),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT', 'CRITICAL']).optional(),
-  departmentId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  departmentId: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
   responseTime: z.number().min(0, 'Waktu respons tidak boleh negatif').int('Waktu respons harus berupa bilangan bulat').optional(),
   resolutionTime: z.number().min(0, 'Waktu resolusi tidak boleh negatif').int('Waktu resolusi harus berupa bilangan bulat').optional(),
   businessHoursOnly: z.boolean().optional(),

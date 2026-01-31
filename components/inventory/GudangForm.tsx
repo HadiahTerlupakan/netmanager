@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { FiInfo } from 'react-icons/fi'
 
+interface GudangFormData {
+  nama: string
+  lokasi: string
+  isActive: boolean
+}
+
 interface GudangFormProps {
   initialData?: {
     id?: string
@@ -11,7 +17,7 @@ interface GudangFormProps {
     lokasi: string | null
     isActive: boolean
   }
-  onSubmit: (data: any) => void
+  onSubmit: (data: GudangFormData) => void
   onCancel: () => void
 }
 

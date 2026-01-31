@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 /**
  * @swagger
@@ -194,12 +195,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-        // Check authentication
-        const session: any = await getServerSession(authConfig as any)
-        if (!session) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-// Get customer information
+    // Check authentication
+    const session = await getServerSession(authConfig) as Session | null
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
       select: {
@@ -264,109 +265,91 @@ export async function GET(
     }
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.ServiceSuspensionWhereInput = {
       pelangganId: id,
-      ...(suspensionType && { suspensionType }),
+      ...(suspensionType && { suspension_type: suspensionType }),
       ...(startDate && {
-        suspendedAt: { gte: startDate }
+        suspended_at: { gte: startDate }
       }),
       ...(endDate && {
-        suspendedAt: { lte: endDate }
+        suspended_at: { lte: endDate }
       }),
     }
 
     // Filter by status
     if (status === 'active') {
-      where.isActive = true
+      where.is_active = true
     } else if (status === 'inactive') {
-      where.isActive = false
+      where.is_active = false
     }
-    // 'all' status doesn't filter by isActive
+    // 'all' status doesn't filter by is_active
 
     // Get total count for pagination
-    const total = await (prisma as any).serviceSuspension.count({ where })
+    const total = await prisma.serviceSuspension.count({ where })
 
     // Get suspension records with pagination
-    const suspensions = await (prisma as any).serviceSuspension.findMany({
+    const suspensions = await prisma.serviceSuspension.findMany({
       where,
       orderBy: {
-        [sortBy]: sortOrder,
+        [sortBy === 'suspendedAt' ? 'suspended_at' : sortBy === 'actualResumeAt' ? 'actual_resume_at' : 'suspended_at']: sortOrder,
       },
       include: {
         // Include user information for suspendedBy and resumedBy
-        suspendedByuser: {
+        pelanggan: {
           select: {
             id: true,
-            name: true,
-            email: true,
-          },
-        },
-        resumedByuser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+            nama: true,
+          }
+        }
       },
       skip: (page - 1) * limit,
       take: limit,
     })
 
     // Calculate statistics
-    const allSuspensions = await (prisma as any).serviceSuspension.findMany({
+    const allSuspensions = await prisma.serviceSuspension.findMany({
       where: { pelangganId: id },
     })
 
-    const activeSuspensions = await (prisma as any).serviceSuspension.count({
-      where: { pelangganId: id, isActive: true }
+    const activeSuspensions = await prisma.serviceSuspension.count({
+      where: { pelangganId: id, is_active: true }
     })
 
     // Calculate average suspension duration
-    const completedSuspensions = allSuspensions.filter((s: any) => s.actualResumeAt && s.suspendedAt)
-    const totalDurationHours = completedSuspensions.reduce((total: number, s: any) => {
-      const duration = s.actualResumeAt!.getTime() - s.suspendedAt.getTime()
+    const completedSuspensions = allSuspensions.filter((s) => s.actual_resume_at && s.suspended_at)
+    const totalDurationHours = completedSuspensions.reduce((total: number, s) => {
+      const duration = s.actual_resume_at!.getTime() - s.suspended_at.getTime()
       return total + (duration / (1000 * 60 * 60)) // Convert to hours
     }, 0)
     const averageDurationHours = completedSuspensions.length > 0 ? totalDurationHours / completedSuspensions.length : 0
 
     // Find most common reason
-    const reasonCounts = allSuspensions.reduce((acc: any, s: any) => {
+    const reasonCounts = allSuspensions.reduce((acc: Record<string, number>, s) => {
       const reason = s.reason || 'Unknown'
       acc[reason] = (acc[reason] || 0) + 1
       return acc
     }, {} as Record<string, number>)
     const mostCommonReason = Object.keys(reasonCounts).length > 0
-      ? Object.keys(reasonCounts).reduce((a: string, b: string) => reasonCounts[a] > reasonCounts[b] ? a : b)
+      ? Object.keys(reasonCounts).reduce((a, b) => reasonCounts[a] > reasonCounts[b] ? a : b)
       : null
 
     // Format suspension data
-    const formattedSuspensions = suspensions.map((suspension: any) => {
-      const durationHours = suspension.actualResumeAt && suspension.suspendedAt
-        ? (suspension.actualResumeAt.getTime() - suspension.suspendedAt.getTime()) / (1000 * 60 * 60)
+    const formattedSuspensions = suspensions.map((suspension) => {
+      const durationHours = suspension.actual_resume_at && suspension.suspended_at
+        ? (suspension.actual_resume_at.getTime() - suspension.suspended_at.getTime()) / (1000 * 60 * 60)
         : null
 
       return {
         id: suspension.id,
-        suspensionType: suspension.suspensionType,
+        suspensionType: suspension.suspension_type,
         reason: suspension.reason,
-        suspendedAt: suspension.suspendedAt.toISOString(),
-        suspendedBy: suspension.suspendedBy,
-        suspendedByuser: suspension.suspendedByUser ? {
-          id: suspension.suspendedByUser.id,
-          name: suspension.suspendedByUser.name,
-          email: suspension.suspendedByUser.email,
-        } : null,
-        expectedResumeAt: suspension.expectedResumeAt?.toISOString() || null,
-        actualResumeAt: suspension.actualResumeAt?.toISOString() || null,
-        resumedBy: suspension.resumedBy,
-        resumedByuser: suspension.resumedByUser ? {
-          id: suspension.resumedByUser.id,
-          name: suspension.resumedByUser.name,
-          email: suspension.resumedByUser.email,
-        } : null,
+        suspendedAt: suspension.suspended_at.toISOString(),
+        suspendedBy: suspension.suspended_by,
+        expectedResumeAt: suspension.expected_resume_at?.toISOString() || null,
+        actualResumeAt: suspension.actual_resume_at?.toISOString() || null,
+        resumedBy: suspension.resumed_by,
         notes: suspension.notes,
-        isActive: suspension.isActive,
+        isActive: suspension.is_active,
         durationHours,
       }
     })
@@ -399,10 +382,10 @@ export async function GET(
       },
       data: formattedSuspensions,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching suspension history:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

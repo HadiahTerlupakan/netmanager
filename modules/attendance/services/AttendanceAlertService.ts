@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { sendPushNotification, sendPushToUsers } from '@/modules/notification/services/ExpoPushService'
+import { sendPushNotification } from '@/modules/notification/services/ExpoPushService'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 
 /**
@@ -21,7 +21,9 @@ interface UserSchedule {
  * Parse time string (HH:mm) to Date object for today
  */
 function parseTimeToDate(timeStr: string, date: Date = new Date()): Date {
-    const [hours, minutes] = timeStr.split(':').map(Number)
+    const parts = timeStr.split(':').map(Number)
+    const hours = parts[0] ?? 0
+    const minutes = parts[1] ?? 0
     const result = new Date(date)
     result.setHours(hours, minutes, 0, 0)
     return result
@@ -52,7 +54,7 @@ function isInReminderWindow(
  */
 function getDayName(date: Date = new Date()): string {
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-    return days[date.getDay()]
+    return days[date.getDay()] ?? 'SUN'
 }
 
 /**
@@ -74,7 +76,6 @@ export async function getUsersNeedingCheckInReminder(
     reminderMinutes: number = 30
 ): Promise<UserSchedule[]> {
     const now = new Date()
-    const today = getDayName(now)
 
     const startOfDay = new Date(now)
     startOfDay.setHours(0, 0, 0, 0)

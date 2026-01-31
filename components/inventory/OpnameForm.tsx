@@ -10,6 +10,19 @@ interface OpnameFormProps {
   onSuccess: () => void
 }
 
+interface Barang {
+  id: string
+  kode: string
+  nama: string
+  satuan: string
+}
+
+interface Gudang {
+  id: string
+  kode: string
+  nama: string
+}
+
 export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps) {
   const [formData, setFormData] = useState({
     barangId: initialData?.barangId || '',
@@ -28,8 +41,8 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
     nomorBatch: initialData?.nomorBatch || '',
     catatanDetail: initialData?.catatanDetail || ''
   })
-  const [barangs, setBarangs] = useState<any[]>([])
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [barangs, setBarangs] = useState<Barang[]>([])
+  const [gudangs, setGudangs] = useState<Gudang[]>([])
   const [currentStock, setCurrentStock] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -99,7 +112,7 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
     if (total > 0) {
       setFormData(prev => ({ ...prev, stokFisik: total.toString() }))
     }
-  }, [formData.kondisiBaik, formData.kondisiRusak, formData.kondisiExpire])
+  }, [formData.kondisiBaik, formData.kondisiRusak, formData.kondisiExpire, formData.stokFisik])
 
   // Auto-distribute stokFisik when changed directly
   useEffect(() => {
@@ -122,7 +135,7 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
         kondisiExpire: autoExpire.toString()
       }))
     }
-  }, [formData.stokFisik])
+  }, [formData.stokFisik, formData.kondisiBaik, formData.kondisiExpire, formData.kondisiRusak])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

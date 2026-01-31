@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { HiCheck, HiX, HiEye, HiRefresh, HiSearch, HiChevronDown, HiChevronUp } from 'react-icons/hi'
+import { useState, useEffect, useCallback } from 'react'
+import { HiCheck, HiX, HiEye, HiRefresh, HiSearch } from 'react-icons/hi'
 import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { Modal } from '@/components/ui/Modal'
 import { usePermission } from '@/hooks/use-permission'
@@ -54,18 +54,9 @@ export default function PurchaseRequestTab() {
     const [processing, setProcessing] = useState(false)
 
     // Expanded rows for mobile
-    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+    const [_expandedRows, _setExpandedRows] = useState<Set<string>>(new Set())
 
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(search), 500)
-        return () => clearTimeout(timer)
-    }, [search])
-
-    useEffect(() => {
-        fetchData()
-    }, [page, debouncedSearch, statusFilter])
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true)
         try {
             const skip = (page - 1) * limit
@@ -88,7 +79,16 @@ export default function PurchaseRequestTab() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [page, limit, debouncedSearch, statusFilter])
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500)
+        return () => clearTimeout(timer)
+    }, [search])
+
+    useEffect(() => {
+        fetchData()
+    }, [fetchData])
 
     const handleAction = async (action: 'APPROVE' | 'REJECT') => {
         if (!selectedPR) return
@@ -124,8 +124,13 @@ export default function PurchaseRequestTab() {
             setSelectedPR(null)
             setCatatan('')
             fetchData()
-        } catch (error: any) {
-            toast.error(error.message)
+        } catch (error) {
+            console.error(error)
+            if (error instanceof Error) {
+                toast.error(error.message)
+            } else {
+                toast.error('Gagal memproses Purchase Request')
+            }
         } finally {
             setProcessing(false)
         }

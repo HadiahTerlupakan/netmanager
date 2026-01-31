@@ -13,6 +13,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
+import type { TooltipItem } from 'chart.js'
 import { HiOutlineCalendar, HiOutlineAdjustmentsHorizontal } from 'react-icons/hi2'
 
 ChartJS.register(
@@ -148,8 +149,8 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
         titleFont: { size: 14 },
         bodyFont: { size: 13 },
         callbacks: {
-          label: function(context: any) {
-            return `${context.dataset.label}: ${context.parsed.y.toLocaleString('id-ID')} unit`
+          label: function(context: TooltipItem<'line'>) {
+            return `${context.dataset.label}: ${(context.parsed.y as number).toLocaleString('id-ID')} unit`
           }
         }
       }
@@ -166,7 +167,7 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
           color: 'rgba(0, 0, 0, 0.05)'
         },
         ticks: {
-          callback: function(value: any) {
+          callback: function(value: string | number) {
             return value.toLocaleString('id-ID')
           }
         }

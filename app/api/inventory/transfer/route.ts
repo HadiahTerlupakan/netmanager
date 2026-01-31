@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 import { validateGudangAccess } from '@/lib/inventory-validation'
-import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/inventory/transfer
@@ -14,7 +14,7 @@ import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       return ApiErrors.unauthorized()
     }
@@ -35,10 +35,11 @@ export async function GET(req: NextRequest) {
     // SITE RESTRICTION
     // const permissions = (session.user as any).permissions || []
     const permissions = await getUserPermissions(session.user.id);
-    const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
-    
+    const user = session.user as { role?: string; siteId?: string };
+    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+
     if (!isSuperAdmin && (permissions.includes('transfer:site_only') || permissions.includes('k_barang:site_only'))) {
-        siteId = (session.user as any).siteId
+        siteId = user.siteId
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -80,8 +81,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching transfer records', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error fetching transfer records', err, {
       path: '/api/inventory/transfer',
       method: 'GET',
     })
@@ -96,7 +98,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       return ApiErrors.unauthorized()
     }
@@ -191,20 +193,21 @@ export async function POST(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error creating transfer', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    logger.error('Error creating transfer', err, {
       path: '/api/inventory/transfer',
       method: 'POST',
     })
 
-    if (error.message === 'Barang tidak ditemukan') {
+    if (err.message === 'Barang tidak ditemukan') {
       return ApiErrors.notFound('Barang tidak ditemukan')
     }
-    if (error.message.includes('Gudang') && (error.message.includes('tidak ditemukan') || error.message.includes('tidak aktif') || error.message.includes('sama'))) {
-      return ApiErrors.badRequest(error.message)
+    if (err.message.includes('Gudang') && (err.message.includes('tidak ditemukan') || err.message.includes('tidak aktif') || err.message.includes('sama'))) {
+      return ApiErrors.badRequest(err.message)
     }
-    if (error.message.includes('Stok tidak mencukupi') || error.message.includes('tidak mencukupi')) {
-      return ApiErrors.badRequest(error.message)
+    if (err.message.includes('Stok tidak mencukupi') || err.message.includes('tidak mencukupi')) {
+      return ApiErrors.badRequest(err.message)
     }
 
     return ApiErrors.internalError('Gagal melakukan transfer barang')

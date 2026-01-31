@@ -28,7 +28,7 @@ export async function GET(
 
         const { id } = await params;
 
-        const template = await (prisma as any).workOrderTemplates.findUnique({
+        const template = await prisma.workOrderTemplates.findUnique({
             where: { id },
             include: {
                 departments: {
@@ -83,7 +83,7 @@ export async function PUT(
         const validatedData = workOrderTemplateUpdateSchema.parse(body);
 
         // Check if template exists
-        const existingTemplate = await (prisma as any).workOrderTemplates.findUnique({
+        const existingTemplate = await prisma.workOrderTemplates.findUnique({
             where: { id },
         });
 
@@ -91,7 +91,7 @@ export async function PUT(
             return ApiErrors.notFound('Template Work Order');
         }
 
-        const template = await (prisma as any).workOrderTemplates.update({
+        const template = await prisma.workOrderTemplates.update({
             where: { id },
             data: {
                 ...validatedData,
@@ -144,7 +144,7 @@ export async function DELETE(
         const { id } = await params;
 
         // Check if template exists
-        const existingTemplate = await (prisma as any).workOrderTemplates.findUnique({
+        const existingTemplate = await prisma.workOrderTemplates.findUnique({
             where: { id },
         });
 
@@ -153,7 +153,7 @@ export async function DELETE(
         }
 
         // Check if template is being used by any work orders
-        const workOrdersCount = await (prisma as any).workOrders.count({
+        const workOrdersCount = await prisma.workOrders.count({
             where: { templateId: id },
         });
 
@@ -165,7 +165,7 @@ export async function DELETE(
             );
         }
 
-        await (prisma as any).workOrderTemplates.delete({
+        await prisma.workOrderTemplates.delete({
             where: { id },
         });
 

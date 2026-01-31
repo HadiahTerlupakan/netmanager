@@ -28,13 +28,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Check system preference on mount
   useEffect(() => {
-    setMounted(true)
-    
     // Check system preference
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     const initialTheme = systemPrefersDark ? 'dark' : 'light'
-    setThemeState(initialTheme)
-    applyTheme(initialTheme)
+
+    // Use setTimeout to defer state updates
+    setTimeout(() => {
+      setMounted(true)
+      setThemeState(initialTheme)
+      applyTheme(initialTheme)
+    }, 0)
   }, [])
 
   // Listen for system theme changes

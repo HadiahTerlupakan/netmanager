@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { HiArrowPath, HiCheckCircle, HiClock, HiExclamationCircle, HiGlobeAlt, HiPlus, HiXMark } from 'react-icons/hi2'
 import Link from 'next/link'
-import { TIMEZONE_OPTIONS, type TimezoneOption } from '@/lib/constants/timezone-constants'
+import { TIMEZONE_OPTIONS } from '@/lib/constants/timezone-constants'
 
 type BankAccount = {
   id?: string
@@ -64,7 +64,7 @@ export function ClientComponent() {
           second: '2-digit',
         })
         setCurrentTime(timeStr)
-      } catch (e) {
+      } catch (_e) {
         setCurrentTime('Invalid timezone')
       }
     }
@@ -103,9 +103,9 @@ export function ClientComponent() {
         const errorData = await res.json()
         setError(errorData.error || 'Gagal memuat pengaturan')
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading settings:', err)
-      setError(err.message || 'Terjadi kesalahan saat memuat pengaturan')
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat pengaturan')
     } finally {
       setLoading(false)
     }
@@ -131,9 +131,9 @@ export function ClientComponent() {
 
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving settings:', err)
-      setError(err.message || 'Terjadi kesalahan saat menyimpan pengaturan')
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan pengaturan')
     } finally {
       setSaving(false)
     }

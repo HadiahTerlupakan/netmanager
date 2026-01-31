@@ -79,7 +79,10 @@ export class ChatService {
         }
 
         // Get messages
-        const messages = await this.repository.findMessages(conversationId, { cursor, limit })
+        const messages = await this.repository.findMessages(conversationId, {
+            limit,
+            ...(cursor ? { cursor } : {})
+        })
         
         // Determine pagination
         const hasMore = messages.length > limit
@@ -131,8 +134,8 @@ export class ChatService {
         const message = await this.repository.createMessage({
             conversationId: input.conversationId,
             senderId: input.senderId,
-            content: input.content,
-            imageUrl: input.imageUrl
+            ...(input.content !== undefined ? { content: input.content } : {}),
+            ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {})
         })
 
         // Update sender's last read
@@ -190,7 +193,7 @@ export class ChatService {
         // Create new conversation
         const conversation = await this.repository.createConversation({
             participantIds: allParticipantIds,
-            name: input.name
+            ...(input.name ? { name: input.name } : {})
         })
 
         return { id: conversation.id, isExisting: false }

@@ -15,6 +15,8 @@ declare module 'next-auth' {
       /** @deprecated Use siteIds for multi-site */
       siteId?: string
       siteIds?: string[]
+      primarySiteId?: string
+      departmentId?: string
       employee?: {
         id: string
         employeeId: string
@@ -30,6 +32,12 @@ declare module 'next-auth' {
     email: string
     name?: string | null
     employeeId?: string
+    role?: string
+    accessAdminPanel?: boolean
+    accessEmployeePanel?: boolean
+    permissions?: string[]
+    siteIds?: string[]
+    primarySiteId?: string
     employee?: {
       id: string
       employeeId: string
@@ -48,6 +56,10 @@ declare module 'next-auth/jwt' {
     accessAdminPanel?: boolean
     accessEmployeePanel?: boolean
     permissions?: string[]
+    siteId?: string
+    siteIds?: string[]
+    primarySiteId?: string
+    departmentId?: string
     employee?: {
       id: string
       employeeId: string

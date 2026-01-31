@@ -1,10 +1,10 @@
-import { prisma } from '@/lib/prisma'
 import { SalaryRepository } from '../repositories/SalaryRepository'
 import type { SalaryWithDetails, SalaryFilters } from '../repositories/SalaryRepository'
 import { SalaryCalculatorService } from './SalaryCalculatorService'
 import { SalaryAuditService } from './SalaryAuditService'
 import { logger } from '@/lib/logger'
-import { SalaryStatus, EmployeeType } from '@prisma/client'
+import { EmployeeType, Prisma } from '@prisma/client'
+import type { Salary } from '@prisma/client'
 
 // Standard ServiceResult pattern
 export interface ServiceResult<T> {
@@ -165,7 +165,7 @@ export class SalaryService {
         id: string,
         approvedById: string,
         notes?: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<Salary>> {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
@@ -204,7 +204,7 @@ export class SalaryService {
         id: string,
         paidById: string,
         notes?: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<Salary>> {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
@@ -242,7 +242,7 @@ export class SalaryService {
         id: string,
         auditedById: string,
         notes?: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<Salary>> {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
@@ -362,7 +362,7 @@ export class SalaryService {
         id: string,
         data: { auditNotes?: string },
         updatedById: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<Salary>> {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
@@ -378,7 +378,7 @@ export class SalaryService {
                 }
             }
 
-            const updateData: any = {}
+            const updateData: Prisma.SalaryUpdateInput = {}
             if (data.auditNotes !== undefined) updateData.auditNotes = data.auditNotes
 
             const salary = await this.repository.update(id, updateData)
@@ -468,7 +468,7 @@ export class SalaryService {
         action: string,
         subject: string,
         userId: string,
-        details: Record<string, any>
+        details: Record<string, unknown>
     ): Promise<void> {
         try {
             await logger.logActivity({ action, subject, userId, details })

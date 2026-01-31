@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { getMixRadiusService } from '@/modules/integrations/mixradius'
+import { getMixRadiusService, type FetchCustomersParams } from '@/modules/integrations/mixradius'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/integrations/mixradius/customers
- * 
+ *
  * Fetch data pelanggan PPP dari MixRadius secara on-demand
- * 
+ *
  * Query Parameters:
  * - start: Offset untuk pagination (default: 0)
  * - length: Jumlah data per request (default: 10, max: 100)
@@ -37,26 +37,27 @@ export async function GET(req: NextRequest) {
 
     // Fetch data from MixRadius
     const service = getMixRadiusService()
-    
+
     // Construct params ensuring no explicit undefined values for exactOptionalPropertyTypes
-    const params: any = {
+    const params: FetchCustomersParams = {
       start,
       length: Math.min(length, 100),
       search,
       searchType,
     }
-    
+
     if (authStatus) params.authStatus = authStatus
-    if (searchParams.get('ownerName')) params.ownerName = searchParams.get('ownerName')
-    if (searchParams.get('groupId')) params.groupId = searchParams.get('groupId')
-    if (searchParams.get('onlineStatus')) params.onlineStatus = searchParams.get('onlineStatus') as any
-    if (searchParams.get('siteId')) params.siteId = searchParams.get('siteId')
+    if (searchParams.get('ownerName')) params.ownerName = searchParams.get('ownerName') || undefined
+    if (searchParams.get('groupId')) params.groupId = searchParams.get('groupId') || undefined
+    if (searchParams.get('onlineStatus')) params.onlineStatus = searchParams.get('onlineStatus') as 'online' | 'offline'
+    if (searchParams.get('siteId')) params.siteId = searchParams.get('siteId') || undefined
 
     const data = await service.fetchCustomersPPP(params)
 
     return apiSuccess(data)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API] MixRadius customers error:', error)
-    return ApiErrors.internalError(error.message || 'Failed to fetch MixRadius data')
+    const message = error instanceof Error ? error.message : 'Failed to fetch MixRadius data'
+    return ApiErrors.internalError(message)
   }
 }

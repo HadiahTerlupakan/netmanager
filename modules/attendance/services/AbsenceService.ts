@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { AttendanceStatus } from '@prisma/client'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { randomUUID } from 'crypto'

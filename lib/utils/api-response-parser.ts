@@ -84,7 +84,7 @@ export async function parseApiResponse<T>(response: Response): Promise<T> {
 
   try {
     json = await response.json()
-  } catch (parseError) {
+  } catch {
     throw new ApiError(
       'Failed to parse JSON response',
       response.status

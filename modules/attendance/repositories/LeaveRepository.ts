@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma'
 import { LeaveStatus, Prisma } from '@prisma/client'
-import type { LeaveRequest } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
 export class LeaveRepository {
@@ -61,8 +60,8 @@ export class LeaveRepository {
                 user: { select: { name: true, image: true, departments: { select: { name: true } }, sites: { select: { name: true } } } }
             },
             orderBy: { createdAt: 'desc' },
-            skip: filters?.skip,
-            take: filters?.take
+            ...(filters?.skip !== undefined ? { skip: filters.skip } : {}),
+            ...(filters?.take !== undefined ? { take: filters.take } : {})
         })
     }
 

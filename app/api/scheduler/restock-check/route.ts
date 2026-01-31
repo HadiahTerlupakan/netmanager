@@ -10,8 +10,8 @@ import { EmailService } from '@/modules/notification/services/email-service'
  * Automatically triggered by external cron job
  */
 export async function POST(req: NextRequest) {
-  const startTime = Date.now()
-  
+  const _startTime = Date.now()
+
   // 1. Authorization Check
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       if (currentStock) {
         let shouldAlert = false
         let alertType = 'RESTOCK_NEEDED'
-        let urgency: any = 'MEDIUM'
+        let urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM'
         let message = ''
 
         if (currentStock.stok === 0) {
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
             where: {
               barangId: setting.barangId,
               gudangId: setting.gudangId,
-              alertType: alertType as any,
+              alertType: alertType as 'RESTOCK_NEEDED' | 'STOCK_OUT' | 'LOW_STOCK' | 'OVERSTOCK',
               isResolved: false
             }
           })
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
                 id: alertId,
                 barangId: setting.barangId,
                 gudangId: setting.gudangId,
-                alertType: alertType as any,
+                alertType: alertType as 'RESTOCK_NEEDED' | 'STOCK_OUT' | 'LOW_STOCK' | 'OVERSTOCK',
                 currentStok: currentStock.stok,
                 minStok: setting.minStok,
                 recommendedOrder,
@@ -185,8 +185,8 @@ export async function POST(req: NextRequest) {
       notificationsSent
     })
 
-  } catch (error: any) {
-    logger.error('Error in scheduler restock check', error, {
+  } catch (error: unknown) {
+    logger.error('Error in scheduler restock check', error as Error, {
       path: '/api/scheduler/restock-check',
       method: 'POST',
     })

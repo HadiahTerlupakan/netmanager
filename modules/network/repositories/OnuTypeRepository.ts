@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from './IOnuTypeRepository'
 import { prisma } from '@/lib/prisma'
@@ -30,16 +30,16 @@ export class OnuTypeRepository implements IOnuTypeRepository {
 
   async create(data: OnuTypeCreateData): Promise<{ id: string }> {
     // Build data object, hanya include field yang terdefinisi (bukan undefined)
-    const createData: any = {
+    const createData: Prisma.OnuTypeCreateInput = {
       id: randomUUID(),
       updatedAt: new Date(),
-      oltId: data.oltId,
+      olt: { connect: { id: data.oltId } },
       name: data.name,
       ethernetPorts: data.ethernetPorts,
       wifi: data.wifi,
       voipPorts: data.voipPorts,
     }
-    
+
     // Hanya tambahkan field optional jika terdefinisi
     if (data.ponType !== undefined) createData.ponType = data.ponType
     if (data.description !== undefined) createData.description = data.description
@@ -70,8 +70,8 @@ export class OnuTypeRepository implements IOnuTypeRepository {
 
   async update(id: string, data: OnuTypeUpdateData): Promise<void> {
     // Build data object, hanya include field yang terdefinisi (bukan undefined)
-    const updateData: any = { updatedAt: new Date() }
-    
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+
     // Hanya tambahkan field jika terdefinisi
     if (data.name !== undefined) updateData.name = data.name
     if (data.ethernetPorts !== undefined) updateData.ethernetPorts = data.ethernetPorts

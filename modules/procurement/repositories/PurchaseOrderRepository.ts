@@ -80,11 +80,11 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
     }
 
     async updateStatusWithActor(id: string, status: PurchaseOrderStatus, userId: string): Promise<PurchaseOrder> {
-         const data: any = { status };
+         const data: Prisma.PurchaseOrderUpdateInput = { status };
          if (status === 'ORDERED') {
-             data.processedById = userId;
+             data.processedBy = { connect: { id: userId } };
          } else if (status === 'RECEIVED') {
-             data.receivedById = userId;
+             data.receivedBy = { connect: { id: userId } };
          }
          return prisma.purchaseOrder.update({
              where: { id },

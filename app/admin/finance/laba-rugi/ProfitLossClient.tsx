@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
+import { useState, useEffect, useCallback } from "react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import { id } from "date-fns/locale";
 import {
     HiOutlineChartBar,
@@ -21,6 +21,15 @@ import ResponsiveTable from "@/components/ui/ResponsiveTable";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
+interface HistoryItem {
+    period: string;
+    transactionCount: number;
+    revenue: number;
+    tax: number;
+    expenses: number;
+    netProfit: number;
+}
+
 export function ClientComponent() {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -29,7 +38,7 @@ export function ClientComponent() {
         netProfit: 0,
         paymentCount: 0,
         expenseCount: 0,
-        history: [] as any[]
+        history: [] as HistoryItem[]
     });
 
     const [dateRange, setDateRange] = useState({
@@ -37,11 +46,7 @@ export function ClientComponent() {
         endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd')
     });
 
-    useEffect(() => {
-        fetchStats();
-    }, [dateRange]);
-
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             setLoading(true);
             const queryParams = new URLSearchParams({
@@ -65,13 +70,17 @@ export function ClientComponent() {
                 console.error("Invalid API response for laba rugi:", data);
                 setStats({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, paymentCount: 0, expenseCount: 0, history: [] });
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("Gagal memuat data keuangan");
             setStats({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, paymentCount: 0, expenseCount: 0, history: [] });
         } finally {
             setLoading(false);
         }
-    };
+    }, [dateRange]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
 
     const chartData = {
         labels: ['Pendapatan', 'Pengeluaran'],
@@ -215,7 +224,7 @@ export function ClientComponent() {
                                 key: 'fee',
                                 header: '- Fee Seller',
                                 priority: 'tertiary',
-                                render: (item) => 'Rp 0' // Static for now as per original code
+                                render: (_item) => 'Rp 0' // Static for now as per original code
                             },
                             {
                                 key: 'tax',

@@ -5,11 +5,20 @@ import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { RouterOSAPI } from 'node-routeros-v2'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
+}
+
+// Interface for Router Information
+interface RouterInfo {
+  identity: string;
+  version: string;
+  boardName: string;
+  uptime: string;
+  userOnline: number;
 }
 
 // Test MikroTik API connection menggunakan node-routeros-v2
@@ -19,7 +28,7 @@ async function testMikroTikAPI(
   username: string,
   password: string,
   timeout: number = 10000
-): Promise<{ success: boolean; message: string; routerInfo?: any }> {
+): Promise<{ success: boolean; message: string; routerInfo?: RouterInfo }> {
   return new Promise((resolve) => {
     const conn = new RouterOSAPI({
       host: ipAddress,
@@ -36,7 +45,7 @@ async function testMikroTikAPI(
         resolved = true
         try {
           conn.close()
-        } catch (e) {
+        } catch (_e) {
           // Ignore cleanup errors
         }
       }
@@ -55,65 +64,63 @@ async function testMikroTikAPI(
       .then(async () => {
         try {
           // Test dengan mengambil system resource atau identity
-          let identity: any = null
-          let resource: any = null
-          let pppActive: any = null
-          
+          let identity: unknown = null
+          let resource: unknown = null
+          let pppActive: unknown = null
+
           try {
             identity = await conn.write('/system/identity/print')
           } catch (e) {
             console.log('Failed to get identity:', e)
           }
-          
+
           try {
             resource = await conn.write('/system/resource/print')
           } catch (e) {
             console.log('Failed to get resource:', e)
           }
-          
+
           try {
             pppActive = await conn.write('/ppp/active/print')
           } catch (e) {
             console.log('Failed to get ppp active:', e)
           }
-          
+
           cleanup()
           clearTimeout(timer)
-          
+
           // Handle response format - could be array or object
-          const identityData = Array.isArray(identity) ? identity[0] : identity
-          const resourceData = Array.isArray(resource) ? resource[0] : resource
+          const identityData = Array.isArray(identity) ? (identity[0] as Record<string, unknown>) : (identity as Record<string, unknown>)
+          const resourceData = Array.isArray(resource) ? (resource[0] as Record<string, unknown>) : (resource as Record<string, unknown>)
           const userOnline = Array.isArray(pppActive) ? pppActive.length : 0
-          
-          const routerInfo: any = {}
-          
+
+          const routerInfo: RouterInfo = {
+            identity: 'Unknown',
+            version: 'Unknown',
+            boardName: 'Unknown',
+            uptime: 'Unknown',
+            userOnline: userOnline
+          }
+
           if (identityData) {
-            routerInfo.identity = identityData.name || identityData['.name'] || 'Unknown'
-          } else {
-            routerInfo.identity = 'Unknown'
+            routerInfo.identity = (identityData.name || identityData['.name'] || 'Unknown') as string
           }
-          
+
           if (resourceData) {
-            routerInfo.version = resourceData.version || resourceData['.version'] || 'Unknown'
-            routerInfo.boardName = resourceData['board-name'] || resourceData.boardName || 'Unknown'
-            routerInfo.uptime = resourceData.uptime || resourceData['.uptime'] || 'Unknown'
-          } else {
-            routerInfo.version = 'Unknown'
-            routerInfo.boardName = 'Unknown'
-            routerInfo.uptime = 'Unknown'
+            routerInfo.version = (resourceData.version || resourceData['.version'] || 'Unknown') as string
+            routerInfo.boardName = (resourceData['board-name'] || resourceData.boardName || 'Unknown') as string
+            routerInfo.uptime = (resourceData.uptime || resourceData['.uptime'] || 'Unknown') as string
           }
-          
-          routerInfo.userOnline = userOnline
 
           resolve({
             success: true,
             message: `Koneksi API berhasil! Router: ${routerInfo.identity}, Version: ${routerInfo.version}, User Online: ${userOnline}`,
             routerInfo,
           })
-        } catch (error: any) {
+        } catch (error: unknown) {
           cleanup()
           clearTimeout(timer)
-          const errorMsg = error?.message || error?.toString() || 'Unknown error'
+          const errorMsg = error instanceof Error ? error.message : String(error)
           console.error('Error getting router info:', error)
           resolve({
             success: true,
@@ -121,12 +128,12 @@ async function testMikroTikAPI(
           })
         }
       })
-      .catch((error: any) => {
+      .catch((error: { message?: string; code?: string }) => {
         cleanup()
         clearTimeout(timer)
-        
+
         let errorMessage = 'Koneksi API gagal'
-        
+
         if (error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
           errorMessage = `Koneksi timeout - kemungkinan IP Address salah atau router tidak dapat dijangkau`
         } else if (error.message?.includes('ECONNREFUSED') || error.code === 'ECONNREFUSED') {
@@ -138,7 +145,7 @@ async function testMikroTikAPI(
         } else {
           errorMessage = `Koneksi API gagal: ${error.message || error.code || 'Unknown error'}`
         }
-        
+
         resolve({
           success: false,
           message: errorMessage,
@@ -153,13 +160,18 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    let {
-      ipAddress,
-      apiPort = 8728,
-      apiUsername,
-      apiPassword,
+    const {
+      ipAddress: initialIpAddress,
+      apiPort: initialApiPort = 8728,
+      apiUsername: initialApiUsername,
+      apiPassword: initialApiPassword,
       routerId, // Optional: untuk update status connection di database
     } = body
+
+    let ipAddress = initialIpAddress
+    let apiPort = initialApiPort
+    let apiUsername = initialApiUsername
+    let apiPassword = initialApiPassword
 
     // Jika routerId ada, ambil data router dari database dan gunakan generated user jika tersedia
     if (routerId) {
@@ -190,7 +202,7 @@ export async function POST(req: Request) {
       : 8728
 
     // Test MikroTik API (if credentials provided)
-    let apiResult: { success: boolean; message: string; routerInfo?: any } | null = null
+    let apiResult: { success: boolean; message: string; routerInfo?: RouterInfo } | null = null
     if (apiUsername && apiPassword) {
       apiResult = await testMikroTikAPI(ipAddress, finalApiPort, apiUsername, apiPassword, 10000)
     } else {
@@ -212,7 +224,7 @@ export async function POST(req: Request) {
           userOnline: apiResult.routerInfo.userOnline || 0,
           lastStatusCheck: new Date(),
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Log error tapi tidak fail request
         console.error('Error updating connection status:', error)
       }
@@ -225,7 +237,7 @@ export async function POST(req: Request) {
           userOnline: 0,
           lastStatusCheck: new Date(),
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error updating connection status:', error)
       }
     }
@@ -236,11 +248,12 @@ export async function POST(req: Request) {
       routerInfo: apiResult?.routerInfo || null,
       message: overallSuccess
         ? 'Koneksi berhasil! API dapat diakses dengan autentikasi yang benar.'
-        : 'Koneksi gagal. Periksa IP Address, port, username, password, dan pastikan router dapat dijangkau dari server ini.',
+        : 'Koneksi gagal. Periksa IP Address, port, username, password, and pastikan router dapat dijangkau dari server ini.',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Test connection failed'
     console.error('Error testing MikroTik connection:', error)
-    return NextResponse.json({ error: error.message || 'Test connection failed' }, { status: 500 })
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 

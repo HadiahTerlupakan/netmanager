@@ -62,7 +62,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                     isActive: site.isActive,
                     gudangIds: site.gudang ? site.gudang.map(g => g.id) : []
                 })
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error('Error fetching site:', error)
                 setError(error instanceof Error ? error.message : 'Gagal memuat data site')
             } finally {
@@ -108,7 +108,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
             }
 
             router.push('/admin/workorders/sites')
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error updating site:', error)
             setError(error instanceof Error ? error.message : 'Gagal mengupdate site')
         } finally {

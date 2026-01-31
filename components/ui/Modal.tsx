@@ -6,11 +6,11 @@ import { HiXMark } from 'react-icons/hi2'
 interface ModalProps {
     isOpen: boolean
     onClose: () => void
-    title?: string
-    description?: string
+    title?: string | undefined
+    description?: string | undefined
     children: ReactNode
-    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl'
-    showCloseButton?: boolean
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | undefined
+    showCloseButton?: boolean | undefined
 }
 
 export function Modal({

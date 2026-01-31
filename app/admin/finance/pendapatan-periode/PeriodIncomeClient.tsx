@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { id } from "date-fns/locale";
 import {
     HiOutlineCalendar,
-    HiOutlineCurrencyDollar,
-    HiOutlineArrowTrendingUp
+    HiOutlineCurrencyDollar
 } from "react-icons/hi2";
 import {
     Chart as ChartJS,
@@ -17,7 +15,6 @@ import {
     Tooltip,
     Legend,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
 import { toast } from "react-hot-toast";
 
 ChartJS.register(
@@ -30,7 +27,6 @@ ChartJS.register(
 );
 
 export function ClientComponent() {
-    const [loading, setLoading] = useState(true);
     const [totalRevenue, setTotalRevenue] = useState(0);
     const [dateRange, setDateRange] = useState({
         startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -38,35 +34,32 @@ export function ClientComponent() {
     });
 
     useEffect(() => {
-        fetchData();
-    }, [dateRange]);
+        const fetchData = async () => {
+            try {
+                const queryParams = new URLSearchParams({
+                    startDate: dateRange.startDate,
+                    endDate: dateRange.endDate
+                });
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const queryParams = new URLSearchParams({
-                startDate: dateRange.startDate,
-                endDate: dateRange.endDate
-            });
+                const res = await fetch(`/api/finance/stats?${queryParams.toString()}`);
+                const data = await res.json();
 
-            const res = await fetch(`/api/finance/stats?${queryParams.toString()}`);
-            const data = await res.json();
+                if (data && typeof data.totalRevenue === 'number') {
+                    setTotalRevenue(data.totalRevenue);
+                } else {
+                    console.error("Invalid API response for period revenue:", data);
+                    setTotalRevenue(0);
+                }
 
-            if (data && typeof data.totalRevenue === 'number') {
-                setTotalRevenue(data.totalRevenue);
-            } else {
-                console.error("Invalid API response for period revenue:", data);
+            } catch (error) {
+                console.error("Failed to fetch revenue", error);
+                toast.error("Gagal memuat data pendapatan");
                 setTotalRevenue(0);
             }
+        };
 
-        } catch (error) {
-            console.error("Failed to fetch revenue", error);
-            toast.error("Gagal memuat data pendapatan");
-            setTotalRevenue(0);
-        } finally {
-            setLoading(false);
-        }
-    };
+        void fetchData();
+    }, [dateRange.startDate, dateRange.endDate]);
 
     return (
         <div className="p-6 space-y-6 min-h-screen bg-gray-50/50 dark:bg-gray-900/50">

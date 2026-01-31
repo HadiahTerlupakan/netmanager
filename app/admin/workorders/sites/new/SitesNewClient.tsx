@@ -58,7 +58,7 @@ export function ClientComponent() {
             }
 
             router.push('/admin/workorders/sites')
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error creating site:', error)
             setError(error instanceof Error ? error.message : 'Gagal membuat site')
         } finally {

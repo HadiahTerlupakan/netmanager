@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
             fromName: settingsMap['FROM_NAME'] || '',
             fromEmail: settingsMap['FROM_EMAIL'] || ''
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching email settings:', error)
         return ApiErrors.internalError('Gagal mengambil pengaturan email')
     }
@@ -109,7 +109,7 @@ export async function PUT(request: NextRequest) {
         }
 
         return apiSuccess(null, { message: 'Pengaturan email berhasil disimpan' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error saving email settings:', error)
         return ApiErrors.internalError('Gagal menyimpan pengaturan email')
     }

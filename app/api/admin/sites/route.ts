@@ -57,16 +57,17 @@ export async function POST(request: NextRequest) {
         const site = await siteService.createSite(body, user.id)
 
         return apiSuccess(site, { status: 201, message: 'Site berhasil dibuat' })
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error creating site:', error)
-        
-        if (error.message === 'Code and name are required') {
+
+        const message = error instanceof Error ? error.message : ''
+        if (message === 'Code and name are required') {
             return apiError('Kode dan nama wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
-        if (error.message === 'Site code already exists') {
+        if (message === 'Site code already exists') {
             return ApiErrors.conflict('Kode site sudah ada')
         }
-        
+
         return ApiErrors.internalError('Gagal membuat site')
     }
 }

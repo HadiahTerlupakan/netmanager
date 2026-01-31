@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
     const groups = await service.getOwnerGroups()
 
     return apiSuccess(groups)
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const permissions = await getUserPermissions(session.id)
     const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
-    
+
     if (!isSuperAdmin && !permissions.includes('mixradius:create')) {
       return ApiErrors.forbidden()
     }
@@ -67,7 +68,8 @@ export async function POST(req: NextRequest) {
     }
 
     return apiSuccess(newGroup, { status: 201 })
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }

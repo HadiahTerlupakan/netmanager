@@ -42,8 +42,9 @@ export async function POST(request: Request) {
             )
         }
 
-    } catch (error: any) {
-        console.error('[API Registration] Error:', error)
+    } catch (error: unknown) {
+        const err = error as Error;
+        console.error('[API Registration] Error:', err)
         return NextResponse.json(
             { error: 'Terjadi kesalahan internal server.' },
             { status: 500 }

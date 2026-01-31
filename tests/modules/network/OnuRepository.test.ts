@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
 import { OnuRepository } from '@/modules/network/repositories/OnuRepository'
+import type { Onu, PrismaClient } from '@prisma/client'
 
 // Mock onu-cache-service with correct method names
 vi.mock('@/modules/network/services/onu-cache-service', () => ({
@@ -16,7 +17,7 @@ describe('OnuRepository', () => {
   let repository: OnuRepository
 
   beforeEach(() => {
-    repository = new OnuRepository(prismaMock as any)
+    repository = new OnuRepository(prismaMock as unknown as PrismaClient)
     vi.clearAllMocks()
   })
 
@@ -33,7 +34,7 @@ describe('OnuRepository', () => {
       prismaMock.onu.create.mockResolvedValueOnce({
         id: 'onu-1',
         ...input
-      } as any)
+      } as unknown as Onu)
 
       const result = await repository.create(input)
 
@@ -58,7 +59,7 @@ describe('OnuRepository', () => {
       prismaMock.onu.create.mockResolvedValueOnce({
         id: 'onu-new',
         ...data
-      } as any)
+      } as unknown as Onu)
 
       const result = await repository.upsert(oltId, gponOnu, data)
 
@@ -83,12 +84,12 @@ describe('OnuRepository', () => {
         gponOnu,
         name: 'Old Name',
         status: 'Offline'
-      } as any)
+      } as unknown as Onu)
 
       prismaMock.onu.update.mockResolvedValueOnce({
         id: 'onu-existing',
         ...data
-      } as any)
+      } as unknown as Onu)
 
       const result = await repository.upsert(oltId, gponOnu, data)
 
@@ -108,7 +109,7 @@ describe('OnuRepository', () => {
       }
 
       // findByGponOnu uses findUnique with composite key
-      prismaMock.onu.findUnique.mockResolvedValueOnce(mockOnu as any)
+      prismaMock.onu.findUnique.mockResolvedValueOnce(mockOnu as unknown as Onu)
 
       const result = await repository.findByGponOnu('olt-1', '1/1/1:1')
 
@@ -132,7 +133,7 @@ describe('OnuRepository', () => {
         { id: 'onu-2', status: 'Online', oltId: 'olt-1' }
       ]
 
-      prismaMock.onu.findMany.mockResolvedValueOnce(mockOnus as any)
+      prismaMock.onu.findMany.mockResolvedValueOnce(mockOnus as unknown as Onu[])
       prismaMock.onu.count.mockResolvedValueOnce(2)
 
       const result = await repository.findWithFilters(
@@ -163,7 +164,7 @@ describe('OnuRepository', () => {
         { rxOlt: '-20.5 dBm' },
         { rxOlt: '-22.0 dBm' },
         { rxOlt: '-25.0 dBm' }
-      ] as any)
+      ] as unknown as Onu[])
 
       const result = await repository.getSummaryStats()
 

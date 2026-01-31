@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi'
@@ -20,7 +19,6 @@ interface Role {
 export function ClientComponent() {
     const [roles, setRoles] = useState<Role[]>([])
     const [loading, setLoading] = useState(true)
-    const router = useRouter()
     const { hasPermission, isLoading: authLoading } = usePermission()
 
     useEffect(() => {
@@ -60,8 +58,9 @@ export function ClientComponent() {
 
             toast.success('Role berhasil dihapus')
             fetchRoles()
-        } catch (error: any) {
-            toast.error(error.message)
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
+            toast.error(message)
         }
     }
 

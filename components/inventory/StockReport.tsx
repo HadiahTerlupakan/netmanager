@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiPackage, FiMapPin, FiAlertTriangle, FiCheckCircle, FiDownload, FiRefreshCw, FiXCircle, FiMinusCircle } from 'react-icons/fi'
+import { FiMapPin, FiAlertTriangle, FiCheckCircle, FiDownload, FiRefreshCw, FiXCircle, FiMinusCircle } from 'react-icons/fi'
 
 interface StockItem {
     barangId: string
@@ -117,8 +117,6 @@ export function StockReport() {
         link.download = `laporan_stok_${gudangData.gudangKode}_${new Date().toISOString().split('T')[0]}.csv`
         link.click()
     }
-
-    const selectedGudang = gudangOptions.find(g => g.id === selectedGudangId)
 
     return (
         <div className="space-y-6">

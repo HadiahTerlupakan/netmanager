@@ -13,38 +13,24 @@ export default function RingtoneSettingsClient() {
 
     // Load settings from localStorage on mount
     useEffect(() => {
-        const storedEnabled = localStorage.getItem('chat_sound_enabled')
-        const storedType = localStorage.getItem('chat_sound_type')
-        const storedData = localStorage.getItem('chat_custom_sound_data')
-        const storedName = localStorage.getItem('chat_custom_sound_name')
+        // Initialize state from localStorage in useEffect to avoid hydration mismatch
+        if (typeof window !== 'undefined') {
+            const storedEnabled = localStorage.getItem('chat_sound_enabled')
+            const storedType = localStorage.getItem('chat_sound_type')
+            const storedData = localStorage.getItem('chat_custom_sound_data')
+            const storedName = localStorage.getItem('chat_custom_sound_name')
 
-        if (storedEnabled !== null) setEnabled(storedEnabled === 'true')
-        if (storedType) setSoundType(storedType as 'default' | 'custom')
-        if (storedData) setCustomSoundData(storedData)
-        if (storedName) setCustomSoundName(storedName)
+            // Use setTimeout to defer state updates and avoid synchronous setState in effect
+            setTimeout(() => {
+                if (storedEnabled !== null) setEnabled(storedEnabled === 'true')
+                if (storedType) setSoundType(storedType as 'default' | 'custom')
+                if (storedData) setCustomSoundData(storedData)
+                if (storedName) setCustomSoundName(storedName)
+            }, 0)
+        }
     }, [])
 
     // Ensure audio cleanup
-    useEffect(() => {
-        return () => {
-            if (audioRef.current) {
-                audioRef.current.pause()
-                audioRef.current = null
-            }
-        }
-    }, [])
-
-    const saveSettings = (newEnabled: boolean, newType: 'default' | 'custom', newData: string | null, newName: string) => {
-        localStorage.setItem('chat_sound_enabled', String(newEnabled))
-        localStorage.setItem('chat_sound_type', newType)
-        if (newData) {
-            localStorage.setItem('chat_custom_sound_data', newData)
-            localStorage.setItem('chat_custom_sound_name', newName)
-        } else if (newType === 'default') {
-            // Optional: clear custom data if switching to default? 
-            // Better keep it in case user switches back, unless explicitly deleted
-        }
-    }
 
     const handleEnableToggle = () => {
         const newVal = !enabled
@@ -160,10 +146,10 @@ export default function RingtoneSettingsClient() {
             
             setIsPlaying(true)
             await audio.play()
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('Audio init/play catch:', e)
             setIsPlaying(false)
-            alert('Gagal memproses audio: ' + e.message)
+            alert('Gagal memproses audio: ' + (e instanceof Error ? e.message : String(e)))
         }
     }
 

@@ -131,7 +131,8 @@ export function calculateBufferChecksum(buffer: Buffer): string {
     const sampleRate = Math.max(1, Math.floor(buffer.length / 10000)) // Sample ~10000 bytes
 
     for (let i = 0; i < buffer.length; i += sampleRate) {
-        checksum = (checksum ^ buffer[i] ^ (i & 0xFF)) >>> 0
+        const byte = buffer[i] ?? 0
+        checksum = (checksum ^ byte ^ (i & 0xFF)) >>> 0
     }
 
     return checksum.toString(16).padStart(8, '0')

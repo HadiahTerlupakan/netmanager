@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { sanitizeText, sanitizeObject } from '@/lib/utils/sanitize'
 
 /**
@@ -9,9 +9,6 @@ import { sanitizeText, sanitizeObject } from '@/lib/utils/sanitize'
  */
 export async function sanitizeRequestBody(req: NextRequest): Promise<NextRequest> {
   try {
-    // Clone request untuk memodifikasi body
-    const clonedReq = req.clone()
-
     // Jika request memiliki body JSON
     if (req.headers.get('content-type')?.includes('application/json')) {
       try {
@@ -36,7 +33,7 @@ export async function sanitizeRequestBody(req: NextRequest): Promise<NextRequest
     // Jika request memiliki form data
     if (req.headers.get('content-type')?.includes('multipart/form-data')) {
       try {
-        const formData: any = await req.formData()
+        const formData = await req.formData()
 
         // Sanitize text fields
         const sanitizedFormData = new FormData()

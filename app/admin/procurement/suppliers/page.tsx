@@ -11,7 +11,7 @@ import { useSession } from 'next-auth/react'
 
 export default function SupplierListPage() {
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: _session } = useSession()
   const { hasPermission, isLoading: isLoadingPermission } = usePermission()
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([])

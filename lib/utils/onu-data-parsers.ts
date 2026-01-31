@@ -239,7 +239,7 @@ export function parseRegisterTime(regValue: string | undefined): Date | null {
     if (!isNaN(regNum) && regNum > 0 && regNum > 1000000000) {
       return new Date(regNum * 1000)
     }
-  } catch (e) {
+  } catch (_e) {
     // Ignore
   }
   
@@ -257,7 +257,7 @@ export function parseTimestamp(value: string | null | undefined): Date | null {
     if (!isNaN(num) && num > 0 && num > 1000000000) {
       return new Date(num * 1000)
     }
-  } catch (e) {
+  } catch (_e) {
     // Ignore
   }
   

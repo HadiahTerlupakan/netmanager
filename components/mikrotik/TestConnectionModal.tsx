@@ -19,9 +19,10 @@ type RouterInfo = {
 
 type TestConnectionResult = {
   success: boolean
-  api: TestResult
+  ping?: TestResult
+  api?: TestResult
   routerInfo?: RouterInfo
-  message: string
+  message?: string
 }
 
 type TestConnectionModalProps = {

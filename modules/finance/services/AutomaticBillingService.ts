@@ -131,7 +131,20 @@ export class AutomaticBillingService {
         }
     }
 
-    private static async createInvoiceForCustomer(customer: any, dueDate: Date) {
+    private static async createInvoiceForCustomer(customer: {
+        id: string;
+        nama: string;
+        jatuhTempo: Date;
+        userId: string | null;
+        usePPN: boolean;
+        hargaPaket: {
+            id: string;
+            name: string;
+            harga: number;
+            usePPN: boolean;
+            ppnPercentage: number | null;
+        };
+    }, dueDate: Date) {
         // Use transaction to ensure atomicity
         const result = await prisma.$transaction(async (tx) => {
             // 1. Generate Invoice Number with UUID suffix to prevent race condition

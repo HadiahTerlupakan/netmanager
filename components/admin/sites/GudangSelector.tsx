@@ -39,7 +39,7 @@ export default function GudangSelector({ selectedIds, onChange, currentSiteId }:
                 } else {
                     setError('Gagal memuat daftar gudang')
                 }
-            } catch (err) {
+            } catch (_err) {
                 setError('Gagal memuat daftar gudang')
             } finally {
                 setLoading(false)

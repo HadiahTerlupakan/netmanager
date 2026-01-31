@@ -2,8 +2,47 @@ import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
 
+// Define a generic delegate interface for the missing models
+interface GenericDelegate {
+  findMany(args?: unknown): Promise<unknown[]>
+  findUnique(args: unknown): Promise<unknown | null>
+  findFirst(args?: unknown): Promise<unknown | null>
+  create(args: unknown): Promise<Record<string, unknown>> // strict unknown makes accessing props hard, using any or intersection
+  update(args: unknown): Promise<unknown>
+  delete(args: unknown): Promise<unknown>
+  count(args?: unknown): Promise<number>
+  aggregate(args: unknown): Promise<{ _sum: { jumlah: bigint | null } }>
+  groupBy(args: unknown): Promise<unknown[]>
+}
+
+interface GroupedPengeluaran {
+  kategori: string
+  tipePengeluaran: string
+  _sum: {
+    jumlah: number
+  }
+  _count: {
+    id: number
+  }
+}
+
+interface RawGroupResult {
+  kategori: string | null
+  tipePengeluaran: string | null
+  _sum: {
+    jumlah: bigint | null
+  }
+  _count: {
+    id: number
+  }
+}
+
 export class PengeluaranRepository implements IPengeluaranRepository {
   constructor(private client: PrismaClient = prisma) { }
+
+  private get delegate(): GenericDelegate {
+    return (this.client as unknown as Record<string, GenericDelegate>).pengeluaran
+  }
 
   async findAll(): Promise<PengeluaranPublic[]> {
     try {
@@ -12,7 +51,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         console.warn('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
         return []
       }
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await this.delegate.findMany({
         orderBy: { tanggal: 'desc' },
         include: {
           createdByuser: {
@@ -24,13 +63,15 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       })
       // Convert BigInt to string for JSON serialization
-      return items.map((item: any) => ({
+      // Convert BigInt to string for JSON serialization
+      return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
-        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
+        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
       // Jika model belum ada, return empty array
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         console.warn('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate dan restart dev server')
         return []
       }
@@ -43,7 +84,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return null
       }
-      const item = await (this.client as any).pengeluaran.findUnique({
+      const item = await this.delegate.findUnique({
         where: { id },
         include: {
           createdByuser: {
@@ -56,12 +97,14 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       })
       if (!item) return null
       // Convert BigInt to string for JSON serialization
+      const typedItem = item as Record<string, unknown>
       return {
-        ...item,
-        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
+        ...typedItem,
+        jumlah: typeof typedItem.jumlah === 'bigint' ? typedItem.jumlah.toString() : (typedItem.jumlah as string | number)
       } as unknown as PengeluaranPublic
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return null
       }
       throw error
@@ -96,24 +139,24 @@ export class PengeluaranRepository implements IPengeluaranRepository {
           const month = expenseDate.getMonth() + 1
           const year = expenseDate.getFullYear()
 
-          const budget = await (this.client as any).budget.findFirst({
+          const budget = (await (this.client as unknown as Record<string, GenericDelegate>).budget.findFirst({
             where: {
               category: budgetCategory,
               month,
               year,
               status: { in: ['APPROVED', 'ACTIVE'] },
             },
-          })
+          })) as Record<string, unknown> | null
 
           if (budget) {
-            budgetId = budget.id
+            budgetId = budget.id as string
 
             // Update budget actual amount
-            const newActualAmount = budget.actualAmount + jumlahBigInt
-            const newVariance = newActualAmount - budget.budgetAmount
+            const newActualAmount = (budget.actualAmount as bigint) + jumlahBigInt
+            const newVariance = newActualAmount - (budget.budgetAmount as bigint)
             const newVariancePercent = Number(newVariance) / Number(budget.budgetAmount) * 100
 
-            await (this.client as any).budget.update({
+            await (this.client as unknown as Record<string, GenericDelegate>).budget.update({
               where: { id: budget.id },
               data: {
                 actualAmount: newActualAmount,
@@ -136,7 +179,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
               for (const { threshold, type, message } of thresholds) {
                 if (utilizationPercent >= threshold) {
                   // Check if alert already exists
-                  const existingAlert = await (this.client as any).budgetAlert.findFirst({
+                  const existingAlert = await (this.client as unknown as Record<string, GenericDelegate>).budgetAlert.findFirst({
                     where: {
                       budgetId: budget.id,
                       alertType: type,
@@ -145,7 +188,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
                   })
 
                   if (!existingAlert) {
-                    await (this.client as any).budgetAlert.create({
+                    await (this.client as unknown as Record<string, GenericDelegate>).budgetAlert.create({
                       data: {
                         budgetId: budget.id,
                         alertType: type,
@@ -170,7 +213,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     }
 
     // Create the expense record first
-    const created = await (this.client as any).pengeluaran.create({
+    const created = await this.delegate.create({
       data: {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal,
         nomorBukti: data.nomorBukti,
@@ -214,7 +257,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
           const month = expenseDate.getMonth() + 1
           const year = expenseDate.getFullYear()
 
-          await (this.client as any).taxRecord.create({
+          await (this.client as unknown as Record<string, GenericDelegate>).taxRecord.create({
             data: {
               taxType: 'PPN_IN',
               taxPeriod: month,
@@ -237,7 +280,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       }
     }
 
-    return created
+    return created as { id: string }
   }
 
   async update(id: string, data: PengeluaranUpdateData): Promise<void> {
@@ -245,7 +288,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
     }
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       ...(data.tanggal !== undefined && {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
       }),
@@ -269,7 +312,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       }
     }
 
-    await (this.client as any).pengeluaran.update({
+    await this.delegate.update({
       where: { id },
       data: updateData,
     })
@@ -279,7 +322,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     if (!('pengeluaran' in this.client)) {
       throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
     }
-    await (this.client as any).pengeluaran.delete({ where: { id } })
+    await this.delegate.delete({ where: { id } })
   }
 
   async count(): Promise<number> {
@@ -287,9 +330,10 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return 0
       }
-      return await (this.client as any).pengeluaran.count()
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+      return await this.delegate.count()
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return 0
       }
       throw error
@@ -301,7 +345,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return []
       }
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await this.delegate.findMany({
         where: {
           tanggal: {
             gte: startDate,
@@ -319,12 +363,14 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       })
       // Convert BigInt to string for JSON serialization
-      return items.map((item: any) => ({
+      // Convert BigInt to string for JSON serialization
+      return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
-        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
+        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return []
       }
       throw error
@@ -336,7 +382,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return []
       }
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await this.delegate.findMany({
         where: { kategori },
         orderBy: { tanggal: 'desc' },
         include: {
@@ -349,12 +395,14 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       })
       // Convert BigInt to string for JSON serialization
-      return items.map((item: any) => ({
+      // Convert BigInt to string for JSON serialization
+      return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
-        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
+        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return []
       }
       throw error
@@ -366,14 +414,15 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return BigInt(0)
       }
-      const result = await (this.client as any).pengeluaran.aggregate({
+      const result = await this.delegate.aggregate({
         _sum: {
           jumlah: true,
         },
       })
       return result._sum.jumlah || BigInt(0)
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return BigInt(0)
       }
       throw error
@@ -385,22 +434,23 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return BigInt(0)
       }
-      const result = await (this.client as any).pengeluaran.aggregate({
+      const result = await this.delegate.aggregate({
         where: { tipePengeluaran },
         _sum: {
           jumlah: true,
         },
       })
       return result._sum.jumlah || BigInt(0)
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return BigInt(0)
       }
       throw error
     }
   }
 
-  async groupByPeriode(): Promise<any[]> {
+  async groupByPeriode(): Promise<{ tanggal: Date, jumlah: bigint }[]> {
     try {
       if (!('pengeluaran' in this.client)) {
         return []
@@ -409,19 +459,20 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       // So we fetch all dates and amounts and group in memory (still better than fetching full objects)
       // OR we can use raw query if needed, but let's stick to simple approach for now
       // Actually, for now let's fetch minimal data needed for grouping
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await this.delegate.findMany({
         select: {
           tanggal: true,
           jumlah: true,
         }
       })
 
-      return items.map((item: any) => ({
-        tanggal: item.tanggal,
-        jumlah: item.jumlah
+      return (items as Record<string, unknown>[]).map((item) => ({
+        tanggal: item.tanggal as Date,
+        jumlah: item.jumlah as bigint
       }))
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return []
       }
       throw error
@@ -433,7 +484,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return []
       }
-      const where: any = {}
+      const where: Record<string, unknown> = {}
       if (startDate && endDate) {
         where.tanggal = {
           gte: startDate,
@@ -453,7 +504,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       }
 
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await this.delegate.findMany({
         where,
         select: {
           id: true,
@@ -461,12 +512,13 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         },
         orderBy: { tanggal: 'desc' },
       })
-      return items.map((item: any) => ({
-        id: item.id,
-        tanggal: typeof item.tanggal === 'string' ? new Date(item.tanggal) : item.tanggal
+      return (items as Record<string, unknown>[]).map((item) => ({
+        id: item.id as string,
+        tanggal: typeof item.tanggal === 'string' ? new Date(item.tanggal) : (item.tanggal as Date)
       }))
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return []
       }
       throw error
@@ -478,7 +530,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return []
       }
-      const where: any = {}
+      const where: Record<string, unknown> = {}
       if (startDate && endDate) {
         where.tanggal = {
           gte: startDate,
@@ -498,7 +550,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       }
 
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await this.delegate.findMany({
         where,
         orderBy: { tanggal: 'desc' },
         include: {
@@ -511,12 +563,14 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       })
       // Convert BigInt to string for JSON serialization
-      return items.map((item: any) => ({
+      // Convert BigInt to string for JSON serialization
+      return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
-        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
+        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return []
       }
       throw error
@@ -529,7 +583,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         return BigInt(0)
       }
 
-      const where: any = {}
+      const where: Record<string, unknown> = {}
 
       if (month !== undefined && year !== undefined) {
         where.tanggal = {
@@ -538,7 +592,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       }
 
-      const result = await (this.client as any).pengeluaran.aggregate({
+      const result = await this.delegate.aggregate({
         where,
         _sum: {
           jumlah: true,
@@ -546,8 +600,9 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       })
 
       return result._sum.jumlah || BigInt(0)
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return BigInt(0)
       }
       throw error
@@ -560,7 +615,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         return BigInt(0)
       }
 
-      const where: any = { tipePengeluaran }
+      const where: Record<string, unknown> = { tipePengeluaran }
 
       if (month !== undefined && year !== undefined) {
         where.tanggal = {
@@ -569,7 +624,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       }
 
-      const result = await (this.client as any).pengeluaran.aggregate({
+      const result = await this.delegate.aggregate({
         where,
         _sum: {
           jumlah: true,
@@ -577,21 +632,22 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       })
 
       return result._sum.jumlah || BigInt(0)
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return BigInt(0)
       }
       throw error
     }
   }
 
-  async groupByCategoryAndPeriod(month?: number, year?: number): Promise<any[]> {
+  async groupByCategoryAndPeriod(month?: number, year?: number): Promise<GroupedPengeluaran[]> {
     try {
       if (!('pengeluaran' in this.client)) {
         return []
       }
 
-      const where: any = {}
+      const where: Record<string, unknown> = {}
 
       if (month !== undefined && year !== undefined) {
         where.tanggal = {
@@ -600,7 +656,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       }
 
-      const items = await (this.client as any).pengeluaran.groupBy({
+      const items = await this.delegate.groupBy({
         by: ['kategori', 'tipePengeluaran'],
         where,
         _sum: {
@@ -611,7 +667,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         },
       })
 
-      return items.map((item: any) => ({
+      return (items as unknown as RawGroupResult[]).map((item) => ({
         kategori: item.kategori || 'Lainnya',
         tipePengeluaran: item.tipePengeluaran || 'OPEX',
         _sum: {
@@ -621,8 +677,9 @@ export class PengeluaranRepository implements IPengeluaranRepository {
           id: item._count.id || 0
         }
       }))
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
         return []
       }
       throw error

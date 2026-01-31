@@ -4,7 +4,7 @@
  * Memverifikasi bahwa fungsi waktu konsisten dengan pengaturan timezone
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { DEFAULT_TIMEZONE, TIMEZONE_OPTIONS, getTimezoneOption, getTimezoneLabel } from '@/lib/constants/timezone-constants'
 
 describe('Timezone Constants', () => {
@@ -13,9 +13,9 @@ describe('Timezone Constants', () => {
   })
 
   it('should have Indonesia timezones (WIB, WITA, WIT)', () => {
-    const indonesiaTimezones = TIMEZONE_OPTIONS.filter(tz => 
-      tz.value.includes('Jakarta') || 
-      tz.value.includes('Makassar') || 
+    const indonesiaTimezones = TIMEZONE_OPTIONS.filter(tz =>
+      tz.value.includes('Jakarta') ||
+      tz.value.includes('Makassar') ||
       tz.value.includes('Jayapura')
     )
     expect(indonesiaTimezones).toHaveLength(3)
@@ -44,7 +44,7 @@ describe('Time Conversion Consistency', () => {
   it('should correctly parse time string to Date', () => {
     const timeString = '09:00'
     const [hour, minute] = timeString.split(':').map(Number)
-    
+
     expect(hour).toBe(9)
     expect(minute).toBe(0)
   })
@@ -52,16 +52,16 @@ describe('Time Conversion Consistency', () => {
   it('should correctly calculate late status with tolerance', () => {
     const scheduleTime = new Date()
     scheduleTime.setHours(9, 0, 0, 0)
-    
+
     const toleranceMinutes = 15
     const toleranceMs = toleranceMinutes * 60 * 1000
     const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
-    
+
     // Check-in at 09:10 should be ON_TIME
     const checkIn1 = new Date()
     checkIn1.setHours(9, 10, 0, 0)
     expect(checkIn1 <= lateThreshold).toBe(true)
-    
+
     // Check-in at 09:20 should be LATE
     const checkIn2 = new Date()
     checkIn2.setHours(9, 20, 0, 0)
@@ -72,7 +72,7 @@ describe('Time Conversion Consistency', () => {
     const date = new Date()
     const endOfDay = new Date(date)
     endOfDay.setHours(23, 59, 59, 999)
-    
+
     expect(endOfDay.getHours()).toBe(23)
     expect(endOfDay.getMinutes()).toBe(59)
     expect(endOfDay.getSeconds()).toBe(59)
@@ -82,11 +82,11 @@ describe('Time Conversion Consistency', () => {
 describe('Timezone Offset Calculation', () => {
   it('should correctly calculate timezone offset for Asia/Jakarta', () => {
     const now = new Date()
-    const utcTime = now.getTime()
-    
+    const _utcTime = now.getTime()
+
     // Jakarta is UTC+7
-    const jakartaOffset = 7 * 60 * 60 * 1000 // 7 hours in ms
-    
+    const _jakartaOffset = 7 * 60 * 60 * 1000 // 7 hours in ms
+
     // Verify the offset matches expected
     const jakartaOption = getTimezoneOption('Asia/Jakarta')
     expect(jakartaOption?.offset).toBe('+07:00')

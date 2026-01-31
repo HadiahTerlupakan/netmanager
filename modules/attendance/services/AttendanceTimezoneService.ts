@@ -103,20 +103,18 @@ export class AttendanceTimezoneService {
     
     const parts = formatter.formatToParts(checkInTime)
     const part = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0')
-    
-    const year = part('year')
-    const month = part('month') - 1 // 0-indexed
-    const day = part('day')
-    
+
     // 2. Parse schedule time (e.g., '08:30')
-    const [schedHour, schedMinute] = scheduleTime.split(':').map(Number)
-    
+    const scheduleParts = scheduleTime.split(':').map(Number)
+    const schedHour = scheduleParts[0] ?? 0
+    const schedMinute = scheduleParts[1] ?? 0
+
     // 3. Construct schedule date using the SAME date components as check-in, but with schedule time
     // We construct it effectively in "wall clock time" of the timezone
-    // Note: We need to be careful creating a Date object. 
+    // Note: We need to be careful creating a Date object.
     // If we use new Date(year, month, day, ...), it uses LOCAL system timezone.
     // We want to construct a timestamp that REPRESENTS that wall-clock time in the TARGET timezone.
-    
+
     // Easier approach: Compare "Minutes from start of day"
     // Get check-in minutes from start of day IN TARGET TIMEZONE
     const checkInHour = part('hour')

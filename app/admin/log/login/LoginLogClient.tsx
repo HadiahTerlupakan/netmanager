@@ -29,7 +29,7 @@ interface LogDetails {
     provider?: string
     isNewUser?: boolean
     loginTime?: string
-    [key: string]: any
+    [key: string]: string | boolean | undefined
 }
 
 export function ClientComponent() {

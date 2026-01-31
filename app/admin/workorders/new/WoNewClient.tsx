@@ -39,7 +39,7 @@ interface MixRadiusCustomer {
 }
 
 export function ClientComponent() {
-    const { data: session, status } = useSession()
+    const { data: _session, status } = useSession()
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [simpleMode, setSimpleMode] = useState(true)
@@ -50,7 +50,6 @@ export function ClientComponent() {
     // Sites and Departments state
     const [sites, setSites] = useState<Site[]>([])
     const [departments, setDepartments] = useState<Department[]>([])
-    const [templates, setTemplates] = useState<any[]>([])
 
     // Search states
     const [searchingPelanggan, setSearchingPelanggan] = useState(false)
@@ -85,7 +84,6 @@ export function ClientComponent() {
         if (status === 'authenticated') {
             fetchSites()
             fetchDepartments()
-            fetchTemplates()
         }
     }, [status, router])
 
@@ -150,7 +148,7 @@ export function ClientComponent() {
                 const result = await response.json()
                 setSites(result.data || [])
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error fetching sites:', error)
         }
     }
@@ -162,22 +160,37 @@ export function ClientComponent() {
                 const result = await response.json()
                 setDepartments(result.data || [])
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error fetching departments:', error)
         }
     }
 
-    const fetchTemplates = async () => {
+    const searchPelanggan = useCallback(async () => {
+        setSearchingPelanggan(true)
         try {
-            const response = await fetch('/api/admin/workorders/templates')
-            if (response.ok) {
-                const result = await response.json()
-                setTemplates(result.data || [])
-            }
-        } catch (error) {
-            console.error('Error fetching templates:', error)
+            const response = await fetch(`/api/pelanggan-ppp?search=${searchQuery}&limit=10`)
+            if (response.ok) { const result = await response.json(); setPelangganList(result.data || []) }
+        } catch (error: unknown) {
+            console.error('Error searching pelanggan:', error)
+            toast.error('Gagal mencari pelanggan. Silakan coba lagi.')
         }
-    }
+        finally { setSearchingPelanggan(false) }
+    }, [searchQuery])
+
+    const searchMixRadius = useCallback(async () => {
+        setSearchingPelanggan(true)
+        try {
+            const response = await fetch(`/api/integrations/mixradius/customers?search=${searchQuery}&searchType=all&start=0&length=10`)
+            if (response.ok) {
+                const result = await response.json();
+                setMixRadiusList(result.data?.data || [])
+            }
+        } catch (error: unknown) {
+            console.error('Error searching MixRadius:', error)
+            toast.error('Gagal mencari data MixRadius. Silakan coba lagi.')
+        }
+        finally { setSearchingPelanggan(false) }
+    }, [searchQuery])
 
     useEffect(() => {
         let isMounted = true
@@ -201,34 +214,7 @@ export function ClientComponent() {
             isMounted = false
             clearTimeout(timeoutId)
         }
-    }, [searchQuery])
-
-    const searchPelanggan = async () => {
-        setSearchingPelanggan(true)
-        try {
-            const response = await fetch(`/api/pelanggan-ppp?search=${searchQuery}&limit=10`)
-            if (response.ok) { const result = await response.json(); setPelangganList(result.data || []) }
-        } catch (error) { 
-            console.error('Error searching pelanggan:', error)
-            toast.error('Gagal mencari pelanggan. Silakan coba lagi.')
-        }
-        finally { setSearchingPelanggan(false) }
-    }
-
-    const searchMixRadius = async () => {
-        setSearchingPelanggan(true)
-        try {
-            const response = await fetch(`/api/integrations/mixradius/customers?search=${searchQuery}&searchType=all&start=0&length=10`)
-            if (response.ok) { 
-                const result = await response.json(); 
-                setMixRadiusList(result.data?.data || []) 
-            }
-        } catch (error) { 
-            console.error('Error searching MixRadius:', error)
-            toast.error('Gagal mencari data MixRadius. Silakan coba lagi.')
-        }
-        finally { setSearchingPelanggan(false) }
-    }
+    }, [searchQuery, searchSource, searchPelanggan, searchMixRadius])
 
     const selectPelanggan = (p: Pelanggan) => {
         setFormData(prev => ({
@@ -273,9 +259,10 @@ export function ClientComponent() {
             } else {
                 throw new Error('Sync failed')
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as Error
             console.error('Sync Error:', error)
-            toast.error(error.message || 'Gagal memuat data MixRadius')
+            toast.error(err.message || 'Gagal memuat data MixRadius')
         } finally {
             setSearchingPelanggan(false)
             setSearchQuery('')
@@ -493,7 +480,7 @@ export function ClientComponent() {
                 const error = await response.json();
                 toast.error(error.error || 'Gagal membuat work order. Silakan coba lagi.')
             }
-        } catch (error) { 
+        } catch (error: unknown) {
             console.error('Error creating work order:', error)
             toast.error('Terjadi kesalahan jaringan. Silakan coba lagi.')
         }

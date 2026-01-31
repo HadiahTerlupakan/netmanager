@@ -8,6 +8,13 @@ import {
 import { requireAuth } from '@/lib/auth-helpers';
 import { getUserPermissions } from '@/lib/auth';
 
+interface ExtendedUser {
+    id: string;
+    role: string;
+    siteId?: string;
+    departmentId?: string;
+}
+
 /**
  * @swagger
  * /api/notifications:
@@ -76,6 +83,9 @@ export async function GET(request: NextRequest) {
     try {
         // Cek autentikasi menggunakan fungsi terpusat
         const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
+        }
 
         const { searchParams } = new URL(request.url);
         const unreadOnly = searchParams.get('unread') === 'true';
@@ -86,9 +96,10 @@ export async function GET(request: NextRequest) {
 
         // Enforce Site Restriction
         const permissions = await getUserPermissions(session.user.id);
-        const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+        const user = session.user as ExtendedUser;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN'
         const siteId = (!isSuperAdmin && permissions.includes('site_only'))
-            ? (session.user as any).siteId
+            ? user.siteId
             : undefined;
 
         const options: Parameters<typeof getNotificationsForUser>[1] = {
@@ -100,7 +111,7 @@ export async function GET(request: NextRequest) {
         if (type) options.type = type;
         if (excludeTypes) options.excludeTypes = excludeTypes;
         if (siteId) options.siteId = siteId;
-        if ((session.user as any).departmentId) options.departmentId = (session.user as any).departmentId;
+        if (user.departmentId) options.departmentId = user.departmentId;
 
         const { notifications, total } = await getNotificationsForUser(
             session.user.id,
@@ -166,15 +177,19 @@ export async function PATCH(request: NextRequest) {
     try {
         // Cek autentikasi menggunakan fungsi terpusat
         const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
+        }
 
         const body = await request.json().catch(() => ({}));
         const type = body.type as NotificationType | undefined;
 
         // Enforce Site Restriction
         const permissions = await getUserPermissions(session.user.id);
-        const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+        const user = session.user as ExtendedUser;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN'
         const siteId = (!isSuperAdmin && permissions.includes('site_only'))
-            ? (session.user as any).siteId
+            ? user.siteId
             : undefined;
 
         await markAllAsRead(session.user.id, type, siteId);

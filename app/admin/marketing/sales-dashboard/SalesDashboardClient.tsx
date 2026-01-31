@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { 
     HiOutlineChartBar, 
@@ -78,14 +78,7 @@ export default function SalesDashboardClient() {
     const [startDate, setStartDate] = useState<string>('')
     const [endDate, setEndDate] = useState<string>('')
 
-    useEffect(() => {
-        // Only auto-fetch for non-custom periods or when custom has both dates
-        if (period !== 'custom' || (startDate && endDate)) {
-            fetchData()
-        }
-    }, [period, siteId, startDate, endDate])
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true)
             const params = new URLSearchParams({ period })
@@ -94,7 +87,7 @@ export default function SalesDashboardClient() {
                 params.append('startDate', startDate)
                 params.append('endDate', endDate)
             }
-            
+
             const res = await fetch(`/api/admin/marketing/sales-dashboard?${params.toString()}`)
             if (res.ok) {
                 const json = await res.json()
@@ -108,7 +101,14 @@ export default function SalesDashboardClient() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [period, siteId, startDate, endDate])
+
+    useEffect(() => {
+        // Only auto-fetch for non-custom periods or when custom has both dates
+        if (period !== 'custom' || (startDate && endDate)) {
+            fetchData()
+        }
+    }, [fetchData, period, startDate, endDate])
 
     if (loading && !data) return <PageLoader message="Memuat dashboard sales..." />
 
@@ -431,7 +431,7 @@ export default function SalesDashboardClient() {
     )
 }
 
-function StatCard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: any; color: string }) {
+function StatCard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: React.ElementType; color: string }) {
     const colorClasses: Record<string, string> = {
         indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400',
         blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',

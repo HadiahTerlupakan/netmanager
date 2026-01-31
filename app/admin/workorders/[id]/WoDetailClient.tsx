@@ -25,8 +25,8 @@ import {
     HiArrowUturnLeft,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
-import { ImageLightbox } from '@/components/ui/ImageLightbox'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { ImageLightbox } from '@/components/ui/ImageLightbox'
 import AddMaterialModal from '@/components/workorder/AddMaterialModal'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
@@ -221,6 +221,31 @@ export function ClientComponent() {
     const [loadingMaterialDetail, setLoadingMaterialDetail] = useState(false)
     const [addMaterialModalOpen, setAddMaterialModalOpen] = useState(false)
 
+    const fetchWorkOrder = useCallback(async () => {
+        try {
+            const response = await fetch(`/api/admin/workorders/${workOrderId}`)
+            if (response.ok) {
+                const result = await response.json()
+                console.log('[WorkOrder] Fetched w/ attachments:', result.data.attachments?.length)
+                setWorkOrder(result.data)
+                setEditValues({
+                    status: result.data.status,
+                    priority: result.data.priority,
+                    assignedToId: result.data.assignedTo?.id || '',
+                })
+            } else if (response.status === 404) {
+                alert('Work order not found')
+                router.push('/admin/workorders/list')
+            }
+        } catch (error: unknown) {
+            const axiosError = error as { response?: { data?: { error?: string } } }
+            console.error('Error fetching work order:', error)
+            alert('An error occurred while fetching the work order: ' + (axiosError.response?.data?.error || 'Unknown error'))
+        } finally {
+            setLoading(false)
+        }
+    }, [workOrderId, router])
+
     // Fetch material detail by updateId (MATERIAL_PICKUP/MATERIAL_RETURN)
     const fetchMaterialDetail = async (updateId: string, updateType: string) => {
         setLoadingMaterialDetail(true)
@@ -323,7 +348,7 @@ export function ClientComponent() {
             // Refresh data to get the new activity
             fetchWorkOrder()
         },
-        [workOrderId]
+        [workOrderId, fetchWorkOrder]
     )
 
     // Subscribe to WebSocket activity events
@@ -331,7 +356,7 @@ export function ClientComponent() {
 
     // Handle real-time Work Order updates (e.g. status change, tasks)
     const handleWOUpdate = useCallback(
-        (payload: any) => {
+        (payload: { id?: string; workOrderId?: string }) => {
             // Check if payload is the WO object itself or has ID
             const updatedId = payload.id || payload.workOrderId
             if (updatedId === workOrderId) {
@@ -339,7 +364,7 @@ export function ClientComponent() {
                 fetchWorkOrder()
             }
         },
-        [workOrderId]
+        [workOrderId, fetchWorkOrder]
     )
     useSocketEvent(SOCKET_EVENTS.WORKORDER_UPDATE, handleWOUpdate)
 
@@ -352,30 +377,7 @@ export function ClientComponent() {
         if (session?.user && status === 'authenticated') {
             fetchWorkOrder()
         }
-    }, [session, status, router, workOrderId])
-
-    const fetchWorkOrder = async () => {
-        try {
-            const response = await fetch(`/api/admin/workorders/${workOrderId}`)
-            if (response.ok) {
-                const result = await response.json()
-                console.log('[WorkOrder] Fetched w/ attachments:', result.data.attachments?.length)
-                setWorkOrder(result.data)
-                setEditValues({
-                    status: result.data.status,
-                    priority: result.data.priority,
-                    assignedToId: result.data.assignedTo?.id || '',
-                })
-            } else if (response.status === 404) {
-                alert('Work order not found')
-                router.push('/admin/workorders/list')
-            }
-        } catch (error) {
-            console.error('Error fetching work order:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
+    }, [session, status, router, workOrderId, fetchWorkOrder])
 
     const handleUpdateField = async (field: string) => {
         try {
@@ -898,7 +900,6 @@ export function ClientComponent() {
                                                 const attData = item.data as WorkOrderAttachment;
                                                 const updateData = item.data as WorkOrderUpdateType;
                                                 const isUpdate = item.type === 'update';
-                                                const isAttachment = item.type === 'attachment';
 
                                                 // Display Name Logic
                                                 const user = isUpdate ? updateData.user : attData.user;
@@ -1087,7 +1088,7 @@ export function ClientComponent() {
                                                 
                                                 // Try to identify if "Me"
                                                 const creatorId = isComment ? updateData.user?.id : attData.user?.id; 
-                                                const currentUserId = (session?.user as any)?.id;
+                                                const currentUserId = (session?.user as { id?: string })?.id;
                                                 const isMe = creatorId && currentUserId ? creatorId === currentUserId : false;
 
                                                 // Name display
@@ -1096,8 +1097,8 @@ export function ClientComponent() {
                                                 
                                                 // Check if previous message was from same user (to group avatars)
                                                 const prevItem = index > 0 ? discussionItems[index - 1] : null;
-                                                const prevCreatorId = prevItem 
-                                                    ? (prevItem.type === 'comment' ? (prevItem.data as any).user?.id : (prevItem.data as any).user?.id) 
+                                                const prevCreatorId = prevItem
+                                                    ? (prevItem.type === 'comment' ? (prevItem.data as WorkOrderUpdateType).user?.id : (prevItem.data as WorkOrderAttachment).user?.id)
                                                     : null;
                                                 const isSequence = prevCreatorId === creatorId;
 
@@ -1380,13 +1381,13 @@ export function ClientComponent() {
                                 <p className="font-medium text-gray-900 dark:text-white">{workOrder.department.name}</p>
                             </div>
                         )}
-                        {workOrder.assignments && workOrder.assignments.filter((a: any) => a.role === 'PARTNER').length > 0 && (
+                        {workOrder.assignments && workOrder.assignments.filter((a: { role: string }) => a.role === 'PARTNER').length > 0 && (
                             <div className="text-sm mt-3">
                                 <p className="text-gray-600 dark:text-gray-400">Partner:</p>
                                 <div className="space-y-1 mt-1">
                                     {workOrder.assignments
-                                        .filter((a: any) => a.role === 'PARTNER')
-                                        .map((a: any) => (
+                                        .filter((a: { role: string }) => a.role === 'PARTNER')
+                                        .map((a: { id: string; role: string; user?: { name?: string; firstName?: string; lastName?: string } }) => (
                                             <p key={a.id} className="font-medium text-gray-900 dark:text-white">{a.user?.name || a.user?.firstName + ' ' + a.user?.lastName}</p>
                                         ))}
                                 </div>

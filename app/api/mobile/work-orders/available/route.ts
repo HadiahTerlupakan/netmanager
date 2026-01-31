@@ -13,6 +13,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
         const payload = await verifyMobileToken(token);
         if (!payload) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -47,7 +51,7 @@ export async function GET(request: NextRequest) {
         //    Easier: WO Dept is NULL OR WO Dept == User Dept
         // 2. If WO has Site, User must have access to that Site (via userSites or legacy siteId)
         
-        const departmentFilter: any = { departmentId: null };
+        const departmentFilter: Record<string, unknown> = { departmentId: null };
         if (user?.departmentId) {
             departmentFilter.departmentId = { in: [null, user.departmentId] }; // Allow null or match
         }
@@ -130,6 +134,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
         const payload = await verifyMobileToken(token);
         if (!payload) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -243,9 +251,9 @@ export async function POST(request: NextRequest) {
             actionType: 'CLAIM',
             actionMessage: 'Mengambil/Claim tiket Work Order',
             triggeredByUserId: userId,
-            triggeredByName: (user?.name as string) || (payload.name as string),
-            departmentId: updatedWorkOrder.departmentId || undefined,
-            siteId: updatedWorkOrder.siteId || undefined,
+            triggeredByName: (user?.name as string) || (payload.name as string) || 'Unknown',
+            ...(updatedWorkOrder.departmentId && { departmentId: updatedWorkOrder.departmentId }),
+            ...(updatedWorkOrder.siteId && { siteId: updatedWorkOrder.siteId }),
         });
         console.log(`[Mobile Claim] Notifying admins with triggeredByName: '${user?.name}' (DB) vs '${payload.name}' (Token)`);
 

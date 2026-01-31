@@ -9,8 +9,8 @@ interface ApiResponse<T> {
   error?: string
 }
 
-interface UseApiResponseOptions {
-  onSuccess?: (data: any) => void
+interface UseApiResponseOptions<T> {
+  onSuccess?: (data: T) => void
   onError?: (error: string) => void
 }
 
@@ -25,25 +25,25 @@ interface UseApiResponseReturn<T> {
 
 /**
  * Custom hook untuk menangani API response dengan format apiSuccess() wrapper
- * 
+ *
  * API yang menggunakan apiSuccess() mengembalikan format:
  * { success: true, data: { ... }, message?: string }
- * 
+ *
  * Hook ini secara otomatis mengekstrak data dari wrapper tersebut
- * 
+ *
  * @example
  * ```tsx
  * const { data, loading, error, fetchData } = useApiResponse<User[]>()
- * 
+ *
  * useEffect(() => {
  *   fetchData('/api/admin/users')
  * }, [])
- * 
+ *
  * // data akan berisi array User[], bukan { success: true, data: User[] }
  * ```
  */
-export function useApiResponse<T = any>(
-  options?: UseApiResponseOptions
+export function useApiResponse<T = unknown>(
+  options?: UseApiResponseOptions<T>
 ): UseApiResponseReturn<T> {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(false)
@@ -61,7 +61,7 @@ export function useApiResponse<T = any>(
       const json: ApiResponse<T> | T = await res.json()
 
       if (!res.ok) {
-        const errorMessage = (json as any)?.error || `HTTP Error: ${res.status}`
+        const errorMessage = (json as ApiResponse<T>)?.error || `HTTP Error: ${res.status}`
         setError(errorMessage)
         options?.onError?.(errorMessage)
         return null
@@ -91,8 +91,8 @@ export function useApiResponse<T = any>(
       options?.onSuccess?.(extractedData)
       return extractedData
 
-    } catch (err: any) {
-      const errorMessage = err.message || 'Terjadi kesalahan saat mengambil data'
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data'
       setError(errorMessage)
       options?.onError?.(errorMessage)
       return null
@@ -165,10 +165,10 @@ export async function apiFetch<T>(
       data: extractApiData<T>(json),
       error: null
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       data: null,
-      error: err.message || 'Network error'
+      error: err instanceof Error ? err.message : 'Network error'
     }
   }
 }

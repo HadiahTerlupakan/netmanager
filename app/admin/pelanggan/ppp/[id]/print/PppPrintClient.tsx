@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { HiPrinter, HiXMark, HiXCircle } from 'react-icons/hi2'
+import { HiPrinter, HiXCircle } from 'react-icons/hi2'
+import Image from 'next/image'
 import PageLoader from '@/components/ui/PageLoader'
 
 type Pelanggan = {
@@ -78,124 +79,94 @@ type Tagihan = {
   createdAt: string
 }
 
-const namaBulan = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-]
-
-type GeneralSettings = {
-  perusahaan: string
-  alamat: string
-  nomorHp: string
-  deskripsiInvoice: string
-}
-
-type LogoSettings = {
-  logoInvoice: string | null
-  logoAplikasi: string | null
-}
-
-export function ClientComponent() {
+export default function PppPrintClient() {
   const params = useParams()
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [showPPPAccount, setShowPPPAccount] = useState(false)
+  const id = params?.id as string
+
   const [pelanggan, setPelanggan] = useState<Pelanggan | null>(null)
   const [tagihan, setTagihan] = useState<Tagihan | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettings | null>(null)
-  const [logoSettings, setLogoSettings] = useState<LogoSettings | null>(null)
+  const [showPPPAccount, setShowPPPAccount] = useState(false)
+  const [logoSettings, setLogoSettings] = useState<{ logoInvoice?: string } | null>(null)
+  const [generalSettings, setGeneralSettings] = useState<{
+    perusahaan?: string
+    alamat?: string
+    nomorHp?: string
+    deskripsiInvoice?: string
+  } | null>(null)
 
   useEffect(() => {
-    const loadData = async () => {
+    const fetchData = async () => {
       try {
-        const id = params.id as string
+        setLoading(true)
 
-        // Load pengaturan umum dan logo secara parallel
-        const [settingsRes, logoRes] = await Promise.all([
-          fetch('/api/settings/general/public'),
-          fetch('/api/settings/logo/public')
-        ])
-
-        if (settingsRes.ok) {
-          const settingsData = await settingsRes.json()
-          setGeneralSettings(settingsData)
-        }
-
-        if (logoRes.ok) {
-          const logoData = await logoRes.json()
-          console.log('Logo settings loaded from API:', logoData)
-
-          // Pastikan path logo valid (harus dimulai dengan /)
-          if (logoData.logoInvoice) {
-            // Normalize path - pastikan dimulai dengan /
-            let normalizedPath = logoData.logoInvoice.trim()
-            if (!normalizedPath.startsWith('/')) {
-              normalizedPath = '/' + normalizedPath.replace(/^\//, '')
-            }
-            logoData.logoInvoice = normalizedPath
-
-            // Test apakah logo bisa diakses (silent check, tidak perlu log error)
-            const testImg = new Image()
-            testImg.onload = () => {
-              console.log('Logo image loaded successfully:', normalizedPath)
-            }
-            testImg.onerror = () => {
-              // Logo tidak ditemukan, akan menggunakan fallback SVG di komponen
-              console.warn('Logo tidak dapat diakses, akan menggunakan fallback:', normalizedPath)
-            }
-            testImg.src = normalizedPath
-          }
-
-          setLogoSettings(logoData)
-        } else {
-          const errorText = await logoRes.text()
-          console.error('Failed to load logo settings:', errorText)
-          setLogoSettings({ logoInvoice: null, logoAplikasi: null })
-        }
-
-        // Load pelanggan dengan paket
+        // Fetch pelanggan data
         const pelangganRes = await fetch(`/api/pelanggan-ppp/${id}`)
         if (!pelangganRes.ok) {
-          throw new Error('Gagal memuat data pelanggan')
+          throw new Error('Failed to fetch pelanggan data')
         }
         const pelangganData = await pelangganRes.json()
-        setPelanggan(pelangganData)
+        setPelanggan(pelangganData.pelanggan)
 
-        // Load tagihan terakhir (belum lunas atau yang terbaru)
-        const tagihanRes = await fetch(`/api/tagihan/pelanggan/${id}`)
+        // Fetch latest tagihan
+        const tagihanRes = await fetch(`/api/tagihan/pelanggan/${id}?latest=true`)
         if (tagihanRes.ok) {
-          const tagihans = await tagihanRes.json()
-          const tagihanBelumLunas = tagihans.find(
-            (t: Tagihan) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT',
-          )
-          const tagihanTerbaru = tagihans.sort((a: Tagihan, b: Tagihan) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          )[0]
-
-          setTagihan(tagihanBelumLunas || tagihanTerbaru || null)
+          const tagihanData = await tagihanRes.json()
+          if (tagihanData.tagihan) {
+            setTagihan(tagihanData.tagihan)
+          }
         }
-      } catch (err: any) {
-        setError(err.message || 'Terjadi kesalahan')
+
+        // Fetch logo settings
+        try {
+          const logoRes = await fetch('/api/admin/settings/logo')
+          if (logoRes.ok) {
+            const logoData = await logoRes.json()
+            if (logoData.logoInvoice) {
+              let normalizedPath = logoData.logoInvoice.trim()
+              if (!normalizedPath.startsWith('/')) {
+                normalizedPath = '/' + normalizedPath.replace(/^\//, '')
+              }
+              logoData.logoInvoice = normalizedPath
+              const testImg = new window.Image()
+              testImg.onload = () => {
+                console.log('Logo image loaded successfully:', normalizedPath)
+              }
+              testImg.onerror = () => {
+                console.warn('Logo tidak dapat diakses, akan menggunakan fallback:', normalizedPath)
+              }
+              testImg.src = normalizedPath
+            }
+            setLogoSettings(logoData)
+          }
+        } catch (_e) {
+          console.warn('Failed to load logo settings')
+        }
+
+        // Fetch general settings
+        try {
+          const generalRes = await fetch('/api/admin/settings/general')
+          if (generalRes.ok) {
+            const generalData = await generalRes.json()
+            setGeneralSettings(generalData)
+          }
+        } catch (_e) {
+          console.warn('Failed to load general settings')
+        }
+
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
         setLoading(false)
       }
     }
 
-    loadData()
-  }, [params.id])
-
-  // Removed auto-print to allow previewing first. User can click "Print Invoice" manually.
+    if (id) {
+      fetchData()
+    }
+  }, [id])
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -204,14 +175,6 @@ export function ClientComponent() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount)
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
   }
 
   const formatDateShort = (dateString: string) => {
@@ -443,12 +406,15 @@ export function ClientComponent() {
         <div className="flex justify-between items-start border-b border-gray-100 pb-8 mb-8">
             <div className="w-[60%]">
                 {logoSettings?.logoInvoice ? (
-                <img
-                    src={logoSettings.logoInvoice}
-                    alt="Company Logo"
-                    className="h-12 object-contain object-left mb-6"
-                    crossOrigin="anonymous"
-                />
+                <div className="relative h-12 w-full mb-6">
+                    <Image
+                        src={logoSettings.logoInvoice}
+                        alt="Company Logo"
+                        fill
+                        className="object-contain object-left"
+                        unoptimized={true}
+                    />
+                </div>
                 ) : (
                 <div className="h-12 w-12 bg-indigo-50 rounded flex items-center justify-center mb-6 text-indigo-600 font-bold text-xl">
                    {generalSettings?.perusahaan?.charAt(0) || 'C'}

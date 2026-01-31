@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
             success: true,
             ...result
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error checking app version:', error)
-        return NextResponse.json({ error: error.message || 'Failed to check version' }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Failed to check version'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

@@ -27,7 +27,7 @@ export const workingHourModeEnum = z.enum(['FIXED', 'FLEXIBLE', 'SHIFT'])
 /**
  * Overtime calculation types
  */
-export const overtimeCalcTypeEnum = z.enum(['HOURLY', 'DAILY', 'FIXED'])
+export const overtimeCalcTypeEnum = z.enum(['PER_HOUR', 'DAILY_SALARY', 'FIXED', 'PERCENTAGE'])
 
 /**
  * Create user schema
@@ -69,9 +69,9 @@ export const createUserSchema = z.object({
   overtimeRateNormal: z.number().min(0).default(0),
   overtimeRateHoliday: z.number().min(0).default(0),
   overtimeRateNational: z.number().min(0).default(0),
-  overtimeCalcTypeNormal: overtimeCalcTypeEnum.default('HOURLY'),
-  overtimeCalcTypeHoliday: overtimeCalcTypeEnum.default('HOURLY'),
-  overtimeCalcTypeNational: overtimeCalcTypeEnum.default('HOURLY'),
+  overtimeCalcTypeNormal: overtimeCalcTypeEnum.default('PER_HOUR'),
+  overtimeCalcTypeHoliday: overtimeCalcTypeEnum.default('PER_HOUR'),
+  overtimeCalcTypeNational: overtimeCalcTypeEnum.default('PER_HOUR'),
   
   // Incentives and deductions
   woIncentiveEnabled: z.boolean().default(false),
@@ -148,12 +148,12 @@ export const forceLogoutSchema = z.object({})
 
 // Legacy schemas for backward compatibility
 export const userCreateSchema = z.object({
-  name: z.string().trim().min(1, 'Nama wajib diisi').optional().or(z.literal('').transform(() => undefined)),
+  name: z.string().trim().min(1, 'Nama wajib diisi').optional().or(z.literal('').transform((): undefined => undefined)),
   email: z.string().trim().min(1, 'Email wajib diisi').email('Format email tidak valid'),
   password: z.string().min(6, 'Password minimal 6 karakter'),
-  phone: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
-  departmentId: z.string().optional().or(z.literal('').transform(() => undefined)),
-  siteId: z.string().optional().or(z.literal('').transform(() => undefined)),
+  phone: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
+  departmentId: z.string().optional().or(z.literal('').transform((): undefined => undefined)),
+  siteId: z.string().optional().or(z.literal('').transform((): undefined => undefined)),
   isActive: z.boolean().optional().default(true),
   role: z.string().optional(), // Legacy field
 })
@@ -161,8 +161,8 @@ export const userCreateSchema = z.object({
 export const userUpdateSchema = z.object({
   name: z.string().trim().min(1).optional(),
   password: z.string().min(6, 'Password minimal 6 karakter').optional(),
-  phone: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
-  departmentId: z.string().optional().or(z.literal('').transform(() => undefined)),
-  siteId: z.string().optional().or(z.literal('').transform(() => undefined)),
+  phone: z.string().trim().optional().or(z.literal('').transform((): undefined => undefined)),
+  departmentId: z.string().optional().or(z.literal('').transform((): undefined => undefined)),
+  siteId: z.string().optional().or(z.literal('').transform((): undefined => undefined)),
   isActive: z.boolean().optional(),
 })

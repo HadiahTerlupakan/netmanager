@@ -37,7 +37,7 @@ export class RadiusSyncService {
             if (setting?.value === 'MIKROTIK_API') {
                 return 'MIKROTIK_API';
             }
-        } catch (error) {
+        } catch (_error) {
             // Settings table might not exist or other error, default to RADIUS
             console.warn('[RadiusSyncService] Could not read connection mode, defaulting to RADIUS');
         }

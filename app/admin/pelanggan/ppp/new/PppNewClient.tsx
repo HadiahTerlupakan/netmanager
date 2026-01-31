@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText, HiMapPin } from 'react-icons/hi2'
+import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiMapPin } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { MapPickerWithSearch } from '@/components/common/MapPicker'
 import { SiteFilter } from '@/components/common/SiteFilter'
@@ -174,11 +174,9 @@ export function ClientComponent() {
         username: id, // Set username sama dengan ID pelanggan secara default
       }))
     })
-    loadHargaPakets()
-    loadOdps()
-  }, [loadOrGenerateIdPelanggan, formData.siteId])
+  }, [loadOrGenerateIdPelanggan]) // Generate ID only once on mount
 
-  const loadHargaPakets = async () => {
+  const loadHargaPakets = useCallback(async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
@@ -186,20 +184,20 @@ export function ClientComponent() {
       if (formData.siteId) {
           params.append('siteId', formData.siteId)
       }
-      
+
       const res = await fetch(`/api/hargapakets?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
         setHargaPakets(data || [])
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading harga pakets:', err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [formData.siteId])
 
-  const loadOdps = async () => {
+  const loadOdps = useCallback(async () => {
     try {
       const params = new URLSearchParams()
       if (formData.siteId) {
@@ -211,10 +209,15 @@ export function ClientComponent() {
         const data = await res.json()
         setOdps(data.odps || [])
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading ODPs:', err)
     }
-  }
+  }, [formData.siteId])
+
+  useEffect(() => {
+    loadHargaPakets()
+    loadOdps()
+  }, [loadHargaPakets, loadOdps])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -310,8 +313,9 @@ export function ClientComponent() {
 
       // Berhasil, redirect ke halaman list
       router.push('/admin/pelanggan/ppp')
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat menyimpan data')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan data'
+      setError(message)
     } finally {
       setSubmitting(false)
     }
@@ -629,7 +633,7 @@ export function ClientComponent() {
       console.log('Response status:', res.status, res.statusText)
 
       if (!res.ok) {
-        let errorData: any = {}
+        let errorData: { error?: string; message?: string } = {}
         let errorMessage = `HTTP ${res.status}: ${res.statusText}`
 
         try {
@@ -649,9 +653,11 @@ export function ClientComponent() {
           errorData,
         })
 
-        const finalErrorMessage = typeof errorMessage === 'string'
-          ? errorMessage
-          : (errorMessage as any)?.message || 'Gagal memproses KTP'
+        let finalErrorMessage = errorMessage
+        if (typeof errorMessage !== 'string') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          finalErrorMessage = (errorMessage as any)?.message || 'Gagal memproses KTP'
+        }
 
         throw new Error(finalErrorMessage)
       }
@@ -756,9 +762,9 @@ export function ClientComponent() {
       setTimeout(() => {
         setKtpScanSuccess(false)
       }, 3000)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error scanning KTP:', err)
-      const errorMessage = err.message || 'Terjadi kesalahan saat memproses KTP'
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses KTP'
       setKtpScanError(errorMessage)
       setKtpScanSuccess(false)
     } finally {

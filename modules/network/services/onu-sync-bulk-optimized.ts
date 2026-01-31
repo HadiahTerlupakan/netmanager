@@ -12,8 +12,17 @@
  */
 
 import { OLTRepository, OnuRepository } from '../repositories'
-import { logger } from '@/lib/logger'
-import snmp from 'net-snmp'
+import { logger } from '../../../lib/logger'
+import snmp, { type Varbind } from 'net-snmp'
+import { type OnuSyncData } from '@/lib/types/onu-sync'
+
+interface OltSyncParams {
+    ipAddress: string;
+    id: string; // Added ID for OnuSyncData
+    snmpCommunityWrite?: string | null;
+    snmpPort: number;
+    snmpVersion: string;
+}
 
 interface SyncProgress {
     phase: 'counting' | 'fetching' | 'saving' | 'complete'
@@ -213,7 +222,7 @@ export class OnuBulkSyncService {
     /**
      * Walk ONU table to get all indexes (much faster than individual GETs)
      */
-    private async walkOnuIndexes(olt: any): Promise<number[]> {
+    private async walkOnuIndexes(olt: OltSyncParams): Promise<number[]> {
         return new Promise((resolve, reject) => {
             const session = snmp.createSession(
                 olt.ipAddress,
@@ -264,12 +273,12 @@ export class OnuBulkSyncService {
      * Fetch ONUs in parallel batches for maximum speed
      */
     private async fetchOnusInParallel(
-        olt: any,
+        olt: OltSyncParams,
         indexes: number[],
         onProgress?: (fetched: number) => void
-    ): Promise<any[]> {
+    ): Promise<OnuSyncData[]> {
         const batches = this.chunkArray(indexes, OnuBulkSyncService.BATCH_SIZE)
-        const allOnus: any[] = []
+        const allOnus: OnuSyncData[] = []
         let fetchedCount = 0
 
         // Process batches with concurrency limit
@@ -300,7 +309,7 @@ export class OnuBulkSyncService {
     /**
      * Fetch a batch of ONUs using SNMP GET
      */
-    private async fetchOnuBatch(olt: any, indexes: number[]): Promise<any[]> {
+    private async fetchOnuBatch(olt: OltSyncParams, indexes: number[]): Promise<OnuSyncData[]> {
         return new Promise((resolve, reject) => {
             const session = snmp.createSession(
                 olt.ipAddress,
@@ -335,7 +344,7 @@ export class OnuBulkSyncService {
                     return
                 }
 
-                const onus: any[] = []
+                const onus: OnuSyncData[] = []
 
                 // Parse results (every 5 OIDs = 1 ONU)
                 for (let i = 0; i < indexes.length; i++) {
@@ -348,16 +357,56 @@ export class OnuBulkSyncService {
                     const port = Math.floor((compositeIndex % 65536) / 256)
                     const onuId = compositeIndex % 256
 
-                    const onu = {
+                    const onu: OnuSyncData = {
                         gponOnu: `${frame}/${slot}/${port}:${onuId}`,
-                        name: this.parseValue(varbinds[baseIdx]),
+                        name: this.parseValue(varbinds[baseIdx]) || 'Unknown',
                         status: this.parseStatus(varbinds[baseIdx + 1]),
                         rxOlt: this.parseValue(varbinds[baseIdx + 2]),
                         rxOnu: this.parseValue(varbinds[baseIdx + 3]),
                         serialNumber: this.parseValue(varbinds[baseIdx + 4]),
+                        oltId: olt.id,
+                        
+                        // Initialize required fields with null/defaults
+                        txOlt: null,
+                        txOnu: null,
                         actualType: null,
                         description: null,
                         pppoe: null,
+                        registerTime: null,
+                        distance: null,
+                        lastSeen: new Date(),
+                        registrationMode: null,
+                        softwareVersion: null,
+                        hardwareVersion: null,
+                        temperature: null,
+                        laserBiasCurrent: null,
+                        vendorId: null,
+                        equipmentId: null,
+                        firmwareVersion: null,
+                        macAddress: null,
+                        batteryStatus: null,
+                        opticalTransceiverType: null,
+                        lastDeregTime: null,
+                        authMode: null,
+                        loid: null,
+                        password: null,
+                        configState: null,
+                        powerLevel: null,
+                        dyingGaspTime: null,
+                        rxPowerStatus: null,
+                        txPowerStatus: null,
+                        rxBytes: null,
+                        txBytes: null,
+                        rxPackets: null,
+                        txPackets: null,
+                        rxErrors: null,
+                        txErrors: null,
+                        rxDrops: null,
+                        txDrops: null,
+                        wifiEnable: null,
+                        wifiSsid: null,
+                        wifiSecurityMode: null,
+                        wifiChannel: null,
                     }
 
                     onus.push(onu)
@@ -371,20 +420,22 @@ export class OnuBulkSyncService {
     /**
      * Parse SNMP value
      */
-    private parseValue(varbind: any): string | null {
-        if (!varbind || snmp.isVarbindError(varbind)) return null
+    private parseValue(varbind: unknown): string | null {
+        const vb = varbind as Varbind | null
+        if (!vb || snmp.isVarbindError(vb)) return null
+        const value = vb.value
 
-        if (Buffer.isBuffer(varbind.value)) {
-            return varbind.value.toString('utf8').replace(/\0/g, '').trim()
+        if (Buffer.isBuffer(value)) {
+            return value.toString('utf8').replace(/\0/g, '').trim()
         }
 
-        return String(varbind.value || '').trim() || null
+        return String(value || '').trim() || null
     }
 
     /**
      * Parse ONU status
      */
-    private parseStatus(varbind: any): string {
+    private parseStatus(varbind: unknown): string {
         const value = this.parseValue(varbind)
         if (!value) return 'Unknown'
 

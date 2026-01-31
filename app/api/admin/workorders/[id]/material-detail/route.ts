@@ -48,22 +48,25 @@ export async function GET(
         const isPickup = update.updateType === 'MATERIAL_PICKUP'
         
         // Try to find the material in usedMaterials closest to this update time
-        const usedMaterials = (update.workOrders?.usedMaterials as any[]) || []
-        
+        const usedMaterials = (update.workOrders?.usedMaterials as Array<{ id?: string; nama?: string; barangId: string; gudangId?: string | null }>) || []
+
         // Extract material name from message
         const materialMatch = message.match(/(?:Mengambil|Mengembalikan) barang: (.+)/)
-        const materialInfo = materialMatch ? materialMatch[1] : message
+        const materialInfo = materialMatch?.[1] ?? message ?? ''
         
         // Parse material details from the message format: "NamaBarang - Kondisi (jumlah satuan)"
         const detailMatch = materialInfo.match(/^(.+?) - (\w+) \((\d+) (.+?)\)/)
-        
-        let materialDetail: any = null
-        
+
+        let materialDetail: Record<string, unknown> | null = null
+
         if (detailMatch) {
-            const [, namaBarang, kondisi, jumlah, satuan] = detailMatch
-            
+            const namaBarang = detailMatch[1] as string
+            const kondisi = detailMatch[2] as string
+            const jumlah = detailMatch[3] as string
+            const satuan = detailMatch[4] as string
+
             // Try to find matching material in usedMaterials
-            const matchingMaterial = usedMaterials.find((m: any) => 
+            const matchingMaterial = usedMaterials.find((m: { nama?: string }) =>
                 m.nama?.toLowerCase().includes(namaBarang.toLowerCase().trim()) ||
                 namaBarang.toLowerCase().trim().includes(m.nama?.toLowerCase())
             )

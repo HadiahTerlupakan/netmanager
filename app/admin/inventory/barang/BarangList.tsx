@@ -8,7 +8,7 @@ import { InventoryStats } from '@/components/inventory/InventoryStats'
 import { usePermission } from '@/hooks/use-permission'
 
 export default function BarangPage() {
-  const { hasPermission, isLoading } = usePermission()
+  const { hasPermission } = usePermission()
   const canCreate = hasPermission('barang:create')
 
   return (

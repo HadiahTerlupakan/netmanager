@@ -23,14 +23,20 @@ export function usePermission() {
     // Fetch permissions from API when session is available
     useEffect(() => {
         if (!isAuthenticated || !session?.user) {
-            setPermissionState({ permissions: [], isSuperAdmin: false, isLoading: false })
+            // Defer state update to avoid synchronous setState in effect
+            requestAnimationFrame(() => {
+              setPermissionState({ permissions: [], isSuperAdmin: false, isLoading: false })
+            })
             return
         }
 
         // Check if user is super admin from session (quick check)
         const user = session.user as { role?: string }
         if (user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
-            setPermissionState({ permissions: ['*'], isSuperAdmin: true, isLoading: false })
+            // Defer state update to avoid synchronous setState in effect
+            requestAnimationFrame(() => {
+              setPermissionState({ permissions: ['*'], isSuperAdmin: true, isLoading: false })
+            })
             return
         }
 
@@ -40,7 +46,7 @@ export function usePermission() {
                 const response = await fetch('/api/user/permissions', {
                     credentials: 'include'
                 })
-                
+
                 if (!response.ok) {
                     console.error('[usePermission] Failed to fetch permissions:', response.status)
                     setPermissionState({ permissions: [], isSuperAdmin: false, isLoading: false })

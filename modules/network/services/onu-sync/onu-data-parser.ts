@@ -127,7 +127,7 @@ export class ONUDataParser {
   private parseOnuIndex(
     index: string,
     baseIndexToPortMap: Map<number, string>,
-    gponPortMap: Map<string, { ifIndex: number; baseIndex: number | null }>
+    _gponPortMap: Map<string, { ifIndex: number; baseIndex: number | null }>
   ): { card: number; pon: number; onuId: string } | null {
     const parts = index.split('.')
     if (parts.length < 2) return null
@@ -330,7 +330,7 @@ export class ONUDataParser {
   private extractZTEData(
     index: string,
     zteData: Record<string, Record<string, string>>
-  ): any {
+  ): Partial<OnuSyncData> {
     const getZteValue = (key: string): string | null => {
       const data = zteData[key]
       if (!data) return null
@@ -386,7 +386,7 @@ export class ONUDataParser {
       rxPowerStatus: getZteValue('rxPowerStatus')?.trim() || null,
       txPowerStatus: getZteValue('txPowerStatus')?.trim() || null,
       distance: this.parseDistance(getZteValue('logicalDistance')),
-      lastRegTime: this.parseTimestamp(getZteValue('lastRegTime')),
+      registerTime: this.parseTimestamp(getZteValue('lastRegTime')),
       lastDeregTime: this.parseTimestamp(getZteValue('lastDeregTime')),
       dyingGaspTime: this.parseTimestamp(getZteValue('dyingGaspTime')),
       rxBytes: parseBigInt(getZteValue('rxBytes')),

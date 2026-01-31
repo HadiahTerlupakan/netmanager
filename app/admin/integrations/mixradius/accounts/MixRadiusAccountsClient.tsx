@@ -43,9 +43,10 @@ export default function MixRadiusAccountsClient() {
       const res = await fetch('/api/integrations/mixradius/accounts')
       if (!res.ok) throw new Error('Failed to fetch accounts')
       const data = await res.json()
-      setConfigs(data)
-    } catch (error: any) {
-      toast.error(error.message)
+      // Handle both { data: [...] } and direct array response
+      setConfigs(Array.isArray(data) ? data : (data.data || []))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch accounts')
     } finally {
       setLoading(false)
     }
@@ -86,8 +87,8 @@ export default function MixRadiusAccountsClient() {
       toast.success(editingId ? 'Akun berhasil diperbarui' : 'Akun berhasil ditambahkan')
       setIsModalOpen(false)
       fetchData()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save')
     }
   }
 
@@ -103,8 +104,8 @@ export default function MixRadiusAccountsClient() {
 
       toast.success('Akun berhasil dihapus')
       fetchData()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete')
     }
   }
 
@@ -124,9 +125,9 @@ export default function MixRadiusAccountsClient() {
           if (!res.ok) throw new Error('Gagal mengaktifkan akun');
           toast.success(`Akun "${name}" diaktifkan`);
           fetchData(); // Refresh to ensure sync
-      } catch (error: any) {
+      } catch (error) {
           setConfigs(previousConfigs); // Revert on error
-          toast.error(error.message);
+          toast.error(error instanceof Error ? error.message : 'Failed to activate');
       }
   }
 

@@ -85,7 +85,7 @@ export class MixRadiusConfigRepository {
   private async deactivateAll(exceptId?: string) {
     await prisma.mixRadiusConfig.updateMany({
       where: {
-        id: { not: exceptId }, // safe even if exceptId is undefined
+        ...(exceptId ? { id: { not: exceptId } } : {}),
         isActive: true,
       },
       data: { isActive: false },

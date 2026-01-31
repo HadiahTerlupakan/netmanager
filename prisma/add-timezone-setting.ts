@@ -14,7 +14,7 @@ if (!connectionString) {
 
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter } as any)
+const prisma = new PrismaClient({ adapter } as unknown)
 
 async function main() {
   const result = await prisma.settings.upsert({

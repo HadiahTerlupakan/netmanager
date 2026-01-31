@@ -6,8 +6,7 @@ import { id } from "date-fns/locale";
 import {
     HiOutlineDocumentText,
     HiOutlineCurrencyDollar,
-    HiOutlineArrowTrendingUp,
-    HiArrowDownTray
+    HiOutlineArrowTrendingUp
 } from "react-icons/hi2";
 import {
     Chart as ChartJS,
@@ -20,7 +19,6 @@ import {
     Legend,
     Filler,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
 import { toast } from "react-hot-toast";
 
 ChartJS.register(
@@ -35,17 +33,40 @@ ChartJS.register(
 );
 
 export default function DailyRevenueList() {
-    const [loading, setLoading] = useState(true);
-    const [payments, setPayments] = useState<any[]>([]);
     const [totalRevenue, setTotalRevenue] = useState(0);
 
     useEffect(() => {
-        fetchDailyRevenue();
+        const fetchDailyRevenue = async () => {
+            try {
+                const today = new Date();
+                const queryParams = new URLSearchParams({
+                    startDate: format(today, 'yyyy-MM-dd'),
+                    endDate: format(today, 'yyyy-MM-dd'),
+                    type: 'daily'
+                });
+
+                const res = await fetch(`/api/finance/stats?${queryParams.toString()}`);
+                const data = await res.json();
+
+                if (data && typeof data.totalRevenue === 'number') {
+                    setTotalRevenue(data.totalRevenue);
+                } else {
+                    console.error("Invalid API response for daily revenue:", data);
+                    setTotalRevenue(0);
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch daily revenue", error);
+                toast.error("Gagal memuat data pendapatan");
+                setTotalRevenue(0);
+            }
+        };
+
+        void fetchDailyRevenue();
     }, []);
 
     const fetchDailyRevenue = async () => {
         try {
-            setLoading(true);
             const today = new Date();
             const queryParams = new URLSearchParams({
                 startDate: format(today, 'yyyy-MM-dd'),
@@ -67,8 +88,6 @@ export default function DailyRevenueList() {
             console.error("Failed to fetch daily revenue", error);
             toast.error("Gagal memuat data pendapatan");
             setTotalRevenue(0);
-        } finally {
-            setLoading(false);
         }
     };
 

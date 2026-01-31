@@ -5,14 +5,15 @@ import { authOptions } from '@/lib/auth';
 
 const service = new ProcurementService();
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const result = await service.getAvailablePRs();
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

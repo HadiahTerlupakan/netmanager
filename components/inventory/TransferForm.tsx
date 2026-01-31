@@ -8,16 +8,35 @@ import {
   FiXCircle
 } from 'react-icons/fi'
 import { PhotoUpload } from './PhotoUpload'
-import type { PhotoUploadRef } from './PhotoUpload'
+import type { PhotoUploadRef, UploadedPhoto } from './PhotoUpload'
 import { getWithAuth, postWithAuth } from '@/lib/api-client'
 
+interface Barang {
+  id: string
+  kode: string
+  nama: string
+  satuan: string
+  stockPerGudang?: Array<{
+    gudangId: string
+    stok: number
+  }>
+}
+
+interface Gudang {
+  id: string
+  kode: string
+  nama: string
+  lokasi?: string
+}
+
+
 interface TransferFormProps {
-  initialData?: any
+  initialData?: unknown
   onClose: () => void
   onSuccess?: () => void
 }
 
-export function TransferForm({ initialData, onClose, onSuccess }: TransferFormProps) {
+export function TransferForm({ initialData: _initialData, onClose, onSuccess }: TransferFormProps) {
   const [formData, setFormData] = useState({
     barangId: '',
     dariGudangId: '',
@@ -26,8 +45,8 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
     kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
     keterangan: ''
   })
-  const [barangs, setBarangs] = useState<any[]>([])
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [barangs, setBarangs] = useState<Barang[]>([])
+  const [gudangs, setGudangs] = useState<Gudang[]>([])
   const [stockSumber, setStockSumber] = useState(0)
   const [stockPerKondisi, setStockPerKondisi] = useState({
     BARU: 0,
@@ -37,8 +56,8 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
-  const [transactionId, setTransactionId] = useState<string | null>(null)
+  const [_uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([])
+  const [transactionId, _setTransactionId] = useState<string | null>(null)
   const photoUploadRef = useRef<PhotoUploadRef>(null)
   const router = useRouter()
 
@@ -82,7 +101,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
             // Fallback to current logic if API fails
             const selectedBarang = barangs.find(b => b.id === formData.barangId)
             if (selectedBarang) {
-              const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.dariGudangId)
+              const stockInfo = selectedBarang.stockPerGudang?.find((s: { gudangId: string, stok: number }) => s.gudangId === formData.dariGudangId)
               setStockSumber(stockInfo?.stok || 0)
             }
           }
@@ -91,7 +110,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
           // Fallback to current logic
           const selectedBarang = barangs.find(b => b.id === formData.barangId)
           if (selectedBarang) {
-            const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.dariGudangId)
+            const stockInfo = selectedBarang.stockPerGudang?.find((s: { gudangId: string, stok: number }) => s.gudangId === formData.dariGudangId)
             setStockSumber(stockInfo?.stok || 0)
           }
         }
@@ -137,7 +156,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
     try {
       // Upload photos first if any exist
       let fotoBuktiUrls: string[] = []
-      let uploadedPhotosList: any[] = []
+      let uploadedPhotosList: UploadedPhoto[] = []
 
       if (photoUploadRef.current) {
         const currentPhotos = photoUploadRef.current.getPhotos()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
 import { SOCKET_EVENTS, type NotificationPayload, type CountPayload } from '../types'
 
@@ -38,7 +38,7 @@ export function useRealtimeNotifications(
     options: UseRealtimeNotificationsOptions = {}
 ): UseRealtimeNotificationsResult {
     const { limit = 5, autoFetch = true, excludeTypes = [] } = options
-    const { socket, isConnected } = useSocket()
+    const { isConnected } = useSocket()
 
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [unreadCount, setUnreadCount] = useState(0)
@@ -112,16 +112,18 @@ export function useRealtimeNotifications(
                     }
 
                     const audio = new Audio(audioSrc);
-                    audio.play().catch((err) => console.log('Audio play failed:', err));
+                    audio.play().catch((_err) => console.log('Audio play failed:', _err));
                 }
-            } catch (error) {
+            } catch (_error) {
                 // Ignore audio errors
             }
 
             // Add to beginning of list
             setNotifications((prev) => {
+                const { link, ...restPayload } = payload
                 const newNotification: Notification = {
-                    ...payload,
+                    ...restPayload,
+                    ...(link ? { link } : {}),
                     isRead: false,
                 }
                 return [newNotification, ...prev.slice(0, limit - 1)]

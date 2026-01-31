@@ -28,11 +28,11 @@ export const prisma =
   new PrismaClient({
     adapter,
     log: ['error', 'warn'],
-  } as any)
+  })
 
 // Fix for BigInt serialization in JSON for React 19
 if (typeof BigInt !== 'undefined') {
-  // @ts-ignore - Temporary fix for Next.js build
+  // @ts-expect-error - Adding toJSON method to BigInt prototype for Next.js serialization
   BigInt.prototype.toJSON = function () {
     return this.toString()
   }

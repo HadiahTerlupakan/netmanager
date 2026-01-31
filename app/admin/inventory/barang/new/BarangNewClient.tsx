@@ -8,7 +8,7 @@ import { BarangForm } from '@/components/inventory/BarangForm'
 export function ClientComponent() {
   const router = useRouter()
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async () => {
     // Redirect to inventory page after successful submission
     router.push('/admin/inventory')
   }

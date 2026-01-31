@@ -17,13 +17,17 @@ export async function POST(request: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
-        const formData: any = await request.formData();
+        const formData = await request.formData();
         const file = formData.get('file') as File | null;
         const type = (formData.get('type') as UploadType) || 'general';
         const subFolder = formData.get('subFolder') as string || undefined;
@@ -105,10 +109,10 @@ export async function POST(request: NextRequest) {
             fileName: `${fileName}.webp`
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Mobile upload error:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to upload file' },
+            { error: error instanceof Error ? error.message : 'Failed to upload file' },
             { status: 500 }
         );
     }

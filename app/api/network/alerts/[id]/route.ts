@@ -5,8 +5,8 @@ import { networkAlertUpdateSchema } from '@/lib/validations/network-performance'
 import { prisma } from '@/lib/prisma'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig as unknown as Record<string, unknown>)
+  if (!session) {
     return null
   }
   return session
@@ -44,7 +44,7 @@ async function requireAdmin() {
  *         description: Server error
  */
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
@@ -63,13 +63,13 @@ export async function GET(
       }
 
       return NextResponse.json({ data: alert })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching network alert:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal memuat data alert jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal memuat data alert jaringan' },
       { status: 500 }
     )
   }
@@ -157,20 +157,20 @@ export async function PUT(
     const data = parsed.data
 
     try {
-      const updateData: any = { ...data }
+      const updateData: Record<string, unknown> = { ...data }
 
       if (data.acknowledged) {
-        updateData.acknowledgedBy = session.user?.id
+        updateData.acknowledgedBy = (session as { user: { id: string } }).user?.id
         updateData.acknowledgedAt = new Date()
       }
 
       if (data.resolved) {
-        updateData.resolvedBy = session.user?.id
+        updateData.resolvedBy = (session as { user: { id: string } }).user?.id
         updateData.resolvedAt = new Date()
       }
 
-      if (data.severity) updateData.severity = data.severity as any
-      if (data.status) updateData.status = data.status as any
+      if (data.severity) updateData.severity = data.severity
+      if (data.status) updateData.status = data.status
 
       await prisma.networkAlerts.update({
         where: { id },
@@ -186,7 +186,7 @@ export async function PUT(
         await logger.logActivity({
           action: 'UPDATE',
           subject: 'Network Alert',
-          userId: session.user.id,
+          userId: (session as { user: { id: string } }).user.id,
           details: { id, updates: updateData }
         })
       } catch (e) {
@@ -194,13 +194,13 @@ export async function PUT(
       }
 
       return NextResponse.json({ message: 'Alert berhasil diperbarui' })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating network alert:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal memperbarui alert jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal memperbarui alert jaringan' },
       { status: 500 }
     )
   }
@@ -234,7 +234,7 @@ export async function PUT(
  *         description: Server error
  */
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
@@ -262,7 +262,7 @@ export async function DELETE(
         await logger.logActivity({
           action: 'DELETE',
           subject: 'Network Alert',
-          userId: session.user.id,
+          userId: (session as { user: { id: string } }).user.id,
           details: { id, title: alert.title }
         })
       } catch (e) {
@@ -270,13 +270,13 @@ export async function DELETE(
       }
 
       return NextResponse.json({ message: 'Alert berhasil dihapus' })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting network alert:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal menghapus alert jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal menghapus alert jaringan' },
       { status: 500 }
     )
   }

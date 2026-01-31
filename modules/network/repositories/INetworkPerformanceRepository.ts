@@ -1,4 +1,6 @@
-import { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '@prisma/client'
+
+export type { PrismaClient }
 
 export interface NetworkPerformanceCreateData {
   deviceId: string
@@ -15,12 +17,12 @@ export interface NetworkPerformanceCreateData {
   txDrops?: number
   rxErrors?: number
   txErrors?: number
-  interfaceStatus?: any
+  interfaceStatus?: unknown
   connectionCount?: number
   bandwidthUsage?: number
   signalStrength?: number
   powerLevel?: string
-  customMetrics?: any
+  customMetrics?: unknown
 }
 
 export interface NetworkPerformanceUpdateData {
@@ -36,12 +38,12 @@ export interface NetworkPerformanceUpdateData {
   txDrops?: number
   rxErrors?: number
   txErrors?: number
-  interfaceStatus?: any
+  interfaceStatus?: unknown
   connectionCount?: number
   bandwidthUsage?: number
   signalStrength?: number
   powerLevel?: string
-  customMetrics?: any
+  customMetrics?: unknown
 }
 
 export interface NetworkPerformanceFilters {
@@ -72,12 +74,12 @@ export interface NetworkPerformancePublic {
   txDrops?: bigint | null
   rxErrors?: bigint | null
   txErrors?: bigint | null
-  interfaceStatus?: any | null
+  interfaceStatus?: unknown | null
   connectionCount?: number | null
   bandwidthUsage?: number | null
   signalStrength?: number | null
   powerLevel?: string | null
-  customMetrics?: any | null
+  customMetrics?: unknown | null
   createdAt: Date
   updatedAt: Date
 }
@@ -85,8 +87,8 @@ export interface NetworkPerformancePublic {
 export interface INetworkPerformanceRepository {
   create(data: NetworkPerformanceCreateData): Promise<NetworkPerformancePublic>
   findById(id: string): Promise<NetworkPerformancePublic | null>
-  findByDeviceId(deviceId: string, deviceType: string, filters?: NetworkPerformanceFilters): Promise<{ data: NetworkPerformancePublic[], pagination: any }>
-  findMany(filters?: NetworkPerformanceFilters): Promise<{ data: NetworkPerformancePublic[], pagination: any }>
+  findByDeviceId(deviceId: string, deviceType: string, filters?: NetworkPerformanceFilters): Promise<{ data: NetworkPerformancePublic[], pagination: { page: number, limit: number, total: number, totalPages: number } }>
+  findMany(filters?: NetworkPerformanceFilters): Promise<{ data: NetworkPerformancePublic[], pagination: { page: number, limit: number, total: number, totalPages: number } }>
   update(id: string, data: NetworkPerformanceUpdateData): Promise<void>
   delete(id: string): Promise<void>
   deleteByDeviceId(deviceId: string, deviceType: string, olderThanDays?: number): Promise<{ count: number }>

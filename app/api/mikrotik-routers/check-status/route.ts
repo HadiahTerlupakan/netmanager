@@ -4,8 +4,8 @@ import { authConfig } from '@/lib/auth'
 import { checkAllMikroTikRouterStatus } from '@/modules/network/services/mikrotik-ping-check'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -22,9 +22,11 @@ export async function POST() {
       message: `Status check completed. Updated ${count} routers.`,
       count,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error checking MikroTik router status:', error)
-    return NextResponse.json({ error: error.message || 'Failed to check router status' }, { status: 500 })
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Failed to check router status'
+    }, { status: 500 })
   }
 }
 

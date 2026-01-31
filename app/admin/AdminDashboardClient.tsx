@@ -44,33 +44,13 @@ export async function ClientComponent() {
         // Check permission
         // Permission checking logic might need adjustment if item structure changed
         // But assuming generic MenuConfig structure:
-        const requiredPerm = item.code ? `${item.code.toLowerCase()}:read` : null // Approximation if permission field missing
-        // Wait, MenuConfig in file viewer didn't show 'permission' field explicitly used in logic before?
-        // Ah, the previous code used `item.permission`. 
-        // `MenuConfig` interface: code, name, path, icon, children.
-        // It DOES NOT have `permission`.
-        // The old `ADMIN_NAV_ITEMS` likely had `permission`.
-        // `ADMIN_MENU_CONFIG` relies on `code` or explicitly defined permissions elsewhere?
-        // Let's assume permissions are mapped from code for now or check check logic.
-
-        // Actually adhering to user-defined MenuConfig structure:
-        // Let's use `code` as permission base if suitable or just allow if no explicit permission mapping found?
-        // The original code: `const requiredPerm = item.permission ? ...`
-        // New structure: `code`.
-        // Let's try: `const requiredPerm = item.code ? item.code.toLowerCase() + ':read' : null`
-
-        // However, converting 'NETWORK.MIKROTIK' to 'network.mikrotik:read' seems correct for standard CRUD.
-        // Let's stick to the previous code logic but adapt for 'code' instead of 'permission' if 'permission' is missing.
-
-        // But wait, the previous code had `item.href`. `MenuConfig` has `path`.
-
         // Logic adapted from Sidebar.tsx to ensure consistency
         const permissionResource = item.code
           ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
           : ''
 
-        const hasPerm = isSuperAdmin || (permissionResource 
-          ? permissions.includes(`${permissionResource.toLowerCase()}:read`) 
+        const _hasPerm = isSuperAdmin || (permissionResource
+          ? permissions.includes(`${permissionResource.toLowerCase()}:read`)
           : true)
 
         // If item has children, try to find a valid route in children

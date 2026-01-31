@@ -5,7 +5,7 @@
  * Digunakan dalam mode API MikroTik (bukan RADIUS).
  */
 
-import { PrismaClient, Status } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { RouterOSAPI } from 'node-routeros-v2';
 import { prisma as defaultPrisma } from '@/lib/prisma';
 
@@ -53,7 +53,11 @@ export class MikroTikPPPSecretService {
   private async getRouterFromPelanggan(pelangganId: string): Promise<{
     router: RouterConfig;
     routerId: string;
-    pelanggan: any;
+    pelanggan: {
+      username: string;
+      password: string;
+      nama: string;
+    };
     profileName: string;
   } | null> {
     const pelanggan = await this.prisma.pelanggan.findUnique({
@@ -119,16 +123,19 @@ export class MikroTikPPPSecretService {
         // Cek apakah secret sudah ada
         const existing = await conn.write('/ppp/secret/print', [
           `?name=${data.name}`
-        ]) as any[];
+        ]) as Array<Record<string, string>>;
 
         if (existing && existing.length > 0) {
           // Update jika sudah ada
-          await conn.write('/ppp/secret/set', [
-            `=.id=${existing[0]['.id']}`,
-            `=password=${data.password}`,
-            `=profile=${data.profile}`,
-            `=comment=${data.comment || 'added by netmanager'}`,
-          ]);
+          const secret = existing[0];
+          if (secret) {
+            await conn.write('/ppp/secret/set', [
+              `=.id=${secret['.id']}`,
+              `=password=${data.password}`,
+              `=profile=${data.profile}`,
+              `=comment=${data.comment || 'added by netmanager'}`,
+            ]);
+          }
         } else {
           // Buat baru
           await conn.write('/ppp/secret/add', [
@@ -142,13 +149,14 @@ export class MikroTikPPPSecretService {
 
         conn.close();
         return { success: true };
-      } catch (error: any) {
+      } catch (error: unknown) {
         conn.close();
         throw error;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] createSecret error:', error);
-      return { success: false, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -179,9 +187,9 @@ export class MikroTikPPPSecretService {
       try {
         const secrets = await conn.write('/ppp/secret/print', [
           `?name=${username}`
-        ]) as any[];
+        ]) as Array<Record<string, string>>;
 
-        if (!secrets || secrets.length === 0) {
+        if (!secrets || secrets.length === 0 || !secrets[0]) {
           conn.close();
           return { success: false, error: 'PPP Secret tidak ditemukan' };
         }
@@ -193,13 +201,14 @@ export class MikroTikPPPSecretService {
 
         conn.close();
         return { success: true };
-      } catch (error: any) {
+      } catch (error: unknown) {
         conn.close();
         throw error;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] setSecretProfile error:', error);
-      return { success: false, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -230,25 +239,28 @@ export class MikroTikPPPSecretService {
         // Cari active sessions
         const sessions = await conn.write('/ppp/active/print', [
           `?name=${username}`
-        ]) as any[];
+        ]) as Array<Record<string, string>>;
 
         let disconnected = 0;
         for (const session of sessions || []) {
-          await conn.write('/ppp/active/remove', [
-            `=.id=${session['.id']}`
-          ]);
-          disconnected++;
+          if (session['.id']) {
+            await conn.write('/ppp/active/remove', [
+              `=.id=${session['.id']}`
+            ]);
+            disconnected++;
+          }
         }
 
         conn.close();
         return { success: true, disconnected };
-      } catch (error: any) {
+      } catch (error: unknown) {
         conn.close();
         throw error;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] disconnectSession error:', error);
-      return { success: false, disconnected: 0, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, disconnected: 0, error: errorMessage };
     }
   }
 
@@ -279,30 +291,35 @@ export class MikroTikPPPSecretService {
         // 1. Hapus secret DULU (agar tidak bisa auto-reconnect)
         const secrets = await conn.write('/ppp/secret/print', [
           `?name=${username}`
-        ]) as any[];
+        ]) as Array<Record<string, string>>;
 
         for (const secret of secrets || []) {
-          await conn.write('/ppp/secret/remove', [`=.id=${secret['.id']}`]);
+          if (secret['.id']) {
+            await conn.write('/ppp/secret/remove', [`=.id=${secret['.id']}`]);
+          }
         }
 
         // 2. Baru disconnect session (kick user)
         const activeSessions = await conn.write('/ppp/active/print', [
           `?name=${username}`
-        ]) as any[];
-        
+        ]) as Array<Record<string, string>>;
+
         for (const session of activeSessions || []) {
-          await conn.write('/ppp/active/remove', [`=.id=${session['.id']}`]);
+          if (session['.id']) {
+            await conn.write('/ppp/active/remove', [`=.id=${session['.id']}`]);
+          }
         }
 
         conn.close();
         return { success: true };
-      } catch (error: any) {
+      } catch (error: unknown) {
         conn.close();
         throw error;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] deleteSecret error:', error);
-      return { success: false, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -335,12 +352,16 @@ export class MikroTikPPPSecretService {
       );
       
       if (!profileResult.success) {
-        // Jika error karena secret tidak ditemukan (misal user RADIUS), 
+        // Jika error karena secret tidak ditemukan (misal user RADIUS),
         // kita tetap lanjut disconnect session agar user ter-kick.
         if (profileResult.error === 'PPP Secret tidak ditemukan') {
            logs.push('Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...');
         } else {
-           return { success: false, logs, error: profileResult.error };
+           return {
+             success: false,
+             logs,
+             ...(profileResult.error ? { error: profileResult.error } : {})
+           };
         }
       } else {
         logs.push(`Profile diubah ke "${EXPIRED_PROFILE}"`);
@@ -354,9 +375,10 @@ export class MikroTikPPPSecretService {
       logs.push(`Disconnected ${disconnectResult.disconnected} session(s)`);
 
       return { success: true, logs };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] isolateCustomer error:', error);
-      return { success: false, logs, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, logs, error: errorMessage };
     }
   }
 
@@ -401,9 +423,10 @@ export class MikroTikPPPSecretService {
       logs.push(`Disconnected ${disconnectResult.disconnected} session(s)`);
 
       return { success: true, logs };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] unIsolateCustomer error:', error);
-      return { success: false, logs, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, logs, error: errorMessage };
     }
   }
 
@@ -436,9 +459,10 @@ export class MikroTikPPPSecretService {
       logs.push('PPP Secret berhasil dihapus');
 
       return { success: true, logs };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] dismantleCustomer error:', error);
-      return { success: false, logs, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, logs, error: errorMessage };
     }
   }
 
@@ -477,9 +501,10 @@ export class MikroTikPPPSecretService {
       logs.push('PPP Secret berhasil dibuat');
 
       return { success: true, logs };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PPPSecretService] syncNewCustomer error:', error);
-      return { success: false, logs, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, logs, error: errorMessage };
     }
   }
 }

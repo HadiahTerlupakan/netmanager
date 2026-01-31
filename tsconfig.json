@@ -14,9 +14,10 @@
     "incremental": true,
     "noEmit": true,
     "strict": true,
+    "strictNullChecks": false,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
@@ -24,8 +25,15 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@/types/*": [
+        "types/*"
       ]
     },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types/declarations"
+    ],
     "allowJs": true,
     "plugins": [
       {

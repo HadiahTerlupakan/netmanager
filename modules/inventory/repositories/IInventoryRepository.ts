@@ -55,7 +55,7 @@ export interface CreateBarangMasukInput {
     kondisi?: KondisiBarang
     keterangan?: string
     fotoBukti?: string[]
-    fotoMetadata?: any
+    fotoMetadata?: Record<string, unknown>
     userId?: string
     tanggal?: Date
 }
@@ -70,7 +70,7 @@ export interface CreateBarangKeluarInput {
     isHilang?: boolean
     userId?: string
     fotoBukti?: string[]
-    fotoMetadata?: any
+    fotoMetadata?: Record<string, unknown>
     tanggal?: Date
 }
 
@@ -79,7 +79,7 @@ export type BarangDetail = BarangWithStock & {
     masuk: BarangMasukWithRelations[]
     keluar: BarangKeluarWithRelations[]
     // opname usually has similar structure
-    opname: any[]
+    opname: Record<string, unknown>[]
 }
 
 // Gudang Types
@@ -110,7 +110,7 @@ export interface CreateTransferInput {
     keterangan?: string
     userId: string
     fotoBukti?: string[]
-    fotoMetadata?: any
+    fotoMetadata?: Record<string, unknown>
 }
 
 export interface UpdateTransferInput {
@@ -128,13 +128,13 @@ export interface IInventoryRepository {
         dariGudangId?: string
         keGudangId?: string
         siteId?: string
-    }): Promise<{ items: any[]; total: number }>
+    }): Promise<{ items: Record<string, unknown>[]; total: number }>
 
-    findTransferById(id: string): Promise<any | null>
+    findTransferById(id: string): Promise<Record<string, unknown> | null>
 
-    createTransfer(data: CreateTransferInput): Promise<any>
+    createTransfer(data: CreateTransferInput): Promise<Record<string, unknown>>
 
-    updateTransfer(id: string, data: UpdateTransferInput): Promise<any>
+    updateTransfer(id: string, data: UpdateTransferInput): Promise<Record<string, unknown>>
 
     deleteTransfer(id: string): Promise<void> // Revert transfer
 

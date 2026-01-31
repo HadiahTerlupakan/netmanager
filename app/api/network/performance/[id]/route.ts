@@ -4,8 +4,8 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -53,7 +53,6 @@ export async function GET(
     const { id } = await params
 
     try {
-      // @ts-ignore - Will work after schema update
       const performanceData = await prisma.networkPerformance.findUnique({
         where: { id },
       })
@@ -63,9 +62,9 @@ export async function GET(
       }
 
       return NextResponse.json({ data: performanceData })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json(
           { error: 'Network performance monitoring will be available after database migration' },
           { status: 503 }
@@ -73,10 +72,10 @@ export async function GET(
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching network performance data:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal memuat data performa jaringan' },
+      { error: error instanceof Error ? error.message : 'Gagal memuat data performa jaringan' },
       { status: 500 }
     )
   }

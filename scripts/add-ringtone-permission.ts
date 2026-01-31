@@ -56,10 +56,11 @@ async function main() {
             })
             console.log(`Assigned permission to SUPER_ADMIN`)
         }
-    } catch (e: any) {
-        console.error('Error in script:', e)
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error('Error in script:', error)
         // Check if error is due to field name mismatch (permissions vs permission)
-        if (e.message?.includes('Unknown arg')) {
+        if (error.message?.includes('Unknown arg')) {
             console.log('Retrying with different relation field name...')
             const superAdminRole = await prisma.role.findFirst({ where: { name: 'SUPER_ADMIN' } })
             if (superAdminRole) {

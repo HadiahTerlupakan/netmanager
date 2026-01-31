@@ -193,15 +193,31 @@ export async function POST(
 
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
+      const txExtended = tx as unknown as {
+        serviceSuspension: {
+          create: (args: unknown) => Promise<{
+            id: string;
+            suspensionType: string;
+            reason: string;
+            notes: string | null;
+            suspendedAt: Date;
+            expectedResumeAt: Date | null;
+            suspendedBy: string;
+            isActive: boolean;
+          }>;
+        }
+      };
+
       // 1. Create suspension record
-      const suspension = await (tx as any).serviceSuspension.create({
+      // Using a typed extension to access the dynamic model while avoiding plain any
+      const suspension = await txExtended.serviceSuspension.create({
         data: {
           pelangganId: id,
           suspensionType,
           reason,
           notes,
           expectedResumeAt: expectedResumeAt ? new Date(expectedResumeAt) : null,
-          suspendedBy: (auth as any)?.user?.id,
+          suspendedBy: (auth as { user: { id: string } }).user.id,
           isActive: true,
         },
       })
@@ -245,7 +261,7 @@ export async function POST(
           console.log(`[SUSPEND] Terminated active session ${session.acctSessionId} for user ${pelanggan.username}`)
         }
       }
-    } catch (radiusError) {
+    } catch (radiusError: unknown) {
       console.error('Error handling RADIUS operations during suspension:', radiusError)
       // Don't fail the request, but log the error
     }
@@ -268,15 +284,15 @@ export async function POST(
       await logger.logActivity({
         action: 'SUSPEND',
         subject: 'Pelanggan',
-        userId: (auth as any)?.user?.id,
-        details: { 
-            id: id, 
+        userId: (auth as { user: { id: string } }).user.id,
+        details: {
+            id: id,
             type: suspensionType,
             reason: reason,
             suspensionId: result.id
         }
       })
-    } catch (logError) {
+    } catch (logError: unknown) {
       console.error('Failed to log activity:', logError)
     }
 
@@ -295,18 +311,21 @@ export async function POST(
       },
       customer: updatedPelanggan,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error suspending customer service:', error)
 
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+    const errorCode = (error as { code?: string }).code
+
     // Handle specific errors
-    if (error.code === 'P2002') {
+    if (errorCode === 'P2002') {
       return NextResponse.json(
         { error: 'Suspension record already exists' },
         { status: 400 }
       )
     }
 
-    if (error.code === 'P2025') {
+    if (errorCode === 'P2025') {
       return NextResponse.json(
         { error: 'Customer not found' },
         { status: 404 }
@@ -314,7 +333,7 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

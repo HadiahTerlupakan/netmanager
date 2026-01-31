@@ -97,7 +97,7 @@ export function isExpired(key: string): boolean {
     const itemStr = localStorage.getItem(key)
     if (!itemStr) return true
 
-    const item: StorageItem<any> = JSON.parse(itemStr)
+    const item: StorageItem<unknown> = JSON.parse(itemStr)
     return Date.now() > item.expiry
   } catch {
     return true

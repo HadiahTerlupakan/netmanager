@@ -18,7 +18,11 @@ export async function PATCH(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
-        const user = await verifyMobileToken(token);
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+        }
+
+        const user = await verifyMobileToken(token) as unknown as { id: string; name?: string };
         if (!user) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
@@ -61,13 +65,13 @@ export async function PATCH(
                 workOrderNumber: updatedWO.workOrderNumber,
                 title: updatedWO.title,
                 actionType: 'NOTE',
-                actionMessage: isCompleted 
-                    ? `Menyelesaikan task: ${task?.title || 'Unknown'}` 
+                actionMessage: isCompleted
+                    ? `Menyelesaikan task: ${task?.title || 'Unknown'}`
                     : `Membatalkan task: ${task?.title || 'Unknown'}`,
                 triggeredByUserId: user.id,
-                triggeredByName: user.name || undefined,
-                departmentId: updatedWO.departmentId || undefined,
-                siteId: updatedWO.siteId || undefined
+                triggeredByName: user.name || 'Unknown',
+                ...(updatedWO.departmentId && { departmentId: updatedWO.departmentId }),
+                ...(updatedWO.siteId && { siteId: updatedWO.siteId })
             }).catch(err => console.error('[TaskNotify] Error:', err));
         }
 

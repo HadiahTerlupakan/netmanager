@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiTrash, HiPencil } from 'react-icons/hi2'
+import { HiOutlinePlus, HiTrash } from 'react-icons/hi2'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
@@ -42,7 +42,7 @@ export default function CouponList() {
         }
     }
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (_id: string) => {
         if (!confirm('Apakah anda yakin ingin menghapus kupon ini?')) return
         try {
             // Assuming DELETE endpoint exists or will be added. 

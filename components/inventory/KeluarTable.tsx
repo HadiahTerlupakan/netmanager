@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSocketEvent } from '@/hooks/useSocket'
 import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiUser } from 'react-icons/fi'
 import { getWithAuth, deleteWithAuth } from '@/lib/api-client'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -19,7 +20,11 @@ interface BarangKeluar {
   employeeId?: string | null
   purpose?: string | null
   fotoBukti: string[]
-  fotoMetadata?: any
+  fotoMetadata?: {
+    uploadedAt: string
+    count: number
+    totalSize: number
+  } | null
   barang: {
     id: string
     kode: string
@@ -70,43 +75,53 @@ export function KeluarTable({
     totalPages: 0
   })
 
+  const fetchKeluarList = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20'
+      })
+
+      if (search) params.append('search', search)
+      if (startDate) params.append('startDate', new Date(startDate).toISOString())
+      if (endDate) params.append('endDate', new Date(endDate).toISOString())
+      if (siteId) params.append('siteId', siteId)
+      if (gudangId) params.append('gudangId', gudangId)
+
+      const response = await getWithAuth(`/api/inventory/keluar?${params}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal memuat data')
+      }
+
+      const responseData = data.data || data
+      setKeluarList(responseData.keluarList || [])
+      setPagination(prev => ({
+        ...prev,
+        ...(responseData.pagination || {})
+      }))
+    } catch (error) {
+      console.error('Failed to fetch barang keluar:', error)
+      setError(error instanceof Error ? error.message : 'Gagal memuat data')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, startDate, endDate, siteId, gudangId])
+
   // Fetch data
   useEffect(() => {
-    async function fetchKeluarList() {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: '20'
-        })
-
-        if (search) params.append('search', search)
-        if (startDate) params.append('startDate', new Date(startDate).toISOString())
-        if (endDate) params.append('endDate', new Date(endDate).toISOString())
-        if (siteId) params.append('siteId', siteId)
-
-        const response = await getWithAuth(`/api/inventory/keluar?${params}`)
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Gagal memuat data')
-        }
-
-        const responseData = data.data || data
-        setKeluarList(responseData.keluarList || [])
-        setPagination(responseData.pagination || pagination)
-      } catch (error) {
-        console.error('Failed to fetch barang keluar:', error)
-        setError(error instanceof Error ? error.message : 'Gagal memuat data')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchKeluarList()
-  }, [page, refreshTrigger, search, startDate, endDate, siteId, gudangId])
+  }, [fetchKeluarList, refreshTrigger])
+
+  // Listen for inventory updates
+  useSocketEvent('inventory:update', () => {
+    console.log('[Inventory] KeluarTable received update, refreshing...')
+    fetchKeluarList()
+  })
 
   const handleDelete = async (id: string, kode: string, jumlah: number) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus record barang keluar ${kode} (${jumlah} pcs)?\n\nPeringatan: Ini akan menambah stok barang kembali!`)) {

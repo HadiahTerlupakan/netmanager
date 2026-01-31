@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig, getUserPermissions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
+  const session = await getServerSession(authConfig)
   if (!session || false) {
     return null
   }
@@ -42,17 +43,17 @@ export async function GET(req: NextRequest) {
       const dbStart = Date.now()
 
       // Build where clause
-      const where: any = {}
+      const where: Prisma.StockOpnameWhereInput = {}
       if (barangId) where.barangId = barangId
       if (gudangId) where.gudangId = gudangId
 
       // SITE RESTRICTION
       // const permissions = (session.user as any).permissions || []
       const permissions = await getUserPermissions(session.user.id);
-      const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
-      
+      const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
+
       if (!isSuperAdmin && (permissions.includes('opname:site_only') || permissions.includes('k_barang:site_only'))) {
-          const userSiteId = (session.user as any).siteId
+          const userSiteId = session.user.siteId
           if (userSiteId) {
                where.gudang = {
                    sites: {
@@ -117,8 +118,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching stock opname list', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    logger.error('Error fetching stock opname list', err, {
       path: '/api/inventory/opname/list',
       method: 'GET',
     })

@@ -5,8 +5,8 @@ import { getSpeedProfileRepository } from '@/lib/repositories'
 import { speedProfileCreateSchema } from '@/lib/validations/speedprofile'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -21,10 +21,10 @@ export async function GET() {
       const speedProfileRepository = getSpeedProfileRepository()
       const speedProfiles = await speedProfileRepository.findAll()
       return NextResponse.json({ speedProfiles })
-    } catch (repoError: any) {
+    } catch (repoError: unknown) {
       console.error('Error in SpeedProfileRepository:', repoError)
       // Jika error terkait model tidak ditemukan
-      if (repoError.message?.includes('findMany') || repoError.message?.includes('speedProfile') || repoError.code === 'P2021') {
+      if (repoError instanceof Error && (repoError.message?.includes('findMany') || repoError.message?.includes('speedProfile') || (repoError as { code?: string }).code === 'P2021')) {
         return NextResponse.json(
           {
             error: 'Model SpeedProfile belum tersedia. Silakan restart server Next.js setelah menjalankan: npx prisma generate',
@@ -35,10 +35,10 @@ export async function GET() {
       }
       throw repoError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching SpeedProfiles:', error)
     // Jika error terkait tabel tidak ditemukan, beri pesan yang lebih jelas
-    if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('Unknown model')) {
+    if (error instanceof Error && ((error as { code?: string }).code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('Unknown model'))) {
       return NextResponse.json(
         {
           error: 'Tabel SpeedProfile belum dibuat di database. Silakan jalankan: npx prisma db push --accept-data-loss',
@@ -48,7 +48,7 @@ export async function GET() {
       )
     }
     return NextResponse.json(
-      { error: error?.message || 'Gagal memuat data SpeedProfile', speedProfiles: [] },
+      { error: error instanceof Error ? error.message : 'Gagal memuat data SpeedProfile', speedProfiles: [] },
       { status: 500 }
     )
   }
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ id: speedProfile.id })
-  } catch (e: any) {
+  } catch (_e) {
     return NextResponse.json({ error: 'SpeedProfile dengan nama tersebut sudah ada untuk OLT ini atau terjadi kesalahan' }, { status: 409 })
   }
 }

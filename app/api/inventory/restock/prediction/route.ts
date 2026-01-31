@@ -5,8 +5,7 @@ import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
-
-
+import { Prisma } from '@prisma/client'
 
 interface PredictionResult {
   barangId: string
@@ -58,7 +57,7 @@ export async function GET(req: NextRequest) {
       const dbStart = Date.now()
 
       // Get all restock settings
-      const whereClause: any = { isActive: true }
+      const whereClause: Prisma.RestockSettingsWhereInput = { isActive: true }
       if (gudangId) whereClause.gudangId = gudangId
 
       const settings = await prisma.restockSettings.findMany({
@@ -97,10 +96,6 @@ export async function GET(req: NextRequest) {
 
         const currentStok = currentStock?.stok || 0
 
-        // Calculate usage analytics for the last N days
-        const analysisStartDate = new Date()
-        analysisStartDate.setDate(analysisStartDate.getDate() - days)
-
         // Get monthly usage data for trend analysis
         const monthlyUsage = await getMonthlyUsage(setting.barangId, setting.gudangId, 6) // Last 6 months
 
@@ -115,6 +110,9 @@ export async function GET(req: NextRequest) {
         })
 
         // Calculate daily usage trend
+        const analysisStartDate = new Date()
+        analysisStartDate.setDate(analysisStartDate.getDate() - days)
+
         const recentUsage = await prisma.barangKeluar.aggregate({
           where: {
             barangId: setting.barangId,
@@ -210,7 +208,7 @@ export async function GET(req: NextRequest) {
           reorderPoint,
           recommendedOrderQty,
           urgency,
-          lastRestockDate: lastRestock?.tanggal?.toISOString(),
+          ...(lastRestock?.tanggal && { lastRestockDate: lastRestock.tanggal.toISOString() }),
           usageTrend,
           monthlyUsage,
           nextRestockDate: nextRestockDate.toISOString(),
@@ -249,8 +247,9 @@ export async function GET(req: NextRequest) {
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error generating restock predictions', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error generating restock predictions', err, {
       path: '/api/inventory/restock/prediction',
       method: 'GET',
     })
@@ -301,7 +300,7 @@ function calculateUsageTrend(monthlyUsage: number[]): 'INCREASING' | 'DECREASING
 
   const sumX = x.reduce((a, b) => a + b, 0)
   const sumY = y.reduce((a, b) => a + b, 0)
-  const sumXY = x.reduce((acc, xi, i) => acc + xi * y[i], 0)
+  const sumXY = x.reduce((acc, xi, i) => acc + xi * (y[i] || 0), 0)
   const sumX2 = x.reduce((acc, xi) => acc + xi * xi, 0)
 
   const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)

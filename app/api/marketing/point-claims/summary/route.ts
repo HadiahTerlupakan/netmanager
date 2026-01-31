@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
     const summary = await service.getPointSummary(salesId)
 
     return apiSuccess(summary)
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Gagal mengambil summary points')
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil summary points'
+    return ApiErrors.internalError(errorMessage)
   }
 }

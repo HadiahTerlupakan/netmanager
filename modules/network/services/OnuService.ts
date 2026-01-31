@@ -1,7 +1,8 @@
 import { type Server as SocketIOServer } from 'socket.io';
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories';
 import { updateMultipleOnusViaGetWithOids } from './onu-update-snmp-get';
-import { onuCacheService } from './onu-cache-service';
+import { type OnuSyncData } from '@/lib/types/onu-sync';
+import { type OnuCreateData } from '../repositories/IOnuRepository';
 
 export class OnuService {
     private io: SocketIOServer | null = null;
@@ -38,7 +39,7 @@ export class OnuService {
             gponOnu: string;
             oltId: string;
             updated: boolean;
-            data?: any;
+            data?: Partial<OnuSyncData>;
         }> = [];
 
         const oltRepo = getOLTRepository();
@@ -95,7 +96,7 @@ export class OnuService {
                     try {
                         // Reuse cached data instead of another query
                         const existingOnu = onuMap.get(uData.gponOnu);
-                        const upsertData: any = {
+                        const upsertData: Partial<OnuSyncData> = {
                             oltId,
                             gponOnu: uData.gponOnu,
                             lastSeen: new Date(),
@@ -110,7 +111,7 @@ export class OnuService {
                             actualType: uData.actualType || existingOnu?.actualType || null,
                         };
 
-                        await onuRepo.upsert(oltId, uData.gponOnu, upsertData);
+                        await onuRepo.upsert(oltId, uData.gponOnu, upsertData as OnuCreateData);
 
                         const result = {
                             gponOnu: uData.gponOnu,

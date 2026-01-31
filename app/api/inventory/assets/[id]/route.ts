@@ -33,8 +33,9 @@ export async function GET(
         }
 
         return apiSuccess({ asset })
-    } catch (error: any) {
-        return ApiErrors.internalError(error.message || 'Gagal memuat data aset')
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Gagal memuat data aset'
+        return ApiErrors.internalError(message)
     }
 }
 
@@ -49,19 +50,25 @@ export async function PATCH(
         }
 
         const body = await req.json()
-        const validated = updateAssetSchema.parse(body)
+        const { kodeAsset, status, location, assignedTo } = updateAssetSchema.parse(body)
 
         const { id } = await params
-        const updated = await assetService.updateAsset(id, validated)
+        const updated = await assetService.updateAsset(id, {
+            ...(kodeAsset ? { kodeAsset } : {}),
+            ...(status ? { status } : {}),
+            ...(location ? { location } : {}),
+            ...(assignedTo ? { assignedTo } : {})
+        })
 
         return apiSuccess({ asset: updated }, { message: 'Aset berhasil diperbarui' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         if (error instanceof ZodError) {
             return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
                 status: 400, 
                 details: { errors: error.issues } 
             })
         }
-        return ApiErrors.internalError(error.message || 'Gagal memperbarui aset')
+        const message = error instanceof Error ? error.message : 'Gagal memperbarui aset'
+        return ApiErrors.internalError(message)
     }
 }

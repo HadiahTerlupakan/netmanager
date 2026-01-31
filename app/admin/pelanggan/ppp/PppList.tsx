@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiOutlineCalendar, HiOutlineExclamationTriangle, HiNoSymbol, HiXMark } from 'react-icons/hi2'
+import { useEffect, useState, useCallback } from 'react'
+import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiNoSymbol, HiXMark } from 'react-icons/hi2'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
-import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { SiteFilter } from '@/components/common/SiteFilter'
 
 type PelangganPPP = {
@@ -42,11 +42,7 @@ export default function PelangganPPPPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [limit] = useState(10)
 
-  useEffect(() => {
-    loadData()
-  }, [siteId, page])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -56,7 +52,7 @@ export default function PelangganPPPPage() {
       if (siteId) params.append('siteId', siteId)
       params.append('page', page.toString())
       params.append('limit', limit.toString())
-      
+
       const [resPelanggan, resSettings] = await Promise.all([
         fetch(`/api/pelanggan-ppp?${params.toString()}`, {
           cache: 'no-store',
@@ -96,26 +92,32 @@ export default function PelangganPPPPage() {
                setTotalPages(Math.ceil((parsed.meta.total || 0) / limit))
             }
           } else if (parsed.error) {
-            throw new Error(parsed.error)
-          } else {
-             data = []
-             console.error('[Frontend] Unexpected API response structure:', parsed)
+              throw new Error(parsed.error)
+            } else {
+               data = []
+               console.error('[Frontend] Unexpected API response structure:', parsed)
+            }
           }
+        } catch (e: unknown) {
+          console.error('Error parsing JSON:', e)
+          const errorMessage = e instanceof Error ? e.message : 'Gagal memproses data pelanggan'
+          throw new Error(errorMessage)
         }
-      } catch (e: any) {
-        console.error('Error parsing JSON:', e)
-        throw new Error(e.message || 'Gagal memproses data pelanggan')
-      }
-
-      // Debug: Log data yang diterima
-      console.log('[Frontend] Data pelanggan diterima:', data.length, 'pelanggan')
-      setPelanggans(data)
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat memuat data')
+  
+        // Debug: Log data yang diterima
+        console.log('[Frontend] Data pelanggan diterima:', data.length, 'pelanggan')
+        setPelanggans(data)
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data'
+        setError(errorMessage)
     } finally {
       setLoading(false)
     }
-  }
+  }, [siteId, page, limit])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Tindakan ini tidak dapat dibatalkan.')) {
@@ -135,9 +137,10 @@ export default function PelangganPPPPage() {
       const result = await res.json()
       console.log('[Frontend] Delete berhasil:', result)
       await loadData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Frontend] Error saat menghapus:', err)
-      alert(err.message || 'Terjadi kesalahan saat menghapus data')
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus data'
+      alert(errorMessage)
     }
   }
 
@@ -162,9 +165,10 @@ export default function PelangganPPPPage() {
       const result = await res.json()
       console.log('Status updated:', result)
       await loadData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating status:', err)
-      alert(err.message || 'Gagal mengubah status')
+      const errorMessage = err instanceof Error ? err.message : 'Gagal mengubah status'
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -178,30 +182,6 @@ export default function PelangganPPPPage() {
   const handlePrint = (id: string) => {
     // Buka halaman print tagihan di tab baru
     window.open(`/admin/pelanggan/ppp/${id}/print`, '_blank')
-  }
-
-  const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount)
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  const isJatuhTempo = (jatuhTempo: string) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const jatuhTempoDate = new Date(jatuhTempo)
-    jatuhTempoDate.setHours(0, 0, 0, 0)
-    return jatuhTempoDate < today
   }
 
   const isRenewalAllowed = (jatuhTempo: string) => {
@@ -302,7 +282,7 @@ export default function PelangganPPPPage() {
       priority: 'primary', // Keep status visible on mobile
       mobileLabel: 'Status'
     }
-  ] as any[]
+  ] as Column<PelangganPPP>[]
 
   if (loading && pelanggans.length === 0) {
     return <PageLoader />

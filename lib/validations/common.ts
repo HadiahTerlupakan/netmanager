@@ -166,7 +166,7 @@ export const completeQuerySchema = paginationBaseSchema
 export function validateQueryParams<T extends z.ZodType>(
   request: Request,
   schema: T
-): { success: true; data: z.infer<T> } | { success: false; error: any } {
+): { success: true; data: z.infer<T> } | { success: false; error: Record<string, string[] | undefined> } {
   const { searchParams } = new URL(request.url)
   const params = Object.fromEntries(searchParams.entries())
   

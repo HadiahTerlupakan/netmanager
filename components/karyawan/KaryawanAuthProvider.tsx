@@ -13,6 +13,17 @@ interface KaryawanSession {
     image: string | null
 }
 
+interface AuthUser {
+    id: string
+    name?: string | null
+    email?: string | null
+    image?: string | null
+    role?: string
+    accessEmployeePanel?: boolean
+    departmentId?: string | null
+    siteId?: string | null
+}
+
 interface KaryawanAuthContextType {
     user: KaryawanSession | null
     isLoading: boolean
@@ -32,22 +43,23 @@ export function KaryawanAuthProvider({ children }: { children: ReactNode }) {
         if (status === 'authenticated' && session?.user) {
             // Strict check: if user has no employee access, treat as unauthenticated (or handle error)
             // Middleware should have caught this, but this is a fail-safe for client transitions
-            const sUser = session.user as any
+            const sUser = session.user as AuthUser
             if (!sUser.accessEmployeePanel && sUser.role !== 'SUPER_ADMIN') {
                 router.replace('/karyawan/login?error=AccessDenied')
                 return
             }
 
-            setUser({
+            // Use queueMicrotask to avoid synchronous setState
+            queueMicrotask(() => setUser({
                 id: sUser.id,
                 name: sUser.name ?? null,
                 email: sUser.email ?? '',
                 departmentId: sUser.departmentId ?? null,
                 siteId: sUser.siteId ?? null,
                 image: sUser.image ?? null,
-            })
+            }))
         } else if (status === 'unauthenticated') {
-            setUser(null)
+            queueMicrotask(() => setUser(null))
         }
     }, [session, status, router])
 

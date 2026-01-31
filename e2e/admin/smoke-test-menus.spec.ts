@@ -119,7 +119,7 @@ test.describe('Admin Menu Smoke Test', () => {
                     page.waitForSelector('text=403', { timeout: 5000 }),
                     page.waitForSelector('text=Error', { timeout: 5000 })
                 ])
-            } catch (e) {
+            } catch (_e) {
                 console.log(`Note: No specific element found on ${menu.path} within timeout, proceeding to check visible text`)
             }
             

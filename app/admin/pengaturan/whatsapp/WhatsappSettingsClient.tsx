@@ -80,9 +80,9 @@ export function ClientComponent() {
                 const errorData = await response.json()
                 setError(errorData.error || 'Failed to save settings')
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error saving settings:', error)
-            setError(error.message || 'Failed to save settings')
+            setError(error instanceof Error ? error.message : 'Failed to save settings')
         } finally {
             setSaving(false)
         }
@@ -112,7 +112,7 @@ export function ClientComponent() {
             } else {
                 alert(`Test failed!\n\n${result.message}`)
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error testing WhatsApp:', error)
             alert('Error testing WhatsApp')
         } finally {
@@ -168,7 +168,7 @@ export function ClientComponent() {
                         </label>
                         <select
                             value={settings.whatsappProvider}
-                            onChange={(e) => setSettings({ ...settings, whatsappProvider: e.target.value as any })}
+                            onChange={(e) => setSettings({ ...settings, whatsappProvider: e.target.value as WhatsAppSettings['whatsappProvider'] })}
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             {PROVIDERS.map(provider => (

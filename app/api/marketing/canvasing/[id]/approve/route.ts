@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
-import { hasPermission } from '@/lib/rbac'
 import { getCanvasingService } from '@/lib/repositories'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +24,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const request = await service.approveRequest(id, session.id)
 
     return NextResponse.json(request)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

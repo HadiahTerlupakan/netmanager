@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         let departmentId = searchParams.get('departmentId') || undefined;
 
         let dateFrom: Date;
-        let dateTo: Date = new Date(); // now
+        const dateTo: Date = new Date(); // now
 
         // Date calculation logic (consistent with other stats)
         if (period === 'daily') {

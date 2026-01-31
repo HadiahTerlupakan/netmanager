@@ -13,7 +13,12 @@ export function ClientComponent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
-  const [testResult, setTestResult] = useState<any>(null)
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    ping?: { success: boolean; message: string };
+    api?: { success: boolean; message: string };
+    message?: string;
+  } | null>(null)
   const [showTestModal, setShowTestModal] = useState(false)
   const [showScriptModal, setShowScriptModal] = useState(false)
   const [formData, setFormData] = useState({
@@ -53,7 +58,7 @@ export function ClientComponent() {
         isolirUrl: routerData.isolirUrl || '',
         description: routerData.description || '',
       })
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading router:', error)
       alert('Gagal memuat data router')
       router.push('/admin/network/mikrotik')
@@ -84,9 +89,10 @@ export function ClientComponent() {
       }
 
       router.push('/admin/network/mikrotik')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating router:', error)
-      alert('Terjadi kesalahan saat mengupdate router: ' + (error.message || 'Unknown error'))
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      alert('Terjadi kesalahan saat mengupdate router: ' + message)
     } finally {
       setSaving(false)
     }
@@ -127,12 +133,13 @@ export function ClientComponent() {
       if (result.success) {
         await loadRouter()
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error testing connection:', error)
+      const message = error instanceof Error ? error.message : 'Unknown error'
       setTestResult({
         success: false,
-        ping: { success: false, message: 'Error: ' + (error.message || 'Unknown error') },
-        api: { success: false, message: 'Error: ' + (error.message || 'Unknown error') },
+        ping: { success: false, message: 'Error: ' + message },
+        api: { success: false, message: 'Error: ' + message },
         message: 'Terjadi kesalahan saat test koneksi',
       })
     } finally {

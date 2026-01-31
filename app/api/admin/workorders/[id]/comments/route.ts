@@ -6,16 +6,35 @@ import { socketEmitter } from '@/lib/websocket/emitter';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
+interface ExtendedUser {
+  id: string
+  name?: string
+  role?: string
+  permissions?: string[]
+  siteId?: string
+  departmentId?: string
+  employee?: unknown
+}
+
+interface CommentData {
+  id: string;
+  message: string;
+  createdAt: Date;
+  userId: string;
+}
+
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { id } = await params;
-        const user = await verifyAuth(request);
-        if (!user) {
+        const session = await verifyAuth(request);
+        if (!session) {
             return ApiErrors.unauthorized('Session tidak valid');
         }
+
+        const user = session as unknown as ExtendedUser;
 
         if (!await hasPermission('list:update')) {
             return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah komentar');
@@ -36,7 +55,7 @@ export async function POST(
             return apiError(result.error || 'Gagal menambah komentar', ErrorCodes.INTERNAL_ERROR, { status: 500 });
         }
 
-        const comment = result.data!;
+        const comment = result.data as CommentData;
 
         // Emit WebSocket event for real-time Activity Timeline
         socketEmitter.workOrderActivity(id, {
@@ -47,7 +66,7 @@ export async function POST(
             createdAt: comment.createdAt.toISOString(),
             createdBy: user ? {
                 id: user.id,
-                name: user.name || undefined,
+                ...(user.name ? { name: user.name } : {})
             } : null,
         });
 

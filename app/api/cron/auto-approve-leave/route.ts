@@ -1,16 +1,14 @@
-import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
     try {
-        const headersList = await headers()
-        const authHeader = headersList.get('authorization')
-        
         // Security check (uncomment for production)
+        // const headersList = await headers()
+        // const authHeader = headersList.get('authorization')
         // if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
         //     return ApiErrors.unauthorized('Cron secret tidak valid')
         // }
@@ -21,9 +19,10 @@ export async function POST(request: Request) {
             ...result,
             timestamp: new Date().toISOString()
         }, { message: 'Auto-approve leave berhasil dijalankan' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Cron Auto-Approve Leave] Error:', error)
-        return ApiErrors.internalError(error.message || 'Gagal menjalankan auto-approve leave')
+        const errorMessage = error instanceof Error ? error.message : 'Gagal menjalankan auto-approve leave'
+        return ApiErrors.internalError(errorMessage)
     }
 }
 
@@ -91,6 +90,6 @@ async function autoApproveTukarLibur() {
     }
 }
 
-export async function GET(request: Request) {
-    return POST(request)
+export async function GET(_request: Request) {
+    return POST(_request)
 }

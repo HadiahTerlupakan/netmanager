@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { HiClipboardDocumentList, HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown, HiChatBubbleLeftRight, HiArrowTrendingUp, HiCalendarDays, HiMagnifyingGlass } from 'react-icons/hi2'
+import { HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown, HiChatBubbleLeftRight } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useSocketEvent } from '@/hooks/useSocket'
 import { WoTrendCharts } from '@/components/workorder/dashboard/WoTrendCharts'
@@ -77,36 +77,15 @@ export function ClientComponent() {
     const [typeTrend, setTypeTrend] = useState<TypeTrendItem[]>([])
     const [trendLoading, setTrendLoading] = useState(false)
 
-
-    useEffect(() => { if (status === 'unauthenticated') { router.push('/login'); return } if (session?.user && status === 'authenticated') { fetchDashboardData(); fetchTrendData() } }, [session, status, router])
-
-    useEffect(() => {
-        if (session?.user && status === 'authenticated') {
-            fetchDetailedStats()
-        }
-    }, [performancePeriod, session, status])
-
-    // Real-time updates
-    const handleUpdate = () => {
-        if (session?.user && status === 'authenticated') {
-            fetchDashboardData()
-            fetchDetailedStats()
-        }
-    }
-
-    useSocketEvent('workorder:new', handleUpdate)
-    useSocketEvent('workorder:update', handleUpdate)
-    useSocketEvent('workorder:assigned', handleUpdate)
-
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = useCallback(async () => {
         try {
             // OPTIMIZED: Single consolidated API call instead of 6 separate calls (Phase 2 optimization)
             const response = await fetch(`/api/admin/workorders/dashboard?period=${performancePeriod}`);
-            
+
             if (response.ok) {
                 const result = await response.json();
                 const data = result.data;
-                
+
                 // Set all dashboard state from single response
                 setStats(data.stats);
                 setRecentWorkOrders(data.recentWorkOrders);
@@ -125,18 +104,18 @@ export function ClientComponent() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [performancePeriod])
 
-    const fetchDetailedStats = async () => {
+    const fetchDetailedStats = useCallback(async () => {
         // OPTIMIZED: Reuse consolidated endpoint with period parameter
         // Only fetches period-sensitive data (performers, analytics, response stats)
         try {
             const response = await fetch(`/api/admin/workorders/dashboard?period=${performancePeriod}`);
-            
+
             if (response.ok) {
                 const result = await response.json();
                 const data = result.data;
-                
+
                 // Update only period-sensitive data
                 setTopPerformers(data.topPerformers);
                 setTopAssists(data.topAssists);
@@ -148,9 +127,9 @@ export function ClientComponent() {
         } catch (error) {
             console.error('Error fetching detailed stats:', error);
         }
-    }
+    }, [performancePeriod])
 
-    const fetchTrendData = async () => {
+    const fetchTrendData = useCallback(async () => {
         if (!trendStartDate || !trendEndDate) return
         setTrendLoading(true)
         try {
@@ -167,12 +146,32 @@ export function ClientComponent() {
         } finally {
             setTrendLoading(false)
         }
-    }
+    }, [trendStartDate, trendEndDate])
+
+
+    useEffect(() => { if (status === 'unauthenticated') { router.push('/login'); return } if (session?.user && status === 'authenticated') { fetchDashboardData(); fetchTrendData() } }, [session, status, router, fetchDashboardData, fetchTrendData])
+
+    useEffect(() => {
+        if (session?.user && status === 'authenticated') {
+            fetchDetailedStats()
+        }
+    }, [performancePeriod, session, status, fetchDetailedStats])
+
+    // Real-time updates
+    const handleUpdate = useCallback(() => {
+        if (session?.user && status === 'authenticated') {
+            fetchDashboardData()
+            fetchDetailedStats()
+        }
+    }, [session, status, fetchDashboardData, fetchDetailedStats])
+
+    useSocketEvent('workorder:new', handleUpdate)
+    useSocketEvent('workorder:update', handleUpdate)
+    useSocketEvent('workorder:assigned', handleUpdate)
 
     if (status === 'loading' || loading) return <div className="flex items-center justify-center min-h-screen"><PageLoader /></div>
 
     const formatHours = (hours: number) => { if (hours < 1) return `${Math.round(hours * 60)}m`; if (hours < 24) return `${hours.toFixed(1)}h`; return `${(hours / 24).toFixed(1)}d` }
-    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     const getTimeWaiting = (dateStr: string) => {
         const diff = Date.now() - new Date(dateStr).getTime()
         const days = Math.floor(diff / (1000 * 60 * 60 * 24))

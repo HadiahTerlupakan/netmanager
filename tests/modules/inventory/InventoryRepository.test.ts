@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { prismaMock } from '../../setup'
 import { InventoryRepository } from '@/modules/inventory/repositories/InventoryRepository'
+import type { Barang, BarangGudang, BarangMasuk, BarangKeluar, Gudang } from '@prisma/client'
 
 // Note: InventoryRepository uses an internal `this.db` instance.
 // For proper testing, we would need to inject the prisma client.
@@ -30,7 +31,7 @@ describe('InventoryRepository', () => {
         updatedAt: new Date()
       }
 
-      prismaMock.barang.create.mockResolvedValueOnce(mockCreatedBarang as any)
+      prismaMock.barang.create.mockResolvedValueOnce(mockCreatedBarang as unknown as Barang)
 
       const result = await repository.createBarang(input)
 
@@ -44,10 +45,10 @@ describe('InventoryRepository', () => {
         id: 'barang-1',
         kode: 'BRG-001',
         nama: 'Kabel Fiber',
-        barangGudang: []
+        barangGudang: [] as unknown as BarangGudang[]
       }
 
-      prismaMock.barang.findUnique.mockResolvedValueOnce(mockBarang as any)
+      prismaMock.barang.findUnique.mockResolvedValueOnce(mockBarang as unknown as Barang)
 
       const result = await repository.findBarangByKode('BRG-001')
 
@@ -69,7 +70,7 @@ describe('InventoryRepository', () => {
       prismaMock.barangGudang.findUnique.mockResolvedValueOnce({
         id: 'bg-1',
         stok: 50
-      } as any)
+      } as unknown as BarangGudang)
 
       const result = await repository.getStockLevel('barang-1', 'gudang-1')
 
@@ -92,10 +93,10 @@ describe('InventoryRepository', () => {
         { kondisi: 'BARU', jumlah: 20 },
         { kondisi: 'BEKAS', jumlah: 15 },
         { kondisi: 'RUSAK', jumlah: 5 }
-      ] as any)
+      ] as unknown as BarangMasuk[])
 
       // Mock barang keluar (empty - no items taken out)
-      prismaMock.barangKeluar.findMany.mockResolvedValueOnce([])
+      prismaMock.barangKeluar.findMany.mockResolvedValueOnce([] as unknown as BarangKeluar[])
 
       const result = await repository.getStockBreakdown('barang-1', 'gudang-1')
 
@@ -108,11 +109,11 @@ describe('InventoryRepository', () => {
     it('should subtract keluar from masuk', async () => {
       prismaMock.barangMasuk.findMany.mockResolvedValueOnce([
         { kondisi: 'BARU', jumlah: 50 }
-      ] as any)
+      ] as unknown as BarangMasuk[])
 
       prismaMock.barangKeluar.findMany.mockResolvedValueOnce([
         { kondisi: 'BARU', jumlah: 15 }
-      ] as any)
+      ] as unknown as BarangKeluar[])
 
       const result = await repository.getStockBreakdown('barang-1', 'gudang-1')
 
@@ -128,7 +129,7 @@ describe('InventoryRepository', () => {
         { id: 'gudang-2', nama: 'Gudang Cabang', isActive: true }
       ]
 
-      prismaMock.gudang.findMany.mockResolvedValueOnce(mockGudang as any)
+      prismaMock.gudang.findMany.mockResolvedValueOnce(mockGudang as unknown as Gudang[])
 
       const result = await repository.getAllGudang()
 

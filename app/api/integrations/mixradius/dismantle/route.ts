@@ -97,15 +97,15 @@ export async function POST(req: NextRequest) {
         title: title,
         description: description,
         priority: 'NORMAL',
-        pelangganId: localPelanggan?.id || undefined,
-        siteId: targetSiteId,
-        departmentId: department?.id,
         contactName: mrCustomer.fullname,
         contactPhone: mrCustomer.phonenumber,
         locationAddress: mrCustomer.address,
         disconnectionReason: reason,
-        internalNotes: notes || undefined,
         createdById: session.id,
+        ...(localPelanggan?.id ? { pelangganId: localPelanggan.id } : {}),
+        ...(targetSiteId ? { siteId: targetSiteId } : {}),
+        ...(department?.id ? { departmentId: department.id } : {}),
+        ...(notes ? { internalNotes: notes } : {}),
     })
 
     // 5. Trigger Notifications
@@ -129,8 +129,8 @@ export async function POST(req: NextRequest) {
             type: workOrder.type,
             status: workOrder.status,
             priority: workOrder.priority,
-            departmentId: workOrder.departmentId || undefined,
-            createdAt: workOrder.createdAt.toISOString()
+            createdAt: workOrder.createdAt.toISOString(),
+            ...(workOrder.departmentId ? { departmentId: workOrder.departmentId } : {})
         }, workOrder.departmentId || undefined)
     } catch (e) {
         console.error('[Dismantle] Socket broadcast failed', e)
@@ -141,8 +141,9 @@ export async function POST(req: NextRequest) {
         message: `Work Order ${workOrder.workOrderNumber} berhasil dibuat.`
     }, { status: 201 })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API] Dismantle error:', error)
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }

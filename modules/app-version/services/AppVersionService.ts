@@ -1,7 +1,6 @@
 import { AppVersionRepository, type AppVersion, type CreateAppVersionDTO, type UpdateAppVersionDTO, type AppVersionWithUser } from '../repositories/AppVersionRepository'
 import { isR2Enabled, uploadToR2, generateR2Key, deleteFromR2 } from '@/lib/utils/r2-client'
 import fs from 'fs/promises'
-import fss from 'fs'
 import path from 'path'
 import os from 'os'
 
@@ -109,7 +108,7 @@ export class AppVersionService {
             
             // Parse build number from version (e.g., "1.0.54" -> 54)
             const versionParts = versionName.split('.')
-            const buildNumber = versionParts.length >= 3 ? parseInt(versionParts[2], 10) || versionCode : versionCode
+            const buildNumber = versionParts.length >= 3 ? parseInt(versionParts[2] ?? '0', 10) || versionCode : versionCode
             
             const result = {
                 versionName,
@@ -119,12 +118,13 @@ export class AppVersionService {
             }
             console.log(`[AppVersionService] APK parsed successfully: ${JSON.stringify(result)}`)
             return result
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[AppVersionService] Error parsing APK:', error)
+            const err = error as { message?: string; stack?: string; code?: string }
             console.error('[AppVersionService] Error details:', {
-                message: error?.message,
-                stack: error?.stack,
-                code: error?.code
+                message: err?.message,
+                stack: err?.stack,
+                code: err?.code
             })
             return null
         } finally {
@@ -133,8 +133,9 @@ export class AppVersionService {
                 try {
                     console.log(`[AppVersionService] Cleaning up temp file: ${tempFilePath}`)
                     await fs.unlink(tempFilePath)
-                } catch (e: any) {
-                    console.warn(`[AppVersionService] Failed to cleanup temp file: ${e?.message}`)
+                } catch (e: unknown) {
+                    const err = e as { message?: string }
+                    console.warn(`[AppVersionService] Failed to cleanup temp file: ${err?.message}`)
                 }
             }
         }
@@ -181,7 +182,10 @@ export class AppVersionService {
             // Auto-parse APK jika ada APK dan version info tidak lengkap
             if ((input.apkBuffer || input.apkPath) && (!version || !buildNumber || !versionCode)) {
                 console.log('[AppVersionService] Parsing APK for version info...')
-                const apkInfo = await this.parseApkInfo({ buffer: input.apkBuffer, path: input.apkPath })
+                const apkInfo = await this.parseApkInfo({
+                    ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
+                    ...(input.apkPath ? { path: input.apkPath } : {})
+                })
                 if (apkInfo) {
                     version = version || apkInfo.versionName
                     buildNumber = buildNumber || apkInfo.buildNumber
@@ -214,8 +218,8 @@ export class AppVersionService {
             if ((input.apkBuffer || input.apkPath) && input.apkFilename) {
                 console.log(`[AppVersionService] Uploading APK file: ${input.apkFilename}`)
                 apkUrl = await this.uploadApkFile({
-                    buffer: input.apkBuffer, 
-                    path: input.apkPath,
+                    ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
+                    ...(input.apkPath ? { path: input.apkPath } : {}),
                     filename: input.apkFilename,
                     version
                 })
@@ -229,23 +233,24 @@ export class AppVersionService {
                 buildNumber,
                 versionCode,
                 platform: input.platform || 'android',
-                apkUrl,
-                apkSize: input.apkSize ? BigInt(input.apkSize) : undefined,
-                releaseNotes: input.releaseNotes,
+                ...(apkUrl ? { apkUrl } : {}),
+                ...(input.apkSize ? { apkSize: BigInt(input.apkSize) } : {}),
+                ...(input.releaseNotes ? { releaseNotes: input.releaseNotes } : {}),
                 isForceUpdate: input.isForceUpdate || false,
-                minVersion: input.minVersion,
+                ...(input.minVersion ? { minVersion: input.minVersion } : {}),
                 isActive: true,
                 publishedAt: new Date(),
-                createdBy: input.createdBy
+                ...(input.createdBy ? { createdBy: input.createdBy } : {})
             }
 
             const result = await this.repository.create(createData)
             console.log(`[AppVersionService] Version created successfully: ${result.id}`)
             return result
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[AppVersionService] Error in uploadVersion:', error)
+            const err = error as { message?: string }
             // Re-throw with more context
-            throw new Error(`Failed to upload app version: ${error?.message || 'Unknown error'}`)
+            throw new Error(`Failed to upload app version: ${err?.message || 'Unknown error'}`)
         }
     }
 
@@ -256,14 +261,14 @@ export class AppVersionService {
      * Upload APK file to storage (R2 or local)
      */
     private async uploadApkFile(input: {
-        buffer?: Buffer, 
+        buffer?: Buffer,
         path?: string,
         filename: string,
         version: string
     }): Promise<string> {
-        const { buffer, path: filePath, filename, version } = input
+        const { buffer, path: filePath, version } = input
         const sanitizedFilename = `netmanager_v${version}.apk`
-        
+
         try {
             // Check if R2 is enabled
             console.log('[AppVersionService] Checking R2 storage status...')
@@ -273,7 +278,7 @@ export class AppVersionService {
             if (r2Enabled) {
                 // Upload to R2
                 console.log('[AppVersionService] Uploading to R2 storage...')
-                const key = generateR2Key('app-version' as any, sanitizedFilename)
+                const key = generateR2Key('app-version', sanitizedFilename)
                 console.log(`[AppVersionService] R2 key: ${key}`)
                 
                 // Note: uploadToR2 currently expects buffer, assuming it can handle it or we might need to update it too.
@@ -320,9 +325,10 @@ export class AppVersionService {
                 console.log(`[AppVersionService] Local upload successful: ${url}`)
                 return url
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[AppVersionService] Error uploading APK file:', error)
-            throw new Error(`Failed to upload APK file: ${error?.message || 'Unknown error'}`)
+            const err = error as { message?: string }
+            throw new Error(`Failed to upload APK file: ${err?.message || 'Unknown error'}`)
         }
     }
 
@@ -371,10 +377,11 @@ export class AppVersionService {
                     try {
                         await fs.unlink(localPath)
                         console.log(`Deleted local APK: ${localPath}`)
-                    } catch (err: any) {
-                        console.warn(`Failed to delete local APK: ${err.message}`)
+                    } catch (err: unknown) {
+                        const error = err as { message?: string }
+                        console.warn(`Failed to delete local APK: ${error.message}`)
                     }
-                } 
+                }
                 // Cek apakah file R2 (mengandung uploads/apk/)
                 else if (existing.apkUrl.includes('uploads/apk/')) {
                     // Extract key from URL
@@ -460,9 +467,9 @@ export class AppVersionService {
         const parts = version.split('.')
         if (parts.length !== 3) return null
 
-        const major = parseInt(parts[0], 10)
-        const minor = parseInt(parts[1], 10)
-        const patch = parseInt(parts[2], 10)
+        const major = parseInt(parts[0] ?? '0', 10)
+        const minor = parseInt(parts[1] ?? '0', 10)
+        const patch = parseInt(parts[2] ?? '0', 10)
 
         if (isNaN(major) || isNaN(minor) || isNaN(patch)) return null
 

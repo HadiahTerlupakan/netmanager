@@ -29,9 +29,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
 
         return apiSuccess(version)
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching app version:', error)
-        return ApiErrors.internalError(error.message || 'Gagal mengambil versi aplikasi')
+        const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil versi aplikasi'
+        return ApiErrors.internalError(errorMessage)
     }
 }
 
@@ -72,9 +73,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
 
         return apiSuccess(version, { message: 'Versi berhasil diperbarui' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating app version:', error)
-        return ApiErrors.internalError(error.message || 'Gagal memperbarui versi aplikasi')
+        const errorMessage = error instanceof Error ? error.message : 'Gagal memperbarui versi aplikasi'
+        return ApiErrors.internalError(errorMessage)
     }
 }
 
@@ -108,8 +110,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         return apiSuccess(null, { message: 'Versi dan file berhasil dihapus permanen' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting app version:', error)
-        return ApiErrors.internalError(error.message || 'Gagal menghapus versi aplikasi')
+        const errorMessage = error instanceof Error ? error.message : 'Gagal menghapus versi aplikasi'
+        return ApiErrors.internalError(errorMessage)
     }
 }

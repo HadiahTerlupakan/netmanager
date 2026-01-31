@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
-import { 
-  HiMagnifyingGlass, 
-  HiArrowTopRightOnSquare, 
-  HiShoppingCart, 
-  HiStar, 
+import {
+  HiMagnifyingGlass,
+  HiArrowTopRightOnSquare,
+  HiStar,
   HiCheckBadge,
   HiOutlineCurrencyDollar,
   HiOutlineChartBar,
@@ -20,7 +19,6 @@ import {
   Legend
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
-import clsx from 'clsx'
 
 ChartJS.register(
   CategoryScale,
@@ -56,16 +54,41 @@ const parseSoldCount = (soldStr: string): number => {
     return parseFloat(clean) || 0
 }
 
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  priceText: string;
+  sold: string;
+  rating: string;
+  reviewCount: string;
+  shopName: string;
+  shopLocation: string;
+  image: string;
+  url: string;
+  discount: number;
+  originalPrice: number;
+  badge?: string;
+  soldCount: number;
+}
+
+interface MarketPriceResult {
+  products: Product[];
+  averagePrice: number;
+  minPrice: number;
+  maxPrice: number;
+}
+
 export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketPriceCheckProps) {
   const [keyword, setKeyword] = useState(initialKeyword)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<MarketPriceResult | null>(null)
   const [selectedBrand, setSelectedBrand] = useState<string>('')
 
   const handleCheck = async () => {
     if (!keyword) return
-    
+
     setLoading(true)
     setError('')
     setResult(null)
@@ -78,8 +101,8 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
 
       setResult(data)
       setSelectedBrand('') // Reset filter on new search
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
       setLoading(false)
     }
@@ -91,9 +114,9 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
 
     let totalWeightedPrice = 0
     let totalSoldWeight = 0
-    
+
     // Parse numeric sold count
-    const validProducts = result.products.map((p: any) => {
+    const validProducts = result.products.map((p: Product) => {
         const sold = parseSoldCount(p.sold)
         const weight = sold > 0 ? sold : 1
         totalWeightedPrice += p.price * weight
@@ -113,30 +136,30 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
     // Initialize buckets
     const labels: string[] = []
     const data: number[] = []
-    
+
     for (let i = 0; i < bucketCount; i++) {
         const start = min + (i * step)
         const end = start + step
         labels.push(`${(start/1000).toFixed(0)}k - ${(end/1000).toFixed(0)}k`)
-        
+
         // Count total items sold in this price range
         const soldInBucket = validProducts
-            .filter((p: any) => p.price >= start && p.price < end)
-            .reduce((sum: number, p: any) => sum + p.soldCount, 0)
-            
+            .filter((p: Product) => p.price >= start && p.price < end)
+            .reduce((sum: number, p: Product) => sum + p.soldCount, 0)
+
         data.push(soldInBucket)
     }
-    
+
     const maxDataVal = Math.max(...data)
 
     // Location Analytics
     const locationCounts: Record<string, number> = {}
-    validProducts.forEach((p: any) => {
+    validProducts.forEach((p: Product) => {
         if (p.shopLocation) {
             locationCounts[p.shopLocation] = (locationCounts[p.shopLocation] || 0) + 1
         }
     })
-    
+
     // Get Top 5 Locations
     const top5Locations = Object.entries(locationCounts)
         .sort(([, a], [, b]) => b - a)
@@ -146,8 +169,8 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
     // Brand Analytics (First word of name)
     const brandCounts: Record<string, number> = {}
     const ignoredWords = ['jual', 'promo', 'ready', 'cod', 'new', 'baru', 'bekas', 'second', 'termurah', 'original', 'asli', 'diskon', 'terbaru']
-    
-    validProducts.forEach((p: any) => {
+
+    validProducts.forEach((p: Product) => {
         const firstWord = p.name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
         if (firstWord.length > 2 && !ignoredWords.includes(firstWord)) {
              // Capitalize first letter for display
@@ -155,32 +178,32 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
              brandCounts[displayBrand] = (brandCounts[displayBrand] || 0) + 1
         }
     })
-    
+
     const topBrands = Object.entries(brandCounts)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5)
         .map(([name, count]) => ({ name, count }))
 
     // Identify Best Seller (Highest Sold Count)
-    const bestSellerItem = validProducts.length > 0 
-        ? validProducts.reduce((prev: any, current: any) => (prev.soldCount > current.soldCount) ? prev : current, validProducts[0])
+    const bestSellerItem = validProducts.length > 0
+        ? validProducts.reduce((prev: Product, current: Product) => (prev.soldCount > current.soldCount) ? prev : current, validProducts[0])
         : null
 
     // Shop Recommendations (Relaxed: Rating > 4.5 + Sold > 0)
     // Use validProducts to ensure soldCount is available
     const recommendedShops = validProducts
-        .filter((p: any) => {
+        .filter((p: Product) => {
             // Brand Filter
             if (selectedBrand) {
                 const pBrand = p.name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
                 if (pBrand !== selectedBrand.toLowerCase()) return false
             }
-            
+
             const r = p.rating && !isNaN(parseFloat(p.rating)) ? parseFloat(p.rating) : 0
             // Allow slightly lower rating to ensure items appear
             return r >= 4.0 && p.soldCount > 0
         })
-        .sort((a: any, b: any) => {
+        .sort((a: Product, b: Product) => {
              // Sort by Rating then Sold
             const ratingDiff = parseFloat(b.rating) - parseFloat(a.rating)
             if (ratingDiff !== 0) return ratingDiff
@@ -223,7 +246,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                         label: (context: any) => `Terjual: ${context.parsed.y} unit`
+                         label: (context: { parsed: { y: number } }) => `Terjual: ${context.parsed.y} unit`
                     }
                 }
             }
@@ -345,7 +368,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                             Top Lokasi Penjual
                         </h4>
                         <div className="space-y-2">
-                            {analytics.top5Locations.map((loc: any, idx: number) => (
+                            {analytics.top5Locations.map((loc: { city: string; count: number }, idx: number) => (
                                 <div key={idx} className="flex justify-between items-center text-sm p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700/50">
                                     <span className="text-gray-600 dark:text-gray-300">{loc.city}</span>
                                     <span className="font-bold text-purple-600 dark:text-purple-400 text-xs bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full">{loc.count}</span>
@@ -361,8 +384,8 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                                 Top Kata Kunci (Brand)
                             </h4>
                             <div className="flex flex-wrap gap-2">
-                                {analytics.topBrands.map((b: any) => (
-                                    <button 
+                                {analytics.topBrands.map((b: { name: string; count: number }) => (
+                                    <button
                                         key={b.name}
                                         onClick={() => setSelectedBrand(selectedBrand === b.name ? '' : b.name)}
                                         className={`px-3 py-1 text-xs rounded-full border transition-all ${
@@ -409,7 +432,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                         Rekomendasi Toko (Rating &gt; 4.0)
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {analytics.recommendedShops.length > 0 ? analytics.recommendedShops.map((shop: any) => (
+                        {analytics.recommendedShops.length > 0 ? analytics.recommendedShops.map((shop: Product) => (
                              <a key={shop.id} href={shop.url} target="_blank" rel="noopener" className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all group">
                                 <img src={shop.image} alt={shop.shopName} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
                                 <div className="flex-1 min-w-0">
@@ -447,7 +470,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                        </tr>
                    </thead>
                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
-                       {result.products.map((item: any, idx: number) => (
+                       {result.products.map((item: Product, idx: number) => (
                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
                                <td className="px-6 py-4 text-center text-gray-400">{idx + 1}</td>
                                <td className="px-6 py-4">

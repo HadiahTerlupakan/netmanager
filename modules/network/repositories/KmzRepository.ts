@@ -43,7 +43,7 @@ export class KmzRepository implements IKmzRepository {
         description: data.description ?? null,
         lineColor: data.lineColor ?? '#3388ff',
         status: data.status ?? 'AKTIF',
-        siteId: data.siteId,
+        siteId: data.siteId ?? null,
       },
       select: { id: true },
     })

@@ -114,7 +114,7 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
     console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}`);
 
     // Build where clause
-    const whereClause: any = {
+    const whereClause: Prisma.UserWhereInput = {
         isActive: true,
         ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
         // Permission: Must have workorders:read
@@ -141,7 +141,7 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
     if (departmentId) {
         whereClause.OR = whereClause.OR ? 
             // Combine with site filter
-            whereClause.OR.map((condition: any) => ({
+            whereClause.OR.map((condition: Prisma.UserWhereInput) => ({
                 ...condition,
                 OR: [
                     { departmentId: departmentId },
@@ -463,7 +463,7 @@ export async function getNotificationsForUser(
         userDepartmentId = user?.departmentId || undefined;
     }
 
-    const where: any = {
+    const where: Prisma.NotificationsWhereInput = {
         OR: [
             { userId }, // Direct notifications
             {
@@ -558,7 +558,7 @@ export async function markAllAsRead(userId: string, type?: NotificationType, sit
         select: { departmentId: true },
     });
 
-    const where: any = {
+    const where: Prisma.NotificationsWhereInput = {
         isRead: false,
         OR: [
             { userId },

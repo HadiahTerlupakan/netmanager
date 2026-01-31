@@ -56,7 +56,7 @@ export default function RadiusDashboard() {
             // Fetch sessions
             const sessionsRes = await fetch('/api/admin/radius/dashboard/recent-sessions?status=active&limit=50');
             const sessionsData = await sessionsRes.json();
-            setSessions(sessionsData.sessions);
+            setSessions(sessionsData.sessions || []);
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
         } finally {
@@ -132,8 +132,8 @@ export default function RadiusDashboard() {
                     onlineUsers={stats.onlineUsers}
                     offlineUsers={stats.offlineUsers}
                     trafficToday={{
-                        downloadGB: stats.totalTrafficToday.downloadGB,
-                        uploadGB: stats.totalTrafficToday.uploadGB,
+                        downloadGB: stats.totalTrafficToday?.downloadGB ?? 0,
+                        uploadGB: stats.totalTrafficToday?.uploadGB ?? 0,
                     }}
                     loading={loading}
                 />
@@ -171,10 +171,10 @@ export default function RadiusDashboard() {
             </div>
 
             {/* Last Sync Info */}
-            {stats && (
+            {stats && stats.lastSyncTime && (
                 <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
                     Last sync: {new Date(stats.lastSyncTime).toLocaleString('id-ID')}
-                    {stats.lastSyncStats.created + stats.lastSyncStats.updated + stats.lastSyncStats.deleted > 0 && (
+                    {stats.lastSyncStats && (stats.lastSyncStats.created + stats.lastSyncStats.updated + stats.lastSyncStats.deleted > 0) && (
                         <span className="ml-2">
                             (Created: {stats.lastSyncStats.created}, Updated: {stats.lastSyncStats.updated}, Deleted: {stats.lastSyncStats.deleted})
                         </span>

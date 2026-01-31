@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
 import { createNotification } from '@/modules/notification/services/NotificationService'
@@ -48,7 +49,7 @@ export class LeaveService {
         page: number = 1,
         limit: number = 20
     ): Promise<ServiceResult<{
-        leaves: any[]
+        leaves: Array<Prisma.LeaveRequestGetPayload<{ include: { user: { select: { name: true; departments: { select: { name: true } }; sites: { select: { name: true } } } } } }>>
         total: number
         page: number
         totalPages: number
@@ -79,9 +80,12 @@ export class LeaveService {
     /**
      * Get single leave by ID
      */
-    async getLeaveById(id: string): Promise<ServiceResult<any>> {
+    async getLeaveById(id: string): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<{ include: { user: true } }>>> {
         try {
-            const leave = await this.repository.findById(id)
+            const leave = await prisma.leaveRequest.findUnique({
+                where: { id },
+                include: { user: true }
+            })
             if (!leave) {
                 return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
             }
@@ -99,7 +103,7 @@ export class LeaveService {
         data: CreateLeaveData,
         createdById: string,
         autoApprove: boolean = true
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
             const leave = await this.repository.create({
                 user: { connect: { id: data.userId } },
@@ -107,9 +111,9 @@ export class LeaveService {
                 startDate: data.startDate,
                 endDate: data.endDate,
                 reason: data.reason,
-                attachmentUrl: data.attachmentUrl,
+                attachmentUrl: data.attachmentUrl ?? null,
                 status: autoApprove ? 'APPROVED' : 'PENDING',
-                approvedBy: autoApprove ? createdById : undefined
+                approvedBy: autoApprove ? createdById : null
             })
 
             // Log activity
@@ -133,7 +137,7 @@ export class LeaveService {
     async approveLeave(
         id: string,
         approverId: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
             // Get existing leave with user data
             const existing = await prisma.leaveRequest.findUnique({
@@ -201,7 +205,7 @@ export class LeaveService {
         id: string,
         approverId: string,
         rejectionReason: string
-    ): Promise<ServiceResult<any>> {
+    ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
             const existing = await prisma.leaveRequest.findUnique({
                 where: { id },
@@ -277,7 +281,7 @@ export class LeaveService {
         action: string,
         subject: string,
         userId: string,
-        details: Record<string, any>
+        details: Record<string, unknown>
     ): Promise<void> {
         try {
             await logger.logActivity({ action, subject, userId, details })

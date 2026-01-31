@@ -12,9 +12,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession, type NextAuthOptions, type Session } from 'next-auth'
 import { authConfig, getUserPermissions } from '@/lib/auth'
-import { checkSiteRestriction, canAccessSite } from '@/modules/roles'
+import { checkSiteRestriction } from '@/modules/roles'
 import { prisma } from '@/lib/prisma'
 
 // =============================================================================
@@ -60,6 +60,18 @@ export interface AuthorizedSession {
     isSales?: boolean
   }
   permissions: string[]
+}
+
+interface SessionUser {
+  id: string;
+  email?: string;
+  name?: string;
+  role?: string;
+  siteId?: string | null;
+  siteIds?: string[];
+  primarySiteId?: string | null;
+  departmentId?: string | null;
+  isSales?: boolean;
 }
 
 export type AuthorizationResult =
@@ -111,9 +123,9 @@ export async function authorize(
   // -------------------------------------------------------------------------
   // Step 1: Authentication Check (from Context7 Next.js pattern)
   // -------------------------------------------------------------------------
-  let session: any
+  let session: Record<string, unknown> | null
   try {
-    session = await getServerSession(authConfig as any)
+    session = await getServerSession(authConfig as NextAuthOptions) as Record<string, unknown> | null
   } catch (error) {
     console.error('[AUTH] Error getting session:', error)
     return {
@@ -124,7 +136,7 @@ export async function authorize(
     }
   }
 
-  if (!session?.user?.id) {
+  if (!(session?.user as SessionUser)?.id) {
     if (auditLog) {
       await logAuthAttempt({
         userId: null,
@@ -134,7 +146,7 @@ export async function authorize(
         details: { reason: 'No session found' }
       })
     }
-    
+
     return {
       error: NextResponse.json(
         { error: errorMessages.unauthorized || 'Authentication required' },
@@ -143,11 +155,12 @@ export async function authorize(
     }
   }
 
-  const userId = session.user.id
-  const userRole = session.user.role || ''
-  const userSiteId = session.user.siteId
-  const userSiteIds = session.user.siteIds || (userSiteId ? [userSiteId] : [])
-  const primarySiteId = session.user.primarySiteId || userSiteId
+  const user = session.user as SessionUser
+  const userId = user.id
+  const userRole = user.role || ''
+  const userSiteId = user.siteId
+  const userSiteIds = user.siteIds || (userSiteId ? [userSiteId] : [])
+  const primarySiteId = user.primarySiteId || userSiteId
 
   // -------------------------------------------------------------------------
   // Step 2: Load User Permissions (always from database)
@@ -178,14 +191,14 @@ export async function authorize(
       session: {
         user: {
           id: userId,
-          email: session.user.email || '',
-          name: session.user.name || null,
+          email: user.email || '',
+          name: user.name || null,
           role: userRole,
           siteId: primarySiteId,
           siteIds: userSiteIds,
           primarySiteId,
-          departmentId: session.user.departmentId,
-          isSales: session.user.isSales
+          departmentId: user.departmentId,
+          isSales: user.isSales
         },
         permissions: userPermissions
       }
@@ -235,7 +248,7 @@ export async function authorize(
   // Step 5: Site Restriction Check
   // -------------------------------------------------------------------------
   if (siteRestricted && userSiteId) {
-    const restrictionResult = checkSiteRestriction(session, 'resource')
+    const restrictionResult = checkSiteRestriction(session as unknown as Session, 'resource')
     
     if (restrictionResult.isRestricted) {
       // User is site-restricted - they can only access resources from their site
@@ -261,14 +274,14 @@ export async function authorize(
     session: {
       user: {
         id: userId,
-        email: session.user.email || '',
-        name: session.user.name || null,
+        email: user.email || '',
+        name: user.name || null,
         role: userRole,
         siteId: primarySiteId,
         siteIds: userSiteIds,
         primarySiteId,
-        departmentId: session.user.departmentId,
-        isSales: session.user.isSales
+        departmentId: user.departmentId,
+        isSales: user.isSales
       },
       permissions: userPermissions
     }
@@ -347,7 +360,7 @@ interface LogAuthAttemptParams {
   url: string
   action: string
   granted: boolean
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 async function logAuthAttempt({
@@ -364,7 +377,7 @@ async function logAuthAttempt({
         type: 'AUTH',
         action,
         subject: url.substring(0, 500), // Limit URL length
-        userId: userId ?? undefined,
+        ...(userId ? { userId } : {}),
         details: JSON.stringify({ granted, ...details })
       }
     })

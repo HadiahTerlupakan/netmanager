@@ -1,13 +1,28 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
 import { Combobox } from '@/components/ui/Combobox'
 
 interface MasukFormProps {
-  initialData?: any
+  initialData?: {
+    id?: string
+    barangId: string
+    gudangId: string
+    jumlah: number
+    hargaBeliSatuan?: number
+    kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
+    keterangan?: string
+    tanggal?: string
+    barang?: {
+      id: string
+      kode: string
+      nama: string
+      satuan: string
+      stockPerGudang?: Array<{ gudangId: string; stok: number }>
+    }
+  }
   onClose: () => void
 }
 
@@ -21,21 +36,37 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     keterangan: '',
     tanggal: new Date().toISOString().split('T')[0]
   })
-  const [barangs, setBarangs] = useState<any[]>([])
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [barangs, setBarangs] = useState<{
+    id: string
+    kode: string
+    nama: string
+    satuan: string
+    stockPerGudang?: Array<{ gudangId: string; stok: number }>
+  }[]>([])
+  const [gudangs, setGudangs] = useState<{
+    id: string
+    kode: string
+    nama: string
+    lokasi?: string
+  }[]>([])
   const [currentStock, setCurrentStock] = useState(0)
   const [loading, setLoading] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ status: string; error?: string }[]>([])
   const [transactionId, setTransactionId] = useState<string | null>(null)
-  
+
   // Persist the full details of the selected barang so it doesn't disappear if search results update
-  const [persistedBarang, setPersistedBarang] = useState<any | null>(null)
+  const [persistedBarang, setPersistedBarang] = useState<{
+    id: string
+    kode: string
+    nama: string
+    satuan: string
+    stockPerGudang?: Array<{ gudangId: string; stok: number }>
+  } | null>(null)
 
   const photoUploadRef = useRef<PhotoUploadRef>(null)
-  const router = useRouter()
 
   const fetchBarangs = async (query = '') => {
     setIsSearching(true)
@@ -110,7 +141,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         try {
           // Use selectedBarang (which could be persisted)
           if (selectedBarang) {
-            const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId)
+            const stockInfo = selectedBarang.stockPerGudang?.find((s: { gudangId: string; stok: number }) => s.gudangId === formData.gudangId)
             setCurrentStock(stockInfo?.stok || 0)
           }
         } catch (error) {
@@ -220,7 +251,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
 
         // Upload photos first if any exist
         let fotoBuktiUrls: string[] = []
-        let uploadedPhotosList: any[] = []
+        let uploadedPhotosList: { status: string; file?: File; error?: string }[] = []
 
         if (photoUploadRef.current) {
           const currentPhotos = photoUploadRef.current.getPhotos()

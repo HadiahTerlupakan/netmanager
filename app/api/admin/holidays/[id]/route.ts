@@ -21,7 +21,7 @@ export async function DELETE(
         const { id } = await params
         await holidayRepo.delete(id)
         return apiSuccess(null, { message: 'Hari libur berhasil dihapus' })
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Delete holiday error:', error)
         return ApiErrors.internalError('Gagal menghapus hari libur')
     }
@@ -43,14 +43,18 @@ export async function PUT(
         const body = await request.json()
         const { date, description, isNational } = body
 
-        const updateData: any = {}
+        const updateData: {
+            date?: Date;
+            description?: string;
+            isNational?: boolean;
+        } = {}
         if (date) updateData.date = new Date(date)
         if (description) updateData.description = description
         if (isNational !== undefined) updateData.isNational = isNational
 
         const holiday = await holidayRepo.update(id, updateData)
         return apiSuccess(holiday, { message: 'Hari libur berhasil diperbarui' })
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Update holiday error:', error)
         return ApiErrors.internalError('Gagal memperbarui hari libur')
     }

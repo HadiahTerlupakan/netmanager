@@ -24,16 +24,16 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [socket, setSocket] = useState<Socket | null>(null);
-
-    const targetMap = {
-        customer: ['ALL', 'CUSTOMER'],
-        employee: ['ALL', 'EMPLOYEE'],
-    };
+    const [_socket, setSocket] = useState<Socket | null>(null);
 
     // Handle new announcement from WebSocket
     const handleNewAnnouncement = useCallback((data: Announcement) => {
         // Check if this announcement is for this portal
+        const targetMap = {
+            customer: ['ALL', 'CUSTOMER'],
+            employee: ['ALL', 'EMPLOYEE'],
+        };
+
         if (!data.target || targetMap[portal].includes(data.target)) {
             // Check if already dismissed
             const dismissedIds = JSON.parse(localStorage.getItem(`dismissed_announcements_${portal}`) || '[]');
@@ -103,8 +103,8 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
                         }
                     }
                 }
-            } catch (error) {
-                console.error('Failed to fetch announcements', error);
+            } catch (_error) {
+                console.error('Failed to fetch announcements', _error);
             } finally {
                 setLoading(false);
             }
@@ -117,6 +117,13 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     const handleDismiss = async () => {
         // Store dismissed announcement IDs
         const currentAnn = announcements[currentIndex];
+
+        // Safety check - if currentAnn is undefined, just close
+        if (!currentAnn) {
+            setIsVisible(false);
+            return;
+        }
+
         const dismissedIds = JSON.parse(localStorage.getItem(`dismissed_announcements_${portal}`) || '[]');
         if (!dismissedIds.includes(currentAnn.id)) {
             dismissedIds.push(currentAnn.id);
@@ -169,6 +176,11 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     }
 
     const current = announcements[currentIndex];
+
+    // Safety check - if current is undefined, don't render
+    if (!current) {
+        return null;
+    }
 
     return (
         <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">

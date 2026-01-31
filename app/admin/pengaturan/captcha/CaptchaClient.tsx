@@ -55,7 +55,7 @@ export function ClientComponent() {
 
             setSuccess(true)
             setTimeout(() => setSuccess(false), 3000)
-        } catch (err) {
+        } catch (_err) {
             setError('Gagal menyimpan pengaturan')
         } finally {
             setSaving(false)

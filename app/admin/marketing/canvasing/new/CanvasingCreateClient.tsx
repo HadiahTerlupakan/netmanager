@@ -29,8 +29,12 @@ export default function CanvasingCreateClient() {
             toast.success('Canvasing berhasil ditambahkan');
             router.push('/admin/marketing/canvasing');
             router.refresh();
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Gagal menambahkan canvasing');
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                toast.error(error.response?.data?.error || 'Gagal menambahkan canvasing');
+            } else {
+                toast.error('Gagal menambahkan canvasing');
+            }
         } finally {
             setIsProcessing(false);
         }

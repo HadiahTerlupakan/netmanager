@@ -39,7 +39,7 @@ export function useCustomerNotifications(
     options: UseCustomerNotificationsOptions = {}
 ): UseCustomerNotificationsResult {
     const { limit = 5, autoFetch = true } = options
-    const { socket, isConnected } = useSocket()
+    const { isConnected } = useSocket()
 
     const [notifications, setNotifications] = useState<CustomerNotification[]>([])
     const [unreadCount, setUnreadCount] = useState(0)

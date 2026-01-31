@@ -1,10 +1,8 @@
 "use client"
-import { useEffect, useState, useMemo, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { HiOutlineChartBar, HiPencil, HiTrash, HiArrowPath, HiCog6Tooth } from 'react-icons/hi2'
 import ReconfigureModal from '@/components/mikrotik/ReconfigureModal'
-import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 import TestConnectionModal from '@/components/mikrotik/TestConnectionModal'
 import { useSocketEvent } from '@/hooks/useSocket'
@@ -38,10 +36,25 @@ const INITIAL_DATA: PaginatedResult = {
   totalPages: 0
 }
 
-export default function MikroTikRouterList() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+interface TestConnectionResult {
+  success: boolean
+  api: { success: boolean; message: string }
+  routerInfo?: {
+    identity?: string
+    version?: string
+    boardName?: string
+    uptime?: string
+    userOnline?: number
+  }
+  message: string
+}
 
+interface MikroTikUpdateData {
+  routerId?: string
+  status?: string
+}
+
+export default function MikroTikRouterList() {
   // State
   const [data, setData] = useState<PaginatedResult>(INITIAL_DATA)
   const [loading, setLoading] = useState(true)
@@ -56,7 +69,7 @@ export default function MikroTikRouterList() {
   const [showTestModal, setShowTestModal] = useState(false)
   const [showReconfigureModal, setShowReconfigureModal] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
-  const [testResult, setTestResult] = useState<any>(null)
+  const [testResult, setTestResult] = useState<TestConnectionResult | null>(null)
 
   // Fetch Data Function
   const fetchRouters = useCallback(async () => {
@@ -87,7 +100,7 @@ export default function MikroTikRouterList() {
   }, [fetchRouters])
 
   // WebSocket Integration
-  useSocketEvent('mikrotik:update', (updateData: any) => {
+  useSocketEvent('mikrotik:update', (updateData: MikroTikUpdateData) => {
     // When an update occurs, we can either:
     // 1. Refetch the current page to get updated statuses
     // 2. Optimistically update if the payload contains map of IDs -> Status
@@ -127,7 +140,7 @@ export default function MikroTikRouterList() {
 
       toast.success('Router berhasil dihapus')
       fetchRouters()
-    } catch (error: any) {
+    } catch (_error) {
       toast.error('Gagal menghapus router')
     }
   }
@@ -150,11 +163,12 @@ export default function MikroTikRouterList() {
       if (res.ok && result.success) {
         fetchRouters() // Refresh status in table
       }
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Test connection error:', error)
       setTestResult({
         success: false,
-        api: { success: false, message: 'Error: ' + (error.message || 'Unknown error') },
+        api: { success: false, message: 'Error: ' + errorMessage },
         message: 'Terjadi kesalahan saat test koneksi',
       })
     } finally {

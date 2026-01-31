@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const includeInactive = searchParams.get('includeInactive') === 'true'
-        
+
         const shifts = await shiftService.getAllShifts(includeInactive)
         return apiSuccess(shifts)
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Shifts API] Error:', error)
         return ApiErrors.internalError('Gagal mengambil data shift')
     }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json()
-        
+
         // Validate required fields
         if (!body.name || !body.startTime || !body.endTime) {
             return apiError('name, startTime, dan endTime wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
@@ -51,8 +51,9 @@ export async function POST(request: NextRequest) {
         })
 
         return apiSuccess(shift, { status: 201, message: 'Shift berhasil dibuat' })
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Shifts API] Error:', error)
-        return apiError(error.message || 'Gagal membuat shift', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+        const errorMessage = error instanceof Error ? error.message : 'Gagal membuat shift'
+        return apiError(errorMessage, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 }

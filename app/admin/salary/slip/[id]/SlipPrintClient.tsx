@@ -1,15 +1,42 @@
 
 'use client'
 
-import { useEffect } from 'react'
 import { HiOutlinePrinter } from 'react-icons/hi2'
 
+interface SalaryDetail {
+    id: string
+    name: string
+    type: 'EARNING' | 'DEDUCTION'
+    amount: number
+    quantity?: number | null
+}
+
+interface Salary {
+    month: number
+    year: number
+    user: {
+        name: string
+        employeeId?: string | null
+        employeeType: string
+        departments?: {
+            name: string
+        } | null
+    }
+    basicSalary: number
+    details: SalaryDetail[]
+    totalEarnings: number
+    totalDeductions: number
+    netSalary: number
+    status: string
+    paidAt?: string | null
+}
+
 interface SlipPrintClientProps {
-    salary: any
+    salary: Salary
 }
 
 export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
-    
+
     const settings = {
         companyName: 'NETMANAGER ISP',
         companyAddress: 'Jalan Raya Internet No. 1',
@@ -30,8 +57,8 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
         'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ]
 
-    const earnings = salary.details.filter((d: any) => d.type === 'EARNING')
-    const deductions = salary.details.filter((d: any) => d.type === 'DEDUCTION')
+    const earnings = salary.details.filter((d: SalaryDetail) => d.type === 'EARNING')
+    const deductions = salary.details.filter((d: SalaryDetail) => d.type === 'DEDUCTION')
 
     return (
         <div className="min-h-screen bg-gray-100 p-8 flex justify-center items-start print:bg-white print:p-0">
@@ -97,7 +124,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
                             <span>Gaji Pokok</span>
                             <span>{formatCurrency(salary.basicSalary)}</span>
                         </div>
-                        {earnings.map((item: any) => (
+                        {earnings.map((item: SalaryDetail) => (
                             <div key={item.id} className="flex justify-between">
                                 <span className={item.quantity ? 'text-xs' : ''}>
                                     {item.name}
@@ -118,7 +145,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
                     <div className="mb-4">
                         <h3 className="font-bold mb-2 text-red-600 print:text-black">POTONGAN</h3>
                          <div className="space-y-1">
-                            {deductions.map((item: any) => (
+                            {deductions.map((item: SalaryDetail) => (
                                 <div key={item.id} className="flex justify-between text-red-600 print:text-black">
                                     <span className={item.quantity ? 'text-xs' : ''}>
                                         {item.name}

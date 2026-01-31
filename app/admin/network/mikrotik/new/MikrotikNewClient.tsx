@@ -5,11 +5,25 @@ import Link from 'next/link'
 import TestConnectionModal from '@/components/mikrotik/TestConnectionModal'
 import ScriptGeneratorModal from '@/components/mikrotik/ScriptGeneratorModal'
 
+interface TestConnectionResult {
+  success: boolean
+  api: { success: boolean; message: string }
+  ping?: { success: boolean; message: string }
+  routerInfo?: {
+    identity?: string
+    version?: string
+    boardName?: string
+    uptime?: string
+    userOnline?: number
+  }
+  message: string
+}
+
 export function ClientComponent() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
-  const [testResult, setTestResult] = useState<any>(null)
+  const [testResult, setTestResult] = useState<TestConnectionResult | null>(null)
   const [showTestModal, setShowTestModal] = useState(false)
   const [showScriptModal, setShowScriptModal] = useState(false)
   const [testPassed, setTestPassed] = useState(false)
@@ -53,9 +67,10 @@ export function ClientComponent() {
       }
 
       router.push('/admin/network/mikrotik')
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error creating router:', error)
-      alert('Terjadi kesalahan saat menambahkan router: ' + (error.message || 'Unknown error'))
+      alert('Terjadi kesalahan saat menambahkan router: ' + errorMessage)
     } finally {
       setLoading(false)
     }
@@ -92,12 +107,13 @@ export function ClientComponent() {
       setTestResult(result)
       // Set testPassed hanya jika test berhasil
       setTestPassed(result.success === true)
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error testing connection:', error)
       setTestResult({
         success: false,
-        ping: { success: false, message: 'Error: ' + (error.message || 'Unknown error') },
-        api: { success: false, message: 'Error: ' + (error.message || 'Unknown error') },
+        ping: { success: false, message: 'Error: ' + errorMessage },
+        api: { success: false, message: 'Error: ' + errorMessage },
         message: 'Terjadi kesalahan saat test koneksi',
       })
       setTestPassed(false)
@@ -367,6 +383,13 @@ export function ClientComponent() {
         onClose={() => setShowTestModal(false)}
         result={testResult}
         isLoading={isTesting}
+      />
+
+      {/* Script Generator Modal */}
+      <ScriptGeneratorModal
+        open={showScriptModal}
+        onClose={() => setShowScriptModal(false)}
+        secret={formData.secretRadius}
       />
     </div>
   )

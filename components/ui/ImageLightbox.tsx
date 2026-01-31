@@ -22,13 +22,41 @@ export function ImageLightbox({ images, initialIndex = 0, isOpen, onClose, alt =
   // Reset state when opening
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(initialIndex)
-      setZoom(1)
-      setPosition({ x: 0, y: 0 })
+      // Defer state updates to avoid synchronous setState in effect
+      requestAnimationFrame(() => {
+        setCurrentIndex(initialIndex)
+        setZoom(1)
+        setPosition({ x: 0, y: 0 })
+      })
     }
   }, [isOpen, initialIndex])
 
-  // Keyboard navigation
+  // Define navigation functions before the keyboard effect
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
+    setZoom(1)
+    setPosition({ x: 0, y: 0 })
+  }, [images.length])
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
+    setZoom(1)
+    setPosition({ x: 0, y: 0 })
+  }, [images.length])
+
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) => Math.min(prev + 0.5, 3))
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) => {
+      const newZoom = Math.max(prev - 0.5, 1)
+      if (newZoom === 1) setPosition({ x: 0, y: 0 })
+      return newZoom
+    })
+  }, [])
+
+  // Keyboard navigation - now uses the functions defined above
   useEffect(() => {
     if (!isOpen) return
 
@@ -55,31 +83,7 @@ export function ImageLightbox({ images, initialIndex = 0, isOpen, onClose, alt =
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentIndex, images.length])
-
-  const goToPrevious = useCallback(() => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
-    setZoom(1)
-    setPosition({ x: 0, y: 0 })
-  }, [images.length])
-
-  const goToNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
-    setZoom(1)
-    setPosition({ x: 0, y: 0 })
-  }, [images.length])
-
-  const handleZoomIn = () => {
-    setZoom((prev) => Math.min(prev + 0.5, 3))
-  }
-
-  const handleZoomOut = () => {
-    setZoom((prev) => {
-      const newZoom = Math.max(prev - 0.5, 1)
-      if (newZoom === 1) setPosition({ x: 0, y: 0 })
-      return newZoom
-    })
-  }
+  }, [isOpen, goToPrevious, goToNext, handleZoomIn, handleZoomOut, onClose])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoom > 1) {
@@ -102,8 +106,10 @@ export function ImageLightbox({ images, initialIndex = 0, isOpen, onClose, alt =
   }
 
   const handleDownload = () => {
+    const imageUrl = images[currentIndex]
+    if (!imageUrl) return
     const link = document.createElement('a')
-    link.href = images[currentIndex]
+    link.href = imageUrl
     link.download = `image-${currentIndex + 1}.jpg`
     link.target = '_blank'
     document.body.appendChild(link)
@@ -193,9 +199,9 @@ export function ImageLightbox({ images, initialIndex = 0, isOpen, onClose, alt =
               transform: `scale(${zoom}) translate(${position.x / zoom}px, ${position.y / zoom}px)`,
             }}
           >
-            <Image
-              src={images[currentIndex]}
-              alt={`${alt} ${currentIndex + 1}`}
+              <Image
+                src={images[currentIndex] ?? ''}
+                alt={`${alt} ${currentIndex + 1}`}
               width={1200}
               height={800}
               className="max-w-full max-h-[80vh] object-contain select-none"

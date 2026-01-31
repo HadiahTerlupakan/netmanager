@@ -3,8 +3,35 @@
 import { useState, useEffect } from 'react'
 import { FiActivity } from 'react-icons/fi'
 
+interface Barang {
+  id: string
+  kode: string
+  nama: string
+  satuan: string
+  stockPerGudang: Array<{
+    gudangId: string
+    stok: number
+  }>
+}
+
+interface Gudang {
+  id: string
+  kode: string
+  nama: string
+}
+
+interface RestockSettings {
+  barangId: string
+  gudangId: string
+  minStok: number
+  maxStok: number
+  safetyStok: number
+  leadTimeDays: number
+  avgDailyUsage?: number
+}
+
 interface RestockSettingsFormProps {
-  initialData?: any
+  initialData?: RestockSettings
   onClose: () => void
   onSuccess: () => void
 }
@@ -18,8 +45,8 @@ export function RestockSettingsForm({ initialData, onClose, onSuccess }: Restock
     safetyStok: '',
     leadTimeDays: ''
   })
-  const [barangs, setBarangs] = useState<any[]>([])
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [barangs, setBarangs] = useState<Barang[]>([])
+  const [gudangs, setGudangs] = useState<Gudang[]>([])
   const [currentStock, setCurrentStock] = useState(0)
   const [avgDailyUsage, setAvgDailyUsage] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -68,7 +95,7 @@ export function RestockSettingsForm({ initialData, onClose, onSuccess }: Restock
         try {
           const selectedBarang = barangs.find(b => b.id === formData.barangId)
           if (selectedBarang) {
-            const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId)
+            const stockInfo = selectedBarang.stockPerGudang?.find((s: { gudangId: string; stok: number }) => s.gudangId === formData.gudangId)
             setCurrentStock(stockInfo?.stok || 0)
 
             // Calculate average daily usage (last 30 days)

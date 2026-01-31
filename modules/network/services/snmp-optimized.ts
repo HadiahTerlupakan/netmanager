@@ -5,22 +5,21 @@
 
 import snmp from 'net-snmp'
 import { snmpGetBulkSimple } from '@/lib/utils/snmp-helpers'
-import { onuCacheService } from './onu-cache-service'
 
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const MAX_CHUNK_SIZE = 50 // Max ONU per chunk
 const SNMP_TIMEOUT = 180000 // 180 seconds (3 minutes) untuk dataset besar
-const STATUS_CACHE_TTL = 30 * 60 * 1000 // 30 minutes untuk status data (total count)
+const _STATUS_CACHE_TTL = 30 * 60 * 1000 // 30 minutes untuk status data (total count)
 const MAX_CONCURRENT_SESSIONS = 3
 
-interface CacheEntry {
+interface _CacheEntry {
   data: Record<string, string>
   timestamp: number
 }
 
 interface SNMPSession {
-  session: any
+  session: snmp.Session
   inUse: boolean
   lastUsed: number
 }
@@ -34,7 +33,7 @@ class SNMPConnectionPool {
     port: number,
     community: string,
     version: string
-  ): Promise<any> {
+  ): Promise<snmp.Session> {
     const key = `${ipAddress}:${port}:${community}:${version}`
 
     if (!this.sessions.has(key)) {
@@ -84,8 +83,8 @@ class SNMPConnectionPool {
     return availableSession.session
   }
 
-  releaseSession(session: any) {
-    for (const [key, sessionList] of this.sessions.entries()) {
+  releaseSession(session: snmp.Session) {
+    for (const sessionList of this.sessions.values()) {
       const found = sessionList.find(s => s.session === session)
       if (found) {
         found.inUse = false
@@ -95,11 +94,11 @@ class SNMPConnectionPool {
   }
 
   cleanup() {
-    for (const [key, sessionList] of this.sessions.entries()) {
+    for (const sessionList of this.sessions.values()) {
       for (const snmpSession of sessionList) {
         try {
           snmpSession.session.close()
-        } catch (e) {
+        } catch (_e) {
           // Ignore
         }
       }
@@ -191,8 +190,8 @@ export async function snmpWalkOptimized(
     console.log(`[SNMP-Optimized] GETBULK completed for ${oid} (${Object.keys(results).length} items, ${duration}ms)`)
 
     return results
-  } catch (error: any) {
-    console.error(`[SNMP-Optimized] GETBULK failed for ${oid}:`, error.message || error)
+  } catch (error) {
+    console.error(`[SNMP-Optimized] GETBULK failed for ${oid}:`, error instanceof Error ? error.message : String(error))
     // Fallback ke WALK dengan chunking jika GETBULK gagal
     console.log(`[SNMP-Optimized] Falling back to WALK with chunking...`)
     const session = await connectionPool.getSession(ipAddress, port, community, version)
@@ -210,7 +209,7 @@ export async function snmpWalkOptimized(
 
 // SNMP walk dengan chunking untuk data besar
 async function snmpWalkWithChunking(
-  session: any,
+  session: snmp.Session,
   oid: string,
   chunkSize: number,
   timeout: number
@@ -221,7 +220,7 @@ async function snmpWalkWithChunking(
     let currentChunk: Record<string, string> = {}
     let chunkCount = 0
 
-    const finish = (error?: any) => {
+    const finish = (error?: Error) => {
       if (resolved) return
       resolved = true
 
@@ -244,17 +243,17 @@ async function snmpWalkWithChunking(
       }
     }, timeout)
 
-    const processCallback = (error: any, varbinds: any[]) => {
+    const processCallback = (error: Error | null, varbinds: snmp.Varbind[]) => {
       if (resolved) return
 
       // Handle net-snmp bug
-      if (error && Array.isArray(error) && error.length > 0 && error[0]?.oid) {
-        varbinds = error
+      if (error && Array.isArray(error) && error.length > 0 && (error[0] as unknown as { oid: string })?.oid) {
+        varbinds = error as unknown as snmp.Varbind[]
         error = null
       }
 
       if (error) {
-        console.warn(`[SNMP-Optimized] SNMP walk error: ${error?.message || error}`)
+        console.warn(`[SNMP-Optimized] SNMP walk error: ${error.message}`)
         // If error but have results, don't fail immediately
         if (Object.keys(results).length > 0) {
           finish()
@@ -285,7 +284,7 @@ async function snmpWalkWithChunking(
               .map((b) => b.toString(16).toUpperCase().padStart(2, '0'))
               .join(' ')
           } else {
-            valueStr = varbind.value.toString()
+            valueStr = String(varbind.value)
           }
 
           currentChunk[oidStr] = valueStr
@@ -302,22 +301,29 @@ async function snmpWalkWithChunking(
       }
     }
 
-    const wrappedCallback = (error: any, varbinds: any[]) => {
-      try {
-        processCallback(error, varbinds)
-      } catch (callbackError: any) {
-        console.error(`[SNMP-Optimized] Callback error:`, callbackError?.message)
-        if (Object.keys(results).length > 0) {
-          finish()
+      const feedCb = (varbinds: snmp.Varbind[]) => {
+        try {
+          processCallback(null, varbinds)
+        } catch (callbackError) {
+          console.error(`[SNMP-Optimized] Callback error:`, callbackError instanceof Error ? callbackError.message : String(callbackError))
         }
       }
-    }
+
+      const doneCb = (error?: Error) => {
+        if (error) {
+           console.error(`[SNMP-Optimized] Subtree error:`, error.message)
+           finish(error)
+        } else {
+           finish()
+        }
+      }
 
     try {
-      session.subtree(oid, wrappedCallback)
-    } catch (subtreeError: any) {
-      console.error(`[SNMP-Optimized] Subtree error:`, subtreeError?.message)
-      finish(subtreeError)
+      // Use maxRepetitions = 20 for subtree walk
+      session.subtree(oid, 20, feedCb, doneCb)
+    } catch (subtreeError) {
+      console.error(`[SNMP-Optimized] Subtree setup error:`, subtreeError instanceof Error ? subtreeError.message : String(subtreeError))
+      finish(subtreeError as Error)
       return
     }
 
@@ -387,7 +393,8 @@ export async function fetchOnuDataPaginated(
       const oidStatusOld = `${baseOid}.6`
       statusData = await snmpWalkOptimized(ipAddress, port, community, version, oidStatusOld, {
         useCache: false,
-        timeout: SNMP_TIMEOUT
+        timeout: SNMP_TIMEOUT,
+        chunkSize: MAX_CHUNK_SIZE
       }).catch(() => ({}))
     }
 

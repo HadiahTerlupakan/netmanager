@@ -3,7 +3,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { isR2Enabled, uploadToR2, generateR2Key } from './r2-client'
 
-export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'marketing' | 'app-version'
+export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'marketing' | 'app-version' | 'general'
 
 // OPTIMIZATION: Threshold for streaming vs buffer processing
 const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024 // 50MB
@@ -66,9 +66,9 @@ export async function convertAndSaveImage(
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder, watermarkLines)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error converting image to WebP:', error)
-    throw new Error(`Gagal mengkonversi gambar: ${error.message}`)
+    throw new Error(`Gagal mengkonversi gambar: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -88,9 +88,9 @@ export async function convertAndSaveBase64(
     const cleanBase64 = base64String.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(cleanBase64, 'base64')
     return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder, watermarkLines)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error converting base64 to WebP:', error)
-    throw new Error(`Gagal mengkonversi base64: ${error.message}`)
+    throw new Error(`Gagal mengkonversi base64: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -127,7 +127,7 @@ async function processAndSaveBuffer(
     const key = generateR2Key(
       uploadType || 'pelanggan',
       `${fileName}.webp`,
-      subFolder
+      subFolder || ''
     )
 
     const url = await uploadToR2(webpBuffer, key, 'image/webp')
@@ -203,9 +203,9 @@ export async function saveFile(
 
     console.log('File saved locally:', { outputPath, relativePath: normalizedPath })
     return normalizedPath
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error saving file:', error)
-    throw new Error(`Gagal menyimpan file: ${error.message}`)
+    throw new Error(`Gagal menyimpan file: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -249,6 +249,8 @@ export async function uploadInventoryPhotos(
     // Upload each image with a sequential index
     for (let i = 0; i < imageFiles.length; i++) {
       const file = imageFiles[i]
+      if (!file) continue;
+
       const fileName = `${safeTransactionId}_photo_${i + 1}`
 
       // Use the existing convertAndSaveImage function
@@ -266,9 +268,9 @@ export async function uploadInventoryPhotos(
     console.log(`Successfully uploaded ${uploadedUrls.length} inventory photos for transaction ${transactionId}`)
     return uploadedUrls
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error uploading inventory photos:', error)
-    throw new Error(`Gagal mengupload foto inventaris: ${error.message}`)
+    throw new Error(`Gagal mengupload foto inventaris: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

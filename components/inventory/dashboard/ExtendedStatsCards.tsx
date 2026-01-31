@@ -1,8 +1,8 @@
 'use client'
 
-import { HiOutlineCube, HiOutlineArchiveBox, HiOutlineBuildingOffice2, 
-         HiOutlineExclamationTriangle, HiOutlineArrowDownCircle, 
-         HiOutlineArrowUpCircle, HiOutlineCurrencyDollar, HiOutlineWrenchScrewdriver } from 'react-icons/hi2'
+import { HiOutlineCube, HiOutlineArchiveBox, HiOutlineBuildingOffice2,
+         HiOutlineExclamationTriangle, HiOutlineArrowDownCircle,
+         HiOutlineArrowUpCircle, HiOutlineWrenchScrewdriver } from 'react-icons/hi2'
 
 interface StatsData {
   totalJenisBarang: number

@@ -3,7 +3,7 @@ import { TransactionRepository } from '../repositories/TransactionRepository'
 import type { ITransactionRepository } from '../repositories/ITransactionRepository'
 import { TransactionCategoryRepository } from '../repositories/TransactionCategoryRepository'
 import type { ITransactionCategoryRepository } from '../repositories/ITransactionCategoryRepository'
-import { type Prisma, type Transaction, type PaymentStatus } from '@prisma/client'
+import { type Prisma, type PaymentStatus } from '@prisma/client'
 
 export class FinanceService {
   private transactionRepo: ITransactionRepository
@@ -24,11 +24,11 @@ export class FinanceService {
 
   async getTransactions(filters?: { startDate?: string, endDate?: string, categoryId?: string, accountId?: string, siteId?: string }) {
     return this.transactionRepo.findAll({
-      startDate: filters?.startDate ? new Date(filters.startDate) : undefined,
-      endDate: filters?.endDate ? new Date(filters.endDate) : undefined,
-      categoryId: filters?.categoryId,
-      accountId: filters?.accountId,
-      siteId: filters?.siteId
+      ...(filters?.startDate ? { startDate: new Date(filters.startDate) } : {}),
+      ...(filters?.endDate ? { endDate: new Date(filters.endDate) } : {}),
+      ...(filters?.categoryId ? { categoryId: filters.categoryId } : {}),
+      ...(filters?.accountId ? { accountId: filters.accountId } : {}),
+      ...(filters?.siteId ? { siteId: filters.siteId } : {})
     })
   }
 
@@ -59,14 +59,14 @@ export class FinanceService {
                 type: data.type,
                 amount: data.amount,
                 date: new Date(data.date),
-                description: data.description,
+                description: data.description ?? null,
                 categoryId: data.categoryId,
                 createdById: data.createdById,
-                referenceId: data.referenceId,
-                accountId: data.accountId,
+                referenceId: data.referenceId ?? null,
+                accountId: data.accountId ?? null,
                 attachments: data.attachments || []
             },
-            include: { category: true } 
+            include: { category: true }
         })
     })
 
@@ -147,7 +147,7 @@ export class FinanceService {
           referenceId: po.poNumber,
           purchaseOrderId: po.id,
           createdById: input.createdById,
-          accountId: input.paidFromAccountId
+          accountId: input.paidFromAccountId ?? null
         }
       })
 
@@ -158,14 +158,14 @@ export class FinanceService {
       })
 
       const totalPaid = existingTx.reduce((sum, t) => sum + t.amount, 0)
-      
+
       // Determine status: UNPAID (no payments), PARTIAL (some payments), PAID (fully paid)
       let newStatus: PaymentStatus = 'UNPAID'
-      
+
       // Check full payment with small tolerance (against Grand Total)
       // If grandTotal is 0 (legacy data), use totalAmount
       const targetAmount = po.grandTotal > 0 ? po.grandTotal : po.totalAmount
-      
+
       if (totalPaid >= (targetAmount - 100)) {
         newStatus = 'PAID'
       } else if (totalPaid > 0) {
@@ -175,9 +175,9 @@ export class FinanceService {
       // Update PO Status & Last Paid Account
       await tx.purchaseOrder.update({
         where: { id: input.poId },
-        data: { 
+        data: {
             paymentStatus: newStatus,
-            paidFromAccountId: input.paidFromAccountId || undefined
+            ...(input.paidFromAccountId ? { paidFromAccountId: input.paidFromAccountId } : {})
         }
       })
 
@@ -252,9 +252,11 @@ export class FinanceService {
          OTHER: 0
        }
        
-       transactions.forEach((t: any) => {
-         if (t.type === 'EXPENSE' && t.category) {
-            const et = t.category.expenseType || 'OTHER'
+       transactions.forEach((t) => {
+         if (t.type === 'EXPENSE' && t.categoryId) {
+            // @ts-expect-error - category relation might not be fully typed in repository return
+
+            const et = t.category?.expenseType || 'OTHER'
             if (et in summary) {
                 summary[et as keyof typeof summary] += t.amount
             } else {
@@ -399,8 +401,8 @@ export class FinanceService {
       data: {
         name: data.name,
         type: data.type,
-        accountNumber: data.accountNumber,
-        description: data.description,
+        accountNumber: data.accountNumber ?? null,
+        description: data.description ?? null,
         balance: data.initialBalance || 0,
         isActive: true
       }

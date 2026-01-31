@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { prismaMock } from '../../setup'
 import { AutomaticIsolationService } from '@/modules/finance/services/AutomaticIsolationService'
-import { Status } from '@prisma/client'
+import { Status, type Pelanggan, type Invoice, type Settings } from '@prisma/client'
 
 // Mock RadiusSyncService with proper class syntax
 vi.mock('@/modules/network/services/radius-sync-service', () => ({
@@ -39,7 +39,7 @@ describe('AutomaticIsolationService', () => {
       prismaMock.settings.findUnique.mockResolvedValueOnce({
         key: 'GENERAL_AUTO_ISOLASI_ENABLED',
         value: 'false'
-      } as any)
+      } as unknown as Settings)
 
       await AutomaticIsolationService.runDailyCheck()
 
@@ -60,7 +60,7 @@ describe('AutomaticIsolationService', () => {
         autoIsolir: true,
         jatuhTempo: new Date('2024-01-10') // 5 days ago
       }
-      prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as any)
+      prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as unknown as Pelanggan[])
 
       // Mock: No paid invoice found (should isolate)
       prismaMock.invoice.findFirst.mockResolvedValueOnce(null)
@@ -69,7 +69,7 @@ describe('AutomaticIsolationService', () => {
       prismaMock.pelanggan.update.mockResolvedValueOnce({
         ...overdueCustomer,
         status: Status.ISOLIR
-      } as any)
+      } as unknown as Pelanggan)
 
       await AutomaticIsolationService.runDailyCheck()
 
@@ -103,14 +103,14 @@ describe('AutomaticIsolationService', () => {
         autoIsolir: true,
         jatuhTempo: new Date('2024-01-10')
       }
-      prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as any)
+      prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as unknown as Pelanggan[])
 
       // Mock: Has recent paid invoice - should skip isolation
       prismaMock.invoice.findFirst.mockResolvedValueOnce({
         id: 'invoice-1',
         invoiceNumber: 'INV/2024/01/0001',
         status: 'PAID'
-      } as any)
+      } as unknown as Invoice)
 
       await AutomaticIsolationService.runDailyCheck()
 
@@ -130,12 +130,12 @@ describe('AutomaticIsolationService', () => {
         autoIsolir: true,
         jatuhTempo: new Date('2024-01-10') // Exactly 5 days ago
       }
-      prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as any)
-      
+      prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as unknown as Pelanggan[])
+
       // No paid invoice found
       prismaMock.invoice.findFirst.mockResolvedValueOnce(null)
-      
-      prismaMock.pelanggan.update.mockResolvedValueOnce({} as any)
+
+      prismaMock.pelanggan.update.mockResolvedValueOnce({} as unknown as Pelanggan)
 
       await AutomaticIsolationService.runDailyCheck()
 

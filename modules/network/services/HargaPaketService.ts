@@ -35,7 +35,7 @@ export class HargaPaketService {
     /**
      * Create new harga paket with validation
      */
-    async createHargaPaket(data: any, userId?: string) {
+    async createHargaPaket(data: Partial<HargaPaketCreateInput>, userId?: string) {
         // Sanitize input
         const sanitizedData = {
             ...data,
@@ -61,12 +61,12 @@ export class HargaPaketService {
             name: validData.name,
             harga: validData.harga,
             durasi: validData.durasi,
-            durasiUnit: validData.durasiUnit,
+            ...(validData.durasiUnit ? { durasiUnit: validData.durasiUnit } : {}),
             profilePPPId: validData.profilePPPId,
-            bandwidthId: validData.bandwidthId ?? undefined,
-            description: validData.description,
-            featured: validData.featured,
-            status: validData.status,
+            ...(validData.bandwidthId ? { bandwidthId: validData.bandwidthId } : {}),
+            ...(validData.description ? { description: validData.description } : {}),
+            ...(validData.featured !== undefined ? { featured: validData.featured } : {}),
+            ...(validData.status ? { status: validData.status } : {}),
         })
 
         // Sync MikroTik rate limit if needed
@@ -81,7 +81,7 @@ export class HargaPaketService {
                     userId,
                     details: { id: hargaPaket.id, name: hargaPaket.name, price: hargaPaket.harga },
                 })
-            } catch (e) {
+            } catch (e: unknown) {
                 console.error('[HargaPaketService] Logging failed', e)
             }
         }
@@ -92,7 +92,7 @@ export class HargaPaketService {
     /**
      * Update harga paket
      */
-    async updateHargaPaket(id: string, data: any, userId?: string) {
+    async updateHargaPaket(id: string, data: Partial<HargaPaketUpdateInput> & { bandwidthId?: string | null }, userId?: string) {
         // Validate exists
         const existing = await this.repository.findById(id)
         if (!existing) {
@@ -133,7 +133,7 @@ export class HargaPaketService {
                     userId,
                     details: { id: updated.id, name: updated.name },
                 })
-            } catch (e) {
+            } catch (e: unknown) {
                 console.error('[HargaPaketService] Logging failed', e)
             }
         }
@@ -168,7 +168,7 @@ export class HargaPaketService {
                     userId,
                     details: { id, name: existing.name },
                 })
-            } catch (e) {
+            } catch (e: unknown) {
                 console.error('[HargaPaketService] Logging failed', e)
             }
         }
@@ -179,7 +179,16 @@ export class HargaPaketService {
     /**
      * Sync rate limit to MikroTik PPP profile
      */
-    private async syncMikroTikRateLimit(hargaPaket: any) {
+    private async syncMikroTikRateLimit(hargaPaket: {
+        id: string;
+        name: string;
+        profilePPP?: {
+            id: string;
+            name: string;
+            mikroTikRouterId: string | null;
+            mikroTikRouter?: unknown
+        }
+    }) {
         if (!hargaPaket.profilePPP?.mikroTikRouterId || !hargaPaket.profilePPP?.mikroTikRouter) {
             return
         }
@@ -200,7 +209,7 @@ export class HargaPaketService {
                     console.error('[HargaPaketService] Failed to update rate limit:', updateResult.error)
                 }
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('[HargaPaketService] Error syncing MikroTik:', error)
         }
     }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { MikroTikProvisioningService } from '@/modules/network/services/MikroTikProvisioningService'
@@ -8,8 +8,8 @@ import { MikroTikProvisioningService } from '@/modules/network/services/MikroTik
 const provisioningService = new MikroTikProvisioningService()
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) { // TODO: Add proper role check if needed
+  const session = await getServerSession(authConfig as object) as Session | null
+  if (!session) {
     return null
   }
   return session
@@ -36,7 +36,6 @@ export async function POST(req: Request) {
 
     const radiusSecret = settings.find(s => s.key === 'RADIUS_SECRET')?.value || 'testing123'
     const isolirUrl = settings.find(s => s.key === 'ISOLIR_URL')?.value
-    const serverIp = settings.find(s => s.key === 'MIKROTIK_API_URL')?.value // Or let auto-detect handle it
 
     // 2. Fetch Selected Routers
     const routers = await prisma.mikroTikRouter.findMany({
@@ -84,13 +83,13 @@ export async function POST(req: Request) {
 
             if (result.success) successCount++
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             results.push({
                 id: router.id,
                 name: router.name,
                 success: false,
                 logs: [],
-                error: error.message
+                error: error instanceof Error ? error.message : 'Unknown error'
             });
         }
     }
@@ -101,8 +100,8 @@ export async function POST(req: Request) {
         results
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error reconfiguring routers:', error)
-    return NextResponse.json({ error: error.message || 'Failed to reconfigure routers' }, { status: 500 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to reconfigure routers' }, { status: 500 })
   }
 }

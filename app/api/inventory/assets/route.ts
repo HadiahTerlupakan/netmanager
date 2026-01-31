@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
         const result = await assetService.findAllAssets({
             page,
             limit,
-            search,
-            status
+            ...(search ? { search } : {}),
+            ...(status ? { status } : {})
         })
 
         return apiSuccess({
@@ -49,9 +49,10 @@ export async function GET(req: NextRequest) {
             page,
             limit
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Failed to fetch assets:', error)
-        return ApiErrors.internalError(error.message || 'Gagal memuat data aset')
+        const message = error instanceof Error ? error.message : 'Gagal memuat data aset'
+        return ApiErrors.internalError(message)
     }
 }
 
@@ -68,10 +69,19 @@ export async function POST(req: NextRequest) {
         const body = await req.json()
         const validated = createAssetSchema.parse(body)
 
-        const asset = await assetService.createAsset(validated, session.user.id)
+        const { residualValue, status, location, assignedTo, purchaseDate, ...rest } = validated
+
+        const asset = await assetService.createAsset({
+            ...rest,
+            purchaseDate: purchaseDate ?? new Date(),
+            ...(residualValue !== undefined ? { residualValue } : {}),
+            ...(status ? { status } : {}),
+            ...(location ? { location } : {}),
+            ...(assignedTo ? { assignedTo } : {})
+        }, session.user.id)
 
         return apiSuccess({ asset }, { status: 201, message: 'Aset berhasil dibuat' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Failed to create asset:', error)
         if (error instanceof ZodError) {
             return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
@@ -79,6 +89,7 @@ export async function POST(req: NextRequest) {
                 details: { errors: error.issues } 
             })
         }
-        return ApiErrors.internalError(error.message || 'Gagal membuat aset')
+        const message = error instanceof Error ? error.message : 'Gagal membuat aset'
+        return ApiErrors.internalError(message)
     }
 }

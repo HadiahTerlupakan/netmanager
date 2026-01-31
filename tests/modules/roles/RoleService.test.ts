@@ -1,30 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
 import { RoleService } from '@/modules/roles/services/RoleService'
+import type { Role, Permission } from '@prisma/client'
 
 // Mock RoleRepository
 vi.mock('@/modules/roles/repositories/RoleRepository', () => ({
   RoleRepository: class MockRoleRepository {
     findAll = vi.fn().mockImplementation(() => prismaMock.role.findMany())
-    findById = vi.fn().mockImplementation((id: string) => 
+    findById = vi.fn().mockImplementation((id: string) =>
       prismaMock.role.findUnique({ where: { id } })
     )
-    findByName = vi.fn().mockImplementation((name: string) => 
+    findByName = vi.fn().mockImplementation((name: string) =>
       prismaMock.role.findFirst({ where: { name } })
     )
-    findByIdWithPermissions = vi.fn().mockImplementation((id: string) => 
+    findByIdWithPermissions = vi.fn().mockImplementation((id: string) =>
       prismaMock.role.findUnique({ where: { id } })
     )
-    create = vi.fn().mockImplementation((data: any) => 
-      prismaMock.role.create({ data })
+    create = vi.fn().mockImplementation((data: unknown) =>
+      prismaMock.role.create({ data: data as unknown as Role })
     )
-    update = vi.fn().mockImplementation((id: string, data: any) => 
-      prismaMock.role.update({ where: { id }, data })
+    update = vi.fn().mockImplementation((id: string, data: unknown) =>
+      prismaMock.role.update({ where: { id }, data: data as unknown as Role })
     )
-    delete = vi.fn().mockImplementation((id: string) => 
+    delete = vi.fn().mockImplementation((id: string) =>
       prismaMock.role.delete({ where: { id } })
     )
-    countUsers = vi.fn().mockImplementation((roleId: string) => 
+    countUsers = vi.fn().mockImplementation((roleId: string) =>
       prismaMock.user.count({ where: { roleId } })
     )
   }
@@ -44,7 +45,7 @@ describe('RoleService', () => {
       prismaMock.role.findFirst.mockResolvedValueOnce({
         id: 'existing-role',
         name: 'Manager'
-      } as any)
+      } as unknown as Role)
 
       await expect(service.createRole({
         name: 'Manager',
@@ -56,23 +57,23 @@ describe('RoleService', () => {
     it('should parse permissions and find existing permission IDs', async () => {
       // Mock: Role name not exists
       prismaMock.role.findFirst.mockResolvedValueOnce(null)
-      
+
       // Mock: Find existing permissions (first call for check, second for final fetch)
       prismaMock.permission.findMany
         .mockResolvedValueOnce([
           { resource: 'users', action: 'read' },
           { resource: 'users', action: 'write' }
-        ] as any)
+        ] as unknown as Permission[])
         .mockResolvedValueOnce([
           { id: 'perm-1' },
           { id: 'perm-2' }
-        ] as any)
+        ] as unknown as Permission[])
 
       // Mock: Create role
       prismaMock.role.create.mockResolvedValueOnce({
         id: 'new-role',
         name: 'Custom Role'
-      } as any)
+      } as unknown as Role)
 
       const result = await service.createRole({
         name: 'Custom Role',
@@ -88,14 +89,14 @@ describe('RoleService', () => {
       prismaMock.permission.findMany
         .mockResolvedValueOnce([
           { resource: 'users', action: 'read' }
-        ] as any)
+        ] as unknown as Permission[])
         .mockResolvedValueOnce([
           { id: 'perm-1' }
-        ] as any)
+        ] as unknown as Permission[])
       prismaMock.role.create.mockResolvedValueOnce({
         id: 'new-role',
         name: 'Test Role'
-      } as any)
+      } as unknown as Role)
 
       await service.createRole({
         name: 'Test Role',
@@ -128,7 +129,7 @@ describe('RoleService', () => {
       prismaMock.role.findUnique.mockResolvedValueOnce({
         id: 'super-admin-id',
         name: 'SUPER_ADMIN'
-      } as any)
+      } as unknown as Role)
 
       await expect(service.updateRole('super-admin-id', {
         name: 'Admin', // Trying to rename
@@ -141,14 +142,14 @@ describe('RoleService', () => {
       prismaMock.role.findUnique.mockResolvedValueOnce({
         id: 'super-admin-id',
         name: 'SUPER_ADMIN'
-      } as any)
+      } as unknown as Role)
       // Empty permissions array means no permission.findMany calls
       prismaMock.permission.findMany.mockResolvedValue([])
       prismaMock.role.update.mockResolvedValueOnce({
         id: 'super-admin-id',
         name: 'SUPER_ADMIN',
         description: 'Updated description'
-      } as any)
+      } as unknown as Role)
 
       const result = await service.updateRole('super-admin-id', {
         name: 'SUPER_ADMIN', // Same name
@@ -172,7 +173,7 @@ describe('RoleService', () => {
       prismaMock.role.findUnique.mockResolvedValueOnce({
         id: 'super-admin-id',
         name: 'SUPER_ADMIN'
-      } as any)
+      } as unknown as Role)
 
       await expect(service.deleteRole('super-admin-id'))
         .rejects.toThrow('Cannot delete SUPER_ADMIN role')
@@ -182,7 +183,7 @@ describe('RoleService', () => {
       prismaMock.role.findUnique.mockResolvedValueOnce({
         id: 'role-1',
         name: 'Manager'
-      } as any)
+      } as unknown as Role)
       // Mock: Role has users
       prismaMock.user.count.mockResolvedValueOnce(5)
 
@@ -192,9 +193,9 @@ describe('RoleService', () => {
 
     it('should delete role with no users', async () => {
       const mockRole = { id: 'role-1', name: 'Empty Role' }
-      prismaMock.role.findUnique.mockResolvedValueOnce(mockRole as any)
+      prismaMock.role.findUnique.mockResolvedValueOnce(mockRole as unknown as Role)
       prismaMock.user.count.mockResolvedValueOnce(0) // No users
-      prismaMock.role.delete.mockResolvedValueOnce(mockRole as any)
+      prismaMock.role.delete.mockResolvedValueOnce(mockRole as unknown as Role)
 
       const result = await service.deleteRole('role-1')
 

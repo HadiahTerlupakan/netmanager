@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import {
-    MdNotifications,
     MdNearMe,
     MdWorkHistory,
     MdLogin,
@@ -14,15 +13,12 @@ import {
     MdFingerprint,
     MdRefresh,
     MdClose,
-    MdCameraAlt,
-    MdImage,
     MdAnalytics
 } from 'react-icons/md'
 import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
-import { getDistance } from 'geolib'
 import { AttendanceStatusIndicator } from './AttendanceStatusIndicator'
 import { GeofenceStatusBadge } from './GeofenceStatusBadge'
 import { AttendanceAnalytics } from './AttendanceAnalytics'
@@ -46,14 +42,13 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
     const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
     const [checkInDate, setCheckInDate] = useState<Date | null>(null)
     const [checkOutDate, setCheckOutDate] = useState<Date | null>(null)
-    const [workDuration, setWorkDuration] = useState('00:00')
-    const [history, setHistory] = useState<any[]>([])
+    const [history, setHistory] = useState<unknown[]>([])
     const [attendanceStatus, setAttendanceStatus] = useState<'ON_TIME' | 'LATE'>('ON_TIME')
     const [workingHourMode, setWorkingHourMode] = useState<'FIXED' | 'FLEXIBLE'>('FIXED')
     const [targetHours, setTargetHours] = useState(8)
     const [showAnalytics, setShowAnalytics] = useState(false)
-    const [geofenceStatus, setGeofenceStatus] = useState<'INSIDE' | 'OUTSIDE' | 'UNKNOWN'>('UNKNOWN')
-    const [geofenceDistance, setGeofenceDistance] = useState<number | null>(null)
+    const geofenceStatus: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN' = 'UNKNOWN'
+    const geofenceDistance: number | null = null
 
     // Camera & Location States
     const [showCamera, setShowCamera] = useState(false)
@@ -82,7 +77,15 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                 setHistory(data.data)
 
                 if (data.data.length > 0) {
-                    const lastAttendance = data.data[0]
+                    const lastAttendance = data.data[0] as {
+                        checkIn: string;
+                        checkOut?: string;
+                        status?: 'ON_TIME' | 'LATE';
+                        user?: {
+                            workingHourMode?: 'FIXED' | 'FLEXIBLE';
+                            flexibleTargetHour?: number;
+                        }
+                    }
                     const today = new Date().toDateString()
                     const attendanceDate = new Date(lastAttendance.checkIn).toDateString()
 
@@ -90,7 +93,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         setCheckInTime(format(new Date(lastAttendance.checkIn), 'HH:mm'))
                         setCheckInDate(new Date(lastAttendance.checkIn))
                         setAttendanceStatus(lastAttendance.status || 'ON_TIME')
-                        
+
                         // Set working hour mode and target hours from user data if available
                         if (lastAttendance.user) {
                             setWorkingHourMode(lastAttendance.user.workingHourMode || 'FIXED')
@@ -101,18 +104,8 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             setStatus('checked-out')
                             setCheckOutTime(format(new Date(lastAttendance.checkOut), 'HH:mm'))
                             setCheckOutDate(new Date(lastAttendance.checkOut))
-                            // Calculate final duration
-                            const diff = new Date(lastAttendance.checkOut).getTime() - new Date(lastAttendance.checkIn).getTime()
-                            const hours = Math.floor(diff / 3600000)
-                            const minutes = Math.floor((diff % 3600000) / 60000)
-                            setWorkDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`)
                         } else {
                             setStatus('checked-in')
-                            // Calculate live duration logic can be added here
-                            const diff = new Date().getTime() - new Date(lastAttendance.checkIn).getTime()
-                            const hours = Math.floor(diff / 3600000)
-                            const minutes = Math.floor((diff % 3600000) / 60000)
-                            setWorkDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`)
                         }
                     } else {
                         setStatus('idle')
@@ -120,7 +113,6 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         setCheckOutTime(null)
                         setCheckInDate(null)
                         setCheckOutDate(null)
-                        setWorkDuration('00:00')
                     }
                 } else {
                     setStatus('idle')
@@ -173,12 +165,12 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                 // Play logic for some mobile browsers
                 try {
                     await videoRef.current.play()
-                } catch (e) {
-                    console.error("Error checking video play", e)
+                } catch (_e) {
+                    console.error("Error checking video play", _e)
                 }
             }
-        } catch (err) {
-            console.error("Error accessing camera", err)
+        } catch (_err) {
+            console.error("Error accessing camera", _err)
             toast.error("Gagal mengakses kamera")
             setShowCamera(false)
         }
@@ -373,8 +365,8 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
     // Helper to convert Data URL to Blob safely
     const dataURLtoBlob = (dataurl: string) => {
         const arr = dataurl.split(',')
-        const mime = arr[0].match(/:(.*?);/)?.[1]
-        const bstr = atob(arr[1])
+        const mime = arr[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg'
+        const bstr = atob(arr[1] || '')
         let n = bstr.length
         const u8arr = new Uint8Array(n)
         while (n--) {
@@ -403,8 +395,8 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                 const blob = dataURLtoBlob(photo)
                 file = new File([blob], "selfie.jpg", { type: "image/jpeg" })
                 console.log('[ABSENSI] Blob created:', file.size, file.type)
-            } catch (blobError) {
-                console.error('[ABSENSI] Blob conversion failed, trying fetch method:', blobError)
+            } catch (_blobError) {
+                console.error('[ABSENSI] Blob conversion failed, trying fetch method:', _blobError)
                 // Fallback method: Use fetch API
                 const response = await fetch(photo)
                 const blob = await response.blob()
@@ -455,10 +447,11 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
 
             // Delay agar user dapat melihat pesan sukses
             await new Promise(resolve => setTimeout(resolve, 500))
-        } catch (error: any) {
+        } catch (_error) {
             toast.dismiss(toastId)
-            console.error('[ABSENSI] Error in handleAttendance:', error)
-            toast.error(error.message || 'Terjadi kesalahan saat memproses absensi')
+            console.error('[ABSENSI] Error in handleAttendance:', _error)
+            const message = _error instanceof Error ? _error.message : 'Terjadi kesalahan saat memproses absensi'
+            toast.error(message)
         } finally {
             setLoading(false)
         }
@@ -654,7 +647,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         {checkInDate && (
                             <AttendanceStatusIndicator
                                 checkInTime={checkInDate}
-                                checkOutTime={checkOutDate || undefined}
+                                {...(checkOutDate && { checkOutTime: checkOutDate })}
                                 targetHours={targetHours}
                                 workingHourMode={workingHourMode}
                                 status={attendanceStatus}
@@ -759,19 +752,20 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     ) : (
                         <div className="space-y-3 pb-6">
                         {history.map((record) => {
-                            const recDate = new Date(record.checkIn)
+                            const rec = record as Record<string, unknown>
+                            const recDate = new Date(rec.checkIn as string)
                             const recCheckIn = format(recDate, 'HH:mm')
-                            const recCheckOut = record.checkOut ? format(new Date(record.checkOut), 'HH:mm') : '--:--'
+                            const recCheckOut = rec.checkOut ? format(new Date(rec.checkOut as string), 'HH:mm') : '--:--'
 
                             let durationText = 'Belum selesai'
-                            if (record.checkOut) {
-                                const diff = new Date(record.checkOut).getTime() - recDate.getTime()
+                            if (rec.checkOut) {
+                                const diff = new Date(rec.checkOut as string).getTime() - recDate.getTime()
                                 const hours = Math.floor(diff / 3600000)
                                 durationText = `Total ${hours} jam kerja`
                             }
 
                             return (
-                                <div key={record.id} className="flex items-center justify-between bg-white dark:bg-[#1c2936] p-3.5 rounded-xl border border-slate-100 dark:border-gray-800 shadow-sm transition-colors">
+                                <div key={rec.id as string} className="flex items-center justify-between bg-white dark:bg-[#1c2936] p-3.5 rounded-xl border border-slate-100 dark:border-gray-800 shadow-sm transition-colors">
                                     <div className="flex items-center gap-4">
                                         <div className="flex flex-col items-center justify-center size-11 rounded-lg bg-slate-50 dark:bg-[#101922] text-[#111418] dark:text-white border border-slate-100 dark:border-gray-700">
                                             <span className="text-[9px] uppercase font-bold text-slate-400">{format(recDate, 'EEE', { locale: id })}</span>
@@ -784,20 +778,20 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                                                 <p className="font-bold text-[#111418] dark:text-white text-sm">{recCheckOut}</p>
                                             </div>
                                             <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">{durationText}</p>
-                                            {record.location && (
+                                            {rec.location && (
                                                 <div className="flex items-center gap-1 mt-1 text-slate-500 dark:text-gray-400">
                                                     <MdNearMe className="text-[10px]" />
-                                                    <p className="text-[10px] line-clamp-1 max-w-[150px]">{record.location}</p>
+                                                    <p className="text-[10px] line-clamp-1 max-w-[150px]">{rec.location as string}</p>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
 
-                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${record.status === 'LATE'
+                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${rec.status === 'LATE'
                                         ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
                                         : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
                                         }`}>
-                                        {record.status === 'LATE' ? 'Terlambat' : 'Tepat Waktu'}
+                                        {rec.status === 'LATE' ? 'Terlambat' : 'Tepat Waktu'}
                                     </span>
                                 </div>
 

@@ -47,8 +47,8 @@ export class AssetRepository {
                 residualValue: data.residualValue || 0,
                 usefulLife: data.usefulLife,
                 status: data.status || 'ACTIVE',
-                location: data.location,
-                assignedTo: data.assignedTo
+                location: data.location ?? null,
+                assignedTo: data.assignedTo ?? null
             }
         })
     }
@@ -65,8 +65,8 @@ export class AssetRepository {
                 residualValue: data.residualValue || 0,
                 usefulLife: data.usefulLife,
                 status: data.status || 'ACTIVE',
-                location: data.location,
-                assignedTo: data.assignedTo
+                location: data.location ?? null,
+                assignedTo: data.assignedTo ?? null
             }))
         })
         return result.count
@@ -100,7 +100,7 @@ export class AssetRepository {
                     id: crypto.randomUUID(),
                     assetId,
                     amount,
-                    notes,
+                    notes: notes ?? null,
                     date: new Date()
                 }
             })
@@ -149,8 +149,8 @@ export class AssetRepository {
                     depreciationLogs: { take: 1, orderBy: { date: 'desc' } }
                 },
                 orderBy: { createdAt: 'desc' },
-                skip,
-                take
+                ...(skip !== undefined ? { skip } : {}),
+                ...(take !== undefined ? { take } : {})
             })
         ])
         

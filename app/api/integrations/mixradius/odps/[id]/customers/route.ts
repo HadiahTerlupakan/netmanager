@@ -4,7 +4,7 @@ import { getMixRadiusService } from '@/modules/integrations/mixradius/MixRadiusS
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 async function requireAuth() {
-  const session: any = await getServerSession(authConfig as any)
+  const session = await getServerSession(authConfig)
   if (!session) {
     return null
   }
@@ -34,8 +34,9 @@ export async function GET(
       data: customers,
       total: customers.length,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`Error fetching customers for ODP ${id}:`, error)
-    return ApiErrors.internalError(error.message || 'Failed to fetch ODP customers')
+    const message = error instanceof Error ? error.message : 'Failed to fetch ODP customers'
+    return ApiErrors.internalError(message)
   }
 }

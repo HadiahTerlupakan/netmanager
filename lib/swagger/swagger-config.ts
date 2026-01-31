@@ -398,10 +398,10 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
     },
     security: [
       {
-        bearerAuth: [],
+        bearerAuth: [] as string[],
       },
       {
-        cookieAuth: [],
+        cookieAuth: [] as string[],
       },
     ],
     tags: [

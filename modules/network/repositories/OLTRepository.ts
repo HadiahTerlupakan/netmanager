@@ -44,7 +44,7 @@ export class OLTRepository implements IOLTRepository {
         telnetUsername: data.telnetUsername ?? 'zte',
         telnetPassword: data.telnetPassword,
         telnetPort: data.telnetPort ?? 23,
-        siteId: data.siteId,
+        siteId: data.siteId ?? null,
       },
       select: { id: true },
     })

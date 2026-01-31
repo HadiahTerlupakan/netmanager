@@ -18,8 +18,8 @@ export async function GET(req: NextRequest, props: Props) {
         const po = await service.getPurchaseOrderById(params.id);
         if (!po) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
         return NextResponse.json(po);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
     }
 }
 
@@ -31,16 +31,16 @@ export async function PUT(req: NextRequest, props: Props) {
     try {
         const body = await req.json();
         // Remove unsafe fields?
-        const { id, poNumber, createdBy, ...data } = body;
-        
+        const { id: _id, poNumber: _poNumber, createdBy: _createdBy, ...data } = body;
+
         const result = await service.updatePurchaseOrder(params.id, data);
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
     }
 }
 
-export async function DELETE(req: NextRequest, props: Props) {
+export async function DELETE(_req: NextRequest, props: Props) {
     const params = await props.params;
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -48,7 +48,7 @@ export async function DELETE(req: NextRequest, props: Props) {
     try {
         const result = await service.deletePurchaseOrder(params.id);
         return NextResponse.json(result);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
     }
 }

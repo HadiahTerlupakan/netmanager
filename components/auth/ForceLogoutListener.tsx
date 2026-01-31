@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { signOut } from 'next-auth/react'
 import { useSocketEvent } from '@/lib/websocket/SocketContext'
 import { toast } from 'react-hot-toast'
@@ -17,7 +18,7 @@ interface ForceLogoutPayload {
  * 2. Sign out the user via NextAuth
  * 3. Redirect to login page
  */
-export default function ForceLogoutListener() {
+export default function ForceLogoutListener(): React.ReactElement | null {
     // Listen for force logout event - uses socket from SocketContext
     useSocketEvent<ForceLogoutPayload>('session:forceLogout', (payload) => {
         console.log('[ForceLogout] Received force logout event:', payload)

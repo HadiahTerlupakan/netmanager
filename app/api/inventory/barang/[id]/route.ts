@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { getInventoryRepository } from '@/lib/repositories'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig) as Session | null
+  if (!session) {
     return null
   }
   return session
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       // Calculate total stock
       let totalStock = 0
       if (barang.barangGudang) {
-        totalStock = barang.barangGudang.reduce((sum: number, stock: any) => sum + stock.stok, 0)
+        totalStock = barang.barangGudang.reduce((sum: number, stock: { stok: number }) => sum + stock.stok, 0)
       }
 
       const barangWithStats = {
@@ -60,8 +60,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching barang', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error fetching barang', err, {
       path: '/api/inventory/barang/[id]',
       method: 'GET',
       id: 'unknown',
@@ -139,8 +140,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error updating barang', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error updating barang', err, {
       path: '/api/inventory/barang/[id]',
       method: 'PUT',
       id: 'unknown',
@@ -197,8 +199,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error deleting barang', error, {
+  } catch (error) {
+    const err = error as Error
+    logger.error('Error deleting barang', err, {
       path: '/api/inventory/barang/[id]',
       method: 'DELETE',
     })

@@ -4,16 +4,26 @@ import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
+interface ExtendedUser {
+  id: string
+  role?: string
+  permissions?: string[]
+  siteId?: string
+  departmentId?: string
+  employee?: unknown
+}
+
 /**
  * GET /api/admin/workorders/requests
  * List all Work Order Requests (status = REQUESTED)
  */
 export async function GET(request: NextRequest) {
     try {
-        const user = await requireAuth(request);
-        if (user instanceof NextResponse) {
-            return user;
+        const session = await requireAuth(request);
+        if (session instanceof NextResponse) {
+            return session;
         }
+        const user = session.user as ExtendedUser;
 
         // Permission check
         if (!await hasPermission('workorders:requests:read')) {
@@ -30,15 +40,17 @@ export async function GET(request: NextRequest) {
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
 
         // Build filters
-        const filters: { departmentId?: string; siteId?: string; search?: string } = { search };
-        
+        const filters: { departmentId?: string; siteId?: string; search?: string } = {
+            ...(search ? { search } : {})
+        };
+
         if (!isSuperAdmin) {
             if (user.permissions?.includes('workorders:site_only') && user.siteId) {
                 filters.siteId = user.siteId;
             } else if (siteId) {
                 filters.siteId = siteId;
             }
-            
+
             if (user.permissions?.includes('workorders:department_only') && user.departmentId) {
                 filters.departmentId = user.departmentId;
             } else if (departmentId) {

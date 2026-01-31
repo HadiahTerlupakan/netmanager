@@ -1,8 +1,6 @@
 
 import { PrismaClient } from '@prisma/client'
 import { convertAndSaveBase64 } from '../lib/utils/image-upload'
-import fs from 'fs'
-import path from 'path'
 
 const prisma = new PrismaClient()
 
@@ -25,7 +23,7 @@ async function main() {
 
     for (const ot of overtimes) {
         console.log(`Processing Overtime ID: ${ot.id}`)
-        const updates: any = {}
+        const updates: { startPhoto?: string; endPhoto?: string } = {}
 
         // Process Start Photo
         if (ot.startPhoto && ot.startPhoto.startsWith('data:image')) {
@@ -43,8 +41,9 @@ async function main() {
                 )
                 updates.startPhoto = url
                 console.log(`  - Converted Start Photo -> ${url}`)
-            } catch (e: any) {
-                console.error(`  - Failed to convert Start Photo: ${e.message}`)
+            } catch (e: unknown) {
+                const error = e as Error;
+                console.error(`  - Failed to convert Start Photo: ${error.message}`)
             }
         }
 
@@ -64,8 +63,9 @@ async function main() {
                 )
                 updates.endPhoto = url
                 console.log(`  - Converted End Photo -> ${url}`)
-            } catch (e: any) {
-                console.error(`  - Failed to convert End Photo: ${e.message}`)
+            } catch (e: unknown) {
+                const error = e as Error;
+                console.error(`  - Failed to convert End Photo: ${error.message}`)
             }
         }
 

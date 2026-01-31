@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
         const { invoices, total } = await invoiceRepository.findAllForCustomer(
             authResult.session.id,
-            { page, limit, status }
+            { page, limit, ...(status ? { status } : {}) }
         )
 
         const formattedInvoices = invoiceRepository.formatInvoicesForResponse(invoices)
@@ -37,10 +37,11 @@ export async function GET(request: NextRequest) {
                 totalPages: Math.ceil(total / limit),
             },
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Customer Invoices Error]:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json(
-            { error: error.message || 'Terjadi kesalahan server' },
+            { error: errorMessage },
             { status: 500 }
         )
     }

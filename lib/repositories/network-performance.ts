@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
 export interface NetworkPerformanceFilters {
@@ -42,26 +43,28 @@ export class NetworkPerformanceRepository {
     txDrops?: number
     rxErrors?: number
     txErrors?: number
-    interfaceStatus?: any
+    interfaceStatus?: unknown
     connectionCount?: number
     bandwidthUsage?: number
     signalStrength?: number
     powerLevel?: string
-    customMetrics?: any
+    customMetrics?: unknown
   }) {
     return await prisma.networkPerformance.create({
       data: {
         id: randomUUID(),
         ...data,
-        uptime: data.uptime ? BigInt(data.uptime) : undefined,
-        rxBytes: data.rxBytes ? BigInt(data.rxBytes) : undefined,
-        txBytes: data.txBytes ? BigInt(data.txBytes) : undefined,
-        rxPackets: data.rxPackets ? BigInt(data.rxPackets) : undefined,
-        txPackets: data.txPackets ? BigInt(data.txPackets) : undefined,
-        rxDrops: data.rxDrops ? BigInt(data.rxDrops) : undefined,
-        txDrops: data.txDrops ? BigInt(data.txDrops) : undefined,
-        rxErrors: data.rxErrors ? BigInt(data.rxErrors) : undefined,
-        txErrors: data.txErrors ? BigInt(data.txErrors) : undefined,
+        interfaceStatus: data.interfaceStatus as Prisma.InputJsonValue,
+        customMetrics: data.customMetrics as Prisma.InputJsonValue,
+        uptime: data.uptime ? BigInt(data.uptime) : null,
+        rxBytes: data.rxBytes ? BigInt(data.rxBytes) : null,
+        txBytes: data.txBytes ? BigInt(data.txBytes) : null,
+        rxPackets: data.rxPackets ? BigInt(data.rxPackets) : null,
+        txPackets: data.txPackets ? BigInt(data.txPackets) : null,
+        rxDrops: data.rxDrops ? BigInt(data.rxDrops) : null,
+        txDrops: data.txDrops ? BigInt(data.txDrops) : null,
+        rxErrors: data.rxErrors ? BigInt(data.rxErrors) : null,
+        txErrors: data.txErrors ? BigInt(data.txErrors) : null,
         updatedAt: new Date(),
       },
     })
@@ -74,7 +77,7 @@ export class NetworkPerformanceRepository {
   }
 
   async findByDeviceId(deviceId: string, deviceType: string, filters: NetworkPerformanceFilters = {}) {
-    const where: any = {
+    const where: Prisma.NetworkPerformanceWhereInput = {
       deviceId,
       deviceType,
     }
@@ -89,9 +92,9 @@ export class NetworkPerformanceRepository {
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {}
     if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
+      (orderBy as Record<string, string>)[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
       orderBy.timestamp = 'desc'
     }
@@ -118,7 +121,7 @@ export class NetworkPerformanceRepository {
   }
 
   async findMany(filters: NetworkPerformanceFilters = {}) {
-    const where: any = {}
+    const where: Prisma.NetworkPerformanceWhereInput = {}
 
     if (filters.deviceId) where.deviceId = filters.deviceId
     if (filters.deviceType) where.deviceType = filters.deviceType
@@ -133,9 +136,9 @@ export class NetworkPerformanceRepository {
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {}
     if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
+      (orderBy as Record<string, string>)[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
       orderBy.timestamp = 'desc'
     }
@@ -201,8 +204,8 @@ export class NetworkAlertRepository {
       data: {
         id: randomUUID(),
         ...data,
-        alertType: data.alertType as any,
-        severity: data.severity as any,
+        alertType: data.alertType as 'CRITICAL' | 'WARNING' | 'INFO',
+        severity: data.severity as 'CRITICAL' | 'WARNING' | 'INFO',
         autoResolve: data.autoResolve || false,
         updatedAt: new Date(),
       },
@@ -216,7 +219,7 @@ export class NetworkAlertRepository {
   }
 
   async findMany(filters: NetworkAlertFilters = {}) {
-    const where: any = {}
+    const where: Prisma.NetworkAlertsWhereInput = {}
 
     if (filters.deviceId) where.deviceId = filters.deviceId
     if (filters.deviceType) where.deviceType = filters.deviceType
@@ -231,9 +234,9 @@ export class NetworkAlertRepository {
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Prisma.NetworkAlertsOrderByWithRelationInput = {}
     if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
+      (orderBy as Record<string, string>)[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
       orderBy.createdAt = 'desc'
     }
@@ -271,7 +274,11 @@ export class NetworkAlertRepository {
     autoResolve?: boolean
     autoResolveTime?: number
   }) {
-    const updateData: any = { ...data }
+    const updateData: Prisma.NetworkAlertsUpdateInput = {
+      ...data,
+      severity: data.severity as 'CRITICAL' | 'WARNING' | 'INFO' | undefined,
+      status: data.status as 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED' | 'SUPPRESSED' | undefined,
+    }
 
     if (data.acknowledged && !data.acknowledgedBy) {
       updateData.acknowledgedAt = new Date()
@@ -280,9 +287,6 @@ export class NetworkAlertRepository {
     if (data.resolved && !data.resolvedBy) {
       updateData.resolvedAt = new Date()
     }
-
-    if (data.severity) updateData.severity = data.severity as any
-    if (data.status) updateData.status = data.status as any
 
     return await prisma.networkAlerts.update({
       where: { id },
@@ -322,7 +326,7 @@ export class NetworkAlertRepository {
   }
 
   async getActiveAlerts(deviceId?: string, deviceType?: string) {
-    const where: any = {
+    const where: Prisma.NetworkAlertsWhereInput = {
       status: 'ACTIVE',
       isActive: true,
     }

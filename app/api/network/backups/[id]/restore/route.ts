@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { configurationRestoreCreateSchema } from '@/lib/validations/device-backup'
 import { prisma } from '@/lib/prisma'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
+  const session = await getServerSession(authConfig)
+  if (!session) {
     return null
   }
   return session
@@ -107,17 +108,15 @@ export async function POST(
     
     // Verify backup exists
     try {
-      // @ts-ignore - Will work after schema update
-      const backup = await prisma.deviceBackup.findUnique({
-        where: { id },
+      const backup = await prisma.deviceBackups.findUnique({
+          where: { id },
       })
 
       if (!backup) {
-        return NextResponse.json({ error: 'Backup tidak ditemukan' }, { status: 404 })
+          return NextResponse.json({ error: 'Backup tidak ditemukan' }, { status: 404 })
       }
 
-      // @ts-ignore - Will work after schema update
-      const result = await prisma.configurationRestore.create({
+      const result = await prisma.configurationRestores.create({
         data: {
           deviceId: data.deviceId,
           deviceType: data.deviceType,
@@ -127,14 +126,14 @@ export async function POST(
           restoreMethod: data.restoreMethod,
           scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
           rollbackEnabled: data.rollbackEnabled || false,
-          createdBy: session.user?.id,
-        },
+          createdBy: (session as { user?: { id?: string } }).user?.id,
+        } as unknown as Prisma.ConfigurationRestoresCreateInput,
       })
 
       return NextResponse.json({ id: result.id }, { status: 201 })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json(
           { error: 'Configuration restore will be available after database migration' },
           { status: 503 }
@@ -142,10 +141,10 @@ export async function POST(
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating configuration restore:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal membuat restore konfigurasi' },
+      { error: error instanceof Error ? error.message : 'Gagal membuat restore konfigurasi' },
       { status: 500 }
     )
   }

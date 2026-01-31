@@ -28,13 +28,14 @@ export async function GET(
         const site = await siteService.getSiteById(id)
 
         return apiSuccess(site)
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error fetching site:', error)
-        
-        if (error.message === 'Site not found') {
+
+        const message = error instanceof Error ? error.message : ''
+        if (message === 'Site not found') {
             return ApiErrors.notFound('Site')
         }
-        
+
         return ApiErrors.internalError('Gagal mengambil data site')
     }
 }
@@ -63,16 +64,17 @@ export async function PATCH(
         const site = await siteService.updateSite(id, body, user.id)
 
         return apiSuccess(site, { message: 'Site berhasil diperbarui' })
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error updating site:', error)
-        
-        if (error.message === 'Site not found') {
+
+        const message = error instanceof Error ? error.message : ''
+        if (message === 'Site not found') {
             return ApiErrors.notFound('Site')
         }
-        if (error.message === 'Site code already exists') {
+        if (message === 'Site code already exists') {
             return ApiErrors.conflict('Kode site sudah ada')
         }
-        
+
         return ApiErrors.internalError('Gagal memperbarui site')
     }
 }
@@ -99,13 +101,14 @@ export async function DELETE(
         const result = await siteService.deleteSite(id, user.id)
 
         return apiSuccess(null, { message: result.message })
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error deleting site:', error)
-        
-        if (error.message === 'Site not found') {
+
+        const message = error instanceof Error ? error.message : ''
+        if (message === 'Site not found') {
             return ApiErrors.notFound('Site')
         }
-        
+
         return ApiErrors.internalError('Gagal menghapus site')
     }
 }

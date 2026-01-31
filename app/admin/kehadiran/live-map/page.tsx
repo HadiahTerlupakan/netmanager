@@ -7,6 +7,7 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useSocket } from '@/hooks/useSocket'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 
 // Dynamic import untuk Map component (OpenLayers needs client-side only)
 const EmployeeLocationMap = dynamic(
@@ -32,7 +33,7 @@ interface EmployeeLocation {
 }
 
 export default function LiveMapPage() {
-    const { data: session } = useSession()
+    const { } = useSession()
     const { socket } = useSocket()
     const [locations, setLocations] = useState<EmployeeLocation[]>([])
     const [loading, setLoading] = useState(true)
@@ -44,24 +45,24 @@ export default function LiveMapPage() {
     const fetchLocations = useCallback(async () => {
         try {
             // Only set loading on initial load or manual refresh, not background refresh
-            if (locations.length === 0) setLoading(true)
-            
+            if (!locations?.length) setLoading(true)
+
             const res = await fetch('/api/admin/location/live')
             const data = await res.json()
             
             if (data.success) {
-                setLocations(data.data)
+                setLocations(data.data || [])
                 setLastUpdated(new Date())
                 setError(null)
             } else {
                 setError(data.error || 'Failed to fetch locations')
             }
-        } catch (err: any) {
-            setError(err.message || 'Failed to fetch locations')
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to fetch locations')
         } finally {
             setLoading(false)
         }
-    }, []) // Remove locations dependency to avoid infinite loop
+    }, [locations?.length]) // Use optional chaining just in case, though initialized as []
 
     useEffect(() => {
         fetchLocations()
@@ -74,7 +75,7 @@ export default function LiveMapPage() {
         // Join the location tracking room
         socket.emit('join:room', 'admin:location')
 
-        const handleLocationUpdate = (data: any) => {
+        const handleLocationUpdate = (data: EmployeeLocation) => {
             // console.log('[LiveMap] Received update:', data)
             setLocations(prev => {
                 const index = prev.findIndex(p => p.userId === data.userId)
@@ -117,7 +118,8 @@ export default function LiveMapPage() {
     }, [socket, fetchLocations])
 
     // Filter locations by search
-    const filteredLocations = locations.filter(loc => 
+    const safeLocations = Array.isArray(locations) ? locations : []
+    const filteredLocations = safeLocations.filter(loc => 
         loc.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         loc.siteName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         loc.departmentName?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -238,11 +240,14 @@ export default function LiveMapPage() {
                                     {/* Header with Avatar */}
                                     <div className="flex items-center gap-3 mb-4">
                                         {loc.userImage ? (
-                                            <img 
-                                                src={loc.userImage} 
-                                                alt={loc.userName} 
-                                                className="w-12 h-12 rounded-full object-cover"
-                                            />
+                                            <div className="relative w-12 h-12">
+                                                <Image
+                                                    src={loc.userImage}
+                                                    alt={loc.userName}
+                                                    fill
+                                                    className="rounded-full object-cover"
+                                                />
+                                            </div>
                                         ) : (
                                             <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                                                 <span className="text-white font-bold text-lg">{loc.userName[0]}</span>

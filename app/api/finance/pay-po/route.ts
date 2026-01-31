@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
@@ -14,16 +14,16 @@ const payPoSchema = z.object({
   paidFromAccountId: z.string().optional(),
 })
 
-export async function POST(req: Request) {
-  const session = await verifyAuth(req as any)
+export async function POST(req: NextRequest) {
+  const session = await verifyAuth(req)
   if (!session) return new NextResponse('Unauthorized', { status: 401 })
 
   try {
     const json = await req.json()
     const result = payPoSchema.safeParse(json)
-    
+
     if (!result.success) {
-        return new NextResponse(result.error.issues[0].message, { status: 400 })
+        return new NextResponse(result.error.issues[0]?.message || 'Validasi gagal', { status: 400 })
     }
 
     const { poId, categoryId, date, amount, notes, paidFromAccountId } = result.data
@@ -33,15 +33,16 @@ export async function POST(req: Request) {
       categoryId,
       date,
       amount,
-      notes,
       createdById: session.id,
-      paidFromAccountId
+      ...(notes ? { notes } : {}),
+      ...(paidFromAccountId ? { paidFromAccountId } : {})
     })
 
     return NextResponse.json(transaction)
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error paying PO:', error)
-    return new NextResponse(error.message || 'Internal Server Error', { status: 500 })
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return new NextResponse(message, { status: 500 })
   }
 }

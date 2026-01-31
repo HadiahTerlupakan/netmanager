@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { updateInvoiceSchema, sendInvoiceSchema } from '@/lib/validations/invoice'
+import { updateInvoiceSchema } from '@/lib/validations/invoice'
 import { hasPermission } from '@/lib/rbac'
+import { Prisma } from '@prisma/client'
 
 /**
  * @swagger
@@ -50,7 +51,7 @@ import { hasPermission } from '@/lib/rbac'
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // RBAC: Check site restrictions
     if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
         // If invoice has siteId, strict match
         // If invoice has NO siteId, assume accessible OR restricted (safer to allow for legacy data if needed, but for now strict)
         // Let's rely on siteId being present for strictness.
@@ -90,10 +91,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json(invoice)
-  } catch (error: any) {
-    console.error('Error fetching invoice:', error)
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    console.error('Error fetching invoice:', err)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: err.message || 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -199,7 +201,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
  */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -216,7 +218,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // RBAC: Check site restrictions
     const isRestricted = (await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN'
-    const userSiteId = (session.user as any).siteId
+    const userSiteId = (session.user as { siteId?: string }).siteId
 
     if (isRestricted) {
          if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
@@ -282,15 +284,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const totalAmount = subtotal + taxAmount - discountAmount
 
       // Update invoice
+      const { siteId, ...restUpdateData } = updateData
+      const updatePayload: Prisma.InvoiceUpdateInput = {
+        ...restUpdateData,
+        subtotal,
+        taxAmount,
+        discountAmount,
+        totalAmount,
+      }
+      if (siteId) {
+        updatePayload.site = { connect: { id: siteId } }
+      }
+
       updatedInvoice = await prisma.invoice.update({
         where: { id },
-        data: {
-          ...updateData,
-          subtotal,
-          taxAmount,
-          discountAmount,
-          totalAmount,
-        },
+        data: updatePayload,
         include: {
           pelanggan: {
             include: {
@@ -314,9 +322,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     } else {
       // Just update invoice fields
+      const { siteId, ...restUpdateData } = updateData
+      const updatePayload: Prisma.InvoiceUpdateInput = { ...restUpdateData }
+      if (siteId) {
+        updatePayload.site = { connect: { id: siteId } }
+      }
+
       updatedInvoice = await prisma.invoice.update({
         where: { id },
-        data: updateData,
+        data: updatePayload,
         include: {
           pelanggan: {
             include: {
@@ -343,10 +357,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json(updatedInvoice)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error updating invoice:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -401,7 +415,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -418,7 +432,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // RBAC: Check site restrictions
     if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
         if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
              return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
@@ -455,10 +469,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     return NextResponse.json({ message: 'Invoice berhasil dihapus' })
-  } catch (error: any) {
-    console.error('Error deleting invoice:', error)
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    console.error('Error deleting invoice:', err)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: err.message || 'Internal Server Error' },
       { status: 500 }
     )
   }

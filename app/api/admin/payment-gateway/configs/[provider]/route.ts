@@ -89,7 +89,7 @@ export async function PUT(
             apiKey: config.apiKey ? '***ENCRYPTED***' : null,
             apiSecret: config.apiSecret ? '***ENCRYPTED***' : null
         }, { message: 'Konfigurasi payment gateway berhasil diperbarui' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating gateway config:', error)
         return ApiErrors.internalError('Gagal memperbarui konfigurasi payment gateway')
     }

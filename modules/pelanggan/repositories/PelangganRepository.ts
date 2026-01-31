@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client'
+import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit, InvoiceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
 export interface CreatePelangganDTO {
@@ -53,7 +53,7 @@ export interface CreatePelangganDTO {
 }
 
 // Use Prisma's generated type for accurate typing
-const pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({
+const _pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({
     include: {
         hargaPaket: {
             include: {
@@ -64,7 +64,7 @@ const pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({
     },
 })
 
-export type PelangganWithPackage = Prisma.PelangganGetPayload<typeof pelangganWithPackage>
+export type PelangganWithPackage = Prisma.PelangganGetPayload<typeof _pelangganWithPackage>
 
 export interface FilterOptions {
     status?: Status
@@ -116,8 +116,8 @@ export class PelangganRepository {
         return { data, total }
     }
 
-    private buildWhereClause(filter?: FilterOptions): any {
-        const where: any = {}
+    private buildWhereClause(filter?: FilterOptions): Prisma.PelangganWhereInput {
+        const where: Prisma.PelangganWhereInput = {}
         if (filter?.status) {
             where.status = filter.status
         }
@@ -341,7 +341,7 @@ export class PelangganRepository {
 
         const where: Prisma.InvoiceWhereInput = { pelangganId }
         if (status && status.length > 0) {
-            where.status = { in: status as any[] }
+            where.status = { in: status as InvoiceStatus[] }
         }
 
         const [invoices, total] = await Promise.all([
@@ -365,12 +365,12 @@ export class PelangganRepository {
             where: {
                 id: { in: ids },
                 pelangganId,
-                status: { in: validStatuses as any[] },
+                status: { in: validStatuses as InvoiceStatus[] },
             },
         })
     }
     async updateSyncStatus(id: string, status: string, error?: string | null) {
-        const data: any = {
+        const data: Prisma.PelangganUpdateInput = {
             syncStatus: status,
             syncError: error,
             updatedAt: new Date()

@@ -3,7 +3,7 @@
  * Helper to emit socket events from API routes or Services
  * bypassing the need to have direct access to io instance
  */
-export async function emitSocketEvent(room: string, event: string, payload: any) {
+export async function emitSocketEvent(room: string, event: string, payload: unknown) {
     const port = process.env.PORT || '3000'
     const url = `http://127.0.0.1:${port}/_internal/emit`
     

@@ -69,8 +69,8 @@ async function main() {
              await pipeline.exec();
              console.log(`✅ Cleared ${keys.length} permission keys.`);
         }
-    } catch (e) {
-        console.log('⚠️ Could not clear all keys (expected in some envs):', (e as any).message);
+    } catch (e: unknown) {
+        console.log('⚠️ Could not clear all keys (expected in some envs):', e instanceof Error ? e.message : String(e));
     }
 }
 

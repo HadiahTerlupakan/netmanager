@@ -1,6 +1,5 @@
 
 import { prisma } from '@/lib/prisma'
-import { Status } from '@prisma/client'
 import type { MixRadiusCustomerDetail } from './MixRadiusService'
 import { randomUUID } from 'crypto'
 
@@ -46,7 +45,45 @@ export class MixRadiusSyncService {
       }
     })
 
-    return { action: 'synced', customer: result }
+    // Try to link to Pelanggan table
+    let linkedToPelanggan = false
+    try {
+      // 1. Find by mixRadiusId
+      let pelanggan = await prisma.pelanggan.findUnique({
+        where: { mixRadiusId: data.id }
+      })
+
+      // 2. Fallback: Find by username (corresponding to idPelanggan)
+      if (!pelanggan) {
+        pelanggan = await prisma.pelanggan.findUnique({
+          where: { idPelanggan: data.username }
+        })
+      }
+
+      // 3. Update Pelanggan with mixRadiusId if found and not linked
+      if (pelanggan && pelanggan.mixRadiusId !== data.id) {
+        await prisma.pelanggan.update({
+          where: { id: pelanggan.id },
+          data: { 
+            mixRadiusId: data.id,
+            lastSyncedAt: new Date()
+          }
+        })
+        linkedToPelanggan = true
+        console.log(`[MixRadiusSync] Linked customer ${data.username} to Pelanggan table.`)
+      } else if (pelanggan) {
+        // Already linked, just update timestamp
+        await prisma.pelanggan.update({
+          where: { id: pelanggan.id },
+          data: { lastSyncedAt: new Date() }
+        })
+        linkedToPelanggan = true
+      }
+    } catch (err) {
+      console.warn(`[MixRadiusSync] Failed to link to Pelanggan table: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+
+    return { action: 'synced', customer: result, linked: linkedToPelanggan }
   }
 
   private parseDate(dateStr: string | null | undefined): Date | null {

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -17,7 +16,7 @@ export async function POST(request: NextRequest) {
         const userId = session.user.id as string
 
         // Parse form data
-        const formData: any = await request.formData()
+        const formData = await request.formData()
         const photo = formData.get('photo') as File | null
         const location = formData.get('location') as string
         const notes = formData.get('notes') as string
@@ -28,9 +27,10 @@ export async function POST(request: NextRequest) {
         
         try {
             photoUrl = await photoService.processPhoto(photo, userId, 'checkin')
-        } catch (error: any) {
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             return NextResponse.json({
-                error: error.message,
+                error: errorMessage,
                 code: 'VALIDATION_ERROR'
             }, { status: 400 })
         }
@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
             photoUrl,
             location,
             notes,
-            latitude,
-            longitude,
+            ...(latitude !== undefined ? { latitude } : {}),
+            ...(longitude !== undefined ? { longitude } : {}),
             // Web always uses server time and configured timezone, but we can pass explicit TZ if needed
             // AttendanceService fetches User&Settings internally, so we don't strictly need to pass TZ here
             // unless we want to override it. Service defaults to 'Asia/Jakarta' or fetches from DB setting.
@@ -94,18 +94,21 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: attendance })
 
-    } catch (error: any) {
-        logger.error('Error in check-in', error)
-        
+    } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error))
+        logger.error('Error in check-in', err)
+
+        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+
         // Handle Custom Service Errors
-        if (error.message === 'DUPLICATE_ENTRY') {
+        if (errorMessage === 'DUPLICATE_ENTRY') {
             return NextResponse.json({
                 error: 'Anda sudah melakukan check-in hari ini',
                 code: 'DUPLICATE_ENTRY'
             }, { status: 400 })
         }
-        if (error.message.startsWith('CHECKIN_REJECTED:')) {
-            const reason = error.message.split(':')[1]
+        if (errorMessage.startsWith('CHECKIN_REJECTED:')) {
+            const reason = errorMessage.split(':')[1]
             return NextResponse.json({
                 error: `Check-in ditolak: ${reason}`,
                 code: 'VALIDATION_ERROR',

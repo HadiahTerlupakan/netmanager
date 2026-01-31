@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { supportTicketFilterSchema } from '@/lib/validations/support-ticket'
 import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
@@ -40,11 +39,11 @@ export const GET = createHandler({
       permissions
     }
   }
-  const siteId = getSiteFilter(sessionWithPermissions as any, 'support')
+  const siteId = getSiteFilter(sessionWithPermissions as Parameters<typeof getSiteFilter>[0], 'support')
   const hasSiteRestriction = !!siteId
 
   // Build service filters
-  const serviceFilters: any = {
+  const serviceFilters = {
     ...validated,
     siteId
   }
@@ -63,9 +62,10 @@ export const GET = createHandler({
     throw new Error(result.error || 'Gagal mengambil data tiket')
   }
 
+  const tickets = (result.data as { tickets?: unknown[] })?.tickets;
   logger.apiRequest('GET', '/api/admin/support-tickets', 200, Date.now() - startTime, {
     userId: session.user.id,
-    count: (result.data as any)?.tickets?.length || 0
+    count: tickets?.length || 0
   })
 
   return apiSuccess(result.data)

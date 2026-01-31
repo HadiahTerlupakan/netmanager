@@ -47,8 +47,9 @@ export async function PUT(req: NextRequest, context: Context) {
     }
 
     return apiSuccess(updatedGroup)
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -84,7 +85,8 @@ export async function DELETE(req: NextRequest, context: Context) {
     }
 
     return apiSuccess({ success: true })
-  } catch (error: any) {
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }

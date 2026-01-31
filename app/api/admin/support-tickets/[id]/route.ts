@@ -12,12 +12,18 @@ import {
   ValidationError,
   NotFoundError,
   ForbiddenError,
-  applySiteRestriction
+  applySiteRestriction,
+  type AuthContext,
+  type RBACFilterContext
 } from '@/lib/middleware'
 import { apiSuccess } from '@/lib/api-response'
 import { supportTicketUpdateSchema } from '@/lib/validations/support-ticket'
 import { idSchema } from '@/lib/validations/common'
 import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
+
+interface SupportFilters {
+  siteId?: string;
+}
 
 /**
  * GET /api/admin/support-tickets/[id]
@@ -28,8 +34,8 @@ export const GET = withErrorHandler(
     withPermission('support:read',
       applySiteRestriction('support:site_only',
         withRateLimit(RateLimits.STANDARD,
-          async ({ user, filters }, routeContext) => {
-            const { id } = await routeContext.params
+          async ({ user, filters }: AuthContext & RBACFilterContext<SupportFilters>, routeContext) => {
+            const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
 
             // Validate ID format
             const parseResult = idSchema.safeParse(id)
@@ -74,8 +80,8 @@ export const PATCH = withErrorHandler(
   withAuth(
     withPermission('support:update',
       applySiteRestriction('support:site_only',
-        async ({ user, request, filters }, routeContext) => {
-          const { id } = await routeContext.params
+        async ({ user, request, filters }: AuthContext & { request: Request } & RBACFilterContext<SupportFilters>, routeContext) => {
+          const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
 
           // Validate ID format
           const idParseResult = idSchema.safeParse(id)
@@ -136,8 +142,8 @@ export const DELETE = withErrorHandler(
   withAuth(
     withPermission('support:delete',
       applySiteRestriction('support:site_only',
-        async ({ user, filters }, routeContext) => {
-          const { id } = await routeContext.params
+        async ({ user, filters }: AuthContext & RBACFilterContext<SupportFilters>, routeContext) => {
+          const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
 
           // Validate ID format
           const parseResult = idSchema.safeParse(id)

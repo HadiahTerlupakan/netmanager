@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
+
+interface ExtendedUser {
+  id: string;
+  role: string;
+}
 
 /**
  * @swagger
@@ -127,6 +133,7 @@ export async function POST(
     if (auth instanceof NextResponse) {
       return auth
     }
+    const sessionUser = auth.user as ExtendedUser;
 
     const { id } = await params
     // Get customer information
@@ -178,8 +185,33 @@ export async function POST(
 
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
+      const txExtended = tx as unknown as {
+        serviceSuspension: {
+          findFirst: (args: unknown) => Promise<{
+            id: string;
+            notes: string | null;
+            suspensionType: string;
+            reason: string;
+            suspendedAt: Date;
+            actualResumeAt: Date | null;
+            resumedBy: string | null;
+            isActive: boolean;
+          } | null>;
+          update: (args: unknown) => Promise<{
+            id: string;
+            notes: string | null;
+            suspensionType: string;
+            reason: string;
+            suspendedAt: Date;
+            actualResumeAt: Date;
+            resumedBy: string;
+            isActive: boolean;
+          }>;
+        }
+      };
+
       // 1. Find and update active suspension record
-      const activeSuspension = await (tx as any).serviceSuspension.findFirst({
+      const activeSuspension = await txExtended.serviceSuspension.findFirst({
         where: {
           pelangganId: id,
           isActive: true,
@@ -194,11 +226,11 @@ export async function POST(
       }
 
       // 2. Update suspension record
-      const updatedSuspension = await (tx as any).serviceSuspension.update({
+      const updatedSuspension = await txExtended.serviceSuspension.update({
         where: { id: activeSuspension.id },
         data: {
           actualResumeAt: new Date(),
-          resumedBy: (auth as any)?.user?.id,
+          resumedBy: sessionUser.id,
           isActive: false,
           notes: notes ? `${activeSuspension.notes || ''}\n\nActivation: ${notes}` : activeSuspension.notes,
         },
@@ -236,7 +268,7 @@ export async function POST(
         await radiusService.handleStatusChange(id, 'AKTIF')
 
         console.log(`[ACTIVATE] Restored RADIUS access for user ${pelanggan.username}`)
-      } catch (radiusError) {
+      } catch (radiusError: unknown) {
         console.error('Error handling RADIUS operations during activation:', radiusError)
         // Don't fail the request, but log the error
       }
@@ -260,14 +292,14 @@ export async function POST(
       await logger.logActivity({
         action: 'ACTIVATE',
         subject: 'Pelanggan',
-        userId: (auth as any)?.user?.id,
-        details: { 
-            id: id, 
+        userId: sessionUser.id,
+        details: {
+            id: id,
             method: activationMethod,
             suspensionId: result.id
         }
       })
-    } catch (logError) {
+    } catch (logError: unknown) {
       console.error('Failed to log activity:', logError)
     }
 
@@ -286,18 +318,18 @@ export async function POST(
       },
       customer: updatedPelanggan,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error activating customer service:', error)
 
     // Handle specific errors
-    if (error.code === 'P2025') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Customer not found' },
         { status: 404 }
       )
     }
 
-    if (error.message === 'No active suspension found for this customer') {
+    if (error instanceof Error && error.message === 'No active suspension found for this customer') {
       return NextResponse.json(
         { error: 'No active suspension found for this customer' },
         { status: 400 }
@@ -305,7 +337,7 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

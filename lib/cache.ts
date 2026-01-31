@@ -9,7 +9,7 @@ interface CacheEntry<T> {
 }
 
 export class SimpleCache {
-  private cache = new Map<string, CacheEntry<any>>()
+  private cache = new Map<string, CacheEntry<unknown>>()
   
   /**
    * Store data in cache with TTL (time-to-live) in seconds
@@ -35,7 +35,7 @@ export class SimpleCache {
       return null
     }
     
-    return entry.data
+    return entry.data as T
   }
   
   /**

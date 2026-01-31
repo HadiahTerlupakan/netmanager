@@ -14,12 +14,12 @@ interface Photo {
 
 interface PhotoThumbnailProps {
   photo: Photo
-  onDelete?: (photoId: string) => void
-  showDeleteButton?: boolean
-  size?: 'sm' | 'md' | 'lg'
-  className?: string
-  onClick?: (photo: Photo) => void
-  disabled?: boolean
+  onDelete?: ((photoId: string) => void) | undefined
+  showDeleteButton?: boolean | undefined
+  size?: 'sm' | 'md' | 'lg' | undefined
+  className?: string | undefined
+  onClick?: ((photo: Photo) => void) | undefined
+  disabled?: boolean | undefined
 }
 
 export function PhotoThumbnail({
@@ -189,7 +189,10 @@ export function PhotoThumbnailWithCount({
   }
 
   if (photos.length === 1) {
-    return <PhotoThumbnail photo={photos[0]} {...props} />
+    const firstPhoto = photos[0]
+    if (firstPhoto) {
+      return <PhotoThumbnail photo={firstPhoto} {...props} />
+    }
   }
 
   return (

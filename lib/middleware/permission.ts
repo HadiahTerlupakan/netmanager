@@ -25,11 +25,11 @@ import type { AuthContext } from './auth'
  * )
  * ```
  */
-export function withPermission<T = any>(
+export function withPermission<T = unknown>(
   permission: string,
-  handler: (context: AuthContext, routeContext?: any) => Promise<NextResponse<T>>
+  handler: (context: AuthContext, routeContext?: unknown) => Promise<NextResponse<T>>
 ) {
-  return async (context: AuthContext, routeContext?: any): Promise<NextResponse> => {
+  return async (context: AuthContext, routeContext?: unknown): Promise<NextResponse> => {
     const { user } = context
     
     // Check permission
@@ -56,11 +56,11 @@ export function withPermission<T = any>(
  * )
  * ```
  */
-export function withAnyPermission<T = any>(
+export function withAnyPermission<T = unknown>(
   permissions: string[],
-  handler: (context: AuthContext, routeContext?: any) => Promise<NextResponse<T>>
+  handler: (context: AuthContext, routeContext?: unknown) => Promise<NextResponse<T>>
 ) {
-  return async (context: AuthContext, routeContext?: any): Promise<NextResponse> => {
+  return async (context: AuthContext, routeContext?: unknown): Promise<NextResponse> => {
     const { user } = context
     
     // Check if user has any of the permissions
@@ -88,11 +88,11 @@ export function withAnyPermission<T = any>(
  * )
  * ```
  */
-export function withAllPermissions<T = any>(
+export function withAllPermissions<T = unknown>(
   permissions: string[],
-  handler: (context: AuthContext, routeContext?: any) => Promise<NextResponse<T>>
+  handler: (context: AuthContext, routeContext?: unknown) => Promise<NextResponse<T>>
 ) {
-  return async (context: AuthContext, routeContext?: any): Promise<NextResponse> => {
+  return async (context: AuthContext, routeContext?: unknown): Promise<NextResponse> => {
     const { user } = context
     
     // Check each permission

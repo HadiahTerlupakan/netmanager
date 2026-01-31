@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { FiChevronLeft, FiChevronRight, FiPlus, FiTrash2, FiCalendar } from 'react-icons/fi'
+import { FiChevronLeft, FiChevronRight, FiTrash2, FiCalendar } from 'react-icons/fi'
 import { getWithAuth, postWithAuth, deleteWithAuth } from '@/lib/api-client'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 
@@ -18,7 +18,7 @@ const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 
 export function HolidayClient() {
     const [currentDate, setCurrentDate] = useState(new Date())
     const [holidays, setHolidays] = useState<Holiday[]>([])
-    const [loading, setLoading] = useState(true)
+    const [_loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
     const [selectedDate, setSelectedDate] = useState<string>('') // YYYY-MM-DD
     const [description, setDescription] = useState('')

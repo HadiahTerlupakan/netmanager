@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/prisma'
 import { checkAllMikroTikRouterStatus } from './mikrotik-ping-check'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { type Server as SocketIOServer } from 'socket.io'
@@ -43,7 +42,7 @@ class MikroTikMonitor {
             const updatedCount = await checkAllMikroTikRouterStatus()
 
             const routerRepository = getMikroTikRouterRepository()
-            const stats = await routerRepository.getStatistics() // simple stats method we might need if not exists, or just emit updated count
+            const _stats = await routerRepository.getStatistics() // simple stats method we might need if not exists, or just emit updated count
 
             console.log(`[MikroTikMonitor] Check complete. Updated ${updatedCount} routers.`)
 
@@ -54,7 +53,7 @@ class MikroTikMonitor {
                     // stats // Optional: send full stats if needed
                 })
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('[MikroTikMonitor] Error in checkStatus:', error)
         }
     }

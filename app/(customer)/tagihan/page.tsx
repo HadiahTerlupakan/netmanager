@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
 import {
     MdArrowBackIos,
@@ -146,7 +145,7 @@ export default function CustomerInvoicesPage() {
             } else {
                 setCouponError(data.error || 'Kupon tidak valid')
             }
-        } catch (error) {
+        } catch (_error) {
             setCouponError('Gagal memverifikasi kupon')
         } finally {
             setCouponLoading(false)
@@ -175,7 +174,7 @@ export default function CustomerInvoicesPage() {
             } else {
                 alert(result.error || 'Gagal membuat pembayaran')
             }
-        } catch (error) {
+        } catch (_error) {
             alert('Terjadi kesalahan saat memproses pembayaran')
         } finally {
             setPaymentLoading(false)
@@ -376,7 +375,7 @@ export default function CustomerInvoicesPage() {
             </div>
             {/* Payment Modal */}
             {showPaymentModal && (
-                <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-[#1a2632] w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold">Rincian Pembayaran</h3>

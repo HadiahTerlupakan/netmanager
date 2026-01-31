@@ -6,6 +6,7 @@ import {
     useEffect,
     useState,
     useCallback,
+    useRef,
     type ReactNode,
 } from 'react'
 import { io, type Socket } from 'socket.io-client'
@@ -177,14 +178,24 @@ export function useSocket() {
  */
 export function useSocketEvent<T>(event: string, handler: (data: T) => void) {
     const { socket, isConnected } = useSocket()
+    const handlerRef = useRef(handler)
+
+    // Update ref when handler changes
+    useEffect(() => {
+        handlerRef.current = handler
+    }, [handler])
 
     useEffect(() => {
         if (!socket || !isConnected) return
 
-        socket.on(event, handler)
+        const listener = (data: T) => {
+            handlerRef.current(data)
+        }
+
+        socket.on(event, listener)
 
         return () => {
-            socket.off(event, handler)
+            socket.off(event, listener)
         }
-    }, [socket, isConnected, event, handler])
+    }, [socket, isConnected, event])
 }

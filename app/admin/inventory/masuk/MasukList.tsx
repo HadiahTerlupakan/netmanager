@@ -20,6 +20,10 @@ interface Gudang {
 }
 
 
+interface FotoMetadata {
+  [key: string]: unknown
+}
+
 interface BarangMasuk {
   id: string
   barangId: string
@@ -31,7 +35,7 @@ interface BarangMasuk {
   createdAt: string
   employeeId?: string | null
   fotoBukti: string[]
-  fotoMetadata?: any
+  fotoMetadata?: FotoMetadata
   barang: {
     id: string
     kode: string
@@ -86,7 +90,7 @@ export default function BarangMasukPage() {
           const result = data.data || data
           setGudangs(result.gudangs || [])
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to fetch data', err)
       }
     }

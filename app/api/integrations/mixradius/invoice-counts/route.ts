@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
-import { MixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
@@ -24,25 +24,26 @@ export async function POST(req: NextRequest) {
     const bypassCache: boolean = body.bypassCache || false
 
     if (customerIds.length === 0) {
-      return apiSuccess({ data: {} })
+      return apiSuccess({})
     }
 
     // Limit to max 20 customers per request if not bypassing
     // If bypassing, we still want to be careful
     const limitedIds = customerIds.slice(0, 20)
 
-    const service = new MixRadiusService()
+    const service = getMixRadiusService()
     const results = await service.fetchInvoiceCounts(limitedIds, bypassCache, validationData)
 
     // Convert Map to object for JSON response
     const data: Record<string, { paidCount: number, totalCount: number }> = {}
-    results.forEach((value, key) => {
+    results.forEach((value: { paidCount: number; totalCount: number }, key: string) => {
       data[key] = value
     })
 
-    return apiSuccess({ data })
-  } catch (error: any) {
+    return apiSuccess(data)
+  } catch (error: unknown) {
     console.error('[API] Invoice counts error:', error)
-    return ApiErrors.internalError(error.message || 'Internal Server Error')
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return ApiErrors.internalError(message)
   }
 }

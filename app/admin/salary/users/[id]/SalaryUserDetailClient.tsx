@@ -1,20 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { 
-    HiOutlineArrowLeft, 
-    HiOutlineUser, 
-    HiOutlineBriefcase, 
-    HiOutlineBanknotes, 
-    HiOutlineClock, 
-    HiOutlineCurrencyDollar,
+import {
+    HiOutlineArrowLeft,
+    HiOutlineUser,
+    HiOutlineBriefcase,
+    HiOutlineBanknotes,
+    HiOutlineClock,
     HiOutlineDocumentText,
-    HiOutlinePencil
 } from 'react-icons/hi2'
-import Link from 'next/link'
 
 interface Component {
     id: string
@@ -61,13 +57,7 @@ export default function SalaryUserDetailClient() {
     const [user, setUser] = useState<SalaryUser | null>(null)
     const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        if (params.id) {
-            fetchUserDetail()
-        }
-    }, [params.id])
-
-    const fetchUserDetail = async () => {
+    const fetchUserDetail = useCallback(async () => {
         try {
             setLoading(true)
             const res = await fetch(`/api/admin/salary/users/${params.id}`)
@@ -81,7 +71,13 @@ export default function SalaryUserDetailClient() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [params.id])
+
+    useEffect(() => {
+        if (params.id) {
+            fetchUserDetail()
+        }
+    }, [params.id, fetchUserDetail])
 
     const formatCurrency = (amount: number | null | undefined) => {
         if (amount === undefined || amount === null) return '-'

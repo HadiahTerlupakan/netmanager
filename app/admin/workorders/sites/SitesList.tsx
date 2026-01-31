@@ -62,7 +62,7 @@ export default function SitesList() {
             }
 
             setSites(data.data || [])
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to fetch sites:', error)
             setError(error instanceof Error ? error.message : 'Gagal memuat data')
         } finally {
@@ -92,7 +92,7 @@ export default function SitesList() {
 
             // Refresh data
             fetchSites()
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to delete site:', error)
             alert(error instanceof Error ? error.message : 'Gagal menghapus site')
         }

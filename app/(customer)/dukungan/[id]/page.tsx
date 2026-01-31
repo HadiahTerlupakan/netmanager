@@ -8,16 +8,15 @@ import {
     MdArrowBack,
     MdSend,
     MdInfo,
-    MdCheckCircle,
     MdClose,
     MdStar,
     MdStarOutline,
     MdAttachFile,
-    MdImage,
 } from 'react-icons/md'
+import Image from 'next/image'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
-import { useRealtimeTicketChat, type ChatReply } from '@/lib/websocket/hooks/useRealtimeTicketChat'
+import { useRealtimeTicketChat } from '@/lib/websocket/hooks/useRealtimeTicketChat'
 
 interface Reply {
     id: string
@@ -374,12 +373,13 @@ export default function TicketDetailPage() {
                                                         href={url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="block rounded-lg overflow-hidden border border-black/10 dark:border-white/10"
+                                                        className="block rounded-lg overflow-hidden border border-black/10 dark:border-white/10 relative w-full h-60"
                                                     >
-                                                        <img
+                                                        <Image
                                                             src={url}
                                                             alt="Lampiran"
-                                                            className="w-full h-auto object-cover max-h-60"
+                                                            fill
+                                                            className="object-cover"
                                                         />
                                                     </a>
                                                 ))}
@@ -422,10 +422,11 @@ export default function TicketDetailPage() {
                                 <div className="px-4 pt-4 flex gap-3 overflow-x-auto pb-2">
                                     {attachments.map((url, idx) => (
                                         <div key={idx} className="relative w-20 h-20 shrink-0 group">
-                                            <img
+                                            <Image
                                                 src={url}
                                                 alt="Preview"
-                                                className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                                                fill
+                                                className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                                             />
                                             <button
                                                 onClick={() => removeAttachment(idx)}

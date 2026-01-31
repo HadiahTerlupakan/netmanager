@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
  * Public endpoint for settings needed by external portals (employee portal)
  * No authentication required
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
         // Get general settings
         const generalSettings = await prisma.settings.findFirst({
@@ -18,14 +18,14 @@ export async function GET(request: NextRequest) {
             where: { key: 'logo' }
         })
 
-        let general: any = {}
-        let logo: any = {}
+        let general: Record<string, unknown> = {}
+        let logo: Record<string, unknown> = {}
 
         if (generalSettings?.value) {
             try {
                 general = typeof generalSettings.value === 'string'
                     ? JSON.parse(generalSettings.value)
-                    : generalSettings.value
+                    : generalSettings.value as Record<string, unknown>
             } catch {
                 general = {}
             }
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
             try {
                 logo = typeof logoSettings.value === 'string'
                     ? JSON.parse(logoSettings.value)
-                    : logoSettings.value
+                    : logoSettings.value as Record<string, unknown>
             } catch {
                 logo = {}
             }
@@ -45,13 +45,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             data: {
-                namaAplikasi: general.namaAplikasi || 'NetManager',
-                perusahaan: general.perusahaan || '',
-                logoAplikasi: logo.logoAplikasi || null,
-                logoInvoice: logo.logoInvoice || null,
+                namaAplikasi: (general.namaAplikasi as string) || 'NetManager',
+                perusahaan: (general.perusahaan as string) || '',
+                logoAplikasi: (logo.logoAplikasi as string) || null,
+                logoInvoice: (logo.logoInvoice as string) || null,
             }
         })
-    } catch (error: any) {
+    } catch (error) {
         console.error('[API] Get public settings error:', error)
         return NextResponse.json(
             { success: false, error: 'Failed to load settings' },

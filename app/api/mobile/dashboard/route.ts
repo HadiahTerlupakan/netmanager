@@ -11,6 +11,9 @@ export async function GET(req: NextRequest) {
         }
 
         const token = authHeader.split(' ')[1]
+        if (!token) {
+            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+        }
         const payload = await verifyMobileToken(token)
 
         if (!payload || !payload.id) {

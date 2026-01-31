@@ -39,7 +39,7 @@ export default function ImageUpload({ value = [], onChange, folder = 'uploads', 
       let validFilesCount = 0
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        if (file.type.startsWith('image/')) {
+        if (file && file.type.startsWith('image/')) {
           formData.append('files', file)
           validFilesCount++
         }
@@ -64,8 +64,8 @@ export default function ImageUpload({ value = [], onChange, folder = 'uploads', 
       }
 
       onChange([...value, ...newUrls])
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan')
     } finally {
       setLoading(false)
       // Reset input

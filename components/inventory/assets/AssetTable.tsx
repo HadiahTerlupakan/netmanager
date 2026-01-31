@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { FiEdit, FiTrash2, FiEye, FiSearch, FiMonitor } from 'react-icons/fi'
+import { FiEye, FiSearch } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { formatCurrency } from '@/lib/utils' // Assuming utility exists
 
@@ -27,7 +27,7 @@ export function AssetTable() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
-  const fetchAssets = async () => {
+  const fetchAssets = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -36,18 +36,18 @@ export function AssetTable() {
 
       const res = await fetch(`/api/inventory/assets?${params}`)
       const data = await res.json()
-      
+
       setAssets(data.assets || [])
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [search, statusFilter])
 
   useEffect(() => {
     fetchAssets()
-  }, [search, statusFilter])
+  }, [fetchAssets])
 
   const columns: Column<Asset>[] = [
     {

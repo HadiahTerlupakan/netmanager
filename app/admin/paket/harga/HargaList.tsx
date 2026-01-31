@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { HiPencil, HiTrash, HiExclamationCircle, HiStar } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -68,11 +68,7 @@ export default function HargaPaketPage() {
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
   })
 
-  useEffect(() => {
-    loadData()
-  }, [siteId])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
@@ -90,7 +86,7 @@ export default function HargaPaketPage() {
           if (errorData && typeof errorData === 'object' && 'error' in errorData) {
             errorMessage = errorData.error || errorMessage
           }
-        } catch (e) {
+        } catch (_e) {
           errorMessage = `Gagal memuat data harga paket: ${hargaPaketsRes.status} ${hargaPaketsRes.statusText || ''}`
         }
         throw new Error(errorMessage)
@@ -102,13 +98,18 @@ export default function HargaPaketPage() {
       setHargaPakets(hargaPaketsData)
       setProfilePPPs(profilePPPsData)
       setError(null)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading data:', error)
-      setError(error.message || 'Gagal memuat data')
+      const errorMsg = error instanceof Error ? error.message : 'Gagal memuat data'
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
-  }
+  }, [siteId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -142,8 +143,9 @@ export default function HargaPaketPage() {
 
       await loadData()
       handleCloseModal()
-    } catch (error: any) {
-      alert(error.message || 'Terjadi kesalahan')
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Terjadi kesalahan'
+      alert(errorMsg)
     }
   }
 
@@ -164,8 +166,8 @@ export default function HargaPaketPage() {
       }
 
       await loadData()
-    } catch (error) {
-      console.error('Error deleting paket:', error)
+    } catch (_error) {
+      console.error('Error deleting paket:', _error)
       alert('Terjadi kesalahan saat menghapus paket')
     }
   }
@@ -698,7 +700,7 @@ export default function HargaPaketPage() {
             </label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' })}
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
               <option value="AKTIF">AKTIF</option>

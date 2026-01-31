@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import type { Role, Permission } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
@@ -38,7 +39,7 @@ export interface FilterOptions {
 
 export class RoleRepository {
     async findAll(filter?: FilterOptions): Promise<RoleWithCount[]> {
-        let whereClause: any = {}
+        let whereClause: Prisma.RoleWhereInput = {}
 
         if (filter?.filterRestricted) {
             // Only SUPER_ADMIN can see all roles including restricted ones
@@ -108,7 +109,7 @@ export class RoleRepository {
     }
 
     async update(id: string, data: UpdateRoleDTO): Promise<Role> {
-        const updateData: any = {}
+        const updateData: Prisma.RoleUpdateInput = {}
 
         if (data.name !== undefined) updateData.name = data.name
         if (data.description !== undefined) updateData.description = data.description

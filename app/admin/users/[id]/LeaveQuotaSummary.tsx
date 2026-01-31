@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { HiOutlineCalendarDays } from 'react-icons/hi2'
 
 interface LeaveBalanceData {
@@ -39,15 +39,7 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
   const [loading, setLoading] = useState(true)
   const currentYear = new Date().getFullYear()
 
-  useEffect(() => {
-    if (workingHourMode !== 'FLEXIBLE') {
-      fetchBalances()
-    } else {
-      setLoading(false)
-    }
-  }, [userId, workingHourMode])
-
-  const fetchBalances = async () => {
+  const fetchBalances = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/leave-balance?userId=${userId}&year=${currentYear}`)
       const data = await res.json()
@@ -61,7 +53,15 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, currentYear])
+
+  useEffect(() => {
+    if (workingHourMode !== 'FLEXIBLE') {
+      fetchBalances()
+    } else {
+      setLoading(false)
+    }
+  }, [workingHourMode, fetchBalances])
 
   // FLEXIBLE users don't have leave quotas
   if (workingHourMode === 'FLEXIBLE') {

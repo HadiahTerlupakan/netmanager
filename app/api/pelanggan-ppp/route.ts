@@ -1,47 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
-import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
+import { Status } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
 import type { FilterOptions } from '@/modules/pelanggan'
 import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors, apiPaginated } from '@/lib/api-response'
-
-const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
-
-const parseBooleanFlag = (
-  value: FormDataEntryValue | null,
-  defaultValue = false
-): boolean => {
-  if (value === null) {
-    return defaultValue
-  }
-
-  if (typeof value === 'string') {
-    return BOOLEAN_TRUE_VALUES.has(value.toLowerCase())
-  }
-
-  return defaultValue
-}
-
-const parseEnumValue = <T extends string>(
-  value: string | null,
-  enumObject: Record<string, T>
-): T | null => {
-  if (!value) {
-    return null
-  }
-
-  const normalized = value.toUpperCase()
-  const matched = (Object.values(enumObject) as string[]).find(
-    (enumValue) => enumValue.toUpperCase() === normalized
-  )
-
-  return (matched as T | undefined) ?? null
-}
+import { apiSuccess, apiPaginated } from '@/lib/api-response'
 
 /**
  * @swagger
@@ -93,7 +60,7 @@ export async function GET(req: NextRequest) {
     if (search) filter.search = search
 
     if (isSiteRestricted) {
-      const userSiteId = (session.user as any).siteId
+      const userSiteId = (session.user as { siteId?: string }).siteId
       if (!userSiteId) {
         return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
       }
@@ -109,10 +76,10 @@ export async function GET(req: NextRequest) {
     const { data: pelanggans, total } = await pelangganService.getAllPelangganPaginated(filter, page, limit)
 
     return apiPaginated(pelanggans, { page, limit, total })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching pelanggans:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: (error as Error)?.message || 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -155,11 +122,11 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData()
-    const rawData: any = Object.fromEntries(formData.entries())
-    
+    const rawData = Object.fromEntries(formData.entries())
+
     // Convert checkbox/boolean fields explicitly for Zod
     // (Note: The schema handles string 'true'/'on', but helpful to be explicit)
-    
+
     // Parse with Zod
     const validationResult = createPelangganSchema.safeParse(rawData)
 
@@ -178,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     // Force siteId for restricted users
     if (isSiteRestricted) {
-      const userSiteId = (session.user as any).siteId
+      const userSiteId = (session.user as { siteId?: string }).siteId
       if (!userSiteId) {
         return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
       }
@@ -239,7 +206,7 @@ export async function POST(req: NextRequest) {
           fileBASTPath = await saveFile(fileBAST, pelangganUploadDir, `bast${ext}`)
         }
       }
-    } catch (fileError: any) {
+    } catch (fileError) {
       console.error('Error saving files:', fileError)
       return NextResponse.json({ error: 'Gagal memproses upload file' }, { status: 500 })
     }
@@ -251,7 +218,7 @@ export async function POST(req: NextRequest) {
       fileKTP: fileKTPPath,
       fileRumahSekitar: fileRumahSekitarPath,
       fileBAST: fileBASTPath,
-    } as any) // Cast as any because Zod types vs Service types might have minor mismatch in optionality of nulls, but validated.
+    } as Parameters<ReturnType<typeof getPelangganService>['createPelanggan']>[0])
 
     // Revalidate cache
     const { revalidatePath } = await import('next/cache')
@@ -263,7 +230,7 @@ export async function POST(req: NextRequest) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'Pelanggan',
-        userId: session.user.id,
+        userId: session.user.id ?? 'unknown',
         details: { id: pelanggan.id, nama: pelanggan.nama, username: pelanggan.username }
       })
     } catch (logError) {
@@ -271,20 +238,21 @@ export async function POST(req: NextRequest) {
     }
 
     return apiSuccess(pelanggan, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating pelanggan:', error)
+    const err = error as { message: string; code?: string }
 
     // Handle specific errors from service
-    if (error.message.includes('sudah digunakan')) {
-       return NextResponse.json({ error: error.message }, { status: 409 })
+    if (err.message.includes('sudah digunakan')) {
+       return NextResponse.json({ error: err.message }, { status: 409 })
     }
 
-    if (error.message === 'Harga Paket tidak ditemukan') {
-      return NextResponse.json({ error: error.message }, { status: 404 })
+    if (err.message === 'Harga Paket tidak ditemukan') {
+      return NextResponse.json({ error: err.message }, { status: 404 })
     }
-    
+
     // Handle Prisma unique constraint error
-    if (error.code === 'P2002') {
+    if (err.code === 'P2002') {
       return NextResponse.json(
         { error: 'ID Pelanggan atau Username sudah digunakan.' },
         { status: 409 }
@@ -292,7 +260,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: err.message || 'Internal Server Error' },
       { status: 500 }
     )
   }

@@ -39,11 +39,10 @@ export function validateKmzFile(file: File): { valid: boolean; error?: string } 
 export async function extractAndSaveKmz(
   fileBuffer: Buffer,
   kmzId: string,
-  originalFilename: string
+  _originalFilename: string
 ): Promise<{ filePath: string; kmlPath: string; fileSize: number }> {
   // Check if R2 is enabled
   const r2Enabled = await isR2Enabled()
-  const timestamp = Date.now()
 
   // Prepare R2 keys if enabled
   const r2BasePath = `uploads/kmz/${kmzId}`
@@ -200,7 +199,7 @@ export async function getFileBuffer(
   const { getFileWithProgress } = await import('./stream-processor')
   const { buffer } = await getFileWithProgress(formData, fieldName, {
     streamThreshold: 10 * 1024 * 1024, // 10MB threshold
-    onProgress: options?.onProgress
+    ...(options?.onProgress ? { onProgress: options.onProgress } : {})
   })
   return buffer
 }

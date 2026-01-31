@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -15,7 +15,7 @@ import { hasPermission } from '@/lib/rbac'
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/opname/[id]')
       return ApiErrors.unauthorized()
@@ -66,8 +66,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error fetching stock opname record', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error fetching stock opname record', err, {
       path: '/api/inventory/opname/[id]',
       method: 'GET',
       id: 'unknown',
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/opname/[id]')
       return ApiErrors.unauthorized()
@@ -219,15 +220,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     } finally {
       // do not disconnect shared prisma client
     }
-  } catch (error: any) {
-    logger.error('Error updating stock opname', error, {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    logger.error('Error updating stock opname', err, {
       path: '/api/inventory/opname/[id]',
       method: 'PUT',
       id: 'unknown',
     })
 
-    if (error.message === 'Record stock opname tidak ditemukan') {
-      return ApiErrors.notFound(error.message)
+    if (err.message === 'Record stock opname tidak ditemukan') {
+      return ApiErrors.notFound(err.message)
     }
 
     return ApiErrors.internalError('Gagal memperbarui stock opname')
@@ -240,7 +242,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig)
     if (!session || !session.user) {
       return ApiErrors.unauthorized()
     }
@@ -310,13 +312,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return apiSuccess({
       message: 'Stock opname berhasil dihapus'
     })
-  } catch (error: any) {
-    console.error('Delete error:', error.message)
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error')
+    console.error('Delete error:', err.message)
 
-    if (error.message.includes('tidak ditemukan')) {
-      return ApiErrors.notFound(error.message)
+    if (err.message.includes('tidak ditemukan')) {
+      return ApiErrors.notFound(err.message)
     }
 
-    return ApiErrors.internalError(error.message || 'Gagal menghapus stock opname')
+    return ApiErrors.internalError(err.message || 'Gagal menghapus stock opname')
   }
 }

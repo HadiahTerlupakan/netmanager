@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
     MdRefresh,
@@ -56,16 +56,29 @@ export default function AdminRegistrationsPage() {
     const [statusFilter, setStatusFilter] = useState('')
     const [ipInfoCache, setIpInfoCache] = useState<Record<string, IpInfo>>({})
 
-    const fetchRegistrations = async () => {
+    const fetchIpInfo = useCallback(async (ip: string) => {
+        try {
+            const res = await fetch(`/api/ip-info?ip=${encodeURIComponent(ip)}`)
+            if (res.ok) {
+                const data = await res.json()
+                setIpInfoCache(prev => ({ ...prev, [ip]: data }))
+            }
+        } catch (e) {
+            console.error('Failed to fetch IP info', e)
+        }
+    }, [])
+
+    const fetchRegistrations = useCallback(async () => {
         setIsLoading(true)
         try {
             const res = await fetch('/api/admin/registrations')
             if (res.ok) {
-                const data = await res.json()
-                setRegistrations(data)
+                const response = await res.json()
+                const registrationsData = response.data || []
+                setRegistrations(registrationsData)
 
                 // Fetch IP info for each unique IP
-                const uniqueIps = [...new Set(data.map((r: Registration) => r.ipAddress).filter(Boolean))] as string[]
+                const uniqueIps = [...new Set(registrationsData.map((r: Registration) => r.ipAddress).filter(Boolean))] as string[]
                 uniqueIps.forEach(ip => {
                     if (!ipInfoCache[ip]) {
                         fetchIpInfo(ip)
@@ -77,23 +90,11 @@ export default function AdminRegistrationsPage() {
         } finally {
             setIsLoading(false)
         }
-    }
-
-    const fetchIpInfo = async (ip: string) => {
-        try {
-            const res = await fetch(`/api/ip-info?ip=${encodeURIComponent(ip)}`)
-            if (res.ok) {
-                const data = await res.json()
-                setIpInfoCache(prev => ({ ...prev, [ip]: data }))
-            }
-        } catch (e) {
-            console.error('Failed to fetch IP info', e)
-        }
-    }
+    }, [ipInfoCache, fetchIpInfo])
 
     useEffect(() => {
         fetchRegistrations()
-    }, [])
+    }, [fetchRegistrations])
 
     const getStatusConfig = (status: string) => {
         switch (status) {

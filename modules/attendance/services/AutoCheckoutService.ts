@@ -75,9 +75,9 @@ export class AutoCheckoutService {
 
                 // Special handling for SHIFT mode due to potential Overnight Shifts
                 if (user.workingHourMode === 'SHIFT' && user.shift) {
-                    const startH = parseInt(user.shift.startTime.split(':')[0])
-                    const endH = parseInt(user.shift.endTime.split(':')[0])
-                    
+                    const startH = parseInt(user.shift.startTime.split(':')[0] ?? '0')
+                    const endH = parseInt(user.shift.endTime.split(':')[0] ?? '0')
+
                     // Detect overnight shift (End Hour < Start Hour, e.g. 04:00 < 21:00)
                     const isOvernight = endH < startH
 
@@ -85,7 +85,7 @@ export class AutoCheckoutService {
                         // For overnight shifts, the end time is on the NEXT day
                         const shiftEndDate = new Date(checkInDate)
                         shiftEndDate.setDate(shiftEndDate.getDate() + 1)
-                        shiftEndDate.setHours(endH, parseInt(user.shift.endTime.split(':')[1]), 0, 0)
+                        shiftEndDate.setHours(endH, parseInt(user.shift.endTime.split(':')[1] ?? '0'), 0, 0)
 
                         // If the current time (when cron runs) is BEFORE the shift ends, DO NOT checkout yet.
                         // Example: Shift 21:00-04:00. Check-in 21:00 Mon. Cron 23:59 Mon.

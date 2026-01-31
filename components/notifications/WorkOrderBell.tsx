@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineClipboardDocumentList } from 'react-icons/hi2'
+import { HiCheck, HiOutlineWrench, HiOutlineClipboardDocumentList } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeWorkOrders } from '@/lib/websocket/hooks/useRealtimeWorkOrders'

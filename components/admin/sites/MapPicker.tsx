@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { HiOutlineMapPin } from 'react-icons/hi2'
 import 'ol/ol.css'
 import Map from 'ol/Map'
@@ -29,14 +29,14 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
     const markerFeatureRef = useRef<Feature | null>(null)
 
     // Helper to parse coordinates safely
-    const getCoordinates = () => {
+    const getCoordinates = useCallback(() => {
         const lat = parseFloat(latitude)
         const lng = parseFloat(longitude)
         if (!isNaN(lat) && !isNaN(lng)) {
             return { lat, lng }
         }
         return null
-    }
+    }, [latitude, longitude])
 
     // Initialize Map
     useEffect(() => {
@@ -87,18 +87,21 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
         map.on('click', (event) => {
             const coordinates = toLonLat(event.coordinate)
             const [lng, lat] = coordinates
-            onChange(lat.toFixed(6), lng.toFixed(6))
+            if (lat !== undefined && lng !== undefined) {
+                onChange(lat.toFixed(6), lng.toFixed(6))
+            }
         })
 
         // Ensure map is correctly sized
-        setTimeout(() => map.updateSize(), 100)
+        const timer = setTimeout(() => map.updateSize(), 100)
 
         // Cleanup
         return () => {
+            clearTimeout(timer)
             map.setTarget(undefined)
             mapInstanceRef.current = null
         }
-    }, [])
+    }, [getCoordinates, onChange])
 
     // React to props change (updates marker position)
     useEffect(() => {
@@ -119,12 +122,12 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
                 markerFeatureRef.current.setGeometry(pointGeom)
             }
 
-            // Sync View if needed (Optional: only if map is ready and user explicitly updated via form inputs, 
-            // but we usually let the user pan manually to avoid jumping around too much. 
-            // However, on first load or direct input, it might be nice. 
+            // Sync View if needed (Optional: only if map is ready and user explicitly updated via form inputs,
+            // but we usually let the user pan manually to avoid jumping around too much.
+            // However, on first load or direct input, it might be nice.
             // Let's rely on the map's initial view for the first load, and 'Current Location' button for explicit centering.)
             if (mapInstanceRef.current) {
-                // Check if the current view is very far off? 
+                // Check if the current view is very far off?
                 // For now, let's just ensure the marker is updated.
             }
 
@@ -133,7 +136,7 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
             vectorSourceRef.current.removeFeature(markerFeatureRef.current)
             markerFeatureRef.current = null
         }
-    }, [latitude, longitude])
+    }, [getCoordinates])
 
     const getCurrentLocation = () => {
         if (navigator.geolocation) {

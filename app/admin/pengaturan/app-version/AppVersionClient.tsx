@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineCloudArrowUp, HiOutlineDevicePhoneMobile, HiOutlineExclamationTriangle, HiOutlineQuestionMarkCircle } from 'react-icons/hi2'
+import { HiOutlinePencil, HiOutlineTrash, HiOutlineCloudArrowUp, HiOutlineDevicePhoneMobile, HiOutlineExclamationTriangle, HiOutlineQuestionMarkCircle } from 'react-icons/hi2'
 import { usePermission } from '@/hooks/use-permission'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
@@ -42,7 +42,7 @@ export function AppVersionClient() {
     const [showUploadModal, setShowUploadModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
     const [selectedVersion, setSelectedVersion] = useState<AppVersion | null>(null)
-    const [stats, setStats] = useState<{updatedCount: number, outdatedCount: number, unknownCount: number, latestVersion: any} | null>(null)
+    const [stats, setStats] = useState<{updatedCount: number, outdatedCount: number, unknownCount: number, latestVersion: AppVersion | null} | null>(null)
 
     // Fetch stats
     const fetchStats = async () => {
@@ -52,7 +52,7 @@ export function AppVersionClient() {
             if (data && !data.error) {
                 setStats(data)
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to fetch stats:', error)
         }
     }
@@ -67,10 +67,16 @@ export function AppVersionClient() {
             const res = await fetch(`/api/admin/app-version?page=${pagination.page}&limit=${pagination.limit}`)
             const data = await res.json()
             if (data.success) {
-                setVersions(data.data)
-                setPagination(data.pagination)
+                setVersions(data.data || [])
+                // Only update pagination if it exists in response
+                if (data.pagination) {
+                    setPagination(prev => ({
+                        ...prev,
+                        ...data.pagination
+                    }))
+                }
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error fetching versions:', error)
         } finally {
             setLoading(false)
@@ -175,7 +181,7 @@ export function AppVersionClient() {
     // Handle delete
     const handleDelete = async (id: string) => {
         if (!confirm('Apakah Anda yakin ingin menonaktifkan versi ini?')) return
-        
+
         try {
             const res = await fetch(`/api/admin/app-version/${id}`, { method: 'DELETE' })
             const data = await res.json()
@@ -184,7 +190,7 @@ export function AppVersionClient() {
             } else {
                 alert(data.error || 'Gagal menghapus versi')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error deleting version:', error)
             alert('Terjadi kesalahan')
         }
@@ -392,7 +398,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             } else {
                 alert(data.error || 'Gagal upload versi')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error uploading version:', error)
             alert('Terjadi kesalahan')
         } finally {
@@ -589,7 +595,7 @@ function EditVersionModal({ version, onClose, onSuccess }: { version: AppVersion
             } else {
                 alert(data.error || 'Gagal update versi')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error updating version:', error)
             alert('Terjadi kesalahan')
         } finally {

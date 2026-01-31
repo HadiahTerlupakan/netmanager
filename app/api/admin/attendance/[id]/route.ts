@@ -3,9 +3,9 @@
  * Migrated to use standardized middleware and validation
  */
 
-import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { 
+import { Prisma } from '@prisma/client'
+import {
   withAuth, 
   withPermission, 
   withErrorHandler, 
@@ -13,12 +13,17 @@ import {
   RateLimits,
   ValidationError,
   NotFoundError,
-  applyRBACRestrictions
+  applyRBACRestrictions,
+  type RBACFilterContext
 } from '@/lib/middleware'
 import { apiSuccess } from '@/lib/api-response'
 import { attendanceUpdateSchema } from '@/lib/validations/attendance'
 import { idSchema } from '@/lib/validations/common'
 import { logger } from '@/lib/logger'
+
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
 
 /**
  * GET /api/admin/attendance/[id]
@@ -33,8 +38,9 @@ export const GET = withErrorHandler(
           departmentPermission: 'attendance:department_only' 
         },
         withRateLimit(RateLimits.STANDARD,
-          async ({ user, request, filters }, routeContext) => {
-            const { id } = await routeContext.params
+          async (context, routeContext) => {
+            const { filters } = context as RBACFilterContext<{ siteId?: string; departmentId?: string }>
+            const { id } = await (routeContext as RouteContext).params
 
             // Validate ID format
             const parseResult = idSchema.safeParse(id)
@@ -97,7 +103,7 @@ export const PATCH = withErrorHandler(
           departmentPermission: 'attendance:department_only' 
         },
         async ({ user, request, filters }, routeContext) => {
-          const { id } = await routeContext.params
+          const { id } = await (routeContext as RouteContext).params
 
           // Validate ID format
           const idParseResult = idSchema.safeParse(id)
@@ -139,7 +145,7 @@ export const PATCH = withErrorHandler(
           }
 
           // Prepare update data
-          const updateData: any = {}
+          const updateData: Prisma.AttendanceUpdateInput = {}
           if (checkIn) updateData.checkIn = new Date(checkIn)
           if (checkOut !== undefined) updateData.checkOut = checkOut ? new Date(checkOut) : null
           if (notes !== undefined) updateData.notes = notes
@@ -233,7 +239,7 @@ export const DELETE = withErrorHandler(
           departmentPermission: 'attendance:department_only' 
         },
         async ({ user, filters }, routeContext) => {
-          const { id } = await routeContext.params
+          const { id } = await (routeContext as RouteContext).params
 
           // Validate ID format
           const parseResult = idSchema.safeParse(id)

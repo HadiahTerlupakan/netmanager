@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions, verifyAuth } from "@/lib/auth";
@@ -7,9 +7,9 @@ import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
     try {
-        const user = await verifyAuth(req as any);
+        const user = await verifyAuth(req);
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         if (!(await hasPermission("expense:read"))) {
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
         console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate });
 
         // Build where clause
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (startDate && endDate) {
             const start = new Date(startDate);
             const end = new Date(endDate);
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
         }
 
         if ((await hasPermission("expense:site_only")) && user.role !== 'SUPER_ADMIN') {
-            const userSiteId = (user as any).siteId;
+            const userSiteId = (user as { siteId?: string }).siteId;
             if (userSiteId) {
                 where.siteId = userSiteId;
             } else {
@@ -48,7 +48,6 @@ export async function GET(req: Request) {
             }
         }
 
-        // @ts-ignore
         const expenses = await prisma.expense.findMany({
             where,
             orderBy: {
@@ -72,13 +71,14 @@ export async function GET(req: Request) {
         }));
 
         return NextResponse.json(serializedExpenses);
-    } catch (error: any) {
-        console.error("[EXPENSES_GET] Error:", error);
+    } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error('Unknown error')
+        console.error("[EXPENSES_GET] Error:", err);
         // Important: Return empty array on error to prevent frontend breakage, OR explicit error structure
         // But since we want to debug, let's return error object with details
         return NextResponse.json({
             error: "Internal Error",
-            details: error?.message || String(error)
+            details: err.message || String(err)
         }, { status: 500 });
     }
 }
@@ -115,24 +115,24 @@ export async function POST(req: Request) {
 
         let finalSiteId = siteId;
         if ((await hasPermission("expense:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-             const userSiteId = (session.user as any).siteId;
+             const userSiteId = (session.user as { siteId?: string }).siteId;
              if (!userSiteId) {
                  return NextResponse.json({ error: "User restricted but has no site" }, { status: 403 });
              }
              finalSiteId = userSiteId;
         }
 
-        // @ts-ignore
+
         const expense = await prisma.expense.create({
             data: {
                 id: randomUUID(),
                 amount,
                 date,
                 category,
-                description,
-                userId: session.user.id,
+                ...(description !== undefined ? { description } : {}),
+                ...(session.user.id ? { userId: session.user.id } : {}),
                 updatedAt: new Date(),
-                siteId: finalSiteId,
+                ...(finalSiteId ? { siteId: finalSiteId } : {}),
             },
         });
 

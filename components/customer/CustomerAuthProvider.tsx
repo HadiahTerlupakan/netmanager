@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 interface CustomerSession {
     id: string
@@ -25,7 +25,6 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     const [customer, setCustomer] = useState<CustomerSession | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
-    const pathname = usePathname()
 
     // Check auth status on mount
     useEffect(() => {
@@ -36,7 +35,7 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
         try {
             const res = await fetch('/api/customer/auth/me')
             if (res.ok) {
-                const data = await res.json()
+                const data = await res.json() as { customer: CustomerSession }
                 setCustomer(data.customer)
             } else {
                 setCustomer(null)
@@ -56,7 +55,7 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
                 body: JSON.stringify({ identifier, password }),
             })
 
-            const data = await res.json()
+            const data = await res.json() as { customer: CustomerSession; error?: string }
 
             if (res.ok) {
                 setCustomer(data.customer)

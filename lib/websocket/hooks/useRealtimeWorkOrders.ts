@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
-import { SOCKET_EVENTS, type NotificationPayload, type CountPayload } from '../types'
+import { SOCKET_EVENTS, type NotificationPayload } from '../types'
 
 export interface WorkOrderNotification {
     id: string
@@ -37,7 +37,7 @@ export function useRealtimeWorkOrders(
     options: UseRealtimeWorkOrdersOptions = {}
 ): UseRealtimeWorkOrdersResult {
     const { limit = 5, autoFetch = true } = options
-    const { socket, isConnected } = useSocket()
+    const { isConnected } = useSocket()
 
     const [notifications, setNotifications] = useState<WorkOrderNotification[]>([])
     const [unreadCount, setUnreadCount] = useState(0)
@@ -64,7 +64,7 @@ export function useRealtimeWorkOrders(
                 // But unreadCount returned is global: const unreadCount = await getUnreadCount(session.user.id);
                 
                 // Workaround: Count unread in the fetched buffer
-                const unreadInList = (data.notifications || []).filter((n: any) => !n.isRead).length
+                const unreadInList = (data.notifications || []).filter((n: { isRead: boolean }) => !n.isRead).length
                 setUnreadCount(unreadInList)
             }
         } catch (error) {
@@ -84,8 +84,8 @@ export function useRealtimeWorkOrders(
     const playSound = () => {
         try {
             const audio = new Audio('/sounds/notification.mp3');
-            audio.play().catch((err) => console.log('Audio play failed:', err));
-        } catch (error) {
+            audio.play().catch((_err) => console.log('Audio play failed:', _err));
+        } catch (_error) {
             // Ignore audio errors
         }
     }
@@ -101,8 +101,10 @@ export function useRealtimeWorkOrders(
 
             // Add to beginning of list
             setNotifications((prev) => {
+                const { link, ...restPayload } = payload
                 const newNotification: WorkOrderNotification = {
-                    ...payload,
+                    ...restPayload,
+                    ...(link ? { link } : {}),
                     isRead: false,
                 }
                 return [newNotification, ...prev.slice(0, limit - 1)]
@@ -119,7 +121,7 @@ export function useRealtimeWorkOrders(
     // Usually these might also trigger a notification record creation on backend which emits NOTIFICATION_NEW
     // If we want redundancy to be safe:
 
-    const handleWorkOrderActivity = useCallback((payload: any) => {
+    const handleWorkOrderActivity = useCallback((_payload: unknown) => {
         console.log('[WorkOrders] Activity received, refreshing...')
         playSound();
         fetchNotifications();

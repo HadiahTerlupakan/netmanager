@@ -6,14 +6,14 @@
 export interface FetchError extends Error {
     status?: number;
     code?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
     retryAfter?: number;
 }
 
 /**
  * Standardized fetch wrapper for the frontend
  */
-export async function fetchWithHandling<T = any>(
+export async function fetchWithHandling<T = unknown>(
     url: string,
     options: RequestInit = {}
 ): Promise<T> {

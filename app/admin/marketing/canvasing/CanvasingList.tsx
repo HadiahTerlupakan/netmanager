@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { HiOutlineEye, HiOutlineLockClosed, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlinePlus, HiOutlineTrash, HiOutlineArrowUturnLeft, HiOutlineGift, HiOutlineCheck, HiOutlineXMark } from 'react-icons/hi2'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -11,6 +11,7 @@ import { id as idLocale } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
 import { usePermission } from '@/hooks/use-permission'
 import axios from 'axios'
+import Image from 'next/image'
 import { SiteFilter } from '@/components/common/SiteFilter'
 
 interface PointClaim {
@@ -54,11 +55,7 @@ export default function CanvasingList() {
     const canUpdate = isSuperAdmin || hasPermission('canvasing:update')
     const canDelete = isSuperAdmin || hasPermission('canvasing:delete')
 
-    useEffect(() => {
-        fetchData()
-    }, [siteId])
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const params = new URLSearchParams()
             if (siteId) params.append('siteId', siteId)
@@ -73,7 +70,11 @@ export default function CanvasingList() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [siteId])
+
+    useEffect(() => {
+        fetchData()
+    }, [fetchData])
 
     const handleApproveClaim = async (claimId: string) => {
         setClaimModal(prev => ({ ...prev, processing: true }))
@@ -84,9 +85,13 @@ export default function CanvasingList() {
             toast.success('Claim poin berhasil disetujui')
             setClaimModal({ open: false, item: null, processing: false })
             fetchData()
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Gagal menyetujui claim')
-            setClaimModal(prev => ({ ...prev, processing: false })) 
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                toast.error(error.response?.data?.error || 'Gagal menyetujui claim')
+            } else {
+                toast.error('Gagal menyetujui claim')
+            }
+            setClaimModal(prev => ({ ...prev, processing: false }))
         }
     }
 
@@ -106,8 +111,12 @@ export default function CanvasingList() {
             toast.success('Claim poin ditolak')
             setClaimModal({ open: false, item: null, processing: false })
             fetchData()
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Gagal menolak claim')
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                toast.error(error.response?.data?.error || 'Gagal menolak claim')
+            } else {
+                toast.error('Gagal menolak claim')
+            }
             setClaimModal(prev => ({ ...prev, processing: false }))
         }
     }
@@ -376,13 +385,15 @@ export default function CanvasingList() {
                                                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Bukti Foto:</p>
                                                 <div className="grid grid-cols-3 gap-2">
                                                     {claim.buktiUrls.map((url, idx) => (
-                                                        <img 
-                                                            key={idx} 
-                                                            src={url} 
-                                                            alt={`Bukti ${idx + 1}`}
-                                                            className="w-full aspect-square rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity"
-                                                            onClick={() => setZoomImage(url)}
-                                                        />
+                                                        <div key={idx} className="relative w-full aspect-square">
+                                                            <Image
+                                                                src={url}
+                                                                alt={`Bukti ${idx + 1}`}
+                                                                fill
+                                                                className="rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity"
+                                                                onClick={() => setZoomImage(url)}
+                                                            />
+                                                        </div>
                                                     ))}
                                                 </div>
                                             </div>
@@ -427,11 +438,13 @@ export default function CanvasingList() {
 
             {/* Zoom Image Modal */}
             {zoomImage && (
-                <div 
+                <div
                     className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
                     onClick={() => setZoomImage(null)}
                 >
-                    <img src={zoomImage} alt="Zoomed" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                    <div className="relative w-full h-full max-w-4xl max-h-[90vh]">
+                        <Image src={zoomImage} alt="Zoomed" fill className="object-contain rounded-lg shadow-2xl" />
+                    </div>
                     <button className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
                         <HiOutlineXMark className="w-8 h-8" />
                     </button>

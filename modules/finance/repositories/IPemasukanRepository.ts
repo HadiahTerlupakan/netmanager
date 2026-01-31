@@ -56,7 +56,7 @@ export interface IPemasukanRepository {
   findByKategori(kategori: string): Promise<PemasukanPublic[]>
   aggregateTotal(): Promise<bigint>
   aggregateTotalByPeriod(month: number, year: number): Promise<bigint>
-  groupByPeriode(): Promise<any[]>
+  groupByPeriode(): Promise<{ tanggal: Date, jumlah: bigint }[]>
   findIdsAndDates(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<{ id: string, tanggal: Date }[]>
   findByFilters(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<PemasukanPublic[]>
 }

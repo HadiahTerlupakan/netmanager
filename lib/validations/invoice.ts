@@ -7,7 +7,7 @@ export const invoiceItemSchema = z.object({
   itemType: z.enum(['SERVICE', 'PRODUCT', 'SETUP_FEE', 'MONTHLY_FEE', 'ONE_TIME_FEE', 'OTHER']).default('SERVICE'),
 })
 
-export const invoiceSchema = z.object({
+const invoiceBaseSchema = z.object({
   pelangganId: z.string().min(1, 'Pelanggan harus dipilih'),
   issueDate: z.string().min(1, 'Tanggal issue harus diisi').transform((val) => new Date(val)),
   dueDate: z.string().min(1, 'Tanggal jatuh tempo harus diisi').transform((val) => new Date(val)),
@@ -18,7 +18,9 @@ export const invoiceSchema = z.object({
   discountAmount: z.number().min(0, 'Jumlah diskon minimal 0').default(0),
   items: z.array(invoiceItemSchema).min(1, 'Minimal harus ada 1 item'),
   siteId: z.string().optional(),
-}).refine((data) => {
+})
+
+export const invoiceSchema = invoiceBaseSchema.refine((data) => {
   // Validate due date is after issue date
   if (data.dueDate <= data.issueDate) {
     return false
@@ -29,7 +31,7 @@ export const invoiceSchema = z.object({
   path: ['dueDate'],
 })
 
-export const updateInvoiceSchema = invoiceSchema.partial().omit({ pelangganId: true })
+export const updateInvoiceSchema = invoiceBaseSchema.partial().omit({ pelangganId: true })
 
 export const sendInvoiceSchema = z.object({
   recipientEmail: z.string().email('Email tidak valid').optional(),

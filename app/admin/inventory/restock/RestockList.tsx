@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { RestockSettingsForm } from '@/components/inventory/RestockSettingsForm'
 import { Modal } from '@/components/ui/Modal'
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiAlertTriangle, FiAlertCircle, FiCheckCircle, FiXCircle } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
+import { getWithAuth, postWithAuth } from '@/lib/api-client'
 
 interface PredictionData {
   barangId: string
@@ -33,44 +34,37 @@ interface PredictionData {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
 }
 
+interface Gudang {
+  id: string
+  kode: string
+  nama: string
+}
+
+interface RestockSummary {
+  totalItems?: number
+  criticalItems?: number
+  highPriorityItems?: number
+  stockoutRiskItems?: number
+}
+
 export default function RestockPage() {
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('restock:update')
 
   const [predictions, setPredictions] = useState<PredictionData[]>([])
-  const [summary, setSummary] = useState<any>({})
+  const [summary, setSummary] = useState<RestockSummary>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedGudang, setSelectedGudang] = useState('')
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [gudangs, setGudangs] = useState<Gudang[]>([])
   const [filterUrgency, setFilterUrgency] = useState<string>('')
   const [showSettingsForm, setShowSettingsForm] = useState(false)
-  
+
   // Reorder State
   const [orderingItem, setOrderingItem] = useState<PredictionData | null>(null)
   const [processingOrder, setProcessingOrder] = useState(false)
 
-  useEffect(() => {
-    fetchInitialData()
-  }, [])
-
-  useEffect(() => {
-    fetchPredictions()
-  }, [selectedGudang, filterUrgency])
-
-  const fetchInitialData = async () => {
-    try {
-      // Fetch gudangs
-      const gudangResponse = await fetch('/api/inventory/gudang')
-      const gudangData = await gudangResponse.json()
-      const result = gudangData.data || gudangData
-      setGudangs(result.gudangs || [])
-    } catch (error) {
-      console.error('Error fetching initial data:', error)
-    }
-  }
-
-  const fetchPredictions = async () => {
+  const fetchPredictions = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
@@ -80,7 +74,7 @@ export default function RestockPage() {
       if (selectedGudang) params.append('gudangId', selectedGudang)
       url += `?${params.toString()}`
 
-      const response = await fetch(url)
+      const response = await getWithAuth(url)
       const data = await response.json()
       const result = data.data || data
 
@@ -108,26 +102,40 @@ export default function RestockPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedGudang, filterUrgency])
+
+  const fetchGudangs = useCallback(async () => {
+    try {
+      const response = await fetch('/api/inventory/gudang')
+      const data = await response.json()
+      if (response.ok && data.success) {
+        setGudangs(data.data?.gudangs || data.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching gudangs:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchGudangs()
+  }, [fetchGudangs])
+
+  useEffect(() => {
+    fetchPredictions()
+  }, [fetchPredictions])
 
   const handleReorder = async () => {
     if (!orderingItem) return
 
     try {
       setProcessingOrder(true)
-      const response = await fetch('/api/inventory/procurement/purchase-request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          gudangId: orderingItem.gudangId,
-          items: [{
-            barangId: orderingItem.barangId,
-            quantity: orderingItem.recommendedOrderQty
-          }],
-          keterangan: `Restock Order: ${orderingItem.barangNama}`
-        }),
+      const response = await postWithAuth('/api/inventory/procurement/purchase-request', {
+        gudangId: orderingItem.gudangId,
+        items: [{
+          barangId: orderingItem.barangId,
+          quantity: orderingItem.recommendedOrderQty
+        }],
+        keterangan: `Restock Order: ${orderingItem.barangNama}`
       })
 
       const data = await response.json()

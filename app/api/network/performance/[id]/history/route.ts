@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
 async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
+  const session = await getServerSession(authConfig)
   if (!session || false) {
     return null
   }
@@ -110,19 +110,20 @@ export async function GET(
     }
 
     const filters = parsed.data
-    const where: any = { deviceId: id }
+    const where: Record<string, unknown> = { deviceId: id }
 
     if (filters.startDate || filters.endDate) {
-      where.timestamp = {}
-      if (filters.startDate) where.timestamp.gte = new Date(filters.startDate)
-      if (filters.endDate) where.timestamp.lte = new Date(filters.endDate)
+      const timestamp: Record<string, Date> = {}
+      if (filters.startDate) timestamp.gte = new Date(filters.startDate)
+      if (filters.endDate) timestamp.lte = new Date(filters.endDate)
+      where.timestamp = timestamp
     }
 
     const page = filters.page || 1
     const limit = filters.limit || 20
     const skip = (page - 1) * limit
 
-    const orderBy: any = {}
+    const orderBy: Record<string, string> = {}
     if (filters.sortBy) {
       orderBy[filters.sortBy] = filters.sortOrder || 'desc'
     } else {
@@ -130,7 +131,6 @@ export async function GET(
     }
 
     try {
-      // @ts-ignore - Will work after schema update
       const [data, total] = await Promise.all([
         prisma.networkPerformance.findMany({
           where,
@@ -150,9 +150,9 @@ export async function GET(
           totalPages: Math.ceil(total / limit),
         },
       })
-    } catch (prismaError: any) {
+    } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError.code === 'P2021') {
+      if (prismaError && typeof prismaError === 'object' && 'code' in prismaError && prismaError.code === 'P2021') {
         return NextResponse.json({
           data: [],
           pagination: {
@@ -166,10 +166,11 @@ export async function GET(
       }
       throw prismaError
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching performance history:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Gagal memuat riwayat performa'
     return NextResponse.json(
-      { error: error.message || 'Gagal memuat riwayat performa' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

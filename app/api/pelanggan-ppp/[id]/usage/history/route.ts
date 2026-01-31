@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { RadiusSyncService } from '@/modules/network'
+import { Prisma } from '@prisma/client'
 
 /**
  * @swagger
@@ -177,7 +178,7 @@ export async function GET(
   try {
     const { id } = await params
     // Check authentication
-    const session: any = await getServerSession(authConfig as any)
+    const session = await getServerSession(authConfig) as Session | null
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -245,14 +246,14 @@ export async function GET(
     }
 
     // Prepare data arrays
-    let radiusSessions: any[] = []
-    let customerUsage: any[] = []
+    let radiusSessions: Record<string, unknown>[] = []
+    let customerUsage: Prisma.CustomerUsageGetPayload<object>[] = []
 
     // Get RADIUS session data if needed
     if (source === 'all' || source === 'radius') {
       const radiusService = new RadiusSyncService(prisma)
       // Access the private radiusRepo through a type assertion
-      const radiusRepo = (radiusService as any).radiusRepo
+      const radiusRepo = (radiusService as unknown as { radiusRepo: { getUserSessions: (u: string, s?: Date, e?: Date) => Promise<Record<string, unknown>[]> } }).radiusRepo
       if (radiusRepo && typeof radiusRepo.getUserSessions === 'function') {
         radiusSessions = await radiusRepo.getUserSessions(
           pelanggan.username,
@@ -264,18 +265,24 @@ export async function GET(
 
     // Get customer usage data if needed
     if (source === 'all' || source === 'database') {
+      const prismaSortBy = {
+        sessionStartTime: 'session_start_time',
+        sessionDuration: 'session_duration',
+        totalBytes: 'total_bytes'
+      }[sortBy] || 'session_start_time'
+
       customerUsage = await prisma.customerUsage.findMany({
         where: {
           pelangganId: id,
           ...(startDate && {
-            sessionStartTime: { gte: startDate }
+            session_start_time: { gte: startDate }
           }),
           ...(endDate && {
-            sessionStartTime: { lte: endDate }
+            session_start_time: { lte: endDate }
           }),
         },
         orderBy: {
-          [sortBy]: sortOrder,
+          [prismaSortBy]: sortOrder,
         },
       })
     }
@@ -285,7 +292,10 @@ export async function GET(
 
     // Add RADIUS sessions
     for (const session of radiusSessions) {
-      const totalBytes = (session.acctInputOctets || BigInt(0)) + (session.acctOutputOctets || BigInt(0))
+      const inputOctets = BigInt(String(session.acctInputOctets || 0));
+      const outputOctets = BigInt(String(session.acctOutputOctets || 0));
+      const totalBytes = inputOctets + outputOctets;
+
       combinedData.push({
         id: `radius-${session.radAcctId}`,
         sessionId: session.acctSessionId,
@@ -309,32 +319,33 @@ export async function GET(
 
     // Add customer usage records
     for (const usage of customerUsage) {
-      const totalBytes = (usage.uploadBytes || BigInt(0)) + (usage.downloadBytes || BigInt(0))
+      const totalBytes = (usage.upload_bytes || BigInt(0)) + (usage.download_bytes || BigInt(0))
       combinedData.push({
         id: usage.id,
-        sessionId: usage.sessionId,
-        sessionStartTime: usage.sessionStartTime,
-        sessionEndTime: usage.sessionEndTime,
-        sessionDuration: usage.sessionDuration?.toString() || '0',
-        sessionDurationMinutes: usage.sessionDuration ? Number(usage.sessionDuration) / 60 : 0,
-        uploadBytes: usage.uploadBytes?.toString() || '0',
-        downloadBytes: usage.downloadBytes?.toString() || '0',
-        totalBytes: usage.totalBytes?.toString() || '0',
-        uploadGB: usage.uploadBytes ? Number(usage.uploadBytes) / 1073741824 : 0,
-        downloadGB: usage.downloadBytes ? Number(usage.downloadBytes) / 1073741824 : 0,
+        sessionId: usage.session_id,
+        sessionStartTime: usage.session_start_time,
+        sessionEndTime: usage.session_end_time,
+        sessionDuration: usage.session_duration?.toString() || '0',
+        sessionDurationMinutes: usage.session_duration ? Number(usage.session_duration) / 60 : 0,
+        uploadBytes: usage.upload_bytes?.toString() || '0',
+        downloadBytes: usage.download_bytes?.toString() || '0',
+        totalBytes: usage.total_bytes?.toString() || '0',
+        uploadGB: usage.upload_bytes ? Number(usage.upload_bytes) / 1073741824 : 0,
+        downloadGB: usage.download_bytes ? Number(usage.download_bytes) / 1073741824 : 0,
         totalGB: Number(totalBytes) / 1073741824,
-        nasIpAddress: usage.nasIpAddress,
-        callingStationId: usage.callingStationId,
-        calledStationId: usage.calledStationId,
-        terminateCause: usage.terminateCause,
+        nasIpAddress: usage.nas_ip_address,
+        callingStationId: usage.calling_station_id,
+        calledStationId: usage.called_station_id,
+        terminateCause: usage.terminate_cause,
         source: 'database',
       })
     }
 
     // Sort combined data
-    combinedData.sort((a: any, b: any) => {
-      let aValue: any = a[sortBy]
-      let bValue: any = b[sortBy]
+    type CombinedDataItem = typeof combinedData[number];
+    combinedData.sort((a: CombinedDataItem, b: CombinedDataItem) => {
+      let aValue: string | number | Date | null | undefined = a[sortBy as keyof CombinedDataItem] as string | number | Date | null | undefined
+      let bValue: string | number | Date | null | undefined = b[sortBy as keyof CombinedDataItem] as string | number | Date | null | undefined
 
       // Handle string dates
       if (typeof aValue === 'string' && !isNaN(Date.parse(aValue))) {
@@ -345,9 +356,9 @@ export async function GET(
       }
 
       if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1
+        return (aValue ?? 0) > (bValue ?? 0) ? 1 : -1
       } else {
-        return aValue < bValue ? 1 : -1
+        return (aValue ?? 0) < (bValue ?? 0) ? 1 : -1
       }
     })
 
@@ -374,10 +385,10 @@ export async function GET(
       },
       data: paginatedData,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching customer usage history:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

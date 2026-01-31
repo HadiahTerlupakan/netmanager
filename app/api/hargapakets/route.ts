@@ -23,12 +23,12 @@ export async function GET(req: NextRequest) {
         const featured = searchParams.get('featured')
         const siteIdParam = searchParams.get('siteId')
 
-        const options: any = {}
+        const options: Record<string, unknown> = {}
         if (status) options.status = status
         if (featured !== null) options.featured = featured === 'true'
 
         const isSiteRestricted = (await hasPermission('harga:site_only')) && session.user.role !== 'SUPER_ADMIN'
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
 
         if (isSiteRestricted) {
             if (!userSiteId) return apiSuccess([])
@@ -39,9 +39,10 @@ export async function GET(req: NextRequest) {
 
         const hargaPakets = await hargaPaketService.getAllHargaPakets(options)
         return apiSuccess(hargaPakets)
-    } catch (error: any) {
-        console.error('[HargaPaket GET Error]:', error)
-        return ApiErrors.internalError(error?.message || 'Gagal mengambil data harga paket')
+    } catch (error: unknown) {
+        const err = error as Error;
+        console.error('[HargaPaket GET Error]:', err)
+        return ApiErrors.internalError(err?.message || 'Gagal mengambil data harga paket')
     }
 }
 
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
         const body = await req.json()
 
         const isSiteRestricted = (await hasPermission('harga:site_only')) && session.user.role !== 'SUPER_ADMIN'
-        const userSiteId = (session.user as any).siteId
+        const userSiteId = (session.user as { siteId?: string }).siteId
 
         if (isSiteRestricted) {
             if (!userSiteId) {
@@ -70,24 +71,25 @@ export async function POST(req: NextRequest) {
 
         const hargaPaket = await hargaPaketService.createHargaPaket(body, session.user.id)
         return apiSuccess(hargaPaket, { status: 201, message: 'Harga paket berhasil dibuat' })
-    } catch (error: any) {
-        console.error('[HargaPaket POST Error]:', error)
+    } catch (error: unknown) {
+        const err = error as Error & { code?: string; details?: unknown };
+        console.error('[HargaPaket POST Error]:', err)
 
-        if (error.code === 'VALIDATION_ERROR') {
-            return apiError(error.message, ErrorCodes.VALIDATION_ERROR, { 
-                status: 400, 
-                details: error.details 
+        if (err.code === 'VALIDATION_ERROR') {
+            return apiError(err.message, ErrorCodes.VALIDATION_ERROR, {
+                status: 400,
+                details: err.details as Record<string, unknown>
             })
         }
 
-        if (error.code === 'P2002') {
+        if (err.code === 'P2002') {
             return apiError('Nama paket sudah digunakan', ErrorCodes.CONFLICT, { status: 409 })
         }
 
-        if (error.code === 'P2003') {
+        if (err.code === 'P2003') {
             return apiError('Bandwidth atau Profile PPP tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
-        return ApiErrors.internalError(error?.message || 'Gagal membuat harga paket')
+        return ApiErrors.internalError(err?.message || 'Gagal membuat harga paket')
     }
 }

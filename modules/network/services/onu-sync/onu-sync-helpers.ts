@@ -14,9 +14,9 @@
  */
 export async function buildGponPortMap(
     ipAddress: string,
-    port: number,
-    community: string,
-    version: string
+    _port: number,
+    _community: string,
+    _version: string
 ): Promise<Map<string, { ifIndex: number; baseIndex: number | null }>> {
     // Stub implementation - returns empty map
     // In a full implementation, this would query OLT for port mappings

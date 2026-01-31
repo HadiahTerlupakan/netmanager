@@ -10,7 +10,7 @@
  * This test validates the interconnection between portals.
  */
 
-import { test, expect, type Page, type BrowserContext } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { prisma } from '../../lib/prisma'
 
 const ADMIN = {

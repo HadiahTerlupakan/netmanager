@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
-import { NextRequest, NextResponse } from 'next/server'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { NextRequest } from 'next/server'
+
 
 // Mock next-auth
 const mockGetServerSession = vi.fn()
@@ -39,6 +40,7 @@ import {
   isAuthError,
   isAuthorized
 } from '@/lib/authorization-middleware'
+import type { AuthorizedSession } from '@/lib/authorization-middleware'
 
 // Helper to create mock NextRequest
 function createMockRequest(url: string = 'http://localhost/api/test'): NextRequest {
@@ -234,8 +236,9 @@ describe('Authorization Middleware', () => {
     it('hasPermissionInSession should check permission in session', () => {
       const session = {
         user: { id: 'user-1', email: 'test@example.com', name: null, role: 'ADMIN' },
-        permissions: ['users:read', 'users:create']
-      }
+        permissions: ['users:read', 'users:create'],
+        expires: '2025-01-01T00:00:00.000Z'
+      } as unknown as AuthorizedSession
       
       expect(hasPermissionInSession(session, 'users:read')).toBe(true)
       expect(hasPermissionInSession(session, 'roles:read')).toBe(false)

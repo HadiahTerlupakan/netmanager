@@ -16,7 +16,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 })
         }
 
-        const token = authHeader.split(' ')[1]
+        const token = authHeader.split(" ")[1]
+        if (!token) {
+            return NextResponse.json({ error: "Token not provided" }, { status: 401 })
+        }
         const payload = await verifyMobileToken(token)
         if (!payload) {
             console.log(`[API][${timestamp}] Location update: Invalid token`)
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
         // Handle batch locations (offline sync)
         if (Array.isArray(body.locations)) {
             console.log(`[API][${timestamp}] Processing batch of ${body.locations.length} locations`)
-            const count = await locationService.saveLocations(userId, body.locations.map((loc: any) => ({
+            const count = await locationService.saveLocations(userId, body.locations.map((loc: Record<string, unknown>) => ({
                 latitude: loc.latitude,
                 longitude: loc.longitude,
                 accuracy: loc.accuracy,
@@ -57,7 +60,7 @@ export async function POST(request: NextRequest) {
                 heading: loc.heading,
                 batteryLevel: loc.batteryLevel,
                 isMoving: loc.isMoving,
-                recordedAt: loc.recordedAt ? new Date(loc.recordedAt) : new Date()
+                recordedAt: loc.recordedAt ? new Date(loc.recordedAt as string) : new Date()
             })))
 
             console.log(`[API][${timestamp}] ✅ Batch saved: ${count} locations`)
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
         console.log(`[API][${timestamp}] ==========================================`)
         return NextResponse.json({ success: true, message: 'Location saved' })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error(`[API][${timestamp}] ❌ Error saving location:`, error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }

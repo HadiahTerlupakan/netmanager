@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import React from 'react'
 import MapPreview from '@/components/common/MapPreview'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
@@ -25,7 +26,7 @@ const FormField = ({ label, value, className = '' }: { label: string, value: Rea
   </div>
 )
 
-const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
+const SectionHeader = ({ icon: Icon, title }: { icon: React.ElementType, title: string }) => (
   <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-indigo-500 dark:border-indigo-400">
     <Icon className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
     <h2 className="text-base font-bold uppercase tracking-wide text-gray-900 dark:text-white">
@@ -211,7 +212,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 <div className="bg-gray-50 dark:bg-gray-800/30 rounded-lg p-4 border border-gray-100 dark:border-gray-800 space-y-4">
                   {pelanggan.catatan ? (
                     <div className="text-sm text-gray-700 dark:text-gray-300 italic p-3 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/30 rounded">
-                      "{pelanggan.catatan}"
+                      &quot;{pelanggan.catatan}&quot;
                     </div>
                   ) : (
                     <div className="text-sm text-gray-400 italic">Tidak ada catatan tambahan.</div>

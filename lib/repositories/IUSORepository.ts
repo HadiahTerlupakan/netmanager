@@ -1,5 +1,3 @@
-import { PrismaClient } from '@prisma/client';
-
 export interface USOContributionDTO {
     id: string;
     quarter: number;

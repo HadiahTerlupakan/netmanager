@@ -8,7 +8,7 @@ if (typeof EventEmitter !== 'undefined' && EventEmitter.defaultMaxListeners) {
 }
 
 // Export untuk digunakan di tempat lain jika diperlukan
-export function setMaxListenersForEmitter(emitter: any, max: number = 20) {
+export function setMaxListenersForEmitter(emitter: EventEmitter, max: number = 20) {
   if (emitter && typeof emitter.setMaxListeners === 'function') {
     emitter.setMaxListeners(max)
   }

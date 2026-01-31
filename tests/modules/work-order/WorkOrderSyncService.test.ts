@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { prismaMock } from '../../setup'
 import { syncWoStatusToTicket, closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
-import { WorkOrderStatus, TicketStatus } from '@prisma/client'
+import { WorkOrderStatus, TicketStatus, type WorkOrders, type SupportTickets, type TicketReplies } from '@prisma/client'
 
 describe('WorkOrderSyncService', () => {
   describe('syncWoStatusToTicket', () => {
@@ -19,7 +19,7 @@ describe('WorkOrderSyncService', () => {
         workOrderNumber: 'WO-001',
         ticketId: null, // No linked ticket
         attachments: []
-      } as any)
+      } as unknown as WorkOrders)
 
       await syncWoStatusToTicket('wo-1', WorkOrderStatus.IN_PROGRESS)
 
@@ -33,9 +33,9 @@ describe('WorkOrderSyncService', () => {
         ticketId: 'ticket-1',
         ticket: { id: 'ticket-1' },
         attachments: []
-      } as any)
+      } as unknown as WorkOrders)
 
-      prismaMock.supportTickets.update.mockResolvedValueOnce({} as any)
+      prismaMock.supportTickets.update.mockResolvedValueOnce({} as unknown as SupportTickets)
 
       await syncWoStatusToTicket('wo-1', WorkOrderStatus.IN_PROGRESS)
 
@@ -59,10 +59,10 @@ describe('WorkOrderSyncService', () => {
           { caption: '[COMPLETION] Photo 1', filePath: '/photos/1.jpg' },
           { caption: '[COMPLETION] Photo 2', filePath: '/photos/2.jpg' }
         ]
-      } as any)
+      } as unknown as WorkOrders)
 
-      prismaMock.supportTickets.update.mockResolvedValueOnce({} as any)
-      prismaMock.ticketReplies.create.mockResolvedValueOnce({} as any)
+      prismaMock.supportTickets.update.mockResolvedValueOnce({} as unknown as SupportTickets)
+      prismaMock.ticketReplies.create.mockResolvedValueOnce({} as unknown as TicketReplies)
 
       await syncWoStatusToTicket('wo-1', WorkOrderStatus.COMPLETED)
 
@@ -87,9 +87,9 @@ describe('WorkOrderSyncService', () => {
     it('should cancel PENDING work orders', async () => {
       prismaMock.workOrders.findMany.mockResolvedValueOnce([
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'PENDING' }
-      ] as any)
+      ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 
@@ -105,9 +105,9 @@ describe('WorkOrderSyncService', () => {
     it('should close IN_PROGRESS work orders without sending report', async () => {
       prismaMock.workOrders.findMany.mockResolvedValueOnce([
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'IN_PROGRESS' }
-      ] as any)
+      ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 
@@ -124,9 +124,9 @@ describe('WorkOrderSyncService', () => {
       const verifiedAt = new Date('2024-01-01')
       prismaMock.workOrders.findMany.mockResolvedValueOnce([
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'COMPLETED', verifiedAt }
-      ] as any)
+      ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 
@@ -144,9 +144,9 @@ describe('WorkOrderSyncService', () => {
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'PENDING' },
         { id: 'wo-2', workOrderNumber: 'WO-002', status: 'IN_PROGRESS' },
         { id: 'wo-3', workOrderNumber: 'WO-003', status: 'COMPLETED', verifiedAt: new Date() }
-      ] as any)
+      ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValue({} as any)
+      prismaMock.workOrders.update.mockResolvedValue({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 

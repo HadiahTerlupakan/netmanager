@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import 'ol/ol.css'
+import type Map from 'ol/Map'
+import Feature from 'ol/Feature'
+import type VectorLayer from 'ol/layer/Vector'
+import type VectorSource from 'ol/source/Vector'
+import type Overlay from 'ol/Overlay'
+import type { Options as OverlayOptions } from 'ol/Overlay'
 
 interface EmployeeLocation {
     userId: string
@@ -26,22 +32,28 @@ interface EmployeeLocationMapProps {
     onEmployeeClick?: (employee: EmployeeLocation) => void
 }
 
-export default function EmployeeLocationMap({ 
-    locations, 
+export default function EmployeeLocationMap({
+    locations,
     height = 500,
-    onEmployeeClick 
+    onEmployeeClick
 }: EmployeeLocationMapProps) {
     const mapEl = useRef<HTMLDivElement | null>(null)
-    const mapRef = useRef<any>(null)
-    const markerLayerRef = useRef<any>(null)
-    const overlayRef = useRef<any>(null)
+    const mapRef = useRef<Map | null>(null)
+    const markerLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
+    const overlayRef = useRef<Overlay | null>(null)
     const popupRef = useRef<HTMLDivElement | null>(null)
+    const onEmployeeClickRef = useRef(onEmployeeClick)
     const [mapReady, setMapReady] = useState(false)
+
+    // Update the ref whenever the callback changes
+    useEffect(() => {
+        onEmployeeClickRef.current = onEmployeeClick
+    }, [onEmployeeClick])
 
     // Initialize map once
     useEffect(() => {
         let cleanup = () => { }
-        
+
         ;(async () => {
             if (!mapEl.current) return
 
@@ -53,6 +65,7 @@ export default function EmployeeLocationMap({
             const { fromLonLat } = await import('ol/proj')
             const { defaults: defaultControls, Zoom, Attribution, FullScreen } = await import('ol/control')
             const { default: Overlay } = await import('ol/Overlay')
+            const { default: _Feature } = await import('ol/Feature')
 
             // Default center (Jakarta)
             const defaultCenter: [number, number] = [106.845599, -6.208763]
@@ -60,7 +73,7 @@ export default function EmployeeLocationMap({
 
             const tile = new TileLayer({ source: new OSM() })
             const markerSource = new VectorSource()
-            const markerLayer = new VectorLayer({ 
+            const markerLayer = new VectorLayer({
                 source: markerSource,
                 zIndex: 10
             })
@@ -85,18 +98,18 @@ export default function EmployeeLocationMap({
             if (popupRef.current) {
                 const overlay = new Overlay({
                     element: popupRef.current,
-                    positioning: 'bottom-center' as any,
+                    positioning: 'bottom-center',
                     offset: [0, -15],
                     stopEvent: false
-                })
+                } as OverlayOptions)
                 map.addOverlay(overlay)
                 overlayRef.current = overlay
             }
 
             // Hover interaction
             map.on('pointermove', (evt) => {
-                const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f)
-                
+                const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f) as Feature | undefined
+
                 if (feature && overlayRef.current && popupRef.current) {
                     const data = feature.get('employeeData') as EmployeeLocation
                     if (data) {
@@ -121,11 +134,11 @@ export default function EmployeeLocationMap({
 
             // Click interaction
             map.on('click', (evt) => {
-                const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f)
-                if (feature && onEmployeeClick) {
+                const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f) as Feature | undefined
+                if (feature && onEmployeeClickRef.current) {
                     const data = feature.get('employeeData') as EmployeeLocation
                     if (data) {
-                        onEmployeeClick(data)
+                        onEmployeeClickRef.current(data)
                     }
                 }
             })
@@ -150,13 +163,14 @@ export default function EmployeeLocationMap({
             if (!markerLayerRef.current || !mapRef.current) return
             if (locations.length === 0) return
 
-            const { default: Feature } = await import('ol/Feature')
+            const { default: _Feature } = await import('ol/Feature')
             const { default: Point } = await import('ol/geom/Point')
             const { fromLonLat } = await import('ol/proj')
             const { Style, Fill, Stroke, Text } = await import('ol/style')
             const { default: CircleStyle } = await import('ol/style/Circle')
 
             const source = markerLayerRef.current.getSource()
+            if (!source) return
             source.clear()
 
             // Add markers for each employee
@@ -169,10 +183,10 @@ export default function EmployeeLocationMap({
 
                 // Get initial for avatar
                 const initial = loc.userName.charAt(0).toUpperCase()
-                
+
                 // Style based on moving status
                 const color = loc.isMoving ? '#22c55e' : '#2563eb'
-                
+
                 feature.setStyle(new Style({
                     image: new CircleStyle({
                         radius: 16,
@@ -192,7 +206,7 @@ export default function EmployeeLocationMap({
 
             // Fit view to show all markers
             const extent = source.getExtent()
-            if (extent && extent[0] !== Infinity) {
+            if (extent && extent[0] !== Infinity && mapRef.current) {
                 mapRef.current.getView().fit(extent, {
                     padding: [50, 50, 50, 50],
                     maxZoom: 16,
@@ -200,7 +214,7 @@ export default function EmployeeLocationMap({
                 })
             }
         })()
-    }, [locations, mapReady]) // Re-run when locations change OR when map becomes ready
+    }, [locations, mapReady, onEmployeeClick]) // Re-run when locations change OR when map becomes ready
 
     return (
         <div className="relative">

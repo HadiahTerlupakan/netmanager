@@ -49,7 +49,7 @@ export function ClientComponent() {
           setDashboardData(result.data)
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to fetch dashboard:', error)
     } finally {
       setLoading(false)

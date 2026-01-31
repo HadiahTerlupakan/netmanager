@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -14,8 +14,27 @@ import {
 } from 'react-icons/hi2'
 import { PhotoUpload, type UploadedPhoto } from './PhotoUpload'
 
+interface BarangStock {
+  gudangId: string;
+  stok: number;
+}
+
+interface Barang {
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string;
+  stockPerGudang: BarangStock[];
+}
+
+interface Gudang {
+  id: string;
+  kode: string;
+  nama: string;
+}
+
 export default function AmbilBarangForm() {
-  const router = useRouter()
+  const _router = useRouter()
   const [formData, setFormData] = useState({
     barangId: '',
     gudangId: '',
@@ -23,8 +42,8 @@ export default function AmbilBarangForm() {
     kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
     purpose: '' // Employee-specific field untuk keperluan
   })
-  const [barangs, setBarangs] = useState<any[]>([])
-  const [gudangs, setGudangs] = useState<any[]>([])
+  const [barangs, setBarangs] = useState<Barang[]>([])
+  const [gudangs, setGudangs] = useState<Gudang[]>([])
   const [currentStock, setCurrentStock] = useState(0)
   const [stockPerKondisi, setStockPerKondisi] = useState({
     BARU: 0,
@@ -35,7 +54,7 @@ export default function AmbilBarangForm() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [photos, setPhotos] = useState<UploadedPhoto[]>([])
-  const [transactionId] = useState<string>('temp-' + Date.now())
+  const [transactionId] = useState<string>(() => 'temp-' + Date.now())
 
   // Check for URL params (from items page)
   useEffect(() => {
@@ -43,10 +62,32 @@ export default function AmbilBarangForm() {
       const params = new URLSearchParams(window.location.search)
       const barangId = params.get('barangId')
       if (barangId) {
-        setFormData(prev => ({ ...prev, barangId }))
+        // Use setTimeout to avoid synchronous setState
+        setTimeout(() => setFormData(prev => ({ ...prev, barangId })), 0)
       }
     }
   }, [])
+
+  const fetchStockByCondition = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.gudangId}`
+      )
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentStock(data.totalStock || 0)
+        setStockPerKondisi(data.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 })
+      }
+    } catch (error) {
+      console.error('Error fetching stock by condition:', error)
+      // Fallback to basic stock info
+      const selectedBarang = barangs.find(b => b.id === formData.barangId)
+      if (selectedBarang) {
+        const stockInfo = selectedBarang.stockPerGudang?.find((s: BarangStock) => s.gudangId === formData.gudangId)
+        setCurrentStock(stockInfo?.stok || 0)
+      }
+    }
+  }, [formData.barangId, formData.gudangId, barangs])
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -72,33 +113,16 @@ export default function AmbilBarangForm() {
   useEffect(() => {
     if (formData.barangId && formData.gudangId) {
       // Fetch stock by condition from API
-      fetchStockByCondition()
+      queueMicrotask(() => {
+        void fetchStockByCondition()
+      })
     } else {
-      setCurrentStock(0)
-      setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 })
+      queueMicrotask(() => {
+        setCurrentStock(0)
+        setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 })
+      })
     }
-  }, [formData.barangId, formData.gudangId])
-
-  const fetchStockByCondition = async () => {
-    try {
-      const response = await fetch(
-        `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.gudangId}`
-      )
-      if (response.ok) {
-        const data = await response.json()
-        setCurrentStock(data.totalStock || 0)
-        setStockPerKondisi(data.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 })
-      }
-    } catch (error) {
-      console.error('Error fetching stock by condition:', error)
-      // Fallback to basic stock info
-      const selectedBarang = barangs.find(b => b.id === formData.barangId)
-      if (selectedBarang) {
-        const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId)
-        setCurrentStock(stockInfo?.stok || 0)
-      }
-    }
-  }
+  }, [formData.barangId, formData.gudangId, fetchStockByCondition])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -480,7 +504,7 @@ export default function AmbilBarangForm() {
 
             {/* Photo Upload Component */}
             <PhotoUpload
-              transactionId={transactionId || undefined}
+              {...(transactionId && { transactionId })}
               transactionType="inventory-keluar"
               onPhotosChange={handlePhotosChange}
               maxPhotos={3}

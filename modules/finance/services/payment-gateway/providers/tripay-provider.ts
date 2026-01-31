@@ -101,11 +101,12 @@ export class TripayProvider implements PaymentProvider {
                 transactionId: data.reference
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Tripay create payment error:', error)
+            const message = error instanceof Error ? error.message : 'Failed to create payment'
             return {
                 success: false,
-                error: error.message
+                error: message
             }
         }
     }
@@ -146,19 +147,19 @@ export class TripayProvider implements PaymentProvider {
             return {
                 orderId: data.merchant_ref,
                 status,
-                paidAt: data.paid_at ? new Date(data.paid_at * 1000) : undefined,
+                ...(data.paid_at ? { paidAt: new Date(data.paid_at * 1000) } : {}),
                 paymentMethod: data.payment_method,
                 amount: data.amount,
                 transactionId: data.reference
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Tripay check status error:', error)
             throw error
         }
     }
 
-    async cancelPayment(orderId: string): Promise<void> {
+    async cancelPayment(_orderId: string): Promise<void> {
         // Tripay doesn't strictly support cancellation via API for open transactions in the same way,
         // but usually we just let them expire. 
         // Implementing as no-op or check docs if specific endpoint exists.
@@ -166,7 +167,7 @@ export class TripayProvider implements PaymentProvider {
         return
     }
 
-    verifyWebhook(payload: any, signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown> | string, signature?: string): boolean {
         if (!this.config?.apiSecret) return false
         if (!signature) return false
 
@@ -190,12 +191,12 @@ export class TripayProvider implements PaymentProvider {
         return calculatedSignature === signature
     }
 
-    async processWebhook(payload: any): Promise<WebhookResult> {
+    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
         // Payload is the parsed JSON body from Tripay webhook
 
         let status: WebhookResult['status'] = 'PENDING'
 
-        switch (payload.status) {
+        switch (payload.status as string) {
             case 'PAID':
                 status = 'PAID'
                 break
@@ -211,12 +212,12 @@ export class TripayProvider implements PaymentProvider {
         }
 
         return {
-            orderId: payload.merchant_ref,
+            orderId: payload.merchant_ref as string,
             status,
-            paidAt: payload.paid_at ? new Date(payload.paid_at * 1000) : new Date(),
-            paymentMethod: payload.payment_method,
-            transactionId: payload.reference,
-            amount: payload.total_amount,
+            ...(payload.paid_at ? { paidAt: new Date((payload.paid_at as number) * 1000) } : (status === 'PAID' ? { paidAt: new Date() } : {})),
+            paymentMethod: payload.payment_method as string,
+            transactionId: payload.reference as string,
+            amount: payload.total_amount as number,
             raw: payload
         }
     }
@@ -247,10 +248,11 @@ export class TripayProvider implements PaymentProvider {
                     message: result.message || 'Failed to connect to Tripay'
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Connection failed'
             return {
                 success: false,
-                message: error.message || 'Connection failed'
+                message
             }
         }
     }

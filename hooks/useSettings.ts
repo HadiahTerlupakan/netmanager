@@ -6,7 +6,7 @@ type GeneralSettings = {
     alamat: string;
     nomorHp: string;
     deskripsiInvoice: string;
-    rekeningBank: any[];
+    rekeningBank: unknown[];
     invoiceOtomatis: string;
     disablePerpanjanganPaket: string;
     timezone: string;

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
 import {
     Chart as ChartJS,
@@ -71,6 +70,13 @@ const CHART_COLORS_ALPHA = {
     indigo: 'rgba(99, 102, 241, 0.5)',
 }
 
+// Loading skeleton component - moved outside to avoid creating components during render
+const ChartSkeleton = () => (
+    <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse flex items-center justify-center">
+        <span className="text-gray-400">Loading...</span>
+    </div>
+)
+
 export function WoTrendCharts({
     volumeTrend,
     issueTrend,
@@ -126,7 +132,7 @@ export function WoTrendCharts({
                 backgroundColor: 'rgba(0, 0, 0, 0.8)',
                 padding: 12,
                 callbacks: {
-                    label: (context: any) => `${context.dataset.label}: ${context.parsed.y} WO`
+                    label: (context: { dataset: { label?: string }; parsed: { y: number } }) => `${context.dataset.label || ''}: ${context.parsed.y} WO`
                 }
             }
         },
@@ -242,7 +248,7 @@ export function WoTrendCharts({
                 backgroundColor: 'rgba(0, 0, 0, 0.8)',
                 padding: 12,
                 callbacks: {
-                    label: (context: any) => `${context.label}: ${context.parsed} WO`
+                    label: (context: { label: string; parsed: number }) => `${context.label}: ${context.parsed} WO`
                 }
             }
         }
@@ -292,13 +298,6 @@ export function WoTrendCharts({
             y: { grid: { display: false } }
         }
     }
-
-    // Loading skeleton
-    const ChartSkeleton = () => (
-        <div className="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse flex items-center justify-center">
-            <span className="text-gray-400">Loading...</span>
-        </div>
-    )
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">

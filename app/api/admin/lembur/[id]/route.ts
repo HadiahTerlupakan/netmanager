@@ -3,7 +3,6 @@
  * Migrated to use standardized middleware and validation
  */
 
-import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { OvertimeService } from '@/modules/overtime'
 import { 
@@ -15,12 +14,18 @@ import {
   ValidationError,
   NotFoundError,
   ForbiddenError,
-  applyRBACRestrictions
+  applyRBACRestrictions,
+  type RBACFilterContext
 } from '@/lib/middleware'
 import { apiSuccess } from '@/lib/api-response'
 import { lemburActionSchema } from '@/lib/validations/lembur'
 import { idSchema } from '@/lib/validations/common'
 import { logger } from '@/lib/logger'
+
+interface LemburFilters {
+  siteId?: string;
+  departmentId?: string;
+}
 
 /**
  * GET /api/admin/lembur/[id]
@@ -30,13 +35,13 @@ export const GET = withErrorHandler(
   withAuth(
     withPermission('lembur:read',
       applyRBACRestrictions(
-        { 
-          sitePermission: 'lembur:site_only', 
-          departmentPermission: 'lembur:department_only' 
+        {
+          sitePermission: 'lembur:site_only',
+          departmentPermission: 'lembur:department_only'
         },
         withRateLimit(RateLimits.STANDARD,
-          async ({ user, request, filters }, routeContext) => {
-            const { id } = await routeContext.params
+          async ({ user: _user, request: _request, filters }: RBACFilterContext<LemburFilters>, routeContext) => {
+            const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
 
             // Validate ID format
             const parseResult = idSchema.safeParse(id)
@@ -93,12 +98,12 @@ export const GET = withErrorHandler(
 export const PATCH = withErrorHandler(
   withAuth(
     applyRBACRestrictions(
-      { 
-        sitePermission: 'lembur:site_only', 
-        departmentPermission: 'lembur:department_only' 
+      {
+        sitePermission: 'lembur:site_only',
+        departmentPermission: 'lembur:department_only'
       },
-      async ({ user, request, filters }, routeContext) => {
-        const { id } = await routeContext.params
+      async ({ user, request, filters }: RBACFilterContext<LemburFilters>, routeContext) => {
+        const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
 
         // Validate ID format
         const idParseResult = idSchema.safeParse(id)
@@ -193,7 +198,7 @@ export const PATCH = withErrorHandler(
           }
 
           // Clean up update data
-          const cleanData: any = {}
+          const cleanData: { reason?: string; startTime?: Date; endTime?: Date } = {}
           if (reason) cleanData.reason = reason
           if (startTime) cleanData.startTime = new Date(startTime)
           if (endTime) cleanData.endTime = new Date(endTime)
@@ -240,12 +245,12 @@ export const DELETE = withErrorHandler(
   withAuth(
     withPermission('lembur:delete',
       applyRBACRestrictions(
-        { 
-          sitePermission: 'lembur:site_only', 
-          departmentPermission: 'lembur:department_only' 
+        {
+          sitePermission: 'lembur:site_only',
+          departmentPermission: 'lembur:department_only'
         },
-        async ({ user, filters }, routeContext) => {
-          const { id } = await routeContext.params
+        async ({ user, filters }: RBACFilterContext<LemburFilters>, routeContext) => {
+          const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
 
           // Validate ID format
           const parseResult = idSchema.safeParse(id)

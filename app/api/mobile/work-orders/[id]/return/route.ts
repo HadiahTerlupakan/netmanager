@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { randomUUID } from 'crypto'
 import { notifyAdminsAboutMobileAction } from '@/modules/notification'
 import { logger } from '@/lib/logger'
+
+interface ReturnedMaterial {
+    id: string;
+    nama: string;
+    jumlah: number;
+    satuan: string;
+    kondisi: string;
+    barangId: string;
+    gudangId: string;
+}
 
 // POST - Return materials to warehouse (creates barang masuk) for DISCONNECTION work orders
 export async function POST(
@@ -17,6 +28,10 @@ export async function POST(
         }
 
         const token = authHeader.split(' ')[1]
+        if (!token) {
+            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 })
+        }
+
         const decoded = await verifyMobileToken(token)
 
         if (!decoded || !decoded.id) {
@@ -104,7 +119,7 @@ export async function POST(
 
                 if (existingStock) {
                     // Update existing stock
-                    const updateData: any = {
+                    const updateData: Prisma.BarangGudangUpdateInput = {
                         stok: { increment: jumlah }
                     }
                     
@@ -121,18 +136,19 @@ export async function POST(
                     })
                 } else {
                     // Create new stock record
-                    const createData: any = {
-                        id: randomUUID(),
-                        barangId,
-                        gudangId,
-                        stok: jumlah,
-                        stokBaru: kondisi === 'BARU' ? jumlah : 0,
-                        stokBekas: kondisi === 'BEKAS' ? jumlah : 0,
-                        stokRusak: kondisi === 'RUSAK' ? jumlah : 0
-                    }
+
 
                     await tx.barangGudang.create({
-                        data: createData
+                        data: {
+                            id: randomUUID(),
+                            barang: { connect: { id: barangId } },
+                            gudang: { connect: { id: gudangId } },
+                            stok: jumlah,
+                            stokBaru: kondisi === 'BARU' ? jumlah : 0,
+                            stokBekas: kondisi === 'BEKAS' ? jumlah : 0,
+                            stokRusak: kondisi === 'RUSAK' ? jumlah : 0,
+                            updatedAt: new Date()
+                        }
                     })
                 }
 
@@ -148,7 +164,7 @@ export async function POST(
             }
 
             // Update work order returnedMaterials
-            const existingReturned = (workOrder.returnedMaterials as any[]) || []
+            const existingReturned = (workOrder.returnedMaterials as unknown as ReturnedMaterial[]) || []
             await tx.workOrders.update({
                 where: { id },
                 data: {
@@ -183,8 +199,8 @@ export async function POST(
             actionMessage: `Mengembalikan barang: ${materialList}`,
             triggeredByUserId: userId,
             triggeredByName: (user?.name as string) || (decoded.name as string),
-            departmentId: workOrder.departmentId || undefined,
-            siteId: workOrder.siteId || undefined,
+            ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+            ...(workOrder.siteId && { siteId: workOrder.siteId }),
         })
 
         // System Log
@@ -200,10 +216,10 @@ export async function POST(
         })
 
         return NextResponse.json({ success: true, items: results })
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error returning materials from work order (mobile):', error)
         return NextResponse.json({
-            error: error.message || 'Internal server error'
+            error: error instanceof Error ? error.message : 'Internal server error'
         }, { status: 500 })
     }
 }

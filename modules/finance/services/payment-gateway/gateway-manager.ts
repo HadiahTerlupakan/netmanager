@@ -23,13 +23,14 @@ export class PaymentGatewayManager {
      */
     async getBestProvider() {
         const providers = await this.getEnabledProviders()
+        const firstProvider = providers[0]
 
-        if (providers.length === 0) {
+        if (!firstProvider) {
             throw new Error('No payment gateway enabled. Please configure at least one payment provider in admin settings.')
         }
 
         // Return highest priority enabled provider
-        return providers[0]
+        return firstProvider
     }
 
     /**
@@ -53,13 +54,15 @@ export class PaymentGatewayManager {
         const provider = ProviderFactory.createProvider(providerType)
 
         // Decrypt API keys and initialize
+        const apiSecret = config.apiSecret ? decryptApiKey(config.apiSecret) : undefined
+
         provider.initialize({
             apiKey: config.apiKey ? decryptApiKey(config.apiKey) : '',
-            apiSecret: config.apiSecret ? decryptApiKey(config.apiSecret) : undefined,
-            clientKey: config.clientKey || undefined,
-            merchantId: config.merchantId || undefined,
+            ...(apiSecret ? { apiSecret } : {}),
+            ...(config.clientKey ? { clientKey: config.clientKey } : {}),
+            ...(config.merchantId ? { merchantId: config.merchantId } : {}),
             isProduction: config.isProduction,
-            settings: config.settings as Record<string, any> || {}
+            settings: (config.settings as Record<string, unknown>) || {}
         })
 
         return provider
@@ -80,21 +83,23 @@ export class PaymentGatewayManager {
             const result = await provider.createPayment(params)
 
             return result
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(`Payment creation failed with ${providerConfig.provider}:`, error)
 
             // Try fallback to next provider
             const allProviders = await this.getEnabledProviders()
-            if (allProviders.length > 1) {
-                const fallbackProvider = allProviders[1]
+            const fallbackProvider = allProviders[1]
+
+            if (allProviders.length > 1 && fallbackProvider) {
                 console.log(`Trying fallback provider: ${fallbackProvider.provider}`)
 
                 try {
                     const provider = await this.getProviderInstance(fallbackProvider.provider)
                     return await provider.createPayment(params)
-                } catch (fallbackError: any) {
+                } catch (fallbackError: unknown) {
+                    const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
                     console.error(`Fallback provider also failed:`, fallbackError)
-                    throw new Error(`All payment providers failed. Last error: ${fallbackError.message}`)
+                    throw new Error(`All payment providers failed. Last error: ${fallbackMessage}`)
                 }
             }
 
@@ -124,7 +129,7 @@ export class PaymentGatewayManager {
     /**
      * Process webhook from any provider
      */
-    async processWebhook(providerType: string, payload: any, signature?: string) {
+    async processWebhook(providerType: string, payload: Record<string, unknown>, signature?: string) {
         const config = await this.prisma.paymentGatewayConfig.findUnique({
             where: { provider: providerType }
         })

@@ -32,9 +32,10 @@ export async function GET(
     }
 
     return apiSuccess(bandwidth)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching bandwidth:', error)
-    return ApiErrors.internalError(error?.message || 'Gagal mengambil data bandwidth')
+    const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil data bandwidth'
+    return ApiErrors.internalError(errorMessage)
   }
 }
 
@@ -51,7 +52,7 @@ export async function PUT(
     const { id } = await params
     const body = await req.json()
 
-    const sanitizedBody: any = {
+    const sanitizedBody: Record<string, string | number | boolean | undefined | null> = {
       name: body.name ? sanitizeInput(body.name) : undefined,
       maxLimitDownload: body.maxLimitDownload ? sanitizeInput(body.maxLimitDownload) : undefined,
       maxLimitUpload: body.maxLimitUpload ? sanitizeInput(body.maxLimitUpload) : undefined,
@@ -76,16 +77,16 @@ export async function PUT(
 
     const validation = bandwidthSchema.safeParse(sanitizedBody)
     if (!validation.success) {
-      return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
-        status: 400, 
-        details: { errors: validation.error.flatten() } 
+      return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+        details: { errors: validation.error.flatten() }
       })
     }
 
-    const dataToUpdate: any = {}
+    const dataToUpdate: Record<string, string | number | boolean | null> = {}
     Object.keys(validation.data).forEach(key => {
       if (validation.data[key as keyof typeof validation.data] !== undefined) {
-        dataToUpdate[key] = validation.data[key as keyof typeof validation.data]
+        dataToUpdate[key] = validation.data[key as keyof typeof validation.data] as string | number | boolean | null
       }
     })
 
@@ -95,18 +96,19 @@ export async function PUT(
     })
 
     return apiSuccess(bandwidth, { message: 'Bandwidth berhasil diperbarui' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating bandwidth:', error)
 
-    if (error.code === 'P2025') {
+    const prismaError = error as { code?: string; message?: string }
+    if (prismaError.code === 'P2025') {
       return ApiErrors.notFound('Bandwidth')
     }
 
-    if (error.code === 'P2002') {
+    if (prismaError.code === 'P2002') {
       return apiError('Nama bandwidth sudah digunakan', ErrorCodes.CONFLICT, { status: 409 })
     }
 
-    return ApiErrors.internalError(error?.message || 'Gagal memperbarui bandwidth')
+    return ApiErrors.internalError(prismaError.message || 'Gagal memperbarui bandwidth')
   }
 }
 
@@ -150,17 +152,18 @@ export async function DELETE(
     })
 
     return apiSuccess(null, { message: 'Bandwidth berhasil dihapus' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting bandwidth:', error)
 
-    if (error.code === 'P2025') {
+    const prismaError = error as { code?: string; message?: string }
+    if (prismaError.code === 'P2025') {
       return ApiErrors.notFound('Bandwidth')
     }
 
-    if (error.code === 'P2003') {
+    if (prismaError.code === 'P2003') {
       return apiError('Bandwidth tidak dapat dihapus karena masih digunakan oleh paket', ErrorCodes.CONFLICT, { status: 409 })
     }
 
-    return ApiErrors.internalError(error?.message || 'Gagal menghapus bandwidth')
+    return ApiErrors.internalError(prismaError.message || 'Gagal menghapus bandwidth')
   }
 }

@@ -5,8 +5,7 @@ import {
     HiOutlineArrowPath,
     HiOutlineEnvelope,
     HiOutlinePaperAirplane,
-    HiOutlineCheckCircle,
-    HiOutlineXCircle
+    HiOutlineCheckCircle
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -14,8 +13,8 @@ export function ClientComponent() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [testing, setTesting] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [success, setSuccess] = useState(false)
+    const [_error, setError] = useState<string | null>(null)
+    const [_success, setSuccess] = useState(false)
     const [formData, setFormData] = useState({
         smtpHost: '',
         smtpPort: '587',
@@ -79,9 +78,9 @@ export function ClientComponent() {
             setSuccess(true)
             setTimeout(() => setSuccess(false), 3000)
             fetchSettings() // Reload to show saved password
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error saving settings:', err)
-            setError(err.message || 'An error occurred while saving settings')
+            setError(err instanceof Error ? err.message : 'An error occurred while saving settings')
         } finally {
             setSaving(false)
         }

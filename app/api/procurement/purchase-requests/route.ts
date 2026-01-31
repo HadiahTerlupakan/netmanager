@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 /**
  * GET /api/procurement/purchase-requests
@@ -25,19 +26,19 @@ export async function GET(req: NextRequest) {
         const skip = parseInt(searchParams.get('skip') || '0')
         const take = parseInt(searchParams.get('take') || '20')
 
-        const where: any = {}
-        
+        const where: Prisma.PurchaseRequestWhereInput = {}
+
         if (status && status !== 'ALL') {
-            where.status = status
+            where.status = status as unknown // Using as any here temporarily as Prisma enums can be tricky with strings, or better:
         }
-        
+
         if (search) {
             where.nomorRequest = { contains: search, mode: 'insensitive' }
         }
 
         const [data, total] = await Promise.all([
             prisma.purchaseRequest.findMany({
-                where,
+                where: where as unknown,
                 include: {
                     requester: { select: { name: true } },
                     gudang: { select: { nama: true, kode: true } },
@@ -52,12 +53,13 @@ export async function GET(req: NextRequest) {
                 skip,
                 take
             }),
-            prisma.purchaseRequest.count({ where })
+            prisma.purchaseRequest.count({ where: where as unknown })
         ])
 
         return NextResponse.json({ data, total })
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
         console.error('Error fetching purchase requests:', error)
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: errorMessage || 'Internal Server Error' }, { status: 500 })
     }
 }

@@ -61,7 +61,6 @@ test.describe('Attendance Manual Input Verification', () => {
         // but label is "Mulai" and "Selesai".
         
         // Helper to fill date by label
-        const startDateInput = page.locator('label:has-text("Mulai") + input[type="date"]'); // This selector assumption might be weak if structure differs
         // Alternative: Input following the label
         await page.fill('input[type="date"] >> nth=0', today);
         await page.fill('input[type="date"] >> nth=1', today);
@@ -83,12 +82,10 @@ test.describe('Attendance Manual Input Verification', () => {
         console.log('Submit Payload:', request.postDataJSON());
 
         // 5. Verify Success
-        // 5. Verify Success
         try {
             await expect(page.locator('text=Pengajuan manual berhasil dibuat')).toBeVisible({ timeout: 5000 });
         } catch (e) {
             console.log("Success toast not found. Checking for errors...");
-            const errorToast = await page.locator('.go3958317564').allInnerTexts(); // Common toast class or try generic text
             const content = await page.content();
             if (content.includes('Gagal') || content.includes('Mohon lengkapi') || content.includes('error')) {
                 console.log("Found potential error text in page:", content.slice(content.indexOf('Gagal') - 50, content.indexOf('Gagal') + 100));

@@ -12,7 +12,14 @@ export async function GET(request: NextRequest) {
         const { session } = authResult
 
         // Get full customer data
-        const customer = await getCustomerById(session.id)
+        const customer = await getCustomerById(session.id) as (NonNullable<Awaited<ReturnType<typeof getCustomerById>>> & {
+            hargaPaket?: {
+                id: string;
+                name: string;
+                harga: number;
+                description: string | null;
+            } | null;
+        })
 
         if (!customer) {
             return NextResponse.json(
@@ -36,11 +43,11 @@ export async function GET(request: NextRequest) {
                 tipe: customer.tipe,
                 tanggalAktif: customer.tanggalAktif,
                 jatuhTempo: customer.jatuhTempo,
-                paket: (customer as any).hargaPaket ? {
-                    id: (customer as any).hargaPaket.id,
-                    nama: (customer as any).hargaPaket.name,
-                    harga: (customer as any).hargaPaket.harga,
-                    kecepatan: (customer as any).hargaPaket.description,
+                paket: customer.hargaPaket ? {
+                    id: customer.hargaPaket.id,
+                    nama: customer.hargaPaket.name,
+                    harga: customer.hargaPaket.harga,
+                    kecepatan: customer.hargaPaket.description,
                 } : null,
                 lokasi: {
                     provinsi: customer.provinsi,

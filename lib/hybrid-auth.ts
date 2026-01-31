@@ -8,6 +8,7 @@ export async function getHybridUser(req: Request): Promise<User | null> {
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.split(" ")[1];
+    if (!token) return null;
     const mobileUser = await verifyMobileToken(token);
     
     if (mobileUser) {
@@ -18,12 +19,12 @@ export async function getHybridUser(req: Request): Promise<User | null> {
             id: mobileUser.userId,
             // mobileUser payload might not have name/email/image if not stored in token
             // but we usually need id, role, siteId for API logic
-            name: (mobileUser as any).name || 'Mobile User',
-            email: (mobileUser as any).email, 
+            name: (mobileUser as Record<string, unknown>).name as string || 'Mobile User',
+            email: (mobileUser as Record<string, unknown>).email as string,
             image: null,
             role: mobileUser.role,
             siteId: mobileUser.siteId,
-        } as any;
+        } as User;
     }
   }
 

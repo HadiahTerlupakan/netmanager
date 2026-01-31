@@ -1,10 +1,11 @@
-import { NextRequest } from 'next/server'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
 import { checkSiteRestriction, canAccessSite } from '@/lib/site-restriction'
 import { updateUserSchema } from '@/lib/validations/user'
+import type { Session } from 'next-auth'
+import { Prisma } from '@prisma/client'
 
 /**
  * @swagger
@@ -90,7 +91,7 @@ export const GET = createHandler({
   const isSelfView = session.user.id === id
 
   // Site restriction check
-  if (!isSelfView && !canAccessSite(session as any, 'users', user.siteId)) {
+  if (!isSelfView && !canAccessSite(session as Session, 'users', user.siteId)) {
     return ApiErrors.forbidden('Anda hanya dapat melihat user di site Anda')
   }
 
@@ -155,10 +156,10 @@ export const PATCH = createHandler({
   }
 
   // 2. Site Restriction Check
-  const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session as any, 'users')
-  
+  const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session as Session, 'users')
+
   if (isRestricted && !isSelfUpdate) {
-    if (!canAccessSite(session as any, 'users', currentData.siteId)) {
+    if (!canAccessSite(session as Session, 'users', currentData.siteId)) {
       return ApiErrors.forbidden('Anda hanya dapat mengupdate user di site Anda')
     }
     if (body.siteId && body.siteId !== userSiteId) {
@@ -167,20 +168,16 @@ export const PATCH = createHandler({
   }
 
   // Prepare data for update
-  const data: any = { ...body }
-  
+  const { password, userSites, ...updateData } = body
+  const data: Prisma.UserUpdateInput = { ...updateData }
+
   // Hash password if provided
-  if (body.password) {
-    data.passwordHash = await hash(body.password, 10)
-    delete data.password
+  if (password) {
+    data.passwordHash = await hash(password, 10)
   }
 
-  // Separate userSites handling
-  const userSites = body.userSites
-  delete data.userSites
-
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Update main user record
       const updatedUser = await tx.user.update({
         where: { id },
@@ -263,8 +260,8 @@ export const DELETE = createHandler({
   if (!id) return ApiErrors.badRequest('User ID is required')
 
   // Site restriction check
-  const { isRestricted } = checkSiteRestriction(session as any, 'users')
-  
+  const { isRestricted } = checkSiteRestriction(session as Session, 'users')
+
   if (isRestricted) {
     const targetUser = await prisma.user.findUnique({
       where: { id },
@@ -273,7 +270,7 @@ export const DELETE = createHandler({
 
     if (!targetUser) return ApiErrors.notFound('User')
 
-    if (!canAccessSite(session as any, 'users', targetUser.siteId)) {
+    if (!canAccessSite(session as Session, 'users', targetUser.siteId)) {
       return ApiErrors.forbidden('Anda hanya dapat menghapus user di site Anda')
     }
   }

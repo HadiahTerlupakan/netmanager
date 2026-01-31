@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAppVersionService } from '@/modules/app-version'
-import { isR2Enabled, getR2Settings } from '@/lib/utils/r2-client'
 import fs from 'fs/promises'
 import path from 'path'
 
@@ -45,8 +44,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 return NextResponse.json({ error: 'APK file tidak ditemukan di server' }, { status: 404 })
             }
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error downloading APK:', error)
-        return NextResponse.json({ error: error.message || 'Failed to download APK' }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Failed to download APK'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

@@ -1,22 +1,61 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { TransferForm } from '@/components/inventory/TransferForm'
 import { TransferTable } from '@/components/inventory/TransferTable'
 import { Modal } from '@/components/ui/Modal'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
+import Image from 'next/image'
 import { usePermission } from '@/hooks/use-permission'
 import { getWithAuth } from '@/lib/api-client'
+
+interface Transfer {
+  id: string
+  kodeTransfer: string
+  tanggal: string
+  barangId: string
+  jumlah: number
+  kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
+  keterangan?: string
+  fotoBukti?: string[]
+  barang?: {
+    id: string
+    kode: string
+    nama: string
+    satuan: string
+  }
+  dariGudang?: {
+    kode: string
+    nama: string
+    lokasi?: string
+  }
+  keGudang?: {
+    kode: string
+    nama: string
+    lokasi?: string
+  }
+  createdBy?: {
+    name: string
+  }
+  keluar?: {
+    tanggal: string
+    keterangan: string
+  }
+  masuk?: {
+    tanggal: string
+    keterangan: string
+  }
+}
 
 export default function TransferPage() {
   const { hasPermission } = usePermission()
   const canCreate = hasPermission('transfer:create')
 
-  const [transfers, setTransfers] = useState<any[]>([])
+  const [transfers, setTransfers] = useState<Transfer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
-  const [selectedTransfer, setSelectedTransfer] = useState<any>(null)
+  const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [pagination, setPagination] = useState({
     page: 1,
@@ -29,7 +68,7 @@ export default function TransferPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
 
-  const fetchTransfers = async (page = 1) => {
+  const fetchTransfers = useCallback(async (page = 1) => {
     try {
       setLoading(true)
       setError('')
@@ -47,19 +86,19 @@ export default function TransferPage() {
         total: data.data.pagination?.total || 0,
         totalPages: data.data.pagination?.totalPages || 0
       }))
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching transfers:', error)
       setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
     } finally {
       setLoading(false)
     }
-  }
+  }, [pagination.limit])
 
   useEffect(() => {
     fetchTransfers()
-  }, [])
+  }, [fetchTransfers])
 
-  const handleViewDetails = (transfer: any) => {
+  const handleViewDetails = (transfer: Transfer) => {
     setSelectedTransfer(transfer)
     setShowDetails(true)
   }
@@ -283,14 +322,11 @@ export default function TransferPage() {
                         }}
                         className="relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:border-blue-500 transition-colors group aspect-square"
                       >
-                        <img
+                        <Image
                           src={url}
                           alt={`Foto bukti ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/placeholder-image.png';
-                          }}
+                          fill
+                          className="object-cover"
                           loading="eager"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">

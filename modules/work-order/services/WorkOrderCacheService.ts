@@ -36,7 +36,7 @@ export class WorkOrderCacheService {
     async cacheDashboardData(
         userId: string,
         period: string,
-        data: any,
+        data: unknown,
         options?: { departmentId?: string; siteId?: string }
     ): Promise<void> {
         try {
@@ -56,7 +56,7 @@ export class WorkOrderCacheService {
         userId: string,
         period: string,
         options?: { departmentId?: string; siteId?: string }
-    ): Promise<any | null> {
+    ): Promise<unknown | null> {
         try {
             const key = this.getDashboardCacheKey(userId, period, options);
             const cached = await redis.get(key);
@@ -81,7 +81,7 @@ export class WorkOrderCacheService {
      */
     async cacheStatistics(
         filters: { departmentId?: string; siteId?: string },
-        stats: any
+        stats: unknown
     ): Promise<void> {
         try {
             const key = this.getStatsCacheKey(filters);
@@ -96,7 +96,7 @@ export class WorkOrderCacheService {
      */
     async getCachedStatistics(
         filters: { departmentId?: string; siteId?: string }
-    ): Promise<any | null> {
+    ): Promise<unknown | null> {
         try {
             const key = this.getStatsCacheKey(filters);
             const cached = await redis.get(key);
@@ -119,7 +119,7 @@ export class WorkOrderCacheService {
      */
     async cacheWorkOrderList(
         cacheKey: string,
-        data: any
+        data: unknown
     ): Promise<void> {
         try {
             const key = `${CACHE_PREFIX}list:${cacheKey}`;
@@ -132,7 +132,7 @@ export class WorkOrderCacheService {
     /**
      * Get cached work order list
      */
-    async getCachedWorkOrderList(cacheKey: string): Promise<any | null> {
+    async getCachedWorkOrderList(cacheKey: string): Promise<unknown | null> {
         try {
             const key = `${CACHE_PREFIX}list:${cacheKey}`;
             const cached = await redis.get(key);
@@ -287,7 +287,7 @@ export class WorkOrderCacheService {
         try {
             const key = `${CACHE_PREFIX}metrics:hits`;
             await redis.incr(key);
-        } catch (error) {
+        } catch (_error) {
             // Silently fail - stats are not critical
         }
     }
@@ -299,7 +299,7 @@ export class WorkOrderCacheService {
         try {
             const key = `${CACHE_PREFIX}metrics:misses`;
             await redis.incr(key);
-        } catch (error) {
+        } catch (_error) {
             // Silently fail - stats are not critical
         }
     }

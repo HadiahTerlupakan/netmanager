@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { updatePPPProfileInMikroTik, deletePPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
+import { Prisma } from '@prisma/client'
 
 /**
  * @swagger
@@ -138,7 +139,7 @@ export async function GET(
         if (poolResult.success && poolResult.ranges) {
           ipRange = poolResult.ranges
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('[API ProfilePPP] Error getting IP Pool ranges:', error)
         // Jangan gagalkan request, hanya log error
       }
@@ -149,10 +150,10 @@ export async function GET(
       ...profilePPP,
       ipRange, // Format: "192.168.1.100-192.168.1.200"
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching profile PPP:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -307,12 +308,12 @@ export async function PUT(
       // Digunakan untuk membuat/update IP Pool di MikroTik, tidak disimpan di database
       ipRange: body.ipRange && body.ipRange.trim() ? sanitizeInput(body.ipRange) : undefined,
       dnsServer: body.dnsServer && body.dnsServer.trim() ? sanitizeInput(body.dnsServer) : undefined,
-      sessionTimeout: body.sessionTimeout !== undefined && body.sessionTimeout !== null && body.sessionTimeout !== '' ? Number(body.sessionTimeout) : undefined,
-      idleTimeout: body.idleTimeout !== undefined && body.idleTimeout !== null && body.idleTimeout !== '' ? Number(body.idleTimeout) : undefined,
+      sessionTimeout: body.sessionTimeout !== undefined && body.sessionTimeout !== null && body.sessionTimeout !== '' ? Number(body.sessionTimeout) : null,
+      idleTimeout: body.idleTimeout !== undefined && body.idleTimeout !== null && body.idleTimeout !== '' ? Number(body.idleTimeout) : null,
       // Rate limit diambil dari Bandwidth yang terkait melalui HargaPaket atau bandwidthId langsung
-      mikroTikRouterId: body.mikroTikRouterId && body.mikroTikRouterId.trim() ? body.mikroTikRouterId : undefined,
-      bandwidthId: body.bandwidthId && body.bandwidthId.trim() ? body.bandwidthId : undefined, // Bandwidth untuk rate limit (opsional)
-      description: body.description && body.description.trim() ? sanitizeInput(body.description) : undefined,
+      mikroTikRouterId: body.mikroTikRouterId && body.mikroTikRouterId.trim() ? body.mikroTikRouterId : null,
+      bandwidthId: body.bandwidthId && body.bandwidthId.trim() ? body.bandwidthId : null, // Bandwidth untuk rate limit (opsional)
+      description: body.description && body.description.trim() ? sanitizeInput(body.description) : null,
       status: body.status || 'AKTIF',
     }
 
@@ -328,7 +329,15 @@ export async function PUT(
     // Pisahkan ipRange dan bandwidthId dari data untuk Prisma
     // ipRange tidak disimpan di database, hanya digunakan untuk membuat/update IP Pool di MikroTik
     // bandwidthId tidak disimpan di database, hanya digunakan untuk mengambil rate limit
-    const { ipRange, bandwidthId, ...prismaData } = validation.data
+    const { ipRange: _ipRange, bandwidthId, ...rawPrismaData } = validation.data
+
+    // Filter out undefined values and convert them to null for Prisma
+    const prismaData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(rawPrismaData)) {
+      if (value !== undefined) {
+        prismaData[key] = value
+      }
+    }
 
     // Update Profile PPP di database
     const profilePPP = await prisma.profilePPP.update({
@@ -364,11 +373,11 @@ export async function PUT(
             name: validation.data.name, // Selalu kirim name (jika berubah akan diupdate)
             localAddress: validation.data.localAddress, // Selalu kirim localAddress
             remoteAddress: validation.data.remoteAddress, // Nama IP Pool (sama dengan name)
-            ipRange: validation.data.ipRange || undefined, // Range IP untuk pool (jika disediakan, akan update IP Pool)
-            dnsServer: validation.data.dnsServer || undefined,
-            sessionTimeout: validation.data.sessionTimeout || undefined,
-            idleTimeout: validation.data.idleTimeout || undefined,
-            rateLimit: rateLimit || undefined, // Rate limit dari Bandwidth (format: "10M/10M")
+            ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
+            ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
+            ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
+            ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
+            ...(rateLimit && { rateLimit }), // Rate limit dari Bandwidth (format: "10M/10M")
           }
         )
 
@@ -379,9 +388,11 @@ export async function PUT(
         } else {
           console.log('[API ProfilePPP] Successfully updated PPP profile in MikroTik')
         }
-      } catch (mikrotikError: any) {
+      } catch (mikrotikError: unknown) {
         console.error('[API ProfilePPP] Error updating PPP profile in MikroTik:', mikrotikError)
-        console.error('[API ProfilePPP] Error stack:', mikrotikError.stack)
+        if (mikrotikError instanceof Error) {
+          console.error('[API ProfilePPP] Error stack:', mikrotikError.stack)
+        }
         // Jangan gagalkan request, hanya log error
         // Profile sudah diupdate di database, user bisa sync manual nanti jika diperlukan
       }
@@ -391,22 +402,24 @@ export async function PUT(
     }
 
     return NextResponse.json(profilePPP)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating profile PPP:', error)
 
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Profile PPP tidak ditemukan' }, { status: 404 })
-    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json({ error: 'Profile PPP tidak ditemukan' }, { status: 404 })
+      }
 
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Nama profile PPP sudah digunakan' },
-        { status: 400 }
-      )
+      if (error.code === 'P2002') {
+        return NextResponse.json(
+          { error: 'Nama profile PPP sudah digunakan' },
+          { status: 400 }
+        )
+      }
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -529,29 +542,31 @@ export async function DELETE(
           console.error('Failed to delete PPP profile in MikroTik:', mikrotikResult.error)
           // Jangan gagalkan request, hanya log error
         }
-      } catch (mikrotikError: any) {
+      } catch (mikrotikError: unknown) {
         console.error('Error deleting PPP profile in MikroTik:', mikrotikError)
         // Jangan gagalkan request, hanya log error
       }
     }
 
     return NextResponse.json({ message: 'Profile PPP berhasil dihapus' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting profile PPP:', error)
 
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Profile PPP tidak ditemukan' }, { status: 404 })
-    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json({ error: 'Profile PPP tidak ditemukan' }, { status: 404 })
+      }
 
-    if (error.code === 'P2003') {
-      return NextResponse.json(
-        { error: 'Profile PPP tidak dapat dihapus karena masih digunakan oleh paket' },
-        { status: 400 }
-      )
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          { error: 'Profile PPP tidak dapat dihapus karena masih digunakan oleh paket' },
+          { status: 400 }
+        )
+      }
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

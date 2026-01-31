@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { useSocketEvent } from '@/hooks/useSocket'
-import { useDebounce } from '@/hooks/useDebounce'
 
-export function DashboardSocketUpdate() {
+export function DashboardSocketUpdate(): React.ReactElement | null {
     const router = useRouter()
 
     // Listen for MikroTik updates

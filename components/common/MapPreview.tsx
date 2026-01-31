@@ -11,8 +11,8 @@ type MapPreviewProps = {
 
 export default function MapPreview({ lat, lon, height = 240 }: MapPreviewProps) {
   const mapEl = useRef<HTMLDivElement | null>(null)
-  const mapRef = useRef<any>(null)
-  const markerLayerRef = useRef<any>(null)
+  const mapRef = useRef<import('ol').Map | null>(null)
+  const markerLayerRef = useRef<import('ol/layer/Vector').default<import('ol/source/Vector').default> | null>(null)
 
   useEffect(() => {
     let cleanup = () => { }
@@ -83,13 +83,13 @@ export default function MapPreview({ lat, lon, height = 240 }: MapPreviewProps) 
   useEffect(() => {
     ; (async () => {
       if (!markerLayerRef.current || !mapRef.current) return
-      const { default: VectorSource } = await import('ol/source/Vector')
+      const { default: _VectorSource } = await import('ol/source/Vector')
       const { default: Feature } = await import('ol/Feature')
       const { default: Point } = await import('ol/geom/Point')
       const { fromLonLat } = await import('ol/proj')
       const { Style, Fill, Stroke } = await import('ol/style')
       const { default: CircleStyle } = await import('ol/style/Circle')
-      const source: any = markerLayerRef.current.getSource() as typeof VectorSource
+      const source = markerLayerRef.current.getSource() as import('ol/source/Vector').default
 
       if (typeof lat === 'number' && typeof lon === 'number') {
         const f = new Feature({ geometry: new Point(fromLonLat([lon, lat])) })

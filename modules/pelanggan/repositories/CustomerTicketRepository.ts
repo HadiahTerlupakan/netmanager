@@ -1,6 +1,18 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma, TicketCategory, TicketPriority } from '@prisma/client'
+import { Prisma, TicketCategory, TicketPriority, TicketStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
+
+/**
+ * Type for ticket with its relations used in this repository
+ */
+type TicketWithRelations = Prisma.SupportTicketsGetPayload<{
+    include: {
+        replies: true,
+        _count: {
+            select: { replies: true },
+        },
+    }
+}>
 
 /**
  * Repository for customer support ticket operations
@@ -22,7 +34,7 @@ export class CustomerTicketRepository {
 
         const where: Prisma.SupportTicketsWhereInput = {
             pelangganId,
-            ...(status && { status: status as any }),
+            ...(status && { status: status as TicketStatus }),
         }
 
         const [tickets, total] = await Promise.all([
@@ -97,13 +109,14 @@ export class CustomerTicketRepository {
     /**
      * Format tickets for API response
      */
-    formatTicketsForResponse(tickets: any[]) {
-        return tickets.map((ticket) => ({
-            ...ticket,
-            lastReply: ticket.replies[0] || null,
-            replyCount: ticket._count.replies,
-            replies: undefined,
-            _count: undefined,
-        }))
+    formatTicketsForResponse(tickets: TicketWithRelations[]) {
+        return tickets.map((ticket) => {
+            const { replies, _count, ...rest } = ticket
+            return {
+                ...rest,
+                lastReply: replies[0] || null,
+                replyCount: _count.replies,
+            }
+        })
     }
 }

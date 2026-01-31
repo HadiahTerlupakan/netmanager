@@ -61,7 +61,7 @@ export async function GET(
             }
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching location history:', error)
         return ApiErrors.internalError('Gagal mengambil history lokasi')
     }

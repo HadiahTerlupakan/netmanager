@@ -58,11 +58,11 @@ export function ClientComponent() {
                             isRestricted: roleData.isRestricted || false,
                             isTechnical: roleData.isTechnical || false,
                             // Convert backend permissions (objects) to string format resource:action
-                            permissions: roleData.permissions.map((p: any) => `${p.resource}:${p.action}`)
+                            permissions: roleData.permissions.map((p: { resource: string; action: string }) => `${p.resource}:${p.action}`)
                         })
 
                         // Calculate expanded groups based on active resources
-                        const activeResources = new Set(roleData.permissions.map((p: any) => p.resource))
+                        const activeResources = new Set(roleData.permissions.map((p: { resource: string }) => p.resource))
                         const groupsToExpand: string[] = []
 
                         // Check Admin Groups
@@ -105,7 +105,7 @@ export function ClientComponent() {
             const method = isNew ? 'POST' : 'PUT'
 
             if (isNew && formData.name.toLowerCase() === 'new') {
-                toast.error('Nama role tidak boleh "new"')
+                toast.error('Nama role tidak boleh &quot;new&quot;')
                 setSaving(false)
                 return
             }
@@ -124,8 +124,9 @@ export function ClientComponent() {
 
             toast.success(isNew ? 'Role berhasil dibuat' : 'Role berhasil diperbarui')
             router.push('/admin/settings/roles')
-        } catch (error: any) {
-            toast.error(error.message)
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
+            toast.error(message)
         } finally {
             setSaving(false)
         }
@@ -226,7 +227,7 @@ export function ClientComponent() {
                         <div>
                             <span className="block font-medium text-gray-800 dark:text-white">Role Terbatas (Restricted)</span>
                             <span className="text-sm text-gray-500 dark:text-gray-400">
-                                Jika aktif, role ini <strong>tidak akan muncul</strong> pada dropdown "Peran Pengguna" di menu Tambah/Edit Pengguna,
+                                Jika aktif, role ini <strong>tidak akan muncul</strong> pada dropdown &quot;Peran Pengguna&quot; di menu Tambah/Edit Pengguna,
                                 KECUALI user yang sedang login juga memiliki role ini.
                             </span>
                         </div>
@@ -342,9 +343,9 @@ export function ClientComponent() {
                                                 const availableActions = ACTIONS.filter(action => capabilities.includes(action as ResourceAction))
                                                 
                                                 // Group actions
-                                                const crudActions = ['read', 'create', 'update', 'delete'].filter(a => availableActions.includes(a as any))
-                                                const scopeActions = ['site_only', 'department_only'].filter(a => availableActions.includes(a as any))
-                                                const specialActions = availableActions.filter(a => 
+                                                const crudActions = ['read', 'create', 'update', 'delete'].filter(a => availableActions.includes(a as ResourceAction))
+                                                const scopeActions = ['site_only', 'department_only'].filter(a => availableActions.includes(a as ResourceAction))
+                                                const specialActions = availableActions.filter(a =>
                                                     !['read', 'create', 'update', 'delete', 'site_only', 'department_only'].includes(a)
                                                 )
 

@@ -45,7 +45,7 @@ function logRequestInternal(
              req.headers.get('x-real-ip') || 
              'unknown'
 
-  const logContext: Record<string, any> = {
+  const logContext: Record<string, unknown> = {
     method,
     path: pathname,
     url,
@@ -90,7 +90,7 @@ function logResponseInternal(
   const method = req.method || 'UNKNOWN'
   const status = res.status || 200
 
-  const logContext: Record<string, any> = {
+  const logContext: Record<string, unknown> = {
     method,
     path: pathname,
     status,
@@ -175,25 +175,25 @@ export function withRequestLogging(
       logResponseInternal(req, response, Date.now() - startTime, options)
       
       return response
-    } catch (error: any) {
+    } catch (error) {
       // Log error
       const duration = Date.now() - startTime
       const pathname = req.nextUrl?.pathname || 'unknown'
       const method = req.method || 'UNKNOWN'
-      
+
       logger.error(
         `✗ ${method} ${pathname} ERROR`,
-        error,
+        error as Error,
         {
           method,
           path: pathname,
           duration: `${duration}ms`,
         }
       )
-      
+
       // Return error response
       const errorResponse = NextResponse.json(
-        { error: error.message || 'Internal server error' },
+        { error: (error as Error).message || 'Internal server error' },
         { status: 500 }
       )
       
@@ -214,29 +214,29 @@ export function withRequestLogging(
  */
 export function logRequestBody(
   req: NextRequest,
-  body: any,
+  body: unknown,
   options?: RequestLogOptions
 ): void {
   const opts = { ...defaultOptions, ...options }
-  
+
   if (!opts.logRequestBody) {
     return
   }
 
   const pathname = req.nextUrl?.pathname || 'unknown'
   const method = req.method || 'UNKNOWN'
-  
+
   let bodyStr = ''
   try {
-    bodyStr = typeof body === 'string' 
-      ? body 
+    bodyStr = typeof body === 'string'
+      ? body
       : JSON.stringify(body)
-    
+
     // Truncate jika terlalu panjang
     if (bodyStr.length > opts.maxBodyLength) {
       bodyStr = bodyStr.substring(0, opts.maxBodyLength) + '... (truncated)'
     }
-  } catch (e) {
+  } catch (_e) {
     bodyStr = '[Unable to stringify body]'
   }
 
@@ -249,7 +249,7 @@ export function logRequestBody(
 
 /**
  * Helper untuk log response body
- * 
+ *
  * Usage:
  * ```ts
  * const response = NextResponse.json({ data: '...' })
@@ -259,29 +259,29 @@ export function logRequestBody(
 export function logResponseBody(
   req: NextRequest,
   res: NextResponse,
-  body: any,
+  body: unknown,
   options?: RequestLogOptions
 ): void {
   const opts = { ...defaultOptions, ...options }
-  
+
   if (!opts.logResponseBody) {
     return
   }
 
   const pathname = req.nextUrl?.pathname || 'unknown'
   const method = req.method || 'UNKNOWN'
-  
+
   let bodyStr = ''
   try {
-    bodyStr = typeof body === 'string' 
-      ? body 
+    bodyStr = typeof body === 'string'
+      ? body
       : JSON.stringify(body)
-    
+
     // Truncate jika terlalu panjang
     if (bodyStr.length > opts.maxBodyLength) {
       bodyStr = bodyStr.substring(0, opts.maxBodyLength) + '... (truncated)'
     }
-  } catch (e) {
+  } catch (_e) {
     bodyStr = '[Unable to stringify body]'
   }
 
