@@ -1,9 +1,5 @@
-
-import { NextRequest } from "next/server";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -12,24 +8,21 @@ const resetSchema = z.object({
 });
 
 /**
- * DELETE /api/map/reset
- * Delete all mapping data (requires password verification)
+ * @swagger
+ * /api/map/reset:
+ *   delete:
+ *     summary: Delete all mapping data (requires password verification)
+ *     tags: [Map]
  */
-export const DELETE = withErrorHandler(async (req: NextRequest) => {
-  // Check authentication
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return ApiErrors.unauthorized("Unauthorized");
-  }
+export const DELETE = createHandler({
+  auth: true,
+  permissions: ["map:delete"],
+  schema: resetSchema
+}, async (req, ctx) => {
+  const { password } = ctx.validated;
+  const session = ctx.session;
 
-  const body = await req.json();
-
-  const validation = resetSchema.safeParse(body);
-  if (!validation.success) {
-    return ApiErrors.badRequest("Password is required");
-  }
-
-  const { password } = validation.data;
+  if (!session?.user?.email) return ApiErrors.unauthorized();
 
   // Get the current user to verify password
   const user = await prisma.user.findUnique({

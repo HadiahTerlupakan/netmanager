@@ -167,6 +167,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     },
     
     // ====== NETWORK ======
+    map: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Manajemen Peta Jaringan (ODP/ODC/Fiber)'
+    },
     network: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Menu network (parent)'

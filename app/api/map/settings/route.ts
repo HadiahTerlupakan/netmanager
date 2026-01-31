@@ -1,7 +1,5 @@
-
-import { NextRequest } from "next/server";
+import { createHandler, apiSuccess } from "@/lib/api";
 import { MappingService } from "@/lib/services/MappingService";
-import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
 import { z } from "zod";
 
 const service = new MappingService();
@@ -23,32 +21,52 @@ const settingsSchema = z.object({
   defaultZoom: z.string().optional(),
 });
 
-export const GET = withErrorHandler(async () => {
+/**
+ * @swagger
+ * /api/map/settings:
+ *   get:
+ *     summary: Get map settings
+ *     tags: [Map]
+ */
+export const GET = createHandler({
+  auth: true,
+  permissions: ["map:read"]
+}, async () => {
   const settings = await service.getSettings();
-  // Return defaults if no settings exist
   if (!settings) {
     return apiSuccess(DEFAULT_SETTINGS);
   }
   return apiSuccess(settings);
 });
 
-export const PUT = withErrorHandler(async (req: NextRequest) => {
-  const body = await req.json();
-
-  const validation = settingsSchema.safeParse(body);
-  if (!validation.success) {
-    return ApiErrors.badRequest("Validation failed", validation.error.format());
-  }
-
-  // We rely on the repository handling create-or-update logic
-  const updated = await service.updateSettings(validation.data);
+/**
+ * @swagger
+ * /api/map/settings:
+ *   put:
+ *     summary: Update map settings
+ *     tags: [Map]
+ */
+export const PUT = createHandler({
+  auth: true,
+  permissions: ["map:update"],
+  schema: settingsSchema
+}, async (req, ctx) => {
+  const body = ctx.validated;
+  const updated = await service.updateSettings(body);
   return apiSuccess(updated);
 });
 
 /**
- * POST /api/map/settings - Reset to default settings
+ * @swagger
+ * /api/map/settings:
+ *   post:
+ *     summary: Reset to default settings
+ *     tags: [Map]
  */
-export const POST = withErrorHandler(async () => {
+export const POST = createHandler({
+  auth: true,
+  permissions: ["map:update"]
+}, async () => {
   const updated = await service.updateSettings(DEFAULT_SETTINGS);
   return apiSuccess({
     message: "Map settings reset to defaults",

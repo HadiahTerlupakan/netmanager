@@ -7,7 +7,10 @@ export const metadata: Metadata = {
   description: 'Optical Network Mapping',
 };
 
-export default function MapPage() {
+import { ensurePermission } from '@/lib/rbac';
+
+export default async function MapPage() {
+  await ensurePermission("map:read")
   return (
     <div className="h-full w-full">
       <MapWrapper />

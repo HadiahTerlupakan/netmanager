@@ -1,7 +1,5 @@
-
-import { NextRequest } from "next/server";
+import { createHandler, apiSuccess } from "@/lib/api";
 import { MappingService } from "@/lib/services/MappingService";
-import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
 import { z } from "zod";
 
 const service = new MappingService();
@@ -19,23 +17,38 @@ const createNodeSchema = z.object({
   notes: z.string().optional(),
 });
 
-export const GET = withErrorHandler(async () => {
+/**
+ * @swagger
+ * /api/map/nodes:
+ *   get:
+ *     summary: Get all map nodes
+ *     tags: [Map]
+ */
+export const GET = createHandler({
+  auth: true,
+  permissions: ["map:read"]
+}, async () => {
   const nodes = await service.getNodes();
   return apiSuccess(nodes);
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
-  const body = await req.json();
-  
-  // Validation
-  const validation = createNodeSchema.safeParse(body);
-  if (!validation.success) {
-    return ApiErrors.badRequest("Validation failed", validation.error.format());
-  }
+/**
+ * @swagger
+ * /api/map/nodes:
+ *   post:
+ *     summary: Create a new map node
+ *     tags: [Map]
+ */
+export const POST = createHandler({
+  auth: true,
+  permissions: ["map:create"],
+  schema: createNodeSchema
+}, async (req, ctx) => {
+  const body = ctx.validated;
 
   const newNode = await service.createNode({
-    nodeId: crypto.randomUUID(), // Manual UUID since schema might not auto-gen if we didn't use @default(uuid) on nodeId (Wait, let's check schema. Ah, schema has nodeId String @id, usually we need to provide it or use default. My schema has @map("node_id") but no @default(uuid()). I should provide it or update schema. Let's provide it for now to be safe, or update schema to @default(uuid()). The provided schema in guide had manually assigned IDs like 'odc-jakarta-1', so manual is better.)
-    ...validation.data
+    nodeId: crypto.randomUUID(),
+    ...body
   });
   
   return apiSuccess(newNode, { status: 201 });

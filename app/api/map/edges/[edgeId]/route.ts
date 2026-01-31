@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { MappingService } from "@/lib/services/MappingService";
 import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
+import { verifyAuth } from "@/lib/auth";
 import { z } from "zod";
 
 const service = new MappingService();
@@ -15,7 +16,13 @@ const updateEdgeSchema = z.object({
 
 type RouteContext = { params: Promise<{ edgeId: string }> };
 
-export const GET = withErrorHandler(async (_req: NextRequest, context: unknown) => {
+export const GET = withErrorHandler(async (req: NextRequest, context: unknown) => {
+  const auth = await verifyAuth(req);
+  if (!auth) return ApiErrors.unauthorized();
+  
+  const hasAccess = auth.permissions?.includes("map:read") || false;
+  if (!hasAccess) return ApiErrors.forbidden();
+
   const { edgeId } = await (context as RouteContext).params;
   const edge = await service.getEdgeById(edgeId);
 
@@ -27,6 +34,12 @@ export const GET = withErrorHandler(async (_req: NextRequest, context: unknown) 
 });
 
 export const PUT = withErrorHandler(async (req: NextRequest, context: unknown) => {
+  const auth = await verifyAuth(req);
+  if (!auth) return ApiErrors.unauthorized();
+  
+  const hasAccess = auth.permissions?.includes("map:update") || false;
+  if (!hasAccess) return ApiErrors.forbidden();
+
   const { edgeId } = await (context as RouteContext).params;
   const body = await req.json();
 
@@ -46,7 +59,13 @@ export const PUT = withErrorHandler(async (req: NextRequest, context: unknown) =
   }
 });
 
-export const DELETE = withErrorHandler(async (_req: NextRequest, context: unknown) => {
+export const DELETE = withErrorHandler(async (req: NextRequest, context: unknown) => {
+  const auth = await verifyAuth(req);
+  if (!auth) return ApiErrors.unauthorized();
+  
+  const hasAccess = auth.permissions?.includes("map:delete") || false;
+  if (!hasAccess) return ApiErrors.forbidden();
+
   const { edgeId } = await (context as RouteContext).params;
 
   try {

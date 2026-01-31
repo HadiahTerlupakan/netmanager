@@ -1,6 +1,5 @@
-import { NextRequest } from "next/server";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { MappingService } from "@/lib/services/MappingService";
-import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
 import { z } from "zod";
 
 const service = new MappingService();
@@ -16,10 +15,24 @@ const updateNodeSchema = z.object({
   notes: z.string().optional(),
 });
 
-type RouteContext = { params: Promise<{ nodeId: string }> };
-
-export const GET = withErrorHandler(async (_req: NextRequest, context: unknown) => {
-  const { nodeId } = await (context as RouteContext).params;
+/**
+ * @swagger
+ * /api/map/nodes/{nodeId}:
+ *   get:
+ *     summary: Get node by ID
+ *     tags: [Map]
+ *     parameters:
+ *       - in: path
+ *         name: nodeId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+export const GET = createHandler({
+  auth: true,
+  permissions: ["map:read"]
+}, async (req, ctx) => {
+  const { nodeId } = ctx.params;
   const node = await service.getNodeById(nodeId);
 
   if (!node) {
@@ -29,17 +42,29 @@ export const GET = withErrorHandler(async (_req: NextRequest, context: unknown) 
   return apiSuccess(node);
 });
 
-export const PUT = withErrorHandler(async (req: NextRequest, context: unknown) => {
-  const { nodeId } = await (context as RouteContext).params;
-  const body = await req.json();
-
-  const validation = updateNodeSchema.safeParse(body);
-  if (!validation.success) {
-    return ApiErrors.badRequest("Validation failed", validation.error.format());
-  }
+/**
+ * @swagger
+ * /api/map/nodes/{nodeId}:
+ *   put:
+ *     summary: Update node by ID
+ *     tags: [Map]
+ *     parameters:
+ *       - in: path
+ *         name: nodeId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+export const PUT = createHandler({
+  auth: true,
+  permissions: ["map:update"],
+  schema: updateNodeSchema
+}, async (req, ctx) => {
+  const { nodeId } = ctx.params;
+  const body = ctx.validated;
 
   try {
-    const updatedNode = await service.updateNode(nodeId, validation.data);
+    const updatedNode = await service.updateNode(nodeId, body);
     return apiSuccess(updatedNode, { message: "Node updated successfully" });
   } catch (error) {
     if (error instanceof Error && error.message === "NODE_NOT_FOUND") {
@@ -49,8 +74,24 @@ export const PUT = withErrorHandler(async (req: NextRequest, context: unknown) =
   }
 });
 
-export const DELETE = withErrorHandler(async (_req: NextRequest, context: unknown) => {
-  const { nodeId } = await (context as RouteContext).params;
+/**
+ * @swagger
+ * /api/map/nodes/{nodeId}:
+ *   delete:
+ *     summary: Delete node by ID
+ *     tags: [Map]
+ *     parameters:
+ *       - in: path
+ *         name: nodeId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+export const DELETE = createHandler({
+  auth: true,
+  permissions: ["map:delete"]
+}, async (req, ctx) => {
+  const { nodeId } = ctx.params;
 
   try {
     await service.deleteNode(nodeId);

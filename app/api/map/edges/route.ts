@@ -1,7 +1,5 @@
-
-import { NextRequest } from "next/server";
+import { createHandler, apiSuccess } from "@/lib/api";
 import { MappingService } from "@/lib/services/MappingService";
-import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
 import { z } from "zod";
 
 const service = new MappingService();
@@ -12,25 +10,41 @@ const createEdgeSchema = z.object({
   name: z.string().optional(),
   fiberType: z.string().optional(),
   distance: z.number().optional(),
-  waypoints: z.string().optional(), // Expecting stringified JSON as per schema, or handle array in API and stringify here? Schema says String?, so stringified json.
+  waypoints: z.string().optional(),
   notes: z.string().optional(),
 });
 
-export const GET = withErrorHandler(async () => {
+/**
+ * @swagger
+ * /api/map/edges:
+ *   get:
+ *     summary: Get all map edges
+ *     tags: [Map]
+ */
+export const GET = createHandler({
+  auth: true,
+  permissions: ["map:read"]
+}, async () => {
   const edges = await service.getEdges();
   return apiSuccess(edges);
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
-  const body = await req.json();
-  
-  const validation = createEdgeSchema.safeParse(body);
-  if (!validation.success) {
-    return ApiErrors.badRequest("Validation failed", validation.error.format());
-  }
+/**
+ * @swagger
+ * /api/map/edges:
+ *   post:
+ *     summary: Create a new map edge
+ *     tags: [Map]
+ */
+export const POST = createHandler({
+  auth: true,
+  permissions: ["map:create"],
+  schema: createEdgeSchema
+}, async (req, ctx) => {
+  const body = ctx.validated;
 
   const newEdge = await service.createEdge({
-    ...validation.data
+    ...body
   });
   
   return apiSuccess(newEdge, { status: 201 });

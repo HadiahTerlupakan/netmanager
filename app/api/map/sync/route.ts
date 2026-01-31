@@ -1,7 +1,5 @@
-
-import { NextRequest } from "next/server";
+import { createHandler, apiSuccess } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
 import { z } from "zod";
 
 const nodeSchema = z.object({
@@ -41,21 +39,18 @@ const syncSchema = z.object({
 });
 
 /**
- * POST /api/map/sync
- * Bulk sync all mapping data (replace all nodes and edges)
+ * @swagger
+ * /api/map/sync:
+ *   post:
+ *     summary: Bulk sync all mapping data
+ *     tags: [Map]
  */
-export const POST = withErrorHandler(async (req: NextRequest) => {
-  const body = await req.json();
-
-  const validation = syncSchema.safeParse(body);
-  if (!validation.success) {
-    return ApiErrors.badRequest(
-      "Invalid data format. Expected { nodes: [], edges: [] }",
-      validation.error.format()
-    );
-  }
-
-  const { nodes, edges } = validation.data;
+export const POST = createHandler({
+  auth: true,
+  permissions: ["map:update"],
+  schema: syncSchema
+}, async (req, ctx) => {
+  const { nodes, edges } = ctx.validated;
 
   // Use transaction to ensure atomic operation
   await prisma.$transaction(async (tx) => {
