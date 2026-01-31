@@ -19,7 +19,7 @@ describe('OdpRepository', () => {
         status: 'AKTIF' as const
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.create.mockResolvedValueOnce({
           id: 'odp-1'
         } as unknown as Odp)
@@ -43,7 +43,7 @@ describe('OdpRepository', () => {
         ]
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-2' } as unknown as Odp)
         prismaMock.odpOutput.createMany.mockResolvedValueOnce({ count: 2 })
         return callback(prismaMock)
@@ -61,7 +61,7 @@ describe('OdpRepository', () => {
         // No status provided
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-3' } as unknown as Odp)
         return callback(prismaMock)
       })
@@ -85,7 +85,7 @@ describe('OdpRepository', () => {
         location: 'New Location'
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp)
         return callback(prismaMock)
       })
@@ -108,7 +108,7 @@ describe('OdpRepository', () => {
         ]
       }
 
-      prismaMock.$transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+      prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp)
         prismaMock.odpOutput.deleteMany.mockResolvedValueOnce({ count: 2 })
         prismaMock.odpOutput.createMany.mockResolvedValueOnce({ count: 1 })

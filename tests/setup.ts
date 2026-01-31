@@ -1,4 +1,4 @@
-import { beforeEach, vi } from 'vitest'
+import { beforeEach, vi, type Mock } from 'vitest'
 import { mockReset, mockDeep } from 'vitest-mock-extended'
 
 // Define a simplified mock type to avoid Prisma's circular type references (TS2615)
@@ -6,7 +6,7 @@ import { mockReset, mockDeep } from 'vitest-mock-extended'
 // See: https://www.prisma.io/docs/orm/prisma-client/testing/unit-testing
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MockFn = ReturnType<typeof vi.fn> & ((...args: any[]) => any)
+type MockFn = any
 
 type MockModel = {
   findMany: MockFn

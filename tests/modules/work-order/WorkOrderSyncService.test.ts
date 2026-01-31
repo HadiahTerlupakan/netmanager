@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { prismaMock } from '../../setup'
 import { syncWoStatusToTicket, closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 import { WorkOrderStatus, TicketStatus, type WorkOrders, type SupportTickets, type TicketReplies } from '@prisma/client'

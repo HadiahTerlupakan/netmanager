@@ -77,7 +77,7 @@ export default async function Page() {
     }
 
     // Serialize dates for client component
-    const serializedRecentPOs = recentPOs.map(po => ({
+    const serializedRecentPOs = recentPOs.map((po: any) => ({
         ...po,
         createdAt: po.createdAt.toISOString(),
         updatedAt: po.updatedAt.toISOString(),

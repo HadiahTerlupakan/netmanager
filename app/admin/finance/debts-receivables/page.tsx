@@ -52,7 +52,7 @@ export default async function DebtsReceivablesPage() {
   })
 
   // Serialization
-  const formattedReceivables = receivables.map(inv => ({
+  const formattedReceivables = receivables.map((inv: any) => ({
     ...inv,
     totalAmount: Number(inv.totalAmount),
     paidAmount: Number(inv.paidAmount),

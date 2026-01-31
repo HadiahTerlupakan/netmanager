@@ -14,7 +14,7 @@ export default async function TransactionsPage() {
   })
 
   // Basic serialization if needed
-  const formattedAccounts = accounts.map(a => ({
+  const formattedAccounts = accounts.map((a: any) => ({
     ...a,
     balance: Number(a.balance)
   }))

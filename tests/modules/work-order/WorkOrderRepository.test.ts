@@ -342,7 +342,7 @@ describe('WorkOrderRepository', () => {
       prismaMock.workOrders.count.mockReset()
 
       // Set up the mock implementation
-      prismaMock.workOrders.count.mockImplementation(async (args) => {
+      prismaMock.workOrders.count.mockImplementation(async (args: any) => {
         // If query has priority filter, it's the "urgentOpen" count
         if (args?.where?.priority) {
           return 5

@@ -29,7 +29,7 @@ export default async function ReceivablesPage() {
   })
 
   // Basic serialization if needed (BigInt handling)
-  const formattedData = receivables.map(inv => ({
+  const formattedData = receivables.map((inv: any) => ({
     ...inv,
     totalAmount: Number(inv.totalAmount),
     paidAmount: Number(inv.paidAmount),
