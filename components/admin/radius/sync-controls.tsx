@@ -21,7 +21,8 @@ export function SyncControls() {
             const data = await response.json();
 
             if (response.ok) {
-                setToastMessage(`Sync Complete! Created: ${data.stats.created}, Updated: ${data.stats.updated}, Del: ${data.stats.deleted}`);
+                const stats = data.stats || { created: 0, updated: 0, deleted: 0 };
+                setToastMessage(`Sync Complete! Created: ${stats.created}, Updated: ${stats.updated}, Del: ${stats.deleted}`);
                 setToastType('success');
                 setShowToast(true);
                 setIsOpen(false);

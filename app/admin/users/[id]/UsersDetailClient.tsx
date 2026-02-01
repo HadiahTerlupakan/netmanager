@@ -170,7 +170,8 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       const res = await fetch('/api/admin/departments')
       if (res.ok) {
         const data = await res.json()
-        setDepartments(data.departments || data || [])
+        const depts = data.departments || data || []
+        setDepartments(Array.isArray(depts) ? depts : [])
       }
     } catch (error) {
       console.error('Error fetching departments:', error)

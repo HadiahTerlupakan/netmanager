@@ -1,0 +1,432 @@
+[
+  {
+    "id": "TC001",
+    "title": "Create Work Order from Template",
+    "description": "Verify that a user can create a new work order by selecting and applying a template, filling in required details, and successfully saving it.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in with valid credentials and navigate to the Work Order creation page."
+      },
+      {
+        "type": "action",
+        "description": "Select a predefined work order template from the template list."
+      },
+      {
+        "type": "action",
+        "description": "Fill in the necessary details such as task description, department, assigned personnel, and site."
+      },
+      {
+        "type": "action",
+        "description": "Submit the form to create the work order."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the work order is created with all selected template details and appears in the work order list."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Create Work Order from Scratch",
+    "description": "Verify that a user can create a new work order without using a template and fill all required fields manually.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to the new work order page."
+      },
+      {
+        "type": "action",
+        "description": "Choose the option to create work order without template."
+      },
+      {
+        "type": "action",
+        "description": "Manually enter task details, select department, assign user, and select site."
+      },
+      {
+        "type": "action",
+        "description": "Submit the work order creation form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new work order is created and correctly listed with all entered details."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Edit Existing Work Order",
+    "description": "Verify that a user can update fields of an existing work order and save the changes.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to the work order list."
+      },
+      {
+        "type": "action",
+        "description": "Select an existing work order to view its details."
+      },
+      {
+        "type": "action",
+        "description": "Modify fields such as status, assigned user, or task description."
+      },
+      {
+        "type": "action",
+        "description": "Save the changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the work order details reflect the updated information."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Delete Work Order",
+    "description": "Verify that a user with appropriate permissions can delete an existing work order and it no longer appears in the list.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to the work order list."
+      },
+      {
+        "type": "action",
+        "description": "Select a work order and initiate the delete operation."
+      },
+      {
+        "type": "action",
+        "description": "Confirm the deletion when prompted."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the deleted work order is removed from the list and cannot be accessed."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Filter Work Orders by Department",
+    "description": "Verify that filtering the work order list by a specific department shows only work orders associated with that department.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to the work order dashboard."
+      },
+      {
+        "type": "action",
+        "description": "Select a department filter from the department list or dropdown."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that all displayed work orders belong to the selected department."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Add a New Department",
+    "description": "Verify that administrators can add a new department and it becomes available immediately for organizing work orders.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as an administrator and navigate to the department management page."
+      },
+      {
+        "type": "action",
+        "description": "Enter the new department’s name and relevant details."
+      },
+      {
+        "type": "action",
+        "description": "Save the new department."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that the new department appears in the department list and can be selected when managing work orders."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Edit Existing Department",
+    "description": "Verify that an administrator can modify details of an existing department and the changes are reflected throughout the module.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as administrator and open the department management."
+      },
+      {
+        "type": "action",
+        "description": "Select a department and edit its name or other attributes."
+      },
+      {
+        "type": "action",
+        "description": "Save the changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure the updated department information is visible in all relevant work order views and filters."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Remove Department with Assigned Work Orders",
+    "description": "Verify behavior when deleting a department that has existing work orders; check for warnings, errors, or reassignment flows.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as administrator and navigate to the department management."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to delete a department currently assigned to active work orders."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that a warning or error is shown preventing deletion or that the system prompts for reassignment of work orders."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Add a New Site with Geolocation Data",
+    "description": "Verify that new physical sites can be added with required details including geolocation data, and that they appear correctly in site listings.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to the site management page."
+      },
+      {
+        "type": "action",
+        "description": "Input new site information including name, address, and geolocation coordinates."
+      },
+      {
+        "type": "action",
+        "description": "Save the new site."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the new site appears in the list and can be selected when creating or filtering work orders."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Edit Existing Site Details",
+    "description": "Verify that users can update site details including address and geolocation and that updates are reflected system-wide immediately.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and open the site management interface."
+      },
+      {
+        "type": "action",
+        "description": "Select an existing site and modify its details like address or geolocation."
+      },
+      {
+        "type": "action",
+        "description": "Save the changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Validate the updated site info is displayed correctly throughout the application, including filters."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Delete Existing Site with Associated Work Orders",
+    "description": "Verify that deletion of a site linked to existing work orders is handled properly, either by blocking deletion or requiring reassignment.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as administrator and access the site management page."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to delete a site linked to active work orders."
+      },
+      {
+        "type": "assertion",
+        "description": "Check for appropriate warnings or error messages, and ensure no orphaned work orders result."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Apply Template During Work Order Creation",
+    "description": "Verify that templates can be selected and applied during new work order creation and that all template data populates correctly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start creation of a new work order."
+      },
+      {
+        "type": "action",
+        "description": "Access the template selection and choose a valid template."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure all fields populated by the template are correctly filled in the creation form."
+      },
+      {
+        "type": "action",
+        "description": "Complete and save the work order."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the created work order contains the template’s default data."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Template Management Access and Visibility",
+    "description": "Verify that templates are listed, and appropriately accessible only to authorized users.",
+    "category": "security",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as a user without template administration rights."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that template management features are not accessible or visible."
+      },
+      {
+        "type": "action",
+        "description": "Log in as an administrator."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify template management features are accessible and templates are listed."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Unauthorized Access to Work Order Module",
+    "description": "Verify that users without authentication cannot access any part of the Work Order Module, receiving appropriate access denied responses.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to navigate directly to a Work Order Module URL without login."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that the user is redirected to the login page or shown an access denied message."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Session Expiration Handling",
+    "description": "Verify the system behavior when an authenticated user's session expires during interaction with the Work Order Module.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and start interacting with work order pages."
+      },
+      {
+        "type": "action",
+        "description": "Simulate session timeout or expiration."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to perform actions like creating or updating a work order."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the user is prompted to log in again, and actions are prevented until re-authentication."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "UI Responsiveness on Various Devices",
+    "description": "Verify that all core UI components of the Work Order Module render correctly and remain usable on different device screen sizes including desktop, tablet, and mobile.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the Work Order Module using desktop, tablet, and mobile devices or emulators."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that menus, forms, lists, and buttons are properly laid out and work correctly without overflow or layout breakage."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Filter Work Orders by Site",
+    "description": "Verify that filtering the work order list by physical site accurately shows only the work orders linked to that site.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the work order dashboard."
+      },
+      {
+        "type": "action",
+        "description": "Apply a site filter by choosing a specific site."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that only work orders associated with the selected site are displayed."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Work Order List Real-time Updates",
+    "description": "Verify that updates to work orders (creation, edits, deletions) made by other users propagate in real-time and update the work order list view.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the work order list view in two separate user sessions."
+      },
+      {
+        "type": "action",
+        "description": "In one session, create or update a work order."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that the second session's work order list refreshes automatically to reflect the change without manual reload."
+      }
+    ]
+  }
+]

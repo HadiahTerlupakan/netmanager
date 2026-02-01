@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "project": "NetManager Work Order Module",
+    "date": "2026-01-31",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "The Work Order Module within NetManager provides a comprehensive system to manage maintenance and service requests across various internal departments and physical sites. It standardizes work order creation with templates and integrates securely with existing user authentication systems.",
+  "core_goals": [
+    "Enable efficient creation, tracking, and management of work orders to improve maintenance workflows.",
+    "Organize work orders by departments and sites for better responsibility and location management.",
+    "Provide standardized templates for recurring work orders to ensure consistency and reduce manual entry.",
+    "Securely manage user access and authentication to ensure authorized operations within the module."
+  ],
+  "key_features": [
+    "Comprehensive Work Order Management allowing creation, listing, detail viewing, and updating of work orders.",
+    "Department management for organizing work orders according to internal organizational units.",
+    "Site management for associating work orders with physical locations, supporting geolocation and site details.",
+    "Template system for standardized and reusable work order creation processes.",
+    "User Authentication integration leveraging NextAuth.js for secure login and session management."
+  ],
+  "user_flow_summary": [
+    "Users log in via secure authentication mechanism (NextAuth.js).",
+    "Users navigate to the Work Order dashboard to view the list of work orders filtered by department or site.",
+    "Users create new work orders using templates or from scratch, providing details on tasks and assignments.",
+    "Users update or track the status of work orders through detailed views.",
+    "Administrators manage departments and sites to maintain accurate organizational and location data within the system."
+  ],
+  "validation_criteria": [
+    "All work order CRUD operations function correctly including creation, retrieval, update, and deletion.",
+    "Departments and sites can be added, edited, and removed with immediate effect on filtering and organizing work orders.",
+    "Templates for work orders are accessible and applied properly during new work order creation.",
+    "User authentication enforces access controls correctly, preventing unauthorized access to the module features.",
+    "UI components demonstrate responsive behavior adhering to Tailwind CSS styling and support across supported devices and browsers."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "Next.js",
+      "React",
+      "Tailwind CSS",
+      "Prisma",
+      "PostgreSQL",
+      "NextAuth.js",
+      "Socket.io",
+      "Leaflet"
+    ],
+    "features": [
+      {
+        "name": "Work Order Management",
+        "description": "Comprehensive system for managing maintenance and service requests.",
+        "files": [
+          "app/admin/workorders/list/WoListClient.tsx",
+          "app/admin/workorders/new/WoNewClient.tsx",
+          "app/admin/workorders/[id]/WoDetailClient.tsx",
+          "app/admin/workorders/WoIndexClient.tsx"
+        ]
+      },
+      {
+        "name": "Work Order Departments",
+        "description": "Organization of work orders by internal departments.",
+        "files": [
+          "app/admin/workorders/departments/DeptIndexClient.tsx",
+          "app/admin/workorders/departments/new/DeptNewClient.tsx"
+        ]
+      },
+      {
+        "name": "Work Order Sites",
+        "description": "Location management for work orders.",
+        "files": [
+          "app/admin/workorders/sites/SitesList.tsx",
+          "app/admin/workorders/sites/new/SitesNewClient.tsx",
+          "app/admin/workorders/sites/[id]/SiteDetailClient.tsx"
+        ]
+      },
+      {
+        "name": "Work Order Templates",
+        "description": "Standardized templates for creating recurring work orders.",
+        "files": [
+          "app/admin/workorders/templates/TemplatesClient.tsx"
+        ]
+      },
+      {
+        "name": "User Authentication",
+        "description": "Secure login and session management using NextAuth.",
+        "files": [
+          "lib/auth.ts",
+          "app/(auth)/admin/login/page.tsx"
+        ]
+      }
+    ]
+  }
+}

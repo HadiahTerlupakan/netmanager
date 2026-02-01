@@ -1,0 +1,50 @@
+[
+  {
+    "id": "TEST_001",
+    "feature": "Authentication",
+    "title": "User Login with Valid Credentials",
+    "description": "Verify that a user can successfully log in using valid email and password.",
+    "steps": [
+      "Navigate to the login page",
+      "Enter a valid email address",
+      "Enter the correct password",
+      "Click the Login button",
+      "Verify that the user is redirected to the dashboard",
+      "Verify that the user's name or profile is visible"
+    ],
+    "expected_result": "User is authenticated and redirected to the dashboard.",
+    "priority": "High",
+    "type": "frontend"
+  },
+  {
+    "id": "TEST_002",
+    "feature": "Dashboard",
+    "title": "Dashboard Loading and Widget Visibility",
+    "description": "Ensure the dashboard loads correctly and displays key widgets.",
+    "steps": [
+      "Log in to the application",
+      "Navigate to the Dashboard page",
+      "Check for the presence of the 'Total Income' widget",
+      "Check for the presence of the 'Active Users' widget",
+      "Verify no error messages are displayed"
+    ],
+    "expected_result": "Dashboard loads with all key widgets visible.",
+    "priority": "Medium",
+    "type": "frontend"
+  },
+  {
+    "id": "TEST_003",
+    "feature": "Customer Management",
+    "title": "View Customer List",
+    "description": "Verify that the admin can view the list of customers.",
+    "steps": [
+      "Log in as an Admin",
+      "Navigate to the 'Pelanggan' (Customer) menu",
+      "Verify that the customer table is displayed",
+      "Check that the table contains data rows"
+    ],
+    "expected_result": "Customer list is displayed with data.",
+    "priority": "High",
+    "type": "frontend"
+  }
+]

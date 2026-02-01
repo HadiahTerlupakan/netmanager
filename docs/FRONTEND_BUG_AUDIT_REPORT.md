@@ -775,3 +775,5 @@ try {
 **Report Generated:** 2026-01-28T15:30:00+07:00  
 **Next Review:** After P0 fixes completed  
 **Contact:** Debug Mode Analysis Team
+
+claude mcp add TestSprite --env API_KEY=sk-user-4IqxcN95eJ9OJPeKO81VCpb5giJ7ul3j32Q5Gbi_NwR-DBEbL6t1dm8iJjuiLrKLjAe5L2UnxAzwc6qe6ijKN9sxS224Ne0rVsvZGYc3CZm8wyWYot38CFcAu8QjRV6Mw_A -- npx @testsprite/testsprite-mcp@latest
