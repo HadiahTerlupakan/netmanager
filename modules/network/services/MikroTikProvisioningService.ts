@@ -2,7 +2,14 @@ import { RouterOSAPI } from 'node-routeros-v2';
 import { networkInterfaces } from 'os';
 
 export class MikroTikProvisioningService {
-    
+
+    /**
+     * Helper to throttle commands to prevent CPU spikes on low-end routers
+     */
+    private async delay(ms: number = 200): Promise<void> {
+        await new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     private detectServerIp(targetRouterIp: string): string {
         const nets = networkInterfaces();
         const results: string[] = [];
@@ -88,6 +95,7 @@ export class MikroTikProvisioningService {
                         '=service=ppp,login,hotspot',
                         '=timeout=3000ms'
                     ]);
+                    await this.delay(300);
                     logs.push(`Updated existing RADIUS config for ${finalServerIp}`);
                 }
             } else {
@@ -99,6 +107,7 @@ export class MikroTikProvisioningService {
                     '=timeout=3000ms',
                     '=comment=added by netmanager'
                 ]);
+                await this.delay(300);
                 logs.push(`Added new RADIUS config for ${finalServerIp}`);
             }
 
@@ -107,6 +116,7 @@ export class MikroTikProvisioningService {
                 '=accept=yes',
                 '=port=3799'
             ]);
+            await this.delay(200);
             logs.push(`Configured RADIUS Incoming (CoA) on port 3799`);
 
 
@@ -132,6 +142,7 @@ export class MikroTikProvisioningService {
                         '=address=' + item.address,
                         '=comment=' + item.comment
                     ]);
+                    await this.delay(200);
                     logs.push(`Added Firewall Address List: ${item.address}`);
                 }
             }
@@ -157,6 +168,7 @@ export class MikroTikProvisioningService {
                     ...placeBeforeArgs,
                     '=comment=netmanager-input-bypass'
                 ]);
+                await this.delay(200);
                 logs.push('Added Firewall Filter: Input Bypass (Top Priority)');
             }
 
@@ -170,6 +182,7 @@ export class MikroTikProvisioningService {
                     ...placeBeforeArgs,
                     '=comment=netmanager-forward-bypass'
                 ]);
+                await this.delay(200);
                 logs.push('Added Firewall Filter: Forward Bypass (Top Priority)');
             }
 
@@ -184,6 +197,7 @@ export class MikroTikProvisioningService {
                     ...placeBeforeArgs,
                     '=comment=netmanager-drop-expired-tcp'
                 ]);
+                await this.delay(200);
                 logs.push('Added Firewall Filter: Drop Expired TCP');
             }
 
@@ -199,6 +213,7 @@ export class MikroTikProvisioningService {
                     ...placeBeforeArgs,
                     '=comment=netmanager-drop-expired-udp'
                 ]);
+                await this.delay(200);
                 logs.push('Added Firewall Filter: Drop Expired UDP');
             }
 
@@ -210,6 +225,7 @@ export class MikroTikProvisioningService {
                     '=ranges=10.127.0.2-10.127.63.254',
                     '=comment=added by netmanager - expired users'
                 ]);
+                await this.delay(200);
                 logs.push('Added IP Pool: expired-pool (10.127.0.2-10.127.63.254)');
             }
 
@@ -223,6 +239,7 @@ export class MikroTikProvisioningService {
                     '=dns-server=8.8.8.8,1.1.1.1',
                     '=comment=added by netmanager'
                 ]);
+                await this.delay(200);
                 logs.push('Added PPP Profile: expired users');
             } else {
                 // Update existing profile to ensure remote-address is set
@@ -232,6 +249,7 @@ export class MikroTikProvisioningService {
                     '=remote-address=expired-pool',
                     '=dns-server=8.8.8.8,1.1.1.1'
                 ]);
+                await this.delay(200);
                 logs.push('Updated PPP Profile: expired users');
             }
 
@@ -248,6 +266,7 @@ export class MikroTikProvisioningService {
                             '=enabled=yes',
                             '=port=8181'
                         ]);
+                        await this.delay(200);
                         logs.push('Configured Web Proxy: Enabled on port 8181');
 
                         // 2. Add Access Rule for Expired Users
@@ -262,6 +281,7 @@ export class MikroTikProvisioningService {
                                 '=action-data=' + domain,
                                 '=comment=added by netmanager - 10.127.0.0/18'
                             ]);
+                            await this.delay(200);
                             logs.push(`Added Web Proxy Access Rule: Redirect 10.127.0.0/18 to ${domain}`);
                         }
                     }
@@ -324,6 +344,7 @@ export class MikroTikProvisioningService {
                     await conn.write('/radius/remove', [
                         '=.id=' + r['.id']
                     ]);
+                    await this.delay(200);
                     logs.push(`Removed RADIUS config for ${finalServerIp} (ID: ${r['.id']})`);
                 }
             }
@@ -344,6 +365,7 @@ export class MikroTikProvisioningService {
                  ]) as Array<{ '.id': string }>;
                  for (const item of items) {
                      await conn.write('/ip/firewall/address-list/remove', ['=.id=' + item['.id']]);
+                     await this.delay(100);
                      logs.push(`Removed Firewall Address List: ${addr}`);
                  }
             }
@@ -359,6 +381,7 @@ export class MikroTikProvisioningService {
                  const rules = await conn.write('/ip/firewall/filter/print', ['?comment=' + comment]) as Array<{ '.id': string }>;
                  for (const rule of rules) {
                      await conn.write('/ip/firewall/filter/remove', ['=.id=' + rule['.id']]);
+                     await this.delay(100);
                      logs.push(`Removed Firewall Filter: ${comment}`);
                  }
             }
@@ -367,6 +390,7 @@ export class MikroTikProvisioningService {
             const pppProfiles = await conn.write('/ppp/profile/print', ['?name=expired users']) as Array<{ '.id': string }>;
             for (const p of pppProfiles) {
                  await conn.write('/ppp/profile/remove', ['=.id=' + p['.id']]);
+                 await this.delay(200);
                  logs.push('Removed PPP Profile: expired users');
             }
 
@@ -374,6 +398,7 @@ export class MikroTikProvisioningService {
             const proxyRules = await conn.write('/ip/proxy/access/print', ['?comment=added by netmanager - 10.127.0.0/18']) as Array<{ '.id': string }>;
             for (const r of proxyRules) {
                  await conn.write('/ip/proxy/access/remove', ['=.id=' + r['.id']]);
+                 await this.delay(100);
                  logs.push('Removed Web Proxy Access Rule');
             }
 

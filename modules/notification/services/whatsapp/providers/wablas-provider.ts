@@ -7,6 +7,7 @@ import type {
     SendResult,
     WhatsAppConfig
 } from '../whatsapp-provider-interface'
+import { whatsAppThrottler } from '../whatsapp-throttler'
 
 export class WablasProvider implements WhatsAppProvider {
     name = 'Wablas'
@@ -24,15 +25,18 @@ export class WablasProvider implements WhatsAppProvider {
 
             const url = `https://${this.config.domain}/api/send-message`
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': this.config.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    phone: params.phone,
-                    message: params.message
+            // Use throttler to prevent spamming
+            const response = await whatsAppThrottler.add(async () => {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': this.config.apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: params.phone,
+                        message: params.message
+                    })
                 })
             })
 
@@ -65,17 +69,20 @@ export class WablasProvider implements WhatsAppProvider {
 
             const url = `https://${this.config.domain}/api/send-document`
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': this.config.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    phone: params.phone,
-                    document: params.fileUrl,
-                    caption: params.caption || '',
-                    filename: params.filename || 'document.pdf'
+            // Use throttler to prevent spamming
+            const response = await whatsAppThrottler.add(async () => {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': this.config.apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: params.phone,
+                        document: params.fileUrl,
+                        caption: params.caption || '',
+                        filename: params.filename || 'document.pdf'
+                    })
                 })
             })
 

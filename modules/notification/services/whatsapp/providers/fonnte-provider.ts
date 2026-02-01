@@ -7,6 +7,7 @@ import type {
     SendResult,
     WhatsAppConfig
 } from '../whatsapp-provider-interface'
+import { whatsAppThrottler } from '../whatsapp-throttler'
 
 export class FonnteProvider implements WhatsAppProvider {
     name = 'Fonnte'
@@ -18,16 +19,19 @@ export class FonnteProvider implements WhatsAppProvider {
 
     async sendMessage(params: SendMessageParams): Promise<SendResult> {
         try {
-            const response = await fetch('https://api.fonnte.com/send', {
-                method: 'POST',
-                headers: {
-                    'Authorization': this.config.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    target: params.phone,
-                    message: params.message,
-                    countryCode: '62'
+            // Use throttler to prevent spamming
+            const response = await whatsAppThrottler.add(async () => {
+                return fetch('https://api.fonnte.com/send', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': this.config.apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        target: params.phone,
+                        message: params.message,
+                        countryCode: '62'
+                    })
                 })
             })
 
@@ -54,18 +58,21 @@ export class FonnteProvider implements WhatsAppProvider {
 
     async sendFile(params: SendFileParams): Promise<SendResult> {
         try {
-            const response = await fetch('https://api.fonnte.com/send', {
-                method: 'POST',
-                headers: {
-                    'Authorization': this.config.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    target: params.phone,
-                    file: params.fileUrl,
-                    caption: params.caption || '',
-                    filename: params.filename || 'document.pdf',
-                    countryCode: '62'
+            // Use throttler to prevent spamming
+            const response = await whatsAppThrottler.add(async () => {
+                return fetch('https://api.fonnte.com/send', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': this.config.apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        target: params.phone,
+                        file: params.fileUrl,
+                        caption: params.caption || '',
+                        filename: params.filename || 'document.pdf',
+                        countryCode: '62'
+                    })
                 })
             })
 
