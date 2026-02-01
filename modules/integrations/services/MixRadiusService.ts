@@ -154,7 +154,15 @@ export class MixRadiusService {
   private isLoggedIn: boolean = false
   private loginExpiresAt: number = 0
   private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number, lastRenewedOn: string }>
-  
+
+  // Cache for Customers List - 2 minutes TTL
+  // Reduces load significantly when sorting, filtering, or paginating locally
+  private customersCache: {
+    data: MixRadiusCustomer[]
+    expiresAt: number
+  } = { data: [], expiresAt: 0 }
+  private static CUSTOMERS_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
+
   // Topology cache - 5 minutes TTL (data doesn't change frequently)
   private topologyCache: {
     data: MixRadiusTopologyData | null
@@ -186,12 +194,14 @@ export class MixRadiusService {
       withCredentials: true,
       timeout: 30000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
         'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
         'Cache-Control': 'max-age=0',
         'Connection': 'keep-alive',
-        'Scale-Source': 'MixRadius V3.2', // Custom header sometimes seen or just harmless
+        'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-Site': 'same-origin',
@@ -199,6 +209,15 @@ export class MixRadiusService {
         'Upgrade-Insecure-Requests': '1',
       },
     }))
+  }
+
+  /**
+   * Human-like random delay
+   * Helps avoid bot detection and reduces server hammering
+   */
+  private async randomDelay(min: number = 300, max: number = 800): Promise<void> {
+    const delay = Math.floor(Math.random() * (max - min + 1) + min)
+    await new Promise(resolve => setTimeout(resolve, delay))
   }
 
   /**
@@ -300,6 +319,9 @@ export class MixRadiusService {
       await this.client.get(`${this.credentials.baseUrl}/rad-admin`)
       console.log('[MixRadius] Got login page')
 
+      // Simulate human typing delay
+      await this.randomDelay(800, 2000)
+
       // Step 2: Submit login form
       const formData = new URLSearchParams({
         username: this.credentials.username,
@@ -369,100 +391,116 @@ export class MixRadiusService {
 
       // STRATEGY:
       // Use the reliable /customers-ppp endpoint which returns all data.
-      // We process filtering (especially for authStatus/Isolir) IN-MEMORY to ensure accuracy used 
+      // We process filtering (especially for authStatus/Isolir) IN-MEMORY to ensure accuracy used
       // because upstream filtering is inconsistent.
-      
-      const formData = new URLSearchParams()
-      formData.append('draw', '1')
-      formData.append('start', '0') // Always request from 0 to get full dataset
-      formData.append('length', '10000') // Request large chunk to cover all users
-      
-      // Column definitions (Standard for customers-ppp which we know works)
-      const columns = [
-        { data: 'id', searchable: false },
-        { data: 'member_id', searchable: true },
-        { data: 'username', searchable: true },
-        { data: 'fullname', searchable: true },
-        { data: 'address', searchable: true },
-        { data: 'nasporttype', searchable: false },
-        { data: 'plan_name', searchable: true },
-        { data: 'remote_address', searchable: false },
-        { data: 'renewed_on', searchable: true },
-        { data: 'expired_on', searchable: true },
-        { data: 'owner_name', searchable: true },
-        { data: 'auth_status', searchable: true },
-        { data: 'note', searchable: true },
-        { data: 'phonenumber', searchable: true },
-      ]
 
-      columns.forEach((col, idx) => {
-        formData.append(`columns[${idx}][data]`, col.data)
-        formData.append(`columns[${idx}][name]`, '')
-        formData.append(`columns[${idx}][searchable]`, col.searchable ? 'true' : 'false')
-        formData.append(`columns[${idx}][orderable]`, 'true')
-        formData.append(`columns[${idx}][search][value]`, '')
-        formData.append(`columns[${idx}][search][regex]`, 'false')
-      })
+      let allData: MixRadiusCustomer[] = []
 
-      // Global search empty to upstream
-      formData.append('search[value]', '')
-      formData.append('search[regex]', 'false')
+      // Check Cache First
+      if (this.customersCache.data.length > 0 && this.customersCache.expiresAt > Date.now()) {
+        console.log(`[MixRadius] Using cached customer list (${this.customersCache.data.length} records). Expires in ${Math.round((this.customersCache.expiresAt - Date.now())/1000)}s`)
+        allData = [...this.customersCache.data] // Use copy
+      } else {
+        console.log('[MixRadius] Cache miss/expired. Fetching fresh data from upstream...')
 
-      formData.append('order[0][column]', '8')
-      formData.append('order[0][dir]', 'desc')
+        // Add a small random delay before big fetch
+        await this.randomDelay(500, 1500)
 
-      const response = await this.client.post(
-        `${this.credentials.baseUrl}/rad-get-data/customers-ppp`,
-        formData.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Origin': this.credentials.baseUrl,
-            'Referer': `${this.credentials.baseUrl}/rad-customers/ppp`,
-          },
+        const formData = new URLSearchParams()
+        formData.append('draw', '1')
+        formData.append('start', '0') // Always request from 0 to get full dataset
+        formData.append('length', '10000') // Request large chunk to cover all users
+
+        // Column definitions (Standard for customers-ppp which we know works)
+        const columns = [
+          { data: 'id', searchable: false },
+          { data: 'member_id', searchable: true },
+          { data: 'username', searchable: true },
+          { data: 'fullname', searchable: true },
+          { data: 'address', searchable: true },
+          { data: 'nasporttype', searchable: false },
+          { data: 'plan_name', searchable: true },
+          { data: 'remote_address', searchable: false },
+          { data: 'renewed_on', searchable: true },
+          { data: 'expired_on', searchable: true },
+          { data: 'owner_name', searchable: true },
+          { data: 'auth_status', searchable: true },
+          { data: 'note', searchable: true },
+          { data: 'phonenumber', searchable: true },
+        ]
+
+        columns.forEach((col, idx) => {
+          formData.append(`columns[${idx}][data]`, col.data)
+          formData.append(`columns[${idx}][name]`, '')
+          formData.append(`columns[${idx}][searchable]`, col.searchable ? 'true' : 'false')
+          formData.append(`columns[${idx}][orderable]`, 'true')
+          formData.append(`columns[${idx}][search][value]`, '')
+          formData.append(`columns[${idx}][search][regex]`, 'false')
+        })
+
+        // Global search empty to upstream
+        formData.append('search[value]', '')
+        formData.append('search[regex]', 'false')
+
+        formData.append('order[0][column]', '8')
+        formData.append('order[0][dir]', 'desc')
+
+        const response = await this.client.post(
+          `${this.credentials.baseUrl}/rad-get-data/customers-ppp`,
+          formData.toString(),
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json, text/javascript, */*; q=0.01',
+              'Origin': this.credentials.baseUrl,
+              'Referer': `${this.credentials.baseUrl}/rad-customers/ppp`,
+            },
+          }
+        )
+
+        // Check if we got HTML instead of JSON (session expired)
+        if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+          console.log('[MixRadius] Session expired, clearing and retrying...')
+          this.isLoggedIn = false
+          this.jar = new CookieJar()
+          // Recreate client with new jar
+          this.client = wrapper(axios.create({
+            jar: this.jar,
+            withCredentials: true,
+            timeout: 30000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            },
+          }))
+          // Retry once
+          return this.fetchCustomersPPP(params)
         }
-      )
 
-      // Check if we got HTML instead of JSON (session expired)
-      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
-        console.log('[MixRadius] Session expired, clearing and retrying...')
-        this.isLoggedIn = false
-        this.jar = new CookieJar()
-        // Recreate client with new jar
-        this.client = wrapper(axios.create({
-          jar: this.jar,
-          withCredentials: true,
-          timeout: 30000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-          },
-        }))
-        // Retry once
-        return this.fetchCustomersPPP(params)
+        const responseData = response.data as MixRadiusCustomerResponse
+        let rawData = responseData.data || []
+
+        console.log(`[MixRadius] Upstream returned ${rawData.length} records. Filtering in-memory...`)
+
+        // Deduplicate data by USERNAME (more reliable than ID for unique users)
+        const uniqueMap = new Map()
+        rawData.forEach(item => {
+          if (item.username && !uniqueMap.has(item.username)) {
+            uniqueMap.set(item.username, item)
+          }
+        })
+
+        // Update Cache
+        allData = Array.from(uniqueMap.values())
+        this.customersCache = {
+          data: allData,
+          expiresAt: Date.now() + MixRadiusService.CUSTOMERS_CACHE_TTL
+        }
       }
 
-      const responseData = response.data as MixRadiusCustomerResponse
-      let allData = responseData.data || []
-      
-      // Store original total before filtering
-      console.log(`[MixRadius] Upstream returned ${allData.length} records. Filtering in-memory...`)
-
-      // Deduplicate data by USERNAME (more reliable than ID for unique users)
-      // And strictly filter distinct usernames
-      const uniqueMap = new Map()
-      allData.forEach(item => {
-        // Ensure valid username and not already added
-        if (item.username && !uniqueMap.has(item.username)) {
-          uniqueMap.set(item.username, item)
-        }
-      })
-      allData = Array.from(uniqueMap.values())
-      
       const totalRecordsFromUpstream = allData.length
 
-      
+
       // 0. Filter by Management Site
       if (params.siteId) {
         // Find owner groups for this site
@@ -543,6 +581,11 @@ export class MixRadiusService {
       // FETCH ACTIVE SESSIONS and MERGE
       let activeSessions = new Map<string, { ip: string; uptime: string }>();
       try {
+        // Active sessions also changes frequently, but we can respect cache if desired.
+        // However, user usually wants live status.
+        // We can add a very short cache (10s) to active sessions or keep it live.
+        // Let's keep it live but add delay
+        await this.randomDelay(100, 300)
         activeSessions = await this.fetchActiveSessionsPPP()
       } catch (_err) {
         // console.error("Active session fetch failed", err);
@@ -697,7 +740,7 @@ export class MixRadiusService {
       if (!this.isLoggedIn) await this.login()
 
       console.log('[MixRadius] Fetching active sessions...')
-      
+
       // Standard DataTables request params for Active Sessions
       // Based on typical MixRadius admin panel network requests
       const formData = new URLSearchParams()
@@ -706,6 +749,9 @@ export class MixRadiusService {
       formData.append('length', '5000') // Fetch max to get all online users
       formData.append('search[value]', '')
       formData.append('search[regex]', 'false')
+
+      // Add delay
+      await this.randomDelay(200, 500)
 
       const response = await this.client.post(
         `${this.credentials.baseUrl}/rad-get-data/active-ppp&sid=SSP-38`,
@@ -789,6 +835,10 @@ export class MixRadiusService {
           }
 
           console.log(`[MixRadius] Cache MISS for invoice count customer ${id}. Fetching detail...`)
+
+          // Random delay to avoid pattern detection
+          await this.randomDelay(300, 1000)
+
           const detail = await this.fetchCustomerDetail(id)
           const invoices = detail.invoices || []
           
@@ -807,9 +857,11 @@ export class MixRadiusService {
 
       // Wait for CURRENT chunk to complete before starting next
       await Promise.all(promises)
-      
-      // Small optional pause to be nice to upstream (50ms)
-      // await new Promise(resolve => setTimeout(resolve, 50))
+
+      // Random pause between chunks
+      if (i + chunkSize < customerIds.length) {
+        await this.randomDelay(200, 500)
+      }
     }
     return results
   }
@@ -882,6 +934,9 @@ export class MixRadiusService {
       await this.login()
 
       console.log(`[MixRadius] Fetching customer detail: ${customerId}`)
+
+      // Random delay
+      await this.randomDelay(200, 600)
 
       const response = await this.client.get(
         `${this.credentials.baseUrl}/rad-customers/edit/${customerId}`,
@@ -1067,11 +1122,12 @@ export class MixRadiusService {
   /**
    * Clear session (force re-login on next request)
    */
-  clearSession(): void {
+  async clearSession(): Promise<void> {
     this.isLoggedIn = false
     this.loginExpiresAt = 0
+    this.customersCache = { data: [], expiresAt: 0 } // Clear local cache too
     this.jar = new CookieJar()
-    console.log('[MixRadius] Session cleared')
+    console.log('[MixRadius] Session and caches cleared')
   }
 
   /**
@@ -1179,6 +1235,8 @@ export class MixRadiusService {
 
       console.log('[MixRadius] Fetching ODP list via mapping API...')
 
+      await this.randomDelay(300, 800)
+
       const response = await this.client.get(
         `${this.credentials.baseUrl}/rad-autoload/mapping-odps/ALL`,
         {
@@ -1283,6 +1341,8 @@ export class MixRadiusService {
       await this.login()
 
       console.log(`[MixRadius] Fetching customers for ODP ${odpId}...`)
+
+      await this.randomDelay(200, 500)
 
       const response = await this.client.get(
         `${this.credentials.baseUrl}/rad-odp/edit/${odpId}`,
@@ -1441,9 +1501,9 @@ export class MixRadiusService {
         )
         batchResults.forEach(customers => allCustomers.push(...customers))
         
-        // Small delay between batches to be nice to the server
+        // Random pause between batches
         if (i + BATCH_SIZE < odpsWithCustomers.length) {
-          await new Promise(resolve => setTimeout(resolve, 50))
+          await this.randomDelay(500, 1500)
         }
       }
 
