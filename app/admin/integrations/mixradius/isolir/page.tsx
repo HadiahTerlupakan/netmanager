@@ -1,7 +1,7 @@
 import MixRadiusClient from '../MixRadiusClient'
 
 export default function MixRadiusIsolirPage() {
-  return <MixRadiusClient defaultStatus="Disabled-Users" viewMode="isolir" />
+  return <MixRadiusClient defaultStatus="Isolir" viewMode="isolir" />
 }
 
 export const metadata = {

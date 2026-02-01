@@ -489,8 +489,9 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
             className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
           >
             <option value="all">Semua Status</option>
-            <option value="Enabled-Users">Aktif</option>
-            <option value="Disabled-Users">Isolir / Non-Aktif</option>
+            <option value="Enabled-Users">Aktif (Enabled)</option>
+            <option value="Disabled-Users">Non-Aktif (Disabled)</option>
+            <option value="Isolir">Isolir (Expired)</option>
           </select>
         )}
 

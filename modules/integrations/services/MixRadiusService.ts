@@ -521,21 +521,21 @@ export class MixRadiusService {
         allData = allData.filter(item => allowedOwners.has(item.owner_name))
       }
 
-      // 1. Filter by Expired (Jatuh Tempo) - Strict Request
+      // 1. Filter by Expired (Jatuh Tempo) - Strict Request for "Isolir"
       // "Yang belum jatuh tempo mah gak usah ditampilkan"
-      if (params.authStatus && params.authStatus === 'Disabled-Users') {
+      if (params.authStatus === 'Isolir') {
         const now = new Date()
         allData = allData.filter(item => {
           if (!item.expired_on) return false
-          
+
           const expDate = new Date(item.expired_on)
           if (isNaN(expDate.getTime())) return false
-          
+
           // Strict: Must be expired
           return expDate < now
         })
       } else if (params.authStatus) {
-        // Normal filtering for other statuses if any
+        // Normal filtering for Enabled-Users or Disabled-Users (Status Based)
         allData = allData.filter(item => item.auth_status === params.authStatus)
       }
 
@@ -642,8 +642,8 @@ export class MixRadiusService {
           if (strA > strB) return sortDir === 'asc' ? 1 : -1
           return 0
         })
-      } else if (params.authStatus === 'Disabled-Users') {
-        // Default sort for Disabled Users (Old logic kept as fallback if no sortBy provided)
+      } else if (params.authStatus === 'Isolir') {
+        // Default sort for Isolir View (Oldest expiry first)
         allData.sort((a, b) => {
           const dateA = a.expired_on ? new Date(a.expired_on).getTime() : 0
           const dateB = b.expired_on ? new Date(b.expired_on).getTime() : 0
