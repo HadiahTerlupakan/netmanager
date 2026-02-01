@@ -483,7 +483,7 @@ export class MixRadiusService {
         }
 
         const responseData = response.data as MixRadiusCustomerResponse
-        let rawData = responseData.data || []
+        const rawData = responseData.data || []
 
         console.log(`[MixRadius] Upstream returned ${rawData.length} records. Filtering in-memory...`)
 

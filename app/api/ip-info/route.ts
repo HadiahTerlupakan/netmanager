@@ -13,6 +13,25 @@ interface IpApiResponse {
     message?: string
 }
 
+interface IpInfoResult {
+    ip: string
+    country: string
+    countryCode: string
+    region?: string
+    city: string
+    isp: string
+}
+
+interface IpCacheEntry {
+    data: IpInfoResult
+    expiresAt: number
+}
+
+// Simple in-memory cache
+// ip-api.com has a strict 45 req/min limit. Caching prevents 429 errors.
+const ipCache = new Map<string, IpCacheEntry>()
+const CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
 /**
  * GET /api/ip-info?ip=xxx.xxx.xxx.xxx
  */
@@ -22,6 +41,12 @@ export async function GET(request: NextRequest) {
 
     if (!ip) {
         return apiError('IP address wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+
+    // Check Cache
+    const cached = ipCache.get(ip)
+    if (cached && cached.expiresAt > Date.now()) {
+        return apiSuccess(cached.data)
     }
 
     if (ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
@@ -48,14 +73,30 @@ export async function GET(request: NextRequest) {
             })
         }
 
-        return apiSuccess({
+        const resultData = {
             ip: data.query,
             country: data.country || '-',
             countryCode: data.countryCode || '-',
             region: data.regionName || '-',
             city: data.city || '-',
             isp: data.isp || data.org || '-'
+        }
+
+        // Cache the successful result
+        ipCache.set(ip, {
+            data: resultData,
+            expiresAt: Date.now() + CACHE_TTL
         })
+
+        // Simple cache cleanup (prevent memory leak)
+        if (ipCache.size > 1000) {
+            const now = Date.now()
+            for (const [key, val] of ipCache.entries()) {
+                if (val.expiresAt < now) ipCache.delete(key)
+            }
+        }
+
+        return apiSuccess(resultData)
     } catch (error) {
         console.error('Error fetching IP info:', error)
         return apiSuccess({

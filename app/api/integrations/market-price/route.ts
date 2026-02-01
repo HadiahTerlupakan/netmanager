@@ -2,10 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // Headers to mimic a real browser to avoid simple bot detection
 const TOKOPEDIA_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
   'Origin': 'https://www.tokopedia.com',
   'Referer': 'https://www.tokopedia.com/',
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
+  'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"Windows"',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-site',
+}
+
+// Helper for human-like delay
+const randomDelay = async (min: number = 300, max: number = 800) => {
+  const delay = Math.floor(Math.random() * (max - min + 1) + min)
+  await new Promise(resolve => setTimeout(resolve, delay))
 }
 
 const GRAPHQL_URL = 'https://gql.tokopedia.com/graphql/SearchProductQueryV4'
@@ -102,6 +116,9 @@ export async function GET(request: NextRequest) {
       user_id: '0',
       variants: ''
     }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
+
+    // Add human-like delay before request
+    await randomDelay(300, 800)
 
     const response = await fetch(GRAPHQL_URL, {
       method: 'POST',
