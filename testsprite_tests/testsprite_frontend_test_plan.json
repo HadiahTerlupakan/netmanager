@@ -1,431 +1,432 @@
 [
   {
     "id": "TC001",
-    "title": "Create Work Order from Template",
-    "description": "Verify that a user can create a new work order by selecting and applying a template, filling in required details, and successfully saving it.",
+    "title": "Successful Login With Correct Credentials and RBAC Enforcement",
+    "description": "Verify user can log in successfully with valid email and password, and appropriate dashboard is displayed based on role-based access control (RBAC).",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in with valid credentials and navigate to the Work Order creation page."
+        "description": "Navigate to the login page."
       },
       {
         "type": "action",
-        "description": "Select a predefined work order template from the template list."
+        "description": "Enter a valid email and password."
       },
       {
         "type": "action",
-        "description": "Fill in the necessary details such as task description, department, assigned personnel, and site."
-      },
-      {
-        "type": "action",
-        "description": "Submit the form to create the work order."
+        "description": "Click the login button."
       },
       {
         "type": "assertion",
-        "description": "Confirm the work order is created with all selected template details and appears in the work order list."
+        "description": "Verify login is successful and user is redirected to the dashboard relevant to their role."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify RBAC permissions restrict access to unauthorized modules/features."
       }
     ]
   },
   {
     "id": "TC002",
-    "title": "Create Work Order from Scratch",
-    "description": "Verify that a user can create a new work order without using a template and fill all required fields manually.",
-    "category": "functional",
+    "title": "Login Failure With Incorrect Credentials",
+    "description": "Verify the system prevents login when invalid email or password is supplied and provides appropriate error message.",
+    "category": "error handling",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in and navigate to the new work order page."
+        "description": "Navigate to the login page."
       },
       {
         "type": "action",
-        "description": "Choose the option to create work order without template."
+        "description": "Enter invalid or incorrect email and/or password."
       },
       {
         "type": "action",
-        "description": "Manually enter task details, select department, assign user, and select site."
-      },
-      {
-        "type": "action",
-        "description": "Submit the work order creation form."
+        "description": "Click the login button."
       },
       {
         "type": "assertion",
-        "description": "Verify the new work order is created and correctly listed with all entered details."
+        "description": "Verify login is rejected and an error message about invalid credentials is displayed."
       }
     ]
   },
   {
     "id": "TC003",
-    "title": "Edit Existing Work Order",
-    "description": "Verify that a user can update fields of an existing work order and save the changes.",
+    "title": "MikroTik Router Bandwidth Management - Apply Bandwidth Limit",
+    "description": "Verify that network administrators can successfully apply bandwidth limits on connected MikroTik routers and changes reflect on the router.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in and navigate to the work order list."
+        "description": "Log in as network administrator."
       },
       {
         "type": "action",
-        "description": "Select an existing work order to view its details."
+        "description": "Navigate to MikroTik router bandwidth management interface."
       },
       {
         "type": "action",
-        "description": "Modify fields such as status, assigned user, or task description."
+        "description": "Set a bandwidth limit value for a selected user or profile."
       },
       {
         "type": "action",
-        "description": "Save the changes."
+        "description": "Save and apply the settings."
       },
       {
         "type": "assertion",
-        "description": "Confirm the work order details reflect the updated information."
+        "description": "Verify that the bandwidth limit is successfully applied on the MikroTik router."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the system reflects the updated bandwidth limit values."
       }
     ]
   },
   {
     "id": "TC004",
-    "title": "Delete Work Order",
-    "description": "Verify that a user with appropriate permissions can delete an existing work order and it no longer appears in the list.",
+    "title": "PPPoE Profile Handling and Synchronization With Router",
+    "description": "Verify creation, modification, and deletion of PPPoE profiles in the system reflect correctly on MikroTik routers.",
     "category": "functional",
-    "priority": "Medium",
+    "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in and navigate to the work order list."
+        "description": "Log in as network administrator."
       },
       {
         "type": "action",
-        "description": "Select a work order and initiate the delete operation."
+        "description": "Navigate to PPP profile management."
       },
       {
         "type": "action",
-        "description": "Confirm the deletion when prompted."
+        "description": "Create a new PPPoE profile with specific parameters."
       },
       {
         "type": "assertion",
-        "description": "Verify that the deleted work order is removed from the list and cannot be accessed."
+        "description": "Verify new profile is added to MikroTik router configuration."
+      },
+      {
+        "type": "action",
+        "description": "Modify parameters of the created PPPoE profile."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify modifications are updated on the router."
+      },
+      {
+        "type": "action",
+        "description": "Delete the PPPoE profile."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify profile is removed from the router."
       }
     ]
   },
   {
     "id": "TC005",
-    "title": "Filter Work Orders by Department",
-    "description": "Verify that filtering the work order list by a specific department shows only work orders associated with that department.",
+    "title": "Automated Invoice Generation on Schedule",
+    "description": "Verify system automatically generates and sends invoices to customers on scheduled dates without errors.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in and navigate to the work order dashboard."
+        "description": "Ensure there are customers with active subscriptions requiring billing."
       },
       {
         "type": "action",
-        "description": "Select a department filter from the department list or dropdown."
+        "description": "Trigger or wait for the scheduled automated invoice generation cron job."
       },
       {
         "type": "assertion",
-        "description": "Check that all displayed work orders belong to the selected department."
+        "description": "Verify invoices are generated without errors for all applicable customers."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify invoices are delivered to customer accounts and via configured communication channels."
       }
     ]
   },
   {
     "id": "TC006",
-    "title": "Add a New Department",
-    "description": "Verify that administrators can add a new department and it becomes available immediately for organizing work orders.",
-    "category": "functional",
-    "priority": "Medium",
+    "title": "Payment Gateway Callback Updates Billing Status",
+    "description": "Verify that payment statuses update in real-time upon receiving callbacks from Midtrans and Xendit payment gateways.",
+    "category": "integration",
+    "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in as an administrator and navigate to the department management page."
+        "description": "Simulate payment via Midtrans/Xendit payment gateway."
       },
       {
         "type": "action",
-        "description": "Enter the new department’s name and relevant details."
-      },
-      {
-        "type": "action",
-        "description": "Save the new department."
+        "description": "Receive callback notification from payment gateway."
       },
       {
         "type": "assertion",
-        "description": "Confirm that the new department appears in the department list and can be selected when managing work orders."
+        "description": "Verify the billing status updates accordingly in the system (paid, failed, pending)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify related financial records reflect updated payment status."
       }
     ]
   },
   {
     "id": "TC007",
-    "title": "Edit Existing Department",
-    "description": "Verify that an administrator can modify details of an existing department and the changes are reflected throughout the module.",
+    "title": "Employee Attendance Check-In within Geofence",
+    "description": "Verify employees can only check in and check out successfully when within geofenced area defined for the site.",
     "category": "functional",
-    "priority": "Medium",
+    "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in as administrator and open the department management."
+        "description": "Log in as an employee."
       },
       {
         "type": "action",
-        "description": "Select a department and edit its name or other attributes."
-      },
-      {
-        "type": "action",
-        "description": "Save the changes."
+        "description": "Attempt to check in from within the geofenced location."
       },
       {
         "type": "assertion",
-        "description": "Ensure the updated department information is visible in all relevant work order views and filters."
+        "description": "Verify check-in is successful and attendance is recorded."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to check in from outside the geofenced location."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify check-in is rejected with an appropriate error message."
       }
     ]
   },
   {
     "id": "TC008",
-    "title": "Remove Department with Assigned Work Orders",
-    "description": "Verify behavior when deleting a department that has existing work orders; check for warnings, errors, or reassignment flows.",
-    "category": "error handling",
+    "title": "Accurate Overtime Calculation and Recording",
+    "description": "Verify system correctly calculates overtime hours based on employee shift records and attendance logs.",
+    "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in as administrator and navigate to the department management."
+        "description": "Log in as HR manager."
       },
       {
         "type": "action",
-        "description": "Attempt to delete a department currently assigned to active work orders."
+        "description": "Review the shift schedules and attendance for employees."
       },
       {
         "type": "assertion",
-        "description": "Verify that a warning or error is shown preventing deletion or that the system prompts for reassignment of work orders."
+        "description": "Verify overtime calculation matches expected values based on attendance outside scheduled shift hours."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify overtime is recorded accurately in payroll processing."
       }
     ]
   },
   {
     "id": "TC009",
-    "title": "Add a New Site with Geolocation Data",
-    "description": "Verify that new physical sites can be added with required details including geolocation data, and that they appear correctly in site listings.",
-    "category": "functional",
-    "priority": "Medium",
+    "title": "Role-Based Access Restrictions Prevent Unauthorized Actions",
+    "description": "Verify that users without permissions cannot access or perform restricted operations in the system.",
+    "category": "security",
+    "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in and navigate to the site management page."
+        "description": "Log in as a low-privilege user (e.g., employee or guest)."
       },
       {
         "type": "action",
-        "description": "Input new site information including name, address, and geolocation coordinates."
-      },
-      {
-        "type": "action",
-        "description": "Save the new site."
+        "description": "Attempt to access restricted modules or administrative features."
       },
       {
         "type": "assertion",
-        "description": "Confirm the new site appears in the list and can be selected when creating or filtering work orders."
+        "description": "Verify access is denied and appropriate error or warning messages are shown."
+      },
+      {
+        "type": "action",
+        "description": "Attempt restricted operations via API calls."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the system rejects unauthorized actions and logs them if applicable."
       }
     ]
   },
   {
     "id": "TC010",
-    "title": "Edit Existing Site Details",
-    "description": "Verify that users can update site details including address and geolocation and that updates are reflected system-wide immediately.",
+    "title": "Inventory and Procurement Record Update and Traceability",
+    "description": "Verify that inventory changes and procurement workflows update records accurately and provide full traceability.",
     "category": "functional",
     "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Log in and open the site management interface."
+        "description": "Log in as inventory manager."
       },
       {
         "type": "action",
-        "description": "Select an existing site and modify its details like address or geolocation."
-      },
-      {
-        "type": "action",
-        "description": "Save the changes."
+        "description": "Add new hardware asset to inventory."
       },
       {
         "type": "assertion",
-        "description": "Validate the updated site info is displayed correctly throughout the application, including filters."
+        "description": "Verify the new asset entry is saved with correct details and timestamp."
+      },
+      {
+        "type": "action",
+        "description": "Initiate a procurement request for assets."
+      },
+      {
+        "type": "action",
+        "description": "Approve and process the procurement request."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify procurement status updates properly and all associated records including supplier details are tracked."
       }
     ]
   },
   {
     "id": "TC011",
-    "title": "Delete Existing Site with Associated Work Orders",
-    "description": "Verify that deletion of a site linked to existing work orders is handled properly, either by blocking deletion or requiring reassignment.",
-    "category": "error handling",
+    "title": "Work Order Ticket Lifecycle States and Status Notifications",
+    "description": "Verify work order tickets transition correctly through their lifecycle states and notifications are triggered timely.",
+    "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Log in as administrator and access the site management page."
+        "description": "Log in as field technician."
       },
       {
         "type": "action",
-        "description": "Attempt to delete a site linked to active work orders."
+        "description": "Create a new work order ticket."
       },
       {
         "type": "assertion",
-        "description": "Check for appropriate warnings or error messages, and ensure no orphaned work orders result."
+        "description": "Verify ticket is created with correct details and initial status."
+      },
+      {
+        "type": "action",
+        "description": "Update ticket status through stages like assigned, in progress, resolved, and closed."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify each status update triggers notifications via configured channels on time."
       }
     ]
   },
   {
     "id": "TC012",
-    "title": "Apply Template During Work Order Creation",
-    "description": "Verify that templates can be selected and applied during new work order creation and that all template data populates correctly.",
+    "title": "Real-Time Network Infrastructure Monitoring Updates",
+    "description": "Verify real-time updates and correct visualization of network infrastructure status including router health and bandwidth usage on maps.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Start creation of a new work order."
+        "description": "Log in as network administrator."
       },
       {
         "type": "action",
-        "description": "Access the template selection and choose a valid template."
+        "description": "Navigate to geographic network monitoring dashboard."
       },
       {
         "type": "assertion",
-        "description": "Ensure all fields populated by the template are correctly filled in the creation form."
-      },
-      {
-        "type": "action",
-        "description": "Complete and save the work order."
+        "description": "Verify live status of routers and bandwidth usage is displayed accurately and refreshed in real time."
       },
       {
         "type": "assertion",
-        "description": "Verify that the created work order contains the template’s default data."
+        "description": "Verify map interactions such as zoom, pan, and layer toggling function correctly."
       }
     ]
   },
   {
     "id": "TC013",
-    "title": "Template Management Access and Visibility",
-    "description": "Verify that templates are listed, and appropriately accessible only to authorized users.",
-    "category": "security",
+    "title": "Internal Announcement Creation and Multi-Channel Notification Dispatch",
+    "description": "Verify managers can create internal announcements and system dispatches notifications via WhatsApp, Email, and Web Push to targeted users.",
+    "category": "functional",
     "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Log in as a user without template administration rights."
-      },
-      {
-        "type": "assertion",
-        "description": "Confirm that template management features are not accessible or visible."
+        "description": "Log in as manager."
       },
       {
         "type": "action",
-        "description": "Log in as an administrator."
+        "description": "Create a new internal announcement with title, message, and target audience."
+      },
+      {
+        "type": "action",
+        "description": "Publish the announcement."
       },
       {
         "type": "assertion",
-        "description": "Verify template management features are accessible and templates are listed."
+        "description": "Verify announcement appears in users’ announcement feeds."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notifications are sent successfully over WhatsApp, Email, and Web Push to targeted recipients."
       }
     ]
   },
   {
     "id": "TC014",
-    "title": "Unauthorized Access to Work Order Module",
-    "description": "Verify that users without authentication cannot access any part of the Work Order Module, receiving appropriate access denied responses.",
-    "category": "security",
+    "title": "Automated Cron Job Executes Scheduled Billing and Backup Tasks",
+    "description": "Verify scheduled cron jobs for billing invoice generation and system backups execute reliably without failures or errors.",
+    "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Attempt to navigate directly to a Work Order Module URL without login."
+        "description": "Check cron job schedule configurations for billing and backups."
+      },
+      {
+        "type": "action",
+        "description": "Manually trigger or wait for scheduled cron jobs."
       },
       {
         "type": "assertion",
-        "description": "Check that the user is redirected to the login page or shown an access denied message."
+        "description": "Verify billing cron job generates invoices correctly and updates billing status."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify backup cron job completes successfully and backup artifacts are available."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify system logs record the successful execution and no errors occur."
       }
     ]
   },
   {
     "id": "TC015",
-    "title": "Session Expiration Handling",
-    "description": "Verify the system behavior when an authenticated user's session expires during interaction with the Work Order Module.",
-    "category": "error handling",
-    "priority": "High",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Log in and start interacting with work order pages."
-      },
-      {
-        "type": "action",
-        "description": "Simulate session timeout or expiration."
-      },
-      {
-        "type": "action",
-        "description": "Attempt to perform actions like creating or updating a work order."
-      },
-      {
-        "type": "assertion",
-        "description": "Verify that the user is prompted to log in again, and actions are prevented until re-authentication."
-      }
-    ]
-  },
-  {
-    "id": "TC016",
-    "title": "UI Responsiveness on Various Devices",
-    "description": "Verify that all core UI components of the Work Order Module render correctly and remain usable on different device screen sizes including desktop, tablet, and mobile.",
-    "category": "ui",
-    "priority": "Medium",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Access the Work Order Module using desktop, tablet, and mobile devices or emulators."
-      },
-      {
-        "type": "assertion",
-        "description": "Confirm that menus, forms, lists, and buttons are properly laid out and work correctly without overflow or layout breakage."
-      }
-    ]
-  },
-  {
-    "id": "TC017",
-    "title": "Filter Work Orders by Site",
-    "description": "Verify that filtering the work order list by physical site accurately shows only the work orders linked to that site.",
-    "category": "functional",
-    "priority": "High",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Navigate to the work order dashboard."
-      },
-      {
-        "type": "action",
-        "description": "Apply a site filter by choosing a specific site."
-      },
-      {
-        "type": "assertion",
-        "description": "Verify that only work orders associated with the selected site are displayed."
-      }
-    ]
-  },
-  {
-    "id": "TC018",
-    "title": "Work Order List Real-time Updates",
-    "description": "Verify that updates to work orders (creation, edits, deletions) made by other users propagate in real-time and update the work order list view.",
+    "title": "Finance Report Generation and Accuracy",
+    "description": "Verify managers can generate comprehensive financial reports reflecting accurate billing, payment, and invoice data.",
     "category": "functional",
     "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Open the work order list view in two separate user sessions."
+        "description": "Log in as finance manager."
       },
       {
         "type": "action",
-        "description": "In one session, create or update a work order."
+        "description": "Navigate to financial reports section."
+      },
+      {
+        "type": "action",
+        "description": "Generate reports for specified date ranges and billing categories."
       },
       {
         "type": "assertion",
-        "description": "Confirm that the second session's work order list refreshes automatically to reflect the change without manual reload."
+        "description": "Verify generated reports display accurate aggregated financial data including customer payments and invoices."
       }
     ]
   }

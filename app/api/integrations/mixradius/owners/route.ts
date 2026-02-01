@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     const service = getMixRadiusService()
-    const owners = await service.getUniqueOwners()
+    const owners = await service.getOwnersWithIds()
 
     return apiSuccess(owners)
   } catch (error: unknown) {

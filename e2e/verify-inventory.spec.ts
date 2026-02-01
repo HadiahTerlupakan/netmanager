@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAsAdmin } from './auth/login.spec';
+import { loginAsAdmin } from './utils/auth';
 
 test.describe('Inventory Module Verification', () => {
     test.beforeEach(async ({ page }) => {

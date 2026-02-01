@@ -7,6 +7,7 @@ import { MdCheckCircle, MdCancel, MdPending, MdAdd, MdDelete } from 'react-icons
 import toast from 'react-hot-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface LeaveRequest {
     id: string
@@ -64,6 +65,7 @@ export function IzinClient() {
     const [uploading, setUploading] = useState(false)
 
     const [searchTerm, setSearchTerm] = useState('')
+    const [showDropdown, setShowDropdown] = useState(false)
 
     const filteredUsers = users.filter(u =>
         (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -156,12 +158,23 @@ export function IzinClient() {
             return
         }
 
+        if (new Date(manualForm.startDate) > new Date(manualForm.endDate)) {
+            toast.error('Tanggal selesai harus setelah atau sama dengan tanggal mulai')
+            return
+        }
+
         setActionLoading(true)
         try {
+            // Prepare payload - handle empty attachmentUrl
+            const payload = {
+                ...manualForm,
+                attachmentUrl: manualForm.attachmentUrl || undefined
+            }
+
             const res = await fetch('/api/admin/leaves', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(manualForm)
+                body: JSON.stringify(payload)
             })
 
             if (res.ok) {
@@ -171,7 +184,14 @@ export function IzinClient() {
                 setSearchTerm('')
                 fetchLeaves()
             } else {
-                toast.error('Gagal membuat pengajuan')
+                const err = await res.json()
+                // Display more detailed error if available
+                if (err.details) {
+                    const detailsMsg = Object.values(err.details).flat().join(', ')
+                    toast.error(`Gagal: ${detailsMsg}`)
+                } else {
+                    toast.error(err.error || 'Gagal membuat pengajuan')
+                }
             }
         } catch (_error) {
             toast.error('Terjadi kesalahan')
@@ -369,248 +389,272 @@ export function IzinClient() {
                 />
             </div>
             {/* Action Modal (Detail & Approval) */}
-            {isActionModalOpen && selectedRequest && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-[#1c2936] w-full max-w-lg rounded-xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-lg dark:text-white">Detail Pengajuan Izin</h3>
-                            <button onClick={() => setIsActionModalOpen(false)} className="text-gray-500 hover:text-gray-700">
-                                <MdCancel className="text-2xl" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4 mb-6">
-                            <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <div className="size-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl">
+            <Modal
+                isOpen={isActionModalOpen}
+                onClose={() => setIsActionModalOpen(false)}
+                title="Detail Pengajuan Izin"
+                size="lg"
+            >
+                {selectedRequest && (
+                    <>
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                                <div className="size-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-2xl shrink-0">
                                     {selectedRequest.user.name?.charAt(0) || 'U'}
                                 </div>
                                 <div>
-                                    <h4 className="font-bold dark:text-white">{selectedRequest.user.name}</h4>
-                                    <p className="text-sm text-gray-500">{selectedRequest.user.department?.name} - {selectedRequest.user.site?.name}</p>
+                                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">{selectedRequest.user.name}</h4>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{selectedRequest.user.department?.name} - {selectedRequest.user.site?.name}</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="text-xs text-gray-500 block mb-1">Tipe Izin</label>
-                                    <div className="font-medium dark:text-white">{selectedRequest.type}</div>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Tipe Izin</label>
+                                    <div className="font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                        {selectedRequest.type}
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-500 block mb-1">Status</label>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Status</label>
                                     <div className="flex items-center gap-2">
                                         {getStatusBadge(selectedRequest.status)}
                                         {selectedRequest.status === 'APPROVED' && selectedRequest.approvedBy && (
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${selectedRequest.approvedBy === 'SYSTEM_AUTO' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                {selectedRequest.approvedBy === 'SYSTEM_AUTO' ? '🤖 Auto oleh Sistem' : '👤 Admin'}
+                                            <span className={`text-xs px-2 py-1 rounded-full border ${selectedRequest.approvedBy === 'SYSTEM_AUTO'
+                                                ? 'bg-purple-50 text-purple-700 border-purple-100'
+                                                : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                                                {selectedRequest.approvedBy === 'SYSTEM_AUTO' ? '🤖 Auto System' : '👤 Admin'}
                                             </span>
                                         )}
                                     </div>
                                 </div>
-                                <div className="col-span-2">
-                                    <label className="text-xs text-gray-500 block mb-1">Tanggal</label>
-                                    <div className="font-medium dark:text-white">
-                                        {format(new Date(selectedRequest.startDate), 'dd MMM yyyy', { locale: id })} - {format(new Date(selectedRequest.endDate), 'dd MMM yyyy', { locale: id })}
+                                <div className="md:col-span-2">
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Tanggal</label>
+                                    <div className="font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                        {format(new Date(selectedRequest.startDate), 'dd MMMM yyyy', { locale: id })} - {format(new Date(selectedRequest.endDate), 'dd MMMM yyyy', { locale: id })}
                                     </div>
                                 </div>
-                                <div className="col-span-2">
-                                    <label className="text-xs text-gray-500 block mb-1">Alasan</label>
-                                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm dark:text-gray-300">
+                                <div className="md:col-span-2">
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Alasan</label>
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-700 leading-relaxed">
                                         {selectedRequest.reason}
                                     </div>
                                 </div>
                                 {selectedRequest.attachmentUrl && (
-                                    <div className="col-span-2">
-                                        <label className="text-xs text-gray-500 block mb-1">Lampiran</label>
+                                    <div className="md:col-span-2">
+                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">Lampiran</label>
                                         <a
                                             href={selectedRequest.attachmentUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline text-sm flex items-center gap-2"
+                                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium border border-blue-100"
                                         >
-                                            Lihat Lampiran ↗
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                            Lihat Lampiran
                                         </a>
                                     </div>
                                 )}
                             </div>
+
+                            {selectedRequest.status === 'PENDING' && canVerify && (
+                                <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Alasan Penolakan (Jika menolak)</label>
+                                        <textarea
+                                            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                                            rows={2}
+                                            placeholder="Wajib diisi jika menolak pengajuan..."
+                                            value={rejectionReason}
+                                            onChange={(e) => setRejectionReason(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        {selectedRequest.status === 'PENDING' && canVerify && (
-                            <div className="border-t pt-4 dark:border-gray-700">
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium mb-2 dark:text-gray-300">Alasan Penolakan (Jika menolak)</label>
-                                    <textarea
-                                        className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                        rows={2}
-                                        placeholder="Wajib diisi jika menolak..."
-                                        value={rejectionReason}
-                                        onChange={(e) => setRejectionReason(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex gap-2">
+                        <ModalFooter>
+                            {selectedRequest.status === 'PENDING' && canVerify ? (
+                                <>
                                     <button
                                         onClick={() => handleAction('REJECTED')}
                                         disabled={actionLoading || !rejectionReason.trim()}
-                                        className="flex-1 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-bold disabled:opacity-50 flex justify-center items-center gap-2"
+                                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium disabled:opacity-50 flex items-center gap-2 border border-red-100 transition-colors"
                                     >
-                                        <MdCancel /> Tolak
+                                        <MdCancel className="text-lg" /> Tolak
                                     </button>
                                     <button
                                         onClick={() => handleAction('APPROVED')}
                                         disabled={actionLoading}
-                                        className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold disabled:opacity-50 flex justify-center items-center gap-2"
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-green-200 transition-colors"
                                     >
-                                        <MdCheckCircle /> Setujui
+                                        <MdCheckCircle className="text-lg" /> Setujui
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="flex gap-2 w-full justify-end">
+                                    {canDelete && (
+                                        <button
+                                            onClick={() => handleDelete(selectedRequest.id)}
+                                            disabled={actionLoading}
+                                            className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium flex items-center gap-2 transition-colors mr-auto"
+                                        >
+                                            <MdDelete className="text-lg" /> Hapus
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setIsActionModalOpen(false)}
+                                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium dark:bg-gray-700 dark:text-gray-300 transition-colors"
+                                    >
+                                        Tutup
                                     </button>
                                 </div>
-                            </div>
-                        )}
-                        
-                        {/* If not pending or cannot verify, just show close/delete */}
-                        {(!canVerify || selectedRequest.status !== 'PENDING') && (
-                             <div className="flex justify-end gap-2 border-t pt-4 dark:border-gray-700">
-                                {canDelete && (
-                                    <button
-                                        onClick={() => handleDelete(selectedRequest.id)}
-                                        disabled={actionLoading}
-                                        className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium flex items-center gap-2"
-                                    >
-                                        <MdDelete /> Hapus
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => setIsActionModalOpen(false)}
-                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium dark:bg-gray-700 dark:text-gray-300"
-                                >
-                                    Tutup
-                                </button>
-                             </div>
-                        )}
-                    </div>
-                </div>
-            )}
+                            )}
+                        </ModalFooter>
+                    </>
+                )}
+            </Modal>
 
             {/* Manual Input Modal */}
-            {isManualModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-[#1c2936] w-full max-w-lg rounded-xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-lg dark:text-white">Input Izin Manual</h3>
-                            <button onClick={() => setIsManualModalOpen(false)} className="text-gray-500 hover:text-gray-700">
-                                <MdCancel className="text-2xl" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleManualSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Karyawan</label>
-                                <div className="relative">
-                                    <input 
-                                        type="text"
-                                        className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                        placeholder="Cari karyawan..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        onClick={() => fetchUsers()}
-                                    />
-                                    {searchTerm && (
-                                        <div className="absolute z-10 w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
-                                            {filteredUsers.map(u => (
-                                                <div 
-                                                    key={u.id}
-                                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-300"
-                                                    onClick={() => {
-                                                        setManualForm(prev => ({...prev, userId: u.id}))
-                                                        setSearchTerm(u.name)
-                                                    }}
-                                                >
-                                                    {u.name} <span className="text-xs text-gray-500">({u.email})</span>
-                                                </div>
-                                            ))}
-                                            {filteredUsers.length === 0 && (
-                                                <div className="p-2 text-gray-500 text-sm text-center">Tidak ditemukan</div>
-                                            )}
+            <Modal
+                isOpen={isManualModalOpen}
+                onClose={() => setIsManualModalOpen(false)}
+                title="Input Izin Manual"
+                size="lg"
+            >
+                <form onSubmit={handleManualSubmit} className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">Karyawan</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                placeholder="Ketik nama karyawan..."
+                                value={searchTerm}
+                                onChange={e => {
+                                    setSearchTerm(e.target.value)
+                                    setShowDropdown(true)
+                                }}
+                                onClick={() => {
+                                    fetchUsers()
+                                    setShowDropdown(true)
+                                }}
+                            />
+                            {showDropdown && searchTerm && (
+                                <div className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-xl">
+                                    {filteredUsers.map(u => (
+                                        <div
+                                            key={u.id}
+                                            className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer text-gray-900 dark:text-gray-200 border-b border-gray-50 dark:border-gray-700 last:border-0"
+                                            onClick={() => {
+                                                setManualForm(prev => ({...prev, userId: u.id}))
+                                                setSearchTerm(u.name)
+                                                setShowDropdown(false)
+                                            }}
+                                        >
+                                            <div className="font-medium">{u.name}</div>
+                                            <div className="text-xs text-gray-500">{u.email}</div>
                                         </div>
+                                    ))}
+                                    {filteredUsers.length === 0 && (
+                                        <div className="p-4 text-gray-500 text-sm text-center">Karyawan tidak ditemukan</div>
                                     )}
                                 </div>
+                            )}
+                        </div>
+                        {manualForm.userId && (
+                            <div className="mt-1 text-xs text-green-600 font-medium flex items-center gap-1">
+                                <MdCheckCircle /> Karyawan terpilih
                             </div>
+                        )}
+                    </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Tipe Izin</label>
-                                    <select
-                                        className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                        value={manualForm.type}
-                                        onChange={e => setManualForm({...manualForm, type: e.target.value})}
-                                    >
-                                        <option value="SAKIT">Sakit</option>
-                                        <option value="IZIN">Izin</option>
-                                        <option value="CUTI">Cuti</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Lampiran</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">Tipe Izin</label>
+                            <select
+                                className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                value={manualForm.type}
+                                onChange={e => setManualForm({...manualForm, type: e.target.value})}
+                            >
+                                <option value="SAKIT">Sakit</option>
+                                <option value="IZIN">Izin</option>
+                                <option value="CUTI">Cuti</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">Lampiran</label>
+                            <div className="flex items-center gap-2">
+                                <label className="flex-1 cursor-pointer">
+                                    <div className="w-full p-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-center text-sm text-gray-500 hover:bg-gray-100 transition-colors">
+                                        {uploading ? 'Mengupload...' : 'Pilih File'}
+                                    </div>
                                     <input
                                         type="file"
                                         accept="image/*"
                                         onChange={handleFileUpload}
-                                        className="w-full p-1 text-sm dark:text-gray-300"
+                                        className="hidden"
                                     />
-                                    {uploading && <span className="text-xs text-blue-500">Uploading...</span>}
-                                    {manualForm.attachmentUrl && <span className="text-xs text-green-500">Terupload ✓</span>}
-                                </div>
+                                </label>
+                                {manualForm.attachmentUrl && (
+                                    <a href={manualForm.attachmentUrl} target="_blank" rel="noreferrer" className="p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100">
+                                        Lihat
+                                    </a>
+                                )}
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Mulai</label>
-                                    <input
-                                        type="date"
-                                        className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                        value={manualForm.startDate}
-                                        onChange={e => setManualForm({...manualForm, startDate: e.target.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Selesai</label>
-                                    <input
-                                        type="date"
-                                        className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                        value={manualForm.endDate}
-                                        onChange={e => setManualForm({...manualForm, endDate: e.target.value})}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Alasan</label>
-                                <textarea
-                                    className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                    rows={3}
-                                    value={manualForm.reason}
-                                    onChange={e => setManualForm({...manualForm, reason: e.target.value})}
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsManualModalOpen(false)}
-                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={actionLoading || uploading}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                                >
-                                    {actionLoading ? 'Menyimpan...' : 'Simpan'}
-                                </button>
-                            </div>
-                        </form>
+                            {manualForm.attachmentUrl && <span className="text-xs text-green-600 mt-1 block">✓ Terupload</span>}
+                        </div>
                     </div>
-                </div>
-            )}
+
+                    <div className="grid grid-cols-2 gap-5">
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">Mulai</label>
+                            <input
+                                type="date"
+                                className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                value={manualForm.startDate}
+                                onChange={e => setManualForm({...manualForm, startDate: e.target.value})}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">Selesai</label>
+                            <input
+                                type="date"
+                                className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                value={manualForm.endDate}
+                                onChange={e => setManualForm({...manualForm, endDate: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">Alasan</label>
+                        <textarea
+                            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            rows={3}
+                            placeholder="Jelaskan alasan pengajuan..."
+                            value={manualForm.reason}
+                            onChange={e => setManualForm({...manualForm, reason: e.target.value})}
+                        />
+                    </div>
+
+                    <ModalFooter>
+                        <button
+                            type="button"
+                            onClick={() => setIsManualModalOpen(false)}
+                            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700 font-medium transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={actionLoading || uploading}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 shadow-sm shadow-blue-200 dark:shadow-none transition-colors"
+                        >
+                            {actionLoading ? 'Menyimpan...' : 'Simpan Data'}
+                        </button>
+                    </ModalFooter>
+                </form>
+            </Modal>
         </div>
     )
 }

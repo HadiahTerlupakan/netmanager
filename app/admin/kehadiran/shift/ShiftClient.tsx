@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineArrowPath } from "react-icons/hi2"
 import { usePermission } from "@/hooks/use-permission"
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable"
+import { Modal, ModalFooter } from "@/components/ui/Modal"
+import toast from "react-hot-toast"
 
 interface Shift {
     id: string
@@ -46,8 +48,11 @@ export default function ShiftClient() {
             setLoading(true)
             const res = await fetch('/api/admin/shifts?includeInactive=true')
             if (!res.ok) throw new Error('Failed to fetch shifts')
-            const data = await res.json()
-            setShifts(data)
+            const responseData = await res.json()
+            // apiSuccess returns { success: true, data: [...] }
+            // If it's a direct array (legacy), use it directly. Otherwise use .data
+            const shiftsData = Array.isArray(responseData) ? responseData : (responseData.data || [])
+            setShifts(shiftsData)
         } catch (err: unknown) {
             console.error('Error fetching shifts:', err)
         } finally {
@@ -80,11 +85,19 @@ export default function ShiftClient() {
         setSaving(true)
         setError('')
 
+        // Simple client-side validation
+        if (formData.startTime >= formData.endTime) {
+            setError('Jam Pulang harus lebih besar dari Jam Masuk (kecuali lintas hari, fitur belum didukung)')
+            toast.error('Jam kerja tidak valid')
+            setSaving(false)
+            return
+        }
+
         try {
             const url = editingShift
                 ? `/api/admin/shifts/${editingShift.id}`
                 : '/api/admin/shifts'
-            
+
             const method = editingShift ? 'PATCH' : 'POST'
 
             const res = await fetch(url, {
@@ -95,13 +108,20 @@ export default function ShiftClient() {
 
             if (!res.ok) {
                 const data = await res.json()
+                // Improve error message for duplicates
+                if (data.error && data.error.includes('already exists')) {
+                    throw new Error('Kode Shift sudah digunakan (mungkin oleh shift yang nonaktif/diarsip). Gunakan kode lain.')
+                }
                 throw new Error(data.error || 'Failed to save')
             }
 
+            toast.success(editingShift ? 'Shift berhasil diperbarui' : 'Shift berhasil dibuat')
             setShowModal(false)
-            fetchShifts()
+            await fetchShifts()
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'An error occurred')
+            const msg = err instanceof Error ? err.message : 'An error occurred'
+            setError(msg)
+            toast.error(msg)
         } finally {
             setSaving(false)
         }
@@ -111,18 +131,40 @@ export default function ShiftClient() {
         if (!confirm(`Hapus shift "${shift.name}"?`)) return
 
         try {
-            const res = await fetch(`/api/admin/shifts/${shift.id}?force=true`, {
+            // Try Hard Delete first (force=false)
+            let res = await fetch(`/api/admin/shifts/${shift.id}`, {
                 method: 'DELETE'
             })
 
             if (!res.ok) {
                 const data = await res.json()
+
+                // If it failed because it's in use (likely 400 Bad Request from Service)
+                // We ask user if they want to soft delete (archive) instead
+                if (data.error && data.error.includes('assigned to')) {
+                    if (confirm(`Shift ini sedang digunakan oleh karyawan. Nonaktifkan (Archive) saja?`)) {
+                        res = await fetch(`/api/admin/shifts/${shift.id}?force=true`, {
+                            method: 'DELETE'
+                        })
+                    } else {
+                        return // User cancelled
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed to delete')
+                }
+            }
+
+            // Check result of the second attempt (if any)
+            if (!res.ok) {
+                const data = await res.json()
                 throw new Error(data.error || 'Failed to delete')
             }
 
+            toast.success('Shift berhasil dihapus')
             fetchShifts()
         } catch (err: unknown) {
-            alert(err instanceof Error ? err.message : 'An error occurred')
+            const msg = err instanceof Error ? err.message : 'An error occurred'
+            toast.error(msg)
         }
     }
 
@@ -135,9 +177,12 @@ export default function ShiftClient() {
             })
 
             if (!res.ok) throw new Error('Failed to update')
+
+            toast.success(`Shift ${shift.isActive ? 'dinonaktifkan' : 'diaktifkan'}`)
             fetchShifts()
         } catch (err) {
             console.error('Error toggling status:', err)
+            toast.error('Gagal mengubah status shift')
         }
     }
 
@@ -256,109 +301,107 @@ export default function ShiftClient() {
             </div>
 
             {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                {editingShift ? 'Edit Shift' : 'Tambah Shift Baru'}
-                            </h2>
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title={editingShift ? 'Edit Shift' : 'Tambah Shift Baru'}
+                description="Atur jadwal jam kerja untuk shift ini."
+                size="md"
+            >
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {error && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-100 dark:border-red-800">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Nama Shift *
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                placeholder="Pagi"
+                                required
+                            />
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            {error && (
-                                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
-                                    {error}
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Nama Shift *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                                    placeholder="contoh: Pagi"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Kode Shift
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.code}
-                                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                                    placeholder="contoh: S1"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Jam Masuk *
-                                    </label>
-                                    <input
-                                        type="time"
-                                        value={formData.startTime}
-                                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Jam Pulang *
-                                    </label>
-                                    <input
-                                        type="time"
-                                        value={formData.endTime}
-                                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Keterangan
-                                </label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                                    rows={2}
-                                    placeholder="Deskripsi shift (opsional)"
-                                />
-                            </div>
-
-                            <div className="flex gap-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                                >
-                                    {saving ? 'Menyimpan...' : 'Simpan'}
-                                </button>
-                            </div>
-                        </form>
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Kode Shift
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.code}
+                                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                placeholder="S1"
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Jam Masuk *
+                            </label>
+                            <input
+                                type="time"
+                                value={formData.startTime}
+                                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Jam Pulang *
+                            </label>
+                            <input
+                                type="time"
+                                value={formData.endTime}
+                                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Keterangan
+                        </label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            rows={2}
+                            placeholder="Deskripsi shift (opsional)"
+                        />
+                    </div>
+
+                    <ModalFooter>
+                        <button
+                            type="button"
+                            onClick={() => setShowModal(false)}
+                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm shadow-blue-200 dark:shadow-none"
+                        >
+                            {saving ? 'Menyimpan...' : 'Simpan'}
+                        </button>
+                    </ModalFooter>
+                </form>
+            </Modal>
         </div>
     )
 }

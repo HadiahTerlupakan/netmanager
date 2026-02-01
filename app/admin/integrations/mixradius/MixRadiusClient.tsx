@@ -100,6 +100,11 @@ interface MixRadiusGroup {
   name: string
 }
 
+interface MixRadiusOwner {
+  id: string
+  name: string
+}
+
 export interface MixRadiusClientProps {
   defaultStatus?: string
   viewMode?: 'default' | 'isolir'
@@ -115,7 +120,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
 
   const [onlineFilter, setOnlineFilter] = useState('all') // all, online, offline
   const [statusFilter, setStatusFilter] = useState('all') // all, Enabled-Users, Disabled-Users
-  const [owners, setOwners] = useState<string[]>([])
+  const [owners, setOwners] = useState<MixRadiusOwner[]>([])
   const [selectedOwner, setSelectedOwner] = useState('all')
   const [groups, setGroups] = useState<MixRadiusGroup[]>([])
   const [selectedGroup, setSelectedGroup] = useState('all')
@@ -519,7 +524,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         >
           <option value="all">Semua NAS</option>
           {owners.map(owner => (
-            <option key={owner} value={owner}>{owner}</option>
+            <option key={owner.id} value={owner.name}>{owner.name}</option>
           ))}
         </select>
 

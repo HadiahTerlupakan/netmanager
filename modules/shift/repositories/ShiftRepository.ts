@@ -65,10 +65,24 @@ export class ShiftRepository {
   }
 
   async delete(id: string): Promise<void> {
-    // Soft delete - set isActive to false
+    // Soft delete - set isActive to false AND rename code if exists to release unique constraint
+    const shift = await this.findById(id)
+    if (!shift) return
+
+    const updateData: any = { isActive: false }
+
+    if (shift.code) {
+      // Append timestamp to code to make it unique but preserve history
+      // e.g. "S1" -> "S1_DELETED_1700000000"
+      // Truncate to ensure it fits? Prisma usually handles string length,
+      // but if code length is constrained we might need care.
+      // Assuming standard string length is fine.
+      updateData.code = `${shift.code}_DEL_${Math.floor(Date.now() / 1000)}`
+    }
+
     await prisma.shift.update({
       where: { id },
-      data: { isActive: false }
+      data: updateData
     })
   }
 

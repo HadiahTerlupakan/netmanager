@@ -4,6 +4,8 @@ import { hasPermission } from '@/lib/rbac'
 import { ShiftService } from '@/modules/shift'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 const shiftService = new ShiftService()
 
 export async function GET(request: NextRequest) {

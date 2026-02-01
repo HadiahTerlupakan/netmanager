@@ -104,6 +104,49 @@ export interface MixRadiusInvoice {
   status: string
 }
 
+export interface MixRadiusIncomePeriodRecord {
+  id: string
+  invoice: string
+  customer_id: string
+  member_id: string
+  username: string
+  fullname: string
+  email: string
+  address: string
+  phonenumber: string
+  plan_name: string
+  price: string
+  seller_fee: string
+  tax: string
+  total: string
+  payment_method: string
+  payment_type: string
+  trx_status: string
+  invoice_date: string
+  renewed_on: string
+  expired_on: string
+  method: string
+  type: string
+  nasporttype: string
+  server_name: string | null
+  owner_name: string
+}
+
+export interface MixRadiusIncomeSummary {
+  profit: string
+  feeSeller: string
+  totalPlusPpn: string
+  totalTransactions: string
+}
+
+export interface MixRadiusIncomePeriodResponse {
+  draw: number
+  recordsTotal: number
+  recordsFiltered: number
+  data: MixRadiusIncomePeriodRecord[]
+  summary?: MixRadiusIncomeSummary
+}
+
 export interface FetchCustomersParams {
   start?: number
   length?: number
@@ -117,6 +160,12 @@ export interface FetchCustomersParams {
   sortBy?: string
   sortDir?: 'asc' | 'desc'
   forceRefresh?: boolean
+  // Income Period Filters
+  startDate?: string
+  endDate?: string
+  serviceType?: string
+  paymentMethod?: string
+  ownerId?: string
 }
 
 // ODP Types for Topology Map
@@ -148,6 +197,11 @@ export interface MixRadiusTopologyData {
   customers: MixRadiusODPCustomer[]
 }
 
+export interface MixRadiusOwner {
+  id: string
+  name: string
+}
+
 export class MixRadiusService {
   private credentials: MixRadiusCredentials
   private client: AxiosInstance
@@ -171,6 +225,13 @@ export class MixRadiusService {
     ownerFilter: string | null
   } = { data: null, expiresAt: 0, ownerFilter: null }
   private static TOPOLOGY_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+  // Cache for Owners List - 1 hour TTL
+  private ownerListCache: {
+    data: MixRadiusOwner[]
+    expiresAt: number
+  } = { data: [], expiresAt: 0 }
+  private static OWNER_LIST_CACHE_TTL = 60 * 60 * 1000 // 1 hour
 
   constructor() {
     // Initial credentials from environment variables (fallback)
@@ -671,6 +732,383 @@ export class MixRadiusService {
       }
 
       throw new Error(`Failed to fetch MixRadius customers: ${message}`)
+    }
+  }
+
+  /**
+   * Fetch Income by Period from MixRadius
+   * Endpoint: POST /rad-get-data/reports-period
+   */
+  async fetchIncomeByPeriod(params: FetchCustomersParams = {}): Promise<MixRadiusIncomePeriodResponse> {
+    const {
+      start = 0, length = 10, search = '', sortBy = 'renewed_on', sortDir = 'desc',
+      startDate, endDate, serviceType, paymentMethod, ownerId, groupId, siteId
+    } = params
+
+    try {
+      await this.login()
+
+      console.log(`[MixRadius] Fetching income by period: start=${start}, length=${length}, search="${search}", groupId=${groupId}, siteId=${siteId}`)
+
+      // STRATEGY:
+      // If groupId or siteId is provided, we fetch ALL records for the period (up to 10000)
+      // and filter in-memory because upstream doesn't support multiple owner selection.
+      const useInMemoryFilter = !!(groupId || siteId)
+
+      // Add delay
+      await this.randomDelay(300, 800)
+
+      const formData = new URLSearchParams()
+      formData.append('draw', '1')
+      formData.append('start', useInMemoryFilter ? '0' : start.toString())
+      formData.append('length', useInMemoryFilter ? '10000' : length.toString())
+
+      // Filter Params
+      if (startDate) {
+        const fdate = startDate.includes(' ') ? startDate : `${startDate} 00:00:01`
+        formData.append('fdate', fdate)
+      }
+      if (endDate) {
+        const tdate = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
+        formData.append('tdate', tdate)
+      }
+
+      // Ensure all filters are present, use empty string for 'all'
+      formData.append('stype', serviceType || '')
+      formData.append('payment_method', paymentMethod || '')
+
+      // If in-memory filtering, we must fetch ALL owners first
+      formData.append('owner_id', (useInMemoryFilter || ownerId === 'all' || !ownerId) ? '' : ownerId)
+      formData.append('usertype', '0') // Default to "SEMUA TIPE" (Member & Voucher)
+
+      const columns = [
+        { data: 'id', searchable: false, orderable: false },
+        { data: 'id', searchable: false, orderable: true },
+        { data: 'invoice', searchable: true, orderable: true },
+        { data: 'member_id', searchable: true, orderable: true },
+        { data: 'username', searchable: true, orderable: true },
+        { data: 'fullname', searchable: true, orderable: true },
+        { data: 'nasporttype', searchable: false, orderable: true },
+        { data: 'plan_name', searchable: true, orderable: true },
+        { data: 'total', searchable: false, orderable: true },
+        { data: 'seller_fee', searchable: false, orderable: true },
+        { data: 'renewed_on', searchable: true, orderable: true },
+        { data: 'owner_name', searchable: true, orderable: true },
+        { data: 'id', searchable: false, orderable: true }
+      ]
+
+      columns.forEach((col, idx) => {
+        formData.append(`columns[${idx}][data]`, col.data)
+        formData.append(`columns[${idx}][name]`, '')
+        formData.append(`columns[${idx}][searchable]`, col.searchable ? 'true' : 'false')
+        formData.append(`columns[${idx}][orderable]`, col.orderable ? 'true' : 'false')
+        formData.append(`columns[${idx}][search][value]`, '')
+        formData.append(`columns[${idx}][search][regex]`, 'false')
+      })
+
+      // Order
+      let orderColumnIndex = 10 // Default to renewed_on (index 10)
+      if (sortBy) {
+        const foundIndex = columns.findIndex(c => c.data === sortBy)
+        if (foundIndex !== -1) {
+            orderColumnIndex = foundIndex
+        }
+      }
+
+      formData.append('order[0][column]', orderColumnIndex.toString())
+      formData.append('order[0][dir]', sortDir || 'desc')
+
+      // Global Search (only if not doing in-memory filtering, or we'll filter it later)
+      formData.append('search[value]', useInMemoryFilter ? '' : search)
+      formData.append('search[regex]', 'false')
+
+      const response = await this.client.post(
+        `${this.credentials.baseUrl}/rad-get-data/reports-period`,
+        formData.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`,
+            'Origin': this.credentials.baseUrl,
+          },
+        }
+      )
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+        console.log('[MixRadius] Session expired during Income Period fetch, retrying...')
+        this.isLoggedIn = false
+        return this.fetchIncomeByPeriod(params)
+      }
+
+      const responseData = response.data as MixRadiusIncomePeriodResponse
+
+      if (!useInMemoryFilter) {
+          return responseData
+      }
+
+      // IN-MEMORY FILTERING LOGIC
+      let allData = responseData.data || []
+      const recordsTotal = responseData.recordsTotal
+
+      // 1. Filter by Site
+      if (siteId) {
+        const groups = await prisma.mixRadiusOwnerGroup.findMany({
+          where: { siteId: siteId },
+          select: { owners: true }
+        })
+        const allowedOwners = new Set(groups.flatMap(g => g.owners))
+        allData = allData.filter(item => allowedOwners.has(item.owner_name))
+      }
+
+      // 2. Filter by Group
+      if (groupId) {
+        const group = await prisma.mixRadiusOwnerGroup.findUnique({
+          where: { id: groupId },
+          select: { owners: true }
+        })
+        if (group && group.owners) {
+          const allowedOwners = new Set(group.owners)
+          allData = allData.filter(item => allowedOwners.has(item.owner_name))
+        } else {
+          allData = []
+        }
+      }
+
+      // 3. Filter by Search
+      if (search) {
+        const lowerSearch = search.toLowerCase()
+        allData = allData.filter(item =>
+          (item.invoice && item.invoice.toLowerCase().includes(lowerSearch)) ||
+          (item.username && item.username.toLowerCase().includes(lowerSearch)) ||
+          (item.fullname && item.fullname.toLowerCase().includes(lowerSearch)) ||
+          (item.member_id && item.member_id.toLowerCase().includes(lowerSearch)) ||
+          (item.owner_name && item.owner_name.toLowerCase().includes(lowerSearch))
+        )
+      }
+
+      const recordsFilteredCount = allData.length
+
+      // 4. In-memory Sorting (since we might have changed the dataset)
+      if (sortBy) {
+          allData.sort((a, b) => {
+              const valA = (a as any)[sortBy]
+              const valB = (b as any)[sortBy]
+
+              if (sortBy === 'renewed_on' || sortBy === 'invoice_date') {
+                  const dateA = valA ? new Date(valA).getTime() : 0
+                  const dateB = valB ? new Date(valB).getTime() : 0
+                  return sortDir === 'asc' ? dateA - dateB : dateB - dateA
+              }
+
+              const strA = String(valA || '').toLowerCase()
+              const strB = String(valB || '').toLowerCase()
+              if (strA < strB) return sortDir === 'asc' ? -1 : 1
+              if (strA > strB) return sortDir === 'asc' ? 1 : -1
+              return 0
+          })
+      }
+
+      // 5. Pagination
+      const pagedData = allData.slice(start, start + length)
+
+      return {
+        draw: 1,
+        recordsTotal: recordsTotal,
+        recordsFiltered: recordsFilteredCount,
+        data: pagedData
+      }
+
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[MixRadius] Fetch income period error:', message)
+      if (message.includes('session') || (error as { response?: { status: number } }).response?.status === 401) {
+        this.isLoggedIn = false
+        throw new Error('Session expired, please refresh')
+      }
+      throw new Error(`Failed to fetch Income Period data: ${message}`)
+    }
+  }
+
+  /**
+   * Fetch Income Summary (Cards) from HTML
+   * Endpoint: POST /rad-reports/income-period-load
+   */
+  async fetchIncomeSummary(params: FetchCustomersParams = {}): Promise<MixRadiusIncomeSummary> {
+    const { startDate, endDate, serviceType, paymentMethod, ownerId, groupId, siteId } = params
+
+    try {
+      // If filtering by Group or Site, we should calculate from ALL data
+      if (groupId || siteId) {
+          console.log(`[MixRadius] Calculating income summary from data for groupId=${groupId}, siteId=${siteId}`)
+          // Reuse fetchIncomeByPeriod logic to get filtered data (all of it)
+          const result = await this.fetchIncomeByPeriod({
+              ...params,
+              start: 0,
+              length: 10000,
+              search: '' // Don't filter by search for global summary
+          })
+
+          let totalProfit = 0
+          let totalFee = 0
+          let totalPlusPpn = 0
+
+          result.data.forEach(item => {
+              // total = string like "Rp. 100.000" or just "100000"
+              const cleanTotal = String(item.total || '0').replace(/[^\d]/g, '')
+              const cleanFee = String(item.seller_fee || '0').replace(/[^\d]/g, '')
+
+              const total = parseInt(cleanTotal) || 0
+              const fee = parseInt(cleanFee) || 0
+
+              // In MixRadius Profit = Total - Fee - Tax?
+              // The scraped HTML gives us these values directly.
+              // If we calculate manually, we might be slightly off if we don't know the exact formula MixRadius uses.
+              // However, Profit = Total - Fee is common if Tax is included in Total.
+              // Let's check item.price, item.tax.
+              // Profit usually = price - seller_fee ?
+              const price = parseInt(String(item.price || '0').replace(/[^\d]/g, '')) || 0
+
+              totalPlusPpn += total
+              totalFee += fee
+              totalProfit += (price - fee)
+          })
+
+          const formatIdr = (val: number) => {
+              return new Intl.NumberFormat('id-ID').format(val)
+          }
+
+          return {
+              profit: formatIdr(totalProfit),
+              feeSeller: formatIdr(totalFee),
+              totalPlusPpn: formatIdr(totalPlusPpn),
+              totalTransactions: result.recordsFiltered.toString()
+          }
+      }
+
+      if (!this.isLoggedIn) await this.login()
+
+      const formData = new URLSearchParams()
+      if (startDate) {
+        const fdate = startDate.includes(' ') ? startDate : `${startDate} 00:00:01`
+        formData.append('fdate', fdate)
+      }
+      if (endDate) {
+        const tdate = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
+        formData.append('tdate', tdate)
+      }
+
+      // Ensure all filters are present, use empty string for 'all'
+      formData.append('stype', serviceType || '')
+      formData.append('payment_method', paymentMethod || '')
+      formData.append('owner_id', (ownerId === 'all' || !ownerId) ? '' : ownerId)
+      formData.append('usertype', '0') // Default to "SEMUA TIPE" (Member & Voucher)
+
+      // Additional params seen in trace
+      formData.append('rp_usertype', '') // Default empty
+
+      const response = await this.client.post(
+        `${this.credentials.baseUrl}/rad-reports/income-period-load`,
+        formData.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`,
+          },
+        }
+      )
+
+      const html = response.data as string
+
+      // Parse HTML
+      // 1. PROFIT
+      // <span class="info-box-text">PROFIT ( IDR )</span><span class="info-box-number">974.279</span>
+      const profitMatch = html.match(/PROFIT \( IDR \)<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
+      const profit = profitMatch ? profitMatch[1] : '0'
+
+      // 2. Fee Seller
+      // <span class="info-box-text">Fee Seller ( IDR )</span><span class="info-box-number">5.000</span>
+      const feeMatch = html.match(/Fee Seller \( IDR \)<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
+      const feeSeller = feeMatch ? feeMatch[1] : '0'
+
+      // 3. Total + PPN
+      // <span class="info-box-text">Total \+ PPN \( IDR \)<\/span><span class="info-box-number">1.086.999</span>
+      // Note: Regex needs to handle special chars escaping if needed, but text content matching is safer
+      const totalMatch = html.match(/Total \+ PPN \( IDR \)<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
+      const totalPlusPpn = totalMatch ? totalMatch[1] : '0'
+
+      // 4. Total Transactions (Total Invoice)
+      // <span class="info-box-text">Total Invoice</span><span class="info-box-number">43</span>
+      const countMatch = html.match(/Total Invoice<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
+      const totalTransactions = countMatch ? countMatch[1] : '0'
+
+      return {
+        profit,
+        feeSeller,
+        totalPlusPpn,
+        totalTransactions
+      }
+
+    } catch (error) {
+      console.error('[MixRadius] Failed to fetch income summary:', error)
+      return { profit: '0', feeSeller: '0', totalPlusPpn: '0', totalTransactions: '0' }
+    }
+  }
+
+  /**
+   * Fetch owner list with IDs from the income-by-period page
+   */
+  async getOwnersWithIds(): Promise<MixRadiusOwner[]> {
+    try {
+      // Check cache
+      if (this.ownerListCache.data.length > 0 && this.ownerListCache.expiresAt > Date.now()) {
+        console.log('[MixRadius] Using cached owner list')
+        return this.ownerListCache.data
+      }
+
+      await this.login()
+
+      console.log('[MixRadius] Fetching owner list from income-by-period page...')
+
+      const response = await this.client.get(`${this.credentials.baseUrl}/rad-reports/income-by-period`)
+      const html = response.data as string
+
+      // Parse HTML to find <select name="owner_id">
+      const selectMatch = html.match(/<select[^>]*name="owner_id"[^>]*>([\s\S]*?)<\/select>/i)
+      if (!selectMatch) {
+        console.warn('[MixRadius] Could not find owner_id select in HTML')
+        return []
+      }
+
+      const optionsHtml = selectMatch[1] ?? ''
+      const owners: MixRadiusOwner[] = []
+      const optionRegex = /<option[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/option>/gi
+      let match
+
+      while ((match = optionRegex.exec(optionsHtml)) !== null) {
+        const id = match[1] ?? ''
+        const name = (match[2] ?? '').replace(/<[^>]*>/g, '').trim()
+
+        // Skip "All Owner" or empty values
+        if (id && id !== 'all' && name && !name.toLowerCase().includes('all owner')) {
+          owners.push({ id, name })
+        }
+      }
+
+      console.log(`[MixRadius] Found ${owners.length} owners from HTML`)
+
+      // Update cache
+      this.ownerListCache = {
+        data: owners,
+        expiresAt: Date.now() + MixRadiusService.OWNER_LIST_CACHE_TTL
+      }
+
+      return owners
+    } catch (error) {
+      console.error('[MixRadius] Failed to fetch owners with IDs:', error)
+      return []
     }
   }
 

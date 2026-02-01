@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAsAdmin } from './auth/login.spec';
+import { loginAsAdmin } from './utils/auth';
 
 test.describe('Attendance Manual Input Verification', () => {
     test.beforeEach(async ({ page }) => {
@@ -82,8 +82,10 @@ test.describe('Attendance Manual Input Verification', () => {
         console.log('Submit Payload:', request.postDataJSON());
 
         // 5. Verify Success
+        console.log('Waiting for success toast...');
         try {
             await expect(page.locator('text=Pengajuan manual berhasil dibuat')).toBeVisible({ timeout: 5000 });
+            console.log('Success toast appeared.');
         } catch (e) {
             console.log("Success toast not found. Checking for errors...");
             const content = await page.content();
@@ -93,17 +95,44 @@ test.describe('Attendance Manual Input Verification', () => {
             await page.screenshot({ path: 'manual-input-fail.png' });
             throw e;
         }
-        
+
         // Wait for modal to disappear
+        console.log('Waiting for modal to close...');
         await expect(page.locator('h3', { hasText: 'Input Izin Manual' })).not.toBeVisible();
 
         // 6. Verify List Update
-        // The list should refresh. Check if our new reason appears in the table.
-        // We might need to switch filter to "ALL" or "APPROVED" depending on default status?
-        // Default status for manual input usually PENDING or APPROVED depending on logic.
-        // IzinClient.tsx: setFilterStatus('PENDING') is default. 
-        // Let's search for the reason text.
-        
+        // The list should refresh. We wait for the GET /api/admin/leaves call that refreshes the table
+        console.log('Waiting for table refresh API...');
+        const refreshPromise = page.waitForResponse(response =>
+            response.url().includes('/api/admin/leaves') &&
+            response.request().method() === 'GET' &&
+            response.status() === 200,
+            { timeout: 10000 }
+        ).catch(() => null);
+
+        const refreshResponse = await refreshPromise;
+        if (!refreshResponse) {
+            console.log('Refresh API did not trigger or timed out. Reloading page...');
+            await page.reload();
+            await expect(page.locator('table')).toBeVisible();
+        } else {
+            console.log('Refresh API detected.');
+        }
+
+        // 7. Switch to "ALL" filter to ensure we see the record regardless of its auto-approved status
+        console.log('Switching to "ALL" filter...');
+        const allFilterBtn = page.locator('button').filter({ hasText: /^Semua$/ });
+        await allFilterBtn.click();
+
+        // Wait for the table to refresh after filter change
+        await page.waitForResponse(response =>
+            response.url().includes('/api/admin/leaves') &&
+            response.request().method() === 'GET' &&
+            response.status() === 200
+        );
+
+        console.log(`Checking for reason: ${reason} in table...`);
         await expect(page.locator('table')).toContainText(reason);
+        console.log('Found reason in table. Test passed.');
     });
 });

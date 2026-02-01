@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
+import { HolidayRepository } from '../repositories/HolidayRepository'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { logger } from '@/lib/logger'
 import { LeaveStatus, LeaveType } from '@prisma/client'
@@ -35,10 +36,49 @@ export interface CreateLeaveData {
 export class LeaveService {
     private repository: LeaveRepository
     private balanceRepository: LeaveBalanceRepository
+    private holidayRepository: HolidayRepository
 
     constructor() {
         this.repository = new LeaveRepository()
         this.balanceRepository = new LeaveBalanceRepository()
+        this.holidayRepository = new HolidayRepository()
+    }
+
+    /**
+     * Calculate working days excluding non-working days and holidays
+     */
+    private async calculateWorkingDays(startDate: Date, endDate: Date, workDaysStr: string | null = null): Promise<number> {
+        let days = 0
+        const curDate = new Date(startDate)
+        const lastDate = new Date(endDate)
+
+        // Reset hours to ensure clean day iteration
+        curDate.setHours(0, 0, 0, 0)
+        lastDate.setHours(0, 0, 0, 0)
+
+        // Parse workDays (e.g., "Mon,Tue,Wed,Thu,Fri")
+        // Default to Mon-Fri if null or empty
+        const defaultWorkDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+        const allowedDays = workDaysStr ? workDaysStr.split(',').map(d => d.trim()) : defaultWorkDays
+
+        // Map day index (0-6) to string (Sun-Sat) matching the format in DB
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+        while (curDate <= lastDate) {
+            const dayIndex = curDate.getDay()
+            const dayName = dayNames[dayIndex]
+
+            // Check if it is a working day for the user
+            if (allowedDays.includes(dayName)) {
+                // Check if it's a holiday
+                const { isHoliday } = await this.holidayRepository.isHoliday(curDate)
+                if (!isHoliday) {
+                    days++
+                }
+            }
+            curDate.setDate(curDate.getDate() + 1)
+        }
+        return days
     }
 
     /**
@@ -105,6 +145,25 @@ export class LeaveService {
         autoApprove: boolean = true
     ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
+            // Validation for Auto-Approve: Check Balance
+            let leaveDays = 0
+            if (autoApprove) {
+                const user = await prisma.user.findUnique({
+                    where: { id: data.userId },
+                    select: { workingHourMode: true, workDays: true }
+                })
+
+                if (user && user.workingHourMode !== 'FLEXIBLE' && data.type !== 'TUKAR_LIBUR') {
+                    leaveDays = await this.calculateWorkingDays(data.startDate, data.endDate, user.workDays)
+                    const year = data.startDate.getFullYear()
+
+                    const hasEnough = await this.balanceRepository.hasEnoughDays(data.userId, year, data.type, leaveDays)
+                    if (!hasEnough) {
+                        return { success: false, error: 'Sisa cuti tidak mencukupi', code: 'INSUFFICIENT_BALANCE' }
+                    }
+                }
+            }
+
             const leave = await this.repository.create({
                 user: { connect: { id: data.userId } },
                 type: data.type,
@@ -115,6 +174,21 @@ export class LeaveService {
                 status: autoApprove ? 'APPROVED' : 'PENDING',
                 approvedBy: autoApprove ? createdById : null
             })
+
+            // If auto-approved, update balance
+            if (autoApprove && leaveDays > 0) {
+                try {
+                    const year = data.startDate.getFullYear()
+                    await this.balanceRepository.incrementUsed(
+                        data.userId,
+                        year,
+                        data.type as LeaveType,
+                        leaveDays
+                    )
+                } catch (error) {
+                    logger.error('Failed to update leave balance for auto-approved leave', error instanceof Error ? error : undefined)
+                }
+            }
 
             // Log activity
             await this.logActivity('CREATE', 'LeaveRequest', createdById, {
@@ -149,20 +223,40 @@ export class LeaveService {
                 return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
             }
 
+            if (existing.status === 'APPROVED') {
+                 return { success: false, error: 'Leave is already approved', code: 'ALREADY_APPROVED' }
+            }
+
+            // Calculate days and check balance BEFORE approving
+            let leaveDays = 0
+            const shouldCheckBalance = existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR'
+
+            if (shouldCheckBalance) {
+                leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, existing.user.workDays)
+                const year = existing.startDate.getFullYear()
+
+                const hasEnough = await this.balanceRepository.hasEnoughDays(
+                    existing.userId,
+                    year,
+                    existing.type as LeaveType,
+                    leaveDays
+                )
+
+                if (!hasEnough) {
+                    return { success: false, error: 'Sisa cuti tidak mencukupi', code: 'INSUFFICIENT_BALANCE' }
+                }
+            }
+
             // Update status
             const leave = await this.repository.update(id, {
                 status: 'APPROVED',
                 approvedBy: approverId
             })
 
-            // Update LeaveBalance (skip FLEXIBLE users and TUKAR_LIBUR)
-            if (existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
+            // Update LeaveBalance
+            if (shouldCheckBalance && leaveDays > 0) {
                 try {
-                    const leaveDays = Math.ceil(
-                        (existing.endDate.getTime() - existing.startDate.getTime()) / (1000 * 60 * 60 * 24)
-                    ) + 1
                     const year = existing.startDate.getFullYear()
-
                     await this.balanceRepository.incrementUsed(
                         existing.userId,
                         year,
@@ -171,7 +265,6 @@ export class LeaveService {
                     )
                 } catch (error) {
                     logger.error('Failed to update leave balance', error instanceof Error ? error : undefined)
-                    // Don't fail the approval just because balance update failed
                 }
             }
 
@@ -216,6 +309,25 @@ export class LeaveService {
                 return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
             }
 
+            // Refund balance if previously approved
+            if (existing.status === 'APPROVED') {
+                if (existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
+                     try {
+                        const leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, existing.user.workDays)
+                        const year = existing.startDate.getFullYear()
+
+                        await this.balanceRepository.decrementUsed(
+                            existing.userId,
+                            year,
+                            existing.type as LeaveType,
+                            leaveDays
+                        )
+                    } catch (error) {
+                        logger.error('Failed to refund leave balance', error instanceof Error ? error : undefined)
+                    }
+                }
+            }
+
             const leave = await this.repository.update(id, {
                 status: 'REJECTED',
                 rejectionReason
@@ -257,6 +369,25 @@ export class LeaveService {
 
             if (!existing) {
                 return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
+            }
+
+            // Refund balance if previously approved
+            if (existing.status === 'APPROVED') {
+                if (existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
+                     try {
+                        const leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, existing.user.workDays)
+                        const year = existing.startDate.getFullYear()
+
+                        await this.balanceRepository.decrementUsed(
+                            existing.userId,
+                            year,
+                            existing.type as LeaveType,
+                            leaveDays
+                        )
+                    } catch (error) {
+                        logger.error('Failed to refund leave balance during deletion', error instanceof Error ? error : undefined)
+                    }
+                }
             }
 
             await this.repository.delete(id)

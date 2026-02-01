@@ -50,23 +50,37 @@ test.describe('Attendance Module Business Flow', () => {
 
   test('should manage holidays (Create -> Verify -> Delete)', async ({ page }) => {
     const holidayName = `LiburTest${Date.now()}`
-    const targetDay = 29
+    const targetDay = 15
     const today = new Date()
-    const dateStr = `${today.getFullYear()}-12-${targetDay}`
+    // Use current year and month for the date string
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const dateStr = `${today.getFullYear()}-${month}-${targetDay}`
 
     console.log(`Creating holiday: ${holidayName} on ${dateStr}`)
     await page.goto('/admin/kehadiran/holidays')
-    await page.waitForLoadState('domcontentloaded')
 
-    const daySelector = `span:text-is("${targetDay}")`
-    const dayCell = page.locator('.group').filter({ has: page.locator(daySelector) }).first()
-    
-    page.on('dialog', async dialog => {
-      await dialog.accept()
-    })
+    console.log('Waiting for calendar grid...')
+    await page.locator('.grid').first().waitFor({ state: 'visible' })
 
-    await dayCell.click()
-    await expect(page.locator('h2, h3').filter({ hasText: /Hari Libur/ })).toBeVisible()
+    // Find the cell that contains the day number (exact match)
+    // The grid we want is the one with auto-rows-fr (the calendar days)
+    console.log(`Looking for day cell with text: ${targetDay}`)
+
+    // We look for the span containing the day number, then go to its parent div which has the click handler
+    const dayNumberSpan = page.locator('.grid span').filter({ hasText: new RegExp(`^${targetDay}$`) }).last()
+    const dayCell = dayNumberSpan.locator('..').locator('..') // span -> div (flex) -> div (cell with onClick)
+
+    // Ensure it's visible before clicking
+    console.log('Scrolling to day cell...')
+    await dayNumberSpan.scrollIntoViewIfNeeded();
+    console.log('Clicking day cell...')
+    await dayCell.click({ force: true });
+
+    console.log('Waiting for holiday modal...')
+    const modalHeader = page.locator('h2, h3').filter({ hasText: /Hari Libur/i })
+    await expect(modalHeader).toBeVisible({ timeout: 10000 })
+
+    console.log('Filling holiday form...')
     await page.fill('input[type="date"]', dateStr)
     await page.fill('input[placeholder*="Contoh: Tahun Baru"]', holidayName)
     await page.click('button:has-text("Simpan")')
@@ -100,7 +114,8 @@ test.describe('Attendance Module Business Flow', () => {
     await cariButton.click()
     
     await expect(page.locator('table')).toBeVisible()
-    await expect(page.locator('text=Memuat data...')).not.toBeVisible()
+    // Use first() to avoid strict mode violation if multiple loading indicators are present (e.g. one for table, one for something else)
+    await expect(page.locator('text=Memuat data...').first()).not.toBeVisible()
   })
 
   test('should verify Lembur Management and status filters', async ({ page }) => {
@@ -114,9 +129,9 @@ test.describe('Attendance Module Business Flow', () => {
     await expect(statusSelect.locator('option[value="PENDING"]')).toBeAttached()
     await statusSelect.selectOption('PENDING')
     await cariButton.click()
-    
+
     await expect(page.locator('table')).toBeVisible()
-    await expect(page.locator('text=Memuat data...')).not.toBeVisible()
+    await expect(page.locator('text=Memuat data...').first()).not.toBeVisible()
   })
 
   test('should verify Izin & Cuti and Manual Input modal', async ({ page }) => {
@@ -125,9 +140,10 @@ test.describe('Attendance Module Business Flow', () => {
     await page.waitForLoadState('domcontentloaded')
 
     await page.click('button:has-text("Input Manual")')
-    await expect(page.locator('h3:has-text("Input Manual Izin/Cuti")')).toBeVisible()
-    
+    // Updated title to match actual UI observed in other tests
+    await expect(page.locator('h3:has-text("Input Izin Manual")')).toBeVisible()
+
     await page.click('button:has-text("Batal")')
-    await expect(page.locator('h3:has-text("Input Manual Izin/Cuti")')).not.toBeVisible()
+    await expect(page.locator('h3:has-text("Input Izin Manual")')).not.toBeVisible()
   })
 })

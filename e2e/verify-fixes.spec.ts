@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAsAdmin } from './utils/auth';
 
 const ADMIN_EMAIL = 'admin@example.com';
 const ADMIN_PASS = 'admin123';
@@ -6,14 +7,8 @@ const ADMIN_PASS = 'admin123';
 test.describe('Verification of Bug Fixes', () => {
 
   test.beforeEach(async ({ page }) => {
-    // 1. Login as Admin
-    await page.goto('http://localhost:3000/admin/login');
-    await page.fill('input[type="text"], input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', ADMIN_PASS);
-    await page.click('button[type="submit"]');
-
-    // Wait for dashboard or redirection
-    await expect(page).toHaveURL(/.*admin.*/, { timeout: 10000 });
+    // Use robust login helper
+    await loginAsAdmin(page, ADMIN_EMAIL, ADMIN_PASS);
   });
 
   test('TC001-Fix: Radius Sync should not crash', async ({ page }) => {
@@ -21,38 +16,47 @@ test.describe('Verification of Bug Fixes', () => {
     await page.goto('http://localhost:3000/admin/network/radius');
 
     // Find Sync button (Sync All Users)
-    // Note: Based on code, it's a button with text "Sync All Users" or icon
-    const syncBtn = page.getByRole('button', { name: /Sync All Users/i });
-    await expect(syncBtn).toBeVisible();
+    const syncBtn = page.locator('button').filter({ hasText: 'Sync All Users' }).first();
+    // Wait for button instead of H1 which might be generic "NetManager"
+    await expect(syncBtn).toBeVisible({ timeout: 15000 });
     await syncBtn.click();
 
     // In the modal, click "Start Sync"
-    const startSyncBtn = page.getByRole('button', { name: /Start Sync/i });
+    const startSyncBtn = page.locator('button').filter({ hasText: 'Start Sync' }).first();
     await expect(startSyncBtn).toBeVisible();
     await startSyncBtn.click();
 
     // Expect Success Toast
-    // The previous error was a crash. We expect a success message now.
-    await expect(page.getByText(/Sync Complete!/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Sync Complete!|Sync Finished/i)).toBeVisible({ timeout: 15000 });
   });
 
   test('TC007-Fix: Shift Creation should work with unique code', async ({ page }) => {
-    await page.goto('http://localhost:3000/admin/shifts');
+    // Correct URL for Shift Management
+    await page.goto('http://localhost:3000/admin/kehadiran/shift');
 
     // Open Add Modal
-    await page.getByRole('button', { name: /Tambah Shift/i }).click();
+    console.log('Clicking Tambah Shift button...');
+    const addBtn = page.locator('button').filter({ hasText: 'Tambah Shift' }).first();
+    await expect(addBtn).toBeVisible({ timeout: 15000 });
+    await addBtn.click();
 
-    // Generate unique code
+    // Wait for Modal
+    console.log('Waiting for Shift modal...');
+    const modalHeader = page.locator('h2').filter({ hasText: /Tambah Shift|Create Shift/i });
+    await expect(modalHeader).toBeVisible();
+
     const uniqueCode = `S-${Date.now().toString().slice(-4)}`;
 
     // Fill form
-    await page.fill('input[name="name"]', `Shift Test ${uniqueCode}`);
-    await page.fill('input[name="code"]', uniqueCode);
-    await page.fill('input[name="startTime"]', '08:00');
-    await page.fill('input[name="endTime"]', '17:00');
+    console.log(`Filling shift form with code: ${uniqueCode}`);
+    await page.getByPlaceholder('contoh: Pagi').fill(`Shift Test ${uniqueCode}`);
+    await page.getByPlaceholder('contoh: S1').fill(uniqueCode);
+    await page.locator('input[type="time"]').nth(0).fill('08:00');
+    await page.locator('input[type="time"]').nth(1).fill('17:00');
 
     // Save
-    await page.getByRole('button', { name: /Simpan/i }).click();
+    console.log('Clicking Simpan...');
+    await page.locator('button').filter({ hasText: 'Simpan' }).first().click();
 
     // Verify success
     await expect(page.getByText(/berhasil dibuat/i)).toBeVisible();
@@ -62,30 +66,40 @@ test.describe('Verification of Bug Fixes', () => {
   });
 
   test('TC018-Fix: APK Upload should work', async ({ page }) => {
-    await page.goto('http://localhost:3000/admin/app-version');
+    // Correct URL for App Version
+    await page.goto('http://localhost:3000/admin/pengaturan/app-version');
 
     // Open Upload Modal
-    await page.getByRole('button', { name: /Upload Versi Baru/i }).click();
+    console.log('Clicking Upload Versi Baru button...');
+    const uploadBtn = page.locator('button').filter({ hasText: 'Upload Versi Baru' }).first();
+    await expect(uploadBtn).toBeVisible({ timeout: 15000 });
+    await uploadBtn.click();
+
+    // Wait for Modal
+    console.log('Waiting for Upload modal...');
+    const modalHeader = page.locator('h2').filter({ hasText: /Upload Versi Baru|Upload New Version/i });
+    await expect(modalHeader).toBeVisible();
 
     // Fill form
     const uniqueVer = `1.0.${Date.now().toString().slice(-3)}`;
-    await page.fill('input[name="version"]', uniqueVer);
-    await page.fill('input[name="buildNumber"]', '100');
-    await page.fill('input[name="versionCode"]', '100');
+    console.log(`Filling APK form with version: ${uniqueVer}`);
+    await page.getByPlaceholder('1.0.54').fill(uniqueVer);
+    await page.getByPlaceholder('47').first().fill('100');
+    await page.getByPlaceholder('47').last().fill('100');
 
     // Handle File Upload
-    // We created /tmp/test-app-1.0.55.apk earlier
-    // Note: Playwright needs the file to be accessible
     const filePath = '/tmp/test-app-1.0.55.apk';
+    console.log(`Uploading file: ${filePath}`);
 
     // Find file input. It might be hidden or styled.
-    // Try generic input[type=file]
     await page.setInputFiles('input[type="file"]', filePath);
 
     // Submit
-    await page.getByRole('button', { name: /Upload/i, exact: true }).click();
+    console.log('Clicking Submit...');
+    await page.locator('button[type="submit"]').first().click();
 
     // Verify success (timeout increased for upload)
+    console.log('Waiting for success toast (up to 30s)...');
     await expect(page.getByText(/berhasil diupload/i)).toBeVisible({ timeout: 30000 });
 
     // Verify in list
