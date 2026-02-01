@@ -112,8 +112,9 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [search, setSearch] = useState('')
   const [searchType, setSearchType] = useState('all') // all, member_id, username, fullname
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  
+
   const [onlineFilter, setOnlineFilter] = useState('all') // all, online, offline
+  const [statusFilter, setStatusFilter] = useState('all') // all, Enabled-Users, Disabled-Users
   const [owners, setOwners] = useState<string[]>([])
   const [selectedOwner, setSelectedOwner] = useState('all')
   const [groups, setGroups] = useState<MixRadiusGroup[]>([])
@@ -290,6 +291,8 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
 
       if (defaultStatus) {
         params.append('authStatus', defaultStatus)
+      } else if (statusFilter !== 'all') {
+        params.append('authStatus', statusFilter)
       }
 
       if (onlineFilter !== 'all') {
@@ -323,7 +326,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter, selectedOwner, selectedGroup, sortColumn, sortDirection])
+  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, statusFilter, onlineFilter, selectedOwner, selectedGroup, sortColumn, sortDirection])
 
   const clearCache = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -471,10 +474,25 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
           }}
           className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
         >
-          <option value="all">Semua Status</option>
+          <option value="all">Semua Koneksi</option>
           <option value="online">Online Saja</option>
           <option value="offline">Offline Saja</option>
         </select>
+
+        {!defaultStatus && (
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value)
+              setPage(0)
+            }}
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
+          >
+            <option value="all">Semua Status</option>
+            <option value="Enabled-Users">Aktif</option>
+            <option value="Disabled-Users">Isolir / Non-Aktif</option>
+          </select>
+        )}
 
         <select
           value={selectedGroup}
