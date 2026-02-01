@@ -52,6 +52,7 @@ export default async function DebtsReceivablesPage() {
   })
 
   // Serialization
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formattedReceivables = receivables.map((inv: any) => ({
     ...inv,
     totalAmount: Number(inv.totalAmount),

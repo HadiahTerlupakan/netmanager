@@ -67,7 +67,9 @@ describe('OvertimeService', () => {
       })
 
       // Mock user and admins for notification
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.user.findUnique.mockResolvedValue({ name: 'Test User' } as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.user.findMany.mockResolvedValue([{ id: 'admin-1' }] as any)
 
       const result = await service.createRequest('user-1', {

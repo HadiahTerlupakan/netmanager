@@ -342,6 +342,7 @@ describe('WorkOrderRepository', () => {
       prismaMock.workOrders.count.mockReset()
 
       // Set up the mock implementation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.workOrders.count.mockImplementation(async (args: any) => {
         // If query has priority filter, it's the "urgentOpen" count
         if (args?.where?.priority) {

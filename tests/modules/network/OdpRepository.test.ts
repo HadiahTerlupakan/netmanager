@@ -19,6 +19,7 @@ describe('OdpRepository', () => {
         status: 'AKTIF' as const
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.create.mockResolvedValueOnce({
           id: 'odp-1'
@@ -43,6 +44,7 @@ describe('OdpRepository', () => {
         ]
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-2' } as unknown as Odp)
         prismaMock.odpOutput.createMany.mockResolvedValueOnce({ count: 2 })
@@ -61,6 +63,7 @@ describe('OdpRepository', () => {
         // No status provided
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.create.mockResolvedValueOnce({ id: 'odp-3' } as unknown as Odp)
         return callback(prismaMock)
@@ -85,6 +88,7 @@ describe('OdpRepository', () => {
         location: 'New Location'
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp)
         return callback(prismaMock)
@@ -108,6 +112,7 @@ describe('OdpRepository', () => {
         ]
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.$transaction.mockImplementationOnce(async (callback: any) => {
         prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp)
         prismaMock.odpOutput.deleteMany.mockResolvedValueOnce({ count: 2 })

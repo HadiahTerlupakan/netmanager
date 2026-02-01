@@ -14,6 +14,7 @@ export default async function TransactionsPage() {
   })
 
   // Basic serialization if needed
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formattedAccounts = accounts.map((a: any) => ({
     ...a,
     balance: Number(a.balance)

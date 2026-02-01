@@ -77,6 +77,7 @@ export default async function Page() {
     }
 
     // Serialize dates for client component
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const serializedRecentPOs = recentPOs.map((po: any) => ({
         ...po,
         createdAt: po.createdAt.toISOString(),

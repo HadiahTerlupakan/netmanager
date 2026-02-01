@@ -29,6 +29,7 @@ export default async function ReceivablesPage() {
   })
 
   // Basic serialization if needed (BigInt handling)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formattedData = receivables.map((inv: any) => ({
     ...inv,
     totalAmount: Number(inv.totalAmount),

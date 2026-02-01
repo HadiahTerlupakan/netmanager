@@ -1,4 +1,4 @@
-import { beforeEach, vi, type Mock } from 'vitest'
+import { beforeEach, vi } from 'vitest'
 import { mockReset, mockDeep } from 'vitest-mock-extended'
 
 // Define a simplified mock type to avoid Prisma's circular type references (TS2615)

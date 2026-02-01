@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { prismaMock } from '../../setup'
 import { InventoryRepository } from '@/modules/inventory/repositories/InventoryRepository'
-import type { Barang, BarangGudang, BarangMasuk, BarangKeluar, Gudang } from '@prisma/client'
+import type { Barang, BarangGudang, Gudang } from '@prisma/client'
 
 // Note: InventoryRepository uses an internal `this.db` instance.
 // For proper testing, we would need to inject the prisma client.
