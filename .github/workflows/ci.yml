@@ -130,7 +130,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/netmanager_build
           REDIS_URL: redis://localhost:6379
-          NEXTAUTH_SECRET: build-secret-key
+          NEXTAUTH_SECRET: super-long-secure-secret-key-for-nextauth-build-process
           NEXTAUTH_URL: http://localhost:3000
 
   security:

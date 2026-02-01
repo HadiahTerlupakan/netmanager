@@ -42,6 +42,8 @@ jobs:
         run: npm run build
         env:
           DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          NEXTAUTH_SECRET: "super-long-secure-secret-key-for-nextauth-build-process"
+          NEXTAUTH_URL: "http://localhost:3000"
 
       - name: Deploy to Vercel (if configured)
         uses: amondnet/vercel-action@v25
