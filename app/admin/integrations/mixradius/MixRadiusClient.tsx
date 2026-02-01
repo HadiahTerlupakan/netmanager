@@ -273,7 +273,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     fetchGroups()
   }, [])
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true)
     setError(null)
 
@@ -284,7 +284,8 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         search: debouncedSearch,
         searchType: searchType,
         sortBy: sortColumn,
-        sortDir: sortDirection
+        sortDir: sortDirection,
+        forceRefresh: forceRefresh.toString()
       })
 
       if (defaultStatus) {
@@ -316,6 +317,10 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       setData(responseData.data || [])
       setTotalRecords(responseData.recordsFiltered || 0)
       setGlobalTotal(responseData.recordsTotal || 0)
+
+      if (forceRefresh) {
+        toast.success('Data terbaru berhasil diambil')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       toast.error('Gagal mengambil data dari MixRadius')
@@ -334,7 +339,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   }, [])
 
   useEffect(() => {
-    fetchData()
+    fetchData(false)
   }, [fetchData])
 
   const totalPages = Math.ceil(totalRecords / pageSize)
@@ -400,12 +405,12 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         </div>
 
         <button
-          onClick={fetchData}
+          onClick={() => fetchData(true)}
           disabled={loading}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <HiOutlineArrowPath className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Memuat...' : 'Refresh'}
+          {loading ? 'Memuat...' : 'Refresh Data'}
         </button>
       </div>
 

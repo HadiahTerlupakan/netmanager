@@ -116,6 +116,7 @@ export interface FetchCustomersParams {
   siteId?: string
   sortBy?: string
   sortDir?: 'asc' | 'desc'
+  forceRefresh?: boolean
 }
 
 // ODP Types for Topology Map
@@ -366,7 +367,7 @@ export class MixRadiusService {
    * Fetch data customers PPP dari MixRadius
    */
   async fetchCustomersPPP(params: FetchCustomersParams = {}): Promise<MixRadiusCustomerResponse> {
-    const { start = 0, length = 10, search = '', searchType = 'all', sortBy = 'expired_on', sortDir = 'asc' } = params
+    const { start = 0, length = 10, search = '', searchType = 'all', sortBy = 'expired_on', sortDir = 'asc', forceRefresh = false } = params
 
     try {
       // Ensure we're logged in
@@ -396,12 +397,16 @@ export class MixRadiusService {
 
       let allData: MixRadiusCustomer[] = []
 
-      // Check Cache First
-      if (this.customersCache.data.length > 0 && this.customersCache.expiresAt > Date.now()) {
+      // Check Cache First (Skip if forceRefresh is true)
+      if (!forceRefresh && this.customersCache.data.length > 0 && this.customersCache.expiresAt > Date.now()) {
         console.log(`[MixRadius] Using cached customer list (${this.customersCache.data.length} records). Expires in ${Math.round((this.customersCache.expiresAt - Date.now())/1000)}s`)
         allData = [...this.customersCache.data] // Use copy
       } else {
-        console.log('[MixRadius] Cache miss/expired. Fetching fresh data from upstream...')
+        if (forceRefresh) {
+            console.log('[MixRadius] Force refresh requested. Bypassing cache...')
+        } else {
+            console.log('[MixRadius] Cache miss/expired. Fetching fresh data from upstream...')
+        }
 
         // Add a small random delay before big fetch
         await this.randomDelay(500, 1500)
