@@ -9,17 +9,16 @@ import {
     HiOutlineCreditCard,
     HiOutlineBanknotes
 } from "react-icons/hi2";
-import {
-    Chart as ChartJS,
-    ArcElement,
-    Tooltip,
-    Legend
-} from 'chart.js';
-import { Doughnut } from 'react-chartjs-2';
 import { toast } from "react-hot-toast";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
+import dynamic from 'next/dynamic';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+// Dynamically import Chart.js and React Chartjs 2 components
+// This significantly reduces the initial bundle size for this page
+const Doughnut = dynamic(() => import('react-chartjs-2').then(mod => mod.Doughnut), {
+    ssr: false,
+    loading: () => <div className="h-[300px] w-full flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse">Loading Chart...</div>
+});
 
 interface HistoryItem {
     period: string;
@@ -45,6 +44,20 @@ export function ClientComponent() {
         startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
         endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd')
     });
+
+    // Initialize Chart.js registration only on client side
+    useEffect(() => {
+        const initChart = async () => {
+            const {
+                Chart: ChartJS,
+                ArcElement,
+                Tooltip,
+                Legend
+            } = await import('chart.js');
+            ChartJS.register(ArcElement, Tooltip, Legend);
+        };
+        initChart();
+    }, []);
 
     const fetchStats = useCallback(async () => {
         try {

@@ -238,34 +238,10 @@ export class FinanceService {
      }
      
      if (type === 'CAPEX_OPEX') {
-       // ... existing logic ...
-       // Group by Category Expense Type
-       const transactions = await this.transactionRepo.findAll({
-         startDate: new Date(new Date().getFullYear(), 0, 1), // This year default
-         endDate: new Date()
-       })
-       
-       // Process manually for now as GroupBy is tricky in Repository pattern without dedicated method
-       const summary = {
-         CAPITAL: 0,
-         OPERATIONAL: 0,
-         OTHER: 0
-       }
-       
-       transactions.forEach((t) => {
-         if (t.type === 'EXPENSE' && t.categoryId) {
-            // @ts-expect-error - category relation might not be fully typed in repository return
+       const startDate = new Date(new Date().getFullYear(), 0, 1) // This year default
+       const endDate = new Date()
 
-            const et = t.category?.expenseType || 'OTHER'
-            if (et in summary) {
-                summary[et as keyof typeof summary] += t.amount
-            } else {
-                summary.OTHER += t.amount
-            }
-         }
-       })
-       
-       return summary
+       return this.transactionRepo.getExpenseSummary(startDate, endDate)
     }
     return null
   }

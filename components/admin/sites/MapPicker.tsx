@@ -1,19 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { HiOutlineMapPin } from 'react-icons/hi2'
 import 'ol/ol.css'
-import Map from 'ol/Map'
-import View from 'ol/View'
-import TileLayer from 'ol/layer/Tile'
-import OSM from 'ol/source/OSM'
-import VectorLayer from 'ol/layer/Vector'
-import VectorSource from 'ol/source/Vector'
-import Feature from 'ol/Feature'
-import Point from 'ol/geom/Point'
-import { Style, Icon } from 'ol/style'
-import { fromLonLat, toLonLat } from 'ol/proj'
-import { defaults as defaultControls } from 'ol/control'
+
+// Types for refs
+import type Map from 'ol/Map'
+import type VectorSource from 'ol/source/Vector'
+import type Feature from 'ol/Feature'
 
 interface MapPickerProps {
     latitude: string
@@ -27,6 +21,7 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
     const mapInstanceRef = useRef<Map | null>(null)
     const vectorSourceRef = useRef<VectorSource | null>(null)
     const markerFeatureRef = useRef<Feature | null>(null)
+    const [isMounted, setIsMounted] = useState(false)
 
     // Helper to parse coordinates safely
     const getCoordinates = useCallback(() => {
@@ -38,108 +33,148 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
         return null
     }, [latitude, longitude])
 
-    // Initialize Map
     useEffect(() => {
-        if (!mapRef.current) return
+        setIsMounted(true)
+        return () => setIsMounted(false)
+    }, [])
 
-        // Vector Source and Layer for the marker
-        const vectorSource = new VectorSource()
-        vectorSourceRef.current = vectorSource
+    // Initialize Map with Dynamic Imports
+    useEffect(() => {
+        if (!isMounted || !mapRef.current) return
 
-        // Marker Style (using a standard pin icon)
-        const markerStyle = new Style({
-            image: new Icon({
-                anchor: [0.5, 1], // Bottom center
-                src: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', // Reusing a reliable CDN asset for the pin
-                scale: 1
+        let cleanup = () => {}
+
+        const initMap = async () => {
+            // Dynamic imports
+            const { default: Map } = await import('ol/Map')
+            const { default: View } = await import('ol/View')
+            const { default: TileLayer } = await import('ol/layer/Tile')
+            const { default: OSM } = await import('ol/source/OSM')
+            const { default: VectorLayer } = await import('ol/layer/Vector')
+            const { default: VectorSource } = await import('ol/source/Vector')
+            const { default: Feature } = await import('ol/Feature')
+            const { default: Point } = await import('ol/geom/Point')
+            const { Style, Icon } = await import('ol/style')
+            const { fromLonLat, toLonLat } = await import('ol/proj')
+            const { defaults: defaultControls } = await import('ol/control')
+
+            // Avoid re-initialization
+            if (mapInstanceRef.current) return
+
+            // Vector Source and Layer for the marker
+            const vectorSource = new VectorSource()
+            vectorSourceRef.current = vectorSource
+
+            // Marker Style
+            const markerStyle = new Style({
+                image: new Icon({
+                    anchor: [0.5, 1],
+                    src: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+                    scale: 1
+                })
             })
-        })
 
-        const vectorLayer = new VectorLayer({
-            source: vectorSource,
-            style: markerStyle
-        })
+            const vectorLayer = new VectorLayer({
+                source: vectorSource,
+                style: markerStyle
+            })
 
-        // Determine initial center
-        const coords = getCoordinates()
-        const initialCenter = coords
-            ? fromLonLat([coords.lng, coords.lat])
-            : fromLonLat([106.8456, -6.2088]) // Jakarta default
+            // Determine initial center
+            const coords = getCoordinates()
+            const initialCenter = coords
+                ? fromLonLat([coords.lng, coords.lat])
+                : fromLonLat([106.8456, -6.2088]) // Jakarta default
 
-        const map = new Map({
-            target: mapRef.current,
-            layers: [
-                new TileLayer({
-                    source: new OSM()
+            const map = new Map({
+                target: mapRef.current as HTMLElement,
+                layers: [
+                    new TileLayer({
+                        source: new OSM()
+                    }),
+                    vectorLayer
+                ],
+                view: new View({
+                    center: initialCenter,
+                    zoom: coords ? 15 : 10
                 }),
-                vectorLayer
-            ],
-            view: new View({
-                center: initialCenter,
-                zoom: coords ? 15 : 10
-            }),
-            controls: defaultControls({ zoom: true, attribution: false }) // Simplified controls
-        })
+                controls: defaultControls({ zoom: true, attribution: false })
+            })
 
-        mapInstanceRef.current = map
+            mapInstanceRef.current = map
 
-        // Click handler to pick location
-        map.on('click', (event) => {
-            const coordinates = toLonLat(event.coordinate)
-            const [lng, lat] = coordinates
-            if (lat !== undefined && lng !== undefined) {
-                onChange(lat.toFixed(6), lng.toFixed(6))
-            }
-        })
+            // Click handler
+            map.on('click', (event) => {
+                const coordinates = toLonLat(event.coordinate)
+                const [lng, lat] = coordinates
+                if (lat !== undefined && lng !== undefined) {
+                    onChange(lat.toFixed(6), lng.toFixed(6))
+                }
+            })
 
-        // Ensure map is correctly sized
-        const timer = setTimeout(() => map.updateSize(), 100)
-
-        // Cleanup
-        return () => {
-            clearTimeout(timer)
-            map.setTarget(undefined)
-            mapInstanceRef.current = null
-        }
-    }, [getCoordinates, onChange])
-
-    // React to props change (updates marker position)
-    useEffect(() => {
-        const coords = getCoordinates()
-
-        if (coords && vectorSourceRef.current) {
-            const pointGeom = new Point(fromLonLat([coords.lng, coords.lat]))
-
-            if (!markerFeatureRef.current) {
-                // Create new marker if none exists
+            // Initial marker if coords exist
+            if (coords) {
+                const pointGeom = new Point(fromLonLat([coords.lng, coords.lat]))
                 const feature = new Feature({
                     geometry: pointGeom
                 })
                 markerFeatureRef.current = feature
-                vectorSourceRef.current.addFeature(feature)
-            } else {
-                // Update existing marker geometry
-                markerFeatureRef.current.setGeometry(pointGeom)
+                vectorSource.addFeature(feature)
             }
 
-            // Sync View if needed (Optional: only if map is ready and user explicitly updated via form inputs,
-            // but we usually let the user pan manually to avoid jumping around too much.
-            // However, on first load or direct input, it might be nice.
-            // Let's rely on the map's initial view for the first load, and 'Current Location' button for explicit centering.)
-            if (mapInstanceRef.current) {
-                // Check if the current view is very far off?
-                // For now, let's just ensure the marker is updated.
+            cleanup = () => {
+                map.setTarget(undefined)
+                mapInstanceRef.current = null
+                vectorSourceRef.current = null
+                markerFeatureRef.current = null
             }
-
-        } else if (!coords && markerFeatureRef.current && vectorSourceRef.current) {
-            // Remove marker if coordinates become invalid
-            vectorSourceRef.current.removeFeature(markerFeatureRef.current)
-            markerFeatureRef.current = null
         }
-    }, [getCoordinates])
 
-    const getCurrentLocation = () => {
+        initMap()
+
+        return () => {
+            cleanup()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isMounted]) // Run once on mount
+
+    // Update marker when props change
+    useEffect(() => {
+        const updateMarker = async () => {
+            if (!mapInstanceRef.current || !vectorSourceRef.current) return
+
+            const { default: Feature } = await import('ol/Feature')
+            const { default: Point } = await import('ol/geom/Point')
+            const { fromLonLat } = await import('ol/proj')
+
+            const coords = getCoordinates()
+
+            if (coords) {
+                const pointGeom = new Point(fromLonLat([coords.lng, coords.lat]))
+
+                if (!markerFeatureRef.current) {
+                    const feature = new Feature({
+                        geometry: pointGeom
+                    })
+                    markerFeatureRef.current = feature
+                    vectorSourceRef.current.addFeature(feature)
+                } else {
+                    markerFeatureRef.current.setGeometry(pointGeom)
+                }
+            } else if (markerFeatureRef.current) {
+                vectorSourceRef.current.removeFeature(markerFeatureRef.current)
+                markerFeatureRef.current = null
+            }
+        }
+
+        updateMarker()
+    }, [getCoordinates, latitude, longitude])
+
+
+    const getCurrentLocation = async () => {
         if (navigator.geolocation) {
+            // We need to import proj dynamically here as well for the animation
+            const { fromLonLat } = await import('ol/proj')
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const { latitude, longitude } = position.coords

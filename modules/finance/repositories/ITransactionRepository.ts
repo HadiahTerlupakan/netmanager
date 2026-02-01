@@ -11,4 +11,5 @@ export interface ITransactionRepository {
   
   create(data: Prisma.TransactionCreateInput): Promise<Transaction>
   findByPurchaseOrder(poId: string): Promise<Transaction[]>
+  getExpenseSummary(startDate: Date, endDate: Date): Promise<{ CAPITAL: number; OPERATIONAL: number; OTHER: number }>
 }

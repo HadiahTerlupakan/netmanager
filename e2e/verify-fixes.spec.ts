@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
 
 const ADMIN_EMAIL = 'admin@example.com';
 const ADMIN_PASS = 'admin123';

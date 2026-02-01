@@ -20,13 +20,32 @@ export class AttendanceRepository {
     }
 
     async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: {
-                gte: startDate,
-                lte: endDate
+        const startStr = startDate.toISOString()
+        const endStr = endDate.toISOString()
+
+        let userJoin = ''
+        let userCondition = ''
+
+        if (siteId || departmentId) {
+            userJoin = 'JOIN "users" u ON a."userId" = u.id'
+            const conditions = []
+            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
+            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
+            if (conditions.length > 0) {
+                userCondition = 'AND ' + conditions.join(' AND ')
             }
         }
 
+        // 1. Status Counts
+        // Use raw query to ensure we capture filtering correctly if it wasn't working before with Prisma types
+        // But Prisma groupBy supports relations in where clause usually.
+        // Let's stick to Prisma for simple counts if it works, BUT we need consistency.
+        // If we switch to raw for AVG, might as well use raw for everything to avoid mixing logic or just use raw for AVG.
+        // Let's use raw for AVG only as it is the heavy part.
+
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate }
+        }
         if (siteId || departmentId) {
             where.user = {
                 ...(siteId && { siteId }),
@@ -34,43 +53,27 @@ export class AttendanceRepository {
             }
         }
 
-        // Aggregate counts by status
         const statusCounts = await prisma.attendance.groupBy({
             by: ['status'],
             where,
-            _count: {
-                _all: true
-            }
+            _count: { _all: true }
         })
 
         const total = await prisma.attendance.count({ where })
 
-        // Calculate Average Working Hours
-        // Since we can't aggregate date diff in Prisma easily, we fetch records with checkout
-        const completedAttendance = await prisma.attendance.findMany({
-            where: {
-                ...where,
-                checkOut: { not: null }
-            },
-            select: {
-                checkIn: true,
-                checkOut: true
-            }
-        })
+        // 2. Average Duration (Optimized)
+        const avgResult = await prisma.$queryRawUnsafe<{ avgDuration: number }[]>(`
+            SELECT
+                AVG(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "avgDuration"
+            FROM "Attendance" a
+            ${userJoin}
+            WHERE a."checkIn" >= '${startStr}'::timestamp
+            AND a."checkIn" <= '${endStr}'::timestamp
+            AND a."checkOut" IS NOT NULL
+            ${userCondition}
+        `)
 
-        let totalDurationMinutes = 0
-        completedAttendance.forEach(att => {
-            if (att.checkOut && att.checkIn) {
-                const start = new Date(att.checkIn).getTime()
-                const end = new Date(att.checkOut).getTime()
-                const diffMinutes = (end - start) / (1000 * 60)
-                if (diffMinutes > 0) totalDurationMinutes += diffMinutes
-            }
-        })
-
-        const avgDurationMinutes = completedAttendance.length > 0
-            ? Math.round(totalDurationMinutes / completedAttendance.length)
-            : 0
+        const avgDurationMinutes = avgResult[0]?.avgDuration ? Math.round(avgResult[0].avgDuration) : 0
 
         return {
             total,
@@ -83,72 +86,73 @@ export class AttendanceRepository {
     }
 
     async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        // Since Prisma doesn't support grouping by date easily in all DBs without raw query,
-        // we'll fetch all records and group in memory for this flexible report
-        // OR use raw query if performance is critical. For now, in-memory is safer for portability.
-        // Assuming moderate data volume for a reporting range (e.g., month).
+        // Use raw query for efficient date grouping
+        const startStr = startDate.toISOString()
+        const endStr = endDate.toISOString()
 
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: {
-                gte: startDate,
-                lte: endDate
-            }
-        }
+        // Build raw query conditions
+        let userJoin = ''
+        let userCondition = ''
 
         if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
+            userJoin = 'JOIN "User" u ON a."userId" = u.id'
+            const conditions = []
+            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
+            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
+            if (conditions.length > 0) {
+                userCondition = 'AND ' + conditions.join(' AND ')
             }
         }
 
-        const records = await prisma.attendance.findMany({
-            where,
-            select: {
-                checkIn: true,
-                status: true
-            }
-        })
+        // 1. Get Attendance Stats
+        const attendanceStats = await prisma.$queryRawUnsafe<{ date: string, present: number, late: number }[]>(`
+            SELECT
+                TO_CHAR(a."checkIn", 'YYYY-MM-DD') as date,
+                COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
+                COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late
+            FROM "Attendance" a
+            ${userJoin}
+            WHERE a."checkIn" >= '${startStr}'::timestamp
+            AND a."checkIn" <= '${endStr}'::timestamp
+            ${userCondition}
+            GROUP BY TO_CHAR(a."checkIn", 'YYYY-MM-DD')
+        `)
 
-        // Fetch Holidays
+        // 2. Get Leave Stats
+        // Note: Leaves can span multiple days, so simple group by start date isn't enough for daily stats if we want to show "people on leave today"
+        // But for "Daily Stats" chart usually we just count new leaves starting that day OR expanding ranges.
+        // Expanding ranges in SQL is complex (generate_series).
+        // For now, let's keep the existing logic for leaves (JS expansion) as it's usually lower volume than attendance.
+        // Or we can optimize if needed. Let's stick to hybrid: Optimized Attendance (High Vol) + JS Leave (Low Vol).
+
+        // Fetch Holidays (Low Vol)
         const holidayRepo = new HolidayRepository()
         const holidays = await holidayRepo.findMany({
-            where: {
-                date: {
-                    gte: startDate,
-                    lte: endDate
-                }
-            }
+            where: { date: { gte: startDate, lte: endDate } }
         })
         const holidaySet = new Set(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))
 
-        // Fetch Approved Leaves
+        // Fetch Leaves (Low/Med Vol)
         const leaveWhere: Prisma.LeaveRequestWhereInput = {
             status: 'APPROVED',
             startDate: { lte: endDate },
             endDate: { gte: startDate }
         }
-
         if (siteId || departmentId) {
             leaveWhere.user = {
                 ...(siteId && { siteId }),
                 ...(departmentId && { departmentId })
             }
         }
-
         const leaves = await prisma.leaveRequest.findMany({
             where: leaveWhere,
-            select: {
-                startDate: true,
-                endDate: true,
-                type: true
-            }
+            select: { startDate: true, endDate: true, type: true }
         })
 
-        // Group by Date (YYYY-MM-DD)
+        // Merge Data
         const dailyMap = new Map<string, { present: number, late: number, absent: number, isHoliday: boolean, sakit: number, cuti: number, izin: number }>()
 
-        // Helper to ensure date entry exists
+        // Helper
         const ensureDate = (dateKey: string) => {
             if (!dailyMap.has(dateKey)) {
                 dailyMap.set(dateKey, { present: 0, late: 0, absent: 0, isHoliday: holidaySet.has(dateKey), sakit: 0, cuti: 0, izin: 0 })
@@ -156,36 +160,31 @@ export class AttendanceRepository {
             return dailyMap.get(dateKey)!
         }
 
-        // Seed Map with Holidays (to ensure they appear even if 0 attendance)
+        // Fill from SQL Attendance Stats
+        attendanceStats.forEach(stat => {
+            const d = ensureDate(stat.date)
+            d.present = stat.present
+            d.late = stat.late
+        })
+
+        // Fill Holidays
         holidaySet.forEach(date => {
-            if (date) ensureDate(date)
+            if(date) ensureDate(date)
         })
 
-        // Process Attendance
-        records.forEach(rec => {
-            const dateKey = rec.checkIn.toISOString().split('T')[0] ?? ''
-            if (!dateKey) return;
-            const stats = ensureDate(dateKey)
-
-            // Assuming 'ON_TIME', 'LATE', and 'PRESENT' are valid statuses for present
-            if (rec.status === 'LATE') stats.late++
-            if (rec.status === 'ON_TIME' || rec.status === 'LATE') stats.present++
-        })
-
-        // Process Leaves
+        // Fill Leaves (JS Expansion)
         leaves.forEach(leave => {
             const current = new Date(leave.startDate)
             const end = new Date(leave.endDate)
-
             while (current <= end) {
                 if (current >= startDate && current <= endDate) {
                     const dateKey = current.toISOString().split('T')[0] ?? ''
-                    if (!dateKey) return;
-                    const stats = ensureDate(dateKey)
-
-                    if (leave.type === 'SAKIT') stats.sakit++
-                    else if (leave.type === 'CUTI') stats.cuti++
-                    else if (leave.type === 'IZIN') stats.izin++
+                    if (dateKey) {
+                        const stats = ensureDate(dateKey)
+                        if (leave.type === 'SAKIT') stats.sakit++
+                        else if (leave.type === 'CUTI') stats.cuti++
+                        else if (leave.type === 'IZIN') stats.izin++
+                    }
                 }
                 current.setDate(current.getDate() + 1)
             }
@@ -202,60 +201,40 @@ export class AttendanceRepository {
         endDate: Date,
         groupBy: 'department' | 'site'
     ) {
-        // Complex aggregation needing relation traversal. 
-        // We will fetch all relevant attendance with user relations.
+        const startStr = startDate.toISOString()
+        const endStr = endDate.toISOString()
 
-        const attendances = await prisma.attendance.findMany({
-            where: {
-                checkIn: { gte: startDate, lte: endDate }
-            },
-            include: {
-                user: {
-                    include: {
-                        sites: true,
-                        departments: true // assuming relation names
-                    }
-                }
-            }
-        })
+        let groupByColumn = ''
+        let groupByNameColumn = ''
+        let joinTable = ''
 
-        const groups = new Map<string, { id: string, name: string, present: number, late: number, total: number }>()
+        if (groupBy === 'site') {
+            groupByColumn = 'u."siteId"'
+            joinTable = 'JOIN "sites" s ON u."siteId" = s.id'
+            groupByNameColumn = 's.name'
+        } else {
+            groupByColumn = 'u."departmentId"'
+            joinTable = 'JOIN "departments" d ON u."departmentId" = d.id'
+            groupByNameColumn = 'd.name'
+        }
 
-        attendances.forEach(att => {
-            const user = att.user
-            if (!user) return
+        // Raw query to aggregate by joined table
+        const stats = await prisma.$queryRawUnsafe<{ id: string, name: string, present: number, late: number, total: number }[]>(`
+            SELECT
+                ${groupByColumn} as id,
+                ${groupByNameColumn} as name,
+                COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
+                COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late,
+                COUNT(*)::int as total
+            FROM "Attendance" a
+            JOIN "User" u ON a."userId" = u.id
+            ${joinTable}
+            WHERE a."checkIn" >= '${startStr}'::timestamp
+            AND a."checkIn" <= '${endStr}'::timestamp
+            GROUP BY ${groupByColumn}, ${groupByNameColumn}
+        `)
 
-            let groupKey = 'Unknown'
-            let groupName = 'Unknown'
-
-            if (groupBy === 'site' && user.sites) {
-                groupKey = user.sites.id
-                groupName = user.sites.name
-            } else if (groupBy === 'department' && user.departments) {
-                groupKey = user.departments.id // Assuming department has ID
-                // If department is just a string or relation?
-                // Based on User schema in previous edits: departments: { name: true }
-                // So department is a relation.
-                // We'll assume user.departmentId or user.departments.name
-                if (user.departments) {
-                    // Check logic. Usually department is relation.
-                    // Let's use name if ID not easily accessible or just name for grouping
-                    groupKey = user.departments.name // Group by Name if ID not unique across sites? Or just Name
-                    groupName = user.departments.name
-                }
-            }
-
-            if (!groups.has(groupKey)) {
-                groups.set(groupKey, { id: groupKey, name: groupName, present: 0, late: 0, total: 0 })
-            }
-
-            const stats = groups.get(groupKey)!
-            stats.total++
-            if (att.status === 'LATE') stats.late++
-            if (['ON_TIME', 'LATE'].includes(att.status)) stats.present++
-        })
-
-        return Array.from(groups.values())
+        return stats
     }
 
     async getTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
@@ -411,40 +390,39 @@ export class AttendanceRepository {
     }
 
     async getUserTotalDuration(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate },
-            checkOut: { not: null },
-            // IMPORTANT: Only count duration from actual present attendance
-            // Exclude ALPHA/ABSENT records which may have had checkOut set due to bugs
-            status: { in: ['ON_TIME', 'LATE'] }
-        }
+        const startStr = startDate.toISOString()
+        const endStr = endDate.toISOString()
+
+        let userJoin = ''
+        let userCondition = ''
 
         if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
+            userJoin = 'JOIN "User" u ON a."userId" = u.id'
+            const conditions = []
+            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
+            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
+            if (conditions.length > 0) {
+                userCondition = 'AND ' + conditions.join(' AND ')
             }
         }
 
-        const records = await prisma.attendance.findMany({
-            where,
-            select: {
-                userId: true,
-                checkIn: true,
-                checkOut: true
-            }
-        })
+        const results = await prisma.$queryRawUnsafe<{ userId: string, totalMinutes: number }[]>(`
+            SELECT
+                a."userId",
+                SUM(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "totalMinutes"
+            FROM "Attendance" a
+            ${userJoin}
+            WHERE a."checkIn" >= '${startStr}'::timestamp
+            AND a."checkIn" <= '${endStr}'::timestamp
+            AND a."checkOut" IS NOT NULL
+            AND a.status IN ('ON_TIME', 'LATE')
+            ${userCondition}
+            GROUP BY a."userId"
+        `)
 
         const userDurationMap = new Map<string, number>()
-
-        records.forEach(rec => {
-            if (rec.checkOut && rec.checkIn) {
-                const duration = (new Date(rec.checkOut).getTime() - new Date(rec.checkIn).getTime()) / (1000 * 60) // minutes
-                if (duration > 0) {
-                    const current = userDurationMap.get(rec.userId) || 0
-                    userDurationMap.set(rec.userId, current + duration)
-                }
-            }
+        results.forEach(r => {
+            userDurationMap.set(r.userId, r.totalMinutes || 0)
         })
 
         return userDurationMap

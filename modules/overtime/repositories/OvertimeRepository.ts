@@ -180,82 +180,78 @@ export class OvertimeRepository implements IOvertimeRepository {
     }
 
     async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.OvertimeWhereInput = {
-            createdAt: { gte: startDate, lte: endDate }
-        }
+        const startStr = startDate.toISOString()
+        const endStr = endDate.toISOString()
+
+        let userJoin = ''
+        let userCondition = ''
 
         if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
+            userJoin = 'JOIN "User" u ON o."userId" = u.id'
+            const conditions = []
+            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
+            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
+            if (conditions.length > 0) {
+                userCondition = 'AND ' + conditions.join(' AND ')
             }
         }
 
-        const records = await prisma.overtime.findMany({
-            where,
-            select: {
-                createdAt: true,
-                duration: true
-            }
-        })
+        const stats = await prisma.$queryRawUnsafe<{ date: string, requests: number, duration: number }[]>(`
+            SELECT
+                TO_CHAR(o."createdAt", 'YYYY-MM-DD') as date,
+                COUNT(*)::int as requests,
+                SUM(o.duration)::int as duration
+            FROM "Overtime" o
+            ${userJoin}
+            WHERE o."createdAt" >= '${startStr}'::timestamp
+            AND o."createdAt" <= '${endStr}'::timestamp
+            ${userCondition}
+            GROUP BY TO_CHAR(o."createdAt", 'YYYY-MM-DD')
+        `)
 
-        const dailyMap = new Map<string, { requests: number, duration: number }>()
-
-        records.forEach(rec => {
-            const dateKey = rec.createdAt.toISOString().split('T')[0]
-            if (!dailyMap.has(dateKey)) {
-                dailyMap.set(dateKey, { requests: 0, duration: 0 })
-            }
-            const stat = dailyMap.get(dateKey)!
-            stat.requests++
-            stat.duration += (rec.duration || 0)
-        })
-
-        return Array.from(dailyMap.entries()).map(([date, stat]) => ({
-            date,
-            ...stat
+        return stats.map(s => ({
+            date: s.date,
+            requests: Number(s.requests),
+            duration: Number(s.duration || 0)
         })).sort((a, b) => a.date.localeCompare(b.date))
     }
 
     async getGroupedStats(startDate: Date, endDate: Date, groupBy: 'department' | 'site') {
-        const overtimes = await prisma.overtime.findMany({
-            where: {
-                createdAt: { gte: startDate, lte: endDate }
-            },
-            include: {
-                user: {
-                    include: { sites: true, departments: true }
-                }
-            }
-        })
+        const startStr = startDate.toISOString()
+        const endStr = endDate.toISOString()
 
-        const groups = new Map<string, { name: string, requests: number, duration: number }>()
+        let groupByColumn = ''
+        let groupByNameColumn = ''
+        let joinTable = ''
 
-        overtimes.forEach(ot => {
-            const user = ot.user
-            if (!user) return
+        if (groupBy === 'site') {
+            groupByColumn = 'u."siteId"'
+            joinTable = 'JOIN "sites" s ON u."siteId" = s.id'
+            groupByNameColumn = 's.name'
+        } else {
+            groupByColumn = 'u."departmentId"'
+            joinTable = 'JOIN "departments" d ON u."departmentId" = d.id'
+            groupByNameColumn = 'd.name'
+        }
 
-            let groupKey = 'Unknown'
-            let groupName = 'Unknown'
+        const stats = await prisma.$queryRawUnsafe<{ name: string, requests: number, duration: number }[]>(`
+            SELECT
+                ${groupByNameColumn} as name,
+                COUNT(*)::int as requests,
+                SUM(o.duration)::int as duration
+            FROM "Overtime" o
+            JOIN "User" u ON o."userId" = u.id
+            ${joinTable}
+            WHERE o."createdAt" >= '${startStr}'::timestamp
+            AND o."createdAt" <= '${endStr}'::timestamp
+            GROUP BY ${groupByColumn}, ${groupByNameColumn}
+        `)
 
-            if (groupBy === 'site' && user.sites) {
-                groupKey = user.sites.id
-                groupName = user.sites.name
-            } else if (groupBy === 'department' && user.departments) {
-                groupKey = user.departments.name // Group by name
-                groupName = user.departments.name
-            }
-
-            if (!groups.has(groupKey)) {
-                groups.set(groupKey, { name: groupName, requests: 0, duration: 0 })
-            }
-
-            const stat = groups.get(groupKey)!
-            stat.requests++
-            stat.duration += (ot.duration || 0)
-        })
-
-        return Array.from(groups.values())
+        return stats.map(s => ({
+            name: s.name,
+            requests: Number(s.requests),
+            duration: Number(s.duration || 0)
+        }))
     }
 
     async getTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {

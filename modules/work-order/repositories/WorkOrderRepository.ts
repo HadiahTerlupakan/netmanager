@@ -1163,7 +1163,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
     async getStatistics(filters?: Omit<WorkOrderFilters, 'search'>): Promise<WorkOrderStatistics> {
         const where: Prisma.WorkOrdersWhereInput = {};
-        
+
         if (filters?.siteId) where.siteId = filters.siteId;
         if (filters?.departmentId) where.departmentId = filters.departmentId;
         if (filters?.assignedToId !== undefined) where.assignedToId = filters.assignedToId;
@@ -1175,25 +1175,34 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.createdAt = createdAtFilter;
         }
 
-        const [total, statusCounts, completedOrders, ratingData, urgentOpen] = await Promise.all([
+        // Prepare conditions for raw query
+        const rawConditions: string[] = []
+        if (filters?.siteId) rawConditions.push(`"siteId" = '${filters.siteId}'`)
+        if (filters?.departmentId) rawConditions.push(`"departmentId" = '${filters.departmentId}'`)
+        if (filters?.assignedToId) rawConditions.push(`"assignedToId" = '${filters.assignedToId}'`)
+        if (filters?.pelangganId) rawConditions.push(`"pelangganId" = '${filters.pelangganId}'`)
+        if (filters?.dateFrom) rawConditions.push(`"createdAt" >= '${filters.dateFrom.toISOString()}'::timestamp`)
+        if (filters?.dateTo) rawConditions.push(`"createdAt" <= '${filters.dateTo.toISOString()}'::timestamp`)
+
+        const whereClause = rawConditions.length > 0 ? 'AND ' + rawConditions.join(' AND ') : ''
+
+        const [total, statusCounts, completionStats, ratingData, urgentOpen] = await Promise.all([
             this.prisma.workOrders.count({ where }),
             this.prisma.workOrders.groupBy({
                 by: ['status'],
                 where,
                 _count: true,
             }),
-            this.prisma.workOrders.findMany({
-                where: {
-                    ...where,
-                    completedAt: { not: null },
-                    startedAt: { not: null },
-                },
-                select: {
-                    startedAt: true,
-                    completedAt: true,
-                    actualCost: true,
-                },
-            }),
+            // Optimized aggregation for cost and duration
+            this.prisma.$queryRawUnsafe<{ avgHours: number, totalCost: number }[]>(`
+                SELECT
+                    AVG(EXTRACT(EPOCH FROM ("completedAt" - "startedAt")) / 3600)::float as "avgHours",
+                    SUM("actualCost")::float as "totalCost"
+                FROM "work_orders"
+                WHERE "completedAt" IS NOT NULL
+                AND "startedAt" IS NOT NULL
+                ${whereClause}
+            `),
             this.prisma.workOrders.aggregate({
                 where: {
                     ...where,
@@ -1220,18 +1229,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             return acc;
         }, {} as Record<string, number>);
 
-        let totalCompletionHours = 0;
-        let totalCost = 0;
-
-        completedOrders.forEach((wo) => {
-            if (wo.startedAt && wo.completedAt) {
-                const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
-                totalCompletionHours += hours;
-            }
-            if (wo.actualCost) {
-                totalCost += Number(wo.actualCost);
-            }
-        });
+        const stats = completionStats[0] || { avgHours: 0, totalCost: 0 };
 
         return {
             total,
@@ -1244,8 +1242,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             closed: statusMap['CLOSED'] || 0,
             cancelled: statusMap['CANCELLED'] || 0,
             urgentOpen,
-            avgCompletionTimeHours: completedOrders.length > 0 ? totalCompletionHours / completedOrders.length : 0,
-            totalCost,
+            avgCompletionTimeHours: stats.avgHours || 0,
+            totalCost: stats.totalCost || 0,
             avgRating: ratingData._avg.rating || null,
             totalWithRating: ratingData._count.rating || 0,
         };

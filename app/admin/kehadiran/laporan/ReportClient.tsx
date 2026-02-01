@@ -1,19 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    PointElement,
-    LineElement,
-    ArcElement
-} from 'chart.js'
-import { Bar, Line } from 'react-chartjs-2'
+import dynamic from 'next/dynamic'
 import { FaSearch, FaFileExport } from 'react-icons/fa'
 import { MdTrendingUp, MdAccessTime, MdPeople, MdPersonOff, MdTimer } from 'react-icons/md'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -22,17 +10,15 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
 import { validateDateRange } from '@/lib/utils/validation'
 
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    PointElement,
-    LineElement,
-    ArcElement
-)
+// Dynamic imports for Chart.js components
+const Line = dynamic(() => import('react-chartjs-2').then(mod => mod.Line), {
+    ssr: false,
+    loading: () => <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 rounded-lg animate-pulse">Loading Chart...</div>
+})
+const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), {
+    ssr: false,
+    loading: () => <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 rounded-lg animate-pulse">Loading Chart...</div>
+})
 
 // Interfaces for report data
 interface AttendanceTrend {
@@ -138,6 +124,37 @@ export function ClientComponent() {
     const [searchQuery, setSearchQuery] = useState('')
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'hadir', direction: 'desc' })
 
+    // Register ChartJS on mount
+    useEffect(() => {
+        const initChart = async () => {
+             const {
+              Chart: ChartJS,
+              CategoryScale,
+              LinearScale,
+              BarElement,
+              Title,
+              Tooltip,
+              Legend,
+              PointElement,
+              LineElement,
+              ArcElement
+            } = await import('chart.js')
+
+            ChartJS.register(
+              CategoryScale,
+              LinearScale,
+              BarElement,
+              Title,
+              Tooltip,
+              Legend,
+              PointElement,
+              LineElement,
+              ArcElement
+            )
+        }
+        initChart()
+    }, [])
+
     // Handle rate limit countdown
     useEffect(() => {
         if (retryCountdown !== null && retryCountdown > 0) {
@@ -213,7 +230,7 @@ export function ClientComponent() {
 
     const handleExportCSV = () => {
         if (!data?.attendance?.employeeSummary) return
-        
+
         const headers = ['Nama', 'Site', 'Departemen', 'Hadir', 'Terlambat', 'Izin', 'Alpha', 'Lembur (Jam)', 'Total Jam Kerja']
         const rows = data.attendance.employeeSummary.map((e: EmployeeSummary) => [
             `"${e.user?.name || '-'}"`,
@@ -338,27 +355,27 @@ export function ClientComponent() {
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex flex-wrap gap-4 items-end">
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Dari Tanggal</label>
-                    <input 
-                        type="date" 
-                        value={startDate} 
-                        onChange={e => setStartDate(e.target.value)} 
-                        className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                    <input
+                        type="date"
+                        value={startDate}
+                        onChange={e => setStartDate(e.target.value)}
+                        className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Sampai Tanggal</label>
-                    <input 
-                        type="date" 
-                        value={endDate} 
-                        onChange={e => setEndDate(e.target.value)} 
-                        className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                    <input
+                        type="date"
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Site</label>
-                    <select 
-                        value={siteId} 
-                        onChange={e => setSiteId(e.target.value)} 
+                    <select
+                        value={siteId}
+                        onChange={e => setSiteId(e.target.value)}
                         className="border rounded px-3 py-2 text-sm w-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     >
                         <option value="">Semua Site</option>
@@ -367,17 +384,17 @@ export function ClientComponent() {
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Departemen</label>
-                    <select 
-                        value={departmentId} 
-                        onChange={e => setDepartmentId(e.target.value)} 
+                    <select
+                        value={departmentId}
+                        onChange={e => setDepartmentId(e.target.value)}
                         className="border rounded px-3 py-2 text-sm w-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     >
                         <option value="">Semua Dept</option>
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
-                <button 
-                    onClick={() => fetchReport()} 
+                <button
+                    onClick={() => fetchReport()}
                     disabled={loading || retryCountdown !== null}
                     className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 flex items-center gap-2 h-[38px] disabled:opacity-50"
                 >
@@ -387,18 +404,18 @@ export function ClientComponent() {
 
             {/* Tab Navigation */}
             <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
-                <button 
+                <button
                     onClick={() => setActiveTab('dashboard')}
-                    className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'dashboard' 
-                        ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+                    className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'dashboard'
+                        ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                     📊 Dashboard
                 </button>
-                <button 
+                <button
                     onClick={() => setActiveTab('rekap')}
-                    className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'rekap' 
-                        ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+                    className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'rekap'
+                        ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                     👥 Rekap Karyawan
@@ -523,8 +540,8 @@ export function ClientComponent() {
                                             }
                                         ]
                                     }}
-                                    options={{ 
-                                        responsive: true, 
+                                    options={{
+                                        responsive: true,
                                         maintainAspectRatio: false,
                                         plugins: {
                                             legend: { position: 'top' as const }
@@ -550,8 +567,8 @@ export function ClientComponent() {
                                             }
                                         ]
                                     }}
-                                    options={{ 
-                                        responsive: true, 
+                                    options={{
+                                        responsive: true,
                                         maintainAspectRatio: false,
                                         plugins: {
                                             legend: { position: 'top' as const }
@@ -677,7 +694,7 @@ export function ClientComponent() {
                             </button>
                         </div>
                     </div>
-                    
+
                     <ResponsiveTable<EmployeeSummary>
                         data={(() => {
                             let filtered = data?.attendance?.employeeSummary || []
@@ -695,7 +712,7 @@ export function ClientComponent() {
                                 const bVal = (b as unknown as Record<string, unknown>)[sortConfig.key] as number || 0
                                 return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal
                             })
-                            
+
                             return filtered
                         })()}
                         loading={loading}

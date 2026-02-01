@@ -1,27 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-} from 'chart.js'
-import { Pie } from 'react-chartjs-2'
+import dynamic from 'next/dynamic'
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-)
+// Dynamically import Chart.js wrapper components
+const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), {
+  ssr: false,
+  loading: () => <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 rounded-lg animate-pulse">Loading Chart...</div>
+})
 
 interface CapexOpexData {
     CAPITAL: number;
@@ -47,6 +33,33 @@ export default function ReportsClient() {
     const [taxReport, setTaxReport] = useState<TaxReportData | null>(null)
     const [loading, setLoading] = useState(true)
 
+    // Register ChartJS components on mount
+    useEffect(() => {
+        const initChart = async () => {
+             const {
+              Chart: ChartJS,
+              CategoryScale,
+              LinearScale,
+              BarElement,
+              Title,
+              Tooltip,
+              Legend,
+              ArcElement
+            } = await import('chart.js')
+
+            ChartJS.register(
+              CategoryScale,
+              LinearScale,
+              BarElement,
+              Title,
+              Tooltip,
+              Legend,
+              ArcElement
+            )
+        }
+        initChart()
+    }, [])
+
     useEffect(() => {
         fetchData()
     }, [])
@@ -57,7 +70,7 @@ export default function ReportsClient() {
                 fetch('/api/finance/reports?type=CAPEX_OPEX'),
                 fetch('/api/finance/reports?type=TAX')
             ])
-            
+
             if (resCapex.ok) setCapexOpex(await resCapex.json())
             if (resTax.ok) setTaxReport(await resTax.json())
         } catch (error) {
@@ -120,7 +133,7 @@ export default function ReportsClient() {
                         <dd className="mt-2 text-sm text-gray-500 dark:text-gray-400">Aset & Investasi</dd>
                     </div>
                 </div>
-                
+
                 <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
                     <div className="px-4 py-5 sm:p-6">
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Opex (Ops)</dt>
