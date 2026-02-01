@@ -156,13 +156,13 @@ export class MixRadiusService {
   private loginExpiresAt: number = 0
   private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number, lastRenewedOn: string }>
 
-  // Cache for Customers List - 2 minutes TTL
-  // Reduces load significantly when sorting, filtering, or paginating locally
+  // Cache for Customers List - 30 seconds TTL
+  // Short cache to balance between real-time data and server safety
   private customersCache: {
     data: MixRadiusCustomer[]
     expiresAt: number
   } = { data: [], expiresAt: 0 }
-  private static CUSTOMERS_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
+  private static CUSTOMERS_CACHE_TTL = 30 * 1000 // 30 seconds
 
   // Topology cache - 5 minutes TTL (data doesn't change frequently)
   private topologyCache: {

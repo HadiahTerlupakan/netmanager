@@ -317,10 +317,6 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       setData(responseData.data || [])
       setTotalRecords(responseData.recordsFiltered || 0)
       setGlobalTotal(responseData.recordsTotal || 0)
-
-      if (forceRefresh) {
-        toast.success('Data terbaru berhasil diambil')
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       toast.error('Gagal mengambil data dari MixRadius')
@@ -410,7 +406,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <HiOutlineArrowPath className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Memuat...' : 'Refresh Data'}
+          {loading ? 'Memuat...' : 'Refresh'}
         </button>
       </div>
 
