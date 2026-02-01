@@ -101,6 +101,7 @@ jobs:
         if: always()
         uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/coverage-final.json
           fail_ci_if_error: false
 
@@ -157,11 +158,5 @@ jobs:
         continue-on-error: true
 
       - name: Check for known vulnerabilities
-        run: |
-          if npm audit --audit-level=high; then
-            echo "No high or critical vulnerabilities found"
-          else
-            echo "High or critical vulnerabilities found"
-            exit 1
-          fi
+        run: npm audit --audit-level=high
 
