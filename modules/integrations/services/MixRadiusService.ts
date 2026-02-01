@@ -114,6 +114,8 @@ export interface FetchCustomersParams {
   groupId?: string
   onlineStatus?: 'online' | 'offline'
   siteId?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
 }
 
 // ODP Types for Topology Map
@@ -342,7 +344,7 @@ export class MixRadiusService {
    * Fetch data customers PPP dari MixRadius
    */
   async fetchCustomersPPP(params: FetchCustomersParams = {}): Promise<MixRadiusCustomerResponse> {
-    const { start = 0, length = 10, search = '', searchType = 'all' } = params
+    const { start = 0, length = 10, search = '', searchType = 'all', sortBy = 'expired_on', sortDir = 'asc' } = params
 
     try {
       // Ensure we're logged in
@@ -569,9 +571,31 @@ export class MixRadiusService {
 
       const recordsFilteredCount = allData.length
 
-      // 5. Sort by expired_on ascending (oldest first) for Isolir view
-      // This ensures customers who have been expired longest appear first
-      if (params.authStatus === 'Disabled-Users') {
+      // 5. Sorting
+      if (sortBy) {
+        allData.sort((a, b) => {
+          // Type-safe property access
+          const key = sortBy as keyof MixRadiusCustomer
+          const valA = a[key]
+          const valB = b[key]
+
+          // Handle dates specifically
+          if (sortBy === 'expired_on' || sortBy === 'renewed_on' || sortBy === 'created_at') {
+             const dateA = valA ? new Date(String(valA)).getTime() : 0
+             const dateB = valB ? new Date(String(valB)).getTime() : 0
+             return sortDir === 'asc' ? dateA - dateB : dateB - dateA
+          }
+
+          // Handle string comparison
+          const strA = String(valA || '').toLowerCase()
+          const strB = String(valB || '').toLowerCase()
+
+          if (strA < strB) return sortDir === 'asc' ? -1 : 1
+          if (strA > strB) return sortDir === 'asc' ? 1 : -1
+          return 0
+        })
+      } else if (params.authStatus === 'Disabled-Users') {
+        // Default sort for Disabled Users (Old logic kept as fallback if no sortBy provided)
         allData.sort((a, b) => {
           const dateA = a.expired_on ? new Date(a.expired_on).getTime() : 0
           const dateB = b.expired_on ? new Date(b.expired_on).getTime() : 0

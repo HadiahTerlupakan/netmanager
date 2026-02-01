@@ -119,7 +119,11 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [groups, setGroups] = useState<MixRadiusGroup[]>([])
   const [selectedGroup, setSelectedGroup] = useState('all')
   const [isRefreshing, setIsRefreshing] = useState(false)
-  
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState('expired_on')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+
   // Pagination state
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
@@ -279,8 +283,10 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         length: pageSize.toString(),
         search: debouncedSearch,
         searchType: searchType,
+        sortBy: sortColumn,
+        sortDir: sortDirection
       })
-      
+
       if (defaultStatus) {
         params.append('authStatus', defaultStatus)
       }
@@ -316,7 +322,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter, selectedOwner, selectedGroup])
+  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter, selectedOwner, selectedGroup, sortColumn, sortDirection])
 
   const clearCache = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -369,6 +375,12 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const isExpired = (dateStr: string) => {
     if (!dateStr) return false
     return new Date(dateStr) < new Date()
+  }
+
+  const handleSort = (column: string, direction: 'asc' | 'desc') => {
+    setSortColumn(column)
+    setSortDirection(direction)
+    setPage(0) // Reset to first page on sort change
   }
 
   return (
@@ -515,15 +527,19 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         <div className="">
           <ResponsiveTable
             data={data}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
             columns={viewMode === 'isolir' ? [
-              { key: 'member_id', header: 'ID Pelanggan', priority: 'primary', minWidth: '100px', className: 'font-mono font-bold' },
-              { key: 'fullname', header: 'Nama Pelanggan', priority: 'primary', className: 'font-medium' },
-              { key: 'phonenumber', header: 'Nomor Tlp', priority: 'primary', className: 'font-mono' },
-              { key: 'address', header: 'Alamat', priority: 'secondary', className: 'text-sm max-w-xs truncate' },
+              { key: 'member_id', header: 'ID Pelanggan', priority: 'primary', minWidth: '100px', className: 'font-mono font-bold', sortable: true },
+              { key: 'fullname', header: 'Nama Pelanggan', priority: 'primary', className: 'font-medium', sortable: true },
+              { key: 'phonenumber', header: 'Nomor Tlp', priority: 'primary', className: 'font-mono', sortable: true },
+              { key: 'address', header: 'Alamat', priority: 'secondary', className: 'text-sm max-w-xs truncate', sortable: true },
               {
                 key: 'expired_on',
                 header: 'Jatuh Tempo',
                 priority: 'secondary',
+                sortable: true,
                 render: (item) => (
                   <div className={`text-sm ${isExpired(item.expired_on) ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-900 dark:text-white'}`}>
                     {formatDate(item.expired_on)}
@@ -534,6 +550,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 key: 'online',
                 header: 'Online',
                 priority: 'primary',
+                sortable: true,
                 render: (item) => (
                   <div className="flex flex-col">
                     {item.online ? (
@@ -555,6 +572,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 key: 'created_at',
                 header: 'Berlangganan',
                 priority: 'primary',
+                sortable: true,
                 render: (item) => {
                   const count = invoiceCounts[item.id]
                   if (!count) return (
@@ -575,13 +593,14 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                   )
                 }
               },
-              { key: 'owner_name', header: 'Owner', priority: 'tertiary' },
+              { key: 'owner_name', header: 'Owner', priority: 'tertiary', sortable: true },
             ] : [
-              { key: 'member_id', header: 'ID', priority: 'primary', minWidth: '100px', className: 'font-mono' },
+              { key: 'member_id', header: 'ID', priority: 'primary', minWidth: '100px', className: 'font-mono', sortable: true },
               {
                 key: 'fullname',
                 header: 'Nama',
                 priority: 'primary',
+                sortable: true,
                 render: (item) => (
                   <div>
                     <div className="font-medium text-gray-900 dark:text-white">{item.fullname}</div>
@@ -589,11 +608,12 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                   </div>
                 )
               },
-              { key: 'username', header: 'Username', priority: 'secondary', className: 'font-mono' },
+              { key: 'username', header: 'Username', priority: 'secondary', className: 'font-mono', sortable: true },
               {
                 key: 'plan_name',
                 header: 'Paket',
                 priority: 'secondary',
+                sortable: true,
                 render: (item) => (
                   <div>
                     <div className="font-medium text-gray-900 dark:text-white">{item.plan_name}</div>
@@ -605,12 +625,14 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 key: 'auth_status',
                 header: 'Status',
                 priority: 'secondary',
+                sortable: true,
                 render: (item) => getStatusBadge(item.auth_status)
               },
               {
                 key: 'online',
                 header: 'Online',
                 priority: 'primary',
+                sortable: true,
                 render: (item) => (
                   <div className="flex flex-col">
                     {item.online ? (
@@ -632,6 +654,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 key: 'created_at',
                 header: 'Berlangganan',
                 priority: 'secondary',
+                sortable: true,
                 render: (item) => {
                     const count = invoiceCounts[item.id]
                     if (!count) return (
@@ -656,6 +679,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 key: 'expired_on',
                 header: 'Expired',
                 priority: 'secondary',
+                sortable: true,
                 render: (item) => (
                   <div>
                     <div className={`text-sm ${isExpired(item.expired_on) ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
@@ -670,7 +694,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                   </div>
                 )
               },
-              { key: 'owner_name', header: 'Owner', priority: 'tertiary' },
+              { key: 'owner_name', header: 'Owner', priority: 'tertiary', sortable: true },
             ]}
             keyField="id"
             loading={loading}

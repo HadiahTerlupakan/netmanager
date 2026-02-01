@@ -385,6 +385,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     { workOrderNumber: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                     { title: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                     { description: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
+                    { pelanggan: { nama: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } } },
+                    { site: { name: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } } },
+                    { assignedTo: { name: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } } },
+                    { contactName: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                 ]
             };
 
@@ -588,6 +592,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     { workOrderNumber: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                     { title: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                     { description: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
+                    { pelanggan: { nama: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } } },
+                    { site: { name: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } } },
+                    { assignedTo: { name: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } } },
+                    { contactName: { contains: filters.search, mode: 'insensitive' as Prisma.QueryMode } },
                 ]
             };
 
@@ -630,6 +638,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     scheduledDate: true,
                     contactName: true,
                     createdAt: true,
+                    startedAt: true,
+                    completedAt: true,
                     pelanggan: {
                         select: {
                             id: true,

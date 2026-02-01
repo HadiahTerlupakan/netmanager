@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || ''
     const searchType = searchParams.get('searchType') || 'all'
     const authStatus = searchParams.get('authStatus') || undefined
+    const sortBy = searchParams.get('sortBy') || undefined
+    const sortDir = (searchParams.get('sortDir') as 'asc' | 'desc') || undefined
 
     // Fetch data from MixRadius
     const service = getMixRadiusService()
@@ -44,6 +46,8 @@ export async function GET(req: NextRequest) {
       length: Math.min(length, 100),
       search,
       searchType,
+      sortBy,
+      sortDir
     }
 
     if (authStatus) params.authStatus = authStatus

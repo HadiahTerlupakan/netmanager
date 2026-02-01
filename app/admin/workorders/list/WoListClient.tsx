@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatDistanceToNow } from 'date-fns'
+import { intervalToDuration, formatDuration, format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import {
     HiPlus,
@@ -47,6 +47,8 @@ interface WorkOrder {
         name: string | null
     } | null
     createdAt: string
+    startedAt: string | null
+    completedAt: string | null
 }
 
 const statusColors: Record<string, string> = {
@@ -99,7 +101,8 @@ export function ClientComponent() {
     const canSendReminder = hasPermission('workorders:reminder') // Kirim Reminder Manual
     const canApproveRequest = hasPermission('workorders:approve_request') || hasPermission('list:approve_request') // Approve/Reject WO Request
 
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(false)
+    const [initialLoading, setInitialLoading] = useState(true)
     const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
@@ -208,6 +211,7 @@ export function ClientComponent() {
             console.error('Error fetching work orders:', error)
         } finally {
             setLoading(false)
+            setInitialLoading(false)
         }
     }, [page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, filterWoType, unassignedOnly])
 
@@ -568,14 +572,36 @@ export function ClientComponent() {
             )
         },
         {
-            key: 'createdAt',
-            header: 'Created',
+            key: 'createdAtDate',
+            header: 'Tanggal Dibuat',
             priority: 'tertiary',
             render: (wo) => (
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {formatDistanceToNow(new Date(wo.createdAt), { addSuffix: true, locale: localeId })}
+                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    {format(new Date(wo.createdAt), 'dd MMM yyyy HH:mm', { locale: localeId })}
                 </span>
             )
+        },
+        {
+            key: 'duration',
+            header: 'Durasi',
+            priority: 'tertiary',
+            render: (wo) => {
+                if (!wo.completedAt || !wo.startedAt) return <span className="text-gray-400">-</span>;
+
+                const duration = intervalToDuration({
+                    start: new Date(wo.startedAt),
+                    end: new Date(wo.completedAt)
+                });
+
+                return (
+                    <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {formatDuration(duration, {
+                            format: ['days', 'hours', 'minutes'],
+                            locale: localeId
+                        }) || '< 1 mnt'}
+                    </span>
+                );
+            }
         },
         {
             key: 'createdBy',
@@ -685,7 +711,7 @@ export function ClientComponent() {
         </>
     )
 
-    if (status === 'loading' || loading) {
+    if (status === 'loading' || initialLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <PageLoader />
