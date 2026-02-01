@@ -1,5 +1,7 @@
 # NetManager
 
+![CI/CD Pipeline](https://github.com/HadiahTerlupakan/netmanager/actions/workflows/ci.yml/badge.svg)
+
 Aplikasi manajemen jaringan FTTH (Fiber to the Home) yang dibangun dengan Next.js, TypeScript, Prisma, dan PostgreSQL.
 
 ## 📋 Persyaratan
