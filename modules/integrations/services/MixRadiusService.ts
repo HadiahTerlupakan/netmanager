@@ -1001,25 +1001,23 @@ export class MixRadiusService {
 
               // STRICTER LOGIC based on User Request:
               // "Pembayaran manual itu yang tidak ada DTK_"
-              // Online = Contains "DTK_" (e.g. DTK_BNI, DTK_BRI, DTK_DANA)
-              // Also including common gateways just in case, but prioritizing DTK pattern.
+              // Online = Contains "DTK" (Duitku) or explicit gateway names.
+              // We removed generic terms like 'va', 'qris', 'dana' because admins might type "Bayar via Dana" manually.
               const onlineKeywords = [
-                  'dtk_', 'dtk', // Duitku / User specific pattern
+                  'dtk', // Covers DTK_, DTK-001, etc.
                   'tripay', 'xendit', 'midtrans', 'doku', 'ipaymu', 'mayar', 'faspay', 'winpay',
-                  'qris', 'virtual account', 'va ', 'ewallet', 'e-wallet',
-                  'alfamart', 'indomaret', 'alfamidi', 'shopeepay', 'gopay', 'ovo', 'dana', 'linkaja',
-                  'online'
+                  'auto' // Sometimes 'payment gateway automatic'
               ]
 
               // Check if it matches any known online gateway keyword
               const isExplicitOnline = onlineKeywords.some(kw => method.includes(kw) || type.includes(kw))
 
               if (pm === 'online') {
-                  // Only show if explicitly detected as Online Gateway (Has DTK_ or other gateway name)
+                  // Only show if explicitly detected as Online Gateway
                   return isExplicitOnline
               }
               if (pm === 'manual') {
-                  // Show everything else (Manual, Cash, Transfer, Voucher, Empty, Strip, etc.)
+                  // Show everything else (Manual, Cash, Transfer, Voucher, or Generic Inputs)
                   return !isExplicitOnline
               }
               return true
@@ -1047,20 +1045,42 @@ export class MixRadiusService {
       let totalPlusPpn = 0
 
       allData.forEach(item => {
+          // Parse numbers from JSON API (usually standard EN format: "10000", "1500.50", "0")
           const parseValue = (val: string | number | undefined): number => {
               if (!val) return 0
-              const str = String(val)
-              const clean = str.replace(/[^0-9.,-]/g, '')
-              return parseFloat(clean) || 0
+              if (typeof val === 'number') return val
+
+              let str = String(val).trim()
+              // Remove Rp
+              str = str.replace(/Rp\.?\s?/i, '')
+
+              // Handle potential EN thousands separator (comma) just in case
+              // e.g. "1,000.00" -> "1000.00"
+              // We assume JSON data does NOT use ID format (dots for thousands) based on "157657.66" sample
+              str = str.replace(/,/g, '')
+
+              return parseFloat(str) || 0
           }
 
           const total = parseValue(item.total)
           const fee = parseValue(item.seller_fee)
           const price = parseValue(item.price)
+          const tax = parseValue(item.tax)
 
           totalPlusPpn += total
           totalFee += fee
-          totalProfit += (price - fee)
+
+          // Profit calculation:
+          // Price is Net Revenue (excluding Tax and usually excluding Fee if it's an add-on).
+          // Based on sample: Total (234000) = Price (205810.81) + Tax (23189.19) + Fee (5000).
+          // So Price is the base amount.
+          // Profit = Price.
+          if (price > 0) {
+              totalProfit += price
+          } else {
+              // Fallback: Total - Tax - Fee
+              totalProfit += (total - tax - fee)
+          }
       })
 
       const formatIdr = (val: number) => {
@@ -1117,150 +1137,100 @@ export class MixRadiusService {
   }
 
   /**
-   * Fetch Income Summary (Cards) from HTML
-   * Endpoint: POST /rad-reports/income-period-load
+   * Fetch Income Summary (Cards)
+   * Refactored to ALWAYS calculate from the actual data to ensure consistency with the table.
+   * Previously it tried to scrape HTML cards from MixRadius, which often returned 0 or unmatched data.
    */
   async fetchIncomeSummary(params: FetchCustomersParams = {}): Promise<MixRadiusIncomeSummary> {
     const { startDate, endDate, serviceType, paymentMethod, ownerId, groupId, siteId } = params
 
     try {
-      // If filtering by any criteria that requires custom logic (Group, Site) OR logic that is known to be unreliable upstream (Service, Payment, Owner),
-      // we calculate the summary from the detailed data to ensure it matches the table exactly.
-      const useInMemoryCalculation = groupId || siteId ||
-                                     (serviceType && serviceType !== '') ||
-                                     (paymentMethod && paymentMethod !== '') ||
-                                     (ownerId && ownerId !== 'all');
+      console.log(`[MixRadius] Calculating income summary in-memory for consistency.`)
 
-      if (useInMemoryCalculation) {
-          console.log(`[MixRadius] Calculating income summary in-memory for consistency. Params:`, JSON.stringify({ groupId, siteId, serviceType, paymentMethod, ownerId }))
+      // Reuse fetchIncomeByPeriod logic to get filtered data (all of it)
+      // We fetch a large number to ensure we cover the whole period for accurate summation
+      const result = await this.fetchIncomeByPeriod({
+          ...params,
+          start: 0,
+          length: 10000,
+          search: '' // Don't filter by search for global summary, we want the summary of the filtered period/category
+      })
 
-          // Reuse fetchIncomeByPeriod logic to get filtered data (all of it)
-          const result = await this.fetchIncomeByPeriod({
-              ...params,
-              start: 0,
-              length: 10000,
-              search: '' // Don't filter by search for global summary
-          })
+      if (result.summary) {
+          // If fetchIncomeByPeriod already calculated it (which it does now), reuse it!
+          return result.summary
+      }
 
-          let totalProfit = 0
-          let totalFee = 0
-          let totalPlusPpn = 0
+      // Fallback calculation (should be covered by fetchIncomeByPeriod now, but safe to keep)
+      let totalProfit = 0
+      let totalFee = 0
+      let totalPlusPpn = 0
 
-          result.data.forEach(item => {
-              // Parse numbers safely handling string inputs from API
-              // API returns values like "175000" or "157657.66" (dot decimal)
-              // But sometimes might return formatted "Rp 100.000" (though rare in JSON)
+      result.data.forEach(item => {
+          // Parse numbers robustly handling both ID (1.000.000,00) and EN (1000000.00) formats
+          const parseValue = (val: string | number | undefined): number => {
+              if (!val) return 0
+              let str = String(val).trim()
 
-              const parseValue = (val: string | number | undefined): number => {
-                  if (!val) return 0
-                  const str = String(val)
-                  // Remove "Rp", spaces, etc.
-                  // If it contains only digits and dot, use parseFloat
-                  // If it contains comma, handle it?
-                  // Based on trace: "157657.66" -> parseFloat works.
-                  // "175000" -> parseFloat works.
+              // Remove common currency symbols
+              str = str.replace(/Rp\.?\s?/i, '')
 
-                  // Clean up potential currency symbols but keep dot/comma/minus
-                  const clean = str.replace(/[^0-9.,-]/g, '')
-                  return parseFloat(clean) || 0
+              // CASE 1: Contains comma (e.g. "5.000,00" or "5000,00") -> Indication of ID format
+              if (str.includes(',')) {
+                  // Remove thousands separators (dots) and replace decimal comma with dot
+                  str = str.replace(/\./g, '').replace(',', '.')
+              }
+              // CASE 2: Multiple dots (e.g. "1.000.000") -> Indication of ID thousands separators
+              else if ((str.match(/\./g) || []).length > 1) {
+                  str = str.replace(/\./g, '')
+              }
+              // CASE 3: Single dot (Ambiguous: "5.000" vs "157657.66")
+              else if (str.includes('.')) {
+                   // If it looks like a standard thousands grouping (1-3 digits, dot, 3 digits)
+                   // e.g. "5.000", "100.000"
+                   // But NOT "157657.66" (dot followed by 2 digits)
+                   // IDR usually doesn't use 3 decimal places for cents.
+                   if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+                       str = str.replace(/\./g, '')
+                   }
+                   // Otherwise assume it's a decimal dot (English format)
               }
 
-              const total = parseValue(item.total)
-              const fee = parseValue(item.seller_fee)
-              const price = parseValue(item.price)
+              const clean = str.replace(/[^0-9.-]/g, '')
+              return parseFloat(clean) || 0
+          }
 
-              // Calculate metrics
-              totalPlusPpn += total
-              totalFee += fee
+          const total = parseValue(item.total)
+          const fee = parseValue(item.seller_fee)
+          const price = parseValue(item.price)
+          const tax = parseValue(item.tax)
 
-              // Profit calculation:
-              // If price is available, use (price - fee).
-              // If price is 0/missing but total exists, maybe fallback?
-              // Usually Profit = Price (before tax) - Fee.
-              // Total = Price + Tax.
-              // So Price = Total - Tax.
-              // Let's verify with trace data:
-              // total: 175000, tax: 17342.34, price: 157657.66.
-              // 157657.66 + 17342.34 = 175000. Correct.
-              // So Profit = 157657.66 - 0 = 157657.66.
+          totalPlusPpn += total
+          totalFee += fee
 
+          // Profit calculation:
+          // Based on data analysis: Total = Price + Tax + SellerFee (or similar)
+          // Actually looking at data: Total (175000) = Price (157657.66) + Tax (17342.34).
+          // Seller Fee is separate column, usually 0 or 5000.
+          // Profit is usually Price (Net Revenue) - Seller Fee.
+
+          if (price > 0) {
               totalProfit += (price - fee)
-          })
-
-          const formatIdr = (val: number) => {
-              return new Intl.NumberFormat('id-ID').format(val)
+          } else {
+              // Fallback if price is missing/zero: Total - Tax - Fee
+              totalProfit += (total - tax - fee)
           }
+      })
 
-          return {
-              profit: formatIdr(totalProfit),
-              feeSeller: formatIdr(totalFee),
-              totalPlusPpn: formatIdr(totalPlusPpn),
-              totalTransactions: result.recordsFiltered.toString()
-          }
+      const formatIdr = (val: number) => {
+          return new Intl.NumberFormat('id-ID').format(val)
       }
-
-      if (!this.isLoggedIn) await this.login()
-
-      const formData = new URLSearchParams()
-      if (startDate) {
-        const fdate = startDate.includes(' ') ? startDate : `${startDate} 00:00:01`
-        formData.append('fdate', fdate)
-      }
-      if (endDate) {
-        const tdate = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
-        formData.append('tdate', tdate)
-      }
-
-      // Ensure all filters are present, use empty string for 'all'
-      formData.append('stype', serviceType || '')
-      formData.append('payment_method', paymentMethod || '')
-      formData.append('owner_id', (ownerId === 'all' || !ownerId) ? '' : ownerId)
-      formData.append('usertype', '0') // Default to "SEMUA TIPE" (Member & Voucher)
-
-      // Additional params seen in trace
-      formData.append('rp_usertype', '') // Default empty
-
-      const response = await this.client.post(
-        `${this.credentials.baseUrl}/rad-reports/income-period-load`,
-        formData.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`,
-          },
-        }
-      )
-
-      const html = response.data as string
-
-      // Parse HTML
-      // 1. PROFIT
-      // <span class="info-box-text">PROFIT ( IDR )</span><span class="info-box-number">974.279</span>
-      const profitMatch = html.match(/PROFIT \( IDR \)<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
-      const profit = profitMatch ? profitMatch[1] : '0'
-
-      // 2. Fee Seller
-      // <span class="info-box-text">Fee Seller ( IDR )</span><span class="info-box-number">5.000</span>
-      const feeMatch = html.match(/Fee Seller \( IDR \)<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
-      const feeSeller = feeMatch ? feeMatch[1] : '0'
-
-      // 3. Total + PPN
-      // <span class="info-box-text">Total \+ PPN \( IDR \)<\/span><span class="info-box-number">1.086.999</span>
-      // Note: Regex needs to handle special chars escaping if needed, but text content matching is safer
-      const totalMatch = html.match(/Total \+ PPN \( IDR \)<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
-      const totalPlusPpn = totalMatch ? totalMatch[1] : '0'
-
-      // 4. Total Transactions (Total Invoice)
-      // <span class="info-box-text">Total Invoice</span><span class="info-box-number">43</span>
-      const countMatch = html.match(/Total Invoice<\/span><span class="info-box-number">([\d\.]+)<\/span>/i)
-      const totalTransactions = countMatch ? countMatch[1] : '0'
 
       return {
-        profit,
-        feeSeller,
-        totalPlusPpn,
-        totalTransactions
+          profit: formatIdr(totalProfit),
+          feeSeller: formatIdr(totalFee),
+          totalPlusPpn: formatIdr(totalPlusPpn),
+          totalTransactions: result.recordsFiltered.toString()
       }
 
     } catch (error) {

@@ -8,9 +8,7 @@ import {
   HiOutlineChevronRight,
   HiOutlineCurrencyDollar,
   HiOutlineCalendar,
-  HiOutlineUser,
-  HiOutlinePrinter,
-  HiOutlineTrash
+  HiOutlineUser
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -236,9 +234,39 @@ export default function IncomePeriodClient() {
 
   const totalPages = Math.ceil(totalRecords / pageSize)
 
+  const parseNumber = (val: string | number): number => {
+    if (typeof val === 'number') return val
+    if (!val) return 0
+
+    let str = String(val).trim()
+    // Handle Indonesian format (dots as thousands, comma as decimal)
+    // Example: "1.000.000" -> 1000000
+    // Example: "5.000" -> 5000
+    // Example: "150000.00" -> 150000
+
+    // Remove Rp and spaces
+    str = str.replace(/Rp\.?\s?/i, '')
+
+    // Check if likely ID format (contains multiple dots OR dot followed by 3 digits at end)
+    // Note: This heuristic assumes we don't deal with fractions < 1000 using 3 decimals like 1.234
+    // But for currency "5.000" usually means 5000.
+
+    // If contains comma, assume ID format (comma is decimal) -> remove dots, replace comma with dot
+    if (str.includes(',')) {
+        str = str.replace(/\./g, '').replace(',', '.')
+    }
+    // If looks like thousands separator (1.000 or 1.000.000)
+    else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+        str = str.replace(/\./g, '')
+    }
+
+    return parseFloat(str) || 0
+  }
+
   const formatCurrency = (amount: string | number) => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount
-    if (isNaN(num)) return amount
+    const num = parseNumber(amount)
+    if (isNaN(num)) return String(amount)
+
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -263,33 +291,6 @@ export default function IncomePeriodClient() {
     setSortColumn(column)
     setSortDirection(direction)
     setPage(0)
-  }
-
-  const handlePrint = (id: string) => {
-      // Open print window
-      window.open(`/api/integrations/mixradius/print/${id}`, '_blank');
-  }
-
-  const handleDelete = async (id: string) => {
-      if (!confirm('Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.')) return
-
-      const toastId = toast.loading('Menghapus data...')
-      try {
-          const response = await fetch(`/api/integrations/mixradius/reports/delete/${id}`, {
-              method: 'POST'
-          })
-
-          const result = await response.json()
-
-          if (!response.ok || !result.success) {
-              throw new Error(result.error || 'Gagal menghapus data')
-          }
-
-          toast.success('Data berhasil dihapus', { id: toastId })
-          fetchData() // Refresh data
-      } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Gagal menghapus data', { id: toastId })
-      }
   }
 
   return (
@@ -583,6 +584,30 @@ export default function IncomePeriodClient() {
                 )
               },
               {
+                key: 'payment_method',
+                header: 'Metode Bayar',
+                priority: 'secondary',
+                sortable: true,
+                render: (item) => {
+                   const method = item.payment_method || item.method || '-';
+                   const isOnline = method.toLowerCase().includes('dtk') ||
+                                    method.toLowerCase().includes('tripay') ||
+                                    method.toLowerCase().includes('midtrans') ||
+                                    method.toLowerCase().includes('xendit') ||
+                                    item.payment_type?.toLowerCase() === 'online';
+
+                   return (
+                       <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                           isOnline
+                           ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                       }`}>
+                           {method}
+                       </span>
+                   )
+                }
+              },
+              {
                 key: 'owner_name',
                 header: 'Owner Data',
                 priority: 'tertiary',
@@ -593,30 +618,6 @@ export default function IncomePeriodClient() {
                         {item.owner_name}
                     </div>
                 )
-              },
-              {
-                  key: 'id',
-                  header: 'Aksi',
-                  priority: 'primary',
-                  sortable: false,
-                  render: (item) => (
-                      <div className="flex items-center gap-2">
-                          <button
-                              onClick={() => handlePrint(item.id)}
-                              className="p-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50 transition-colors"
-                              title="Cetak Invoice"
-                          >
-                              <HiOutlinePrinter className="w-4 h-4" />
-                          </button>
-                          <button
-                              onClick={() => handleDelete(item.id)}
-                              className="p-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 transition-colors"
-                              title="Hapus Data"
-                          >
-                              <HiOutlineTrash className="w-4 h-4" />
-                          </button>
-                      </div>
-                  )
               }
             ]}
             keyField="id"
