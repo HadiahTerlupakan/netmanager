@@ -151,7 +151,9 @@
     "cookie": "^0.7.2",
     "js-yaml": "^4.1.1",
     "fast-xml-parser": "^5.3.4",
-    "debug": "^4.4.0"
+    "debug": "^4.4.0",
+    "hono": "^4.11.7",
+    "lodash": "^4.17.23"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
