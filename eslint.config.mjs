@@ -1,10 +1,5 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
 import next from "eslint-config-next";
 import tseslint from "typescript-eslint";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const eslintConfig = [
   ...next,
@@ -23,7 +18,8 @@ const eslintConfig = [
       "dist/**",
       "public/sw.js",
       "public/workbox-*.js",
-      "public/worker-*.js"
+      "public/worker-*.js",
+      "coverage/**"
     ]
   },
   {
