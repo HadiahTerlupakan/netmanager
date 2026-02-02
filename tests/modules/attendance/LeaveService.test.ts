@@ -100,7 +100,7 @@ describe('LeaveService', () => {
                 id: 'user-1',
                 workingHourMode: 'FIXED',
                 workDays: 'Mon,Tue,Wed,Thu,Fri'
-            } as any)
+            } as unknown as { id: string; workingHourMode: string; workDays: string })
 
             mockLeaveRepo.create.mockResolvedValue({ id: 'leave-1', ...createData, status: 'APPROVED' })
 
@@ -119,7 +119,7 @@ describe('LeaveService', () => {
                 id: 'user-1',
                 workingHourMode: 'FIXED',
                 workDays: 'Mon,Tue,Wed,Thu,Fri'
-            } as any)
+            } as unknown as { id: string; workingHourMode: string; workDays: string })
 
             mockBalanceRepo.hasEnoughDays.mockResolvedValue(false)
 
@@ -148,7 +148,7 @@ describe('LeaveService', () => {
         }
 
         it('should approve leave and deduct balance', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as any)
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; name: string; workingHourMode: string; workDays: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...leaveRequest, status: 'APPROVED' })
 
             const result = await service.approveLeave('leave-1', 'admin-1')
@@ -161,7 +161,7 @@ describe('LeaveService', () => {
         })
 
         it('should fail approval if balance is insufficient', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as any)
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; name: string; workingHourMode: string; workDays: string } })
             mockBalanceRepo.hasEnoughDays.mockResolvedValue(false)
 
             const result = await service.approveLeave('leave-1', 'admin-1')
@@ -176,7 +176,7 @@ describe('LeaveService', () => {
                 ...leaveRequest,
                 user: { ...leaveRequest.user, workingHourMode: 'FLEXIBLE' }
             }
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(flexUserLeave as any)
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(flexUserLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; name: string; workingHourMode: string; workDays: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...flexUserLeave, status: 'APPROVED' })
 
             const result = await service.approveLeave('leave-1', 'admin-1')
@@ -202,7 +202,7 @@ describe('LeaveService', () => {
         }
 
         it('should refund balance when rejecting approved leave', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as any)
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; workingHourMode: string; workDays: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...approvedLeave, status: 'REJECTED' })
 
             const result = await service.rejectLeave('leave-1', 'admin-1', 'Reason')
@@ -213,7 +213,7 @@ describe('LeaveService', () => {
 
         it('should NOT refund balance when rejecting pending leave', async () => {
             const pendingLeave = { ...approvedLeave, status: 'PENDING' }
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(pendingLeave as any)
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(pendingLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; workingHourMode: string; workDays: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...pendingLeave, status: 'REJECTED' })
 
             const result = await service.rejectLeave('leave-1', 'admin-1', 'Reason')
@@ -239,7 +239,7 @@ describe('LeaveService', () => {
         }
 
         it('should refund balance when deleting approved leave', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as any)
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; workingHourMode: string; workDays: string } })
 
             const result = await service.deleteLeave('leave-1', 'admin-1')
 
@@ -270,7 +270,7 @@ describe('LeaveService', () => {
                 id: 'user-1',
                 workingHourMode: 'FIXED',
                 workDays: 'Mon,Tue,Wed,Thu,Fri'
-            } as any)
+            } as unknown as { id: string; workingHourMode: string; workDays: string })
 
             mockLeaveRepo.create.mockResolvedValue({ status: 'APPROVED' })
 

@@ -210,7 +210,7 @@ test.describe('Shift Management', () => {
             console.log('Re-create Shift Error Body:', await response2.text())
         }
         await refreshPromise3
-    } catch(e) {
+    } catch(_e) {
         console.log('Timeout waiting for re-create response')
     }
 

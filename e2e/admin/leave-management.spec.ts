@@ -105,7 +105,7 @@ test.describe('Leave Management (Manajemen Izin & Cuti)', () => {
         if (!response.ok()) {
              console.log('Response body:', await response.json());
         }
-    } catch (e) {
+    } catch (_e) {
         console.log('Wait for response timed out or failed. Checking for validation errors...');
     }
 

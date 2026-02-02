@@ -69,7 +69,7 @@ export class ShiftRepository {
     const shift = await this.findById(id)
     if (!shift) return
 
-    const updateData: any = { isActive: false }
+    const updateData: Partial<{ isActive: boolean, code: string }> = { isActive: false }
 
     if (shift.code) {
       // Append timestamp to code to make it unique but preserve history

@@ -1097,12 +1097,12 @@ export class MixRadiusService {
       // 4. In-memory Sorting (since we might have changed the dataset)
       if (sortBy) {
           allData.sort((a, b) => {
-              const valA = (a as any)[sortBy]
-              const valB = (b as any)[sortBy]
+              const valA = (a as unknown as Record<string, unknown>)[sortBy]
+              const valB = (b as unknown as Record<string, unknown>)[sortBy]
 
               if (sortBy === 'renewed_on' || sortBy === 'invoice_date') {
-                  const dateA = valA ? new Date(valA).getTime() : 0
-                  const dateB = valB ? new Date(valB).getTime() : 0
+                  const dateA = valA ? new Date(valA as string).getTime() : 0
+                  const dateB = valB ? new Date(valB as string).getTime() : 0
                   return sortDir === 'asc' ? dateA - dateB : dateB - dateA
               }
 
@@ -1142,7 +1142,7 @@ export class MixRadiusService {
    * Previously it tried to scrape HTML cards from MixRadius, which often returned 0 or unmatched data.
    */
   async fetchIncomeSummary(params: FetchCustomersParams = {}): Promise<MixRadiusIncomeSummary> {
-    const { startDate, endDate, serviceType, paymentMethod, ownerId, groupId, siteId } = params
+    const { startDate: _startDate, endDate: _endDate, serviceType: _serviceType, paymentMethod: _paymentMethod, ownerId: _ownerId, groupId: _groupId, siteId: _siteId } = params
 
     try {
       console.log(`[MixRadius] Calculating income summary in-memory for consistency.`)

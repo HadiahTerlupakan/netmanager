@@ -1,9 +1,9 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 
 test.describe('Admin Authentication', () => {
   test('should show login page with form elements', async ({ page }) => {
     await page.goto('/admin/login')
-    
+
     // Check login form exists with correct IDs
     await expect(page.locator('#email')).toBeVisible()
     await expect(page.locator('#password')).toBeVisible()
