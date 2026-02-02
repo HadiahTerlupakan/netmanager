@@ -108,7 +108,7 @@ test.describe('Attendance Manual Input Verification', () => {
             response.request().method() === 'GET' &&
             response.status() === 200,
             { timeout: 10000 }
-        ).catch(() => null);
+        ).catch((): null => null);
 
         const refreshResponse = await refreshPromise;
         if (!refreshResponse) {

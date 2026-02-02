@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && next build",
+    "check": "npm run lint && npm run typecheck && npm run build",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
