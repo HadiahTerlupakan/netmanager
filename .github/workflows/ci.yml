@@ -57,16 +57,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/netmanager_ci
+
       - name: Check Types
         run: npm run typecheck
 
       - name: Lint Code
         run: npm run lint
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/netmanager_ci
 
       - name: Run database migrations
         run: npx prisma migrate deploy
