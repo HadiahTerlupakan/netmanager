@@ -83,7 +83,7 @@ export default function IncomePeriodClient() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const [totalRecords, setTotalRecords] = useState(0)
-  const [globalTotal, setGlobalTotal] = useState(0)
+  const [_globalTotal, setGlobalTotal] = useState(0)
 
   // Debounce search
   useEffect(() => {

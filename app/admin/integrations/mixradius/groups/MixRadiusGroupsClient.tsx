@@ -64,7 +64,7 @@ export default function MixRadiusGroupsClient() {
       setGroups(Array.isArray(groupsData) ? groupsData : (groupsData.data || []))
       const rawOwners = Array.isArray(ownersData) ? ownersData : (ownersData.data || [])
       // Map to strings if api returns objects {id, name}
-      setOwners(rawOwners.map((o: any) => typeof o === 'object' && o.name ? o.name : o))
+      setOwners(rawOwners.map((o: unknown) => (typeof o === 'object' && o && 'name' in o ? (o as { name: string }).name : String(o))))
       setSites(Array.isArray(sitesData) ? sitesData : (sitesData.data || []))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to fetch data')

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { apiSuccess, apiError } from '@/lib/api-response'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +31,6 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({ ...data, summary })
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : 'Unknown error')
+    return ApiErrors.internalError(error instanceof Error ? error.message : 'Unknown error')
   }
 }

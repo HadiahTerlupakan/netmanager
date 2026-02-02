@@ -1376,7 +1376,7 @@ export class MixRadiusService {
         }
       )
 
-      let html = response.data as string
+      const html = response.data as string
 
       // Inject base tag or rewrite links to ensure assets load (if they are absolute to mixradius)
       // Or simply replace relative paths.

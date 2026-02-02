@@ -1,18 +1,19 @@
 import { NextRequest } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifyAuth(req)
     if (!session) return ApiErrors.unauthorized()
 
+    const { id } = await params
     const permissions = await getUserPermissions(session.id)
     if (!permissions.includes('mixradius:delete')) { // Assuming a delete permission or admin check
        // For now, let's assume if they can access the page they might have permission,
@@ -24,15 +25,15 @@ export async function POST(
     }
 
     const service = getMixRadiusService()
-    const success = await service.deleteIncomeRecord(params.id)
+    const success = await service.deleteIncomeRecord(id)
 
     if (success) {
       return apiSuccess({ success: true })
     } else {
-      return apiError('Gagal menghapus data di server MixRadius')
+      return ApiErrors.internalError('Gagal menghapus data di server MixRadius')
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error'
-    return apiError(message)
+    return ApiErrors.internalError(message)
   }
 }

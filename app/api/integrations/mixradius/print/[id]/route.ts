@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifyAuth(req)
@@ -14,6 +14,7 @@ export async function GET(
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
+    const { id } = await params
     const service = getMixRadiusService()
 
     // Default to 'standard' type, but could support 'thermal' via query param if needed
@@ -21,7 +22,7 @@ export async function GET(
     const { searchParams } = new URL(req.url)
     const type = (searchParams.get('type') as 'standard' | 'thermal') || 'standard'
 
-    const html = await service.getPrintInvoiceHtml(params.id, type)
+    const html = await service.getPrintInvoiceHtml(id, type)
 
     return new NextResponse(html, {
       headers: {
