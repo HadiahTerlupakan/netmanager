@@ -16,8 +16,16 @@ vi.mock('@/modules/work-order/services/WorkOrderNotificationService', () => ({
   notifyWorkOrderUpdate: vi.fn().mockResolvedValue(undefined)
 }))
 
-// Mock socket emitter
-// vi.mock('@/lib/websocket/emitter') // Handled in setup.ts
+// Mock socket emitter to prevent network calls
+vi.mock('@/lib/websocket/emitter', () => ({
+  socketEmitter: {
+    workOrderActivity: vi.fn(),
+    newWorkOrder: vi.fn(),
+    updateWorkOrder: vi.fn(),
+    workOrderAssigned: vi.fn(),
+    broadcast: vi.fn()
+  }
+}))
 
 // Helper to create update mock
 const createUpdateMock = (overrides = {}) => ({
