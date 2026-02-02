@@ -5,6 +5,8 @@ import { syncService } from '@/modules/integrations/services/MixRadiusSyncServic
 import type { MixRadiusCustomerDetail } from '@/modules/integrations/services/MixRadiusService'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Auth Check

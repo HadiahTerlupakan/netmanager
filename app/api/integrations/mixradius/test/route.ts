@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/integrations/mixradius/test
  * 

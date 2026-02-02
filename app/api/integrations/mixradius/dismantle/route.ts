@@ -6,6 +6,8 @@ import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrder
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 const workOrderRepo = new WorkOrderRepository(prisma)
 
 /**

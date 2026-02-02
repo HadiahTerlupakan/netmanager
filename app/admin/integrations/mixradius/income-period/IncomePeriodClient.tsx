@@ -7,11 +7,10 @@ import {
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
   HiOutlineCurrencyDollar,
-  HiOutlineDocumentText,
   HiOutlineCalendar,
   HiOutlineUser,
-  HiOutlineFunnel,
-  HiOutlineListBullet
+  HiOutlinePrinter,
+  HiOutlineTrash
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -30,6 +29,8 @@ interface IncomePeriodRecord {
   trx_status: string
   payment_method: string
   payment_type: string
+  nasporttype: string
+  method: string
 }
 
 interface IncomePeriodResponse {
@@ -73,8 +74,6 @@ export default function IncomePeriodClient() {
   const [paymentMethod, setPaymentMethod] = useState('')
   const [ownerId, setOwnerId] = useState('all')
   const [owners, setOwners] = useState<{ id: string, name: string }[]>([])
-  const [sites, setSites] = useState<{ id: string, name: string }[]>([])
-  const [selectedSite, setSelectedSite] = useState('all')
   const [groups, setGroups] = useState<{ id: string, name: string }[]>([])
   const [selectedGroup, setSelectedGroup] = useState('all')
 
@@ -97,13 +96,12 @@ export default function IncomePeriodClient() {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Fetch owners, sites, and groups for filters
+  // Fetch owners for filters
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        const [ownersRes, sitesRes, groupsRes] = await Promise.all([
+        const [ownersRes, groupsRes] = await Promise.all([
           fetch('/api/integrations/mixradius/owners'),
-          fetch('/api/admin/sites'),
           fetch('/api/integrations/mixradius/groups')
         ])
 
@@ -111,15 +109,6 @@ export default function IncomePeriodClient() {
           const result = await ownersRes.json()
           if (result.success && Array.isArray(result.data)) {
             setOwners(result.data)
-          }
-        }
-
-        if (sitesRes.ok) {
-          const result = await sitesRes.json()
-          // Check for success property based on API style
-          const siteData = result.data || result
-          if (Array.isArray(siteData)) {
-            setSites(siteData.map((s: any) => ({ id: s.id, name: s.name })))
           }
         }
 
@@ -154,7 +143,6 @@ export default function IncomePeriodClient() {
       if (serviceType) params.append('stype', serviceType)
       if (paymentMethod) params.append('payment_method', paymentMethod)
       if (ownerId && ownerId !== 'all') params.append('owner_id', ownerId)
-      if (selectedSite && selectedSite !== 'all') params.append('siteId', selectedSite)
       if (selectedGroup && selectedGroup !== 'all') params.append('groupId', selectedGroup)
 
       const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
@@ -177,11 +165,74 @@ export default function IncomePeriodClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, sortColumn, sortDirection, startDate, endDate, serviceType, paymentMethod, ownerId])
+  }, [page, pageSize, debouncedSearch, sortColumn, sortDirection, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  const handleExport = async () => {
+    try {
+        toast.loading('Menyiapkan data export...', { id: 'export' })
+
+        const params = new URLSearchParams({
+            start: '0',
+            length: '10000', // Fetch all for export
+            search: debouncedSearch,
+            sortBy: sortColumn,
+            sortDir: sortDirection,
+            fdate: startDate,
+            tdate: endDate,
+        })
+
+        if (serviceType) params.append('stype', serviceType)
+        if (paymentMethod) params.append('payment_method', paymentMethod)
+        if (ownerId && ownerId !== 'all') params.append('owner_id', ownerId)
+        if (selectedGroup && selectedGroup !== 'all') params.append('groupId', selectedGroup)
+
+        const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
+        const result = await response.json()
+
+        if (!result.success || !result.data?.data) {
+            throw new Error('Gagal mengambil data untuk export')
+        }
+
+        const records = result.data.data as IncomePeriodRecord[]
+
+        // Generate CSV
+        const headers = ['Invoice', 'Pelanggan', 'Username', 'Paket', 'Total', 'Fee Seller', 'Status', 'Tanggal', 'Owner', 'Metode Bayar']
+        const csvContent = [
+            headers.join(','),
+            ...records.map(r => [
+                `"${r.invoice}"`,
+                `"${r.fullname}"`,
+                `"${r.username}"`,
+                `"${r.plan_name}"`,
+                `"${r.total}"`,
+                `"${r.seller_fee}"`,
+                `"${r.trx_status}"`,
+                `"${r.renewed_on}"`,
+                `"${r.owner_name}"`,
+                `"${r.payment_method}"`
+            ].join(','))
+        ].join('\n')
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.setAttribute('href', url)
+        link.setAttribute('download', `Laporan_Pendapatan_${startDate}_${endDate}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        toast.success('Export berhasil!', { id: 'export' })
+    } catch (err) {
+        toast.error('Gagal export data', { id: 'export' })
+        console.error(err)
+    }
+  }
 
   const totalPages = Math.ceil(totalRecords / pageSize)
 
@@ -214,6 +265,33 @@ export default function IncomePeriodClient() {
     setPage(0)
   }
 
+  const handlePrint = (id: string) => {
+      // Open print window
+      window.open(`/api/integrations/mixradius/print/${id}`, '_blank');
+  }
+
+  const handleDelete = async (id: string) => {
+      if (!confirm('Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.')) return
+
+      const toastId = toast.loading('Menghapus data...')
+      try {
+          const response = await fetch(`/api/integrations/mixradius/reports/delete/${id}`, {
+              method: 'POST'
+          })
+
+          const result = await response.json()
+
+          if (!response.ok || !result.success) {
+              throw new Error(result.error || 'Gagal menghapus data')
+          }
+
+          toast.success('Data berhasil dihapus', { id: toastId })
+          fetchData() // Refresh data
+      } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'Gagal menghapus data', { id: toastId })
+      }
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -228,42 +306,57 @@ export default function IncomePeriodClient() {
           </p>
         </div>
 
-        <button
-          onClick={() => fetchData()}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <HiOutlineArrowPath className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Memuat...' : 'Refresh'}
-        </button>
+        <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
+            <button
+              onClick={() => fetchData()}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <HiOutlineArrowPath className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Memuat...' : 'Refresh'}
+            </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+          {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PROFIT (IDR)</p>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{summary?.profit || '0'}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+          {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">FEE SELLER (IDR)</p>
           <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{summary?.feeSeller || '0'}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+          {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL + PPN (IDR)</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{summary?.totalPlusPpn || '0'}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+          {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL TRANSAKSI</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{globalTotal.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{summary?.totalTransactions || totalRecords.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Filters & Search */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Filters & Search - Toolbar Style matching MixRadiusClient */}
+      <div className="flex flex-col xl:flex-row gap-2">
+        <div className="flex flex-wrap gap-2 items-center flex-1">
             {/* Date Range */}
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Dari Tanggal</label>
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1">
+                <span className="text-xs text-gray-500 font-medium">Periode:</span>
                 <input
                     type="date"
                     value={startDate}
@@ -271,11 +364,9 @@ export default function IncomePeriodClient() {
                         setStartDate(e.target.value)
                         setPage(0)
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    className="bg-transparent border-none text-sm text-gray-900 dark:text-white focus:ring-0 p-0 w-[110px]"
                 />
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Sampai Tanggal</label>
+                <span className="text-gray-400">-</span>
                 <input
                     type="date"
                     value={endDate}
@@ -283,118 +374,83 @@ export default function IncomePeriodClient() {
                         setEndDate(e.target.value)
                         setPage(0)
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    className="bg-transparent border-none text-sm text-gray-900 dark:text-white focus:ring-0 p-0 w-[110px]"
                 />
             </div>
 
             {/* Service Type */}
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tipe Layanan</label>
-                <select
-                    value={serviceType}
-                    onChange={(e) => {
-                        setServiceType(e.target.value)
-                        setPage(0)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="">Semua Tipe</option>
-                    <option value="PPP">PPP / PPPoE</option>
-                    <option value="HOTSPOT">Hotspot</option>
-                </select>
-            </div>
+            <select
+                value={serviceType}
+                onChange={(e) => {
+                    setServiceType(e.target.value)
+                    setPage(0)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
+            >
+                <option value="">Semua Layanan</option>
+                <option value="PPP">PPP / PPPoE</option>
+                <option value="HOTSPOT">Hotspot</option>
+            </select>
 
             {/* Payment Method */}
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Pembayaran</label>
-                <select
-                    value={paymentMethod}
-                    onChange={(e) => {
-                        setPaymentMethod(e.target.value)
-                        setPage(0)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="">Semua</option>
-                    <option value="manual">Manual</option>
-                    <option value="online">Online</option>
-                </select>
-            </div>
-
-            {/* Site Filter */}
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Site</label>
-                <select
-                    value={selectedSite}
-                    onChange={(e) => {
-                        setSelectedSite(e.target.value)
-                        setPage(0)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="all">Semua Site</option>
-                    {sites.map((site) => (
-                        <option key={site.id} value={site.id}>
-                            {site.name}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <select
+                value={paymentMethod}
+                onChange={(e) => {
+                    setPaymentMethod(e.target.value)
+                    setPage(0)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
+            >
+                <option value="">Semua Metode</option>
+                <option value="manual">Manual</option>
+                <option value="online">Online</option>
+            </select>
 
             {/* Management Site (Group) Filter */}
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Manajemen Site</label>
-                <select
-                    value={selectedGroup}
-                    onChange={(e) => {
-                        setSelectedGroup(e.target.value)
-                        setPage(0)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="all">Semua Group</option>
-                    {groups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                            {group.name}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <select
+                value={selectedGroup}
+                onChange={(e) => {
+                    setSelectedGroup(e.target.value)
+                    setPage(0)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
+            >
+                <option value="all">Semua Site</option>
+                {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                        {group.name}
+                    </option>
+                ))}
+            </select>
 
             {/* Owner Filter */}
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Owner</label>
-                <select
-                    value={ownerId}
-                    onChange={(e) => {
-                        setOwnerId(e.target.value)
-                        setPage(0)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="all">Semua Owner</option>
-                    {owners.map((owner) => (
-                        <option key={owner.id} value={owner.id}>
-                            {owner.name}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <select
+                value={ownerId}
+                onChange={(e) => {
+                    setOwnerId(e.target.value)
+                    setPage(0)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
+            >
+                <option value="all">Semua Owner</option>
+                {owners.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                        {owner.name}
+                    </option>
+                ))}
+            </select>
+        </div>
 
-            {/* Search */}
-            <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cari</label>
-                <div className="relative">
-                    <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Invoice, user..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-            </div>
+        {/* Search */}
+        <div className="relative w-full xl:w-64">
+            <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+                type="text"
+                placeholder="Cari Invoice, User, Nama..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
         </div>
       </div>
 
@@ -420,15 +476,36 @@ export default function IncomePeriodClient() {
                 priority: 'primary',
                 sortable: true,
                 render: (item) => (
-                    <div className="flex flex-col">
-                        <span className="font-mono text-sm font-medium text-blue-600 dark:text-blue-400">{item.invoice}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{item.payment_method}</span>
-                    </div>
+                    <span className="font-mono text-sm font-medium text-blue-600 dark:text-blue-400">{item.invoice}</span>
                 )
               },
               {
                 key: 'member_id',
-                header: 'Pelanggan',
+                header: 'ID Pelanggan',
+                priority: 'secondary',
+                sortable: true,
+                render: (item) => {
+                    let displayId = 'n/a';
+                    const isMember = item.method === 'MEMBER';
+
+                    if (item.member_id === '0') {
+                        displayId = 'n/a';
+                    } else if (isMember) {
+                        displayId = item.member_id;
+                    } else {
+                        displayId = item.username;
+                    }
+
+                    return (
+                        <span className={`text-sm ${isMember ? 'font-mono font-bold' : ''} text-gray-900 dark:text-white`}>
+                            {displayId}
+                        </span>
+                    );
+                }
+              },
+              {
+                key: 'fullname',
+                header: 'Nama',
                 priority: 'primary',
                 sortable: true,
                 render: (item) => (
@@ -439,14 +516,41 @@ export default function IncomePeriodClient() {
                 )
               },
               {
+                key: 'nasporttype',
+                header: 'Tipe Service',
+                priority: 'secondary',
+                sortable: true,
+                render: (item) => {
+                    const isPrepaid = item.payment_type === 'PREPAID';
+                    const typeLabel = isPrepaid ? 'PRE' : 'POST';
+                    const typeClass = isPrepaid
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+
+                    let serviceName = 'HOTSPOT';
+                    if (item.nasporttype === 'Ethernet') serviceName = 'PPPOE';
+                    else if (item.nasporttype === 'Virtual') serviceName = 'PPTP/L2TP';
+                    else if (item.nasporttype === 'Async') serviceName = 'OVPN/SSTP';
+
+                    return (
+                        <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${typeClass}`}>
+                                {typeLabel}
+                            </span>
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{serviceName}</span>
+                        </div>
+                    );
+                }
+              },
+              {
                 key: 'plan_name',
-                header: 'Paket',
+                header: 'Paket Langganan',
                 priority: 'secondary',
                 sortable: true
               },
               {
                 key: 'total',
-                header: 'Total',
+                header: 'Harga [ +PPN ]',
                 priority: 'primary',
                 sortable: true,
                 render: (item) => (
@@ -457,7 +561,7 @@ export default function IncomePeriodClient() {
               },
               {
                 key: 'seller_fee',
-                header: 'Fee',
+                header: 'Fee Seller',
                 priority: 'tertiary',
                 sortable: true,
                 render: (item) => (
@@ -467,23 +571,8 @@ export default function IncomePeriodClient() {
                 )
               },
               {
-                key: 'trx_status',
-                header: 'Status',
-                priority: 'secondary',
-                sortable: true,
-                render: (item) => (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        item.trx_status === 'PAID'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                    }`}>
-                        {item.trx_status}
-                    </span>
-                )
-              },
-              {
                 key: 'renewed_on',
-                header: 'Tanggal',
+                header: 'Tanggal Aktif',
                 priority: 'secondary',
                 sortable: true,
                 render: (item) => (
@@ -495,7 +584,7 @@ export default function IncomePeriodClient() {
               },
               {
                 key: 'owner_name',
-                header: 'Owner',
+                header: 'Owner Data',
                 priority: 'tertiary',
                 sortable: true,
                 render: (item) => (
@@ -505,6 +594,30 @@ export default function IncomePeriodClient() {
                     </div>
                 )
               },
+              {
+                  key: 'id',
+                  header: 'Aksi',
+                  priority: 'primary',
+                  sortable: false,
+                  render: (item) => (
+                      <div className="flex items-center gap-2">
+                          <button
+                              onClick={() => handlePrint(item.id)}
+                              className="p-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50 transition-colors"
+                              title="Cetak Invoice"
+                          >
+                              <HiOutlinePrinter className="w-4 h-4" />
+                          </button>
+                          <button
+                              onClick={() => handleDelete(item.id)}
+                              className="p-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 transition-colors"
+                              title="Hapus Data"
+                          >
+                              <HiOutlineTrash className="w-4 h-4" />
+                          </button>
+                      </div>
+                  )
+              }
             ]}
             keyField="id"
             loading={loading}

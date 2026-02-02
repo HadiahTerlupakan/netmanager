@@ -3,6 +3,8 @@ import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusSe
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req)

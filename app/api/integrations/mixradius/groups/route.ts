@@ -4,6 +4,8 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/integrations/mixradius/groups
  * Get all owner groups (Sites)

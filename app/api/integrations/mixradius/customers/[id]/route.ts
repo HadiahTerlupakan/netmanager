@@ -3,6 +3,8 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

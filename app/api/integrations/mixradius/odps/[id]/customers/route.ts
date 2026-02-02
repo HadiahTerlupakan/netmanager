@@ -3,6 +3,8 @@ import { authConfig } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 async function requireAuth() {
   const session = await getServerSession(authConfig)
   if (!session) {

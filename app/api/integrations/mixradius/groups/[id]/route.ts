@@ -4,6 +4,8 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 interface Context {
   params: Promise<{
     id: string

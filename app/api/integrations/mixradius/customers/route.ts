@@ -3,6 +3,8 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService, type FetchCustomersParams } from '@/modules/integrations'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/integrations/mixradius/customers
  *

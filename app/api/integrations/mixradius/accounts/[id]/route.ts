@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger'
 import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

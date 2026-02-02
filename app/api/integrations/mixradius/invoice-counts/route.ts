@@ -3,6 +3,8 @@ import { verifyAuth } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/integrations/mixradius/invoice-counts
  * 
