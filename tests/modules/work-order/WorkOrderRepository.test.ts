@@ -359,9 +359,9 @@ describe('WorkOrderRepository', () => {
         { status: 'CLOSED', _count: 40 }
       ] as unknown as Array<{ status: string; _count: number }>)
 
-      prismaMock.workOrders.findMany.mockResolvedValueOnce([
-        { startedAt: new Date(Date.now() - 7200000), completedAt: new Date(), actualCost: 100 }
-      ] as unknown as WorkOrders[])
+      prismaMock.$queryRawUnsafe.mockResolvedValueOnce([
+        { avgHours: 2.0, totalCost: 100 }
+      ])
 
       prismaMock.workOrders.aggregate.mockResolvedValueOnce({
         _avg: { rating: 4.5 },

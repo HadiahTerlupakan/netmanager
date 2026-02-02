@@ -98,6 +98,7 @@ export type MockPrismaClient = {
   $disconnect: MockFn
   $transaction: MockFn
   $queryRaw: MockFn
+  $queryRawUnsafe: MockFn
   $executeRaw: MockFn
   // Allow any other model access
   [key: string]: MockModel | MockFn
@@ -194,6 +195,7 @@ const createMock = (): MockPrismaClient => {
     $disconnect: vi.fn(),
     $transaction: vi.fn(),
     $queryRaw: vi.fn(),
+    $queryRawUnsafe: vi.fn(),
     $executeRaw: vi.fn(),
   })
 }
