@@ -1,3 +1,11 @@
+// Mock notification service - DO THIS FIRST before any imports
+vi.mock('@/modules/work-order/services/WorkOrderNotificationService', () => ({
+  notifyNewWorkOrder: vi.fn(),
+  notifyWorkOrderAssigned: vi.fn(),
+  notifyWorkOrderStatusChange: vi.fn(),
+  notifyWorkOrderUpdate: vi.fn()
+}))
+
 import { describe, it, expect, vi } from 'vitest'
 import { prismaMock } from '../../setup'
 import { syncWoStatusToTicket, closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'

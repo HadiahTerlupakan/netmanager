@@ -214,6 +214,29 @@ beforeEach(() => {
   mockReset(prismaMock as any)
 })
 
-// Mock console methods to reduce noise in tests (optional)
-// vi.spyOn(console, 'log').mockImplementation(() => {})
-// vi.spyOn(console, 'error').mockImplementation(() => {})
+// Mock console methods to reduce noise in tests
+vi.spyOn(console, 'log').mockImplementation(() => {})
+vi.spyOn(console, 'error').mockImplementation(() => {})
+
+// Mock the WebSocket emitter globally using vi.mock
+// This replaces the module completely preventing any network calls
+vi.mock('@/lib/websocket/emitter', () => ({
+  socketEmitter: {
+    notifyUser: vi.fn(),
+    notifyDepartment: vi.fn(),
+    notifyAdmins: vi.fn(),
+    updateNotificationCount: vi.fn(),
+    newTicket: vi.fn(),
+    updateTicket: vi.fn(),
+    ticketReply: vi.fn(),
+    ticketMessage: vi.fn(),
+    updateTicketCount: vi.fn(),
+    newWorkOrder: vi.fn(),
+    updateWorkOrder: vi.fn(),
+    workOrderAssigned: vi.fn(),
+    workOrderActivity: vi.fn(),
+    inventoryUpdate: vi.fn(),
+    broadcast: vi.fn(),
+    forceLogout: vi.fn(),
+  }
+}))
