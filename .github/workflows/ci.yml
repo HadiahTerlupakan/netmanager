@@ -6,10 +6,39 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: Check (Lint, Typecheck, Build)
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: netmanager_ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
 
     steps:
       - name: Checkout code
@@ -27,20 +56,20 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
         env:
-          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/netmanager_ci
 
       - name: Run Check (Lint, Types, Build)
         run: npm run check
         env:
-          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
-          REDIS_URL: "redis://localhost:6379"
-          NEXTAUTH_SECRET: "super-long-secure-secret-key-for-nextauth-build-process"
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/netmanager_ci
+          REDIS_URL: redis://localhost:6379
+          NEXTAUTH_SECRET: "ci-build-secret"
           NEXTAUTH_URL: "http://localhost:3000"
 
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:16
@@ -124,10 +153,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run npm audit
+      - name: Run npm audit (moderate)
         run: npm audit --audit-level=moderate
         continue-on-error: true
 
-      - name: Check for known vulnerabilities
+      - name: Run npm audit (high)
         run: npm audit --audit-level=high
-
