@@ -371,7 +371,7 @@ export default function ExpensesClient() {
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-          <ResponsiveTable
+          <ResponsiveTable keyField="id"
             data={filteredData}
             loading={loading}
             emptyMessage={
