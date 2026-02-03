@@ -544,7 +544,7 @@ export class MixRadiusService {
         rawData.forEach(item => {
           if (item.username && !uniqueMap.has(item.username)) {
             // FIX ID: If 'id' looks like a username (len > 10) and DT_RowId exists, use DT_RowId
-            const anyItem = item as any
+            const anyItem = item as MixRadiusCustomer & { DT_RowId?: string }
             if (anyItem.id && anyItem.id.length > 8 && anyItem.DT_RowId) {
                 // DT_RowId usually looks like "row_12345"
                 const realId = String(anyItem.DT_RowId).replace('row_', '')

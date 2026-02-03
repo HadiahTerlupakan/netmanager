@@ -54,11 +54,26 @@ export async function GET(
         // Determine which list to search based on update type
         // MATERIAL_PICKUP -> usedMaterials
         // MATERIAL_RETURN -> returnedMaterials
-        let sourceMaterials: any[] = []
+
+        interface MaterialItem {
+            id?: string
+            nama?: string
+            barangId?: string
+            gudangId?: string | null
+            barang?: {
+                id?: string
+                nama?: string
+            }
+            gudang?: {
+                id?: string
+            }
+        }
+
+        let sourceMaterials: MaterialItem[] = []
         if (isPickup) {
-            sourceMaterials = (update.workOrders?.usedMaterials as any[]) || []
+            sourceMaterials = (update.workOrders?.usedMaterials as unknown as MaterialItem[]) || []
         } else {
-            sourceMaterials = (update.workOrders?.returnedMaterials as any[]) || []
+            sourceMaterials = (update.workOrders?.returnedMaterials as unknown as MaterialItem[]) || []
         }
 
         // Extract material name from message
@@ -81,7 +96,7 @@ export async function GET(
             // Match logic:
             // 1. Exact ID match (if we had it in message, but we don't usually)
             // 2. Name match
-            const matchingMaterial = sourceMaterials.find((m: { nama?: string, barang?: { nama: string } }) => {
+            const matchingMaterial = sourceMaterials.find((m) => {
                 const mName = m.nama || m.barang?.nama || ''
                 return mName.toLowerCase().trim() === namaBarang.toLowerCase().trim() ||
                        mName.toLowerCase().includes(namaBarang.toLowerCase().trim())

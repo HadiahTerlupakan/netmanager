@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import * as crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 

@@ -296,8 +296,9 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
 
       // Refresh list to potentially show updated status (though MixRadius status might not change immediately)
       fetchData(true)
-    } catch (err: any) {
-      toast.error(err.message || 'Terjadi kesalahan')
+    } catch (err: unknown) {
+      const error = err as { message: string }
+      toast.error(error.message || 'Terjadi kesalahan')
     } finally {
       setProcessingDismantle(false)
     }

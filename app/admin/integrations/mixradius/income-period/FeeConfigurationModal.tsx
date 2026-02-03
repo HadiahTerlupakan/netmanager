@@ -53,7 +53,7 @@ export default function FeeConfigurationModal({
         setFees(newFees)
     }
 
-    const updateFee = (method: string, field: 'type' | 'value', value: any) => {
+    const updateFee = (method: string, field: 'type' | 'value', value: string | number) => {
         setFees(prev => ({
             ...prev,
             [method]: {

@@ -141,13 +141,31 @@ export default function IncomePeriodClient() {
     fetchFilterData()
   }, [])
 
-  const calculateNetIncome = (records: IncomePeriodRecord[]) => {
+  // Move helper functions outside or use useCallback to stabilize them
+  const parseNumber = useCallback((val: string | number): number => {
+    if (typeof val === 'number') return val
+    if (!val) return 0
+
+    let str = String(val).trim()
+    str = str.replace(/Rp\.?\s?/i, '')
+
+    if (str.includes(',')) {
+        str = str.replace(/\./g, '').replace(',', '.')
+    }
+    else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+        str = str.replace(/\./g, '')
+    }
+
+    return parseFloat(str) || 0
+  }, [])
+
+  const calculateNetIncome = useCallback((records: IncomePeriodRecord[]) => {
       let totalNet = 0
       let totalFee = 0
       records.forEach(r => {
           const rawTotal = parseNumber(r.total)
           const feeSeller = parseNumber(r.seller_fee)
-          let method = r.payment_method || r.method || ''
+          const method = r.payment_method || r.method || ''
 
           // Check if transaction is Online (Payment Gateway)
           const isOnline = method.toLowerCase().includes('dtk') ||
@@ -190,7 +208,7 @@ export default function IncomePeriodClient() {
           totalFee += fee
       })
       return { net: totalNet, fee: totalFee }
-  }
+  }, [feeConfig, parseNumber])
 
   // Calculate Global Net Income (Fetch all data in background)
   useEffect(() => {
@@ -240,7 +258,7 @@ export default function IncomePeriodClient() {
       }, 1000)
 
       return () => clearTimeout(timer)
-  }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup, debouncedSearch]) // Recalculate when filters or fees change
+  }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup, debouncedSearch, sortColumn, sortDirection, calculateNetIncome]) // Recalculate when filters or fees change
 
   const handleSaveFees = async (newFees: FeeConfig) => {
       try {
@@ -256,6 +274,7 @@ export default function IncomePeriodClient() {
               toast.error('Gagal menyimpan')
           }
       } catch (e) {
+          console.error(e)
           toast.error('Terjadi kesalahan')
       }
   }
@@ -504,9 +523,15 @@ export default function IncomePeriodClient() {
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800">
           {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>}
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENDAPATAN BERSIH</p>
+          <div className="flex justify-between items-start">
+             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENDAPATAN BERSIH (EST)</p>
+             <button onClick={() => setShowFeeModal(true)} className="text-gray-400 hover:text-blue-500"><HiOutlineCog className="w-4 h-4" /></button>
+          </div>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(netIncome)}</p>
-          <p className="text-[10px] text-gray-400 mt-1">Est. Total Masuk Rekening</p>
+          <div className="flex flex-col gap-0.5 mt-1">
+             <p className="text-[10px] text-gray-400">Est. Potongan Gateway: <span className="text-red-400 font-medium">-{formatCurrency(estGatewayFee)}</span></p>
+             <p className="text-[10px] text-gray-400">Setelah pot. Fee Seller & Gateway</p>
+          </div>
         </div>
       </div>
 
