@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
                 key: SETTINGS_KEY,
                 value: JSON.stringify(body),
                 description: 'Konfigurasi Fee Transaksi MixRadius (Payment Gateway)',
-                encrypted: false
+                encrypted: false,
+                updatedAt: new Date()
             }
         })
 

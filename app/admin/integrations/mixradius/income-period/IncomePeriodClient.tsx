@@ -13,7 +13,7 @@ import {
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
-import FeeConfigurationModal, { FeeConfig } from './FeeConfigurationModal'
+import FeeConfigurationModal, { type FeeConfig } from './FeeConfigurationModal'
 import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from './DuitkuDefaults'
 
 interface IncomePeriodRecord {
