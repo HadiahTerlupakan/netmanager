@@ -23,9 +23,11 @@ export async function GET(req: NextRequest) {
         const startDate = searchParams.get("startDate");
         const endDate = searchParams.get("endDate");
         const siteId = searchParams.get("siteId");
+        const mixRadiusGroupId = searchParams.get("mixRadiusGroupId");
         const category = searchParams.get("category");
+        const scope = searchParams.get("scope");
 
-        console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, category });
+        console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, scope });
 
         // Build where clause
         const where: Record<string, unknown> = {};
@@ -55,8 +57,15 @@ export async function GET(req: NextRequest) {
                  // If user is restricted but has no site, return empty
                  return NextResponse.json([]);
             }
+        } else if (scope === 'general') {
+             // Explicitly fetch expenses with NO site association (Shared/General)
+             where.siteId = null;
+             where.mixRadiusGroupId = null;
+        } else if (mixRadiusGroupId) {
+             // Precise filtering by Group ID if provided
+             where.mixRadiusGroupId = mixRadiusGroupId;
         } else if (siteId) {
-             // If not restricted, allow filtering by specific site
+             // Fallback to physical site ID if no specific group requested
              where.siteId = siteId;
         }
 

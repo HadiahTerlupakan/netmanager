@@ -84,6 +84,8 @@ export default function IncomePeriodClient() {
   const [netIncome, setNetIncome] = useState<number>(0)
   const [estGatewayFee, setEstGatewayFee] = useState<number>(0)
   const [totalExpenses, setTotalExpenses] = useState<number>(0)
+  const [specificExpenses, setSpecificExpenses] = useState<number>(0)
+  const [allocatedExpenses, setAllocatedExpenses] = useState<number>(0)
   const [isCalculatingNet, setIsCalculatingNet] = useState(false)
 
   // Sorting state
@@ -243,25 +245,119 @@ export default function IncomePeriodClient() {
               // Fetch Expenses matching the period and site
               let expensesTotal = 0
               try {
-                  const expenseParams = new URLSearchParams({
-                      startDate: startDate,
-                      endDate: endDate
-                  })
-
-                  // Find selected group to get siteId
                   if (selectedGroup && selectedGroup !== 'all') {
-                      const group = groups.find(g => g.id === selectedGroup)
-                      if (group && group.siteId) {
-                          expenseParams.append('siteId', group.siteId)
-                      }
-                  }
+                      // If a specific group is selected:
+                      // Total = (Group Specific Expenses) + (General Expenses * Weight)
+                      // Weight = ((SiteTrx/GlobalTrx) + (SiteRev/GlobalRev)) / 2
 
-                  const expRes = await fetch(`/api/finance/expenses?${expenseParams}`)
-                  if (expRes.ok) {
-                      const expData = await expRes.json()
-                      if (Array.isArray(expData)) {
-                          expensesTotal = expData.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
+                      // 1. Get Global Stats (Same period/filters, but ALL groups)
+                      const globalParams = new URLSearchParams({
+                          start: '0',
+                          length: '1', // Summary only
+                          search: debouncedSearch,
+                          fdate: startDate,
+                          tdate: endDate,
+                      })
+                      if (serviceType) globalParams.append('stype', serviceType)
+                      if (paymentMethod) globalParams.append('payment_method', paymentMethod)
+                      // Do NOT append groupId or ownerId to get global context?
+                      // Usually ownerId is specific filter too.
+                      // The requirement implies "Global" as in "All Sites".
+                      // If filtering by owner, "Global" might mean "All Sites for this Owner" or "All Sites System-wide".
+                      // "Pengeluaran Umum" usually implies System-wide expenses.
+                      // Let's assume Global = System-wide (respecting date/service filters).
+
+                      const [specificRes, generalRes, globalStatsRes] = await Promise.all([
+                          fetch(`/api/finance/expenses?startDate=${startDate}&endDate=${endDate}&mixRadiusGroupId=${selectedGroup}`),
+                          fetch(`/api/finance/expenses?startDate=${startDate}&endDate=${endDate}&scope=general`),
+                          fetch(`/api/integrations/mixradius/reports/period?${globalParams}`)
+                      ])
+
+                      let specificTotal = 0
+                      let generalTotal = 0
+
+                      if (specificRes.ok) {
+                          const data = await specificRes.json()
+                          if (Array.isArray(data)) {
+                              specificTotal = data.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
+                          }
                       }
+
+                      if (generalRes.ok) {
+                          const data = await generalRes.json()
+                          if (Array.isArray(data)) {
+                              generalTotal = data.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
+                          }
+                      }
+
+                      // Calculate Weight
+                      if (globalStatsRes.ok) {
+                          const globalData = await globalStatsRes.json()
+                          const globalSummary = globalData.data?.summary
+                          const siteSummary = result.data?.summary
+
+                          if (globalSummary && siteSummary) {
+                              // Parse Metrics
+                              const globalTrx = parseNumber(globalSummary.totalTransactions)
+                              const globalRev = parseNumber(globalSummary.profit) // Use Profit (Revenue - Seller Fee) as 'Pendapatan Bersih' proxy
+
+                              const siteTrx = parseNumber(siteSummary.totalTransactions)
+                              const siteRev = parseNumber(siteSummary.profit)
+
+                              // Avoid division by zero
+                              const trxRatio = globalTrx > 0 ? (siteTrx / globalTrx) : 0
+                              const revRatio = globalRev > 0 ? (siteRev / globalRev) : 0
+
+                              const weight = (trxRatio + revRatio) / 2
+
+                              // Allocated General Expense
+                              const allocatedGeneral = generalTotal * weight
+                              expensesTotal = specificTotal + allocatedGeneral
+
+                              setSpecificExpenses(specificTotal)
+                              setAllocatedExpenses(allocatedGeneral)
+
+                              console.log('[EXPENSE_ALLOCATION]', {
+                                  site: selectedGroup,
+                                  specificTotal,
+                                  generalTotal,
+                                  weight,
+                                  trxRatio: `${siteTrx}/${globalTrx}`,
+                                  revRatio: `${siteRev}/${globalRev}`,
+                                  allocated: allocatedGeneral,
+                                  final: expensesTotal
+                              })
+                          } else {
+                              // Fallback if summary missing
+                              const totalGroups = groups.length || 1
+                              const allocated = generalTotal / totalGroups
+                              expensesTotal = specificTotal + allocated
+                              setSpecificExpenses(specificTotal)
+                              setAllocatedExpenses(allocated)
+                          }
+                      } else {
+                          // Fallback if fetch fails
+                          const totalGroups = groups.length || 1
+                          const allocated = generalTotal / totalGroups
+                          expensesTotal = specificTotal + allocated
+                          setSpecificExpenses(specificTotal)
+                          setAllocatedExpenses(allocated)
+                      }
+                  } else {
+                      // If All Sites selected, fetch everything (Specific + General)
+                      const params = new URLSearchParams({
+                          startDate: startDate,
+                          endDate: endDate
+                      })
+                      const expRes = await fetch(`/api/finance/expenses?${params}`)
+                      if (expRes.ok) {
+                          const expData = await expRes.json()
+                          if (Array.isArray(expData)) {
+                              expensesTotal = expData.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
+                          }
+                      }
+                      setSpecificExpenses(expensesTotal)
+                      setAllocatedExpenses(0)
                   }
               } catch (err) {
                   console.error("Error fetching expenses", err)
@@ -492,7 +588,7 @@ export default function IncomePeriodClient() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
           {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PROFIT (IDR)</p>
@@ -512,6 +608,11 @@ export default function IncomePeriodClient() {
           <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(estGatewayFee)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+          {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENGELUARAN (SITE)</p>
+          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{formatCurrency(totalExpenses)}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
           {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL + PPN (IDR)</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{summary?.totalPlusPpn || '0'}</p>
@@ -521,7 +622,7 @@ export default function IncomePeriodClient() {
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL TRANSAKSI</p>
           <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{summary?.totalTransactions || totalRecords.toLocaleString()}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800 col-span-1 sm:col-span-2 lg:col-span-2 xl:col-span-2">
           {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <div className="flex justify-between items-start">
              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENDAPATAN BERSIH (EST)</p>
@@ -529,9 +630,23 @@ export default function IncomePeriodClient() {
           </div>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(netIncome)}</p>
           <div className="flex flex-col gap-0.5 mt-1">
-             <p className="text-[10px] text-gray-400">Est. Potongan Gateway: <span className="text-red-400 font-medium">-{formatCurrency(estGatewayFee)}</span></p>
-             <p className="text-[10px] text-gray-400">Pengeluaran Site: <span className="text-red-400 font-medium">-{formatCurrency(totalExpenses)}</span></p>
-             <p className="text-[10px] text-gray-400">Setelah pot. Fee, Gateway & Pengeluaran</p>
+             <p className="text-[10px] text-gray-400 flex justify-between">
+                <span>Est. Potongan Gateway:</span>
+                <span className="text-red-400 font-medium">-{formatCurrency(estGatewayFee)}</span>
+             </p>
+             <p className="text-[10px] text-gray-400 flex justify-between">
+                <span>Pengeluaran Site:</span>
+                <span className="text-red-400 font-medium">-{formatCurrency(specificExpenses)}</span>
+             </p>
+             {allocatedExpenses > 0 && (
+                 <p className="text-[10px] text-gray-400 flex justify-between">
+                    <span>Alokasi Pengeluaran Umum:</span>
+                    <span className="text-red-400 font-medium">-{formatCurrency(allocatedExpenses)}</span>
+                 </p>
+             )}
+             <p className="text-[10px] text-gray-400 mt-1 italic border-t border-gray-100 dark:border-gray-700 pt-1">
+                *Net setelah pot. Fee, Gateway & Total Pengeluaran
+             </p>
           </div>
         </div>
       </div>

@@ -511,7 +511,7 @@ export default function ExpensesClient() {
                                     : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
                             }`}
                         >
-                            <span>OPEX</span>
+                            <span className="font-bold">OPEX</span>
                             <span className="text-[10px] font-normal opacity-75">Operasional</span>
                         </button>
                         <button
@@ -523,7 +523,7 @@ export default function ExpensesClient() {
                                     : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
                             }`}
                         >
-                            <span>CAPEX</span>
+                            <span className="font-bold">CAPEX</span>
                             <span className="text-[10px] font-normal opacity-75">Modal / Aset</span>
                         </button>
                       </div>
@@ -536,7 +536,7 @@ export default function ExpensesClient() {
                   </label>
                   <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 sm:text-sm">Rp</span>
+                          <span className="text-gray-500 sm:text-sm font-bold">Rp</span>
                       </div>
                       <input
                           type="number"
@@ -544,7 +544,7 @@ export default function ExpensesClient() {
                           min="0"
                           value={formData.amount}
                           onChange={e => setFormData({...formData, amount: e.target.value})}
-                          className="w-full pl-10 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-medium transition-shadow"
+                          className="w-full pl-10 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-bold transition-shadow"
                           placeholder="0"
                       />
                   </div>
@@ -564,7 +564,7 @@ export default function ExpensesClient() {
                           <option key={site.id} value={site.id}>{site.name}</option>
                       ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Pilih group site untuk pengeluaran ini</p>
+                  <p className="text-xs text-gray-500 mt-1">Pilih group site jika pengeluaran ini spesifik untuk lokasi tertentu</p>
               </div>
 
               <div>
