@@ -390,35 +390,6 @@ export default function IncomePeriodClient() {
 
   const totalPages = Math.ceil(totalRecords / pageSize)
 
-  const parseNumber = (val: string | number): number => {
-    if (typeof val === 'number') return val
-    if (!val) return 0
-
-    let str = String(val).trim()
-    // Handle Indonesian format (dots as thousands, comma as decimal)
-    // Example: "1.000.000" -> 1000000
-    // Example: "5.000" -> 5000
-    // Example: "150000.00" -> 150000
-
-    // Remove Rp and spaces
-    str = str.replace(/Rp\.?\s?/i, '')
-
-    // Check if likely ID format (contains multiple dots OR dot followed by 3 digits at end)
-    // Note: This heuristic assumes we don't deal with fractions < 1000 using 3 decimals like 1.234
-    // But for currency "5.000" usually means 5000.
-
-    // If contains comma, assume ID format (comma is decimal) -> remove dots, replace comma with dot
-    if (str.includes(',')) {
-        str = str.replace(/\./g, '').replace(',', '.')
-    }
-    // If looks like thousands separator (1.000 or 1.000.000)
-    else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
-        str = str.replace(/\./g, '')
-    }
-
-    return parseFloat(str) || 0
-  }
-
   const formatCurrency = (amount: string | number) => {
     const num = parseNumber(amount)
     if (isNaN(num)) return String(amount)
