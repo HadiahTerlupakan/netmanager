@@ -209,6 +209,7 @@ export class MixRadiusService {
   private jar: CookieJar
   private isLoggedIn: boolean = false
   private loginExpiresAt: number = 0
+  private loggedInCredentials: { username: string, baseUrl: string } | null = null // Track active session credentials
   private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number, lastRenewedOn: string }>
 
   // Cache for Customers List - DISABLED
@@ -318,39 +319,26 @@ export class MixRadiusService {
    * Login ke MixRadius
    */
   async login(): Promise<void> {
-    // Check if already logged in and not expired
-    // DISABLED: Always re-login to ensure we're using the correct "Active Config"
-    // and to avoid stale sessions when switching accounts.
-    // if (this.isLoggedIn && this.loginExpiresAt > Date.now()) {
-    //   console.log('[MixRadius] Already logged in, using existing session')
-    //   return
-    // }
-
     // Always reload credentials to ensure we use the latest Active config
     await this.loadCredentials()
-    
-    // Check session again against NEW credentials? 
-    // If username/url changed, we MUST re-login.
-    // For simplicity, just re-login if forced or expired. 
-    // But to respect "Active" switch, we should probably force login if previous session was different.
-    // However, existing "isLoggedIn" doesn't track which config was used.
-    // Let's assume if we call login, we want to ensure session is valid for CURRENT credentials.
 
-    // If we are logged in, check if BaseURL matches current credentials?
-    // Hard to check. Let's just proceed with login.
-    // Optimization: if isLoggedIn and not expired, assume it's okay unless explicit "change account" action happened. 
-    // But user might switch account in admin.
-    // If user switch account, they might trigger this. 
-    // We'll trust the caller OR just always re-check.
-    
-    // Check session again against NEW credentials?
-    // DISABLED: Force re-login every time to ensure fresh data and correct account
-    /*
+    // Smart Session Check:
+    // Only use existing session if:
+    // 1. We are marked as logged in
+    // 2. Session hasn't expired
+    // 3. The credentials (username & host) match the currently loaded config
+    //    (This handles the "Account Switching" case correctly)
     if (this.isLoggedIn && this.loginExpiresAt > Date.now()) {
-        console.log('[MixRadius] Using existing session')
-        return
+       if (this.loggedInCredentials &&
+           this.loggedInCredentials.username === this.credentials.username &&
+           this.loggedInCredentials.baseUrl === this.credentials.baseUrl) {
+           console.log('[MixRadius] Using existing session (Cookies)')
+           return
+       }
+       console.log('[MixRadius] Credentials changed (Account Switch detected), forcing re-login...')
+    } else if (this.isLoggedIn) {
+       console.log('[MixRadius] Session expired, re-logging in...')
     }
-    */
 
     // Check for missing configuration
     if (!this.credentials.baseUrl || !this.credentials.baseUrl.startsWith('http')) {
@@ -403,6 +391,13 @@ export class MixRadiusService {
         this.isLoggedIn = true
         // Set expiry to 50 minutes (session expires in 1 hour)
         this.loginExpiresAt = Date.now() + (50 * 60 * 1000)
+
+        // Store the credentials used for this successful login
+        this.loggedInCredentials = {
+            username: this.credentials.username,
+            baseUrl: this.credentials.baseUrl
+        }
+
         console.log('[MixRadius] Login successful!')
       } else {
         throw new Error('Login may have failed - unexpected response')
@@ -539,10 +534,23 @@ export class MixRadiusService {
 
         console.log(`[MixRadius] Upstream returned ${rawData.length} records. Filtering in-memory...`)
 
-        // Deduplicate data by USERNAME (more reliable than ID for unique users)
+        // DEBUG: Inspect first item to verify ID structure
+        if (rawData.length > 0) {
+            console.log('[MixRadius] First raw item sample:', JSON.stringify(rawData[0], null, 2))
+        }
+
+        // Deduplicate data by USERNAME and Fix ID
         const uniqueMap = new Map()
         rawData.forEach(item => {
           if (item.username && !uniqueMap.has(item.username)) {
+            // FIX ID: If 'id' looks like a username (len > 10) and DT_RowId exists, use DT_RowId
+            const anyItem = item as any
+            if (anyItem.id && anyItem.id.length > 8 && anyItem.DT_RowId) {
+                // DT_RowId usually looks like "row_12345"
+                const realId = String(anyItem.DT_RowId).replace('row_', '')
+                // console.log(`[MixRadius] Fixing ID for ${item.username}: ${item.id} -> ${realId}`)
+                item.id = realId
+            }
             uniqueMap.set(item.username, item)
           }
         })
@@ -589,8 +597,24 @@ export class MixRadiusService {
           // Strict: Must be expired
           return expDate < now
         })
+      } else if (params.authStatus === 'Disabled-Users') {
+        // Special handling for Disabled-Users
+        // Filter where auth_status is Disabled-Users OR (Enabled-Users BUT Expired)
+        const now = new Date()
+        allData = allData.filter(item => {
+           // Case 1: Explicitly Disabled
+           if (item.auth_status === 'Disabled-Users' || item.auth_status === 'disabled') return true;
+
+           // Case 2: Expired but maybe marked as Enabled in some systems
+           if (item.expired_on) {
+             const expDate = new Date(item.expired_on)
+             if (!isNaN(expDate.getTime()) && expDate < now) return true
+           }
+
+           return false
+        })
       } else if (params.authStatus) {
-        // Normal filtering for Enabled-Users or Disabled-Users (Status Based)
+        // Normal filtering for Enabled-Users (Status Based)
         allData = allData.filter(item => item.auth_status === params.authStatus)
       }
 
@@ -625,11 +649,22 @@ export class MixRadiusService {
           })
 
           if (group && group.owners && group.owners.length > 0) {
-              // Normalize owner names (Robust split & Lowercase)
-              const allowedOwners = new Set(
-                  group.owners.map(o => o.split(/[—–-]/)[0].trim().toLowerCase())
-              )
-              allData = allData.filter(item => item.owner_name && allowedOwners.has(item.owner_name.toLowerCase()))
+              // Normalize owner names: Include BOTH full name and split prefix
+              const allowedOwners = new Set<string>()
+              group.owners.forEach(o => {
+                  const lower = o.toLowerCase().trim()
+                  allowedOwners.add(lower) // "mendal - jakarta"
+                  allowedOwners.add(lower.split(/[—–-]/)[0].trim()) // "mendal"
+              })
+
+              allData = allData.filter(item => {
+                  if (!item.owner_name) return false
+                  const ownerLower = item.owner_name.toLowerCase().trim()
+                  const ownerPrefix = ownerLower.split(/[—–-]/)[0].trim()
+
+                  // Check exact match OR prefix match
+                  return allowedOwners.has(ownerLower) || allowedOwners.has(ownerPrefix)
+              })
           } else if (group && (!group.owners || group.owners.length === 0)) {
               // Group exists but no owners - return empty or all? Strictly empty if filtering by group
               allData = []
@@ -1651,10 +1686,45 @@ export class MixRadiusService {
       // Parse HTML response to extract customer data
       const html = response.data as string
       
-      // Check if we got login page (session expired)
+      // Check if we got login page (session expired) OR 404
       if (html.includes('LOGIN</title>') || html.includes('rad-admin/post')) {
         this.isLoggedIn = false
         throw new Error('Session expired, please refresh')
+      }
+
+      if (html.includes('404 - Data Not Found') || html.includes('Data tidak ditemukan')) {
+          console.error(`[MixRadius] 404 Not Found for ID ${customerId}. URL: ${this.credentials.baseUrl}/rad-customers/edit/${customerId}`)
+
+          // ID RESOLUTION FALLBACK:
+          // If the ID looks like a username (e.g. 12 digits or more), try to resolve the REAL ID
+          // by searching for the user first.
+          if (customerId.length > 6 && /^\d+$/.test(customerId)) { // Heuristic: likely a username/member_id
+             console.log(`[MixRadius] Attempting to resolve real ID for username: ${customerId}...`)
+             try {
+                // Fetch user by searching for this "ID" as a username
+                const searchResult = await this.fetchCustomersPPP({
+                    start: 0,
+                    length: 1,
+                    search: customerId,
+                    searchType: 'username'
+                })
+
+                if (searchResult.data && searchResult.data.length > 0) {
+                    const user = searchResult.data[0]
+                    // Check if we have a different ID now (e.g. DT_RowId or just 'id')
+                    // We must assume the search result returns the CORRECT internal ID in the 'id' field
+                    // thanks to our previous fix in fetchCustomersPPP
+                    if (user.id && user.id !== customerId) {
+                        console.log(`[MixRadius] Resolved real ID: ${user.id}. Retrying fetch...`)
+                        return this.fetchCustomerDetail(user.id)
+                    }
+                }
+             } catch (resolveError) {
+                 console.error('[MixRadius] ID resolution failed:', resolveError)
+             }
+          }
+
+          throw new Error('Data pelanggan tidak ditemukan (404). ID mungkin salah atau data telah dihapus.')
       }
 
       // Scraping Canary: Verify we are on the correct page by checking for known headers or unique markers

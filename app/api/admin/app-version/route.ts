@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getAppVersionService } from '@/modules/app-version'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, apiPaginated } from '@/lib/api-response'
 
 // Route segment config for large file uploads (APK)
 export const runtime = 'nodejs'
@@ -30,21 +30,17 @@ export async function GET(request: NextRequest) {
                          searchParams.get('isActive') === 'false' ? false : undefined
 
         const service = getAppVersionService()
-        const result = await service.getAllVersions({ 
-            page, 
+        const result = await service.getAllVersions({
+            page,
             limit,
             ...(platform ? { platform } : {}),
             ...(isActive !== undefined ? { isActive } : {})
         })
 
-        return apiSuccess({
-            data: result.data,
-            pagination: {
-                page: result.page,
-                limit: result.limit,
-                total: result.total,
-                totalPages: Math.ceil(result.total / result.limit)
-            }
+        return apiPaginated(result.data, {
+            page: result.page,
+            limit: result.limit,
+            total: result.total
         })
     } catch (error: unknown) {
         console.error('Error fetching app versions:', error)

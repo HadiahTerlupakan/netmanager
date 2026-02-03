@@ -8,10 +8,13 @@ import {
   HiOutlineChevronRight,
   HiOutlineCurrencyDollar,
   HiOutlineCalendar,
-  HiOutlineUser
+  HiOutlineUser,
+  HiOutlineCog
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
+import FeeConfigurationModal, { FeeConfig } from './FeeConfigurationModal'
+import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from './DuitkuDefaults'
 
 interface IncomePeriodRecord {
   id: string
@@ -75,6 +78,13 @@ export default function IncomePeriodClient() {
   const [groups, setGroups] = useState<{ id: string, name: string }[]>([])
   const [selectedGroup, setSelectedGroup] = useState('all')
 
+  // Fee Config State
+  const [feeConfig, setFeeConfig] = useState<FeeConfig>({})
+  const [showFeeModal, setShowFeeModal] = useState(false)
+  const [netIncome, setNetIncome] = useState<number>(0)
+  const [estGatewayFee, setEstGatewayFee] = useState<number>(0)
+  const [isCalculatingNet, setIsCalculatingNet] = useState(false)
+
   // Sorting state
   const [sortColumn, setSortColumn] = useState('renewed_on')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
@@ -94,13 +104,14 @@ export default function IncomePeriodClient() {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Fetch owners for filters
+  // Fetch owners for filters & Fees
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        const [ownersRes, groupsRes] = await Promise.all([
+        const [ownersRes, groupsRes, feesRes] = await Promise.all([
           fetch('/api/integrations/mixradius/owners'),
-          fetch('/api/integrations/mixradius/groups')
+          fetch('/api/integrations/mixradius/groups'),
+          fetch('/api/integrations/mixradius/fees')
         ])
 
         if (ownersRes.ok) {
@@ -116,12 +127,138 @@ export default function IncomePeriodClient() {
             setGroups(result.data)
           }
         }
+
+        if (feesRes.ok) {
+            const result = await feesRes.json()
+            if (result.success) {
+                setFeeConfig(result.data)
+            }
+        }
       } catch (err) {
         console.error('Failed to fetch filter data:', err)
       }
     }
     fetchFilterData()
   }, [])
+
+  const calculateNetIncome = (records: IncomePeriodRecord[]) => {
+      let totalNet = 0
+      let totalFee = 0
+      records.forEach(r => {
+          const rawTotal = parseNumber(r.total)
+          const feeSeller = parseNumber(r.seller_fee)
+          let method = r.payment_method || r.method || ''
+
+          // Check if transaction is Online (Payment Gateway)
+          const isOnline = method.toLowerCase().includes('dtk') ||
+                           method.toLowerCase().includes('tripay') ||
+                           method.toLowerCase().includes('midtrans') ||
+                           method.toLowerCase().includes('xendit') ||
+                           r.payment_type?.toLowerCase() === 'online';
+
+          // Normalize method name for matching
+          // Case insensitive match
+          let fee = 0
+
+          // Find matching config
+          const configKey = Object.keys(feeConfig).find(k => k.toLowerCase() === method.toLowerCase())
+
+          if (configKey) {
+              // 1. Primary: Use Manual Configuration (Applies to ANY method if configured)
+              const conf = feeConfig[configKey]
+              if (conf.type === 'FIXED') {
+                  fee = conf.value
+              } else {
+                  fee = rawTotal * (conf.value / 100)
+              }
+          } else if (isOnline) {
+              // 2. Fallback: Use Duitku Defaults ONLY for Online Transactions
+              const duitkuCode = normalizePaymentMethod(method)
+              if (duitkuCode && DUITKU_DEFAULT_FEES[duitkuCode]) {
+                  const defaultFee = DUITKU_DEFAULT_FEES[duitkuCode]
+                  if (defaultFee.type === 'FIXED') {
+                      fee = defaultFee.value
+                  } else {
+                      fee = rawTotal * (defaultFee.value / 100)
+                  }
+              }
+          }
+          // Manual transactions without config get 0 fee
+
+          // Net = Total - FeeSeller - PaymentGatewayFee
+          totalNet += (rawTotal - feeSeller - fee)
+          totalFee += fee
+      })
+      return { net: totalNet, fee: totalFee }
+  }
+
+  // Calculate Global Net Income (Fetch all data in background)
+  useEffect(() => {
+      if (totalRecords === 0) {
+          setNetIncome(0)
+          setEstGatewayFee(0)
+          return
+      }
+
+      const calcGlobal = async () => {
+          setIsCalculatingNet(true)
+          try {
+              const params = new URLSearchParams({
+                start: '0',
+                length: '10000', // Fetch all for calculation
+                search: debouncedSearch,
+                sortBy: sortColumn,
+                sortDir: sortDirection,
+                fdate: startDate,
+                tdate: endDate,
+              })
+
+              if (serviceType) params.append('stype', serviceType)
+              if (paymentMethod) params.append('payment_method', paymentMethod)
+              if (ownerId && ownerId !== 'all') params.append('owner_id', ownerId)
+              if (selectedGroup && selectedGroup !== 'all') params.append('groupId', selectedGroup)
+
+              const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
+              const result = await response.json()
+
+              if (result.success && result.data?.data) {
+                  const allData = result.data.data as IncomePeriodRecord[]
+                  const { net, fee } = calculateNetIncome(allData)
+                  setNetIncome(net)
+                  setEstGatewayFee(fee)
+              }
+          } catch (e) {
+              console.error("Error calculating net income", e)
+          } finally {
+              setIsCalculatingNet(false)
+          }
+      }
+
+      // Debounce the calculation to avoid spamming API on every keystroke
+      const timer = setTimeout(() => {
+          calcGlobal()
+      }, 1000)
+
+      return () => clearTimeout(timer)
+  }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup, debouncedSearch]) // Recalculate when filters or fees change
+
+  const handleSaveFees = async (newFees: FeeConfig) => {
+      try {
+          const res = await fetch('/api/integrations/mixradius/fees', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newFees)
+          })
+          if (res.ok) {
+              setFeeConfig(newFees)
+              toast.success('Konfigurasi fee tersimpan')
+          } else {
+              toast.error('Gagal menyimpan')
+          }
+      } catch (e) {
+          toast.error('Terjadi kesalahan')
+      }
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -309,6 +446,13 @@ export default function IncomePeriodClient() {
 
         <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowFeeModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <HiOutlineCog className="w-5 h-5" />
+              Config Fee
+            </button>
+            <button
               onClick={handleExport}
               className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
@@ -329,7 +473,7 @@ export default function IncomePeriodClient() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
           {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PROFIT (IDR)</p>
@@ -341,6 +485,14 @@ export default function IncomePeriodClient() {
           <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{summary?.feeSeller || '0'}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+          {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div></div>}
+          <div className="flex justify-between items-start">
+             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">FEE GATEWAY (EST)</p>
+             <button onClick={() => setShowFeeModal(true)} className="text-gray-400 hover:text-blue-500"><HiOutlineCog className="w-4 h-4" /></button>
+          </div>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(estGatewayFee)}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
           {loading && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL + PPN (IDR)</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{summary?.totalPlusPpn || '0'}</p>
@@ -350,7 +502,21 @@ export default function IncomePeriodClient() {
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL TRANSAKSI</p>
           <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{summary?.totalTransactions || totalRecords.toLocaleString()}</p>
         </div>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800">
+          {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>}
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENDAPATAN BERSIH</p>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(netIncome)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Est. Total Masuk Rekening</p>
+        </div>
       </div>
+
+      <FeeConfigurationModal
+        isOpen={showFeeModal}
+        onClose={() => setShowFeeModal(false)}
+        currentFees={feeConfig}
+        onSave={handleSaveFees}
+        availableMethods={Array.from(new Set(data.map(d => d.payment_method || d.method))).filter(Boolean)}
+      />
 
       {/* Filters & Search - Toolbar Style matching MixRadiusClient */}
       <div className="flex flex-col xl:flex-row gap-2">

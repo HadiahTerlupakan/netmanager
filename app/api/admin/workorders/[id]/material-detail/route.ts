@@ -30,7 +30,11 @@ export async function GET(
                     select: { id: true, name: true, email: true }
                 },
                 workOrders: {
-                    select: { workOrderNumber: true, usedMaterials: true }
+                    select: {
+                        workOrderNumber: true,
+                        usedMaterials: true,
+                        returnedMaterials: true // Include returned materials
+                    }
                 }
             }
         })
@@ -46,15 +50,23 @@ export async function GET(
         // Parse the message to extract material info
         const message = update.message || ''
         const isPickup = update.updateType === 'MATERIAL_PICKUP'
-        
-        // Try to find the material in usedMaterials closest to this update time
-        const usedMaterials = (update.workOrders?.usedMaterials as Array<{ id?: string; nama?: string; barangId: string; gudangId?: string | null }>) || []
+
+        // Determine which list to search based on update type
+        // MATERIAL_PICKUP -> usedMaterials
+        // MATERIAL_RETURN -> returnedMaterials
+        let sourceMaterials: any[] = []
+        if (isPickup) {
+            sourceMaterials = (update.workOrders?.usedMaterials as any[]) || []
+        } else {
+            sourceMaterials = (update.workOrders?.returnedMaterials as any[]) || []
+        }
 
         // Extract material name from message
         const materialMatch = message.match(/(?:Mengambil|Mengembalikan) barang: (.+)/)
         const materialInfo = materialMatch?.[1] ?? message ?? ''
-        
+
         // Parse material details from the message format: "NamaBarang - Kondisi (jumlah satuan)"
+        // Note: Mobile might send " - " or just space depending on formatting
         const detailMatch = materialInfo.match(/^(.+?) - (\w+) \((\d+) (.+?)\)/)
 
         let materialDetail: Record<string, unknown> | null = null
@@ -65,24 +77,33 @@ export async function GET(
             const jumlah = detailMatch[3] as string
             const satuan = detailMatch[4] as string
 
-            // Try to find matching material in usedMaterials
-            const matchingMaterial = usedMaterials.find((m: { nama?: string }) =>
-                m.nama?.toLowerCase().includes(namaBarang.toLowerCase().trim()) ||
-                namaBarang.toLowerCase().trim().includes(m.nama?.toLowerCase())
-            )
-            
+            // Try to find matching material in sourceMaterials
+            // Match logic:
+            // 1. Exact ID match (if we had it in message, but we don't usually)
+            // 2. Name match
+            const matchingMaterial = sourceMaterials.find((m: { nama?: string, barang?: { nama: string } }) => {
+                const mName = m.nama || m.barang?.nama || ''
+                return mName.toLowerCase().trim() === namaBarang.toLowerCase().trim() ||
+                       mName.toLowerCase().includes(namaBarang.toLowerCase().trim())
+            })
+
             if (matchingMaterial) {
                 // Fetch full barang and gudang info
-                const barang = await prisma.barang.findUnique({
-                    where: { id: matchingMaterial.barangId },
+                // Note: returnedMaterials structure has barangId directly
+                // usedMaterials structure might have barang object or barangId
+                const barangId = matchingMaterial.barangId || matchingMaterial.barang?.id
+                const gudangId = matchingMaterial.gudangId || matchingMaterial.gudang?.id
+
+                const barang = barangId ? await prisma.barang.findUnique({
+                    where: { id: barangId },
                     select: { id: true, kode: true, nama: true, satuan: true }
-                })
-                
-                const gudang = matchingMaterial.gudangId ? await prisma.gudang.findUnique({
-                    where: { id: matchingMaterial.gudangId },
+                }) : null
+
+                const gudang = gudangId ? await prisma.gudang.findUnique({
+                    where: { id: gudangId },
                     select: { id: true, kode: true, nama: true }
                 }) : null
-                
+
                 // Find the actual barangKeluar record if it's a pickup
                 if (isPickup && matchingMaterial.id) {
                     const keluar = await prisma.barangKeluar.findUnique({

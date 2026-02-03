@@ -844,7 +844,7 @@ export default function NetworkMapInteractive() {
   return (
     <div className="flex flex-col h-[calc(100vh-150px)] bg-gray-100 dark:bg-gray-900">
       {/* Top Toolbar */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 relative z-[9999] overflow-visible">
         <div className="flex items-center justify-between">
           {/* Left: Tabs */}
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
@@ -886,7 +886,7 @@ export default function NetworkMapInteractive() {
           {/* Right: Tools */}
           <div className="flex items-center gap-2">
             {/* Search */}
-            <div className="relative">
+            <div className="relative z-[10002]">
               <button
                 onClick={() => setShowSearchDropdown(!showSearchDropdown)}
                 className={toolButtonClass(showSearchDropdown)}
@@ -895,7 +895,10 @@ export default function NetworkMapInteractive() {
                 Search
               </button>
               {showSearchDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                <div
+                  className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[9999]"
+                  style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}
+                >
                   <div className="p-3">
                     <input
                       type="text"
@@ -1031,7 +1034,7 @@ export default function NetworkMapInteractive() {
       <div className="flex-1 flex flex-col">
         {activeTab === "map" && (
           <>
-            <div className="flex-1 relative">
+            <div className="flex-1 relative z-[0]">
               <MapContainer
                 center={centerPosition}
                 zoom={zoomLevel}
@@ -1483,7 +1486,19 @@ export default function NetworkMapInteractive() {
 
         {activeTab === "list" && (
           <div className="flex-1 p-6 overflow-auto">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Node List</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Node List</h2>
+              <div className="relative w-64">
+                <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search nodes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700">
@@ -1496,7 +1511,7 @@ export default function NetworkMapInteractive() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {nodes.map((node) => (
+                  {filteredNodes.map((node) => (
                     <tr key={node.nodeId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{node.name}</td>
                       <td className="px-4 py-3 text-sm">

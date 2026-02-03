@@ -5,6 +5,7 @@ import { MixRadiusService } from '@/modules/integrations/services/MixRadiusServi
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import * as crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,7 +111,29 @@ export async function POST(req: NextRequest) {
         ...(notes ? { internalNotes: notes } : {}),
     })
 
-    // 5. Trigger Notifications
+    // 5. Add SOP Checklist Tasks
+    const sopTasks = [
+        "Konfirmasi jadwal kedatangan dengan pelanggan",
+        "Pastikan perangkat (Modem/Router) dalam keadaan lengkap (Unit + Adaptor)",
+        "Cek kondisi fisik perangkat (Baik/Rusak/Terbakar)",
+        "Foto dokumentasi penarikan perangkat",
+        "Foto dokumentasi lokasi/rumah pelanggan",
+        "Update status inventory barang masuk",
+        "Konfirmasi ke Admin untuk update data pelanggan"
+    ]
+
+    await prisma.workOrderTasks.createMany({
+        data: sopTasks.map((taskTitle, index) => ({
+            id: crypto.randomUUID(), // Ensure UUID generation if DB doesn't auto-generate
+            workOrderId: workOrder.id,
+            title: taskTitle,
+            order: index,
+            status: 'PENDING',
+            updatedAt: new Date() // Explicitly set updatedAt if needed
+        }))
+    })
+
+    // 6. Trigger Notifications
     await onWorkOrderCreated({
         id: workOrder.id,
         workOrderNumber: workOrder.workOrderNumber,

@@ -14,7 +14,8 @@ import {
   HiUserCircle,
   HiWifi,
   HiClock,
-  HiBolt
+  HiBolt,
+  HiOutlineTrash
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -142,6 +143,24 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'invoices'>('profile')
 
+  // Dismantle state
+  const [showDismantleModal, setShowDismantleModal] = useState(false)
+  const [dismantleReason, setDismantleReason] = useState('')
+  const [dismantleNotes, setDismantleNotes] = useState('')
+  const [processingDismantle, setProcessingDismantle] = useState(false)
+
+  const DISMANTLE_REASONS = [
+    "Telat Bayar",
+    "Pindah Rumah",
+    "Pindah ke Provider Lain",
+    "Sering Gangguan",
+    "Pelayanan Pelanggan Buruk",
+    "Kebutuhan Menurun",
+    "Harga Terlalu Mahal",
+    "Kecepatan Tidak Sesuai Janji",
+    "Tidak Ada Keterangan",
+  ]
+
   // Invoice counts state with Initial Load from LocalStorage
   const [invoiceCounts, setInvoiceCounts] = useState<Record<string, { paidCount: number, totalCount: number }>>(() => {
     if (typeof window !== 'undefined') {
@@ -239,6 +258,49 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const closeDetailModal = () => {
     setShowDetailModal(false)
     setSelectedCustomer(null)
+    setShowDismantleModal(false)
+    setDismantleReason('')
+    setDismantleNotes('')
+  }
+
+  const handleDismantle = async () => {
+    if (!selectedCustomer || !dismantleReason) {
+      toast.error('Mohon pilih alasan bongkar')
+      return
+    }
+
+    if (!confirm(`Apakah Anda yakin ingin mengajukan bongkar untuk pelanggan ${selectedCustomer.username}?`)) {
+      return
+    }
+
+    setProcessingDismantle(true)
+    try {
+      const response = await fetch('/api/integrations/mixradius/dismantle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          reason: dismantleReason,
+          notes: dismantleNotes
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Gagal mengajukan dismantle')
+      }
+
+      const result = await response.json()
+      toast.success(result.message || 'Permintaan bongkar berhasil dibuat')
+      closeDetailModal()
+
+      // Refresh list to potentially show updated status (though MixRadius status might not change immediately)
+      fetchData(true)
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan')
+    } finally {
+      setProcessingDismantle(false)
+    }
   }
 
   // Debounce search
@@ -1017,6 +1079,21 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                             </div>
                         </div>
                     )}
+
+                    {/* Dismantle Button Area */}
+                    <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setDismantleReason(DISMANTLE_REASONS[0])
+                                setShowDismantleModal(true)
+                            }}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl transition-colors font-bold"
+                        >
+                            <HiOutlineTrash className="w-5 h-5" />
+                            Bongkar Pelanggan (Dismantle)
+                        </button>
+                    </div>
                 </div>
             </div>
             </div>
@@ -1084,6 +1161,90 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 Tutup
             </button>
             {/* Future: Add "Sync Now" button here if needed in Phase 5 part 2 */}
+        </ModalFooter>
+      </Modal>
+
+      {/* Dismantle Modal */}
+      <Modal
+        isOpen={showDismantleModal}
+        onClose={() => setShowDismantleModal(false)}
+        title="Konfirmasi Bongkar Pelanggan"
+        description={`Ajukan permintaan bongkar perangkat untuk ${selectedCustomer?.username}`}
+        size="md"
+      >
+        <div className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Alasan Bongkar
+                </label>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    {DISMANTLE_REASONS.map((reason) => (
+                        <label
+                            key={reason}
+                            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                                dismantleReason === reason
+                                    ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="dismantleReason"
+                                value={reason}
+                                checked={dismantleReason === reason}
+                                onChange={(e) => setDismantleReason(e.target.value)}
+                                className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
+                            />
+                            <span className={`ml-3 text-sm ${
+                                dismantleReason === reason
+                                    ? 'font-medium text-red-900 dark:text-red-300'
+                                    : 'text-gray-700 dark:text-gray-300'
+                            }`}>
+                                {reason}
+                            </span>
+                        </label>
+                    ))}
+                </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Catatan Tambahan (Opsional)
+                </label>
+                <textarea
+                    value={dismantleNotes}
+                    onChange={(e) => setDismantleNotes(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                    placeholder="Tambahkan catatan untuk tim teknis..."
+                />
+            </div>
+        </div>
+
+        <ModalFooter>
+            <button
+                type="button"
+                onClick={() => setShowDismantleModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                disabled={processingDismantle}
+            >
+                Batal
+            </button>
+            <button
+                type="button"
+                onClick={handleDismantle}
+                disabled={processingDismantle || !dismantleReason}
+                className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                {processingDismantle ? (
+                    <>
+                        <HiOutlineArrowPath className="w-4 h-4 mr-2 animate-spin" />
+                        Memproses...
+                    </>
+                ) : (
+                    'Ya, Ajukan Bongkar'
+                )}
+            </button>
         </ModalFooter>
       </Modal>
     </div>

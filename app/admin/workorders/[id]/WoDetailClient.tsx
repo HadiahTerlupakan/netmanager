@@ -253,9 +253,9 @@ export function ClientComponent() {
         try {
             const res = await fetch(`/api/admin/workorders/${workOrderId}/material-detail?updateId=${updateId}`)
             if (res.ok) {
-                const data = await res.json()
+                const result = await res.json()
                 setMaterialDetailData({
-                    ...data,
+                    ...result.data,
                     type: updateType === 'MATERIAL_PICKUP' ? 'keluar' : 'masuk'
                 })
             } else {
@@ -1633,10 +1633,10 @@ export function ClientComponent() {
                                     📅 Tanggal
                                 </label>
                                 <p className="text-gray-900 dark:text-white">
-                                    {new Date(materialDetailData.tanggal).toLocaleString('id-ID', {
+                                    {materialDetailData.tanggal ? new Date(materialDetailData.tanggal).toLocaleString('id-ID', {
                                         day: '2-digit', month: 'long', year: 'numeric',
                                         hour: '2-digit', minute: '2-digit'
-                                    })}
+                                    }) : '-'}
                                 </p>
                             </div>
                             <div>
@@ -1644,10 +1644,10 @@ export function ClientComponent() {
                                     ✏️ Dibuat Pada
                                 </label>
                                 <p className="text-gray-900 dark:text-white">
-                                    {new Date(materialDetailData.createdAt).toLocaleString('id-ID', {
+                                    {materialDetailData.createdAt ? new Date(materialDetailData.createdAt).toLocaleString('id-ID', {
                                         day: '2-digit', month: 'long', year: 'numeric',
                                         hour: '2-digit', minute: '2-digit'
-                                    })}
+                                    }) : '-'}
                                 </p>
                             </div>
                         </div>
@@ -1660,16 +1660,16 @@ export function ClientComponent() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-sm text-gray-600 dark:text-gray-400">Kode Barang</label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.barang.kode}</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.barang?.kode || '-'}</p>
                                 </div>
                                 <div>
                                     <label className="text-sm text-gray-600 dark:text-gray-400">Nama Barang</label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.barang.nama}</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.barang?.nama || '-'}</p>
                                 </div>
                                 <div>
                                     <label className="text-sm text-gray-600 dark:text-gray-400">Jumlah</label>
                                     <p className={`text-lg font-bold ${materialDetailData.type === 'keluar' ? 'text-orange-600' : 'text-green-600'}`}>
-                                        {materialDetailData.type === 'keluar' ? '-' : '+'}{materialDetailData.jumlah} {materialDetailData.barang.satuan}
+                                        {materialDetailData.type === 'keluar' ? '-' : '+'}{materialDetailData.jumlah} {materialDetailData.barang?.satuan || ''}
                                     </p>
                                 </div>
                                 <div>
@@ -1697,11 +1697,11 @@ export function ClientComponent() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-sm text-gray-600 dark:text-gray-400">Kode Gudang</label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.gudang.kode}</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.gudang?.kode || '-'}</p>
                                 </div>
                                 <div>
                                     <label className="text-sm text-gray-600 dark:text-gray-400">Nama Gudang</label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.gudang.nama}</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.gudang?.nama || '-'}</p>
                                 </div>
                             </div>
                         </div>

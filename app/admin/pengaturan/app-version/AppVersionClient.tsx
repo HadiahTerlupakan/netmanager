@@ -68,8 +68,15 @@ export function AppVersionClient() {
             const data = await res.json()
             if (data.success) {
                 setVersions(data.data || [])
-                // Only update pagination if it exists in response
-                if (data.pagination) {
+                // Handle standard pagination meta from apiPaginated
+                if (data.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        ...data.meta
+                    }))
+                }
+                // Legacy fallback
+                else if (data.pagination) {
                     setPagination(prev => ({
                         ...prev,
                         ...data.pagination
