@@ -12,15 +12,20 @@ export async function GET(req: NextRequest) {
         const user = await verifyAuth(req);
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        if (!(await hasPermission("expense:read"))) {
+        // Allow SUPER_ADMIN to bypass permission check
+        const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin';
+
+        if (!isSuperAdmin && !(await hasPermission("expense:read"))) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const { searchParams } = new URL(req.url);
         const startDate = searchParams.get("startDate");
         const endDate = searchParams.get("endDate");
+        const siteId = searchParams.get("siteId");
+        const category = searchParams.get("category");
 
-        console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate });
+        console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, category });
 
         // Build where clause
         const where: Record<string, unknown> = {};
@@ -38,6 +43,10 @@ export async function GET(req: NextRequest) {
             };
         }
 
+        if (category) {
+            where.category = category;
+        }
+
         if ((await hasPermission("expense:site_only")) && user.role !== 'SUPER_ADMIN') {
             const userSiteId = (user as { siteId?: string }).siteId;
             if (userSiteId) {
@@ -46,6 +55,9 @@ export async function GET(req: NextRequest) {
                  // If user is restricted but has no site, return empty
                  return NextResponse.json([]);
             }
+        } else if (siteId) {
+             // If not restricted, allow filtering by specific site
+             where.siteId = siteId;
         }
 
         const expenses = await prisma.expense.findMany({
@@ -57,6 +69,17 @@ export async function GET(req: NextRequest) {
                 user: {
                     select: {
                         name: true,
+                    }
+                },
+                site: {
+                    select: {
+                        name: true
+                    }
+                },
+                mixRadiusGroup: {
+                    select: {
+                        id: true,
+                        name: true
                     }
                 }
             }
@@ -91,6 +114,7 @@ const expenseSchema = z.object({
     category: z.string().min(1, "Category is required"),
     description: z.string().optional(),
     siteId: z.string().optional(),
+    mixRadiusGroupId: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -100,7 +124,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        if (!(await hasPermission("expense:create"))) {
+        // Allow SUPER_ADMIN to bypass permission check
+        const userRole = (session.user as { role?: string }).role;
+        const isSuperAdmin = userRole === 'SUPER_ADMIN' || userRole === 'Super Admin';
+
+        if (!isSuperAdmin && !(await hasPermission("expense:create"))) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
@@ -111,7 +139,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
         }
 
-        const { amount, date, category, description, siteId } = validation.data;
+        const { amount, date, category, description, siteId, mixRadiusGroupId } = validation.data;
 
         let finalSiteId = siteId;
         if ((await hasPermission("expense:site_only")) && session.user.role !== 'SUPER_ADMIN') {
@@ -133,6 +161,7 @@ export async function POST(req: Request) {
                 ...(session.user.id ? { userId: session.user.id } : {}),
                 updatedAt: new Date(),
                 ...(finalSiteId ? { siteId: finalSiteId } : {}),
+                ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
             },
         });
 

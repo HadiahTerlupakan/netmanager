@@ -75,7 +75,7 @@ export default function IncomePeriodClient() {
   const [paymentMethod, setPaymentMethod] = useState('')
   const [ownerId, setOwnerId] = useState('all')
   const [owners, setOwners] = useState<{ id: string, name: string }[]>([])
-  const [groups, setGroups] = useState<{ id: string, name: string }[]>([])
+  const [groups, setGroups] = useState<{ id: string, name: string, siteId?: string }[]>([])
   const [selectedGroup, setSelectedGroup] = useState('all')
 
   // Fee Config State
@@ -83,6 +83,7 @@ export default function IncomePeriodClient() {
   const [showFeeModal, setShowFeeModal] = useState(false)
   const [netIncome, setNetIncome] = useState<number>(0)
   const [estGatewayFee, setEstGatewayFee] = useState<number>(0)
+  const [totalExpenses, setTotalExpenses] = useState<number>(0)
   const [isCalculatingNet, setIsCalculatingNet] = useState(false)
 
   // Sorting state
@@ -239,10 +240,38 @@ export default function IncomePeriodClient() {
               const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
               const result = await response.json()
 
+              // Fetch Expenses matching the period and site
+              let expensesTotal = 0
+              try {
+                  const expenseParams = new URLSearchParams({
+                      startDate: startDate,
+                      endDate: endDate
+                  })
+
+                  // Find selected group to get siteId
+                  if (selectedGroup && selectedGroup !== 'all') {
+                      const group = groups.find(g => g.id === selectedGroup)
+                      if (group && group.siteId) {
+                          expenseParams.append('siteId', group.siteId)
+                      }
+                  }
+
+                  const expRes = await fetch(`/api/finance/expenses?${expenseParams}`)
+                  if (expRes.ok) {
+                      const expData = await expRes.json()
+                      if (Array.isArray(expData)) {
+                          expensesTotal = expData.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
+                      }
+                  }
+              } catch (err) {
+                  console.error("Error fetching expenses", err)
+              }
+              setTotalExpenses(expensesTotal)
+
               if (result.success && result.data?.data) {
                   const allData = result.data.data as IncomePeriodRecord[]
                   const { net, fee } = calculateNetIncome(allData)
-                  setNetIncome(net)
+                  setNetIncome(net - expensesTotal) // Deduct expenses
                   setEstGatewayFee(fee)
               }
           } catch (e) {
@@ -501,7 +530,8 @@ export default function IncomePeriodClient() {
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(netIncome)}</p>
           <div className="flex flex-col gap-0.5 mt-1">
              <p className="text-[10px] text-gray-400">Est. Potongan Gateway: <span className="text-red-400 font-medium">-{formatCurrency(estGatewayFee)}</span></p>
-             <p className="text-[10px] text-gray-400">Setelah pot. Fee Seller & Gateway</p>
+             <p className="text-[10px] text-gray-400">Pengeluaran Site: <span className="text-red-400 font-medium">-{formatCurrency(totalExpenses)}</span></p>
+             <p className="text-[10px] text-gray-400">Setelah pot. Fee, Gateway & Pengeluaran</p>
           </div>
         </div>
       </div>

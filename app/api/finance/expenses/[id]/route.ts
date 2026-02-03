@@ -12,6 +12,8 @@ const expenseSchema = z.object({
     date: z.string().or(z.date()).transform((val) => new Date(val)),
     category: z.string().min(1, "Category is required"),
     description: z.string().optional(),
+    siteId: z.string().optional(),
+    mixRadiusGroupId: z.string().optional(),
 });
 
 export async function PUT(
@@ -31,13 +33,13 @@ export async function PUT(
         const validation = expenseSchema.safeParse(body);
 
         if (!validation.success) {
-            return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, { 
-                status: 400, 
-                details: { errors: validation.error.format() } 
+            return apiError('Validasi gagal', ErrorCodes.VALIDATION_ERROR, {
+                status: 400,
+                details: { errors: validation.error.format() }
             })
         }
 
-        const { amount, date, category, description } = validation.data;
+        const { amount, date, category, description, siteId, mixRadiusGroupId } = validation.data;
 
 
         const expense = await prisma.expense.update({
@@ -49,6 +51,8 @@ export async function PUT(
                 date,
                 category,
                 ...(description !== undefined ? { description } : {}),
+                ...(siteId !== undefined ? { siteId: siteId || null } : {}),
+                ...(mixRadiusGroupId !== undefined ? { mixRadiusGroupId: mixRadiusGroupId || null } : {}),
             },
             include: {
                 user: {

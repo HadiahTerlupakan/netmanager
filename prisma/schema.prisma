@@ -216,14 +216,17 @@ model Expense {
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-  siteId      String?
-  site        Sites?   @relation(fields: [siteId], references: [id])
-  user        User?    @relation(fields: [userId], references: [id])
+  siteId           String?
+  mixRadiusGroupId String?
+  site             Sites?               @relation(fields: [siteId], references: [id])
+  mixRadiusGroup   MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
+  user             User?                @relation(fields: [userId], references: [id])
 
   @@index([category])
   @@index([date])
   @@index([userId])
   @@index([siteId])
+  @@index([mixRadiusGroupId])
 }
 
 model HargaPaket {
@@ -2820,9 +2823,10 @@ model MixRadiusOwnerGroup {
   owners    String[]
   siteId    String?
   isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  site      Sites?   @relation(fields: [siteId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  site      Sites?    @relation(fields: [siteId], references: [id])
+  expenses  Expense[]
 
   @@index([siteId])
 }
