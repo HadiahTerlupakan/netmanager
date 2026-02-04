@@ -267,28 +267,31 @@ export default function IncomePeriodClient() {
                       // "Pengeluaran Umum" usually implies System-wide expenses.
                       // Let's assume Global = System-wide (respecting date/service filters).
 
-                      const [specificRes, generalRes, globalStatsRes] = await Promise.all([
-                          fetch(`/api/finance/expenses?startDate=${startDate}&endDate=${endDate}&mixRadiusGroupId=${selectedGroup}`),
-                          fetch(`/api/finance/expenses?startDate=${startDate}&endDate=${endDate}&scope=general`),
+                      // Let's refactor the fetch part to handle both amount and depreciation
+                      const [specificJson, generalJson, globalStatsRes] = await Promise.all([
+                          fetch(`/api/finance/expenses?startDate=${startDate}&endDate=${endDate}&mixRadiusGroupId=${selectedGroup}`).then(r => r.json()),
+                          fetch(`/api/finance/expenses?startDate=${startDate}&endDate=${endDate}&scope=general`).then(r => r.json()),
                           fetch(`/api/integrations/mixradius/reports/period?${globalParams}`)
                       ])
 
+                      let specificDepreciation = 0
+                      let generalDepreciation = 0
                       let specificTotal = 0
                       let generalTotal = 0
 
-                      if (specificRes.ok) {
-                          const data = await specificRes.json()
-                          if (Array.isArray(data)) {
-                              specificTotal = data.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
-                          }
+                      if (Array.isArray(specificJson)) {
+                          specificTotal = specificJson.reduce((sum: number, item: { amount: string | number; depreciation?: string | number }) => sum + Number(item.amount), 0)
+                          specificDepreciation = specificJson.reduce((sum: number, item: { amount: string | number; depreciation?: string | number }) => sum + Number(item.depreciation || 0), 0)
                       }
 
-                      if (generalRes.ok) {
-                          const data = await generalRes.json()
-                          if (Array.isArray(data)) {
-                              generalTotal = data.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
-                          }
+                      if (Array.isArray(generalJson)) {
+                          generalTotal = generalJson.reduce((sum: number, item: { amount: string | number; depreciation?: string | number }) => sum + Number(item.amount), 0)
+                          generalDepreciation = generalJson.reduce((sum: number, item: { amount: string | number; depreciation?: string | number }) => sum + Number(item.depreciation || 0), 0)
                       }
+
+                      // Combine Amount (Cash) + Depreciation (Non-Cash)
+                      const totalSpecificCost = specificTotal + specificDepreciation
+                      const totalGeneralCost = generalTotal + generalDepreciation
 
                       // Calculate Weight
                       if (globalStatsRes.ok) {
@@ -311,36 +314,25 @@ export default function IncomePeriodClient() {
                               const weight = (trxRatio + revRatio) / 2
 
                               // Allocated General Expense
-                              const allocatedGeneral = generalTotal * weight
-                              expensesTotal = specificTotal + allocatedGeneral
+                              const allocatedGeneral = totalGeneralCost * weight
+                              expensesTotal = totalSpecificCost + allocatedGeneral
 
-                              setSpecificExpenses(specificTotal)
+                              setSpecificExpenses(totalSpecificCost)
                               setAllocatedExpenses(allocatedGeneral)
-
-                              console.log('[EXPENSE_ALLOCATION]', {
-                                  site: selectedGroup,
-                                  specificTotal,
-                                  generalTotal,
-                                  weight,
-                                  trxRatio: `${siteTrx}/${globalTrx}`,
-                                  revRatio: `${siteRev}/${globalRev}`,
-                                  allocated: allocatedGeneral,
-                                  final: expensesTotal
-                              })
                           } else {
                               // Fallback if summary missing
                               const totalGroups = groups.length || 1
-                              const allocated = generalTotal / totalGroups
-                              expensesTotal = specificTotal + allocated
-                              setSpecificExpenses(specificTotal)
+                              const allocated = totalGeneralCost / totalGroups
+                              expensesTotal = totalSpecificCost + allocated
+                              setSpecificExpenses(totalSpecificCost)
                               setAllocatedExpenses(allocated)
                           }
                       } else {
                           // Fallback if fetch fails
                           const totalGroups = groups.length || 1
-                          const allocated = generalTotal / totalGroups
-                          expensesTotal = specificTotal + allocated
-                          setSpecificExpenses(specificTotal)
+                          const allocated = totalGeneralCost / totalGroups
+                          expensesTotal = totalSpecificCost + allocated
+                          setSpecificExpenses(totalSpecificCost)
                           setAllocatedExpenses(allocated)
                       }
                   } else {
@@ -353,7 +345,9 @@ export default function IncomePeriodClient() {
                       if (expRes.ok) {
                           const expData = await expRes.json()
                           if (Array.isArray(expData)) {
-                              expensesTotal = expData.reduce((sum: number, item: any) => sum + Number(item.amount), 0)
+                              expensesTotal = expData.reduce((sum: number, item: { amount: string | number; depreciation?: string | number }) => {
+                                  return sum + Number(item.amount) + Number(item.depreciation || 0)
+                              }, 0)
                           }
                       }
                       setSpecificExpenses(expensesTotal)
@@ -383,7 +377,7 @@ export default function IncomePeriodClient() {
       }, 1000)
 
       return () => clearTimeout(timer)
-  }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup, debouncedSearch, sortColumn, sortDirection, calculateNetIncome]) // Recalculate when filters or fees change
+  }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup, debouncedSearch, sortColumn, sortDirection, calculateNetIncome, groups.length, parseNumber]) // Recalculate when filters or fees change
 
   const handleSaveFees = async (newFees: FeeConfig) => {
       try {

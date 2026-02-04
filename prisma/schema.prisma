@@ -211,6 +211,8 @@ model Expense {
   id          String   @id
   date        DateTime @default(now())
   amount      BigInt
+  depreciation BigInt?  @default(0)
+  usefulLife   Int?     @default(0)
   category    String
   description String?
   userId      String?

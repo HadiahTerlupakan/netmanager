@@ -100,6 +100,8 @@ export async function GET(req: NextRequest) {
         const serializedExpenses = expenses.map(expense => ({
             ...expense,
             amount: expense.amount.toString(),
+            depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
+            usefulLife: expense.usefulLife || 0,
         }));
 
         return NextResponse.json(serializedExpenses);
@@ -119,6 +121,8 @@ import { z } from "zod";
 
 const expenseSchema = z.object({
     amount: z.union([z.string(), z.number()]).transform((val) => BigInt(val)),
+    depreciation: z.union([z.string(), z.number()]).optional().transform((val) => val ? BigInt(val) : BigInt(0)),
+    usefulLife: z.union([z.string(), z.number()]).optional().transform((val) => val ? Number(val) : 0),
     date: z.string().or(z.date()).transform((val) => new Date(val)),
     category: z.string().min(1, "Category is required"),
     description: z.string().optional(),
@@ -148,7 +152,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
         }
 
-        const { amount, date, category, description, siteId, mixRadiusGroupId } = validation.data;
+        const { amount, depreciation, usefulLife, date, category, description, siteId, mixRadiusGroupId } = validation.data;
 
         let finalSiteId = siteId;
         if ((await hasPermission("expense:site_only")) && session.user.role !== 'SUPER_ADMIN') {
@@ -164,6 +168,8 @@ export async function POST(req: Request) {
             data: {
                 id: randomUUID(),
                 amount,
+                depreciation,
+                usefulLife,
                 date,
                 category,
                 ...(description !== undefined ? { description } : {}),
@@ -177,6 +183,8 @@ export async function POST(req: Request) {
         return NextResponse.json({
             ...expense,
             amount: expense.amount.toString(),
+            depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
+            usefulLife: expense.usefulLife || 0,
         });
     } catch (error) {
         console.error("[EXPENSES_POST]", error);

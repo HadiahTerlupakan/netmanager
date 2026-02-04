@@ -6,8 +6,6 @@ import {
   HiOutlinePencilSquare,
   HiOutlineTrash,
   HiOutlineMagnifyingGlass,
-  HiOutlineChevronLeft,
-  HiOutlineChevronRight,
   HiOutlineCurrencyDollar,
   HiOutlineCalendar,
   HiOutlineBuildingOffice,
@@ -23,6 +21,8 @@ interface Expense {
   date: string
   amount: string
   category: string
+  depreciation?: string
+  usefulLife?: number
   description?: string
   siteId?: string
   mixRadiusGroupId?: string
@@ -48,7 +48,7 @@ interface SiteOption {
 export default function ExpensesClient() {
   const [data, setData] = useState<Expense[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [_error, setError] = useState<string | null>(null)
 
   // Filters
   const [startDate, setStartDate] = useState(() => {
@@ -76,6 +76,8 @@ export default function ExpensesClient() {
   const [formData, setFormData] = useState({
       date: new Date().toISOString().split('T')[0],
       amount: '',
+      depreciation: '',
+      usefulLife: 0,
       category: 'OPEX',
       description: '',
       siteId: '',
@@ -103,7 +105,7 @@ export default function ExpensesClient() {
               if (json.success && Array.isArray(json.data)) {
                    // Map groups to options. ID = Group ID. We also store siteId if available.
                    // No deduplication needed on ID since Group IDs are unique.
-                   setSites(json.data.map((g: any) => ({
+                   setSites(json.data.map((g: { id: string; name: string; siteId?: string }) => ({
                        id: g.id,
                        name: g.name,
                        siteId: g.siteId
@@ -149,8 +151,19 @@ export default function ExpensesClient() {
     fetchData()
   }, [fetchData])
 
-  // Filter data client-side for search (description)
-  const filteredData = data.filter(item => {
+      // Calculate depreciation automatically if usefulLife changes or amount changes
+      useEffect(() => {
+        if (formData.category === 'CAPEX' && formData.amount && formData.usefulLife > 0) {
+            const amount = Number(formData.amount)
+            const life = Number(formData.usefulLife)
+            if (!isNaN(amount) && !isNaN(life) && life > 0) {
+                const depreciation = Math.round(amount / life).toString()
+                setFormData(prev => ({ ...prev, depreciation }))
+            }
+        }
+      }, [formData.amount, formData.usefulLife, formData.category])
+
+      const filteredData = data.filter(item => {
       if (!debouncedSearch) return true
       const lowerSearch = debouncedSearch.toLowerCase()
       return (
@@ -175,6 +188,8 @@ export default function ExpensesClient() {
           setFormData({
               date: new Date(item.date).toISOString().split('T')[0],
               amount: item.amount.toString(),
+              depreciation: item.depreciation || '',
+              usefulLife: item.usefulLife || 0,
               category: item.category,
               description: item.description || '',
               siteId: item.siteId || '',
@@ -185,6 +200,8 @@ export default function ExpensesClient() {
           setFormData({
               date: new Date().toISOString().split('T')[0],
               amount: '',
+              depreciation: '',
+              usefulLife: 0,
               category: 'OPEX',
               description: '',
               siteId: '',
@@ -196,6 +213,18 @@ export default function ExpensesClient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault()
+      
+      // Validasi tambahan
+      if (parseFloat(formData.amount) <= 0) {
+          toast.error('Nominal harus lebih besar dari 0')
+          return
+      }
+
+      if (formData.category === 'CAPEX' && (!formData.usefulLife || formData.usefulLife < 1)) {
+          toast.error('Masa manfaat CAPEX minimal 1 bulan')
+          return
+      }
+
       setIsSubmitting(true)
 
       try {
@@ -230,12 +259,11 @@ export default function ExpensesClient() {
 
           if (!res.ok) throw new Error('Gagal menyimpan data')
 
-          toast.success(editingItem ? 'Data diperbarui' : 'Data ditambahkan')
+          toast.success(editingItem ? '✅ Data berhasil diperbarui' : '✅ Pengeluaran berhasil ditambahkan')
           setIsModalOpen(false)
           fetchData()
-      } catch (err) {
+      } catch (_err) {
           toast.error('Terjadi kesalahan saat menyimpan')
-          console.error(err)
       } finally {
           setIsSubmitting(false)
       }
@@ -253,7 +281,7 @@ export default function ExpensesClient() {
 
           toast.success('Data dihapus')
           fetchData()
-      } catch (err) {
+      } catch (_err) {
           toast.error('Gagal menghapus data')
       }
   }
@@ -482,116 +510,200 @@ export default function ExpensesClient() {
         title={editingItem ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}
         size="lg"
       >
-          <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                          Tanggal <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                          type="date"
-                          required
-                          value={formData.date}
-                          onChange={e => setFormData({...formData, date: e.target.value})}
-                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                      />
-                  </div>
-
-                  <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                          Kategori <span className="text-red-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setFormData({...formData, category: 'OPEX'})}
-                            className={`flex flex-col items-center justify-center p-2 rounded-lg border text-sm font-medium transition-all ${
-                                formData.category === 'OPEX'
-                                    ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
-                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                            }`}
-                        >
-                            <span className="font-bold">OPEX</span>
-                            <span className="text-[10px] font-normal opacity-75">Operasional</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setFormData({...formData, category: 'CAPEX'})}
-                            className={`flex flex-col items-center justify-center p-2 rounded-lg border text-sm font-medium transition-all ${
-                                formData.category === 'CAPEX'
-                                    ? 'bg-purple-50 border-purple-500 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300'
-                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                            }`}
-                        >
-                            <span className="font-bold">CAPEX</span>
-                            <span className="text-[10px] font-normal opacity-75">Modal / Aset</span>
-                        </button>
-                      </div>
-                  </div>
-              </div>
-
+          <form onSubmit={handleSubmit} className="space-y-6">
+              {/* 1. Amount - Prominent */}
               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Jumlah (Rp) <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">
+                      Nominal Pengeluaran
                   </label>
-                  <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 sm:text-sm font-bold">Rp</span>
+                  <div className="relative max-w-xs mx-auto">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <span className="text-gray-400 text-2xl font-bold">Rp</span>
                       </div>
                       <input
                           type="number"
                           required
-                          min="0"
+                          min="1"
+                          step="1000"
+                          autoFocus
                           value={formData.amount}
                           onChange={e => setFormData({...formData, amount: e.target.value})}
-                          className="w-full pl-10 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-bold transition-shadow"
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-0 focus:border-blue-500 text-3xl font-bold text-center transition-all shadow-sm placeholder:text-gray-200 dark:placeholder:text-gray-700"
                           placeholder="0"
                       />
                   </div>
               </div>
 
+              <div className="border-t border-gray-100 dark:border-gray-700 my-4"></div>
+
+              {/* 2. Category Selection - Cards */}
               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Site / Lokasi (Group)
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Kategori Pengeluaran
                   </label>
-                  <select
-                      value={formData.mixRadiusGroupId}
-                      onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
-                      className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                  >
-                      <option value="">-- Umum / Kantor Pusat --</option>
-                      {sites.map(site => (
-                          <option key={site.id} value={site.id}>{site.name}</option>
-                      ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Pilih group site jika pengeluaran ini spesifik untuk lokasi tertentu</p>
+                  <div className="grid grid-cols-2 gap-4">
+                      <button
+                          type="button"
+                          onClick={() => setFormData({...formData, category: 'OPEX'})}
+                          className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 group ${
+                              formData.category === 'OPEX'
+                                  ? 'bg-orange-50/50 border-orange-500 shadow-md ring-1 ring-orange-200 dark:bg-orange-900/20 dark:border-orange-500 dark:ring-orange-800'
+                                  : 'bg-white border-gray-200 hover:border-orange-300 hover:bg-orange-50/30 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750'
+                          }`}
+                      >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${
+                              formData.category === 'OPEX' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500 group-hover:bg-orange-100 group-hover:text-orange-600'
+                          }`}>
+                              <HiOutlineTag className="w-6 h-6" />
+                          </div>
+                          <div className="font-bold text-gray-900 dark:text-white">OPEX</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Operasional (Gaji, Listrik, ATK)</div>
+                          {formData.category === 'OPEX' && (
+                              <div className="absolute top-3 right-3 w-3 h-3 bg-orange-500 rounded-full ring-2 ring-white dark:ring-gray-900"></div>
+                          )}
+                      </button>
+
+                      <button
+                          type="button"
+                          onClick={() => setFormData({...formData, category: 'CAPEX'})}
+                          className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 group ${
+                              formData.category === 'CAPEX'
+                                  ? 'bg-purple-50/50 border-purple-500 shadow-md ring-1 ring-purple-200 dark:bg-purple-900/20 dark:border-purple-500 dark:ring-purple-800'
+                                  : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50/30 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750'
+                          }`}
+                      >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${
+                              formData.category === 'CAPEX' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500 group-hover:bg-purple-100 group-hover:text-purple-600'
+                          }`}>
+                              <HiOutlineBuildingOffice className="w-6 h-6" />
+                          </div>
+                          <div className="font-bold text-gray-900 dark:text-white">CAPEX</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Modal (Aset, Perangkat, Infrastruktur)</div>
+                          {formData.category === 'CAPEX' && (
+                              <div className="absolute top-3 right-3 w-3 h-3 bg-purple-500 rounded-full ring-2 ring-white dark:ring-gray-900"></div>
+                          )}
+                      </button>
+                  </div>
               </div>
 
+              {/* 3. CAPEX Details - Animated/Conditional */}
+              {formData.category === 'CAPEX' && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-2xl border border-purple-100 dark:border-purple-800/50 space-y-4">
+                          <h3 className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wide flex items-center gap-2 mb-2">
+                              <HiOutlineCurrencyDollar className="w-4 h-4" />
+                              Estimasi Penyusutan Aset
+                          </h3>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-medium text-purple-700 dark:text-purple-300 mb-1.5">
+                                      Masa Manfaat (Bulan)
+                                  </label>
+                                  <input
+                                      type="number"
+                                      min="1"
+                                      value={formData.usefulLife || ''}
+                                      onChange={e => setFormData({...formData, usefulLife: parseInt(e.target.value) || 0})}
+                                      onWheel={(e) => e.currentTarget.blur()}
+                                      className="w-full rounded-lg border-purple-200 dark:border-purple-700/50 bg-white dark:bg-purple-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
+                                      placeholder="Contoh: 12"
+                                  />
+                                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                      💡 Minimal 1 bulan
+                                  </p>
+                              </div>
+
+                              <div>
+                                  <label className="block text-xs font-medium text-purple-700 dark:text-purple-300 mb-1.5">
+                                      Penyusutan per Bulan
+                                  </label>
+                                  <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                          <span className="text-purple-500 font-bold text-xs">Rp</span>
+                                      </div>
+                                      <input
+                                          type="text"
+                                          readOnly
+                                          value={formData.depreciation ? formatCurrency(Number(formData.depreciation)) : '0'}
+                                          className="w-full pl-8 rounded-lg border-purple-200 dark:border-purple-700/50 bg-purple-100/50 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 font-bold cursor-not-allowed"
+                                      />
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {/* 4. Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                          Tanggal Transaksi
+                      </label>
+                      <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <HiOutlineCalendar className="text-gray-400 w-5 h-5" />
+                          </div>
+                          <input
+                              type="date"
+                              required
+                              value={formData.date}
+                              onChange={e => setFormData({...formData, date: e.target.value})}
+                              className="w-full pl-10 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                          />
+                      </div>
+                  </div>
+
+                  <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                          Lokasi / Site (Group)
+                      </label>
+                      <select
+                          value={formData.mixRadiusGroupId}
+                          onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
+                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                      >
+                          <option value="">-- Umum / Kantor Pusat --</option>
+                          {sites.map(site => (
+                              <option key={site.id} value={site.id}>{site.name}</option>
+                          ))}
+                      </select>
+                  </div>
+              </div>
+
+              {/* 5. Description */}
               <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Keterangan
+                      Keterangan / Catatan
                   </label>
                   <textarea
                       value={formData.description}
                       onChange={e => setFormData({...formData, description: e.target.value})}
+                      maxLength={500}
                       className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                       rows={3}
                       placeholder="Contoh: Pembelian kabel FO 2 roll, Bayar listrik, dll..."
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
+                      {formData.description.length}/500 karakter
+                  </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+              {/* Footer */}
+              <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700">
                   <button
                       type="button"
                       onClick={() => setIsModalOpen(false)}
-                      className="px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
+                      className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
                   >
                       Batal
                   </button>
                   <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="px-6 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all hover:shadow-md flex items-center gap-2"
+                      className="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 transition-all hover:shadow-blue-500/50 hover:-translate-y-0.5 flex items-center gap-2"
                   >
                       {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                       {isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
