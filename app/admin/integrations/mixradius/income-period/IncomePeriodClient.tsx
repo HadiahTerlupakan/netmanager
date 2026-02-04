@@ -10,7 +10,9 @@ import {
   HiOutlineCalendar,
   HiOutlineUser,
   HiOutlineCog,
-  HiOutlineInformationCircle
+  HiOutlineInformationCircle,
+  HiOutlineArrowTrendingUp,
+  HiOutlineArrowTrendingDown
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -510,6 +512,21 @@ export default function IncomePeriodClient() {
 
   const totalPages = Math.ceil(totalRecords / pageSize)
 
+  // Calculate Projection Metrics
+  const arpu = totalRecords > 0 ? Math.floor(netIncome / totalRecords) : 0
+  const isDeficit = netIncome < 0
+  const shortfall = Math.abs(netIncome)
+  // Estimate transactions needed to break even: Shortfall / Average Revenue (Net) per user
+  // We use Gross ARPU estimate (Profit / Total Records) to be safer, or Net ARPU.
+  // Using Net ARPU is more accurate for "how many MORE users to cover expenses".
+  // If Net ARPU is negative (which it is in deficit), we can't divide by it directly for projection.
+  // Instead, let's use the Gross Average Profit (Revenue - Fees) per user to see how much each new user contributes to covering fixed costs.
+  const grossProfit = parseNumber(summary?.profit) - parseNumber(summary?.feeSeller) - estGatewayFee
+  const contributionMarginPerUser = totalRecords > 0 ? grossProfit / totalRecords : 0
+  const neededTrxToBreakEven = (isDeficit && contributionMarginPerUser > 0)
+      ? Math.ceil(shortfall / contributionMarginPerUser)
+      : 0
+
   const formatCurrency = (amount: string | number) => {
     const num = parseNumber(amount)
     if (isNaN(num)) return String(amount)
@@ -730,6 +747,126 @@ export default function IncomePeriodClient() {
                 *Net setelah pot. Fee, Gateway & Total Pengeluaran
              </p>
           </div>
+        </div>
+
+        {/* Net ARPU Card */}
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-visible hover:z-20 transition-all duration-200 col-span-1 sm:col-span-2">
+            {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10 rounded-xl"><div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div></div>}
+
+            <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">NET ARPU (EST)</p>
+                    <div className="group relative">
+                        <HiOutlineInformationCircle className="w-5 h-5 text-gray-400 cursor-help hover:text-blue-500 transition-colors" />
+                        <div className="absolute top-full mt-2 left-0 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-gray-700 translate-y-[-10px] group-hover:translate-y-0 duration-200">
+                            <div className="space-y-2">
+                                <div className="font-bold text-gray-300 border-b border-gray-700 pb-1 mb-2">
+                                    Average Revenue Per User (Net)
+                                </div>
+                                <p className="text-gray-400">
+                                    Rata-rata pendapatan bersih yang diperoleh dari setiap pelanggan/transaksi aktif pada periode ini.
+                                </p>
+                                <div className="bg-gray-800 p-2 rounded border border-gray-700 font-mono text-[10px] text-center mt-2">
+                                    Net Income / Total Transaksi
+                                </div>
+                            </div>
+                            <div className="absolute bottom-full left-1 border-4 border-transparent border-b-gray-900"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">
+                {totalRecords > 0 ? formatCurrency(Math.floor(netIncome / totalRecords)) : 'Rp 0'}
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1">
+                Per user/transaksi aktif
+            </p>
+        </div>
+
+        {/* Projection / Status Card - New Addition */}
+        <div className={`p-5 rounded-xl border shadow-sm relative overflow-visible col-span-1 sm:col-span-2 ${
+            isDeficit
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+        }`}>
+            {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10 rounded-xl"><div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div></div>}
+
+            <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                    <p className={`text-sm font-bold uppercase ${isDeficit ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {isDeficit ? 'STATUS: DEFISIT' : 'STATUS: SURPLUS'}
+                    </p>
+                    {/* Tooltip Projection */}
+                    <div className="group relative">
+                        <HiOutlineInformationCircle className={`w-5 h-5 cursor-help transition-colors ${isDeficit ? 'text-red-400 hover:text-red-600' : 'text-emerald-400 hover:text-emerald-600'}`} />
+                        <div className="absolute top-full mt-2 right-0 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-gray-700 translate-y-[-10px] group-hover:translate-y-0 duration-200">
+                            <div className="space-y-2">
+                                <div className="font-bold text-gray-300 border-b border-gray-700 pb-1 mb-2">
+                                    Analisa & Proyeksi
+                                </div>
+                                {isDeficit ? (
+                                    <>
+                                        <p className="text-gray-300">
+                                            Saat ini operasional mengalami kerugian (Defisit).
+                                        </p>
+                                        <div className="bg-red-900/50 p-2 rounded border border-red-800 mt-2">
+                                            <p className="font-bold text-red-200 mb-1">Target Balik Modal:</p>
+                                            <p className="text-gray-400 leading-relaxed">
+                                                Anda perlu menambah pendapatan sebesar <span className="text-white font-bold">{formatCurrency(shortfall)}</span> untuk menutupi biaya operasional.
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-gray-300">
+                                            Operasional berjalan sehat dengan keuntungan (Surplus).
+                                        </p>
+                                        <p className="text-emerald-300 mt-1">
+                                            *Pertahankan atau tingkatkan transaksi untuk memperbesar margin.
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                            <div className="absolute bottom-full right-1 border-4 border-transparent border-b-gray-900"></div>
+                        </div>
+                    </div>
+                </div>
+                {isDeficit ? (
+                    <HiOutlineArrowTrendingDown className="w-6 h-6 text-red-500" />
+                ) : (
+                    <HiOutlineArrowTrendingUp className="w-6 h-6 text-emerald-500" />
+                )}
+            </div>
+
+            <div className="mt-1">
+                {isDeficit ? (
+                    <div>
+                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                            -{formatCurrency(shortfall)}
+                        </p>
+                        {neededTrxToBreakEven > 0 && contributionMarginPerUser > 0 ? (
+                            <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-1 font-medium flex items-center gap-1">
+                                <span>🎯 Kejar target:</span>
+                                <span className="bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 rounded text-red-700 dark:text-red-200 font-bold border border-red-200 dark:border-red-800">
+                                    +{neededTrxToBreakEven} Transaksi
+                                </span>
+                                <span>lagi</span>
+                            </p>
+                        ) : (
+                            <p className="text-xs text-red-500 mt-1">Perlu efisiensi biaya / genjot omzet</p>
+                        )}
+                    </div>
+                ) : (
+                    <div>
+                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                            Safe Margin
+                        </p>
+                        <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                            Keuntungan bersih operasional aman.
+                        </p>
+                    </div>
+                )}
+            </div>
         </div>
       </div>
 
