@@ -9,7 +9,8 @@ import {
   HiOutlineCurrencyDollar,
   HiOutlineCalendar,
   HiOutlineUser,
-  HiOutlineCog
+  HiOutlineCog,
+  HiOutlineInformationCircle
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -601,9 +602,54 @@ export default function IncomePeriodClient() {
           </div>
           <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(estGatewayFee)}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
-          {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENGELUARAN (SITE)</p>
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-visible">
+          {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10 rounded-xl"><div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}
+
+          <div className="flex justify-between items-start">
+             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENGELUARAN (SITE)</p>
+
+             {/* Tooltip Info Calculation */}
+             <div className="group relative">
+                <HiOutlineInformationCircle className="w-5 h-5 text-gray-400 cursor-help hover:text-blue-500 transition-colors" />
+
+                <div className="absolute bottom-full mb-2 right-0 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-gray-700 translate-y-2 group-hover:translate-y-0 duration-200">
+                    <div className="space-y-2">
+                        <div className="font-bold text-gray-300 border-b border-gray-700 pb-1 mb-2">
+                            Rincian Perhitungan
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400">Langsung (Site):</span>
+                            <span className="font-mono">{formatCurrency(specificExpenses)}</span>
+                        </div>
+
+                        {allocatedExpenses > 0 ? (
+                            <>
+                                <div className="flex justify-between items-center text-yellow-300">
+                                    <span>Alokasi Pusat (Umum):</span>
+                                    <span className="font-mono">+ {formatCurrency(allocatedExpenses)}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 italic mt-1 leading-tight">
+                                    *Alokasi Pusat dihitung menggunakan rumus Bobot (Rata-rata Rasio Transaksi & Profit Site).
+                                </p>
+                            </>
+                        ) : (
+                            <p className="text-[10px] text-gray-500 italic mt-1">
+                                *Tidak ada alokasi biaya umum/pusat
+                            </p>
+                        )}
+
+                        <div className="border-t border-gray-700 pt-2 mt-2 flex justify-between items-center font-bold text-sm">
+                            <span>Total Beban:</span>
+                            <span className="text-orange-400">{formatCurrency(totalExpenses)}</span>
+                        </div>
+                    </div>
+                    {/* Arrow */}
+                    <div className="absolute top-full right-1 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+             </div>
+          </div>
+
           <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{formatCurrency(totalExpenses)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
@@ -616,10 +662,52 @@ export default function IncomePeriodClient() {
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL TRANSAKSI</p>
           <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{summary?.totalTransactions || totalRecords.toLocaleString()}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800 col-span-1 sm:col-span-2 lg:col-span-2 xl:col-span-2">
-          {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>}
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-visible bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800 col-span-1 sm:col-span-2 lg:col-span-2 xl:col-span-2">
+          {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10 rounded-xl"><div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>}
+
           <div className="flex justify-between items-start">
-             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENDAPATAN BERSIH (EST)</p>
+             <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">PENDAPATAN BERSIH (EST)</p>
+                {/* Tooltip Net Calculation */}
+                <div className="group relative">
+                    <HiOutlineInformationCircle className="w-5 h-5 text-gray-400 cursor-help hover:text-blue-500 transition-colors" />
+
+                    <div className="absolute bottom-full mb-2 left-0 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-gray-700 translate-y-2 group-hover:translate-y-0 duration-200">
+                        <div className="space-y-2">
+                            <div className="font-bold text-gray-300 border-b border-gray-700 pb-1 mb-2">
+                                Rincian Perhitungan Bersih
+                            </div>
+
+                            <div className="flex justify-between items-center text-green-300">
+                                <span>Profit (Pendapatan):</span>
+                                <span className="font-mono font-bold">{summary?.profit || '0'}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-red-300">
+                                <span>- Fee Seller (Komisi):</span>
+                                <span className="font-mono">{summary?.feeSeller ? `(${summary.feeSeller})` : '0'}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-red-300">
+                                <span>- Fee Gateway (Admin):</span>
+                                <span className="font-mono">({formatCurrency(estGatewayFee)})</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-orange-300 border-b border-gray-700 pb-2 mb-2">
+                                <span>- Total Pengeluaran:</span>
+                                <span className="font-mono">({formatCurrency(totalExpenses)})</span>
+                            </div>
+
+                            <div className="flex justify-between items-center font-bold text-sm">
+                                <span>Pendapatan Bersih:</span>
+                                <span className="text-emerald-400">{formatCurrency(netIncome)}</span>
+                            </div>
+                        </div>
+                         {/* Arrow */}
+                        <div className="absolute top-full left-1 border-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                </div>
+             </div>
              <button onClick={() => setShowFeeModal(true)} className="text-gray-400 hover:text-blue-500"><HiOutlineCog className="w-4 h-4" /></button>
           </div>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(netIncome)}</p>

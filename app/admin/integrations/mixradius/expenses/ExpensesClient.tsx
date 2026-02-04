@@ -524,7 +524,6 @@ export default function ExpensesClient() {
                           type="number"
                           required
                           min="1"
-                          step="1000"
                           autoFocus
                           value={formData.amount}
                           onChange={e => setFormData({...formData, amount: e.target.value})}
