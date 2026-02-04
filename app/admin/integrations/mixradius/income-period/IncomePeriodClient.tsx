@@ -513,7 +513,6 @@ export default function IncomePeriodClient() {
   const totalPages = Math.ceil(totalRecords / pageSize)
 
   // Calculate Projection Metrics
-  const arpu = totalRecords > 0 ? Math.floor(netIncome / totalRecords) : 0
   const isDeficit = netIncome < 0
   const shortfall = Math.abs(netIncome)
   // Estimate transactions needed to break even: Shortfall / Average Revenue (Net) per user

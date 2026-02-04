@@ -246,8 +246,12 @@ export default function ExpensesClient() {
               finalSiteId = selectedOption.siteId
           }
 
+          // Clean up payload based on category
           const payload = {
               ...formData,
+              // If OPEX, reset CAPEX specific fields to 0/null
+              usefulLife: formData.category === 'OPEX' ? 0 : formData.usefulLife,
+              depreciation: formData.category === 'OPEX' ? '0' : formData.depreciation,
               siteId: finalSiteId // Ensure we send the physical site ID if available
           }
 
@@ -521,13 +525,16 @@ export default function ExpensesClient() {
                           <span className="text-gray-400 text-2xl font-bold">Rp</span>
                       </div>
                       <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           required
-                          min="1"
                           autoFocus
-                          value={formData.amount}
-                          onChange={e => setFormData({...formData, amount: e.target.value})}
-                          onWheel={(e) => e.currentTarget.blur()}
+                          value={formData.amount ? formData.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}
+                          onChange={e => {
+                              // Hanya ambil angka
+                              const rawValue = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '')
+                              setFormData({...formData, amount: rawValue})
+                          }}
                           className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-0 focus:border-blue-500 text-3xl font-bold text-center transition-all shadow-sm placeholder:text-gray-200 dark:placeholder:text-gray-700"
                           placeholder="0"
                       />
@@ -609,9 +616,22 @@ export default function ExpensesClient() {
                                       className="w-full rounded-lg border-purple-200 dark:border-purple-700/50 bg-white dark:bg-purple-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
                                       placeholder="Contoh: 12"
                                   />
-                                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                                      💡 Minimal 1 bulan
-                                  </p>
+                                  <div className="flex gap-2 mt-2">
+                                      {[12, 24, 36, 48, 60].map((months) => (
+                                          <button
+                                              key={months}
+                                              type="button"
+                                              onClick={() => setFormData({ ...formData, usefulLife: months })}
+                                              className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
+                                                  formData.usefulLife === months
+                                                      ? 'bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/40 dark:border-purple-500 dark:text-purple-300'
+                                                      : 'bg-white border-purple-100 text-purple-600 hover:bg-purple-50 dark:bg-transparent dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/20'
+                                              }`}
+                                          >
+                                              {months / 12} Thn
+                                          </button>
+                                      ))}
+                                  </div>
                               </div>
 
                               <div>

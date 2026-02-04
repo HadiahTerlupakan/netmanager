@@ -17,11 +17,23 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url)
         const typeKey = searchParams.get('type')
+        const search = searchParams.get('search')
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '20')
         const skip = (page - 1) * limit
 
         const where: Prisma.SystemLogWhereInput = {}
+
+        if (search) {
+            where.OR = [
+                { subject: { contains: search, mode: 'insensitive' } },
+                { action: { contains: search, mode: 'insensitive' } },
+                { details: { contains: search, mode: 'insensitive' } },
+                { user: { name: { contains: search, mode: 'insensitive' } } },
+                { user: { email: { contains: search, mode: 'insensitive' } } }
+            ]
+        }
+
         if (typeKey && Object.values(LogType).includes(typeKey as LogType)) {
             where.type = typeKey as LogType
         }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { HiOutlineRefresh, HiOutlineClock, HiOutlineDocumentText } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineClock, HiOutlineDocumentText, HiOutlineSearch } from 'react-icons/hi'
 import { HiOutlineUser, HiOutlineTag } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { format } from 'date-fns'
@@ -27,6 +27,16 @@ export function ClientComponent() {
     const [pagination, setPagination] = useState({ page: 1, limit: 20, totalPages: 1, total: 0 })
     const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null)
     const [siteId, setSiteId] = useState<string | undefined>(undefined)
+    const [search, setSearch] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search)
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [search])
 
     const fetchLogs = useCallback(async (page = 1) => {
         setLoading(true)
@@ -36,6 +46,7 @@ export function ClientComponent() {
             params.append('page', page.toString())
             params.append('limit', '20')
             if (siteId) params.append('siteId', siteId)
+            if (debouncedSearch) params.append('search', debouncedSearch)
 
             const res = await fetch(`/api/admin/system-logs?${params.toString()}`)
             const data = await res.json()
@@ -49,7 +60,7 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }, [siteId])
+    }, [siteId, debouncedSearch])
 
     useEffect(() => { fetchLogs() }, [fetchLogs])
 
@@ -74,6 +85,16 @@ export function ClientComponent() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Cari aktivitas..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-10 pr-4 py-2 w-full md:w-64 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <HiOutlineSearch className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+                    </div>
                     <div className="w-full md:w-48">
                         <SiteFilter onSiteChange={setSiteId} />
                     </div>
