@@ -636,18 +636,24 @@ export default function IncomePeriodClient() {
                         </div>
 
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400">Langsung (Site):</span>
+                            <span className="text-gray-400 flex items-center gap-2">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">SITE</span>
+                                Langsung:
+                            </span>
                             <span className="font-mono">{formatCurrency(specificExpenses)}</span>
                         </div>
 
                         {allocatedExpenses > 0 ? (
                             <>
                                 <div className="flex justify-between items-center text-yellow-300">
-                                    <span>Alokasi Pusat (Umum):</span>
+                                    <span className="flex items-center gap-2">
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">UMUM</span>
+                                        Alokasi Pusat:
+                                    </span>
                                     <span className="font-mono">+ {formatCurrency(allocatedExpenses)}</span>
                                 </div>
-                                <p className="text-[10px] text-gray-500 italic mt-1 leading-tight">
-                                    *Alokasi Pusat dihitung menggunakan rumus Bobot (Rata-rata Rasio Transaksi & Profit Site).
+                                <p className="text-[10px] text-gray-500 italic mt-1 leading-tight ml-1 pl-2 border-l-2 border-gray-700">
+                                    *Alokasi Pusat dihitung berdasarkan bobot kontribusi (Rata-rata Rasio Transaksi & Profit) site ini terhadap global.
                                 </p>
                             </>
                         ) : (
