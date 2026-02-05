@@ -33,7 +33,7 @@ test.describe('Customer Portal', () => {
     // We use a try-catch block to provide better error messages
     try {
         await expect(page.getByText('Gagal memuat data')).not.toBeVisible({ timeout: 1000 });
-    } catch (e) {
+    } catch {
         // If visible, grab some context
         console.log('Dashboard error state detected');
         throw new Error('Dashboard failed to load data (API Error)');

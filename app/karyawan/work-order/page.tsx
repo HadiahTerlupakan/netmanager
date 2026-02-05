@@ -11,8 +11,9 @@ export default async function WorkOrderPage() {
     redirect('/karyawan/login');
   }
 
-  // Use type casting since NextAuth Session.user doesn't have id by default in its type
-  const userId = (session.user as any).id;
+  // Use type assertion for ExtendedUser
+  const user = session.user as { id: string } & typeof session.user;
+  const userId = user.id;
 
   if (!userId) {
     redirect('/karyawan/login');
