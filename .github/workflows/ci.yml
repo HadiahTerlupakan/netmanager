@@ -78,7 +78,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/netmanager_ci
           REDIS_URL: redis://localhost:6379
-          NEXTAUTH_SECRET: "ci-build-secret"
+          NEXTAUTH_SECRET: "ci-build-secret-must-be-at-least-32-chars-long"
           NEXTAUTH_URL: "http://localhost:3000"
 
   test:
