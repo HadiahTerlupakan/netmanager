@@ -59,6 +59,7 @@ export default function MyProfileClient() {
     }, [retryCountdown])
 
     const fetchProfile = useCallback(async () => {
+        // No AbortController needed for simple profile fetch, but we'll add standard error handling check
         try {
             const response = await fetchWithHandling<ProfileData>('/api/admin/profile')
             if (response.data) {

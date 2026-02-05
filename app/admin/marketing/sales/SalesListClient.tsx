@@ -29,6 +29,10 @@ interface SalesUser {
         code: string
         name: string
     } | null
+    stats?: {
+        achieved: number
+        pending: number
+    }
 }
 
 interface SalesStats {
@@ -181,18 +185,28 @@ export default function SalesListClient() {
             key: 'canvasingTarget',
             header: 'Target Bulanan',
             priority: 'primary',
-            render: (user) => (
-                <div className="flex-1">
-                    <div className="mb-1">
-                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{user.canvasingTarget} Data</span>
-                    </div>
-                    <div className="w-32 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 w-full opacity-20 relative">
-                            <div className="absolute inset-0 bg-indigo-500 w-2/3"></div> {/* Mock progress visual if we had actual data */}
+            render: (user) => {
+                const target = user.canvasingTarget || 1
+                const achieved = user.stats?.achieved || 0
+                const progress = Math.min((achieved / target) * 100, 100)
+
+                return (
+                    <div className="flex-1">
+                        <div className="mb-1 flex justify-between items-end">
+                            <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                                {achieved} <span className="text-gray-400 text-xs font-normal">/ {target}</span>
+                            </span>
+                            <span className="text-xs text-gray-500">{Math.round(progress)}%</span>
+                        </div>
+                        <div className="w-32 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                                style={{ width: `${progress}%` }}
+                            />
                         </div>
                     </div>
-                </div>
-            )
+                )
+            }
         }
     ]
 

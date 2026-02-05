@@ -21,6 +21,7 @@ export class OvertimeRepository implements IOvertimeRepository {
         endDate?: Date
         siteId?: string
         departmentId?: string
+        holidayType?: string
         skip?: number
         take?: number
     }): Promise<Overtime[]> {
@@ -39,6 +40,31 @@ export class OvertimeRepository implements IOvertimeRepository {
             where.user = {
                 ...(filters.siteId && { siteId: filters.siteId }),
                 ...(filters.departmentId && { departmentId: filters.departmentId })
+            }
+        }
+
+        // Holiday Filters
+        if (filters?.holidayType) {
+            switch (filters.holidayType) {
+                case 'REGULAR':
+                    where.isHolidayOvertime = false
+                    break
+                case 'NATIONAL':
+                    where.isNationalHoliday = true
+                    break
+                case 'COLLECTIVE':
+                    where.AND = [
+                        { isHolidayOvertime: true },
+                        { isNationalHoliday: false },
+                        { isOffDay: false },
+                    ]
+                    break
+                case 'OFFDAY':
+                    where.isOffDay = true
+                    break
+                case 'ALL_HOLIDAY':
+                    where.isHolidayOvertime = true
+                    break
             }
         }
 
@@ -72,6 +98,7 @@ export class OvertimeRepository implements IOvertimeRepository {
         endDate?: Date
         siteId?: string
         departmentId?: string
+        holidayType?: string
     }): Promise<number> {
         const where: Prisma.OvertimeWhereInput = {}
 
@@ -88,6 +115,31 @@ export class OvertimeRepository implements IOvertimeRepository {
             where.user = {
                 ...(filters.siteId && { siteId: filters.siteId }),
                 ...(filters.departmentId && { departmentId: filters.departmentId })
+            }
+        }
+
+        // Holiday Filters
+        if (filters?.holidayType) {
+            switch (filters.holidayType) {
+                case 'REGULAR':
+                    where.isHolidayOvertime = false
+                    break
+                case 'NATIONAL':
+                    where.isNationalHoliday = true
+                    break
+                case 'COLLECTIVE':
+                    where.AND = [
+                        { isHolidayOvertime: true },
+                        { isNationalHoliday: false },
+                        { isOffDay: false },
+                    ]
+                    break
+                case 'OFFDAY':
+                    where.isOffDay = true
+                    break
+                case 'ALL_HOLIDAY':
+                    where.isHolidayOvertime = true
+                    break
             }
         }
 

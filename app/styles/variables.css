@@ -1,0 +1,182 @@
+:root {
+  /* Default Theme Colors (will be overridden by theme classes) */
+  --color-bg-primary: 15 15 30;
+  /* #0F0F1E - Deep space blue */
+  --color-bg-surface: 26 26 46;
+  /* #1A1A2E - Elevated surface */
+  --color-bg-surface-variant: 22 33 62;
+  /* #16213E - Secondary surface */
+  --color-text-primary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-secondary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-tertiary: 255 255 255 / 0.7;
+  /* rgba(255, 255, 255, 0.7) - Muted white */
+  --color-text-placeholder: 255 255 255 / 0.5;
+  /* rgba(255, 255, 255, 0.5) - Placeholder white */
+  --color-border: 255 255 255 / 0.1;
+  /* rgba(255, 255, 255, 0.1) - Subtle white border */
+  --color-primary: 79 70 229;
+  /* #4F46E5 - Indigo 600 */
+  --color-primary-variant: 99 102 241;
+  /* #6366F1 - Indigo 500 */
+  --color-secondary: 6 182 212;
+  /* #06B6D4 - Cyan 500 */
+  --color-accent: 245 158 11;
+  /* #F59E0B - Amber 500 */
+
+  /* Semantic Colors (Same for both themes) */
+  --color-success: 16 185 129;
+  /* #10B981 - Emerald 500 */
+  --color-warning: 245 158 11;
+  /* #F59E0B - Amber 500 */
+  --color-error: 239 68 68;
+  /* #EF4444 - Red 500 */
+  --color-info: 59 130 246;
+  /* #3B82F6 - Blue 500 */
+
+  /* Enhanced Spacing Scale */
+  --spacing-xs: 0.25rem;
+  /* 4px */
+  --spacing-sm: 0.5rem;
+  /* 8px */
+  --spacing-md: 1rem;
+  /* 16px */
+  --spacing-lg: 1.5rem;
+  /* 24px */
+  --spacing-xl: 2rem;
+  /* 32px */
+  --spacing-2xl: 3rem;
+  /* 48px */
+  --spacing-3xl: 4rem;
+  /* 64px */
+  --spacing-4xl: 6rem;
+  /* 96px */
+
+  /* Enhanced Border Radius */
+  --radius-xs: 0.25rem;
+  /* 4px */
+  --radius-sm: 0.5rem;
+  /* 8px */
+  --radius-md: 0.75rem;
+  /* 12px */
+  --radius-lg: 1rem;
+  /* 16px */
+  --radius-xl: 1.5rem;
+  /* 24px */
+  --radius-2xl: 2rem;
+  /* 32px */
+
+  /* Neumorphism 2.0 Shadows */
+  --shadow-neumorphic-inset: inset 6px 6px 12px rgba(0, 0, 0, 0.3), inset -6px -6px 12px rgba(255, 255, 255, 0.1);
+  --shadow-neumorphic-raised: 6px 6px 12px rgba(0, 0, 0, 0.3), -6px -6px 12px rgba(255, 255, 255, 0.1);
+  --shadow-neumorphic-soft: 4px 4px 8px rgba(0, 0, 0, 0.2), -4px -4px 8px rgba(255, 255, 255, 0.1);
+  --shadow-neumorphic-hover: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.1);
+
+  /* Standard Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  /* Enhanced Animation Timing Functions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  --transition-bounce: 500ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --transition-entrance: 600ms cubic-bezier(0.0, 0.0, 0.2, 1);
+  --transition-exit: 400ms cubic-bezier(0.4, 0.0, 1, 1);
+
+  /* Typography Scale */
+  --font-display: 48px / 56px;
+  --font-h1: 36px / 44px;
+  --font-h2: 30px / 38px;
+  --font-h3: 24px / 32px;
+  --font-title: 20px / 28px;
+  --font-body-large: 18px / 26px;
+  --font-body: 16px / 24px;
+  --font-caption: 14px / 20px;
+  --font-label: 12px / 16px;
+}
+
+/* Light Theme Styles */
+.light {
+  color-scheme: light;
+
+  /* Override CSS variables for light theme - Enhanced Professional Design */
+  --color-bg-primary: 248 250 252;
+  /* #F8FAFC - Subtle blue-white */
+  --color-bg-surface: 255 255 255;
+  /* #FFFFFF - Pure white */
+  --color-bg-surface-variant: 241 245 249;
+  /* #F1F5F9 - Light blue-gray */
+  --color-text-primary: 15 23 42;
+  /* #0F172A - Dark slate */
+  --color-text-secondary: 30 41 59;
+  /* #1E293B - Medium slate */
+  --color-text-tertiary: 71 85 105;
+  /* #475569 - Muted slate */
+  --color-text-placeholder: 148 163 184;
+  /* #94A3B8 - Light slate */
+  --color-border: 226 232 240;
+  /* #E2E8F0 - Soft border */
+
+  /* Enhanced shadows for light theme */
+  --shadow-neumorphic-raised: 8px 8px 16px rgba(0, 0, 0, 0.08), -8px -8px 16px rgba(255, 255, 255, 0.95);
+  --shadow-neumorphic-inset: inset 8px 8px 16px rgba(0, 0, 0, 0.08), inset -8px -8px 16px rgba(255, 255, 255, 0.95);
+  --shadow-neumorphic-soft: 4px 4px 8px rgba(0, 0, 0, 0.06), -4px -4px 8px rgba(255, 255, 255, 0.95);
+  --shadow-neumorphic-hover: 12px 12px 24px rgba(0, 0, 0, 0.12), -12px -12px 24px rgba(255, 255, 255, 0.95);
+}
+
+/* Dark Theme Styles (Default) */
+.dark {
+  color-scheme: dark;
+
+  /* Override CSS variables for dark theme */
+  --color-bg-primary: 15 15 30;
+  /* #0F0F1E - Deep space blue */
+  --color-bg-surface: 26 26 46;
+  /* #1A1A2E - Elevated surface */
+  --color-bg-surface-variant: 22 33 62;
+  /* #16213E - Secondary surface */
+  --color-text-primary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-secondary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-tertiary: 255 255 255 / 0.7;
+  /* rgba(255, 255, 255, 0.7) - Muted white */
+  --color-text-placeholder: 255 255 255 / 0.5;
+  /* rgba(255, 255, 255, 0.5) - Placeholder white */
+  --color-border: 255 255 255 / 0.1;
+  /* rgba(255, 255, 255, 0.1) - Subtle white border */
+}
+
+/* Responsive Typography */
+@media (max-width: 767px) {
+  :root {
+    --font-display: 42px / 50px;
+    --font-h1: 32px / 40px;
+    --font-h2: 26px / 34px;
+    --font-h3: 21px / 28px;
+    --font-title: 18px / 24px;
+    --font-body-large: 16px / 22px;
+    --font-body: 14px / 20px;
+    --font-caption: 12px / 16px;
+    --font-label: 11px / 14px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --font-display: 45px / 53px;
+    --font-h1: 34px / 42px;
+    --font-h2: 28px / 36px;
+    --font-h3: 23px / 30px;
+    --font-title: 19px / 26px;
+    --font-body-large: 17px / 24px;
+    --font-body: 15px / 22px;
+    --font-caption: 13px / 18px;
+    --font-label: 12px / 15px;
+  }
+}

@@ -1,5 +1,6 @@
-import { S3Client, HeadBucketCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, HeadBucketCommand, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { prisma } from '@/lib/prisma'
 
 // R2 Settings interface
@@ -152,6 +153,53 @@ export async function testR2Connection(settings: Omit<R2Settings, 'enabled'>): P
         }
 
         return { success: false, error: errorMessage }
+    }
+}
+
+/**
+ * Generate a presigned URL for direct upload to R2
+ * @param key Object key (path in bucket)
+ * @param contentType MIME type of the file
+ * @param expiresIn Expiration time in seconds (default: 3600 / 1 hour)
+ * @returns Object containing presigned URL and the final public URL
+ */
+export async function getPresignedUrl(
+    key: string,
+    contentType: string,
+    expiresIn = 3600
+): Promise<{ uploadUrl: string; publicUrl: string }> {
+    const settings = await getR2Settings()
+
+    if (!settings || !settings.enabled) {
+        throw new Error('R2 storage is not enabled')
+    }
+
+    const client = await getR2Client()
+    if (!client) {
+        throw new Error('Failed to create R2 client')
+    }
+
+    try {
+        const command = new PutObjectCommand({
+            Bucket: settings.bucketName,
+            Key: key,
+            ContentType: contentType,
+        })
+
+        const uploadUrl = await getSignedUrl(client, command, { expiresIn })
+
+        // Calculate public URL
+        let publicUrl = ''
+        if (settings.publicUrl) {
+            publicUrl = `${settings.publicUrl.replace(/\/$/, '')}/${key}`
+        } else {
+            publicUrl = `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${key}`
+        }
+
+        return { uploadUrl, publicUrl }
+    } catch (error) {
+        console.error('Error generating presigned URL:', error)
+        throw new Error('Gagal membuat presigned URL')
     }
 }
 

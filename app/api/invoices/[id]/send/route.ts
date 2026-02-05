@@ -92,9 +92,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const { id } = await params
-    // Check if invoice exists
-    const invoice = await prisma.invoice.findUnique({
-      where: { id },
+    // Check if invoice exists and belongs to the user's site
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id,
+        siteId: session.user.siteId
+      },
       include: {
         pelanggan: true,
         invoiceItem: true,
@@ -152,7 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // const emailResult = await sendInvoiceEmail(invoice, email, message)
         
         // For now, just log and mark as sent
-        console.log(`Sending invoice ${invoice.invoiceNumber} to ${email}`)
+        console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via EMAIL`)
         sentVia.push('EMAIL')
       } catch (emailError: unknown) {
         const err = emailError instanceof Error ? emailError : new Error('Unknown error')
@@ -178,7 +181,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // const whatsappResult = await sendInvoiceWhatsApp(invoice, phone, message)
         
         // For now, just log and mark as sent
-        console.log(`Sending invoice ${invoice.invoiceNumber} to ${phone} via WhatsApp`)
+        console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via WHATSAPP`)
         sentVia.push('WHATSAPP')
       } catch (whatsappError: unknown) {
         const err = whatsappError instanceof Error ? whatsappError : new Error('Unknown error')

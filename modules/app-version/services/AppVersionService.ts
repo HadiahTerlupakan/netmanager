@@ -31,6 +31,10 @@ export interface UploadVersionInput {
     apkFilename?: string
     apkSize?: number
     createdBy?: string
+    // New fields for pre-uploaded files
+    uploadedKey?: string
+    uploadedFilename?: string
+    uploadedSize?: number
 }
 
 export interface CheckVersionResult {
@@ -178,8 +182,7 @@ export class AppVersionService {
         let versionCode = input.versionCode
 
         try {
-            // Auto-parse APK jika ada APK dan version info tidak lengkap
-            // Auto-parse APK jika ada APK dan version info tidak lengkap
+            // Auto-parse APK jika ada APK dan version info tidak lengkap (Hanya jika APK diupload via server)
             if ((input.apkBuffer || input.apkPath) && (!version || !buildNumber || !versionCode)) {
                 console.log('[AppVersionService] Parsing APK for version info...')
                 const apkInfo = await this.parseApkInfo({
@@ -212,10 +215,29 @@ export class AppVersionService {
             }
 
             let apkUrl: string | undefined
+            let apkSize = input.apkSize
 
-            // Upload APK if provided
-            // Upload APK if provided
-            if ((input.apkBuffer || input.apkPath) && input.apkFilename) {
+            // Scenario 1: Pre-uploaded file (Direct Upload)
+            if (input.uploadedKey) {
+                console.log(`[AppVersionService] Using pre-uploaded file: ${input.uploadedKey}`)
+
+                // Construct public URL
+                const settings = await import('@/lib/utils/r2-client').then(m => m.getR2Settings())
+                if (settings && settings.publicUrl) {
+                    apkUrl = `${settings.publicUrl.replace(/\/$/, '')}/${input.uploadedKey}`
+                } else if (settings) {
+                    apkUrl = `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${input.uploadedKey}`
+                } else {
+                    // Fallback purely based on key if settings fail (shouldn't happen if R2 enabled)
+                    apkUrl = input.uploadedKey
+                }
+
+                if (input.uploadedSize) {
+                    apkSize = input.uploadedSize
+                }
+            }
+            // Scenario 2: Server-side Upload (Legacy/Fallback)
+            else if ((input.apkBuffer || input.apkPath) && input.apkFilename) {
                 console.log(`[AppVersionService] Uploading APK file: ${input.apkFilename}`)
                 apkUrl = await this.uploadApkFile({
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
@@ -234,7 +256,7 @@ export class AppVersionService {
                 versionCode,
                 platform: input.platform || 'android',
                 ...(apkUrl ? { apkUrl } : {}),
-                ...(input.apkSize ? { apkSize: BigInt(input.apkSize) } : {}),
+                ...(apkSize ? { apkSize: BigInt(apkSize) } : {}),
                 ...(input.releaseNotes ? { releaseNotes: input.releaseNotes } : {}),
                 isForceUpdate: input.isForceUpdate || false,
                 ...(input.minVersion ? { minVersion: input.minVersion } : {}),

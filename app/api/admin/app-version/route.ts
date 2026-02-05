@@ -74,11 +74,18 @@ export async function POST(request: NextRequest) {
         const minVersion = formData.get('minVersion') as string || undefined
         const apkFile = formData.get('apk') as File | null
 
+        // New fields for direct upload
+        const uploadedKey = formData.get('uploadedKey') as string | null
+        const uploadedFilename = formData.get('uploadedFilename') as string | null
+        const uploadedSizeStr = formData.get('uploadedSize') as string | null
+        const uploadedSize = uploadedSizeStr ? parseInt(uploadedSizeStr) : undefined
+
         const buildNumber = buildNumberStr ? parseInt(buildNumberStr) : undefined
         const versionCode = versionCodeStr ? parseInt(versionCodeStr) : undefined
 
-        // Validation - butuh APK atau field lengkap
-        if (!apkFile && (!version || !buildNumber || !versionCode)) {
+        // Validation - butuh APK (file/key) atau field lengkap
+        const hasApk = apkFile || uploadedKey
+        if (!hasApk && (!version || !buildNumber || !versionCode)) {
             return apiError(
                 'Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode',
                 ErrorCodes.VALIDATION_ERROR,
@@ -91,19 +98,23 @@ export async function POST(request: NextRequest) {
         let apkSize: number | undefined
         let apkTempPath: string | undefined
 
+        // Handle Legacy Upload (APK File sent to server)
         if (apkFile) {
             // For large files, save to temp file instead of loading into memory
             const fs = await import('fs/promises')
             const path = await import('path')
             const os = await import('os')
-            
-            apkTempPath = path.join(os.tmpdir(), `apk_upload_${Date.now()}_${apkFile.name}`)
+            const { randomUUID } = await import('crypto')
+
+            const fileExtension = path.extname(apkFile.name)
+            apkTempPath = path.join(os.tmpdir(), `apk_upload_${randomUUID()}${fileExtension}`)
             const arrayBuffer = await apkFile.arrayBuffer()
             await fs.writeFile(apkTempPath, Buffer.from(arrayBuffer))
-            
+
             apkFilename = apkFile.name
             apkSize = apkFile.size
-            console.log(`[APK Upload] Saved temp file: ${apkTempPath} (${(apkSize / 1024 / 1024).toFixed(1)}MB)`)
+            // Log commented out for production
+            // console.log(`[APK Upload] Saved temp file: ${apkTempPath} (${(apkSize / 1024 / 1024).toFixed(1)}MB)`)
         }
 
         const service = getAppVersionService()
@@ -116,10 +127,15 @@ export async function POST(request: NextRequest) {
             ...(versionCode ? { versionCode } : {}),
             ...(releaseNotes ? { releaseNotes } : {}),
             ...(minVersion ? { minVersion } : {}),
+            // Legacy upload fields
             ...(apkBuffer ? { apkBuffer } : {}),
             ...(apkTempPath ? { apkPath: apkTempPath } : {}),
             ...(apkFilename ? { apkFilename } : {}),
-            ...(apkSize ? { apkSize } : {})
+            ...(apkSize ? { apkSize } : {}),
+            // New direct upload fields
+            ...(uploadedKey ? { uploadedKey } : {}),
+            ...(uploadedFilename ? { uploadedFilename } : {}),
+            ...(uploadedSize ? { uploadedSize } : {})
         })
 
         // Cleanup temp file after successful upload
@@ -127,7 +143,7 @@ export async function POST(request: NextRequest) {
             try {
                 const fs = await import('fs/promises')
                 await fs.unlink(apkTempPath)
-                console.log(`[APK Upload] Cleaned up temp file: ${apkTempPath}`)
+                // console.log(`[APK Upload] Cleaned up temp file: ${apkTempPath}`)
             } catch (e) {
                 console.warn(`[APK Upload] Failed to cleanup temp file: ${apkTempPath}`, e)
             }

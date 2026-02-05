@@ -179,7 +179,7 @@ export function ClientComponent() {
         }
     }, [showToast])
 
-    const fetchReport = useCallback(async () => {
+    const fetchReport = useCallback(async (signal?: AbortSignal) => {
         if (retryCountdown !== null) return
 
         // Validate date range
@@ -200,9 +200,10 @@ export function ClientComponent() {
 
             const query = new URLSearchParams(params)
 
-            const response = await fetchWithHandling<ReportData>(`/api/admin/reports/presence?${query.toString()}`)
+            const response = await fetchWithHandling<ReportData>(`/api/admin/reports/presence?${query.toString()}`, { signal })
             setData(response.data)
         } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') return
             if (isFetchError(error)) {
                 if (error.retryAfter) {
                     setRetryCountdown(error.retryAfter)
@@ -210,7 +211,9 @@ export function ClientComponent() {
                 showToast('error', formatErrorMessage(error))
             }
         } finally {
-            setLoading(false)
+            if (!signal?.aborted) {
+                setLoading(false)
+            }
         }
     }, [debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, retryCountdown, showToast])
 
@@ -219,7 +222,9 @@ export function ClientComponent() {
     }, [fetchOptionsCallback])
 
     useEffect(() => {
-        fetchReport()
+        const controller = new AbortController()
+        fetchReport(controller.signal)
+        return () => controller.abort()
     }, [fetchReport])
 
     const formatDuration = (minutes: number) => {

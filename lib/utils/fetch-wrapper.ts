@@ -92,6 +92,11 @@ export async function fetchWithHandling<T = unknown>(
       throw fetchError
     }
 
+    // Handle AbortError (Request Cancelled)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error
+    }
+
     // Handle other errors
     const fetchError: FetchError = {
       status: 500,

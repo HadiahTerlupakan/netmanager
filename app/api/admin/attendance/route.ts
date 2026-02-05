@@ -124,7 +124,14 @@ export const GET = withErrorHandler(
                 ])
               })
 
-              const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
+              const sanitizeCSV = (value: string) => {
+                if (typeof value === 'string' && /^[=+\-@]/.test(value)) {
+                  return `'${value}`
+                }
+                return value
+              }
+
+              const csvContent = csvRows.map(row => row.map(cell => `"${sanitizeCSV(cell)}"`).join(',')).join('\n')
 
               return new NextResponse(csvContent, {
                 headers: {

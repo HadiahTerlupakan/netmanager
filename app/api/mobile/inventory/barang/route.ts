@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 
 // GET - Get barang list for mobile
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
         // Fetch user to check permissions
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { 
+            include: {
                 role: { include: { permission: true } },
                 sites: true
             }
@@ -56,8 +57,26 @@ export async function GET(req: NextRequest) {
 
         // MODE: MASUK - Return ALL master barang (for receiving new stock)
         if (mode === 'masuk') {
+            const barangWhere: Prisma.BarangWhereInput = {}
+
+            if (isSiteRestricted && user.sites?.id) {
+                // Filter barang that have been at least once in the user's site warehouses
+                barangWhere.barangGudang = {
+                    some: {
+                        gudang: {
+                            sites: {
+                                some: {
+                                    id: user.sites.id
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Get all barang from master data
             const allBarang = await prisma.barang.findMany({
+                where: barangWhere,
                 select: {
                     id: true,
                     kode: true,

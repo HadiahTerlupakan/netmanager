@@ -207,14 +207,28 @@ model CustomerCohort {
   @@index([cohortYear, cohortMonth])
 }
 
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // "CAPEX" or "OPEX"
+  expenses  Expense[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, type])
+}
+
 model Expense {
-  id          String   @id
-  date        DateTime @default(now())
-  amount      BigInt
-  depreciation BigInt?  @default(0)
-  usefulLife   Int?     @default(0)
-  category    String
-  description String?
+  id               String           @id
+  date             DateTime         @default(now())
+  amount           BigInt
+  depreciation     BigInt?          @default(0)
+  usefulLife       Int?             @default(0)
+  category         String
+  expenseCategoryId String?
+  expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id])
+  description      String?
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime

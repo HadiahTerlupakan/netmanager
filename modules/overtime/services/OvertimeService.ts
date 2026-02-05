@@ -238,6 +238,7 @@ export class OvertimeService {
         endDate?: Date
         siteId?: string
         departmentId?: string
+        holidayType?: string
         skip?: number
         take?: number
     }) {

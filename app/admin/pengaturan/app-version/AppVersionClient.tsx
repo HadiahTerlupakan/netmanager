@@ -360,6 +360,8 @@ export function AppVersionClient() {
 // Upload Modal Component
 function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
     const [loading, setLoading] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
+    const [status, setStatus] = useState<string>('')
     const [formData, setFormData] = useState({
         version: '',
         buildNumber: '',
@@ -373,18 +375,81 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        
+
         // Jika tidak ada APK dan field kosong, tampilkan error
         if (!apkFile && (!formData.version || !formData.buildNumber || !formData.versionCode)) {
             alert('Upload APK untuk auto-detect versi, atau isi manual field Versi, Build, dan Code')
             return
         }
-        
+
         setLoading(true)
+        setUploadProgress(0)
 
         try {
+            let apkKey = ''
+            let apkFilename = ''
+            let apkSize = 0
+
+            // 1. Jika ada file, upload langsung ke storage (Direct Upload)
+            if (apkFile) {
+                setStatus('Meminta URL upload...')
+
+                // Get Presigned URL
+                const presignedRes = await fetch('/api/admin/app-version/upload-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filename: apkFile.name,
+                        contentType: 'application/vnd.android.package-archive',
+                        size: apkFile.size
+                    })
+                })
+
+                if (!presignedRes.ok) {
+                    const err = await presignedRes.json()
+                    throw new Error(err.error || 'Gagal mendapatkan URL upload')
+                }
+
+                const { uploadUrl, key } = await presignedRes.json()
+                apkKey = key
+                apkFilename = apkFile.name
+                apkSize = apkFile.size
+
+                // Upload to R2 directly
+                setStatus('Mengupload file...')
+
+                const xhr = new XMLHttpRequest()
+
+                await new Promise((resolve, reject) => {
+                    xhr.upload.addEventListener('progress', (event) => {
+                        if (event.lengthComputable) {
+                            const percentComplete = (event.loaded / event.total) * 100
+                            setUploadProgress(Math.round(percentComplete))
+                        }
+                    })
+
+                    xhr.onreadystatechange = () => {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status === 200) {
+                                resolve(true)
+                            } else {
+                                reject(new Error('Gagal mengupload file ke storage'))
+                            }
+                        }
+                    }
+
+                    xhr.onerror = () => reject(new Error('Network error saat upload'))
+
+                    xhr.open('PUT', uploadUrl)
+                    xhr.setRequestHeader('Content-Type', 'application/vnd.android.package-archive')
+                    xhr.send(apkFile)
+                })
+            }
+
+            // 2. Submit metadata ke backend
+            setStatus('Menyimpan data...')
+
             const form = new FormData()
-            // Hanya append jika diisi
             if (formData.version) form.append('version', formData.version)
             if (formData.buildNumber) form.append('buildNumber', formData.buildNumber)
             if (formData.versionCode) form.append('versionCode', formData.versionCode)
@@ -392,7 +457,13 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             form.append('releaseNotes', formData.releaseNotes)
             form.append('isForceUpdate', formData.isForceUpdate.toString())
             if (formData.minVersion) form.append('minVersion', formData.minVersion)
-            if (apkFile) form.append('apk', apkFile)
+
+            // Kirim info file yang sudah diupload (bukan filenya lagi)
+            if (apkKey) {
+                form.append('uploadedKey', apkKey)
+                form.append('uploadedFilename', apkFilename)
+                form.append('uploadedSize', apkSize.toString())
+            }
 
             const res = await fetch('/api/admin/app-version', {
                 method: 'POST',
@@ -403,13 +474,16 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             if (data.success) {
                 onSuccess()
             } else {
-                alert(data.error || 'Gagal upload versi')
+                alert(data.error || 'Gagal menyimpan versi')
             }
         } catch (error: unknown) {
             console.error('Error uploading version:', error)
-            alert('Terjadi kesalahan')
+            const msg = error instanceof Error ? error.message : 'Terjadi kesalahan'
+            alert(msg)
         } finally {
             setLoading(false)
+            setUploadProgress(0)
+            setStatus('')
         }
     }
 
@@ -420,7 +494,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Upload Versi Baru</h2>
-                    
+
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* APK File - prioritas utama */}
                         <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-4 border-2 border-dashed border-indigo-300">
@@ -432,20 +506,34 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                 accept=".apk"
                                 onChange={(e) => setApkFile(e.target.files?.[0] || null)}
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                disabled={loading}
                             />
                             {apkFile ? (
                                 <p className="text-sm text-green-600 mt-2">
                                     ✅ {apkFile.name} ({(apkFile.size / (1024 * 1024)).toFixed(1)} MB)
                                     <br />
-                                    <span className="text-xs">Versi akan otomatis terdeteksi dari APK</span>
+                                    <span className="text-xs">Versi akan otomatis terdeteksi dari APK (Server-side parsing)</span>
                                 </p>
                             ) : (
                                 <p className="text-xs text-gray-500 mt-2">
                                     💡 Upload APK untuk auto-detect Versi, Build, dan Code
                                 </p>
                             )}
+
+                            {/* Progress Bar */}
+                            {loading && uploadProgress > 0 && (
+                                <div className="mt-4">
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span>{status}</span>
+                                        <span>{uploadProgress}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                        <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        
+
                         {/* Manual input - hanya tampil jika tidak ada APK */}
                         {!hasApk && (
                             <>
@@ -472,6 +560,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                             value={formData.version}
                                             onChange={(e) => setFormData({ ...formData, version: e.target.value })}
                                             className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                            disabled={loading}
                                         />
                                     </div>
                                     <div>
@@ -484,6 +573,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                             value={formData.buildNumber}
                                             onChange={(e) => setFormData({ ...formData, buildNumber: e.target.value })}
                                             className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                            disabled={loading}
                                         />
                                     </div>
                                     <div>
@@ -496,6 +586,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                             value={formData.versionCode}
                                             onChange={(e) => setFormData({ ...formData, versionCode: e.target.value })}
                                             className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                            disabled={loading}
                                         />
                                     </div>
                                 </div>
@@ -508,6 +599,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                 value={formData.platform}
                                 onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                disabled={loading}
                             >
                                 <option value="android">Android</option>
                                 <option value="ios">iOS</option>
@@ -523,6 +615,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                                 rows={3}
                                 placeholder="Apa yang baru di versi ini?"
+                                disabled={loading}
                             />
                         </div>
 
@@ -533,6 +626,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                 checked={formData.isForceUpdate}
                                 onChange={(e) => setFormData({ ...formData, isForceUpdate: e.target.checked })}
                                 className="h-4 w-4"
+                                disabled={loading}
                             />
                             <label htmlFor="forceUpdate" className="text-sm">
                                 <span className="font-medium">Force Update</span>
@@ -548,6 +642,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                 value={formData.minVersion}
                                 onChange={(e) => setFormData({ ...formData, minVersion: e.target.value })}
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                disabled={loading}
                             />
                             <p className="text-xs text-gray-500 mt-1">Versi di bawah ini akan dipaksa update</p>
                         </div>
@@ -557,15 +652,21 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                 type="button"
                                 onClick={onClose}
                                 className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                                disabled={loading}
                             >
                                 Batal
                             </button>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                                {loading ? 'Mengupload...' : 'Upload'}
+                                {loading ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        <span>Proses...</span>
+                                    </>
+                                ) : 'Upload'}
                             </button>
                         </div>
                     </form>

@@ -16,13 +16,9 @@ export async function GET(request: NextRequest) {
         const authHeader = request.headers.get('authorization')
         const cronSecret = process.env.CRON_SECRET
 
-        if (cronSecret) {
-            if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
-                console.log('[Cron WO Reminder] Unauthorized access attempt')
-                return ApiErrors.unauthorized('Cron secret tidak valid')
-            }
-        } else {
-            console.warn('[Cron WO Reminder] CRON_SECRET not set - endpoint is unprotected!')
+        if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+            console.log('[Cron WO Reminder] Unauthorized access attempt')
+            return ApiErrors.unauthorized('Unauthorized')
         }
 
         const now = new Date()

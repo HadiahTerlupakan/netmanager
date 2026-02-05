@@ -1,16 +1,18 @@
+import { headers } from 'next/headers'
 import { AutoCheckoutService } from '@/modules/attendance/services/AutoCheckoutService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { env } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(_request: Request) {
     try {
-        // Basic security check (uncomment for production)
-        // const headersList = await headers()
-        // const authHeader = headersList.get('authorization')
-        // if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        //     return ApiErrors.unauthorized('Cron secret tidak valid')
-        // }
+        const headersList = await headers()
+        const authHeader = headersList.get('authorization')
+
+        if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+            return ApiErrors.unauthorized('Unauthorized')
+        }
 
         const count = await AutoCheckoutService.runAutoCheckout()
 

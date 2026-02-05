@@ -64,4 +64,8 @@ export class CouponRepository implements ICouponRepository {
             }
         })
     }
+
+    async delete(id: string): Promise<void> {
+        await this.db.coupon.delete({ where: { id } })
+    }
 }

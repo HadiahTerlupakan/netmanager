@@ -7,6 +7,8 @@ import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiMapPin } from 'react
 import Modal from '@/components/common/Modal'
 import { MapPickerWithSearch } from '@/components/common/MapPicker'
 import { SiteFilter } from '@/components/common/SiteFilter'
+import { useToast } from '@/hooks/use-toast'
+import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
 
 type HargaPaket = {
   id: string
@@ -41,6 +43,7 @@ type Odp = {
 
 export function ClientComponent() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -126,12 +129,9 @@ export function ClientComponent() {
   // Generate ID pelanggan dari API (async)
   const generateIdPelanggan = async () => {
     try {
-      const res = await fetch('/api/pelanggan-ppp/generate-id')
-      if (res.ok) {
-        const data = await res.json()
-        if (data.idPelanggan) {
-          return data.idPelanggan
-        }
+      const res = await fetchWithHandling<{ idPelanggan: string }>('/api/pelanggan-ppp/generate-id')
+      if (res.data?.idPelanggan) {
+        return res.data.idPelanggan
       }
       // Fallback: generate di frontend jika API error
       return generateIdPelangganSync()
@@ -146,12 +146,9 @@ export function ClientComponent() {
   const loadOrGenerateIdPelanggan = useCallback(async () => {
     try {
       // Panggil API untuk generate ID yang terjamin unik
-      const res = await fetch('/api/pelanggan-ppp/generate-id')
-      if (res.ok) {
-        const data = await res.json()
-        if (data.idPelanggan) {
-          return data.idPelanggan
-        }
+      const res = await fetchWithHandling<{ idPelanggan: string }>('/api/pelanggan-ppp/generate-id')
+      if (res.data?.idPelanggan) {
+        return res.data.idPelanggan
       }
 
       // Fallback: generate di frontend jika API error
@@ -185,17 +182,19 @@ export function ClientComponent() {
           params.append('siteId', formData.siteId)
       }
 
-      const res = await fetch(`/api/hargapakets?${params.toString()}`)
-      if (res.ok) {
-        const data = await res.json()
-        setHargaPakets(data || [])
+      const res = await fetchWithHandling<HargaPaket[]>(`/api/hargapakets?${params.toString()}`)
+      if (res.data) {
+        setHargaPakets(res.data)
       }
     } catch (err: unknown) {
       console.error('Error loading harga pakets:', err)
+      if (isFetchError(err)) {
+        showToast('error', formatErrorMessage(err))
+      }
     } finally {
       setLoading(false)
     }
-  }, [formData.siteId])
+  }, [formData.siteId, showToast])
 
   const loadOdps = useCallback(async () => {
     try {
@@ -204,15 +203,17 @@ export function ClientComponent() {
           params.append('siteId', formData.siteId)
       }
 
-      const res = await fetch(`/api/odps?${params.toString()}`)
-      if (res.ok) {
-        const data = await res.json()
-        setOdps(data.odps || [])
+      const res = await fetchWithHandling<{ odps: Odp[] }>(`/api/odps?${params.toString()}`)
+      if (res.data?.odps) {
+        setOdps(res.data.odps)
       }
     } catch (err: unknown) {
       console.error('Error loading ODPs:', err)
+      if (isFetchError(err)) {
+        showToast('error', formatErrorMessage(err))
+      }
     }
-  }, [formData.siteId])
+  }, [formData.siteId, showToast])
 
   useEffect(() => {
     loadHargaPakets()
@@ -294,28 +295,45 @@ export function ClientComponent() {
         formDataToSend.append('fileBAST', fileBAST)
       }
 
+      // Use fetch directly for FormData, but handle response manually or assume backend returns standard format
+      // Note: fetchWithHandling expects JSON usually, but we are sending FormData.
+      // However, fetchWithHandling sets Content-Type to application/json by default which breaks FormData.
+      // So we use raw fetch but handle errors similarly.
+
       const res = await fetch('/api/pelanggan-ppp', {
         method: 'POST',
         body: formDataToSend,
+        // Do NOT set Content-Type header for FormData, let browser set it with boundary
       })
 
       if (!res.ok) {
-        const errorData = await res.json()
+        const errorData = await res.json().catch(() => ({}))
+
+        // Handle rate limit
+        if (res.status === 429) {
+             const retryAfter = res.headers.get('Retry-After')
+             showToast('error', `Terlalu banyak permintaan. Coba lagi dalam ${retryAfter || 60} detik.`)
+             return
+        }
+
         // Jika error karena ID duplikat, generate ID baru dan retry
         if (errorData.error?.includes('sudah digunakan') || errorData.error?.includes('unique') || res.status === 409) {
           const newId = await generateIdPelanggan()
           setFormData(prev => ({ ...prev, idPelanggan: newId }))
           setError('ID Pelanggan sudah digunakan. ID baru telah di-generate. Silakan submit ulang.')
+          showToast('warning', 'ID Pelanggan diperbarui karena duplikat')
           return
         }
         throw new Error(errorData.error || 'Gagal menyimpan pelanggan PPP')
       }
 
       // Berhasil, redirect ke halaman list
+      showToast('success', 'Pelanggan berhasil disimpan')
       router.push('/admin/pelanggan/ppp')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan data'
       setError(message)
+      showToast('error', message)
     } finally {
       setSubmitting(false)
     }
@@ -363,12 +381,10 @@ export function ClientComponent() {
 
     try {
       setCheckingId(true)
-      const res = await fetch(`/api/pelanggan-ppp/check-id?idPelanggan=${encodeURIComponent(id)}`)
-      if (res.ok) {
-        const data = await res.json()
-        return data.exists === true
+      const res = await fetchWithHandling<{ exists: boolean }>(`/api/pelanggan-ppp/check-id?idPelanggan=${encodeURIComponent(id)}`)
+      if (res.data) {
+        return res.data.exists === true
       }
-      // Jika error, anggap ID belum ada (untuk menghindari false positive)
       return false
     } catch (error) {
       console.error('Error checking ID pelanggan:', error)

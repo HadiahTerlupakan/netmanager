@@ -20,7 +20,10 @@ const envSchema = z.object({
   
   // Sentry
   SENTRY_DSN: z.string().optional(),
-  
+
+  // Cron Security
+  CRON_SECRET: z.string().min(32).optional(), // Optional for now to avoid breaking existing setups, but recommended
+
   // Node Environment
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })

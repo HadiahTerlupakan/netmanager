@@ -29,4 +29,5 @@ export interface ICouponRepository {
     create(data: CreateCouponInput): Promise<Coupon>
     incrementUsage(id: string, tx?: Prisma.TransactionClient): Promise<Coupon>
     recordUsage(couponId: string, pelangganId: string, tx?: Prisma.TransactionClient): Promise<CouponUsage>
+    delete(id: string): Promise<void>
 }

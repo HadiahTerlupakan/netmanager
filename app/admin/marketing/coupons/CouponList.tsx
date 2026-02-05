@@ -6,6 +6,7 @@ import { HiOutlinePlus, HiTrash } from 'react-icons/hi2'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { toast } from 'react-hot-toast'
 
 interface Coupon {
     id: string
@@ -42,14 +43,23 @@ export default function CouponList() {
         }
     }
 
-    const handleDelete = async (_id: string) => {
+    const handleDelete = async (id: string) => {
         if (!confirm('Apakah anda yakin ingin menghapus kupon ini?')) return
         try {
-            // Assuming DELETE endpoint exists or will be added. 
-            // For now just refresh or handle UI removal if endpoint not ready
-            alert('Delete functionality to be implemented in API')
+            const res = await fetch(`/api/coupons/${id}`, {
+                method: 'DELETE'
+            })
+
+            if (res.ok) {
+                toast.success('Kupon berhasil dihapus')
+                fetchCoupons() // Refresh list
+            } else {
+                const data = await res.json()
+                toast.error(data.error || 'Gagal menghapus kupon')
+            }
         } catch (error) {
             console.error('Delete failed', error)
+            toast.error('Terjadi kesalahan saat menghapus kupon')
         }
     }
 

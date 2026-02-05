@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
                 try {
                     const decryptedPass = decryptApiKey(setting.value)
                     settingsMap[setting.key] = decryptedPass
-                    console.log(`[Email Settings GET] Password loaded, length: ${decryptedPass.length}`)
                 } catch (error) {
                     console.error('[Email Settings GET] Failed to decrypt password:', error)
                     settingsMap[setting.key] = 'DECRYPTION_ERROR'
@@ -84,7 +83,6 @@ export async function PUT(request: NextRequest) {
         // Only update password if provided (not empty)
         if (smtpPass) {
             const cleanedPass = smtpPass.trim().replace(/\s+/g, '')
-            console.log(`[Email Settings] Saving password, length: ${cleanedPass.length}`)
             const encryptedPass = encryptApiKey(cleanedPass)
             settingsToSave.push({ key: 'SMTP_PASS', value: encryptedPass, encrypted: true })
         }

@@ -96,7 +96,7 @@ export function ClientComponent() {
         }
     }, [showToast])
 
-    const fetchAttendances = useCallback(async () => {
+    const fetchAttendances = useCallback(async (signal?: AbortSignal) => {
         if (retryCountdown !== null) return
 
         // Validate date range
@@ -119,13 +119,14 @@ export function ClientComponent() {
 
             const query = new URLSearchParams(params)
 
-            const response = await fetchWithHandling<Attendance[]>(`/api/admin/attendance?${query.toString()}`)
-            
+            const response = await fetchWithHandling<Attendance[]>(`/api/admin/attendance?${query.toString()}`, { signal })
+
             setAttendances(response.data || [])
             setTotalPages(response.pagination?.totalPages || 1)
             setTotalItems(response.pagination?.total || 0)
             if (response.summary) setSummary(response.summary)
         } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') return
             if (isFetchError(error)) {
                 if (error.retryAfter) {
                     setRetryCountdown(error.retryAfter)
@@ -133,7 +134,9 @@ export function ClientComponent() {
                 showToast('error', formatErrorMessage(error))
             }
         } finally {
-            setLoading(false)
+            if (!signal?.aborted) {
+                setLoading(false)
+            }
         }
     }, [page, debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, retryCountdown, showToast])
 
@@ -142,7 +145,9 @@ export function ClientComponent() {
     }, [fetchOptions])
 
     useEffect(() => {
-        fetchAttendances()
+        const controller = new AbortController()
+        fetchAttendances(controller.signal)
+        return () => controller.abort()
     }, [fetchAttendances])
 
     const handleDelete = async (id: string) => {

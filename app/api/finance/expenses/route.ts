@@ -25,9 +25,10 @@ export async function GET(req: NextRequest) {
         const siteId = searchParams.get("siteId");
         const mixRadiusGroupId = searchParams.get("mixRadiusGroupId");
         const category = searchParams.get("category");
+        const expenseCategoryId = searchParams.get("expenseCategoryId");
         const scope = searchParams.get("scope");
 
-        console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, scope });
+        console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, expenseCategoryId, scope });
 
         // Build where clause
         const where: Record<string, unknown> = {};
@@ -47,6 +48,10 @@ export async function GET(req: NextRequest) {
 
         if (category) {
             where.category = category;
+        }
+
+        if (expenseCategoryId) {
+            where.expenseCategoryId = expenseCategoryId;
         }
 
         if ((await hasPermission("expense:site_only")) && user.role !== 'SUPER_ADMIN') {
@@ -90,6 +95,13 @@ export async function GET(req: NextRequest) {
                         id: true,
                         name: true
                     }
+                },
+                expenseCategory: {
+                    select: {
+                        id: true,
+                        name: true,
+                        type: true
+                    }
                 }
             }
         });
@@ -112,7 +124,7 @@ export async function GET(req: NextRequest) {
         // But since we want to debug, let's return error object with details
         return NextResponse.json({
             error: "Internal Error",
-            details: err.message || String(err)
+            details: process.env.NODE_ENV === 'development' ? (err.message || String(err)) : undefined
         }, { status: 500 });
     }
 }
@@ -125,6 +137,7 @@ const expenseSchema = z.object({
     usefulLife: z.union([z.string(), z.number()]).optional().transform((val) => val ? Number(val) : 0),
     date: z.string().or(z.date()).transform((val) => new Date(val)),
     category: z.string().min(1, "Category is required"),
+    expenseCategoryId: z.string().optional(),
     description: z.string().optional(),
     siteId: z.string().optional(),
     mixRadiusGroupId: z.string().optional(),
@@ -152,7 +165,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
         }
 
-        const { amount, depreciation, usefulLife, date, category, description, siteId, mixRadiusGroupId } = validation.data;
+        const { amount, depreciation, usefulLife, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId } = validation.data;
 
         let finalSiteId = siteId;
         if ((await hasPermission("expense:site_only")) && session.user.role !== 'SUPER_ADMIN') {
@@ -172,6 +185,7 @@ export async function POST(req: Request) {
                 usefulLife,
                 date,
                 category,
+                ...(expenseCategoryId ? { expenseCategoryId } : {}),
                 ...(description !== undefined ? { description } : {}),
                 ...(session.user.id ? { userId: session.user.id } : {}),
                 updatedAt: new Date(),

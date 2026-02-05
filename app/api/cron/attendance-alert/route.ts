@@ -12,13 +12,9 @@ export async function GET(request: NextRequest) {
         const authHeader = request.headers.get('authorization')
         const cronSecret = process.env.CRON_SECRET
 
-        if (cronSecret) {
-            if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
-                console.log('[Cron] Unauthorized access attempt')
-                return ApiErrors.unauthorized('Cron secret tidak valid')
-            }
-        } else {
-            console.warn('[Cron] CRON_SECRET not set - endpoint is unprotected!')
+        if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+            console.log('[Cron] Unauthorized access attempt')
+            return ApiErrors.unauthorized('Unauthorized')
         }
 
         const { searchParams } = new URL(request.url)

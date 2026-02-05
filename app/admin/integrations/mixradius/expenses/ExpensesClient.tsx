@@ -9,7 +9,8 @@ import {
   HiOutlineCurrencyDollar,
   HiOutlineCalendar,
   HiOutlineBuildingOffice,
-  HiOutlineTag
+  HiOutlineTag,
+  HiOutlineDocumentArrowDown
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -21,6 +22,12 @@ interface Expense {
   date: string
   amount: string
   category: string
+  expenseCategoryId?: string
+  expenseCategory?: {
+    id: string
+    name: string
+    type: string
+  }
   depreciation?: string
   usefulLife?: number
   description?: string
@@ -45,6 +52,12 @@ interface SiteOption {
     siteId?: string // Linked physical site ID
 }
 
+interface CategoryOption {
+    id: string
+    name: string
+    type: string
+}
+
 export default function ExpensesClient() {
   const [data, setData] = useState<Expense[]>([])
   const [loading, setLoading] = useState(false)
@@ -66,9 +79,13 @@ export default function ExpensesClient() {
   })
   const [selectedSite, setSelectedSite] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedSubCategory, setSelectedSubCategory] = useState('')
 
   // Options
   const [sites, setSites] = useState<SiteOption[]>([])
+  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [filterCategories, setFilterCategories] = useState<CategoryOption[]>([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -79,10 +96,17 @@ export default function ExpensesClient() {
       depreciation: '',
       usefulLife: 0,
       category: 'OPEX',
+      expenseCategoryId: '',
       description: '',
       siteId: '',
       mixRadiusGroupId: ''
   })
+
+  // New Category State
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [isManagingCategories, setIsManagingCategories] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -118,6 +142,103 @@ export default function ExpensesClient() {
       fetchSites()
   }, [])
 
+  // Fetch Filter Categories when type changes
+  useEffect(() => {
+      const fetchFilterCategories = async () => {
+          if (!selectedCategory) {
+              setFilterCategories([])
+              setSelectedSubCategory('')
+              return
+          }
+
+          try {
+              const res = await fetch(`/api/finance/expense-categories?type=${selectedCategory}`)
+              const json = await res.json()
+              if (Array.isArray(json)) {
+                  setFilterCategories(json)
+              }
+          } catch (e) {
+              console.error('Failed to fetch filter categories', e)
+          }
+      }
+
+      fetchFilterCategories()
+  }, [selectedCategory])
+
+  // Fetch Categories for Modal
+  const fetchCategories = useCallback(async () => {
+      setIsLoadingCategories(true)
+      try {
+          const res = await fetch(`/api/finance/expense-categories?type=${formData.category}`)
+          const json = await res.json()
+          if (Array.isArray(json)) {
+              setCategories(json)
+          }
+      } catch (e) {
+          console.error('Failed to fetch categories', e)
+      } finally {
+          setIsLoadingCategories(false)
+      }
+  }, [formData.category])
+
+  useEffect(() => {
+      if (isModalOpen) {
+          fetchCategories()
+      }
+  }, [fetchCategories, isModalOpen])
+
+  const handleAddCategory = async () => {
+      if (!newCategoryName.trim()) return
+
+      try {
+          const res = await fetch('/api/finance/expense-categories', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  name: newCategoryName,
+                  type: formData.category
+              })
+          })
+
+          if (!res.ok) throw new Error('Failed to create category')
+
+          const newCategory = await res.json()
+          setCategories(prev => [...prev, newCategory].sort((a, b) => a.name.localeCompare(b.name)))
+          setFormData(prev => ({ ...prev, expenseCategoryId: newCategory.id }))
+          setIsAddingCategory(false)
+          setNewCategoryName('')
+          toast.success('Kategori baru ditambahkan')
+      } catch (_e) {
+          toast.error('Gagal membuat kategori')
+      }
+  }
+
+  const handleDeleteCategory = async (id: string) => {
+      if (!confirm('Hapus kategori ini?')) return
+
+      try {
+          const res = await fetch(`/api/finance/expense-categories/${id}`, {
+              method: 'DELETE'
+          })
+
+          if (!res.ok) {
+              const data = await res.json()
+              throw new Error(data.error || 'Gagal menghapus')
+          }
+
+          setCategories(prev => prev.filter(c => c.id !== id))
+
+          // If deleted category was selected, reset selection
+          if (formData.expenseCategoryId === id) {
+              setFormData(prev => ({ ...prev, expenseCategoryId: '' }))
+          }
+
+          toast.success('Kategori dihapus')
+      } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Gagal menghapus kategori')
+      }
+  }
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -130,6 +251,7 @@ export default function ExpensesClient() {
 
       if (selectedSite) params.append('siteId', selectedSite)
       if (selectedCategory) params.append('category', selectedCategory)
+      if (selectedSubCategory) params.append('expenseCategoryId', selectedSubCategory)
 
       const response = await fetch(`/api/finance/expenses?${params}`)
 
@@ -145,7 +267,7 @@ export default function ExpensesClient() {
     } finally {
       setLoading(false)
     }
-  }, [startDate, endDate, selectedSite, selectedCategory])
+  }, [startDate, endDate, selectedSite, selectedCategory, selectedSubCategory])
 
   useEffect(() => {
     fetchData()
@@ -168,7 +290,8 @@ export default function ExpensesClient() {
       const lowerSearch = debouncedSearch.toLowerCase()
       return (
           (item.description && item.description.toLowerCase().includes(lowerSearch)) ||
-          (item.amount.toString().includes(lowerSearch))
+          (item.amount.toString().includes(lowerSearch)) ||
+          (item.expenseCategory && item.expenseCategory.name.toLowerCase().includes(lowerSearch))
       )
   })
 
@@ -191,6 +314,7 @@ export default function ExpensesClient() {
               depreciation: item.depreciation || '',
               usefulLife: item.usefulLife || 0,
               category: item.category,
+              expenseCategoryId: item.expenseCategoryId || '',
               description: item.description || '',
               siteId: item.siteId || '',
               mixRadiusGroupId: item.mixRadiusGroupId || ''
@@ -203,6 +327,7 @@ export default function ExpensesClient() {
               depreciation: '',
               usefulLife: 0,
               category: 'OPEX',
+              expenseCategoryId: '',
               description: '',
               siteId: '',
               mixRadiusGroupId: ''
@@ -290,6 +415,44 @@ export default function ExpensesClient() {
       }
   }
 
+  const handleExport = () => {
+      if (filteredData.length === 0) {
+          toast.error('Tidak ada data untuk diekspor')
+          return
+      }
+
+      // Header CSV
+      const headers = ['Tanggal', 'Jumlah', 'Tipe', 'Kategori', 'Keterangan', 'Site/Group', 'Petugas']
+
+      // Rows
+      const rows = filteredData.map(item => [
+          new Date(item.date).toLocaleDateString('id-ID'),
+          item.amount.toString(),
+          item.category,
+          item.expenseCategory?.name || '-',
+          `"${(item.description || '').replace(/"/g, '""')}"`, // Escape quotes
+          `"${(item.mixRadiusGroup?.name || item.site?.name || 'Umum').replace(/"/g, '""')}"`,
+          item.user?.name || '-'
+      ])
+
+      // Combine
+      const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.join(','))
+      ].join('\n')
+
+      // Download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.setAttribute('href', url)
+      link.setAttribute('download', `laporan-pengeluaran-${startDate}-to-${endDate}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -303,13 +466,23 @@ export default function ExpensesClient() {
           </p>
         </div>
 
-        <button
-            onClick={() => handleOpenModal()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-        >
-            <HiOutlinePlus className="w-5 h-5" />
-            Tambah Pengeluaran
-        </button>
+        <div className="flex gap-2">
+            <button
+                onClick={handleExport}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+            >
+                <HiOutlineDocumentArrowDown className="w-5 h-5" />
+                <span className="hidden sm:inline">Export CSV</span>
+            </button>
+            <button
+                onClick={() => handleOpenModal()}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            >
+                <HiOutlinePlus className="w-5 h-5" />
+                <span className="hidden sm:inline">Tambah Pengeluaran</span>
+                <span className="sm:hidden">Tambah</span>
+            </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -367,13 +540,30 @@ export default function ExpensesClient() {
                 {/* Category Filter */}
                 <select
                     value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    onChange={(e) => {
+                        setSelectedCategory(e.target.value)
+                        setSelectedSubCategory('') // Reset sub category when type changes
+                    }}
                     className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
                 >
-                    <option value="">Semua Kategori</option>
+                    <option value="">Semua Tipe</option>
                     <option value="CAPEX">CAPEX</option>
                     <option value="OPEX">OPEX</option>
                 </select>
+
+                {/* Sub Category Filter - Only show if Type is selected */}
+                {selectedCategory && (
+                    <select
+                        value={selectedSubCategory}
+                        onChange={(e) => setSelectedSubCategory(e.target.value)}
+                        className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px] animate-in fade-in slide-in-from-left-2 duration-200"
+                    >
+                        <option value="">Semua Kategori</option>
+                        {filterCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+                )}
 
                 {/* Site Filter */}
                 <select
@@ -440,7 +630,7 @@ export default function ExpensesClient() {
                 },
                 {
                     key: 'category',
-                    header: 'Kategori',
+                    header: 'Tipe',
                     render: (item) => (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                             item.category === 'CAPEX'
@@ -448,6 +638,15 @@ export default function ExpensesClient() {
                                 : 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
                         }`}>
                             {item.category}
+                        </span>
+                    )
+                },
+                {
+                    key: 'expenseCategory',
+                    header: 'Kategori',
+                    render: (item) => (
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {item.expenseCategory ? item.expenseCategory.name : '-'}
                         </span>
                     )
                 },
@@ -535,27 +734,27 @@ export default function ExpensesClient() {
                               const rawValue = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '')
                               setFormData({...formData, amount: rawValue})
                           }}
-                          className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-0 focus:border-blue-500 text-3xl font-bold text-center transition-all shadow-sm placeholder:text-gray-200 dark:placeholder:text-gray-700"
+                          className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-0 focus:border-blue-500 text-3xl font-bold text-center transition-all shadow-sm placeholder:text-gray-300 dark:placeholder:text-gray-600 hover:border-gray-500 dark:hover:border-gray-400"
                           placeholder="0"
                       />
                   </div>
               </div>
 
-              <div className="border-t border-gray-100 dark:border-gray-700 my-4"></div>
+              <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
 
               {/* 2. Category Selection - Cards */}
               <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Kategori Pengeluaran
+                      Jenis Pengeluaran (Tipe)
                   </label>
                   <div className="grid grid-cols-2 gap-4">
                       <button
                           type="button"
-                          onClick={() => setFormData({...formData, category: 'OPEX'})}
+                          onClick={() => setFormData({...formData, category: 'OPEX', expenseCategoryId: ''})}
                           className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 group ${
                               formData.category === 'OPEX'
                                   ? 'bg-orange-50/50 border-orange-500 shadow-md ring-1 ring-orange-200 dark:bg-orange-900/20 dark:border-orange-500 dark:ring-orange-800'
-                                  : 'bg-white border-gray-200 hover:border-orange-300 hover:bg-orange-50/30 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750'
+                                  : 'bg-white border-gray-400 hover:border-orange-400 hover:bg-orange-50/30 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-750'
                           }`}
                       >
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${
@@ -572,11 +771,11 @@ export default function ExpensesClient() {
 
                       <button
                           type="button"
-                          onClick={() => setFormData({...formData, category: 'CAPEX'})}
+                          onClick={() => setFormData({...formData, category: 'CAPEX', expenseCategoryId: ''})}
                           className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 group ${
                               formData.category === 'CAPEX'
                                   ? 'bg-purple-50/50 border-purple-500 shadow-md ring-1 ring-purple-200 dark:bg-purple-900/20 dark:border-purple-500 dark:ring-purple-800'
-                                  : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50/30 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750'
+                                  : 'bg-white border-gray-400 hover:border-purple-400 hover:bg-purple-50/30 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-750'
                           }`}
                       >
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${
@@ -591,6 +790,110 @@ export default function ExpensesClient() {
                           )}
                       </button>
                   </div>
+              </div>
+
+              {/* 2.5 Sub Category Selection */}
+              <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Kategori {formData.category}
+                      </label>
+                      {!isAddingCategory && !isManagingCategories && categories.length > 0 && (
+                          <button
+                              type="button"
+                              onClick={() => setIsManagingCategories(true)}
+                              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline flex items-center gap-1"
+                          >
+                              <HiOutlinePencilSquare className="w-3 h-3" />
+                              Kelola
+                          </button>
+                      )}
+                  </div>
+
+                  {isManagingCategories ? (
+                      <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in-95 duration-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Hapus kategori yang tidak digunakan:</p>
+                          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto custom-scrollbar">
+                              {categories.map(cat => (
+                                  <div key={cat.id} className="flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 rounded-full text-sm shadow-sm group">
+                                      <span className="text-gray-700 dark:text-gray-300">{cat.name}</span>
+                                      <button
+                                          type="button"
+                                          onClick={() => handleDeleteCategory(cat.id)}
+                                          className="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
+                                          title="Hapus Kategori"
+                                      >
+                                          <HiOutlineTrash className="w-3.5 h-3.5" />
+                                      </button>
+                                  </div>
+                              ))}
+                              {categories.length === 0 && <span className="text-sm text-gray-400 italic">Tidak ada kategori</span>}
+                          </div>
+                          <button
+                              type="button"
+                              onClick={() => setIsManagingCategories(false)}
+                              className="w-full py-1.5 text-xs font-medium bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-300"
+                          >
+                              Selesai Mengelola
+                          </button>
+                      </div>
+                  ) : !isAddingCategory ? (
+                      <div className="flex gap-2">
+                          <select
+                              value={formData.expenseCategoryId}
+                              onChange={(e) => setFormData({...formData, expenseCategoryId: e.target.value})}
+                              disabled={isLoadingCategories}
+                              className="flex-1 rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow disabled:opacity-50 hover:border-gray-500 dark:hover:border-gray-400"
+                          >
+                              <option value="">-- Pilih Kategori --</option>
+                              {categories.map(cat => (
+                                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                          </select>
+                          <button
+                              type="button"
+                              onClick={() => {
+                                  setIsAddingCategory(true)
+                                  setNewCategoryName('')
+                              }}
+                              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap text-sm font-medium border border-gray-300 dark:border-gray-600"
+                          >
+                              + Baru
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                          <input
+                              type="text"
+                              value={newCategoryName}
+                              onChange={(e) => setNewCategoryName(e.target.value)}
+                              placeholder="Nama kategori baru..."
+                              autoFocus
+                              className="flex-1 rounded-lg border-blue-300 ring-2 ring-blue-100 dark:border-blue-700 dark:ring-blue-900/30 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      handleAddCategory()
+                                  }
+                              }}
+                          />
+                          <button
+                              type="button"
+                              onClick={handleAddCategory}
+                              disabled={!newCategoryName.trim()}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                          >
+                              Simpan
+                          </button>
+                          <button
+                              type="button"
+                              onClick={() => setIsAddingCategory(false)}
+                              className="px-3 py-2 bg-white border border-gray-300 dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                              Batal
+                          </button>
+                      </div>
+                  )}
               </div>
 
               {/* 3. CAPEX Details - Animated/Conditional */}
@@ -613,7 +916,7 @@ export default function ExpensesClient() {
                                       value={formData.usefulLife || ''}
                                       onChange={e => setFormData({...formData, usefulLife: parseInt(e.target.value) || 0})}
                                       onWheel={(e) => e.currentTarget.blur()}
-                                      className="w-full rounded-lg border-purple-200 dark:border-purple-700/50 bg-white dark:bg-purple-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
+                                      className="w-full rounded-lg border border-purple-300 dark:border-purple-600 bg-white dark:bg-purple-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
                                       placeholder="Contoh: 12"
                                   />
                                   <div className="flex gap-2 mt-2">
@@ -670,7 +973,7 @@ export default function ExpensesClient() {
                               required
                               value={formData.date}
                               onChange={e => setFormData({...formData, date: e.target.value})}
-                              className="w-full pl-10 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                              className="w-full pl-10 rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow hover:border-gray-500 dark:hover:border-gray-400"
                           />
                       </div>
                   </div>
@@ -682,7 +985,7 @@ export default function ExpensesClient() {
                       <select
                           value={formData.mixRadiusGroupId}
                           onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
-                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                          className="w-full rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow hover:border-gray-500 dark:hover:border-gray-400"
                       >
                           <option value="">-- Umum / Kantor Pusat --</option>
                           {sites.map(site => (
@@ -701,7 +1004,7 @@ export default function ExpensesClient() {
                       value={formData.description}
                       onChange={e => setFormData({...formData, description: e.target.value})}
                       maxLength={500}
-                      className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                      className="w-full rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow hover:border-gray-500 dark:hover:border-gray-400"
                       rows={3}
                       placeholder="Contoh: Pembelian kabel FO 2 roll, Bayar listrik, dll..."
                   />

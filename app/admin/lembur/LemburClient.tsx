@@ -105,7 +105,7 @@ export function ClientComponent() {
         }
     }, [showToast])
 
-    const fetchRequests = useCallback(async () => {
+    const fetchRequests = useCallback(async (signal?: AbortSignal) => {
         if (retryCountdown !== null) return // Don't fetch during rate limit
 
         setIsLoading(true)
@@ -121,7 +121,7 @@ export function ClientComponent() {
                 ...(debouncedHolidayFilter && { holidayType: debouncedHolidayFilter }) // Server-side filter
             })
 
-            const response = await fetchWithHandling<Overtime[]>(`/api/admin/lembur?${query.toString()}`)
+            const response = await fetchWithHandling<Overtime[]>(`/api/admin/lembur?${query.toString()}`, { signal })
             
             setRequests(response.data || [])
             setTotalPages(response.pagination?.totalPages || 1)

@@ -66,4 +66,17 @@ export class CouponService {
     async incrementUsage(couponId: string, tx?: Prisma.TransactionClient) {
         return this.repo.incrementUsage(couponId, tx)
     }
+
+    async deleteCoupon(id: string) {
+        // Check if coupon exists
+        const coupon = await this.repo.findById(id)
+        if (!coupon) throw new Error('Coupon not found')
+
+        // Check if coupon has been used
+        if (coupon.usedCount > 0) {
+            throw new Error('Cannot delete coupon that has been used')
+        }
+
+        return this.repo.delete(id)
+    }
 }

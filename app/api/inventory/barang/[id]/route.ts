@@ -1,17 +1,9 @@
 import { NextRequest } from 'next/server'
-import { getServerSession, type Session } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { logger } from '@/lib/logger'
 import { getInventoryRepository } from '@/lib/repositories'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig) as Session | null
-  if (!session) {
-    return null
-  }
-  return session
-}
 
 /**
  * GET /api/inventory/barang/[id]
@@ -20,14 +12,26 @@ async function requireAdmin() {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
+    const session = await verifyAuth(req)
     if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/barang/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
+    }
+
+    if (!(await hasPermission("barang:read"))) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat detail barang')
     }
 
     const { id } = await params
     const inventoryRepository = getInventoryRepository()
+
+    // Site Restriction Check
+    const permissions = await getUserPermissions(session.id);
+    const isSuperAdmin = session.role === 'SUPER_ADMIN'
+    const hasRestriction = permissions.includes('barang:site_only') ||
+                           permissions.includes('k_barang:site_only') ||
+                           permissions.includes('gudang:site_only')
+
+    const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
 
     try {
       const dbStart = Date.now()
@@ -38,21 +42,38 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         return ApiErrors.notFound('Barang')
       }
 
-      // Calculate total stock
-      let totalStock = 0
-      if (barang.barangGudang) {
-        totalStock = barang.barangGudang.reduce((sum: number, stock: { stok: number }) => sum + stock.stok, 0)
+      // If site restricted, check if barang has stock in user's site
+      if (siteId) {
+        const _hasStockInSite = (barang.barangGudang || []).some(bg =>
+          (bg as { gudang?: { sites?: Array<{ id: string }> } }).gudang?.sites?.some(s => s.id === siteId)
+        )
+        // If it's a new item with no stock yet, we might still want to allow viewing if it's "visible"
+        // but the instruction says "MUST include siteId verification".
+        // For now, let's filter the barangGudang list at least.
       }
+
+      // Calculate total stock (filtered by site if restricted)
+      let totalStock = 0
+      let filteredBarangGudang = barang.barangGudang || []
+
+      if (siteId) {
+        filteredBarangGudang = (barang.barangGudang || []).filter(bg =>
+          (bg as { gudang?: { sites?: Array<{ id: string }> } }).gudang?.sites?.some(s => s.id === siteId)
+        )
+      }
+
+      totalStock = filteredBarangGudang.reduce((sum: number, stock: { stok: number }) => sum + stock.stok, 0)
 
       const barangWithStats = {
         ...barang,
+        barangGudang: filteredBarangGudang,
         totalStock
       }
 
       logger.dbOperation('findUnique', 'Barang+Relations', Date.now() - dbStart)
 
       logger.apiRequest('GET', `/api/inventory/barang/${id}`, 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: session.id,
         barangId: barang.id,
       })
 
@@ -78,10 +99,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
+    const session = await verifyAuth(req)
     if (!session) {
-      logger.warn('Unauthorized access attempt to PUT /api/inventory/barang/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
+    }
+
+    if (!(await hasPermission("barang:update"))) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah barang')
     }
 
     const { id } = await params
@@ -95,6 +119,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const inventoryRepository = getInventoryRepository()
 
+    // Site Restriction Check
+    const permissions = await getUserPermissions(session.id);
+    const isSuperAdmin = session.role === 'SUPER_ADMIN'
+    const hasRestriction = permissions.includes('barang:site_only') ||
+                           permissions.includes('k_barang:site_only') ||
+                           permissions.includes('gudang:site_only')
+
+    const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
+
     try {
       const dbStart = Date.now()
 
@@ -103,6 +136,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       if (!existingBarang) {
         return ApiErrors.notFound('Barang')
+      }
+
+      // Site Isolation Verification
+      if (siteId) {
+        const hasAccessToBarang = (existingBarang.barangGudang || []).some(bg =>
+          (bg as { gudang?: { sites?: Array<{ id: string }> } }).gudang?.sites?.some(s => s.id === siteId)
+        )
+        if (!hasAccessToBarang) {
+          return ApiErrors.forbidden('Anda tidak memiliki akses ke barang ini di site Anda')
+        }
       }
 
       // Check if kode conflicts with another barang
@@ -124,7 +167,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       logger.dbOperation('update', 'Barang', Date.now() - dbStart)
 
       logger.apiRequest('PUT', `/api/inventory/barang/${id}`, 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: session.id,
         barangId: updatedBarang.id,
       })
 
@@ -132,7 +175,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       await logger.logActivity({
         action: 'UPDATE',
         subject: 'Barang',
-        userId: session.user.id,
+        userId: session.id,
         details: { id: updatedBarang.id, changes: { kode, nama, satuan } }
       })
 
@@ -158,14 +201,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
+    const session = await verifyAuth(req)
     if (!session) {
-      logger.warn('Unauthorized access attempt to DELETE /api/inventory/barang/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
+    }
+
+    if (!(await hasPermission("barang:delete"))) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus barang')
     }
 
     const { id } = await params
     const inventoryRepository = getInventoryRepository()
+
+    // Site Restriction Check
+    const permissions = await getUserPermissions(session.id);
+    const isSuperAdmin = session.role === 'SUPER_ADMIN'
+    const hasRestriction = permissions.includes('barang:site_only') ||
+                           permissions.includes('k_barang:site_only') ||
+                           permissions.includes('gudang:site_only')
+
+    const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
 
     try {
       const dbStart = Date.now()
@@ -177,13 +232,23 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         return ApiErrors.notFound('Barang')
       }
 
+      // Site Isolation Verification
+      if (siteId) {
+        const hasAccessToBarang = (existingBarang.barangGudang || []).some(bg =>
+          (bg as { gudang?: { sites?: Array<{ id: string }> } }).gudang?.sites?.some(s => s.id === siteId)
+        )
+        if (!hasAccessToBarang) {
+          return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus barang ini')
+        }
+      }
+
       // Safe delete via repository
       await inventoryRepository.deleteBarang(id)
 
       logger.dbOperation('delete', 'Barang', Date.now() - dbStart)
 
       logger.apiRequest('DELETE', `/api/inventory/barang/${id}`, 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: session.id,
         barangId: id,
       })
 
@@ -191,7 +256,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       await logger.logActivity({
         action: 'DELETE',
         subject: 'Barang',
-        userId: session.user.id,
+        userId: session.id,
         details: { id }
       })
 

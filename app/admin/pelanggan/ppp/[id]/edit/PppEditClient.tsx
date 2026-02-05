@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiMapPin } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { MapPickerWithSearch } from '@/components/common/MapPicker'
+import { useToast } from '@/hooks/use-toast'
+import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
 
 type HargaPaket = {
   id: string
@@ -42,6 +44,7 @@ export function ClientComponent() {
   const router = useRouter()
   const params = useParams()
   const id = params?.id as string
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [loadingData, setLoadingData] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -113,6 +116,7 @@ export function ClientComponent() {
     biayaLainnyaDiskon: null as number | null,
     keteranganBiayaLainnya: '',
     odpId: '', // ODP yang digunakan pelanggan
+    siteId: '',
   })
 
   // Load data existing pelanggan
@@ -121,13 +125,22 @@ export function ClientComponent() {
 
     try {
       setLoadingData(true)
+      // Note: We use basic fetch here because we need 'no-store' cache option which fetchWithHandling might overwrite or genericize
+      // But we can implement error handling manually or use fetchWithHandling if we add options
+
       const res = await fetch(`/api/pelanggan-ppp/${id}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
         },
       })
+
       if (!res.ok) {
+        if (res.status === 429) {
+             const retryAfter = res.headers.get('Retry-After')
+             showToast('error', `Terlalu banyak permintaan. Tunggu ${retryAfter || 60} detik.`)
+             return
+        }
         throw new Error('Gagal memuat data pelanggan')
       }
       const data = await res.json()
@@ -178,6 +191,7 @@ export function ClientComponent() {
         biayaLainnyaDiskon: data.biayaLainnyaDiskon || null,
         keteranganBiayaLainnya: data.keteranganBiayaLainnya || '',
         odpId: data.odpId || '',
+        siteId: data.siteId || '',
       })
 
       // Set existing file paths
@@ -190,10 +204,42 @@ export function ClientComponent() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data'
       setError(message)
+      showToast('error', message)
     } finally {
       setLoadingData(false)
     }
-  }, [id])
+  }, [id, showToast])
+
+  const loadHargaPakets = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await fetchWithHandling<HargaPaket[]>('/api/hargapakets?status=AKTIF')
+      if (res.data) {
+        setHargaPakets(res.data)
+      }
+    } catch (err: unknown) {
+      console.error('Error loading harga pakets:', err)
+      if (isFetchError(err)) {
+        showToast('error', formatErrorMessage(err))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
+
+  const loadOdps = useCallback(async () => {
+    try {
+      const res = await fetchWithHandling<{ odps: Odp[] }>('/api/odps')
+      if (res.data?.odps) {
+        setOdps(res.data.odps)
+      }
+    } catch (err: unknown) {
+      console.error('Error loading ODPs:', err)
+      if (isFetchError(err)) {
+        showToast('error', formatErrorMessage(err))
+      }
+    }
+  }, [showToast])
 
   useEffect(() => {
     setMounted(true)
@@ -202,34 +248,7 @@ export function ClientComponent() {
     }
     loadHargaPakets()
     loadOdps()
-  }, [id, loadPelangganData])
-
-  const loadHargaPakets = async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/hargapakets?status=AKTIF')
-      if (res.ok) {
-        const data = await res.json()
-        setHargaPakets(data || [])
-      }
-    } catch (err: unknown) {
-      console.error('Error loading harga pakets:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadOdps = async () => {
-    try {
-      const res = await fetch('/api/odps')
-      if (res.ok) {
-        const data = await res.json()
-        setOdps(data.odps || [])
-      }
-    } catch (err: unknown) {
-      console.error('Error loading ODPs:', err)
-    }
-  }
+  }, [id, loadPelangganData, loadHargaPakets, loadOdps])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -326,24 +345,24 @@ export function ClientComponent() {
         }
         console.error('[Frontend PUT] Error response:', errorData)
 
+        // Handle rate limit
+        if (res.status === 429) {
+             const retryAfter = res.headers.get('Retry-After')
+             showToast('error', `Terlalu banyak permintaan. Tunggu ${retryAfter || 60} detik.`)
+             return
+        }
 
-        // Jika error karena ID duplikat, generate ID baru dan retry
-        // Commented out: generateIdPelanggan function not defined
-        // if (errorData.error?.includes('sudah digunakan') || errorData.error?.includes('unique') || res.status === 409) {
-        //   const newId = await generateIdPelanggan()
-        //   setFormData(prev => ({ ...prev, idPelanggan: newId }))
-        //   setError('ID Pelanggan sudah digunakan. ID baru telah di-generate. Silakan submit ulang.')
-        //   return
-        // }
         throw new Error(errorData.error || 'Gagal menyimpan pelanggan PPP')
       }
 
       // Berhasil, redirect ke halaman list dengan refresh
+      showToast('success', 'Data pelanggan berhasil diperbarui')
       router.push('/admin/pelanggan/ppp')
       router.refresh() // Force refresh untuk memastikan data terbaru dimuat
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan data'
       setError(message)
+      showToast('error', message)
     } finally {
       setSubmitting(false)
     }

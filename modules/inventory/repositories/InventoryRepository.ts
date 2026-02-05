@@ -86,7 +86,11 @@ export class InventoryRepository implements IInventoryRepository {
             where: { id },
             include: {
                 barangGudang: {
-                    include: { gudang: true }
+                    include: {
+                        gudang: {
+                            include: { sites: true }
+                        }
+                    }
                 }
             }
         }) as Promise<BarangWithStock | null>
@@ -97,7 +101,11 @@ export class InventoryRepository implements IInventoryRepository {
             where: { kode },
             include: {
                 barangGudang: {
-                    include: { gudang: true }
+                    include: {
+                        gudang: {
+                            include: { sites: true }
+                        }
+                    }
                 }
             }
         }) as Promise<BarangWithStock | null>
@@ -135,7 +143,11 @@ export class InventoryRepository implements IInventoryRepository {
             where: { id },
             include: {
                 barangGudang: {
-                    include: { gudang: true }
+                    include: {
+                        gudang: {
+                            include: { sites: true }
+                        }
+                    }
                 },
                 barang_masuk: {
                     include: { gudang: true, user: { select: { id: true, name: true } } },
@@ -327,10 +339,18 @@ export class InventoryRepository implements IInventoryRepository {
                 [stockField]: { decrement: data.jumlah }
             } as Prisma.BarangGudangUpdateInput
 
-            await tx.barangGudang.update({
-                where: { id: currentStock.id },
+            const updated = await tx.barangGudang.updateMany({
+                where: {
+                    id: currentStock.id,
+                    stok: { gte: data.jumlah },
+                    [stockField]: { gte: data.jumlah }
+                },
                 data: updateData
             })
+
+            if (updated.count === 0) {
+                throw new Error(`Stok ${kondisi} tidak mencukupi atau telah berubah (Tersedia: ${stokByKondisi})`)
+            }
 
             // 2. Create BarangKeluar record
             const keluar = await tx.barangKeluar.create({
@@ -561,53 +581,41 @@ export class InventoryRepository implements IInventoryRepository {
             if (!keGudang) throw new Error('Gudang tujuan tidak ditemukan atau tidak aktif')
             if (dariGudangId === keGudangId) throw new Error('Gudang sumber dan tujuan tidak boleh sama')
 
-            // Check Condition Stock (Logic similar to getStockBreakdown but inside TX for consistency)
-            // Reuse getStockBreakdown logic but manually here to ensure we use this TX
-            const [masukData, keluarData] = await Promise.all([
-                tx.barangMasuk.findMany({ where: { barangId, gudangId: dariGudangId } }),
-                tx.barangKeluar.findMany({ where: { barangId, gudangId: dariGudangId, isHilang: false } })
-            ])
+            // Determine which stock field to check and update based on kondisi
+            const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
 
-            let stokAvailable = 0
-            // Calculate specific condition stock
-            // Note: This is simpler than full breakdown if we only care about 'kondisi'
-            // But existing logic iterates all to build state.
-            let sBaru = 0, sBekas = 0, sRusak = 0
-            masukData.forEach(m => {
-                if (m.kondisi === 'BARU') sBaru += m.jumlah
-                else if (m.kondisi === 'BEKAS') sBekas += m.jumlah
-                else if (m.kondisi === 'RUSAK') sRusak += m.jumlah
-                else sBaru += m.jumlah
-            })
-            keluarData.forEach(k => {
-                if (k.kondisi === 'BARU') sBaru = Math.max(0, sBaru - k.jumlah)
-                else if (k.kondisi === 'BEKAS') sBekas = Math.max(0, sBekas - k.jumlah)
-                else if (k.kondisi === 'RUSAK') sRusak = Math.max(0, sRusak - k.jumlah)
-                else sBaru = Math.max(0, sBaru - k.jumlah)
+            // Atomic decrement from Source using updateMany to prevent race conditions
+            const updatedSumber = await tx.barangGudang.updateMany({
+                where: {
+                    barangId,
+                    gudangId: dariGudangId,
+                    stok: { gte: jumlah },
+                    [stockField]: { gte: jumlah }
+                },
+                data: {
+                    stok: { decrement: jumlah },
+                    [stockField]: { decrement: jumlah },
+                    updatedAt: new Date()
+                } as Prisma.BarangGudangUpdateInput
             })
 
-            if (kondisi === 'BARU') stokAvailable = sBaru
-            else if (kondisi === 'BEKAS') stokAvailable = sBekas
-            else if (kondisi === 'RUSAK') stokAvailable = sRusak
-            else stokAvailable = sBaru
-
-            if (stokAvailable < jumlah) {
-                throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi di gudang sumber. Stok tersedia: ${stokAvailable}`)
+            if (updatedSumber.count === 0) {
+                throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi di gudang sumber atau telah berubah`)
             }
 
             // Create Transfer Record with unique code validation
             let transferCode = `TRF${Date.now()}`
-            
+
             // Check for duplicate transfer code (rare but possible with concurrent requests)
             const existingTransfer = await tx.transferAntarGudang.findFirst({
                 where: { kodeTransfer: transferCode }
             })
-            
+
             // If duplicate exists, add random suffix
             if (existingTransfer) {
                 transferCode = `TRF${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
             }
-            
+
             const transfer = await tx.transferAntarGudang.create({
                 data: {
                     id: crypto.randomUUID(),
@@ -624,13 +632,7 @@ export class InventoryRepository implements IInventoryRepository {
                 }
             })
 
-            // Deduct from Source (Create Keluar + Update BarangGudang)
-            const stockSumber = await tx.barangGudang.findUnique({
-                where: { barangId_gudangId: { barangId, gudangId: dariGudangId } }
-            })
-            // Should not be null if calculation above found stock, but safety check:
-            if (!stockSumber || stockSumber.stok < jumlah) throw new Error('Stok total tidak mencukupi di gudang sumber')
-
+            // Create Keluar record for source
             await tx.barangKeluar.create({
                 data: {
                     id: crypto.randomUUID(),
@@ -643,17 +645,6 @@ export class InventoryRepository implements IInventoryRepository {
                     userId: data.userId,
                     isHilang: false
                 }
-            })
-
-            // Determine which stock field to update based on kondisi
-            const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
-
-            await tx.barangGudang.update({
-                where: { id: stockSumber.id },
-                data: {
-                    stok: { decrement: jumlah },
-                    [stockField]: { decrement: jumlah }
-                } as Prisma.BarangGudangUpdateInput
             })
 
             // Add to Dest (Create Masuk + Update/Create BarangGudang)
@@ -721,59 +712,30 @@ export class InventoryRepository implements IInventoryRepository {
             if (!transfer) throw new Error('Record transfer tidak ditemukan')
 
             // Logic to revert:
-            // 1. Check if Dest has enough stock to return (condition-wise)?
-            // (Re-using similar logic to createTransfer condition check but for Destination)
-            const [masukData, keluarData] = await Promise.all([
-                tx.barangMasuk.findMany({ where: { barangId: transfer.barangId, gudangId: transfer.keGudangId } }),
-                tx.barangKeluar.findMany({ where: { barangId: transfer.barangId, gudangId: transfer.keGudangId, isHilang: false } })
-            ])
-            let sBaru = 0, sBekas = 0, sRusak = 0
-            masukData.forEach(m => {
-                if (m.kondisi === 'BARU') sBaru += m.jumlah
-                else if (m.kondisi === 'BEKAS') sBekas += m.jumlah
-                else if (m.kondisi === 'RUSAK') sRusak += m.jumlah
-                else sBaru += m.jumlah
-            })
-            keluarData.forEach(k => {
-                if (k.kondisi === 'BARU') sBaru = Math.max(0, sBaru - k.jumlah)
-                else if (k.kondisi === 'BEKAS') sBekas = Math.max(0, sBekas - k.jumlah)
-                else if (k.kondisi === 'RUSAK') sRusak = Math.max(0, sRusak - k.jumlah)
-                else sBaru = Math.max(0, sBaru - k.jumlah)
-            })
-
-            let stokAvailable = 0
-            if (transfer.kondisi === 'BARU') stokAvailable = sBaru
-            else if (transfer.kondisi === 'BEKAS') stokAvailable = sBekas
-            else if (transfer.kondisi === 'RUSAK') stokAvailable = sRusak
-            else stokAvailable = sBaru
-
-            if (stokAvailable < transfer.jumlah) {
-                throw new Error('Stok di gudang tujuan tidak mencukupi untuk pembatalan transfer')
-            }
-
-            // 2. Reduce Dest Stock with proper breakdown update
-            const stockTujuan = await tx.barangGudang.findUnique({
-                where: { barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.keGudangId } }
-            })
-            if (!stockTujuan) throw new Error('Stok tidak ditemukan di gudang tujuan')
-
+            // 1. Reduce Dest Stock with proper breakdown update (Atomic check & decrement)
             const stockFieldDel = STOCK_FIELD_MAP[transfer.kondisi] || 'stokBaru'
 
-            if (stockTujuan.stok - transfer.jumlah === 0) {
-                await tx.barangGudang.delete({ where: { id: stockTujuan.id } })
-            } else {
-                await tx.barangGudang.update({
-                    where: { id: stockTujuan.id },
-                    data: {
-                        stok: { decrement: transfer.jumlah },
-                        [stockFieldDel]: { decrement: transfer.jumlah }
-                    } as Prisma.BarangGudangUpdateInput
-                })
+            const updatedTujuan = await tx.barangGudang.updateMany({
+                where: {
+                    barangId: transfer.barangId,
+                    gudangId: transfer.keGudangId,
+                    stok: { gte: transfer.jumlah },
+                    [stockFieldDel]: { gte: transfer.jumlah }
+                },
+                data: {
+                    stok: { decrement: transfer.jumlah },
+                    [stockFieldDel]: { decrement: transfer.jumlah },
+                    updatedAt: new Date()
+                } as Prisma.BarangGudangUpdateInput
+            })
+
+            if (updatedTujuan.count === 0) {
+                throw new Error('Stok di gudang tujuan tidak mencukupi untuk pembatalan transfer atau telah berubah')
             }
 
-            // 3. Add back to Source Stock with proper breakdown update
+            // 2. Add back to Source Stock with proper breakdown update (Atomic upsert)
             const stockFieldAdd = STOCK_FIELD_MAP[transfer.kondisi] || 'stokBaru'
-            
+
             await tx.barangGudang.upsert({
                 where: {
                     barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.dariGudangId }
@@ -795,7 +757,7 @@ export class InventoryRepository implements IInventoryRepository {
                 } as Prisma.BarangGudangUpdateInput
             })
 
-            // 4. Delete Masuk/Keluar/Transfer
+            // 3. Delete Masuk/Keluar/Transfer
             await tx.barangMasuk.deleteMany({ where: { transferId: id } })
             await tx.barangKeluar.deleteMany({ where: { transferId: id } })
             await tx.transferAntarGudang.delete({ where: { id } })

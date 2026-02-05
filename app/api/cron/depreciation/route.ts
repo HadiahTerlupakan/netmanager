@@ -2,14 +2,16 @@ import { NextRequest } from 'next/server'
 import { AssetService } from '@/modules/inventory/services/AssetService'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { env } from '@/lib/env'
 
 const assetService = new AssetService()
 
 export async function GET(req: NextRequest) {
     try {
         const authHeader = req.headers.get('authorization')
-        if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-            return ApiErrors.unauthorized('Cron secret tidak valid')
+
+        if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+            return ApiErrors.unauthorized('Unauthorized')
         }
 
         let systemUser = await prisma.user.findFirst({

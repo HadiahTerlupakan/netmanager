@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server'
+import { headers } from 'next/headers'
 import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
+import { env } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
     try {
-        // Simple security check (CRON_SECRET env var or Bearer token)
-        // const headersList = await headers()
-        // const authHeader = headersList.get('authorization')
+        const headersList = await headers()
+        const authHeader = headersList.get('authorization')
+
+        if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
 
         // Parse body to see if specific date is requested (for manual backfill)
         let targetDate = new Date()
@@ -34,9 +42,8 @@ export async function POST(request: Request) {
 
     } catch (error: unknown) {
         console.error('Error processing absence:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         return NextResponse.json(
-            { success: false, error: errorMessage },
+            { success: false, error: 'Internal Server Error' },
             { status: 500 }
         )
     }
