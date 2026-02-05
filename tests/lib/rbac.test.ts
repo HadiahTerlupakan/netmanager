@@ -24,7 +24,7 @@ import { hasPermission, hasAnyPermission, getCurrentUser, ensurePermission, ensu
 
 describe('RBAC Functions', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   describe('hasPermission', () => {
@@ -53,13 +53,13 @@ describe('RBAC Functions', () => {
           role: 'SUPER_ADMIN'
         }
       })
-      // Mock that SUPER_ADMIN has all permissions (from seed)
-      mockGetUserPermissions.mockResolvedValueOnce(['any:permission', 'users:read', 'users:create'])
-      
+      // SUPER_ADMIN bypasses database check in current implementation
+
       const result = await hasPermission('any:permission')
-      
+
       expect(result).toBe(true)
-      expect(mockGetUserPermissions).toHaveBeenCalledWith('admin-1')
+      // getUserPermissions is bypassed for SUPER_ADMIN
+      expect(mockGetUserPermissions).not.toHaveBeenCalled()
     })
 
     it('should return true when user has the required permission', async () => {
@@ -206,8 +206,8 @@ describe('RBAC Functions', () => {
       mockGetUserPermissions.mockResolvedValueOnce([])
       
       await ensurePermission('users:read')
-      
-      expect(mockRedirect).toHaveBeenCalledWith('/admin')
+
+      expect(mockRedirect).toHaveBeenCalledWith('/admin/forbidden')
     })
 
     it('should redirect to custom URL when specified', async () => {
@@ -250,8 +250,8 @@ describe('RBAC Functions', () => {
       mockGetUserPermissions.mockResolvedValueOnce(['inventory:read'])
       
       await ensureAnyPermission(['users:read', 'roles:read'])
-      
-      expect(mockRedirect).toHaveBeenCalledWith('/admin')
+
+      expect(mockRedirect).toHaveBeenCalledWith('/admin/forbidden')
     })
   })
 })
