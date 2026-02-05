@@ -18,6 +18,24 @@ type FormValues = z.infer<typeof schema>
 export default function LoginForm() {
   const router = useRouter()
   const search = useSearchParams()
+  const errorParam = search.get('error')
+
+  // Map error codes to human-readable messages
+  const getErrorMessage = (code: string | null) => {
+    if (!code) return null
+    switch (code) {
+      case 'AccessDenied':
+        return 'Akses ditolak. Anda tidak memiliki izin untuk mengakses portal ini.'
+      case 'CredentialsSignin':
+        return 'Email atau password salah.'
+      case 'SessionRequired':
+        return 'Silakan masuk untuk melanjutkan.'
+      default:
+        return 'Terjadi kesalahan saat login. Silakan coba lagi.'
+    }
+  }
+
+  const errorMessage = getErrorMessage(errorParam)
   // Check if we're on employee portal - if so, default callback to /employee
   const isEmployeePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/employee')
   const defaultCallback = isEmployeePortal ? '/employee' : '/admin'
@@ -135,6 +153,13 @@ export default function LoginForm() {
 
   return (
     <div className="w-full space-y-6">
+      {errorMessage && (
+        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          <p className="text-sm text-red-600 dark:text-red-400 font-medium text-center">
+            {errorMessage}
+          </p>
+        </div>
+      )}
       {/* Credentials Form */}
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">

@@ -17,7 +17,7 @@ test.describe('Attendance Manual Input Verification', () => {
         await page.click('button:has-text("Input Manual")');
         
         // Wait for modal
-        await expect(page.locator('h3', { hasText: 'Input Izin Manual' })).toBeVisible();
+        await expect(page.locator('h2', { hasText: 'Input Izin Manual' })).toBeVisible();
 
         // 3. Fill Form
         // Select Employee (Search and click first result)
@@ -27,7 +27,7 @@ test.describe('Attendance Manual Input Verification', () => {
             response.url().includes('/api/admin/users') && response.status() === 200
         );
         
-        const searchInput = page.getByPlaceholder('Cari karyawan...');
+        const searchInput = page.getByPlaceholder('Ketik nama karyawan...');
         await searchInput.click();
         
         // Wait for usage of the users API which happens on click/focus per code

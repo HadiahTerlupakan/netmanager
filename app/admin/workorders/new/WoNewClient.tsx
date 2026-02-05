@@ -80,12 +80,11 @@ export function ClientComponent() {
     })
 
     useEffect(() => {
-        if (status === 'unauthenticated') router.push('/login')
         if (status === 'authenticated') {
             fetchSites()
             fetchDepartments()
         }
-    }, [status, router])
+    }, [status])
 
     // Handle URL params for Ticket integration
     useEffect(() => {

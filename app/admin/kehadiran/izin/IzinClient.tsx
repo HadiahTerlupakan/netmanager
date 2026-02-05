@@ -533,6 +533,10 @@ export function IzinClient() {
                                 onChange={e => {
                                     setSearchTerm(e.target.value)
                                     setShowDropdown(true)
+                                    // Clear userId if user starts typing again
+                                    if (manualForm.userId) {
+                                        setManualForm(prev => ({ ...prev, userId: '' }))
+                                    }
                                 }}
                                 onClick={() => {
                                     fetchUsers()

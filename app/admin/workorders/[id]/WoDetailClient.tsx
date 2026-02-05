@@ -369,15 +369,10 @@ export function ClientComponent() {
     useSocketEvent(SOCKET_EVENTS.WORKORDER_UPDATE, handleWOUpdate)
 
     useEffect(() => {
-        if (status === 'unauthenticated') {
-            router.push('/login')
-            return
-        }
-
         if (session?.user && status === 'authenticated') {
             fetchWorkOrder()
         }
-    }, [session, status, router, workOrderId, fetchWorkOrder])
+    }, [session, status, workOrderId, fetchWorkOrder])
 
     const handleUpdateField = async (field: string) => {
         try {

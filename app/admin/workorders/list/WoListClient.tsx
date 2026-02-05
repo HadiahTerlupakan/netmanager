@@ -216,18 +216,13 @@ export function ClientComponent() {
     }, [page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, filterWoType, unassignedOnly])
 
     useEffect(() => {
-        if (status === 'unauthenticated') {
-            router.push('/login')
-            return
-        }
-
         if (session?.user && status === 'authenticated') {
             fetchWorkOrders()
             fetchSites()
             fetchDepartments()
         }
     // PHASE 5: Use debouncedSearch instead of search for API calls
-    }, [session, status, router, fetchWorkOrders])
+    }, [session, status, fetchWorkOrders])
 
     const handleVerify = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation()

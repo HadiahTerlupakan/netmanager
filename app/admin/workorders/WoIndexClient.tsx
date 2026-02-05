@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown, HiChatBubbleLeftRight } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
@@ -51,7 +50,6 @@ const PRIORITY_COLORS: Record<string, string> = { LOW: 'bg-gray-100 dark:bg-gray
 
 export function ClientComponent() {
     const { data: session, status } = useSession()
-    const router = useRouter()
     const [loading, setLoading] = useState(true)
     const [stats, setStats] = useState<Statistics | null>(null)
     const [recentWorkOrders, setRecentWorkOrders] = useState<WorkOrder[]>([])
@@ -149,7 +147,7 @@ export function ClientComponent() {
     }, [trendStartDate, trendEndDate])
 
 
-    useEffect(() => { if (status === 'unauthenticated') { router.push('/login'); return } if (session?.user && status === 'authenticated') { fetchDashboardData(); fetchTrendData() } }, [session, status, router, fetchDashboardData, fetchTrendData])
+    useEffect(() => { if (session?.user && status === 'authenticated') { fetchDashboardData(); fetchTrendData() } }, [session, status, fetchDashboardData, fetchTrendData])
 
     useEffect(() => {
         if (session?.user && status === 'authenticated') {

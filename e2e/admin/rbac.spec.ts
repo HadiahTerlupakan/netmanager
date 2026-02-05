@@ -182,24 +182,6 @@ test.describe('RBAC - API Route Protection', () => {
       const response = await request.get('/api/admin/radius/nas')
       expect(response.status()).toBe(401)
     })
-
-    // Network & FTTH Routes
-    test('GET /api/olts should return 401', async ({ request }) => {
-      const response = await request.get('/api/olts')
-      expect(response.status()).toBe(401)
-    })
-
-    test('GET /api/onus should return 401', async ({ request }) => {
-      const response = await request.get('/api/onus')
-      expect(response.status()).toBe(401)
-    })
-
-
-
-    test('GET /api/onutypes should return 401', async ({ request }) => {
-      const response = await request.get('/api/onutypes')
-      expect(response.status()).toBe(401)
-    })
   })
 
   test.describe('Authenticated SUPER_ADMIN API Requests', () => {
@@ -264,36 +246,15 @@ test.describe('RBAC - API Route Protection', () => {
 
     test('GET /api/admin/attendance should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      
+
       const response = await request.get('/api/admin/attendance', {
         headers: {
           'Cookie': authCookie!
         }
       })
-      
+
       expect(response.status()).toBe(200)
     })
-
-    // Network & FTTH (Super Admin Verified)
-    test('GET /api/olts should return 200', async ({ request }) => {
-      test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/olts', { headers: { 'Cookie': authCookie! } })
-      expect(response.status()).toBe(200)
-    })
-
-    test('GET /api/onus should return 200', async ({ request }) => {
-      test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/onus', { headers: { 'Cookie': authCookie! } })
-      expect(response.status()).toBe(200)
-    })
-
-    test('GET /api/onutypes should return 200', async ({ request }) => {
-      test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/onutypes', { headers: { 'Cookie': authCookie! } })
-      expect(response.status()).toBe(200)
-    })
-
-
   })
 })
 

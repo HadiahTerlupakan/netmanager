@@ -47,20 +47,48 @@ test.describe('Leave Management (Manajemen Izin & Cuti)', () => {
     const today = new Date().toISOString().split('T')[0]
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
 
-    // Select a user (assuming there is at least one user in the dropdown)
-    await page.fill('input[placeholder="Ketik nama karyawan..."]', 'a') // Type something to trigger search
-    // Wait for dropdown
-    await page.waitForSelector('.absolute.z-10')
-    // Click first user
-    await page.click('.absolute.z-10 > div:first-child')
+    // Select a user with robust waiting
+    await page.fill('input[placeholder="Ketik nama karyawan..."]', 'Admin')
+
+    const dropdown = page.locator('.absolute.z-10');
+    await expect(dropdown).toBeVisible({ timeout: 5000 });
+
+    // Wait for at least one item and click it
+    const dropdownItem = dropdown.locator('.cursor-pointer').first(); // Updated selector based on IzinClient
+    // Fallback if cursor-pointer class isn't strictly there (based on IzinClient code read earlier it has hover:bg but maybe not cursor-pointer class explicitly?)
+    // Checking IzinClient code: className="p-3 hover:bg-gray-50 ... cursor-pointer ..." -> Yes it has cursor-pointer
+    await dropdownItem.waitFor({ state: 'visible', timeout: 5000 });
+    await dropdownItem.click();
+
+    // Verify user is actually selected to avoid "Mohon lengkapi" error
+    await expect(page.locator('text=Karyawan terpilih')).toBeVisible({ timeout: 5000 });
 
     // Fill dates
     await page.locator('input[type="date"]').first().fill(today) // Start Date
     await page.locator('input[type="date"]').last().fill(yesterday) // End Date (Invalid)
+
+    // Verify values are set
+    await expect(page.locator('input[type="date"]').first()).toHaveValue(today);
+    await expect(page.locator('input[type="date"]').last()).toHaveValue(yesterday);
+
     await page.fill('textarea', 'Test Reason')
 
-    await page.click('button:has-text("Simpan Data")')
-    await expect(page.getByText('Tanggal selesai harus setelah atau sama dengan tanggal mulai')).toBeVisible()
+    // Wait for button to be clickable
+    const submitBtn = page.locator('button:has-text("Simpan Data")');
+    await expect(submitBtn).toBeVisible();
+    await expect(submitBtn).toBeEnabled();
+
+    // Force click if needed or just click
+    await submitBtn.click();
+
+    // Look for toast message
+    // Try looking for the text anywhere in the body, as toast structure might vary
+    try {
+        await expect(page.locator('body')).toContainText('Tanggal selesai harus setelah', { timeout: 5000 });
+    } catch (e) {
+        console.log('Validation text not found. Current body text:', await page.locator('body').innerText());
+        throw e;
+    }
   })
 
   test('should create, verify, and delete a leave request', async ({ page }) => {
@@ -75,8 +103,13 @@ test.describe('Leave Management (Manajemen Izin & Cuti)', () => {
     await page.fill('input[placeholder="Ketik nama karyawan..."]', 'Admin')
 
     // Wait for the dropdown to appear and have at least one item
-    const dropdownItem = page.locator('.absolute.z-10 > div').first()
-    await dropdownItem.waitFor({ state: 'visible', timeout: 5000 })
+    const dropdown = page.locator('.absolute.z-10');
+    await expect(dropdown).toBeVisible({ timeout: 5000 });
+
+    // Use a more specific selector for the clickable item to avoid selecting inner divs
+    // The items have cursor-pointer class
+    const dropdownItem = dropdown.locator('.cursor-pointer').first();
+    await dropdownItem.waitFor({ state: 'visible', timeout: 5000 });
 
     // Click the first user in the dropdown
     await dropdownItem.click()
@@ -141,12 +174,16 @@ test.describe('Leave Management (Manajemen Izin & Cuti)', () => {
     // Ensure delete button is visible (it might be in the footer now)
 
     // Handle native confirm dialog BEFORE clicking
-    page.on('dialog', dialog => dialog.accept());
+    page.on('dialog', async dialog => {
+        console.log(`Dialog message: ${dialog.message()}`);
+        await dialog.accept();
+    });
 
     await modal.getByRole('button', { name: 'Hapus' }).click();
 
     // Verify deletion
-    await expect(page.getByText('Pengajuan berhasil dihapus')).toBeVisible()
+    // Wait for the toast or for the element to disappear from table
+    await expect(page.getByText(/Pengajuan berhasil dihapus/i).first()).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(reason)).not.toBeVisible()
   })
 })

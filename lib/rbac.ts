@@ -1,11 +1,17 @@
 import { authConfig, getUserPermissions } from '@/lib/auth'
 import { getServerSession } from 'next-auth'
+import type { User } from 'next-auth'
 
-export async function hasPermission(requiredPermission: string, user?: { id?: string } | null): Promise<boolean> {
+interface ExtendedUser extends User {
+    id: string;
+    role?: string;
+}
+
+export async function hasPermission(requiredPermission: string, user?: { id?: string; role?: string } | null): Promise<boolean> {
     let currentUser = user;
     if (!currentUser) {
         const session = await getServerSession(authConfig)
-        currentUser = session?.user as { id?: string } | null
+        currentUser = session?.user as ExtendedUser | null
     }
 
     if (!currentUser) {
@@ -19,15 +25,20 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
         return false
     }
 
+    // Bypass for SUPER_ADMIN to prevent lockout if permissions are missing in DB
+    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'Super Admin') {
+        return true
+    }
+
     const permissions = await getUserPermissions(userId)
     return permissions.includes(requiredPermission)
 }
 
-export async function hasAnyPermission(requiredPermissions: string[], user?: { id?: string } | null): Promise<boolean> {
+export async function hasAnyPermission(requiredPermissions: string[], user?: { id?: string; role?: string } | null): Promise<boolean> {
     let currentUser = user;
     if (!currentUser) {
         const session = await getServerSession(authConfig)
-        currentUser = session?.user as { id?: string } | null
+        currentUser = session?.user as ExtendedUser | null
     }
 
     if (!currentUser) return false
@@ -39,6 +50,11 @@ export async function hasAnyPermission(requiredPermissions: string[], user?: { i
         return false
     }
 
+    // Bypass for SUPER_ADMIN
+    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'Super Admin') {
+        return true
+    }
+
     const permissions = await getUserPermissions(userId)
     return requiredPermissions.some(p => permissions.includes(p))
 }
@@ -48,7 +64,7 @@ export async function getCurrentUser() {
     return session?.user
 }
 
-export async function ensurePermission(requiredPermission: string, redirectTo: string = '/admin') {
+export async function ensurePermission(requiredPermission: string, redirectTo: string = '/admin/forbidden') {
     const has = await hasPermission(requiredPermission)
     if (!has) {
         const { redirect } = await import('next/navigation')
@@ -60,7 +76,7 @@ export async function ensurePermission(requiredPermission: string, redirectTo: s
  * Check if user has ANY of the required permissions
  * Useful for section layouts where user needs at least one submenu permission
  */
-export async function ensureAnyPermission(requiredPermissions: string[], redirectTo: string = '/admin') {
+export async function ensureAnyPermission(requiredPermissions: string[], redirectTo: string = '/admin/forbidden') {
     const has = await hasAnyPermission(requiredPermissions)
     if (!has) {
         const { redirect } = await import('next/navigation')

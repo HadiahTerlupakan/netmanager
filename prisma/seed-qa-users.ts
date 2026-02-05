@@ -69,6 +69,8 @@ const QA_ROLES: RoleDefinition[] = [
       'wo_sla:read', 'wo_sla:create', 'wo_sla:update', 'wo_sla:delete',
       'wo_escalation:read', 'wo_escalation:create', 'wo_escalation:update', 'wo_escalation:delete',
       'wo_template:read', 'wo_template:create', 'wo_template:update', 'wo_template:delete',
+      'site:read',
+      'department:read',
     ],
   },
   {

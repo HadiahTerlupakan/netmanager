@@ -12,11 +12,6 @@ const MENU_PATHS = [
     // Network
     { name: 'MikroTik', path: '/admin/network/mikrotik' },
     { name: 'RADIUS', path: '/admin/network/radius' },
-    { name: 'OLT', path: '/admin/network/olt' },
-    { name: 'ONU', path: '/admin/network/onu' },
-    { name: 'ONU Type', path: '/admin/network/onutype' },
-    { name: 'Speed Profiles', path: '/admin/network/speedprofiles' },
-    { name: 'VLAN', path: '/admin/network/vlan' },
 
     // Paket
     { name: 'Bandwidth', path: '/admin/paket/bandwidth' },

@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authConfig, getUserPermissions } from '@/lib/auth'
-import { ADMIN_MENU_CONFIG } from '@/lib/menu-config'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import {
   HiOutlineServer,
@@ -42,53 +41,8 @@ export async function ClientComponent() {
   const hasDashboardAccess = isSuperAdmin || permissions.includes('dashboard:read')
 
   if (!hasDashboardAccess) {
-    // Find first allowed route
-    const findFirstRoute = (items: typeof ADMIN_MENU_CONFIG): string | null => {
-      for (const item of items) {
-        // Recursively check children first if they exist (to find leaf nodes)
-        // OR check item itself.
-        // Strategy:
-        // 1. Check if item itself is permitted.
-        // 2. If item has children, check children.
-        // 3. Return first match.
-
-        // Check permission
-        // Permission checking logic might need adjustment if item structure changed
-        // But assuming generic MenuConfig structure:
-        // Logic adapted from Sidebar.tsx to ensure consistency
-        const permissionResource = item.code
-          ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
-          : ''
-
-        const _hasPerm = isSuperAdmin || (permissionResource
-          ? permissions.includes(`${permissionResource.toLowerCase()}:read`)
-          : true)
-
-        // If item has children, try to find a valid route in children
-        if (item.children && item.children.length > 0) {
-          const childRoute = findFirstRoute(item.children)
-          if (childRoute) return childRoute
-        }
-
-        if (item.path && item.path !== '/admin') {
-          return item.path
-        }
-      }
-      return null
-    }
-
-    const firstRoute = findFirstRoute(ADMIN_MENU_CONFIG)
-    if (firstRoute) {
-      redirect(firstRoute)
-    }
-
-    // Fallback if no route found
-    return (
-      <div className="p-8 text-center text-gray-500">
-        <h2 className="text-xl font-bold mb-2">Akses Terbatas</h2>
-        <p>Anda tidak memiliki akses ke halaman dashboard atau menu lainnya.</p>
-      </div>
-    )
+    console.log(`[AdminDashboard] User ${user.id} (Role: ${user.role}) has no dashboard access. Redirecting to forbidden.`)
+    redirect('/admin/forbidden')
   }
 
   // Ensure these repos are only called if we are staying on the dashboard

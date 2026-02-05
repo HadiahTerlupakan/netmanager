@@ -1,11 +1,28 @@
 import LoginForm from '@/components/auth/LoginForm'
 import { Suspense } from 'react'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 
 export const metadata = {
   title: 'Masuk | NetManager',
 }
 
-export default function LoginPage() {
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function LoginPage({ searchParams }: PageProps) {
+  const params = await searchParams
+  const error = params.error
+  const session = await getServerSession(authOptions)
+
+  // Redirect to admin if already logged in, unless there is an error
+  // This prevents the redirect loop when a user is logged in but lacks portal access
+  if (session?.user && !error) {
+    redirect('/admin')
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6">
       <div className="w-full max-w-md">

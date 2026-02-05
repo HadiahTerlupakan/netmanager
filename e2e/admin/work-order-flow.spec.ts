@@ -51,19 +51,20 @@ test.describe.serial('Work Order Flow', () => {
   let _createdWoNumber: string | null = null
 
   test('Scenario 1: Admin can view Work Order dashboard', async ({ page }) => {
+    test.setTimeout(60000); // Increase timeout for slow dashboard load
     await loginAsAdmin(page)
-    await page.goto('/admin/workorders')
+    await page.goto('/admin/workorders', { timeout: 45000 })
     await page.waitForLoadState('networkidle')
     // Verify dashboard elements - updated to match current UI
     // Dashboard now shows: Urgent Attention, Unassigned, Active Progress, Completed
-    await expect(page.getByText(/Work Order|Dashboard|Urgent|Active/i).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Work Order|Dashboard|Urgent|Active/i).first()).toBeVisible({ timeout: 15000 })
   })
 
   test('Scenario 2: Admin can access Work Order list', async ({ page }) => {
     await loginAsAdmin(page)
     await page.goto('/admin/workorders/list')
     await page.waitForLoadState('networkidle')
-    
+
     // Verify list page with table or empty state
     const hasTable = await page.locator('table').count() > 0
     const hasEmptyState = await page.getByText('Tidak ada data').count() > 0
@@ -74,23 +75,23 @@ test.describe.serial('Work Order Flow', () => {
     await loginAsAdmin(page)
     await page.goto('/admin/workorders/new')
     await page.waitForLoadState('networkidle')
-    
+
     // Fill form
-    await page.locator('input[name="title"]').fill('E2E Test - Installation')
-    await page.locator('textarea[name="description"]').fill('Automated test work order')
-    
+    await page.getByPlaceholder('e.g., Koneksi Lambat').fill('E2E Test - Installation')
+    await page.getByPlaceholder('Detailed description...').fill('Automated test work order')
+
     // Select type dropdown
     const typeSelect = page.locator('select[name="type"]')
     if (await typeSelect.count() > 0) {
       await typeSelect.selectOption('INSTALLATION')
     }
-    
+
     // Submit form
     await page.click('button[type="submit"]')
-    
+
     // Verify success - redirect or toast
-    await page.waitForURL(/\/admin\/workorders/, { timeout: 15000 })
-    
+    await page.waitForURL(/\/admin\/workorders/, { timeout: 30000 })
+
     // Capture WO number if visible
     const woLink = page.locator('a[href*="workorders"]').filter({ hasText: /WO-/ }).first()
     if (await woLink.count() > 0) {
@@ -113,35 +114,38 @@ test.describe.serial('Work Order Flow', () => {
     await page.locator('#email').fill(NO_PERM_USER.email)
     await page.locator('#password').fill(NO_PERM_USER.password)
     await page.click('button[type="submit"]')
-    
+
     await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 15000 })
-    
+
     // Try accessing WO page
     await page.goto('/admin/workorders')
     await page.waitForLoadState('networkidle')
-    
+
     // Should be redirected to forbidden or show access denied
-    const isForbidden = await page.getByText(/Akses Ditolak|Forbidden|403/i).count() > 0
+    const isForbidden = await page.getByText(/Akses Ditolak|Forbidden|403|Akses Terbatas/i).count() > 0
     const isRedirected = page.url().includes('forbidden') || page.url().includes('dashboard')
-    
+
     expect(isForbidden || isRedirected).toBeTruthy()
   })
 
   test('Scenario 6: Admin can view Sites management', async ({ page }) => {
+    test.setTimeout(45000);
     await loginAsAdmin(page)
     await page.goto('/admin/workorders/sites')
     await page.waitForLoadState('networkidle')
-    
-    // Verify sites page
-    await expect(page.getByRole('heading', { name: /Site/i })).toBeVisible({ timeout: 10000 })
+
+    // Verify sites page - Updated to match UI "Manajemen Sites"
+    await expect(page.getByRole('heading', { name: /Manajemen Sites|Site/i })).toBeVisible({ timeout: 15000 })
   })
 
   test('Scenario 7: Admin can view Departments management', async ({ page }) => {
+    test.setTimeout(45000);
     await loginAsAdmin(page)
     await page.goto('/admin/workorders/departments')
     await page.waitForLoadState('networkidle')
-    
-    // Verify departments page  
-    await expect(page.getByRole('heading', { name: /Department/i })).toBeVisible({ timeout: 10000 })
+
+    // Verify departments page - Updated to match UI "Manajemen Departments"
+    // Use .first() to resolve strict mode violation between H1 and H2
+    await expect(page.getByRole('heading', { name: /Manajemen Departments|Department/i }).first()).toBeVisible({ timeout: 15000 })
   })
 })

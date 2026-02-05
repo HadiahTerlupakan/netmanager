@@ -141,9 +141,9 @@ test.describe('Attendance Module Business Flow', () => {
 
     await page.click('button:has-text("Input Manual")')
     // Updated title to match actual UI observed in other tests
-    await expect(page.locator('h3:has-text("Input Izin Manual")')).toBeVisible()
+    await expect(page.locator('h2:has-text("Input Izin Manual")')).toBeVisible()
 
     await page.click('button:has-text("Batal")')
-    await expect(page.locator('h3:has-text("Input Izin Manual")')).not.toBeVisible()
+    await expect(page.locator('h2:has-text("Input Izin Manual")')).not.toBeVisible()
   })
 })
