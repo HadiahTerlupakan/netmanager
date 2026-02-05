@@ -79,28 +79,38 @@ export default function CustomerDashboardPage() {
                 return
             }
 
-            const [profileData, usageData, invoicesData] = await Promise.all([
+            const [profileJson, usageJson, invoicesJson] = await Promise.all([
                 profileRes.json(),
-                usageRes.ok ? usageRes.json() : { connection: null },
+                usageRes.ok ? usageRes.json() : { data: { connection: null } },
                 invoicesRes.ok ? invoicesRes.json() : { invoices: [] },
             ])
 
+            // Unpack data from standard API response wrapper if present
+            // Profile uses apiSuccess -> { success: true, data: { profile: ... } }
+            const profile = profileJson.data?.profile || profileJson.profile
+
+            // Usage uses apiSuccess -> { success: true, data: { connection: ... } }
+            const connection = usageJson.data?.connection || usageJson.connection
+
+            // Invoices returns direct JSON -> { success: true, invoices: ... }
+            const invoices = invoicesJson.invoices
+
             // Check if profile data exists
-            if (!profileData?.profile) {
-                console.error('No profile data received')
+            if (!profile) {
+                console.error('No profile data received', profileJson)
                 setIsLoading(false)
                 return
             }
 
-            const pendingInvoices = invoicesData.invoices?.filter(
+            const pendingInvoices = invoices?.filter(
                 (inv: Invoice) => inv.status === 'SENT' || inv.status === 'OVERDUE'
             ) || []
 
             const firstDue = pendingInvoices.length > 0 ? pendingInvoices[0].dueDate : null
 
             setData({
-                profile: profileData.profile,
-                connection: usageData?.connection || null,
+                profile: profile,
+                connection: connection || null,
                 pendingInvoice: pendingInvoices.length > 0 ? {
                     count: pendingInvoices.length,
                     totalAmount: pendingInvoices.reduce((sum: number, inv: Invoice) => sum + inv.remainingAmount, 0),
