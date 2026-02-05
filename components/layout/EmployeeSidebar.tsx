@@ -169,32 +169,36 @@ export default function EmployeeSidebar() {
 
   // Filter menu items based on permissions
   const filterNavItem = useCallback((item: MenuConfig): MenuConfig | null => {
-    let filteredChildren: MenuConfig[] | undefined = undefined
+    const filterRecursive = (node: MenuConfig): MenuConfig | null => {
+      let filteredChildren: MenuConfig[] | undefined = undefined
 
-    if (item.children) {
-      filteredChildren = item.children
-        .map(filterNavItem)
-        .filter((child): child is MenuConfig => child !== null)
+      if (node.children) {
+        filteredChildren = node.children
+          .map(filterRecursive)
+          .filter((child): child is MenuConfig => child !== null)
+      }
+
+      // Check strict permission for the item itself
+      const permissionResource = node.code
+        ? (node.code.includes('.') ? node.code.split('.').pop()! : node.code)
+        : ''
+
+      const hasItemPermission = permissionResource
+        ? hasPermission(`${permissionResource.toLowerCase()}:read`)
+        : true
+
+      if (filteredChildren && filteredChildren.length > 0) {
+        return { ...node, children: filteredChildren }
+      }
+
+      if (!hasItemPermission) {
+        return null
+      }
+
+      return { ...node, children: filteredChildren }
     }
 
-    // Check strict permission for the item itself
-    const permissionResource = item.code
-      ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
-      : ''
-
-    const hasItemPermission = permissionResource
-      ? hasPermission(`${permissionResource.toLowerCase()}:read`)
-      : true
-
-    if (filteredChildren && filteredChildren.length > 0) {
-      return { ...item, children: filteredChildren }
-    }
-
-    if (!hasItemPermission) {
-      return null
-    }
-
-    return { ...item, children: filteredChildren }
+    return filterRecursive(item)
   }, [hasPermission])
 
   const allNavItems = EMPLOYEE_MENU_CONFIG
@@ -232,7 +236,8 @@ export default function EmployeeSidebar() {
         return newSet
       })
     }
-  }, [pathname, navItems, expandedMenus])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   const toggleMenu = (code: string) => {
     setExpandedMenus((prev) => {

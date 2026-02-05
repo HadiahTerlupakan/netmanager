@@ -19,7 +19,7 @@ export default async function KaryawanLayout({ children }: { children: React.Rea
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
           <EmployeeSidebar />
           <div className="flex-1 flex flex-col min-w-0">
-            <AnnouncementBanner portal="karyawan" />
+            <AnnouncementBanner portal="employee" />
             <Navbar />
             <main className="flex-1 overflow-y-auto">
               <div className="p-6">
