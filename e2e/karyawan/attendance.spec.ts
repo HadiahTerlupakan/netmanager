@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 // SKIP: Karyawan/Employee portal is not yet implemented
-test.describe.skip('Karyawan Attendance Portal', () => {
+test.describe('Karyawan Attendance Portal', () => {
   test('should load karyawan page', async ({ page }) => {
     await page.goto('/karyawan')
     

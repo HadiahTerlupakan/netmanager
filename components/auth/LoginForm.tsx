@@ -36,9 +36,9 @@ export default function LoginForm() {
   }
 
   const errorMessage = getErrorMessage(errorParam)
-  // Check if we're on employee portal - if so, default callback to /employee
-  const isEmployeePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/employee')
-  const defaultCallback = isEmployeePortal ? '/employee' : '/admin'
+  // Check if we're on employee portal - if so, default callback to /karyawan
+  const isEmployeePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/karyawan')
+  const defaultCallback = isEmployeePortal ? '/karyawan' : '/admin'
   const callbackUrlParam = search.get('callbackUrl') || defaultCallback
 
   const {
@@ -54,7 +54,7 @@ export default function LoginForm() {
         redirect: false,
         email: values.email,
         password: values.password,
-        portal: 'admin',
+        portal: isEmployeePortal ? 'employee' : 'admin',
         callbackUrl: callbackUrlParam, // Kirim path relatif ke NextAuth
       })
 
@@ -99,8 +99,8 @@ export default function LoginForm() {
       // Use the appropriate callback based on portal type
       if (isEmployeePortal) {
         // For employee portal, ensure we stay on employee routes
-        if (!targetPath.startsWith('/employee')) {
-          targetPath = '/employee'
+        if (!targetPath.startsWith('/karyawan')) {
+          targetPath = '/karyawan'
         }
       } else {
         // For admin portal, ensure we stay on admin routes

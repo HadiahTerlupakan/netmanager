@@ -32,7 +32,14 @@ export default function Navbar() {
         {/* Left: Mobile Toggle */}
         <div className="flex items-center shrink-0 md:hidden">
           <button
-            onClick={() => (window as Window & { toggleAdminSidebar?: () => void }).toggleAdminSidebar?.()}
+            onClick={() => {
+              const win = window as Window & {
+                toggleAdminSidebar?: () => void;
+                toggleEmployeeSidebar?: () => void;
+              }
+              win.toggleAdminSidebar?.()
+              win.toggleEmployeeSidebar?.()
+            }}
             className="p-2 -ml-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             aria-label="Toggle Menu"
           >
@@ -118,7 +125,13 @@ export default function Navbar() {
                   </div>
 
                   <Link
-                    href={`/admin/users/${session.user.id}?view=true`}
+                    href={
+                      session.user.role === 'CUSTOMER'
+                        ? '/profil'
+                        : (window.location.pathname.startsWith('/karyawan')
+                          ? '/karyawan/profil'
+                          : `/admin/users/${session.user.id}?view=true`)
+                    }
                     onClick={() => setIsProfileOpen(false)}
                     className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
