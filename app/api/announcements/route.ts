@@ -163,18 +163,18 @@ export async function POST(request: NextRequest) {
                         status: 'APPROVED',
                         startDate: { lte: now },
                         endDate: { gte: startOfToday },
-                        userId: { in: users.map(u => u.id) }
+                        userId: { in: users.map((u: { id: string }) => u.id) }
                     },
                     select: { userId: true }
                 });
-                
-                const userIdsOnLeave = new Set(usersOnLeave.map(u => u.userId));
+
+                const userIdsOnLeave = new Set(usersOnLeave.map((u: { userId: string }) => u.userId));
 
                 // 1. Send Push Notifications
                 const tokens = users
-                    .filter(u => !userIdsOnLeave.has(u.id)) // Exclude users on leave
-                    .map(u => u.pushToken)
-                    .filter((t): t is string => t !== null && t !== '');
+                    .filter((u: { id: string }) => !userIdsOnLeave.has(u.id)) // Exclude users on leave
+                    .map((u: { pushToken: string | null }) => u.pushToken)
+                    .filter((t: string | null): t is string => t !== null && t !== '');
 
                 if (tokens.length > 0) {
                     const { sendExpoPushNotifications } = await import('@/lib/expo');
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (allTargetedUsers.length > 0) {
-                    const notificationData = allTargetedUsers.map(user => ({
+                    const notificationData = allTargetedUsers.map((user: { id: string }) => ({
                         id: crypto.randomUUID(),
                         type: 'ANNOUNCEMENT',
                         title: announcement.title,

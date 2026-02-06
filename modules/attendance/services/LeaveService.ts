@@ -60,7 +60,7 @@ export class LeaveService {
         // Parse workDays (e.g., "Mon,Tue,Wed,Thu,Fri")
         // Default to Mon-Fri if null or empty
         const defaultWorkDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-        const allowedDays = workDaysStr ? workDaysStr.split(',').map(d => d.trim()) : defaultWorkDays
+        const allowedDays = workDaysStr ? workDaysStr.split(',').map((d: string) => d.trim()) : defaultWorkDays
 
         // Map day index (0-6) to string (Sun-Sat) matching the format in DB
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -450,7 +450,7 @@ export class LeaveService {
         // Parse work days
         const workDaysStr = leave.user.workDays
         const defaultWorkDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-        const allowedDays = workDaysStr ? workDaysStr.split(',').map(d => d.trim()) : defaultWorkDays
+        const allowedDays = workDaysStr ? workDaysStr.split(',').map((d: string) => d.trim()) : defaultWorkDays
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
         while (curDate <= lastDate) {

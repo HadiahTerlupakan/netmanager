@@ -76,7 +76,7 @@ export class AttendanceRepository {
         return {
             total,
             avgDurationMinutes,
-            statusCounts: statusCounts.reduce((acc, curr) => {
+            statusCounts: statusCounts.reduce((acc: Record<string, number>, curr: { status: string, _count: { _all: number } }) => {
                 acc[curr.status] = curr._count._all
                 return acc
             }, {} as Record<string, number>)
@@ -156,19 +156,19 @@ export class AttendanceRepository {
         }
 
         // Fill from SQL Attendance Stats
-        attendanceStats.forEach(stat => {
+        attendanceStats.forEach((stat: { date: string, present: number, late: number }) => {
             const d = ensureDate(stat.date)
             d.present = stat.present
             d.late = stat.late
         })
 
         // Fill Holidays
-        holidaySet.forEach(date => {
+        holidaySet.forEach((date: string) => {
             if(date) ensureDate(date)
         })
 
         // Fill Leaves (JS Expansion)
-        leaves.forEach(leave => {
+        leaves.forEach((leave: { startDate: Date, endDate: Date, type: string }) => {
             const current = new Date(leave.startDate)
             const end = new Date(leave.endDate)
             while (current <= end) {
@@ -261,22 +261,22 @@ export class AttendanceRepository {
         // Safer approach: Fetch aggregated, then sort js, then populate user info.
 
         // Sort by count desc
-        groups.sort((a, b) => b._count._all - a._count._all)
+        groups.sort((a: { _count: { _all: number } }, b: { _count: { _all: number } }) => b._count._all - a._count._all)
         const topIds = groups.slice(0, limit)
 
         // Fetch User Details
         const users = await prisma.user.findMany({
-            where: { id: { in: topIds.map(g => g.userId) } },
+            where: { id: { in: topIds.map((g: { userId: string }) => g.userId) } },
             select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
-        return topIds.map(g => {
-            const user = users.find(u => u.id === g.userId)
+        return topIds.map((g: { userId: string, _count: { _all: number } }) => {
+            const user = users.find((u: { id: string }) => u.id === g.userId)
             return {
                 user,
                 count: g._count._all
             }
-        }).filter(item => item.user != null)
+        }).filter((item: { user: any }) => item.user != null)
     }
 
     async getTopAbsentees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
@@ -301,21 +301,21 @@ export class AttendanceRepository {
         })
 
         // Sort by count desc
-        groups.sort((a, b) => b._count._all - a._count._all)
+        groups.sort((a: { _count: { _all: number } }, b: { _count: { _all: number } }) => b._count._all - a._count._all)
         const topIds = groups.slice(0, limit)
 
         const users = await prisma.user.findMany({
-            where: { id: { in: topIds.map(g => g.userId) } },
+            where: { id: { in: topIds.map((g: { userId: string }) => g.userId) } },
             select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
-        return topIds.map(g => {
-            const user = users.find(u => u.id === g.userId)
+        return topIds.map((g: { userId: string, _count: { _all: number } }) => {
+            const user = users.find((u: { id: string }) => u.id === g.userId)
             return {
                 user,
                 count: g._count._all
             }
-        }).filter(item => item.user != null)
+        }).filter((item: { user: any }) => item.user != null)
     }
 
     async getUserAttendanceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
@@ -414,7 +414,7 @@ export class AttendanceRepository {
         const results = await prisma.$queryRaw<{ userId: string, totalMinutes: number }[]>(query)
 
         const userDurationMap = new Map<string, number>()
-        results.forEach(r => {
+        results.forEach((r: { userId: string, totalMinutes: number }) => {
             userDurationMap.set(r.userId, r.totalMinutes || 0)
         })
 

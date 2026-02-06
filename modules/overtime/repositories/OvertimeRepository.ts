@@ -172,7 +172,7 @@ export class OvertimeRepository implements IOvertimeRepository {
             _count: { _all: true }
         })
 
-        return groups.reduce((acc, curr) => {
+        return groups.reduce((acc: Record<string, number>, curr: { status: string, _count: { _all: number } }) => {
             acc[curr.status] = curr._count._all
             return acc
         }, {} as Record<string, number>)
@@ -260,11 +260,11 @@ export class OvertimeRepository implements IOvertimeRepository {
 
         const stats = await prisma.$queryRaw<{ date: string, requests: number, duration: number }[]>(query)
 
-        return stats.map(s => ({
+        return stats.map((s: { date: string, requests: number, duration: number }) => ({
             date: s.date,
             requests: Number(s.requests),
             duration: Number(s.duration || 0)
-        })).sort((a, b) => a.date.localeCompare(b.date))
+        })).sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
     }
 
     async getGroupedStats(startDate: Date, endDate: Date, groupBy: 'department' | 'site') {
@@ -297,7 +297,7 @@ export class OvertimeRepository implements IOvertimeRepository {
 
         const stats = await prisma.$queryRaw<{ name: string, requests: number, duration: number }[]>(query)
 
-        return stats.map(s => ({
+        return stats.map((s: { name: string, requests: number, duration: number }) => ({
             name: s.name,
             requests: Number(s.requests),
             duration: Number(s.duration || 0)
@@ -324,21 +324,21 @@ export class OvertimeRepository implements IOvertimeRepository {
         })
 
         // Sort by total duration desc
-        groups.sort((a, b) => (b._sum.duration || 0) - (a._sum.duration || 0))
+        groups.sort((a: { _sum: { duration: number | null } }, b: { _sum: { duration: number | null } }) => (b._sum.duration || 0) - (a._sum.duration || 0))
         const topIds = groups.slice(0, limit)
 
         const users = await prisma.user.findMany({
-            where: { id: { in: topIds.map(g => g.userId) } },
+            where: { id: { in: topIds.map((g: { userId: string }) => g.userId) } },
             select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
-        return topIds.map(g => {
-            const user = users.find(u => u.id === g.userId)
+        return topIds.map((g: { userId: string, _sum: { duration: number | null } }) => {
+            const user = users.find((u: { id: string }) => u.id === g.userId)
             return {
                 user,
                 totalDuration: g._sum.duration || 0
             }
-        }).filter(item => item.user != null)
+        }).filter((item: { user: any }) => item.user != null)
     }
 
     async getUserOvertimeStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {

@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
@@ -31,7 +30,10 @@ export async function GET(request: Request) {
       poles,
       pelanggans,
       activeKmzFiles,
-      r2Settings
+      r2Settings,
+      mappingNodes,
+      mappingEdges,
+      edgeCounts
     ] = await Promise.all([
       // Ambil semua OTB dengan koordinat
       prisma.otb.findMany({
@@ -198,10 +200,22 @@ export async function GET(request: Request) {
       }),
 
       // Get R2 Settings to resolve URLs
-      getR2Settings()
+      getR2Settings(),
+
+      // Get Mapping Nodes (Admin Version)
+      prisma.mappingNode.findMany(),
+
+      // Get Mapping Edges (Admin Version with waypoints)
+      prisma.mappingEdge.findMany(),
+
+      // Get Edge Counts for Capacity Calculation
+      prisma.mappingEdge.groupBy({
+        by: ['source'],
+        _count: { source: true }
+      })
     ])
 
-    const processedKmzFiles = activeKmzFiles.map(file => {
+    const processedKmzFiles = activeKmzFiles.map((file: any) => {
       // If path is already a full URL, return as is
       if (file.kmlPath.startsWith('http')) {
         return file
@@ -227,14 +241,95 @@ export async function GET(request: Request) {
       return file
     })
 
+    // Helper to parse waypoints safely
+    const parseWaypoints = (wpString: string | null) => {
+      if (!wpString) return []
+      try {
+        return JSON.parse(wpString)
+      } catch (e) {
+        return []
+      }
+    }
+
+    // Process nodes to add usedSlots
+    const nodesWithDetails = mappingNodes.map((node: any) => {
+      const countData = edgeCounts.find((c: any) => c.source === node.nodeId)
+      const usedSlots = countData ? countData._count.source : 0
+      return {
+        ...node,
+        usedSlots
+      }
+    })
+
+    // Index technical details (capacity, splitter, usedSlots) by ID
+    const nodeDetailsMap = new Map()
+    nodesWithDetails.forEach((node: any) => {
+      nodeDetailsMap.set(node.nodeId, {
+        splitter: node.splitter,
+        capacity: node.capacity,
+        usedSlots: node.usedSlots
+      })
+    })
+
+    // Index edges for waypoints by source_target
+    const edgeMap = new Map()
+    mappingEdges.forEach((edge: any) => {
+      edgeMap.set(`${edge.source}_${edge.target}`, parseWaypoints(edge.waypoints))
+    })
+
+    // Enrich OTBs with details
+    const enrichedOtbs = otbs.map((otb: any) => {
+      const details = nodeDetailsMap.get(otb.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      return {
+        ...otb,
+        ...details
+      }
+    })
+
+    // Enrich ODCs with details and waypoints
+    const enrichedOdcs = odcs.map((odc: any) => {
+      const details = nodeDetailsMap.get(odc.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      let waypoints = []
+      if (odc.otbCore?.otb?.id) {
+        waypoints = edgeMap.get(`${odc.otbCore.otb.id}_${odc.id}`) || []
+      }
+      return {
+        ...odc,
+        ...details,
+        otbCore: odc.otbCore ? { ...odc.otbCore, waypoints } : null
+      }
+    })
+
+    // Enrich ODPs with details and waypoints
+    const enrichedOdps = odps.map((odp: any) => {
+      const details = nodeDetailsMap.get(odp.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      let waypoints = []
+      if (odp.odcOutput?.odc?.id) {
+        waypoints = edgeMap.get(`${odp.odcOutput.odc.id}_${odp.id}`) || []
+      }
+      return {
+        ...odp,
+        ...details,
+        odcOutput: odp.odcOutput ? { ...odp.odcOutput, waypoints } : null
+      }
+    })
+
+    // Parse waypoints in the edges array as well
+    const parsedEdges = mappingEdges.map((edge: any) => ({
+      ...edge,
+      waypoints: parseWaypoints(edge.waypoints)
+    }))
+
     return NextResponse.json({
-      otbs,
-      odcs,
-      odps,
+      otbs: enrichedOtbs,
+      odcs: enrichedOdcs,
+      odps: enrichedOdps,
       joinboxes,
       poles,
       pelanggans,
       kmzFiles: processedKmzFiles,
+      nodes: nodesWithDetails,
+      edges: parsedEdges,
     }, {
       headers: {
         // Cache for 60 seconds, serve stale for up to 300 seconds while revalidating
