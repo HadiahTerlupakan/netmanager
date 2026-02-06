@@ -385,6 +385,15 @@ app.prepare().then(() => {
         console.log('[Server] Asset depreciation cron scheduled (Monthly 1st 02:00)')
     }).catch(err => console.error('[Server] Failed to start Asset Service:', err))
 
+    // Start MixRadius Invoice Sync Service (Hourly at minute 0)
+    import('./modules/integrations/services/MixRadiusSyncService').then(({ syncService }) => {
+        cron.schedule('0 * * * *', () => {
+            console.log('[Cron] Running hourly MixRadius invoice sync')
+            syncService.syncInvoices()
+        })
+        console.log('[Server] MixRadius invoice sync cron scheduled (Hourly)')
+    }).catch(err => console.error('[Server] Failed to start MixRadius Sync Service:', err))
+
 
     // Log connections count periodically in development
     if (dev) {

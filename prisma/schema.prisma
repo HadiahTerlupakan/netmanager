@@ -2827,10 +2827,35 @@ model MixRadiusCustomer {
   phoneNumber  String?
   planName     String?
   status       String?
+  ownerName    String?
   expiredOn    DateTime?
   lastSyncedAt DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  invoices MixRadiusInvoice[]
+}
+
+model MixRadiusInvoice {
+  id            String             @id @default(cuid())
+  invoiceNumber String             @unique
+  mixRadiusId   String? // The internal ID from MixRadius
+  username      String
+  fullName      String?
+  planName      String?
+  amount        Decimal            @db.Decimal(19, 2)
+  status        String // PAID, UNPAID, etc.
+  paymentMethod String?
+  issuedDate    DateTime // derived from renewed_on or created_on
+  dueDate       DateTime? // derived or calculated
+  expiredOn     DateTime?
+  syncedAt      DateTime           @default(now())
+  customer      MixRadiusCustomer? @relation(fields: [username], references: [username])
+
+  @@index([status])
+  @@index([username])
+  @@index([dueDate])
+  @@map("mix_radius_invoices")
 }
 
 model MixRadiusOwnerGroup {

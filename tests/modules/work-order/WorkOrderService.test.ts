@@ -113,7 +113,7 @@ describe('WorkOrderService', () => {
             const userContext = {
                 id: 'user-1',
                 role: 'USER',
-                permissions: []
+                permissions: [] as string[]
             }
 
             const result = await service.getWorkOrderById('wo-123', userContext)

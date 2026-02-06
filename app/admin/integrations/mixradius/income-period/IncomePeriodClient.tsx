@@ -18,6 +18,7 @@ import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import FeeConfigurationModal, { type FeeConfig } from './FeeConfigurationModal'
 import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from './DuitkuDefaults'
+import { NPLSummary } from "@/components/mixradius/NPLSummary"
 
 interface IncomePeriodRecord {
   id: string
@@ -76,8 +77,6 @@ export default function IncomePeriodClient() {
   })
   const [serviceType, setServiceType] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
-  const [ownerId, setOwnerId] = useState('all')
-  const [owners, setOwners] = useState<{ id: string, name: string }[]>([])
   const [groups, setGroups] = useState<{ id: string, name: string, siteId?: string }[]>([])
   const [selectedGroup, setSelectedGroup] = useState('all')
 
@@ -110,22 +109,14 @@ export default function IncomePeriodClient() {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Fetch owners for filters & Fees
+  // Fetch data for filters & Fees
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        const [ownersRes, groupsRes, feesRes] = await Promise.all([
-          fetch('/api/integrations/mixradius/owners'),
+        const [groupsRes, feesRes] = await Promise.all([
           fetch('/api/integrations/mixradius/groups'),
           fetch('/api/integrations/mixradius/fees')
         ])
-
-        if (ownersRes.ok) {
-          const result = await ownersRes.json()
-          if (result.success && Array.isArray(result.data)) {
-            setOwners(result.data)
-          }
-        }
 
         if (groupsRes.ok) {
           const result = await groupsRes.json()
@@ -239,7 +230,6 @@ export default function IncomePeriodClient() {
 
               if (serviceType) params.append('stype', serviceType)
               if (paymentMethod) params.append('payment_method', paymentMethod)
-              if (ownerId && ownerId !== 'all') params.append('owner_id', ownerId)
               if (selectedGroup && selectedGroup !== 'all') params.append('groupId', selectedGroup)
 
               const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
@@ -263,12 +253,6 @@ export default function IncomePeriodClient() {
                       })
                       if (serviceType) globalParams.append('stype', serviceType)
                       if (paymentMethod) globalParams.append('payment_method', paymentMethod)
-                      // Do NOT append groupId or ownerId to get global context?
-                      // Usually ownerId is specific filter too.
-                      // The requirement implies "Global" as in "All Sites".
-                      // If filtering by owner, "Global" might mean "All Sites for this Owner" or "All Sites System-wide".
-                      // "Pengeluaran Umum" usually implies System-wide expenses.
-                      // Let's assume Global = System-wide (respecting date/service filters).
 
                       // Let's refactor the fetch part to handle both amount and depreciation
                       const [specificJson, generalJson, globalStatsRes] = await Promise.all([
@@ -380,7 +364,7 @@ export default function IncomePeriodClient() {
       }, 1000)
 
       return () => clearTimeout(timer)
-  }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup, debouncedSearch, sortColumn, sortDirection, calculateNetIncome, groups.length, parseNumber]) // Recalculate when filters or fees change
+  }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, selectedGroup, debouncedSearch, sortColumn, sortDirection, calculateNetIncome, groups.length, parseNumber]) // Recalculate when filters or fees change
 
   const handleSaveFees = async (newFees: FeeConfig) => {
       try {
@@ -418,7 +402,6 @@ export default function IncomePeriodClient() {
 
       if (serviceType) params.append('stype', serviceType)
       if (paymentMethod) params.append('payment_method', paymentMethod)
-      if (ownerId && ownerId !== 'all') params.append('owner_id', ownerId)
       if (selectedGroup && selectedGroup !== 'all') params.append('groupId', selectedGroup)
 
       const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
@@ -441,7 +424,7 @@ export default function IncomePeriodClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, sortColumn, sortDirection, startDate, endDate, serviceType, paymentMethod, ownerId, selectedGroup])
+  }, [page, pageSize, debouncedSearch, sortColumn, sortDirection, startDate, endDate, serviceType, paymentMethod, selectedGroup])
 
   useEffect(() => {
     fetchData()
@@ -463,7 +446,6 @@ export default function IncomePeriodClient() {
 
         if (serviceType) params.append('stype', serviceType)
         if (paymentMethod) params.append('payment_method', paymentMethod)
-        if (ownerId && ownerId !== 'all') params.append('owner_id', ownerId)
         if (selectedGroup && selectedGroup !== 'all') params.append('groupId', selectedGroup)
 
         const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
@@ -597,6 +579,96 @@ export default function IncomePeriodClient() {
             </button>
         </div>
       </div>
+      {/* Filters & Search - Toolbar Style matching MixRadiusClient */}
+      <div className="flex flex-col xl:flex-row gap-2 xl:items-center">
+        <div className="flex flex-wrap gap-2 items-center flex-1">
+            {/* Date Range */}
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2">
+                <span className="text-xs text-gray-500 font-medium">Periode:</span>
+                <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                        setStartDate(e.target.value)
+                        setPage(0)
+                    }}
+                    className="bg-transparent border-none text-sm text-gray-900 dark:text-white focus:ring-0 p-0 w-[110px]"
+                />
+                <span className="text-gray-400">-</span>
+                <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                        setEndDate(e.target.value)
+                        setPage(0)
+                    }}
+                    className="bg-transparent border-none text-sm text-gray-900 dark:text-white focus:ring-0 p-0 w-[110px]"
+                />
+            </div>
+
+            {/* Service Type */}
+            <select
+                value={serviceType}
+                onChange={(e) => {
+                    setServiceType(e.target.value)
+                    setPage(0)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
+            >
+                <option value="">Semua Layanan</option>
+                <option value="PPP">PPP / PPPoE</option>
+                <option value="HOTSPOT">Hotspot</option>
+            </select>
+
+            {/* Payment Method */}
+            <select
+                value={paymentMethod}
+                onChange={(e) => {
+                    setPaymentMethod(e.target.value)
+                    setPage(0)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
+            >
+                <option value="">Semua Metode</option>
+                <option value="manual">Manual</option>
+                <option value="online">Online</option>
+            </select>
+
+            {/* Management Site (Group) Filter */}
+            <select
+                value={selectedGroup}
+                onChange={(e) => {
+                    setSelectedGroup(e.target.value)
+                    setPage(0)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
+            >
+                <option value="all">Semua Site</option>
+                {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                        {group.name}
+                    </option>
+                ))}
+            </select>
+
+
+        </div>
+
+        {/* Search */}
+        <div className="relative w-full xl:w-64">
+            <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <input
+                type="text"
+                placeholder="Cari Invoice, User, Nama..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+        </div>
+      </div>
+
+      <NPLSummary groupId={selectedGroup} />
+
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -883,108 +955,6 @@ export default function IncomePeriodClient() {
         availableMethods={Array.from(new Set(data.map(d => d.payment_method || d.method))).filter(Boolean)}
       />
 
-      {/* Filters & Search - Toolbar Style matching MixRadiusClient */}
-      <div className="flex flex-col xl:flex-row gap-2">
-        <div className="flex flex-wrap gap-2 items-center flex-1">
-            {/* Date Range */}
-            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1">
-                <span className="text-xs text-gray-500 font-medium">Periode:</span>
-                <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                        setStartDate(e.target.value)
-                        setPage(0)
-                    }}
-                    className="bg-transparent border-none text-sm text-gray-900 dark:text-white focus:ring-0 p-0 w-[110px]"
-                />
-                <span className="text-gray-400">-</span>
-                <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => {
-                        setEndDate(e.target.value)
-                        setPage(0)
-                    }}
-                    className="bg-transparent border-none text-sm text-gray-900 dark:text-white focus:ring-0 p-0 w-[110px]"
-                />
-            </div>
-
-            {/* Service Type */}
-            <select
-                value={serviceType}
-                onChange={(e) => {
-                    setServiceType(e.target.value)
-                    setPage(0)
-                }}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
-            >
-                <option value="">Semua Layanan</option>
-                <option value="PPP">PPP / PPPoE</option>
-                <option value="HOTSPOT">Hotspot</option>
-            </select>
-
-            {/* Payment Method */}
-            <select
-                value={paymentMethod}
-                onChange={(e) => {
-                    setPaymentMethod(e.target.value)
-                    setPage(0)
-                }}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
-            >
-                <option value="">Semua Metode</option>
-                <option value="manual">Manual</option>
-                <option value="online">Online</option>
-            </select>
-
-            {/* Management Site (Group) Filter */}
-            <select
-                value={selectedGroup}
-                onChange={(e) => {
-                    setSelectedGroup(e.target.value)
-                    setPage(0)
-                }}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
-            >
-                <option value="all">Semua Site</option>
-                {groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                        {group.name}
-                    </option>
-                ))}
-            </select>
-
-            {/* Owner Filter */}
-            <select
-                value={ownerId}
-                onChange={(e) => {
-                    setOwnerId(e.target.value)
-                    setPage(0)
-                }}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
-            >
-                <option value="all">Semua Owner</option>
-                {owners.map((owner) => (
-                    <option key={owner.id} value={owner.id}>
-                        {owner.name}
-                    </option>
-                ))}
-            </select>
-        </div>
-
-        {/* Search */}
-        <div className="relative w-full xl:w-64">
-            <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-                type="text"
-                placeholder="Cari Invoice, User, Nama..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-        </div>
-      </div>
 
       {/* Error State */}
       {error && (
