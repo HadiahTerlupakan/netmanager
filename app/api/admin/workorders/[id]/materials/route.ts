@@ -70,8 +70,8 @@ export async function POST(
         }
 
         const service = getWorkOrderService();
-        // Updated service call with actorId (user.id) and preferredGudangId
-        const result = await service.addMaterial(id, barangId, quantity, user.id, notes, targetGudangId);
+        // Updated service call with UserContext
+        const result = await service.addMaterial(id, barangId, quantity, user as any, notes, targetGudangId);
 
         if (!result.success) {
             return apiError(

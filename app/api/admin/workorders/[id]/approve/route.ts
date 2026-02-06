@@ -42,7 +42,7 @@ export async function POST(
         const workOrderService = getWorkOrderService();
 
         // Get WO for notification before action
-        const getResult = await workOrderService.getWorkOrderById(id);
+        const getResult = await workOrderService.getWorkOrderById(id, user.user as any);
         if (!getResult.success) {
             return ApiErrors.notFound('Work Order');
         }
@@ -54,11 +54,11 @@ export async function POST(
         let notificationMessage: string;
 
         if (body.action === 'APPROVE') {
-            result = await workOrderService.approveRequest(id, user.user.id);
+            result = await workOrderService.approveRequest(id, user.user as any);
             notificationTitle = '✅ WO Request Disetujui';
-            notificationMessage = `Request Anda "${existingWO.title}" telah disetujui dan siap dikerjakan.`;
+            notificationMessage = `Request Anda "${existingWO.title}" telah disetujui and siap dikerjakan.`;
         } else {
-            result = await workOrderService.rejectRequest(id, user.user.id, body.reason);
+            result = await workOrderService.rejectRequest(id, user.user as any, body.reason);
             notificationTitle = '❌ WO Request Ditolak';
             notificationMessage = `Request Anda "${existingWO.title}" ditolak: ${body.reason}`;
         }

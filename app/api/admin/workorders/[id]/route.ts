@@ -40,6 +40,7 @@ export async function GET(
             return session;
         }
         const user = session.user as ExtendedUser;
+        const workOrderService = getWorkOrderService();
 
         // Permission check
         if (!await hasPermission('list:read')) {
@@ -47,8 +48,7 @@ export async function GET(
         }
 
         const { id } = await params;
-        const workOrderService = getWorkOrderService();
-        const result = await workOrderService.getWorkOrderById(id);
+        const result = await workOrderService.getWorkOrderById(id, user);
 
         if (!result.success) {
             if (result.code === 'NOT_FOUND') {
@@ -99,6 +99,7 @@ export async function PATCH(
             return session;
         }
         const user = session.user as ExtendedUser;
+        const workOrderService = getWorkOrderService();
 
         const { id } = await params;
         const body = await request.json();
@@ -152,7 +153,11 @@ export async function PATCH(
         // Handle status change separately if provided
         if (body.status) {
             const oldStatus = existingWO.status;
-            await workOrderRepo.updateStatus(id, body.status, user.id);
+            const statusResult = await workOrderService.updateStatus(id, body.status, user);
+
+            if (!statusResult.success) {
+                return apiError(statusResult.error || 'Gagal update status', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+            }
 
             // Re-fetch to get assigned user
             const updatedWO = await prisma.workOrders.findUnique({
@@ -239,28 +244,14 @@ export async function PATCH(
 
         // Update other fields if any
         if (Object.keys(body).length > 0) {
-            await workOrderRepo.update(id, body);
+            const updateResult = await workOrderService.updateWorkOrder(id, body, user);
+            if (!updateResult.success) {
+                return apiError(updateResult.error || 'Gagal memperbarui work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+            }
         }
 
-        const workOrder = await workOrderRepo.findById(id);
-
-        // System Log
-        try {
-            const { logger } = await import('@/lib/logger')
-            await logger.logActivity({
-                action: 'UPDATE',
-                subject: 'Work Order',
-                userId: user.id,
-                details: { id, updates: body }
-            })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
-
-        // PHASE 4: Invalidate caches after update
-        await workOrderCacheService.invalidateAllCaches();
-
-        return apiSuccess(workOrder, { message: 'Work order berhasil diperbarui' });
+        const workOrderResult = await workOrderService.getWorkOrderById(id, user);
+        return apiSuccess(workOrderResult.data, { message: 'Work order berhasil diperbarui' });
     } catch (error) {
         console.error('Error updating work order:', error);
         return ApiErrors.internalError('Gagal memperbarui work order');
@@ -285,6 +276,7 @@ export async function DELETE(
             return session;
         }
         const user = session.user as ExtendedUser;
+        const workOrderService = getWorkOrderService();
 
         const { id } = await params;
         const { searchParams } = new URL(request.url);
@@ -334,28 +326,19 @@ export async function DELETE(
                 }
             });
 
-            await workOrderRepo.delete(id);
-
-            // System Log for Deletion
-            try {
-                const { logger } = await import('@/lib/logger')
-                await logger.logActivity({
-                    action: 'DELETE',
-                    subject: 'Work Order',
-                    userId: user.id,
-                    details: { id, type: 'PERMANENT' }
-                })
-            } catch (e) {
-                console.error('Logging failed', e)
+            const deleteResult = await workOrderService.deleteWorkOrder(id, user);
+            if (!deleteResult.success) {
+                return apiError(deleteResult.error || 'Gagal menghapus work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
             }
-
-            // PHASE 4: Invalidate caches after deletion
-            await workOrderCacheService.invalidateAllCaches();
 
             return apiSuccess(null, { message: 'Work order berhasil dihapus permanen' });
         }
 
-        await workOrderRepo.cancel(id, reason, user.id);
+        // For cancel, we use updateStatus
+        const cancelResult = await workOrderService.updateStatus(id, 'CANCELLED', user, reason);
+        if (!cancelResult.success) {
+             return apiError(cancelResult.error || 'Gagal membatalkan work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+        }
 
         // Notify assigned technician about cancellation
         try {

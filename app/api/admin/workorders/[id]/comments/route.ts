@@ -49,7 +49,13 @@ export async function POST(
 
         // Use service to add comment
         const workOrderService = getWorkOrderService();
-        const result = await workOrderService.addComment(id, message, user.id);
+        const result = await workOrderService.addComment(id, message, {
+            id: user.id,
+            role: user.role,
+            permissions: user.permissions,
+            siteId: user.siteId,
+            departmentId: user.departmentId
+        });
 
         if (!result.success) {
             return apiError(result.error || 'Gagal menambah komentar', ErrorCodes.INTERNAL_ERROR, { status: 500 });
@@ -78,29 +84,45 @@ export async function POST(
             });
 
             if (workOrder?.assignedTo?.pushToken && workOrder.assignedTo?.isActive) {
-                const { sendExpoPushNotifications } = await import('@/lib/expo');
-
-                const title = `Komentar Baru: ${workOrder.workOrderNumber}`;
-                const notifBody = `${user.name || 'Admin'}: ${message.substring(0, 100)}`;
-
-                await sendExpoPushNotifications(
-                    [workOrder.assignedTo.pushToken],
-                    title,
-                    notifBody,
-                    {
-                        type: 'WORK_ORDER',
-                        workOrderId: id,
-                        url: `/(app)/work-order-detail/${id}`
+                // Check if user is on leave
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const isOnLeave = await prisma.leaveRequest.findFirst({
+                    where: {
+                        userId: workOrder.assignedTo.id,
+                        status: 'APPROVED',
+                        startDate: { lte: now },
+                        endDate: { gte: startOfToday }
                     }
-                );
+                });
 
-                // Persist notification
+                if (!isOnLeave) {
+                    const { sendExpoPushNotifications } = await import('@/lib/expo');
+
+                    const title = `Komentar Baru: ${workOrder.workOrderNumber}`;
+                    const notifBody = `${user.name || 'Admin'}: ${message.substring(0, 100)}`;
+
+                    await sendExpoPushNotifications(
+                        [workOrder.assignedTo.pushToken],
+                        title,
+                        notifBody,
+                        {
+                            type: 'WORK_ORDER',
+                            workOrderId: id,
+                            url: `/(app)/work-order-detail/${id}`
+                        }
+                    );
+                } else {
+                    console.log(`Skipping notification for user ${workOrder.assignedTo.id} (On Leave)`);
+                }
+
+                // Persist notification (Always create history)
                 await prisma.notifications.create({
                     data: {
                         id: crypto.randomUUID(),
                         type: 'WORK_ORDER',
-                        title: title,
-                        message: notifBody,
+                        title: `Komentar Baru: ${workOrder.workOrderNumber}`,
+                        message: `${user.name || 'Admin'}: ${message.substring(0, 100)}`,
                         userId: workOrder.assignedTo.id,
                         sourceType: 'WORK_ORDER',
                         sourceId: id,

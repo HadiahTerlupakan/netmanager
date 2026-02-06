@@ -18,6 +18,14 @@ import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 
 // Types
+export interface UserContext {
+    id: string
+    role?: string
+    permissions?: string[]
+    siteId?: string
+    departmentId?: string
+}
+
 export interface CreateWorkOrderInput {
     type: WorkOrderType
     title: string
@@ -192,10 +200,14 @@ export class WorkOrderService {
     /**
      * Get single work order by ID
      */
-    async getWorkOrderById(id: string): Promise<ServiceResult<WorkOrderWithRelations>> {
+    async getWorkOrderById(id: string, userContext?: UserContext): Promise<ServiceResult<WorkOrderWithRelations>> {
         try {
+            if (userContext) {
+                await this.validateWorkOrderAccess(id, userContext)
+            }
+
             const workOrder = await this.repository.findById(id)
-            
+
             if (!workOrder) {
                 return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
             }
@@ -203,7 +215,11 @@ export class WorkOrderService {
             return { success: true, data: workOrder }
         } catch (error) {
             logger.error('WorkOrderService.getWorkOrderById failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch work order', code: 'FETCH_ERROR' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to fetch work order',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'FETCH_ERROR'
+            }
         }
     }
 
@@ -214,9 +230,12 @@ export class WorkOrderService {
      */
     async createWorkOrder(
         input: CreateWorkOrderInput,
-        createdById: string
+        userContext: UserContext
     ): Promise<ServiceResult<WorkOrderWithRelations>> {
         try {
+            const { role, permissions = [], siteId: userSiteId, departmentId: userDeptId, id: createdById } = userContext
+            const isSuperAdmin = role === 'SUPER_ADMIN'
+
             // Validation
             if (!input.type || !input.title || !input.description) {
                 return {
@@ -224,6 +243,30 @@ export class WorkOrderService {
                     error: 'Type, title, and description are required',
                     code: 'VALIDATION_ERROR',
                 }
+            }
+
+            // Site restriction
+            if (permissions.includes('workorders:site_only') && !isSuperAdmin) {
+                if (input.siteId && input.siteId !== userSiteId) {
+                    return {
+                        success: false,
+                        error: 'Access denied: You can only create work orders for your assigned site',
+                        code: 'FORBIDDEN',
+                    }
+                }
+                input.siteId = userSiteId
+            }
+
+            // Department restriction
+            if (permissions.includes('workorders:department_only') && !isSuperAdmin) {
+                if (input.departmentId && input.departmentId !== userDeptId) {
+                    return {
+                        success: false,
+                        error: 'Access denied: You can only create work orders for your assigned department',
+                        code: 'FORBIDDEN',
+                    }
+                }
+                input.departmentId = userDeptId
             }
 
             // Create work order - ensure scheduledDate is Date or undefined
@@ -272,9 +315,12 @@ export class WorkOrderService {
     async updateWorkOrder(
         id: string,
         input: UpdateWorkOrderInput,
-        updatedById: string
+        userContext: UserContext
     ): Promise<ServiceResult<WorkOrderWithRelations>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(id, userContext)
+
             // Check exists
             const existing = await this.repository.findById(id)
             if (!existing) {
@@ -291,7 +337,7 @@ export class WorkOrderService {
             const updated = await this.repository.update(id, updateData)
 
             // Log activity
-            await this.logActivity('UPDATE', 'Work Order', updatedById, {
+            await this.logActivity('UPDATE', 'Work Order', userContext.id, {
                 id: updated.id,
                 number: updated.workOrderNumber,
                 changes: input,
@@ -305,7 +351,11 @@ export class WorkOrderService {
             return { success: true, data: result as WorkOrderWithRelations }
         } catch (error) {
             logger.error('WorkOrderService.updateWorkOrder failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to update work order', code: 'UPDATE_ERROR' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to update work order',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'UPDATE_ERROR'
+            }
         }
     }
 
@@ -315,16 +365,20 @@ export class WorkOrderService {
     async updateStatus(
         id: string,
         status: WorkOrderStatus,
-        userId: string,
+        userContext: UserContext,
         resolutionNotes?: string
     ): Promise<ServiceResult<WorkOrderWithRelations>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(id, userContext)
+
             const existing = await this.repository.findById(id)
             if (!existing) {
                 return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
             }
 
             const previousStatus = existing.status
+            const userId = userContext.id
 
             // Update status
             if (status === 'COMPLETED' && resolutionNotes) {
@@ -369,7 +423,11 @@ export class WorkOrderService {
             return { success: true, data: result as WorkOrderWithRelations }
         } catch (error) {
             logger.error('WorkOrderService.updateStatus failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to update status', code: 'STATUS_ERROR' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to update status',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'STATUS_ERROR'
+            }
         }
     }
 
@@ -381,10 +439,13 @@ export class WorkOrderService {
     async assignWorkOrder(
         id: string,
         employeeId: string,
-        assignedById: string,
+        userContext: UserContext,
         role?: string
     ): Promise<ServiceResult<WorkOrderWithRelations>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(id, userContext)
+
             const existing = await this.repository.findById(id)
             if (!existing) {
                 return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
@@ -407,6 +468,8 @@ export class WorkOrderService {
                     code: 'EMPLOYEE_INACTIVE'
                 }
             }
+
+            const assignedById = userContext.id
 
             // Assign
             await this.repository.assign(id, employeeId, role, assignedById)
@@ -444,7 +507,11 @@ export class WorkOrderService {
             return { success: true, data: result as WorkOrderWithRelations }
         } catch (error) {
             logger.error('WorkOrderService.assignWorkOrder failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to assign work order', code: 'ASSIGN_ERROR' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to assign work order',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'ASSIGN_ERROR'
+            }
         }
     }
 
@@ -455,9 +522,12 @@ export class WorkOrderService {
      */
     async approveRequest(
         id: string,
-        approvedById: string
+        userContext: UserContext
     ): Promise<ServiceResult<WorkOrderWithRelations>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(id, userContext)
+
             const existing = await this.repository.findById(id)
             if (!existing) {
                 return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
@@ -471,6 +541,7 @@ export class WorkOrderService {
                 }
             }
 
+            const approvedById = userContext.id
             await this.repository.approveRequest(id, approvedById)
 
             // Log activity
@@ -486,7 +557,11 @@ export class WorkOrderService {
             return { success: true, data: result as WorkOrderWithRelations }
         } catch (error) {
             logger.error('WorkOrderService.approveRequest failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to approve request', code: 'APPROVE_ERROR' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to approve request',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'APPROVE_ERROR'
+            }
         }
     }
 
@@ -495,10 +570,13 @@ export class WorkOrderService {
      */
     async rejectRequest(
         id: string,
-        rejectedById: string,
+        userContext: UserContext,
         reason: string
     ): Promise<ServiceResult<WorkOrderWithRelations>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(id, userContext)
+
             if (!reason) {
                 return { success: false, error: 'Rejection reason is required', code: 'VALIDATION_ERROR' }
             }
@@ -516,6 +594,7 @@ export class WorkOrderService {
                 }
             }
 
+            const rejectedById = userContext.id
             await this.repository.rejectRequest(id, rejectedById, reason)
 
             // Log activity
@@ -532,7 +611,11 @@ export class WorkOrderService {
             return { success: true, data: result as WorkOrderWithRelations }
         } catch (error) {
             logger.error('WorkOrderService.rejectRequest failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to reject request', code: 'REJECT_ERROR' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to reject request',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'REJECT_ERROR'
+            }
         }
     }
 
@@ -541,13 +624,17 @@ export class WorkOrderService {
     /**
      * Delete work order
      */
-    async deleteWorkOrder(id: string, deletedById: string): Promise<ServiceResult<void>> {
+    async deleteWorkOrder(id: string, userContext: UserContext): Promise<ServiceResult<void>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(id, userContext)
+
             const existing = await this.repository.findById(id)
             if (!existing) {
                 return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
             }
 
+            const deletedById = userContext.id
             await this.repository.delete(id)
 
             // Log activity
@@ -562,7 +649,11 @@ export class WorkOrderService {
             return { success: true }
         } catch (error) {
             logger.error('WorkOrderService.deleteWorkOrder failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to delete work order', code: 'DELETE_ERROR' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to delete work order',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'DELETE_ERROR'
+            }
         }
     }
 
@@ -575,11 +666,15 @@ export class WorkOrderService {
         workOrderId: string,
         barangId: string,
         quantity: number,
-        actorId: string,
+        userContext: UserContext,
         notes?: string,
         preferredGudangId?: string
     ): Promise<ServiceResult<unknown>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(workOrderId, userContext)
+
+            const actorId = userContext.id
             return await prisma.$transaction(async (tx) => {
                 // Check work order
                 const workOrder = await tx.workOrders.findUnique({ where: { id: workOrderId } })
@@ -681,9 +776,13 @@ export class WorkOrderService {
      */
     async createTasksFromTemplate(
         workOrderId: string,
-        templateId: string
+        templateId: string,
+        userContext: UserContext
     ): Promise<ServiceResult<unknown>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(workOrderId, userContext)
+
             // Check work order
             const workOrder = await this.repository.findById(workOrderId)
             if (!workOrder) {
@@ -725,6 +824,36 @@ export class WorkOrderService {
     }
 
     // ==================== PRIVATE HELPERS ====================
+
+    /**
+     * Validate user access to a specific work order based on RBAC and restrictions
+     */
+    private async validateWorkOrderAccess(workOrderId: string, userContext: UserContext): Promise<void> {
+        const { role, permissions = [], departmentId: userDeptId, siteId: userSiteId } = userContext
+
+        // Bypass for SUPER_ADMIN
+        if (role === 'SUPER_ADMIN') return
+
+        // Fetch work order to check its department/site
+        const workOrder = await this.repository.findById(workOrderId)
+        if (!workOrder) {
+            throw new Error('Work order not found')
+        }
+
+        // Check department restriction
+        if (permissions.includes('workorders:department_only')) {
+            if (workOrder.departmentId !== userDeptId) {
+                throw new Error('Access denied: Different department')
+            }
+        }
+
+        // Check site restriction
+        if (permissions.includes('workorders:site_only')) {
+            if (workOrder.siteId !== userSiteId) {
+                throw new Error('Access denied: Different site')
+            }
+        }
+    }
 
     private async notifyWorkOrderCreated(workOrder: unknown): Promise<void> {
         try {
@@ -843,14 +972,21 @@ export class WorkOrderService {
     async addComment(
         workOrderId: string,
         message: string,
-        userId: string
+        userContext: UserContext
     ): Promise<ServiceResult<unknown>> {
         try {
-            const comment = await this.repository.addComment(workOrderId, message, userId)
+            // Validate access
+            await this.validateWorkOrderAccess(workOrderId, userContext)
+
+            const comment = await this.repository.addComment(workOrderId, message, userContext.id)
             return { success: true, data: comment }
         } catch (error) {
             logger.error('Failed to add comment', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to add comment', code: 'OPERATION_FAILED' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to add comment',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'OPERATION_FAILED'
+            }
         }
     }
 
@@ -863,9 +999,13 @@ export class WorkOrderService {
             title: string
             description?: string
             order?: number
-        }
+        },
+        userContext: UserContext
     ): Promise<ServiceResult<unknown>> {
         try {
+            // Validate access
+            await this.validateWorkOrderAccess(workOrderId, userContext)
+
             const task = await this.repository.addTask({
                 workOrderId,
                 title: taskData.title,
@@ -875,7 +1015,11 @@ export class WorkOrderService {
             return { success: true, data: task }
         } catch (error) {
             logger.error('Failed to add task', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to add task', code: 'OPERATION_FAILED' }
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to add task',
+                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'OPERATION_FAILED'
+            }
         }
     }
 }

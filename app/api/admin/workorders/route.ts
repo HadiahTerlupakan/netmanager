@@ -103,9 +103,12 @@ export async function POST(request: NextRequest) {
 
         // Use WorkOrderService for creation (handles validation, notifications, socket, logging, cache)
         const workOrderService = getWorkOrderService();
-        const result = await workOrderService.createWorkOrder(body, user.id);
+        const result = await workOrderService.createWorkOrder(body, user);
 
         if (!result.success) {
+            if (result.code === 'FORBIDDEN') {
+                return apiError(result.error || 'Akses ditolak', ErrorCodes.FORBIDDEN, { status: 403 });
+            }
             if (result.code === 'VALIDATION_ERROR') {
                 return apiError(result.error || 'Data tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
             }

@@ -22,7 +22,7 @@ export async function GET(
 
         const { id } = await params;
         const workOrderService = getWorkOrderService();
-        const result = await workOrderService.getWorkOrderById(id);
+        const result = await workOrderService.getWorkOrderById(id, user as any);
 
         if (!result.success) {
             return ApiErrors.notFound('Work Order');
@@ -62,7 +62,7 @@ export async function POST(
             title: body.title,
             description: body.description,
             order: body.order,
-        });
+        }, user as any);
 
         if (!result.success) {
             return apiError(result.error || 'Gagal menambah task', ErrorCodes.INTERNAL_ERROR, { status: 500 });
@@ -72,7 +72,7 @@ export async function POST(
 
         // Real-time update
         const { socketEmitter } = await import('@/lib/websocket/emitter');
-        const woResult = await workOrderService.getWorkOrderById(id);
+        const woResult = await workOrderService.getWorkOrderById(id, user as any);
         if (woResult.success && woResult.data) {
             socketEmitter.updateWorkOrder(woResult.data as unknown as Parameters<typeof socketEmitter.updateWorkOrder>[0]);
 
@@ -89,21 +89,40 @@ export async function POST(
 
             if (woForNotify?.assignedTo?.pushToken && woForNotify.assignedTo.isActive) {
                 try {
-                    const { sendExpoPushNotifications } = await import('@/lib/expo');
+                    // Check if user is on leave
+                    const now = new Date();
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const isOnLeave = await prisma.leaveRequest.findFirst({
+                        where: {
+                            userId: woForNotify.assignedTo.id,
+                            status: 'APPROVED',
+                            startDate: { lte: now },
+                            endDate: { gte: startOfToday }
+                        }
+                    });
+
+                    if (!isOnLeave) {
+                        const { sendExpoPushNotifications } = await import('@/lib/expo');
+                        const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
+                        const message = `Admin menambahkan tugas: "${body.title}"`;
+
+                        await sendExpoPushNotifications(
+                            [woForNotify.assignedTo.pushToken],
+                            title,
+                            message,
+                            {
+                                type: 'WORK_ORDER',
+                                workOrderId: id,
+                                url: `/(app)/work-order-detail/${id}`
+                            }
+                        );
+                    } else {
+                         console.log(`Skipping notification for user ${woForNotify.assignedTo.id} (On Leave)`);
+                    }
+
+                    // Always create notification history
                     const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
                     const message = `Admin menambahkan tugas: "${body.title}"`;
-
-                    await sendExpoPushNotifications(
-                        [woForNotify.assignedTo.pushToken],
-                        title,
-                        message,
-                        {
-                            type: 'WORK_ORDER',
-                            workOrderId: id,
-                            url: `/(app)/work-order-detail/${id}`
-                        }
-                    );
-
                     await prisma.notifications.create({
                         data: {
                             id: crypto.randomUUID(),
