@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
 import { HolidayRepository } from '../repositories/HolidayRepository'
