@@ -5,7 +5,8 @@ import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { logger } from '@/lib/logger'
-import { LeaveStatus, LeaveType } from '@prisma/client'
+import { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 // Standard ServiceResult pattern
 export interface ServiceResult<T> {
@@ -190,6 +191,21 @@ export class LeaveService {
                 }
             }
 
+            // Sync with Attendance if Approved
+            if (autoApprove) {
+                try {
+                    const leaveForSync = await prisma.leaveRequest.findUnique({
+                        where: { id: leave.id },
+                        include: { user: true }
+                    })
+                    if (leaveForSync) {
+                        await this.syncLeaveToAttendance(leaveForSync)
+                    }
+                } catch (error) {
+                    logger.error('Failed to sync leave to attendance', error instanceof Error ? error : undefined)
+                }
+            }
+
             // Log activity
             await this.logActivity('CREATE', 'LeaveRequest', createdById, {
                 id: leave.id,
@@ -266,6 +282,13 @@ export class LeaveService {
                 } catch (error) {
                     logger.error('Failed to update leave balance', error instanceof Error ? error : undefined)
                 }
+            }
+
+            // Sync with Attendance
+            try {
+                await this.syncLeaveToAttendance(existing)
+            } catch (error) {
+                logger.error('Failed to sync leave to attendance in approve', error instanceof Error ? error : undefined)
             }
 
             // Log activity
@@ -402,6 +425,95 @@ export class LeaveService {
         } catch (error) {
             logger.error('LeaveService.deleteLeave failed', error instanceof Error ? error : undefined)
             return { success: false, error: 'Failed to delete leave', code: 'DELETE_ERROR' }
+        }
+    }
+
+    /**
+     * Helper: Sync approved leave to attendance
+     */
+    private async syncLeaveToAttendance(leave: Prisma.LeaveRequestGetPayload<{ include: { user: true } }>): Promise<void> {
+        const startDate = new Date(leave.startDate)
+        const endDate = new Date(leave.endDate)
+        const curDate = new Date(startDate)
+
+        // Reset hours
+        curDate.setHours(0, 0, 0, 0)
+        const lastDate = new Date(endDate)
+        lastDate.setHours(0, 0, 0, 0)
+
+        // Determine status based on LeaveType
+        let status: AttendanceStatus = 'PERMIT'
+        if (leave.type === 'SAKIT') status = 'SICK'
+        else if (leave.type === 'TUKAR_LIBUR') status = 'DAY_OFF'
+        else if (leave.type === 'CUTI') status = 'PERMIT'
+
+        // Parse work days
+        const workDaysStr = leave.user.workDays
+        const defaultWorkDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+        const allowedDays = workDaysStr ? workDaysStr.split(',').map(d => d.trim()) : defaultWorkDays
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+        while (curDate <= lastDate) {
+            const dayIndex = curDate.getDay()
+            const dayName = dayNames[dayIndex]
+
+            // Only process work days
+            if (allowedDays.includes(dayName)) {
+                // Check holiday
+                const { isHoliday } = await this.holidayRepository.isHoliday(curDate)
+                if (!isHoliday) {
+                    // Start of Day and End of Day for query
+                    const dayStart = new Date(curDate)
+                    dayStart.setHours(0, 0, 0, 0)
+                    const dayEnd = new Date(curDate)
+                    dayEnd.setHours(23, 59, 59, 999)
+
+                    // Check existing attendance
+                    const existingAttendance = await prisma.attendance.findFirst({
+                        where: {
+                            userId: leave.userId,
+                            checkIn: {
+                                gte: dayStart,
+                                lte: dayEnd
+                            }
+                        }
+                    })
+
+                    if (existingAttendance) {
+                        // UPDATE existing
+                        // Only update if it's not already the same status
+                        if (existingAttendance.status !== status) {
+                            await prisma.attendance.update({
+                                where: { id: existingAttendance.id },
+                                data: {
+                                    status: status,
+                                    notes: existingAttendance.notes 
+                                        ? `${existingAttendance.notes} | Updated by Leave Approval` 
+                                        : `Updated by Leave Approval (${leave.type})`
+                                }
+                            })
+                        }
+                    } else {
+                        // CREATE new
+                        // Create dummy checkIn at 00:00:00
+                        const checkInTime = new Date(curDate)
+                        checkInTime.setHours(0, 0, 0, 0)
+
+                        await prisma.attendance.create({
+                            data: {
+                                id: randomUUID(),
+                                userId: leave.userId,
+                                checkIn: checkInTime,
+                                status: status,
+                                location: 'System (Auto-Sync)',
+                                notes: `Auto-generated from Leave Request`,
+                                updatedAt: new Date()
+                            }
+                        })
+                    }
+                }
+            }
+            curDate.setDate(curDate.getDate() + 1)
         }
     }
 

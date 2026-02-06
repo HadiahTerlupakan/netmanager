@@ -20,22 +20,6 @@ export class AttendanceRepository {
     }
 
     async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const startStr = startDate.toISOString()
-        const endStr = endDate.toISOString()
-
-        let userJoin = ''
-        let userCondition = ''
-
-        if (siteId || departmentId) {
-            userJoin = 'JOIN "users" u ON a."userId" = u.id'
-            const conditions = []
-            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
-            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
-            if (conditions.length > 0) {
-                userCondition = 'AND ' + conditions.join(' AND ')
-            }
-        }
-
         // 1. Status Counts
         // Use raw query to ensure we capture filtering correctly if it wasn't working before with Prisma types
         // But Prisma groupBy supports relations in where clause usually.
@@ -62,16 +46,30 @@ export class AttendanceRepository {
         const total = await prisma.attendance.count({ where })
 
         // 2. Average Duration (Optimized)
-        const avgResult = await prisma.$queryRawUnsafe<{ avgDuration: number }[]>(`
+        let query = Prisma.sql`
             SELECT
                 AVG(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "avgDuration"
             FROM "Attendance" a
-            ${userJoin}
-            WHERE a."checkIn" >= '${startStr}'::timestamp
-            AND a."checkIn" <= '${endStr}'::timestamp
+        `
+
+        if (siteId || departmentId) {
+            query = Prisma.sql`${query} JOIN "User" u ON a."userId" = u.id`
+        }
+
+        query = Prisma.sql`${query} 
+            WHERE a."checkIn" >= ${startDate}
+            AND a."checkIn" <= ${endDate}
             AND a."checkOut" IS NOT NULL
-            ${userCondition}
-        `)
+        `
+
+        if (siteId) {
+            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
+        }
+        if (departmentId) {
+            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
+        }
+
+        const avgResult = await prisma.$queryRaw<{ avgDuration: number }[]>(query)
 
         const avgDurationMinutes = avgResult[0]?.avgDuration ? Math.round(avgResult[0].avgDuration) : 0
 
@@ -86,37 +84,34 @@ export class AttendanceRepository {
     }
 
     async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        // Use raw query for efficient date grouping
-        const startStr = startDate.toISOString()
-        const endStr = endDate.toISOString()
-
-        // Build raw query conditions
-        let userJoin = ''
-        let userCondition = ''
-
-        if (siteId || departmentId) {
-            userJoin = 'JOIN "User" u ON a."userId" = u.id'
-            const conditions = []
-            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
-            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
-            if (conditions.length > 0) {
-                userCondition = 'AND ' + conditions.join(' AND ')
-            }
-        }
-
         // 1. Get Attendance Stats
-        const attendanceStats = await prisma.$queryRawUnsafe<{ date: string, present: number, late: number }[]>(`
+        let query = Prisma.sql`
             SELECT
                 TO_CHAR(a."checkIn", 'YYYY-MM-DD') as date,
                 COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
                 COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late
             FROM "Attendance" a
-            ${userJoin}
-            WHERE a."checkIn" >= '${startStr}'::timestamp
-            AND a."checkIn" <= '${endStr}'::timestamp
-            ${userCondition}
-            GROUP BY TO_CHAR(a."checkIn", 'YYYY-MM-DD')
-        `)
+        `
+
+        if (siteId || departmentId) {
+            query = Prisma.sql`${query} JOIN "User" u ON a."userId" = u.id`
+        }
+
+        query = Prisma.sql`${query} 
+            WHERE a."checkIn" >= ${startDate}
+            AND a."checkIn" <= ${endDate}
+        `
+
+        if (siteId) {
+            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
+        }
+        if (departmentId) {
+            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
+        }
+
+        query = Prisma.sql`${query} GROUP BY TO_CHAR(a."checkIn", 'YYYY-MM-DD')`
+
+        const attendanceStats = await prisma.$queryRaw<{ date: string, present: number, late: number }[]>(query)
 
         // 2. Get Leave Stats
         // Note: Leaves can span multiple days, so simple group by start date isn't enough for daily stats if we want to show "people on leave today"
@@ -201,25 +196,22 @@ export class AttendanceRepository {
         endDate: Date,
         groupBy: 'department' | 'site'
     ) {
-        const startStr = startDate.toISOString()
-        const endStr = endDate.toISOString()
-
-        let groupByColumn = ''
-        let groupByNameColumn = ''
-        let joinTable = ''
+        let groupByColumn = Prisma.sql``
+        let groupByNameColumn = Prisma.sql``
+        let joinTable = Prisma.sql``
 
         if (groupBy === 'site') {
-            groupByColumn = 'u."siteId"'
-            joinTable = 'JOIN "sites" s ON u."siteId" = s.id'
-            groupByNameColumn = 's.name'
+            groupByColumn = Prisma.sql`u."siteId"`
+            joinTable = Prisma.sql`JOIN "sites" s ON u."siteId" = s.id`
+            groupByNameColumn = Prisma.sql`s.name`
         } else {
-            groupByColumn = 'u."departmentId"'
-            joinTable = 'JOIN "departments" d ON u."departmentId" = d.id'
-            groupByNameColumn = 'd.name'
+            groupByColumn = Prisma.sql`u."departmentId"`
+            joinTable = Prisma.sql`JOIN "departments" d ON u."departmentId" = d.id`
+            groupByNameColumn = Prisma.sql`d.name`
         }
 
         // Raw query to aggregate by joined table
-        const stats = await prisma.$queryRawUnsafe<{ id: string, name: string, present: number, late: number, total: number }[]>(`
+        const query = Prisma.sql`
             SELECT
                 ${groupByColumn} as id,
                 ${groupByNameColumn} as name,
@@ -229,10 +221,12 @@ export class AttendanceRepository {
             FROM "Attendance" a
             JOIN "User" u ON a."userId" = u.id
             ${joinTable}
-            WHERE a."checkIn" >= '${startStr}'::timestamp
-            AND a."checkIn" <= '${endStr}'::timestamp
+            WHERE a."checkIn" >= ${startDate}
+            AND a."checkIn" <= ${endDate}
             GROUP BY ${groupByColumn}, ${groupByNameColumn}
-        `)
+        `
+
+        const stats = await prisma.$queryRaw<{ id: string, name: string, present: number, late: number, total: number }[]>(query)
 
         return stats
     }
@@ -390,35 +384,34 @@ export class AttendanceRepository {
     }
 
     async getUserTotalDuration(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const startStr = startDate.toISOString()
-        const endStr = endDate.toISOString()
-
-        let userJoin = ''
-        let userCondition = ''
-
-        if (siteId || departmentId) {
-            userJoin = 'JOIN "User" u ON a."userId" = u.id'
-            const conditions = []
-            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
-            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
-            if (conditions.length > 0) {
-                userCondition = 'AND ' + conditions.join(' AND ')
-            }
-        }
-
-        const results = await prisma.$queryRawUnsafe<{ userId: string, totalMinutes: number }[]>(`
+        let query = Prisma.sql`
             SELECT
                 a."userId",
                 SUM(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "totalMinutes"
             FROM "Attendance" a
-            ${userJoin}
-            WHERE a."checkIn" >= '${startStr}'::timestamp
-            AND a."checkIn" <= '${endStr}'::timestamp
+        `
+
+        if (siteId || departmentId) {
+            query = Prisma.sql`${query} JOIN "User" u ON a."userId" = u.id`
+        }
+
+        query = Prisma.sql`${query} 
+            WHERE a."checkIn" >= ${startDate}
+            AND a."checkIn" <= ${endDate}
             AND a."checkOut" IS NOT NULL
             AND a.status IN ('ON_TIME', 'LATE')
-            ${userCondition}
-            GROUP BY a."userId"
-        `)
+        `
+
+        if (siteId) {
+            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
+        }
+        if (departmentId) {
+            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
+        }
+
+        query = Prisma.sql`${query} GROUP BY a."userId"`
+
+        const results = await prisma.$queryRaw<{ userId: string, totalMinutes: number }[]>(query)
 
         const userDurationMap = new Map<string, number>()
         results.forEach(r => {

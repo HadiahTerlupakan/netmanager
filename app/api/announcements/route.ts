@@ -143,11 +143,8 @@ export async function POST(request: NextRequest) {
                 };
 
                 if (target === 'EMPLOYEE') {
-                    // Ensure we target employees (including technicians, etc if needed - adjusting to logical roles)
-                    // For now, assuming distinct 'EMPLOYEE' role or just filtering non-admins if excluding, 
-                    // but usually EMPLOYEE target means strictly employees.
-                    // Let's assume Role name is key.
-                    userFilter.Role = { name: { in: ['EMPLOYEE', 'TEKNISI', 'ADMIN'] } }; // Should probably include relevant staff
+                    // Ensure we target employees
+                    userFilter.Role = { name: { in: ['EMPLOYEE', 'TEKNISI', 'ADMIN'] } }; 
                 } else if (target === 'ADMIN') {
                     userFilter.Role = { name: 'ADMIN' };
                 }
@@ -157,26 +154,41 @@ export async function POST(request: NextRequest) {
                     select: { id: true, pushToken: true }
                 });
 
+                // Filter users currently on leave
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                
+                const usersOnLeave = await prisma.leaveRequest.findMany({
+                    where: {
+                        status: 'APPROVED',
+                        startDate: { lte: now },
+                        endDate: { gte: startOfToday },
+                        userId: { in: users.map(u => u.id) }
+                    },
+                    select: { userId: true }
+                });
+                
+                const userIdsOnLeave = new Set(usersOnLeave.map(u => u.userId));
+
                 // 1. Send Push Notifications
                 const tokens = users
+                    .filter(u => !userIdsOnLeave.has(u.id)) // Exclude users on leave
                     .map(u => u.pushToken)
                     .filter((t): t is string => t !== null && t !== '');
 
                 if (tokens.length > 0) {
                     const { sendExpoPushNotifications } = await import('@/lib/expo');
-                    // Run in background to not block response? 
-                    // Better to await to ensure it works, or at least catch errors.
                     await sendExpoPushNotifications(
                         tokens,
                         announcement.title,
                         announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : ''),
                         { announcementId: announcement.id, url: '/announcement' }
                     );
-                    console.log(`[PUSH] Sent to ${tokens.length} devices`);
+                    console.log(`[PUSH] Sent to ${tokens.length} devices (filtered ${usersOnLeave.length} on leave)`);
                 }
 
                 // 2. Create In-App Notifications (Database)
-                // We create a notification record for ALL targeted users, regardless of push token
+                // We create a notification record for ALL targeted users, even on leave, so they have history
                 const allTargetedUsers = await prisma.user.findMany({
                     where: { ...userFilter, pushToken: undefined }, // Remove pushToken filter for DB records
                     select: { id: true }
@@ -196,7 +208,6 @@ export async function POST(request: NextRequest) {
                         createdAt: new Date(),
                     }));
 
-                    // Use singular 'notification' to match existing codebase usage
                     await prisma.notifications.createMany({
                         data: notificationData
                     });
@@ -204,7 +215,6 @@ export async function POST(request: NextRequest) {
                 }
             } catch (pushError) {
                 console.error('[PUSH] Failed to send push notifications:', pushError);
-                // Don't fail the request if push fails
             }
         }
 

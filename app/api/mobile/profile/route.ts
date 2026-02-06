@@ -59,11 +59,24 @@ export async function GET(request: Request) {
         const { getUserFeaturesWithCanvasing } = await import('@/lib/canvasing-access')
         const features = await getUserFeaturesWithCanvasing(profile.id)
 
-        return NextResponse.json({ 
-            success: true, 
+        // Check for active leave
+        const now = new Date(); const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const activeLeave = await prisma.leaveRequest.findFirst({
+            where: {
+                userId: user.id as string,
+                status: 'APPROVED',
+                startDate: { lte: now },
+                endDate: { gte: startOfToday }
+            }
+        })
+        const isOnLeave = !!activeLeave
+
+        return NextResponse.json({
+            success: true,
             data: {
                 ...profile,
-                features // Array of feature names with canvasing override logic
+                features, // Array of feature names with canvasing override logic
+                isOnLeave
             }
         })
     } catch (error: unknown) {

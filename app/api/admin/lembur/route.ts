@@ -3,8 +3,9 @@
  * Migrated to use standardized middleware and validation
  */
 
+import { NextResponse } from 'next/server'
 import { OvertimeService } from '@/modules/overtime'
-import { 
+import {
   withAuth, 
   withPermission, 
   withErrorHandler, 
@@ -87,7 +88,8 @@ export const GET = withErrorHandler(
             const service = new OvertimeService()
             const result = await service.getAllRequests(serviceFilters)
 
-            return apiSuccess({
+            return NextResponse.json({
+              success: true,
               data: result.data,
               summary: result.summary,
               pagination: {

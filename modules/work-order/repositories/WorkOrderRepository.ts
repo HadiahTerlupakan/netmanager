@@ -1186,15 +1186,22 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         // Prepare conditions for raw query
-        const rawConditions: string[] = []
-        if (filters?.siteId) rawConditions.push(`"siteId" = '${filters.siteId}'`)
-        if (filters?.departmentId) rawConditions.push(`"departmentId" = '${filters.departmentId}'`)
-        if (filters?.assignedToId) rawConditions.push(`"assignedToId" = '${filters.assignedToId}'`)
-        if (filters?.pelangganId) rawConditions.push(`"pelangganId" = '${filters.pelangganId}'`)
-        if (filters?.dateFrom) rawConditions.push(`"createdAt" >= '${filters.dateFrom.toISOString()}'::timestamp`)
-        if (filters?.dateTo) rawConditions.push(`"createdAt" <= '${filters.dateTo.toISOString()}'::timestamp`)
+        let query = Prisma.sql`
+            SELECT
+                AVG(EXTRACT(EPOCH FROM ("completedAt" - "startedAt")) / 3600)::float as "avgHours",
+                SUM("actualCost")::float as "totalCost"
+            FROM "work_orders"
+            WHERE "completedAt" IS NOT NULL
+            AND "startedAt" IS NOT NULL
+        `
 
-        const whereClause = rawConditions.length > 0 ? 'AND ' + rawConditions.join(' AND ') : ''
+        if (filters?.siteId) query = Prisma.sql`${query} AND "siteId" = ${filters.siteId}`
+        if (filters?.departmentId) query = Prisma.sql`${query} AND "departmentId" = ${filters.departmentId}`
+        if (filters?.assignedToId) query = Prisma.sql`${query} AND "assignedToId" = ${filters.assignedToId}`
+        if (filters?.pelangganId) query = Prisma.sql`${query} AND "pelangganId" = ${filters.pelangganId}`
+        if (filters?.dateFrom) query = Prisma.sql`${query} AND "createdAt" >= ${filters.dateFrom}`
+        if (filters?.dateTo) query = Prisma.sql`${query} AND "createdAt" <= ${filters.dateTo}`
+
 
         const [total, statusCounts, completionStats, ratingData, urgentOpen] = await Promise.all([
             this.prisma.workOrders.count({ where }),
@@ -1204,15 +1211,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 _count: true,
             }),
             // Optimized aggregation for cost and duration
-            this.prisma.$queryRawUnsafe<{ avgHours: number, totalCost: number }[]>(`
-                SELECT
-                    AVG(EXTRACT(EPOCH FROM ("completedAt" - "startedAt")) / 3600)::float as "avgHours",
-                    SUM("actualCost")::float as "totalCost"
-                FROM "work_orders"
-                WHERE "completedAt" IS NOT NULL
-                AND "startedAt" IS NOT NULL
-                ${whereClause}
-            `),
+            this.prisma.$queryRaw<{ avgHours: number, totalCost: number }[]>(query),
             this.prisma.workOrders.aggregate({
                 where: {
                     ...where,

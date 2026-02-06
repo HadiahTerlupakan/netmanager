@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '../lib/prisma'
+import { Prisma } from '@prisma/client'
 
 // Resources yang seharusnya read-only (tidak perlu create, update, delete)
 const READ_ONLY_RESOURCES = [
@@ -63,8 +64,10 @@ async function main() {
     console.log('')
     
     // 2. Hapus relasi dari _PermissionToRole terlebih dahulu (junction table)
-    const permissionIds = permissionsToDelete.map((p: Permission) => `'${p.id}'`).join(',')
-    const deleteResult = await prisma.$executeRawUnsafe(`DELETE FROM "_PermissionToRole" WHERE "B" IN (${permissionIds})`)
+    const permissionIds = permissionsToDelete.map((p: Permission) => p.id)
+    const deleteResult = await prisma.$executeRaw(
+        Prisma.sql`DELETE FROM "_PermissionToRole" WHERE "B" IN (${Prisma.join(permissionIds)})`
+    )
     console.log(`🗑️  Hapus ${deleteResult} relasi _PermissionToRole`)
     
     // 3. Hapus permissions

@@ -508,27 +508,27 @@ export async function getNotificationsForUser(
  * OPTIMIZED: Uses single query with $queryRaw for better performance
  */
 export async function getUnreadCount(userId: string, excludeTypes?: NotificationType[], siteId?: string): Promise<number> {
-    // Build type exclusion condition
-    const typeCondition = excludeTypes && excludeTypes.length > 0 
-        ? `AND "type" NOT IN (${excludeTypes.map(t => `'${t}'`).join(',')})` 
-        : '';
-    
-    // Build site condition
-    const siteCondition = siteId 
-        ? `AND ("siteId" = '${siteId}' OR "siteId" IS NULL)` 
-        : '';
+    // Build type exclusion condition safely using Prisma.sql and Prisma.join
+    const typeCondition = excludeTypes && excludeTypes.length > 0
+        ? Prisma.sql`AND "type" NOT IN (${Prisma.join(excludeTypes)})`
+        : Prisma.empty;
+
+    // Build site condition safely using parameterized query
+    const siteCondition = siteId
+        ? Prisma.sql`AND ("siteId" = ${siteId} OR "siteId" IS NULL)`
+        : Prisma.empty;
 
     // Single optimized query with subquery for departmentId
     const result = await prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count
         FROM "notifications" n
         WHERE n."isRead" = false
-        ${typeCondition ? Prisma.raw(typeCondition) : Prisma.empty}
+        ${typeCondition}
         AND (
             n."userId" = ${userId}
             OR (
                 n."departmentId" = (SELECT "departmentId" FROM "User" WHERE "id" = ${userId})
-                ${siteCondition ? Prisma.raw(siteCondition) : Prisma.empty}
+                ${siteCondition}
             )
         )
     `;

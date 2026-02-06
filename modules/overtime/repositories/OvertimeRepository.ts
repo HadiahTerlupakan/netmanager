@@ -232,34 +232,33 @@ export class OvertimeRepository implements IOvertimeRepository {
     }
 
     async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const startStr = startDate.toISOString()
-        const endStr = endDate.toISOString()
-
-        let userJoin = ''
-        let userCondition = ''
-
-        if (siteId || departmentId) {
-            userJoin = 'JOIN "User" u ON o."userId" = u.id'
-            const conditions = []
-            if (siteId) conditions.push(`u."siteId" = '${siteId}'`)
-            if (departmentId) conditions.push(`u."departmentId" = '${departmentId}'`)
-            if (conditions.length > 0) {
-                userCondition = 'AND ' + conditions.join(' AND ')
-            }
-        }
-
-        const stats = await prisma.$queryRawUnsafe<{ date: string, requests: number, duration: number }[]>(`
+        let query = Prisma.sql`
             SELECT
                 TO_CHAR(o."createdAt", 'YYYY-MM-DD') as date,
                 COUNT(*)::int as requests,
                 SUM(o.duration)::int as duration
             FROM "Overtime" o
-            ${userJoin}
-            WHERE o."createdAt" >= '${startStr}'::timestamp
-            AND o."createdAt" <= '${endStr}'::timestamp
-            ${userCondition}
-            GROUP BY TO_CHAR(o."createdAt", 'YYYY-MM-DD')
-        `)
+        `
+
+        if (siteId || departmentId) {
+            query = Prisma.sql`${query} JOIN "User" u ON o."userId" = u.id`
+        }
+
+        query = Prisma.sql`${query} 
+            WHERE o."createdAt" >= ${startDate}
+            AND o."createdAt" <= ${endDate}
+        `
+
+        if (siteId) {
+            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
+        }
+        if (departmentId) {
+            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
+        }
+        
+        query = Prisma.sql`${query} GROUP BY TO_CHAR(o."createdAt", 'YYYY-MM-DD')`
+
+        const stats = await prisma.$queryRaw<{ date: string, requests: number, duration: number }[]>(query)
 
         return stats.map(s => ({
             date: s.date,
@@ -269,24 +268,21 @@ export class OvertimeRepository implements IOvertimeRepository {
     }
 
     async getGroupedStats(startDate: Date, endDate: Date, groupBy: 'department' | 'site') {
-        const startStr = startDate.toISOString()
-        const endStr = endDate.toISOString()
-
-        let groupByColumn = ''
-        let groupByNameColumn = ''
-        let joinTable = ''
+        let groupByColumn = Prisma.sql``
+        let groupByNameColumn = Prisma.sql``
+        let joinTable = Prisma.sql``
 
         if (groupBy === 'site') {
-            groupByColumn = 'u."siteId"'
-            joinTable = 'JOIN "sites" s ON u."siteId" = s.id'
-            groupByNameColumn = 's.name'
+            groupByColumn = Prisma.sql`u."siteId"`
+            joinTable = Prisma.sql`JOIN "sites" s ON u."siteId" = s.id`
+            groupByNameColumn = Prisma.sql`s.name`
         } else {
-            groupByColumn = 'u."departmentId"'
-            joinTable = 'JOIN "departments" d ON u."departmentId" = d.id'
-            groupByNameColumn = 'd.name'
+            groupByColumn = Prisma.sql`u."departmentId"`
+            joinTable = Prisma.sql`JOIN "departments" d ON u."departmentId" = d.id`
+            groupByNameColumn = Prisma.sql`d.name`
         }
 
-        const stats = await prisma.$queryRawUnsafe<{ name: string, requests: number, duration: number }[]>(`
+        const query = Prisma.sql`
             SELECT
                 ${groupByNameColumn} as name,
                 COUNT(*)::int as requests,
@@ -294,10 +290,12 @@ export class OvertimeRepository implements IOvertimeRepository {
             FROM "Overtime" o
             JOIN "User" u ON o."userId" = u.id
             ${joinTable}
-            WHERE o."createdAt" >= '${startStr}'::timestamp
-            AND o."createdAt" <= '${endStr}'::timestamp
+            WHERE o."createdAt" >= ${startDate}
+            AND o."createdAt" <= ${endDate}
             GROUP BY ${groupByColumn}, ${groupByNameColumn}
-        `)
+        `
+
+        const stats = await prisma.$queryRaw<{ name: string, requests: number, duration: number }[]>(query)
 
         return stats.map(s => ({
             name: s.name,
