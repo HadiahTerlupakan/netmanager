@@ -5,7 +5,7 @@ import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { logger } from '@/lib/logger'
-import { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
+import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
 // Standard ServiceResult pattern

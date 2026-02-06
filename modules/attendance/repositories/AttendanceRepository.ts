@@ -125,7 +125,7 @@ export class AttendanceRepository {
         const holidays = await holidayRepo.findMany({
             where: { date: { gte: startDate, lte: endDate } }
         })
-        const holidaySet = new Set(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))
+        const holidaySet = new Set<string>(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))
 
         // Fetch Leaves (Low/Med Vol)
         const leaveWhere: Prisma.LeaveRequestWhereInput = {

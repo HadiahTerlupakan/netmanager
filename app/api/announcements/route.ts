@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-helpers';
-import { TargetAudience } from '@prisma/client';
+import type { TargetAudience } from '@prisma/client';
 import { getSocketServer } from '@/lib/websocket/server';
 import { SOCKET_EVENTS } from '@/lib/websocket/types';
 

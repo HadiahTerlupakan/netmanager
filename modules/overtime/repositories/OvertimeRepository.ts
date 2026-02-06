@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { type IOvertimeRepository } from './IOvertimeRepository'
-import { type Overtime, type OvertimeStatus, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import type { Overtime, OvertimeStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
 export class OvertimeRepository implements IOvertimeRepository {
