@@ -363,7 +363,7 @@ describe('WorkOrderRepository', () => {
         { status: 'CLOSED', _count: 40 }
       ] as unknown as Array<{ status: string; _count: number }>)
 
-      prismaMock.$queryRawUnsafe.mockResolvedValueOnce([
+      prismaMock.$queryRaw.mockResolvedValueOnce([
         { avgHours: 2.0, totalCost: 100 }
       ])
 
