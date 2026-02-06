@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
-import { getWorkOrderService } from '@/modules/work-order';
+import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { z } from 'zod';
 
 import { prisma } from '@/lib/prisma';
@@ -71,7 +71,7 @@ export async function POST(
 
         const service = getWorkOrderService();
         // Updated service call with UserContext
-        const result = await service.addMaterial(id, barangId, quantity, user as any, notes, targetGudangId);
+        const result = await service.addMaterial(id, barangId, quantity, user as unknown as UserContext, notes, targetGudangId);
 
         if (!result.success) {
             return apiError(

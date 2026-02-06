@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getWorkOrderService } from '@/modules/work-order';
+import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
@@ -26,7 +26,7 @@ export async function POST(
         const workOrderService = getWorkOrderService();
 
         // Get WO for access control check
-        const getResult = await workOrderService.getWorkOrderById(id, user as any);
+        const getResult = await workOrderService.getWorkOrderById(id, user as unknown as UserContext);
         if (!getResult.success) {
             return ApiErrors.notFound('Work Order');
         }
@@ -52,7 +52,7 @@ export async function POST(
         }
 
         // Use service for assignment (handles core logic, logging, cache, basic notification)
-        const result = await workOrderService.assignWorkOrder(id, body.employeeId, user as any, body.role);
+        const result = await workOrderService.assignWorkOrder(id, body.employeeId, user as unknown as UserContext, body.role);
 
         if (!result.success) {
             return apiError(result.error || 'Gagal assign work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });

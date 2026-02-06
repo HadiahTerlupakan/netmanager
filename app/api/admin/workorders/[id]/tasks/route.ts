@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getWorkOrderService } from '@/modules/work-order';
+import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
@@ -22,7 +22,7 @@ export async function GET(
 
         const { id } = await params;
         const workOrderService = getWorkOrderService();
-        const result = await workOrderService.getWorkOrderById(id, user as any);
+        const result = await workOrderService.getWorkOrderById(id, user as unknown as UserContext);
 
         if (!result.success) {
             return ApiErrors.notFound('Work Order');
@@ -62,7 +62,7 @@ export async function POST(
             title: body.title,
             description: body.description,
             order: body.order,
-        }, user as any);
+        }, user as unknown as UserContext);
 
         if (!result.success) {
             return apiError(result.error || 'Gagal menambah task', ErrorCodes.INTERNAL_ERROR, { status: 500 });
@@ -72,7 +72,7 @@ export async function POST(
 
         // Real-time update
         const { socketEmitter } = await import('@/lib/websocket/emitter');
-        const woResult = await workOrderService.getWorkOrderById(id, user as any);
+        const woResult = await workOrderService.getWorkOrderById(id, user as unknown as UserContext);
         if (woResult.success && woResult.data) {
             socketEmitter.updateWorkOrder(woResult.data as unknown as Parameters<typeof socketEmitter.updateWorkOrder>[0]);
 

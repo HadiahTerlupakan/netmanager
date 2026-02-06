@@ -15,7 +15,6 @@ import {
   applyRBACRestrictions,
   type RBACFilterContext
 } from '@/lib/middleware'
-import { apiSuccess } from '@/lib/api-response'
 import { lemburFilterSchema } from '@/lib/validations/lembur'
 import { OvertimeStatus } from '@prisma/client'
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getWorkOrderService } from '@/modules/work-order';
+import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
 import { createNotification } from '@/modules/notification';
@@ -42,7 +42,7 @@ export async function POST(
         const workOrderService = getWorkOrderService();
 
         // Get WO for notification before action
-        const getResult = await workOrderService.getWorkOrderById(id, user.user as any);
+        const getResult = await workOrderService.getWorkOrderById(id, user.user as unknown as UserContext);
         if (!getResult.success) {
             return ApiErrors.notFound('Work Order');
         }
@@ -54,11 +54,11 @@ export async function POST(
         let notificationMessage: string;
 
         if (body.action === 'APPROVE') {
-            result = await workOrderService.approveRequest(id, user.user as any);
+            result = await workOrderService.approveRequest(id, user.user as unknown as UserContext);
             notificationTitle = '✅ WO Request Disetujui';
             notificationMessage = `Request Anda "${existingWO.title}" telah disetujui and siap dikerjakan.`;
         } else {
-            result = await workOrderService.rejectRequest(id, user.user as any, body.reason);
+            result = await workOrderService.rejectRequest(id, user.user as unknown as UserContext, body.reason);
             notificationTitle = '❌ WO Request Ditolak';
             notificationMessage = `Request Anda "${existingWO.title}" ditolak: ${body.reason}`;
         }
