@@ -6,8 +6,10 @@ import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineExclamationTriangle, 
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
+import { usePermission } from '@/hooks/use-permission'
 
 export function AdminNotificationBell() {
+    const { hasPermission } = usePermission()
     const {
         notifications,
         unreadCount,
@@ -30,6 +32,13 @@ export function AdminNotificationBell() {
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
+
+    // Hide if user doesn't have read access to basic notifications
+    // Assuming 'dashboard:read' or basic login is enough, but some might be restricted.
+    // If we want to hide it completely for some users, we can check a permission.
+    // For now, let's keep it visible as system notifications are usually global.
+    // But if we wanted to restrict:
+    // if (!hasPermission('notifications:read')) return null;
 
     const getTypeIcon = (type: string) => {
         switch (type) {

@@ -17,13 +17,21 @@ export async function GET(request: NextRequest) {
             return ApiErrors.unauthorized('Session tidak valid')
         }
 
-        if (!await hasPermission('department:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat departemen')
-        }
-
         const { searchParams } = new URL(request.url)
         const search = searchParams.get('search') || undefined
         const reminderOnly = searchParams.get('reminderOnly') === 'true'
+        // Allow simplified list for dropdowns (reminderOnly usually means active list)
+        // or if just for selection purposes.
+        // Let's assume if it's for selection, we might use a query param like 'activeOnly' or just rely on reminderOnly?
+        // The previous code used 'reminderOnly'.
+        // Let's also support 'forSelect' or just check if user is authenticated.
+
+        // Revised Permission Check:
+        // If query param 'reminderOnly' is true, allow any authenticated user (for dropdowns)
+        // Otherwise require department:read
+        if (!reminderOnly && !(await hasPermission('department:read'))) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat departemen (Butuh: department:read)')
+        }
 
         const result = await service.getDepartments({ 
             ...(search ? { search } : {}),

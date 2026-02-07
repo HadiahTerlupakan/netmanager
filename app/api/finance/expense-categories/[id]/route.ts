@@ -15,8 +15,16 @@ export async function DELETE(
 
         // Check permissions
         const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin';
-        if (!isSuperAdmin && !(await hasPermission("expense:delete"))) {
-             return NextResponse.json({ error: "Forbidden: You don't have permission to delete categories" }, { status: 403 });
+        const hasAccess = isSuperAdmin ||
+                         (await hasPermission("expense:delete")) ||
+                         (await hasPermission("mixradius_expenses:delete"));
+
+        if (!hasAccess) {
+             return NextResponse.json({
+                 success: false,
+                 error: "Akses ditolak. Anda memerlukan permission: expense:delete ATAU mixradius_expenses:delete",
+                 code: "FORBIDDEN"
+             }, { status: 403 });
         }
 
         const { id } = await params;

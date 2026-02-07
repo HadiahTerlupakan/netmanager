@@ -5,6 +5,7 @@ import { Toaster, toast } from 'react-hot-toast'
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiMagnifyingGlass, HiOutlineBuildingOffice } from 'react-icons/hi2'
 import { Modal } from '@/components/ui/Modal'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 interface OwnerGroup {
   id: string
@@ -23,6 +24,21 @@ interface Site {
 }
 
 export default function MixRadiusGroupsClient() {
+  const { hasPermission } = usePermission()
+
+  // Permission checks
+  // Remove fallback to generic 'mixradius:create' to ensure strict granular control
+  const canCreate = hasPermission('mixradius_sites:create')
+  const canUpdate = hasPermission('mixradius_sites:update')
+  const canDelete = hasPermission('mixradius_sites:delete')
+
+  console.log('MixRadiusGroups Permissions:', {
+    canCreate,
+    hasSiteCreate: hasPermission('mixradius_sites:create'),
+    hasGenericCreate: hasPermission('mixradius:create'),
+    allPermissions: hasPermission('mixradius:create') // Just checking generic
+  })
+
   const [groups, setGroups] = useState<OwnerGroup[]>([])
   const [owners, setOwners] = useState<string[]>([])
   const [sites, setSites] = useState<Site[]>([])
@@ -232,14 +248,16 @@ export default function MixRadiusGroupsClient() {
             Kelompokkan Owner MixRadius ke dalam Site/Grup untuk mempermudah filter di aplikasi mobile.
           </p>
         </div>
-        
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <HiOutlinePlus className="text-xl" />
-          Tambah Site
-        </button>
+
+        {canCreate && (
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <HiOutlinePlus className="text-xl" />
+            Tambah Site
+          </button>
+        )}
       </div>
 
       <div className="bg-white dark:bg-[#1c2936] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

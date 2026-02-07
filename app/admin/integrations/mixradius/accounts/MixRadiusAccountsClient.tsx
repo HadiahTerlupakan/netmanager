@@ -6,6 +6,7 @@ import { Toaster, toast } from 'react-hot-toast'
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiMagnifyingGlass, HiOutlineServer, HiOutlineCheckCircle } from 'react-icons/hi2'
 import { Modal } from '@/components/ui/Modal'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 interface MixRadiusConfig {
   id: string
@@ -18,6 +19,16 @@ interface MixRadiusConfig {
 }
 
 export default function MixRadiusAccountsClient() {
+  const { hasPermission } = usePermission()
+
+  // Permission checks
+  const canCreate = hasPermission('mixradius_accounts:create')
+  const canUpdate = hasPermission('mixradius_accounts:update')
+  const canDelete = hasPermission('mixradius_accounts:delete')
+
+  // Debugging (Remove later)
+  // console.log('Permissions:', { canCreate, canUpdate, canDelete, all: hasPermission('mixradius_accounts:create') })
+
   const [configs, setConfigs] = useState<MixRadiusConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -173,18 +184,18 @@ export default function MixRadiusAccountsClient() {
     {
       header: 'Status',
       key: 'isActive',
-      render: (item) => item.isActive 
+      render: (item) => item.isActive
         ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
             <HiOutlineCheckCircle className="mr-1" /> Aktif
           </span>
         : <span className="text-gray-500 text-sm">Tidak Aktif</span>
     },
-    {
+    ...((canUpdate || canDelete) ? [{
       header: 'Aksi',
       key: 'id',
-      render: (item) => (
+      render: (item: MixRadiusConfig) => (
         <div className="flex gap-2 items-center">
-          {!item.isActive && (
+          {!item.isActive && canUpdate && (
               <button
                 onClick={() => handleActivate(item.id, item.name)}
                 className="px-2 py-1 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 transition"
@@ -193,23 +204,27 @@ export default function MixRadiusAccountsClient() {
                   Aktifkan
               </button>
           )}
-          <button
-            onClick={() => openEdit(item)}
-            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-900/30"
-            title="Edit"
-          >
-            <HiOutlinePencil className="text-lg" />
-          </button>
-          <button
-            onClick={() => handleDelete(item.id, item.name)}
-            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-900/30"
-            title="Hapus"
-          >
-            <HiOutlineTrash className="text-lg" />
-          </button>
+          {canUpdate && (
+              <button
+                onClick={() => openEdit(item)}
+                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-900/30"
+                title="Edit"
+              >
+                <HiOutlinePencil className="text-lg" />
+              </button>
+          )}
+          {canDelete && (
+              <button
+                onClick={() => handleDelete(item.id, item.name)}
+                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-900/30"
+                title="Hapus"
+              >
+                <HiOutlineTrash className="text-lg" />
+              </button>
+          )}
         </div>
       )
-    }
+    }] : [])
   ]
 
   const filteredConfigs = configs.filter(c => 
@@ -232,14 +247,16 @@ export default function MixRadiusAccountsClient() {
             Kelola multiple akun/server MixRadius. Pilih satu akun sebagai yang <strong>Aktif</strong>.
           </p>
         </div>
-        
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <HiOutlinePlus className="text-xl" />
-          Tambah Akun
-        </button>
+
+        {canCreate && (
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <HiOutlinePlus className="text-xl" />
+            Tambah Akun
+          </button>
+        )}
       </div>
 
       <div className="bg-white dark:bg-[#1c2936] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

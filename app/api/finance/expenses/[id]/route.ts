@@ -33,8 +33,12 @@ export async function PUT(
         const userRole = (session.user as { role?: string }).role;
         const isSuperAdmin = userRole === 'SUPER_ADMIN' || userRole === 'Super Admin';
 
-        if (!isSuperAdmin && !(await hasPermission("expense:update"))) {
-            return ApiErrors.forbidden('Anda tidak memiliki izin untuk mengedit pengeluaran');
+        const hasAccess = isSuperAdmin ||
+                         (await hasPermission("expense:update")) ||
+                         (await hasPermission("mixradius_expenses:update"));
+
+        if (!hasAccess) {
+            return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update');
         }
 
         const { id } = await params;
@@ -138,8 +142,12 @@ export async function DELETE(
         const userRole = (session.user as { role?: string }).role;
         const isSuperAdmin = userRole === 'SUPER_ADMIN' || userRole === 'Super Admin';
 
-        if (!isSuperAdmin && !(await hasPermission("expense:delete"))) {
-            return ApiErrors.forbidden('Anda tidak memiliki izin untuk menghapus pengeluaran');
+        const hasAccess = isSuperAdmin ||
+                         (await hasPermission("expense:delete")) ||
+                         (await hasPermission("mixradius_expenses:delete"));
+
+        if (!hasAccess) {
+            return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: expense:delete ATAU mixradius_expenses:delete');
         }
 
         const { id } = await params;

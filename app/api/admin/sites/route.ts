@@ -17,17 +17,20 @@ export async function GET(request: NextRequest) {
             return ApiErrors.unauthorized('Session tidak valid')
         }
 
-        if (!(await hasPermission('site:read'))) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat site')
-        }
-
         const { searchParams } = new URL(request.url)
         const search = searchParams.get('search') || undefined
         const activeOnly = searchParams.get('activeOnly') === 'true'
 
-        const sites = await siteService.getSites({ 
-            ...(search ? { search } : {}), 
-            activeOnly 
+        // Permission check
+        // If requesting activeOnly (usually for dropdowns), allow any authenticated user
+        // Otherwise (full management list), require site:read
+        if (!activeOnly && !(await hasPermission('site:read'))) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat site (Butuh: site:read)')
+        }
+
+        const sites = await siteService.getSites({
+            ...(search ? { search } : {}),
+            activeOnly
         })
 
         return apiSuccess(sites)

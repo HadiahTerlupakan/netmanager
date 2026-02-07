@@ -6,15 +6,20 @@ import { HiOutlineChatBubbleOvalLeft } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeSupportTickets, type TicketPreview } from '@/lib/websocket/hooks/useRealtimeSupportTickets'
+import { usePermission } from '@/hooks/use-permission'
 
 export function CustomerSupportBell() {
+    const { hasPermission } = usePermission()
     const {
         tickets,
         unreadCount,
         loading,
         isConnected,
         refresh,
-    } = useRealtimeSupportTickets({ limit: 5 })
+    } = useRealtimeSupportTickets({
+        limit: 5,
+        enabled: hasPermission('support:read') // Only fetch if user has permission
+    })
 
     const [isOpen, setIsOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -43,6 +48,11 @@ export function CustomerSupportBell() {
         window.addEventListener('refreshSupportTickets', handleRefresh)
         return () => window.removeEventListener('refreshSupportTickets', handleRefresh)
     }, [refresh])
+
+    // Hide component if no permission
+    if (!hasPermission('support:read')) {
+        return null
+    }
 
     const getStatusColor = (status: string) => {
         switch (status) {

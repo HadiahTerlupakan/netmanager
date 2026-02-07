@@ -6,8 +6,10 @@ import { HiCheck, HiOutlineWrench, HiOutlineClipboardDocumentList } from 'react-
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeWorkOrders } from '@/lib/websocket/hooks/useRealtimeWorkOrders'
+import { usePermission } from '@/hooks/use-permission'
 
 export function WorkOrderBell() {
+    const { hasPermission } = usePermission()
     const {
         notifications,
         unreadCount,
@@ -16,7 +18,10 @@ export function WorkOrderBell() {
         markAsRead,
         markAllAsRead,
         refresh
-    } = useRealtimeWorkOrders({ limit: 5 })
+    } = useRealtimeWorkOrders({
+        limit: 5,
+        enabled: hasPermission('workorders:read')
+    })
 
     const [isOpen, setIsOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -31,13 +36,18 @@ export function WorkOrderBell() {
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
-    
+
     // Refresh when dropdown is opened to ensure data is fresh
     useEffect(() => {
         if (isOpen) {
             refresh()
         }
     }, [isOpen, refresh])
+
+    // Hide if no work order permission
+    if (!hasPermission('workorders:read')) {
+        return null
+    }
 
     const getPriorityColor = (priority: string) => {
         switch (priority) {

@@ -15,8 +15,17 @@ export async function GET(req: NextRequest) {
         // Allow SUPER_ADMIN to bypass permission check
         const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin';
 
-        if (!isSuperAdmin && !(await hasPermission("expense:read"))) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        // Check for either generic expense permission OR mixradius expense permission
+        const hasAccess = isSuperAdmin ||
+                         (await hasPermission("expense:read")) ||
+                         (await hasPermission("mixradius_expenses:read"));
+
+        if (!hasAccess) {
+            return NextResponse.json({
+                success: false,
+                error: "Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read",
+                code: "FORBIDDEN"
+            }, { status: 403 });
         }
 
         const { searchParams } = new URL(req.url);
@@ -154,8 +163,17 @@ export async function POST(req: Request) {
         const userRole = (session.user as { role?: string }).role;
         const isSuperAdmin = userRole === 'SUPER_ADMIN' || userRole === 'Super Admin';
 
-        if (!isSuperAdmin && !(await hasPermission("expense:create"))) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        // Check for either generic expense permission OR mixradius expense permission
+        const hasAccess = isSuperAdmin ||
+                         (await hasPermission("expense:create")) ||
+                         (await hasPermission("mixradius_expenses:create"));
+
+        if (!hasAccess) {
+            return NextResponse.json({
+                success: false,
+                error: "Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create",
+                code: "FORBIDDEN"
+            }, { status: 403 });
         }
 
         const body = await req.json();

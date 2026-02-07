@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
     if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read')) {
-      return ApiErrors.forbidden()
+    if (!permissions.includes('mixradius_sites:read') && !permissions.includes('mixradius:read')) {
+      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_sites:read')
     }
 
     const service = getMixRadiusService()
@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
     const permissions = await getUserPermissions(session.id)
     const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
 
-    if (!isSuperAdmin && !permissions.includes('mixradius:create')) {
-      return ApiErrors.forbidden()
+    if (!isSuperAdmin && !permissions.includes('mixradius_sites:create') && !permissions.includes('mixradius:create')) {
+      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_sites:create')
     }
 
     const body = await req.json()

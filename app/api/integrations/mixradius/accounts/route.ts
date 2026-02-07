@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     }
 
     const permissions = await getUserPermissions(auth.id)
-    if (!permissions.includes('mixradius:read')) {
-      return ApiErrors.forbidden()
+    if (!permissions.includes('mixradius_accounts:read') && !permissions.includes('mixradius:read')) {
+      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:read')
     }
 
     const configs = await mixRadiusConfigRepo.getAllConfigs()
@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
 
     const permissions = await getUserPermissions(auth.id)
     // Reusing create permission or generic mixradius permission
-    if (!permissions.includes('mixradius:create')) {
-      return ApiErrors.forbidden()
+    if (!permissions.includes('mixradius_accounts:create') && !permissions.includes('mixradius:create')) {
+      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:create')
     }
 
     const body = await req.json()

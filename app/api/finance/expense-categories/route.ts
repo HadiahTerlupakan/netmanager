@@ -45,8 +45,16 @@ export async function POST(req: NextRequest) {
 
         // Basic permission check - creating config requires 'expense:create' permission or super admin
         const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin';
-        if (!isSuperAdmin && !(await hasPermission("expense:create"))) {
-             return NextResponse.json({ error: "Forbidden: You don't have permission to create categories" }, { status: 403 });
+        const hasAccess = isSuperAdmin ||
+                         (await hasPermission("expense:create")) ||
+                         (await hasPermission("mixradius_expenses:create"));
+
+        if (!hasAccess) {
+             return NextResponse.json({
+                 success: false,
+                 error: "Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create",
+                 code: "FORBIDDEN"
+             }, { status: 403 });
         }
 
         const body = await req.json();

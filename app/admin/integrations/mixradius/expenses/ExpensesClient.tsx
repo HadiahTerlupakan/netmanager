@@ -16,6 +16,7 @@ import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Expense {
   id: string
@@ -59,6 +60,13 @@ interface CategoryOption {
 }
 
 export default function ExpensesClient() {
+  const { hasPermission } = usePermission()
+
+  // Permission checks (support both specific mixradius permission AND generic expense permission)
+  const canCreate = hasPermission('mixradius_expenses:create') || hasPermission('expense:create')
+  const canUpdate = hasPermission('mixradius_expenses:update') || hasPermission('expense:update')
+  const canDelete = hasPermission('mixradius_expenses:delete') || hasPermission('expense:delete')
+
   const [data, setData] = useState<Expense[]>([])
   const [loading, setLoading] = useState(false)
   const [_error, setError] = useState<string | null>(null)
@@ -474,14 +482,16 @@ export default function ExpensesClient() {
                 <HiOutlineDocumentArrowDown className="w-5 h-5" />
                 <span className="hidden sm:inline">Export CSV</span>
             </button>
-            <button
-                onClick={() => handleOpenModal()}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-            >
-                <HiOutlinePlus className="w-5 h-5" />
-                <span className="hidden sm:inline">Tambah Pengeluaran</span>
-                <span className="sm:hidden">Tambah</span>
-            </button>
+            {canCreate && (
+                <button
+                    onClick={() => handleOpenModal()}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                    <HiOutlinePlus className="w-5 h-5" />
+                    <span className="hidden sm:inline">Tambah Pengeluaran</span>
+                    <span className="sm:hidden">Tambah</span>
+                </button>
+            )}
         </div>
       </div>
 
@@ -680,28 +690,32 @@ export default function ExpensesClient() {
                     priority: 'secondary',
                     render: (item) => item.user?.name || '-'
                 },
-                {
+                ...((canUpdate || canDelete) ? [{
                     key: 'actions',
                     header: '',
-                    render: (item) => (
+                    render: (item: Expense) => (
                         <div className="flex justify-end gap-2">
-                            <button
-                                onClick={() => handleOpenModal(item)}
-                                className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                                title="Edit"
-                            >
-                                <HiOutlinePencilSquare className="w-5 h-5" />
-                            </button>
-                            <button
-                                onClick={() => handleDelete(item.id)}
-                                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                title="Hapus"
-                            >
-                                <HiOutlineTrash className="w-5 h-5" />
-                            </button>
+                            {canUpdate && (
+                                <button
+                                    onClick={() => handleOpenModal(item)}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                    title="Edit"
+                                >
+                                    <HiOutlinePencilSquare className="w-5 h-5" />
+                                </button>
+                            )}
+                            {canDelete && (
+                                <button
+                                    onClick={() => handleDelete(item.id)}
+                                    className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                    title="Hapus"
+                                >
+                                    <HiOutlineTrash className="w-5 h-5" />
+                                </button>
+                            )}
                         </div>
                     )
-                }
+                }] : [])
             ]}
           />
       </div>
@@ -798,7 +812,7 @@ export default function ExpensesClient() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Kategori {formData.category}
                       </label>
-                      {!isAddingCategory && !isManagingCategories && categories.length > 0 && (
+                      {!isAddingCategory && !isManagingCategories && categories.length > 0 && canCreate && (
                           <button
                               type="button"
                               onClick={() => setIsManagingCategories(true)}
@@ -817,14 +831,16 @@ export default function ExpensesClient() {
                               {categories.map(cat => (
                                   <div key={cat.id} className="flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 rounded-full text-sm shadow-sm group">
                                       <span className="text-gray-700 dark:text-gray-300">{cat.name}</span>
-                                      <button
-                                          type="button"
-                                          onClick={() => handleDeleteCategory(cat.id)}
-                                          className="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
-                                          title="Hapus Kategori"
-                                      >
-                                          <HiOutlineTrash className="w-3.5 h-3.5" />
-                                      </button>
+                                      {canDelete && (
+                                          <button
+                                              type="button"
+                                              onClick={() => handleDeleteCategory(cat.id)}
+                                              className="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
+                                              title="Hapus Kategori"
+                                          >
+                                              <HiOutlineTrash className="w-3.5 h-3.5" />
+                                          </button>
+                                      )}
                                   </div>
                               ))}
                               {categories.length === 0 && <span className="text-sm text-gray-400 italic">Tidak ada kategori</span>}
@@ -850,16 +866,18 @@ export default function ExpensesClient() {
                                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                               ))}
                           </select>
-                          <button
-                              type="button"
-                              onClick={() => {
-                                  setIsAddingCategory(true)
-                                  setNewCategoryName('')
-                              }}
-                              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap text-sm font-medium border border-gray-300 dark:border-gray-600"
-                          >
-                              + Baru
-                          </button>
+                          {canCreate && (
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      setIsAddingCategory(true)
+                                      setNewCategoryName('')
+                                  }}
+                                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap text-sm font-medium border border-gray-300 dark:border-gray-600"
+                              >
+                                  + Baru
+                              </button>
+                          )}
                       </div>
                   ) : (
                       <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-200">

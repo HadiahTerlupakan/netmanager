@@ -1162,6 +1162,24 @@ export class MixRadiusService {
 
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      // Graceful handling for missing configuration
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (fetchIncomeByPeriod): ${message}`)
+        return {
+            draw: 1,
+            recordsTotal: 0,
+            recordsFiltered: 0,
+            data: [],
+            summary: {
+                profit: '0',
+                feeSeller: '0',
+                totalPlusPpn: '0',
+                totalTransactions: '0'
+            }
+        }
+      }
+
       console.error('[MixRadius] Fetch income period error:', message)
       if (message.includes('session') || (error as { response?: { status: number } }).response?.status === 401) {
         this.isLoggedIn = false
@@ -1269,6 +1287,12 @@ export class MixRadiusService {
       }
 
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+          console.warn(`[MixRadius] Integration not available (fetchIncomeSummary): ${message}`)
+          return { profit: '0', feeSeller: '0', totalPlusPpn: '0', totalTransactions: '0' }
+      }
+
       console.error('[MixRadius] Failed to fetch income summary:', error)
       return { profit: '0', feeSeller: '0', totalPlusPpn: '0', totalTransactions: '0' }
     }
@@ -1321,6 +1345,12 @@ export class MixRadiusService {
       return owners.sort((a, b) => a.name.localeCompare(b.name))
 
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (getOwnersWithIds): ${message}`)
+        return []
+      }
+
       console.error('[MixRadius] Failed to fetch owners from HTML:', error)
       return []
     }
@@ -1386,6 +1416,11 @@ export class MixRadiusService {
 
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (deleteIncomeRecord): ${message}`)
+        return false
+      }
+
       console.error(`[MixRadius] Delete record ${id} error:`, message)
       throw new Error(`Failed to delete record: ${message}`)
     }
@@ -1425,6 +1460,12 @@ export class MixRadiusService {
 
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (getPrintInvoiceHtml): ${message}`)
+        return '<div style="padding:20px;text-align:center;"><h3>MixRadius Integration Not Configured</h3><p>Please configure MixRadius credentials in Settings.</p></div>'
+      }
+
       console.error(`[MixRadius] Get print HTML error:`, message)
       throw new Error(`Failed to get print view: ${message}`)
     }
@@ -1529,6 +1570,12 @@ export class MixRadiusService {
       return activeMap
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (fetchActiveSessionsPPP): ${message}`)
+        return new Map()
+      }
+
       console.error('[MixRadius] Failed to fetch active sessions:', message)
       // Return empty map instead of failing entire request
       return new Map()
@@ -1546,8 +1593,17 @@ export class MixRadiusService {
     bypassCache: boolean = false,
     validationData: Record<string, string> = {}
   ): Promise<Map<string, { paidCount: number, totalCount: number }>> {
-    if (!this.isLoggedIn) await this.login()
-    
+    try {
+      if (!this.isLoggedIn) await this.login()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (fetchInvoiceCounts): ${message}`)
+        return new Map()
+      }
+      throw error
+    }
+
     const results = new Map<string, { paidCount: number, totalCount: number }>()
     
     // Process one by one to be extremely polite to MixRadius (Limit: 1 concurrent)
@@ -1884,6 +1940,39 @@ export class MixRadiusService {
       return customerDetail
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (fetchCustomerDetail): ${message}`)
+        // Return dummy object to avoid crashing callers
+        return {
+            id: customerId,
+            member_id: '',
+            username: '',
+            password: '',
+            fullname: 'Integration Not Configured',
+            email: '',
+            phonenumber: '',
+            address: '',
+            remote_address: '',
+            plan_name: '',
+            payment_type: '',
+            subscription_type: '',
+            trx_status: '',
+            identity_number: '',
+            created_at: '',
+            renewed_on: '',
+            expired_on: '',
+            auth_status: '',
+            note: '',
+            bind_mac: '',
+            mac_address: '',
+            total: '',
+            latitude: '',
+            longitude: '',
+            invoices: []
+        } as MixRadiusCustomerDetail
+      }
+
       console.error('[MixRadius] Fetch customer detail error:', message)
       throw new Error(`Failed to fetch customer detail: ${message}`)
     }
@@ -2097,6 +2186,12 @@ export class MixRadiusService {
       return odps
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (fetchODPList): ${message}`)
+        return []
+      }
+
       console.error('[MixRadius] Fetch ODP list error:', message)
       throw new Error(`Failed to fetch ODP list: ${message}`)
     }
@@ -2208,6 +2303,12 @@ export class MixRadiusService {
       return customers
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (fetchODPCustomers): ${message}`)
+        return []
+      }
+
       console.error(`[MixRadius] Fetch ODP customers error for ${odpId}:`, message)
       return [] // Return empty instead of throwing to continue with other ODPs
     }
@@ -2295,6 +2396,12 @@ export class MixRadiusService {
       return result
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        console.warn(`[MixRadius] Integration not available (fetchTopologyData): ${message}`)
+        return { odps: [], customers: [] }
+      }
+
       console.error('[MixRadius] Fetch topology data error:', message)
       throw new Error(`Failed to fetch topology data: ${message}`)
     }

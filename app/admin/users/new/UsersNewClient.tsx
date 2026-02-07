@@ -185,8 +185,8 @@ export function ClientComponent() {
 
     if (!formData.password) {
       newErrors.password = 'Password wajib diisi'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password minimal 6 karakter'
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password minimal 8 karakter'
     }
 
     if (!formData.roleId) {
@@ -207,11 +207,18 @@ export function ClientComponent() {
     setLoading(true)
 
     try {
+      // Clean up data before sending
       const submitData = {
         ...formData,
         ...workingHoursData,
+        // Convert empty strings to undefined/null for optional fields
+        departmentId: formData.departmentId || null,
+        phone: formData.phone || null,
+        // Ensure shiftId is handled correctly (already handled in WorkingHoursSettings but good to be safe)
+        shiftId: workingHoursData.shiftId || null,
         userSites: selectedSites,
       }
+
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,7 +233,20 @@ export function ClientComponent() {
           router.push('/admin/users')
         }, 2000)
       } else {
-        setErrors({ submit: data.error || 'Gagal membuat pengguna' })
+        // Handle validation errors from server
+        if (data.code === 'VALIDATION_ERROR' && data.details) {
+          const serverErrors: Record<string, string> = {}
+          // Map server validation details to form errors
+          Object.entries(data.details).forEach(([key, msg]) => {
+            serverErrors[key] = msg as string
+          })
+          setErrors({
+            ...serverErrors,
+            submit: 'Terdapat kesalahan validasi. Periksa kembali inputan Anda.'
+          })
+        } else {
+          setErrors({ submit: data.error || 'Gagal membuat pengguna' })
+        }
       }
     } catch (error) {
       console.error('Error:', error)
@@ -398,7 +418,7 @@ export function ClientComponent() {
                       onChange={handleChange}
                       className={`block w-full pl-10 pr-10 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.password ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
                         }`}
-                      placeholder="Minimal 6 karakter"
+                      placeholder="Minimal 8 karakter"
                     />
                     <button
                       type="button"

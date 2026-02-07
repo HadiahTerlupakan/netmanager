@@ -240,9 +240,29 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
 
     mixradius: {
         actions: ['read', 'create', 'update', 'delete'],
-        description: 'Integrasi MixRadius (termasuk manajemen site/group)'
+        description: 'Integrasi MixRadius (Dashboard & Menu Utama)'
     },
-    
+    mixradius_isolir: {
+        actions: ['read', 'update', 'site_only'], // update = open isolir
+        description: 'Akses menu MixRadius Isolir (Buka Isolir)'
+    },
+    mixradius_sites: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Manajemen Group/Site MixRadius'
+    },
+    mixradius_accounts: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Manajemen Akun/Koneksi MixRadius'
+    },
+    mixradius_income: {
+        actions: ['read', 'delete', 'site_only'], // delete = hapus riwayat pendapatan
+        description: 'Laporan Pendapatan MixRadius'
+    },
+    mixradius_expenses: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Pengeluaran Biaya Operasional Site'
+    },
+
     // ====== CHAT MODULE ======
     chat: {
         actions: ['read', 'create'],

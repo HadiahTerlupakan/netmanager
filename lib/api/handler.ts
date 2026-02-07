@@ -139,9 +139,10 @@ export function createHandler<T = unknown>(
                 const hasPermission = options.permissions.some(
                     perm => ctx.permissions.includes(perm) || ctx.permissions.includes('*')
                 )
-                
+
                 if (!hasPermission) {
-                    return ApiErrors.forbidden('Anda tidak memiliki akses ke fitur ini')
+                    const missingPerms = options.permissions.join(', ')
+                    return ApiErrors.forbidden(`Akses ditolak. Anda memerlukan permission: ${missingPerms}`)
                 }
             }
 

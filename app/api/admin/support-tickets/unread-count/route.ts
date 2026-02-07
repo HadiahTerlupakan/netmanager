@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/admin/support-tickets/unread-count
  * Get count of tickets that need attention
- * 
+ *
  * Logic:
  * - OPEN tickets (new, never replied by admin)
  * - IN_PROGRESS tickets where last reply is from customer (need admin response)
@@ -16,6 +16,12 @@ export async function GET(request: NextRequest) {
     const user = await verifyAuth(request)
     if (!user) {
         return ApiErrors.unauthorized('Session tidak valid')
+    }
+
+    // Permission check
+    const permissions = await getUserPermissions(user.id)
+    if (user.role !== 'SUPER_ADMIN' && !permissions.includes('support:read')) {
+        return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: support:read')
     }
 
     try {

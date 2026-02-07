@@ -41,8 +41,12 @@ export const idSchema = z.string().uuid({ message: 'Invalid ID format' })
 
 /**
  * Optional UUID validation schema
+ * Handles empty strings and nulls by converting them to undefined
  */
-export const optionalIdSchema = z.string().uuid().optional()
+export const optionalIdSchema = z.preprocess(
+  (val) => (val === '' || val === null ? undefined : val),
+  z.string().uuid().optional()
+)
 
 /**
  * Search query schema

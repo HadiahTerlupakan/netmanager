@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
 import { SOCKET_EVENTS, type TicketPayload, type CountPayload } from '../types'
+import { usePermission } from '@/hooks/use-permission'
 
 export interface TicketPreview {
     id: string
@@ -25,6 +26,7 @@ export interface TicketPreview {
 interface UseRealtimeSupportTicketsOptions {
     limit?: number
     autoFetch?: boolean
+    enabled?: boolean
 }
 
 interface UseRealtimeSupportTicketsResult {
@@ -41,16 +43,30 @@ interface UseRealtimeSupportTicketsResult {
 export function useRealtimeSupportTickets(
     options: UseRealtimeSupportTicketsOptions = {}
 ): UseRealtimeSupportTicketsResult {
-    const { limit = 5, autoFetch = true } = options
+    const { limit = 5, autoFetch = true, enabled = true } = options
     const { isConnected } = useSocket()
+    const { hasPermission, isLoading: isPermissionLoading } = usePermission()
 
     const [tickets, setTickets] = useState<TicketPreview[]>([])
     const [unreadCount, setUnreadCount] = useState(0)
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(enabled) // Only loading if enabled
     const lastCountRef = useRef(0)
 
     // Fetch tickets from API
     const fetchTickets = useCallback(async () => {
+        // Skip if explicitly disabled
+        if (!enabled) {
+            setLoading(false)
+            return
+        }
+
+        // Skip if permissions are loading or user doesn't have access
+        if (isPermissionLoading) return
+        if (!hasPermission('support:read')) {
+            setLoading(false)
+            return
+        }
+
         try {
             const [countRes, listRes] = await Promise.all([
                 fetch('/api/admin/support-tickets/unread-count'),
@@ -83,10 +99,10 @@ export function useRealtimeSupportTickets(
 
     // Initial fetch
     useEffect(() => {
-        if (autoFetch) {
+        if (autoFetch && !isPermissionLoading && enabled) {
             fetchTickets()
         }
-    }, [autoFetch, fetchTickets])
+    }, [autoFetch, fetchTickets, isPermissionLoading, enabled])
 
     // Handle new ticket from WebSocket
     const handleNewTicket = useCallback(
