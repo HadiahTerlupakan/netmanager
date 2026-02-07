@@ -56,7 +56,11 @@ export default function ImageUpload({ value = [], onChange, folder = 'uploads', 
         throw new Error('Gagal mengupload gambar')
       }
 
-      const data = await res.json()
+      const responseData = await res.json()
+      
+      // Handle wrapped response (from apiSuccess)
+      const data = responseData.data || responseData
+
       if (data.urls) {
         newUrls.push(...data.urls)
       } else if (data.url) {

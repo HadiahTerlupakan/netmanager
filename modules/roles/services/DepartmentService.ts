@@ -13,6 +13,7 @@ export interface CreateDepartmentData {
     description?: string
     jobDescription?: string
     isReminderTarget?: boolean
+    showInMobileWO?: boolean
 }
 
 export interface UpdateDepartmentData {
@@ -20,6 +21,7 @@ export interface UpdateDepartmentData {
     description?: string
     jobDescription?: string
     isReminderTarget?: boolean
+    showInMobileWO?: boolean
 }
 
 export interface ServiceResult<T> {
@@ -129,6 +131,7 @@ export class DepartmentService {
                     description: data.description || null,
                     jobDescription: data.jobDescription || null,
                     isReminderTarget: data.isReminderTarget ?? false,
+                    showInMobileWO: data.showInMobileWO ?? false,
                     updatedAt: new Date(),
                 },
             })
@@ -176,6 +179,7 @@ export class DepartmentService {
                     ...(data.description !== undefined && { description: data.description || null }),
                     ...(data.jobDescription !== undefined && { jobDescription: data.jobDescription || null }),
                     ...(data.isReminderTarget !== undefined && { isReminderTarget: data.isReminderTarget }),
+                    ...(data.showInMobileWO !== undefined && { showInMobileWO: data.showInMobileWO }),
                 },
             })
 

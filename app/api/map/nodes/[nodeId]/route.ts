@@ -9,10 +9,14 @@ const updateNodeSchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   capacity: z.number().optional(),
-  splitter: z.string().optional(),
-  pppoe: z.string().optional(),
-  serialNumber: z.string().optional(),
-  notes: z.string().optional(),
+  splitter: z.string().nullish(),
+  pppoe: z.string().nullish(),
+  serialNumber: z.string().nullish(),
+  notes: z.string().nullish(),
+  attenuationIn: z.number().nullish(),
+  attenuationOut: z.number().nullish(),
+  inputCoreColor: z.string().nullish(),
+  photo: z.string().nullish(),
 });
 
 /**

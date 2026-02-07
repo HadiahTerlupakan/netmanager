@@ -66,6 +66,9 @@ export async function GET(request: Request) {
           longitude: true,
           notes: true,
           images: true,
+          attenuationIn: true,
+          attenuationOut: true,
+          inputCoreColor: true,
           otbCore: {
             select: {
               coreColor: true,
@@ -97,6 +100,9 @@ export async function GET(request: Request) {
           longitude: true,
           notes: true,
           images: true,
+          attenuationIn: true,
+          attenuationOut: true,
+          inputCoreColor: true,
           odcOutput: {
             select: {
               coreColor: true,
@@ -225,12 +231,12 @@ export async function GET(request: Request) {
       if (r2Settings?.enabled) {
         // Remove leading slash if present
         const cleanPath = file.kmlPath.startsWith('/') ? file.kmlPath.substring(1) : file.kmlPath
-        
+
         // Use configured public URL or default R2 dev URL
-        const baseUrl = r2Settings.publicUrl 
-          ? r2Settings.publicUrl.replace(/\/$/, '') 
+        const baseUrl = r2Settings.publicUrl
+          ? r2Settings.publicUrl.replace(/\/$/, '')
           : `https://${r2Settings.bucketName}.${r2Settings.accountId}.r2.cloudflarestorage.com`
-          
+
         return {
           ...file,
           kmlPath: `${baseUrl}/${cleanPath}`
@@ -251,23 +257,58 @@ export async function GET(request: Request) {
       }
     }
 
-    // Process nodes to add usedSlots
-    const nodesWithDetails = mappingNodes.map((node: any) => {
-      const countData = edgeCounts.find((c: any) => c.source === node.nodeId)
-      const usedSlots = countData ? countData._count.source : 0
-      return {
-        ...node,
-        usedSlots
+    // Index parent nodes by edge target
+    const parentMap = new Map()
+    mappingEdges.forEach((edge: any) => {
+      // Find the source node (parent)
+      const parentNode = mappingNodes.find((n: any) => n.nodeId === edge.source)
+      if (parentNode) {
+        // Store parent details for the target node
+        parentMap.set(edge.target, {
+          id: parentNode.nodeId,
+          name: parentNode.name,
+          type: parentNode.type
+        })
       }
     })
 
-    // Index technical details (capacity, splitter, usedSlots) by ID
+    // Process nodes to add usedSlots and resolve photo URL
+    const nodesWithDetails = mappingNodes.map((node: any) => {
+      const countData = edgeCounts.find((c: any) => c.source === node.nodeId)
+      const usedSlots = countData ? countData._count.source : 0
+
+      let photoUrl = node.photo
+      if (photoUrl && !photoUrl.startsWith('http')) {
+        if (r2Settings?.enabled) {
+          const cleanPath = photoUrl.startsWith('/') ? photoUrl.substring(1) : photoUrl
+          const baseUrl = r2Settings.publicUrl
+            ? r2Settings.publicUrl.replace(/\/$/, '')
+            : `https://${r2Settings.bucketName}.${r2Settings.accountId}.r2.cloudflarestorage.com`
+          photoUrl = `${baseUrl}/${cleanPath}`
+        }
+      }
+
+      return {
+        ...node,
+        usedSlots,
+        photo: photoUrl,
+        parent: parentMap.get(node.nodeId)
+      }
+    })
+
+    // Index technical details (capacity, splitter, usedSlots, photo, inputCoreColor) by ID
     const nodeDetailsMap = new Map()
     nodesWithDetails.forEach((node: any) => {
+      const parent = parentMap.get(node.nodeId)
       nodeDetailsMap.set(node.nodeId, {
         splitter: node.splitter,
         capacity: node.capacity,
-        usedSlots: node.usedSlots
+        usedSlots: node.usedSlots,
+        photo: node.photo,
+        inputCoreColor: node.inputCoreColor,
+        attenuationInput: node.attenuationIn,
+        attenuationOutput: node.attenuationOut,
+        parent: parent
       })
     })
 
@@ -293,9 +334,21 @@ export async function GET(request: Request) {
       if (odc.otbCore?.otb?.id) {
         waypoints = edgeMap.get(`${odc.otbCore.otb.id}_${odc.id}`) || []
       }
+
+      // Fallback logic for parent and attenuation
+      const parent = details.parent || (odc.otbCore?.otb ? {
+        id: odc.otbCore.otb.id,
+        name: odc.otbCore.otb.name,
+        type: 'otb'
+      } : undefined);
+
       return {
         ...odc,
         ...details,
+        attenuationInput: details.attenuationInput ?? odc.attenuationIn,
+        attenuationOutput: details.attenuationOutput ?? odc.attenuationOut,
+        inputCoreColor: details.inputCoreColor ?? odc.inputCoreColor,
+        parent,
         otbCore: odc.otbCore ? { ...odc.otbCore, waypoints } : null
       }
     })
@@ -307,10 +360,42 @@ export async function GET(request: Request) {
       if (odp.odcOutput?.odc?.id) {
         waypoints = edgeMap.get(`${odp.odcOutput.odc.id}_${odp.id}`) || []
       }
+
+      // Fallback logic for parent and attenuation
+      const parent = details.parent || (odp.odcOutput?.odc ? {
+        id: odp.odcOutput.odc.id,
+        name: odp.odcOutput.odc.name,
+        type: 'odc'
+      } : undefined);
+
       return {
         ...odp,
         ...details,
+        siteName: odp.site?.name,
+        odpOutputCount: odp._count?.odpOutput,
+        attenuationInput: details.attenuationInput ?? odp.attenuationIn,
+        attenuationOutput: details.attenuationOutput ?? odp.attenuationOut,
+        inputCoreColor: details.inputCoreColor ?? odp.inputCoreColor,
+        parent,
         odcOutput: odp.odcOutput ? { ...odp.odcOutput, waypoints } : null
+      }
+    })
+
+    // Enrich Joinboxes with details
+    const enrichedJoinboxes = joinboxes.map((jb: any) => {
+      const details = nodeDetailsMap.get(jb.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      return {
+        ...jb,
+        ...details
+      }
+    })
+
+    // Enrich Poles with details
+    const enrichedPoles = poles.map((pole: any) => {
+      const details = nodeDetailsMap.get(pole.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      return {
+        ...pole,
+        ...details
       }
     })
 
@@ -324,8 +409,8 @@ export async function GET(request: Request) {
       otbs: enrichedOtbs,
       odcs: enrichedOdcs,
       odps: enrichedOdps,
-      joinboxes,
-      poles,
+      joinboxes: enrichedJoinboxes,
+      poles: enrichedPoles,
       pelanggans,
       kmzFiles: processedKmzFiles,
       nodes: nodesWithDetails,

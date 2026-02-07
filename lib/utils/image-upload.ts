@@ -3,7 +3,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { isR2Enabled, uploadToR2, generateR2Key } from './r2-client'
 
-export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'marketing' | 'app-version' | 'general'
+export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'marketing' | 'app-version' | 'general' | 'map-nodes'
 
 // OPTIMIZATION: Threshold for streaming vs buffer processing
 const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024 // 50MB

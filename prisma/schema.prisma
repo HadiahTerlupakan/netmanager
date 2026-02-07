@@ -494,6 +494,9 @@ model Odc {
   updatedAt                   DateTime
   otbCoreId                   String?     @unique
   keteranganJumlahKabelFeeder String?
+  attenuationIn               Float?
+  attenuationOut              Float?
+  inputCoreColor              String?
   siteId                      String?
   otbCore                     OtbCore?    @relation(fields: [otbCoreId], references: [id])
   site                        Sites?      @relation(fields: [siteId], references: [id])
@@ -529,6 +532,9 @@ model Odp {
   updatedAt                   DateTime
   odcOutputId                 String?     @unique
   keteranganJumlahKabelFeeder String?
+  attenuationIn               Float?
+  attenuationOut              Float?
+  inputCoreColor              String?
   siteId                      String?
   odcOutput                   OdcOutput?  @relation(fields: [odcOutputId], references: [id])
   site                        Sites?      @relation(fields: [siteId], references: [id])
@@ -3034,6 +3040,10 @@ model MappingNode {
   pppoe        String?
   serialNumber String?  @map("serialnumber")
   notes        String?
+  attenuationIn  Float?   @map("attenuation_in")
+  attenuationOut Float?   @map("attenuation_out")
+  inputCoreColor String?  @map("input_core_color")
+  photo          String?
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 

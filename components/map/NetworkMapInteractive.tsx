@@ -3,7 +3,9 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
-import type { MappingNode, MappingEdge, MapSettings } from "@prisma/client";
+import Image from "next/image";
+import ImageUpload from "@/components/common/ImageUpload";
+import type { MappingNode as PrismaMappingNode, MappingEdge, MapSettings } from "@prisma/client";
 import L from "leaflet";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -16,6 +18,7 @@ import {
   HiCog6Tooth,
   HiListBullet,
   HiXMark,
+  HiPhoto,
 } from "react-icons/hi2";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/select";
@@ -96,6 +99,21 @@ const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9
 // ============================================
 // NODE ICONS - EXACT FROM GENIEACS (sk object)
 // ============================================
+
+const FIBER_CORE_COLORS = [
+  { value: "Biru", label: "Biru / Blue", color: "#2563eb" },
+  { value: "Orange", label: "Orange", color: "#f97316" },
+  { value: "Hijau", label: "Hijau / Green", color: "#22c55e" },
+  { value: "Coklat", label: "Coklat / Brown", color: "#92400e" },
+  { value: "Abu-abu", label: "Abu-abu / Slate", color: "#6b7280" },
+  { value: "Putih", label: "Putih / White", color: "#ffffff", border: true },
+  { value: "Merah", label: "Merah / Red", color: "#ef4444" },
+  { value: "Hitam", label: "Hitam / Black", color: "#000000" },
+  { value: "Kuning", label: "Kuning / Yellow", color: "#eab308" },
+  { value: "Ungu", label: "Ungu / Violet", color: "#a855f7" },
+  { value: "Pink", label: "Pink / Rose", color: "#ec4899" },
+  { value: "Tosca", label: "Tosca / Aqua", color: "#14b8a6" },
+];
 
 const nodeIcons = {
   server: {
@@ -204,6 +222,13 @@ const getFiberColor = (fiberType?: string | null) => {
 // ============================================
 // TYPES - MATCHING GENIEACS
 // ============================================
+
+type MappingNode = PrismaMappingNode & {
+  attenuationIn?: number | null;
+  attenuationOut?: number | null;
+  inputCoreColor?: string | null;
+  photo?: string | null;
+};
 
 type ActiveTab = "map" | "list" | "settings";
 type NodeActionMode = "idle" | "adding" | "editing";
@@ -752,6 +777,10 @@ export default function NetworkMapInteractive() {
       pppoe: node.pppoe,
       serialNumber: node.serialNumber,
       notes: node.notes,
+      attenuationIn: node.attenuationIn,
+      attenuationOut: node.attenuationOut,
+      inputCoreColor: node.inputCoreColor,
+      photo: node.photo,
     });
     setShowNodeForm(true);
   };
@@ -1285,6 +1314,19 @@ export default function NetworkMapInteractive() {
                       {fiberLineMode !== "drawing" && (
                         <Popup>
                           <div className="min-w-[240px] max-w-[280px]">
+                            {/* Photo if available */}
+                            {node.photo && (
+                              <div className="mb-3 relative w-full h-40 rounded-lg overflow-hidden bg-gray-100">
+                                <Image
+                                  src={node.photo}
+                                  alt={node.name}
+                                  fill
+                                  className="object-cover"
+                                  sizes="280px"
+                                />
+                              </div>
+                            )}
+
                             {/* Badge */}
                             <div className="mb-2">
                               <span className={`inline-block px-2 py-1 text-xs font-medium text-white rounded ${badge.color}`}>
@@ -1331,6 +1373,27 @@ export default function NetworkMapInteractive() {
                                 <div className="flex justify-between text-sm">
                                   <span className="text-gray-500">Available:</span>
                                   <span className="font-medium text-green-600">{availableSlots} ports</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Attenuation Info - for ODC and ODP */}
+                            {(isOdc || isOdp) && (
+                              <div className="border-t border-gray-200 pt-3 mb-3">
+                                <p className="text-sm font-medium text-gray-700 mb-1">Optical Info</p>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500 block">Input Redaman:</span>
+                                    <span className="font-medium text-gray-900">{node.attenuationIn ? `${node.attenuationIn} dBm` : "-"}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 block">Output Redaman:</span>
+                                    <span className="font-medium text-gray-900">{node.attenuationOut ? `${node.attenuationOut} dBm` : "-"}</span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-gray-500 block">Warna Core Input:</span>
+                                    <span className="font-medium text-gray-900">{node.inputCoreColor || "-"}</span>
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -1706,10 +1769,23 @@ function NodeFormModal({
   // Splitter options for ODP (fewer options)
   const odpSplitterOptions = ["1:2", "1:4", "1:8", "1:16", "1:32"];
 
+  const coreColorOptions = FIBER_CORE_COLORS.map((c) => ({
+    value: c.value,
+    label: c.label,
+  }));
+
   const isServerOrOlt = nodeType === "server" || nodeType === "olt";
   const isOdc = nodeType === "odc";
   const isOdp = nodeType === "odp";
   const isOnt = nodeType === "ont";
+
+  const handlePhotoUpdate = (urls: string[]) => {
+    // Filter out any potential non-string values and handle empty strings
+    const validUrls = urls.filter((url) => url && typeof url === "string" && url.trim() !== "");
+    const photo = validUrls.length > 0 ? validUrls[0] : null;
+    console.log("Updating photo:", photo);
+    onChange({ ...data, photo });
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? `Edit ${getTypeLabel()}` : `Add New ${getTypeLabel()}`} size="lg">
@@ -1762,6 +1838,16 @@ function NodeFormModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
+            </div>
+
+            <div className="mt-4">
+              <ImageUpload
+                label="Foto Server/OLT"
+                value={data.photo && typeof data.photo === "string" ? [data.photo] : []}
+                onChange={handlePhotoUpdate}
+                maxFiles={1}
+                folder="server-photos"
+              />
             </div>
           </>
         )}
@@ -1827,6 +1913,50 @@ function NodeFormModal({
               </svg>
               <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
             </div>
+            
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div>
+                <label className={labelClass}>Input Redaman (dBm)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={data.attenuationIn || ""}
+                  onChange={(e) => onChange({ ...data, attenuationIn: parseFloat(e.target.value) })}
+                  placeholder="e.g. -18.5"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Output Redaman (dBm)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={data.attenuationOut || ""}
+                  onChange={(e) => onChange({ ...data, attenuationOut: parseFloat(e.target.value) })}
+                  placeholder="e.g. -19.2"
+                  className={inputClass}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className={labelClass}>Warna Core Input</label>
+                <Select
+                  options={coreColorOptions}
+                  value={data.inputCoreColor || ""}
+                  onChange={(val) => onChange({ ...data, inputCoreColor: val })}
+                  placeholder="Pilih Warna Core"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <ImageUpload
+                label="Foto ODC"
+                value={data.photo && typeof data.photo === "string" ? [data.photo] : []}
+                onChange={handlePhotoUpdate}
+                maxFiles={1}
+                folder="odc-photos"
+              />
+            </div>
           </>
         )}
 
@@ -1890,6 +2020,50 @@ function NodeFormModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div>
+                <label className={labelClass}>Input Redaman (dBm)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={data.attenuationIn || ""}
+                  onChange={(e) => onChange({ ...data, attenuationIn: parseFloat(e.target.value) })}
+                  placeholder="e.g. -18.5"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Output Redaman (dBm)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={data.attenuationOut || ""}
+                  onChange={(e) => onChange({ ...data, attenuationOut: parseFloat(e.target.value) })}
+                  placeholder="e.g. -19.2"
+                  className={inputClass}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className={labelClass}>Warna Core Input</label>
+                <Select
+                  options={coreColorOptions}
+                  value={data.inputCoreColor || ""}
+                  onChange={(val) => onChange({ ...data, inputCoreColor: val })}
+                  placeholder="Pilih Warna Core"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <ImageUpload
+                label="Foto ODP"
+                value={data.photo && typeof data.photo === "string" ? [data.photo] : []}
+                onChange={handlePhotoUpdate}
+                maxFiles={1}
+                folder="odp-photos"
+              />
             </div>
           </>
         )}
@@ -1975,6 +2149,16 @@ function NodeFormModal({
                 rows={2}
                 placeholder="Additional notes (optional)"
                 className={inputClass}
+              />
+            </div>
+
+            <div className="mt-4">
+              <ImageUpload
+                label="Foto ONT"
+                value={data.photo && typeof data.photo === "string" ? [data.photo] : []}
+                onChange={handlePhotoUpdate}
+                maxFiles={1}
+                folder="ont-photos"
               />
             </div>
           </>
