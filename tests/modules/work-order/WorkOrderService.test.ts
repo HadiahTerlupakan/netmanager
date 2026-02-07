@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
 import { WorkOrderService } from '@/modules/work-order/services/WorkOrderService'
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 
 // Mock the dependencies
 vi.mock('@/modules/work-order/repositories/WorkOrderRepository')
@@ -12,11 +11,14 @@ vi.mock('@/lib/logger')
 
 describe('WorkOrderService', () => {
     let service: WorkOrderService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let repositoryMock: any
 
     beforeEach(() => {
         vi.clearAllMocks()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         service = new WorkOrderService(prismaMock as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         repositoryMock = (service as any).repository
     })
 

@@ -18,7 +18,6 @@ import {
   HiCog6Tooth,
   HiListBullet,
   HiXMark,
-  HiPhoto,
 } from "react-icons/hi2";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/select";

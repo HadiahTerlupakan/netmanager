@@ -339,7 +339,7 @@ export class OvertimeRepository implements IOvertimeRepository {
                 user,
                 totalDuration: g._sum.duration || 0
             }
-        }).filter((item: { user: any }) => item.user != null)
+        }).filter((item: { user: { id: string } | undefined }) => item.user != null)
     }
 
     async getUserOvertimeStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {

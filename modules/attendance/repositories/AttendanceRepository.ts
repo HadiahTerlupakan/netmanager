@@ -276,7 +276,7 @@ export class AttendanceRepository {
                 user,
                 count: g._count._all
             }
-        }).filter((item: { user: any }) => item.user != null)
+        }).filter((item: { user: { id: string } | undefined }) => item.user != null)
     }
 
     async getTopAbsentees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
@@ -315,7 +315,7 @@ export class AttendanceRepository {
                 user,
                 count: g._count._all
             }
-        }).filter((item: { user: any }) => item.user != null)
+        }).filter((item: { user: { id: string } | undefined }) => item.user != null)
     }
 
     async getUserAttendanceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
