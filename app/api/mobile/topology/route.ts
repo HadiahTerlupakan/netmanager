@@ -221,7 +221,7 @@ export async function GET(request: Request) {
       })
     ])
 
-    const processedKmzFiles = activeKmzFiles.map((file: any) => {
+    const processedKmzFiles = activeKmzFiles.map((file) => {
       // If path is already a full URL, return as is
       if (file.kmlPath.startsWith('http')) {
         return file
@@ -252,16 +252,16 @@ export async function GET(request: Request) {
       if (!wpString) return []
       try {
         return JSON.parse(wpString)
-      } catch (e) {
+      } catch (_) {
         return []
       }
     }
 
     // Index parent nodes by edge target
     const parentMap = new Map()
-    mappingEdges.forEach((edge: any) => {
+    mappingEdges.forEach((edge) => {
       // Find the source node (parent)
-      const parentNode = mappingNodes.find((n: any) => n.nodeId === edge.source)
+      const parentNode = mappingNodes.find((n) => n.nodeId === edge.source)
       if (parentNode) {
         // Store parent details for the target node
         parentMap.set(edge.target, {
@@ -273,8 +273,8 @@ export async function GET(request: Request) {
     })
 
     // Process nodes to add usedSlots and resolve photo URL
-    const nodesWithDetails = mappingNodes.map((node: any) => {
-      const countData = edgeCounts.find((c: any) => c.source === node.nodeId)
+    const nodesWithDetails = mappingNodes.map((node) => {
+      const countData = edgeCounts.find((c) => c.source === node.nodeId)
       const usedSlots = countData ? countData._count.source : 0
 
       let photoUrl = node.photo
@@ -298,7 +298,7 @@ export async function GET(request: Request) {
 
     // Index technical details (capacity, splitter, usedSlots, photo, inputCoreColor) by ID
     const nodeDetailsMap = new Map()
-    nodesWithDetails.forEach((node: any) => {
+    nodesWithDetails.forEach((node) => {
       const parent = parentMap.get(node.nodeId)
       nodeDetailsMap.set(node.nodeId, {
         splitter: node.splitter,
@@ -314,12 +314,12 @@ export async function GET(request: Request) {
 
     // Index edges for waypoints by source_target
     const edgeMap = new Map()
-    mappingEdges.forEach((edge: any) => {
+    mappingEdges.forEach((edge) => {
       edgeMap.set(`${edge.source}_${edge.target}`, parseWaypoints(edge.waypoints))
     })
 
     // Enrich OTBs with details
-    const enrichedOtbs = otbs.map((otb: any) => {
+    const enrichedOtbs = otbs.map((otb) => {
       const details = nodeDetailsMap.get(otb.id) || { splitter: null, capacity: 0, usedSlots: 0 }
       return {
         ...otb,
@@ -328,7 +328,7 @@ export async function GET(request: Request) {
     })
 
     // Enrich ODCs with details and waypoints
-    const enrichedOdcs = odcs.map((odc: any) => {
+    const enrichedOdcs = odcs.map((odc) => {
       const details = nodeDetailsMap.get(odc.id) || { splitter: null, capacity: 0, usedSlots: 0 }
       let waypoints = []
       if (odc.otbCore?.otb?.id) {
@@ -354,9 +354,9 @@ export async function GET(request: Request) {
     })
 
     // Enrich ODPs with details and waypoints
-    const enrichedOdps = odps.map((odp: any) => {
+    const enrichedOdps = odps.map((odp) => {
       const details = nodeDetailsMap.get(odp.id) || { splitter: null, capacity: 0, usedSlots: 0 }
-      let waypoints = []
+      let waypoints: unknown[] = []
       if (odp.odcOutput?.odc?.id) {
         waypoints = edgeMap.get(`${odp.odcOutput.odc.id}_${odp.id}`) || []
       }
@@ -382,7 +382,7 @@ export async function GET(request: Request) {
     })
 
     // Enrich Joinboxes with details
-    const enrichedJoinboxes = joinboxes.map((jb: any) => {
+    const enrichedJoinboxes = joinboxes.map((jb) => {
       const details = nodeDetailsMap.get(jb.id) || { splitter: null, capacity: 0, usedSlots: 0 }
       return {
         ...jb,
@@ -391,7 +391,7 @@ export async function GET(request: Request) {
     })
 
     // Enrich Poles with details
-    const enrichedPoles = poles.map((pole: any) => {
+    const enrichedPoles = poles.map((pole) => {
       const details = nodeDetailsMap.get(pole.id) || { splitter: null, capacity: 0, usedSlots: 0 }
       return {
         ...pole,
@@ -400,7 +400,7 @@ export async function GET(request: Request) {
     })
 
     // Parse waypoints in the edges array as well
-    const parsedEdges = mappingEdges.map((edge: any) => ({
+    const parsedEdges = mappingEdges.map((edge) => ({
       ...edge,
       waypoints: parseWaypoints(edge.waypoints)
     }))
