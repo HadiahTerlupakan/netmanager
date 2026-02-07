@@ -26,18 +26,16 @@ interface Site {
 export default function MixRadiusGroupsClient() {
   const { hasPermission } = usePermission()
 
-  // Permission checks
-  // Remove fallback to generic 'mixradius:create' to ensure strict granular control
   const canCreate = hasPermission('mixradius_sites:create')
   const canUpdate = hasPermission('mixradius_sites:update')
   const canDelete = hasPermission('mixradius_sites:delete')
 
-  console.log('MixRadiusGroups Permissions:', {
-    canCreate,
-    hasSiteCreate: hasPermission('mixradius_sites:create'),
-    hasGenericCreate: hasPermission('mixradius:create'),
-    allPermissions: hasPermission('mixradius:create') // Just checking generic
-  })
+  // console.log('MixRadiusGroups Permissions:', {
+  //   canCreate,
+  //   hasSiteCreate: hasPermission('mixradius_sites:create'),
+  //   hasGenericCreate: hasPermission('mixradius:create'),
+  //   allPermissions: hasPermission('mixradius:create') // Just checking generic
+  // })
 
   const [groups, setGroups] = useState<OwnerGroup[]>([])
   const [owners, setOwners] = useState<string[]>([])
