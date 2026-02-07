@@ -308,6 +308,8 @@ export default function NetworkMapInteractive() {
     waypoints: [number, number][];
   } | null>(null);
 
+  const [isManualAdd, setIsManualAdd] = useState(false);
+
   const mapRef = useRef<L.Map | null>(null);
 
   // ============================================
@@ -795,6 +797,7 @@ export default function NetworkMapInteractive() {
     handleOdpPositionCancel();
     handleOntPositionCancel();
     handleFiberLineCancel();
+    setIsManualAdd(false);
 
     switch (tool) {
       case "server":
@@ -818,6 +821,18 @@ export default function NetworkMapInteractive() {
         showToast("info", "Click on source node to start drawing fiber line");
         break;
     }
+  };
+
+  const handleManualAdd = (type: string) => {
+    setNodeFormType(type);
+    setNodeFormData({
+      type: type,
+      latitude: 0,
+      longitude: 0,
+      capacity: type === "ont" ? 1 : type === "olt" ? 16 : 8,
+    });
+    setIsManualAdd(true);
+    setShowNodeForm(true);
   };
 
   const isAnyModeActive =
@@ -1550,15 +1565,53 @@ export default function NetworkMapInteractive() {
           <div className="flex-1 p-6 overflow-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Node List</h2>
-              <div className="relative w-64">
-                <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search nodes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="flex items-center gap-2">
+                <div className="relative w-64">
+                  <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search nodes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                {/* Manual Add Button Group */}
+                <div className="flex bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <button
+                    onClick={() => handleManualAdd("olt")}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 flex items-center gap-1"
+                    title="Add Server/OLT"
+                  >
+                    <HiServer className="w-4 h-4 text-purple-500" />
+                    <span className="hidden sm:inline">OLT</span>
+                  </button>
+                  <button
+                    onClick={() => handleManualAdd("odc")}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 flex items-center gap-1"
+                    title="Add ODC"
+                  >
+                    <HiCube className="w-4 h-4 text-blue-500" />
+                    <span className="hidden sm:inline">ODC</span>
+                  </button>
+                  <button
+                    onClick={() => handleManualAdd("odp")}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 flex items-center gap-1"
+                    title="Add ODP"
+                  >
+                    <HiSquare3Stack3D className="w-4 h-4 text-cyan-500" />
+                    <span className="hidden sm:inline">ODP</span>
+                  </button>
+                  <button
+                    onClick={() => handleManualAdd("ont")}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1"
+                    title="Add ONT"
+                  >
+                    <HiCpuChip className="w-4 h-4 text-orange-500" />
+                    <span className="hidden sm:inline">ONT</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -1674,10 +1727,12 @@ export default function NetworkMapInteractive() {
         nodeType={nodeFormType}
         data={nodeFormData}
         isEditing={!!editingNode}
+        allowManualCoordinates={isManualAdd}
         onClose={() => {
           setShowNodeForm(false);
           setNodeFormData({});
           setEditingNode(null);
+          setIsManualAdd(false);
           handleServerPositionCancel();
           handleOdcPositionCancel();
           handleOdpPositionCancel();
@@ -1726,6 +1781,7 @@ function NodeFormModal({
   nodeType,
   data,
   isEditing,
+  allowManualCoordinates = false,
   onClose,
   onChange,
   onSave
@@ -1734,6 +1790,7 @@ function NodeFormModal({
   nodeType: string;
   data: Partial<MappingNode>;
   isEditing: boolean;
+  allowManualCoordinates?: boolean;
   onClose: () => void;
   onChange: (data: Partial<MappingNode>) => void;
   onSave: () => void;
@@ -1806,19 +1863,25 @@ function NodeFormModal({
               <div>
                 <label className={labelClass}>Latitude</label>
                 <input
-                  type="text"
-                  value={data.latitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.latitude || "") : (data.latitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, latitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "-6.xxxxx" : ""}
                 />
               </div>
               <div>
                 <label className={labelClass}>Longitude</label>
                 <input
-                  type="text"
-                  value={data.longitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.longitude || "") : (data.longitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, longitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "106.xxxxx" : ""}
                 />
               </div>
             </div>
@@ -1832,12 +1895,14 @@ function NodeFormModal({
                 className={inputClass}
               />
             </div>
-            <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
-            </div>
+            {!allowManualCoordinates && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
+              </div>
+            )}
 
             <div className="mt-4">
               <ImageUpload
@@ -1880,19 +1945,25 @@ function NodeFormModal({
               <div>
                 <label className={labelClass}>Latitude</label>
                 <input
-                  type="text"
-                  value={data.latitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.latitude || "") : (data.latitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, latitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "-6.xxxxx" : ""}
                 />
               </div>
               <div>
                 <label className={labelClass}>Longitude</label>
                 <input
-                  type="text"
-                  value={data.longitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.longitude || "") : (data.longitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, longitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "106.xxxxx" : ""}
                 />
               </div>
             </div>
@@ -1906,12 +1977,14 @@ function NodeFormModal({
                 className={inputClass}
               />
             </div>
-            <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
-            </div>
+            {!allowManualCoordinates && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
+              </div>
+            )}
             
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div>
@@ -1988,19 +2061,25 @@ function NodeFormModal({
               <div>
                 <label className={labelClass}>Latitude</label>
                 <input
-                  type="text"
-                  value={data.latitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.latitude || "") : (data.latitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, latitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "-6.xxxxx" : ""}
                 />
               </div>
               <div>
                 <label className={labelClass}>Longitude</label>
                 <input
-                  type="text"
-                  value={data.longitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.longitude || "") : (data.longitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, longitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "106.xxxxx" : ""}
                 />
               </div>
             </div>
@@ -2014,12 +2093,14 @@ function NodeFormModal({
                 className={inputClass}
               />
             </div>
-            <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
-            </div>
+            {!allowManualCoordinates && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div>
@@ -2124,19 +2205,25 @@ function NodeFormModal({
               <div>
                 <label className={labelClass}>Latitude</label>
                 <input
-                  type="text"
-                  value={data.latitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.latitude || "") : (data.latitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, latitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "-6.xxxxx" : ""}
                 />
               </div>
               <div>
                 <label className={labelClass}>Longitude</label>
                 <input
-                  type="text"
-                  value={data.longitude?.toFixed(6) || ""}
-                  readOnly
-                  className={inputReadonlyClass}
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.longitude || "") : (data.longitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, longitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "106.xxxxx" : ""}
                 />
               </div>
             </div>
