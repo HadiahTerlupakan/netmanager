@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { useSocket } from '@/hooks/useSocket'
 import { SOCKET_EVENTS } from '@/lib/websocket/types'
+import { usePermission } from '@/hooks/use-permission'
 
 interface User {
     id: string
@@ -42,6 +43,14 @@ interface User {
 
 export default function UserList() {
     const { socket } = useSocket()
+    const { hasPermission } = usePermission()
+
+    // Permissions
+    const canCreate = hasPermission('users:create')
+    const canUpdate = hasPermission('users:update')
+    const canDelete = hasPermission('users:delete')
+    const canForceLogout = hasPermission('users:update') // Usually grouped with update or specialized
+
     const [users, setUsers] = useState<User[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -345,26 +354,32 @@ export default function UserList() {
             >
                 <HiOutlineEye className="w-4 h-4" />
             </Link>
-            <Link
-                href={`/admin/users/${user.id}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
-            >
-                Edit
-            </Link>
-            <button
-                onClick={() => setForceLogoutUserId(user.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
-                title="Force Logout"
-            >
-                <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
-            </button>
-            <button
-                onClick={() => setDeleteUserId(user.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                title="Hapus"
-            >
-                <HiOutlineTrash className="w-4 h-4" />
-            </button>
+            {canUpdate && (
+                <Link
+                    href={`/admin/users/${user.id}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                >
+                    Edit
+                </Link>
+            )}
+            {canForceLogout && (
+                <button
+                    onClick={() => setForceLogoutUserId(user.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
+                    title="Force Logout"
+                >
+                    <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
+                </button>
+            )}
+            {canDelete && (
+                <button
+                    onClick={() => setDeleteUserId(user.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                    title="Hapus"
+                >
+                    <HiOutlineTrash className="w-4 h-4" />
+                </button>
+            )}
         </>
     )
 
@@ -378,13 +393,15 @@ export default function UserList() {
                         Kelola pengguna sistem
                     </p>
                 </div>
-                <Link
-                    href="/admin/users/new"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                >
-                    <HiOutlinePlus className="w-5 h-5" />
-                    Tambah Pengguna
-                </Link>
+                {canCreate && (
+                    <Link
+                        href="/admin/users/new"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                    >
+                        <HiOutlinePlus className="w-5 h-5" />
+                        Tambah Pengguna
+                    </Link>
+                )}
             </div>
 
             {/* Stats Cards */}
@@ -472,13 +489,15 @@ export default function UserList() {
                         <p className="text-gray-500 dark:text-gray-400 mb-6">
                             {searchTerm || statusFilter !== 'all' ? 'Coba ubah filter atau kata kunci pencarian Anda' : 'Mulai dengan menambahkan pengguna baru'}
                         </p>
-                        <Link
-                            href="/admin/users/new"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-                        >
-                            <HiOutlinePlus className="w-5 h-5" />
-                            Tambah Pengguna
-                        </Link>
+                        {canCreate && (
+                            <Link
+                                href="/admin/users/new"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                                <HiOutlinePlus className="w-5 h-5" />
+                                Tambah Pengguna
+                            </Link>
+                        )}
                     </div>
                 ) : (
                     <>

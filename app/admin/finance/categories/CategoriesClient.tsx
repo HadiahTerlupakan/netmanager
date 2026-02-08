@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { HiPlus, HiTrash } from 'react-icons/hi2'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { usePermission } from '@/hooks/use-permission'
 import type { Category } from '@/types'
 
 interface CategoriesClientProps {
@@ -13,6 +14,13 @@ interface CategoriesClientProps {
 
 export default function CategoriesClient({ initialData }: CategoriesClientProps) {
   const router = useRouter()
+  const { hasPermission } = usePermission()
+
+  // Permission Checks (Reuse 'expense' permissions as they manage COA)
+  const canCreate = hasPermission('expense:create')
+  const canUpdate = hasPermission('expense:update')
+  const canDelete = hasPermission('expense:delete')
+
   const [data, setData] = useState(initialData)
   const [loading, setLoading] = useState(false)
 
@@ -258,13 +266,15 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
                Kelola kategori untuk pemasukan dan pengeluaran (Chart of Accounts).
             </p>
           </div>
-          <button 
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              onClick={() => { resetForm(); setModalOpen(true); }}
-          >
-              <HiPlus className="w-5 h-5 mr-2" />
-              Tambah Kategori
-          </button>
+          {canCreate && (
+              <button
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={() => { resetForm(); setModalOpen(true); }}
+              >
+                  <HiPlus className="w-5 h-5 mr-2" />
+                  Tambah Kategori
+              </button>
+          )}
         </div>
       </div>
 
@@ -336,16 +346,20 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
                                 </td>
                                 <td className="px-6 py-4 text-right whitespace-nowrap">
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title="Edit">
-                                            <span className="sr-only">Edit</span>
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                        </button>
-                                        <button onClick={() => openDelete(item)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title="Hapus">
-                                            <span className="sr-only">Hapus</span>
-                                            <HiTrash className="w-5 h-5" />
-                                        </button>
+                                        {canUpdate && (
+                                            <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title="Edit">
+                                                <span className="sr-only">Edit</span>
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                        {canDelete && (
+                                            <button onClick={() => openDelete(item)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title="Hapus">
+                                                <span className="sr-only">Hapus</span>
+                                                <HiTrash className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

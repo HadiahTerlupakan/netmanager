@@ -168,12 +168,12 @@ export function ClientComponent() {
     const { hasPermission } = usePermission()
     
     // CRUD permissions
-    const canUpdate = hasPermission('list:update')  // Edit data (status, priority, etc)
-    const canDelete = hasPermission('list:delete')  // Hapus permanen
-    
+    const canUpdate = hasPermission('workorders:update') || hasPermission('list:update')
+    const canDelete = hasPermission('workorders:delete') || hasPermission('list:delete')
+
     // Workflow action permissions (terpisah dari CRUD)
-    const canCancel = hasPermission('list:cancel')  // Batalkan WO
-    const canVerify = hasPermission('list:verify')  // Verifikasi & Tolak WO
+    const canCancel = hasPermission('workorders:cancel') || hasPermission('list:cancel')
+    const canVerify = hasPermission('workorders:verify') || hasPermission('list:verify')
 
     const [loading, setLoading] = useState(true)
     const [workOrder, setWorkOrder] = useState<WorkOrderDetail | null>(null)
@@ -812,7 +812,7 @@ export function ClientComponent() {
                             ))}
                         </div>
 
-                        {!isReadOnly && (
+                        {!isReadOnly && canUpdate && (
                             <div className="flex gap-2">
                                 <input
                                     type="text"
@@ -1005,7 +1005,7 @@ export function ClientComponent() {
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-lg font-medium text-gray-900 dark:text-white">Material & Sparepart</h3>
-                                        {!isReadOnly && (
+                                        {!isReadOnly && canUpdate && (
                                             <button
                                                 onClick={() => setAddMaterialModalOpen(true)}
                                                 className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
@@ -1178,11 +1178,11 @@ export function ClientComponent() {
                                     </div>
 
                                     {/* Chat Input Bar */}
-                                    {['COMPLETED', 'CANCELLED', 'VERIFIED'].includes(workOrder.status) ? (
+                                    {['COMPLETED', 'CANCELLED', 'VERIFIED'].includes(workOrder.status) || !canUpdate ? (
                                         <div className="bg-gray-50 dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700 text-center">
                                             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium flex items-center justify-center gap-2">
                                                 <HiLockClosed className="w-4 h-4" />
-                                                Diskusi ditutup (Status: {workOrder.status})
+                                                {!canUpdate ? 'Anda tidak memiliki akses untuk berkomentar' : `Diskusi ditutup (Status: ${workOrder.status})`}
                                             </p>
                                         </div>
                                     ) : (

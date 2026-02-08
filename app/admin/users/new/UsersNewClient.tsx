@@ -21,6 +21,7 @@ import {
 } from 'react-icons/hi2'
 import MultiSiteSelect from '../components/MultiSiteSelect'
 import WorkingHoursSettings from '../[id]/WorkingHoursSettings'
+import { usePermission } from '@/hooks/use-permission'
 
 interface SelectedSite {
   siteId: string
@@ -46,6 +47,9 @@ interface Site {
 
 export function ClientComponent() {
   const router = useRouter()
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('users:create')
+
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
@@ -577,23 +581,25 @@ export function ClientComponent() {
           >
             Batal
           </Link>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <HiOutlineCheckCircle className="w-5 h-5" />
-                Simpan Pengguna
-              </>
-            )}
-          </button>
+          {canCreate && (
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <HiOutlineCheckCircle className="w-5 h-5" />
+                  Simpan Pengguna
+                </>
+              )}
+            </button>
+          )}
         </div>
       </form>
     </div>

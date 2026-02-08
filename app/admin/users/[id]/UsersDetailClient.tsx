@@ -28,6 +28,7 @@ import LeaveQuotaSummary from './LeaveQuotaSummary'
 import UserPerformanceStats from './UserPerformanceStats'
 import SalesPerformanceStats from './SalesPerformanceStats'
 import MultiSiteSelect from '../components/MultiSiteSelect'
+import { usePermission } from '@/hooks/use-permission'
 
 interface SelectedSite {
   siteId: string
@@ -90,6 +91,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   const { data: session } = useSession()
   const searchParamsValue = use(searchParams || Promise.resolve({} as { [key: string]: string | string[] | undefined }))
   const isViewMode = searchParamsValue['view'] === 'true'
+
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('users:update')
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -381,7 +385,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
               <p className="text-sm text-gray-500 dark:text-gray-400">Detail informasi pengguna</p>
             </div>
           </div>
-          {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.permissions?.includes('user:update')) && (
+          {canUpdate && (
             <Link
               href={`/admin/users/${id}`}
               className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium"
@@ -935,23 +939,25 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           >
             Batal
           </Link>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <HiOutlineCheckCircle className="w-5 h-5" />
-                Simpan Perubahan
-              </>
-            )}
-          </button>
+          {canUpdate && (
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <HiOutlineCheckCircle className="w-5 h-5" />
+                  Simpan Perubahan
+                </>
+              )}
+            </button>
+          )}
         </div>
       </form>
     </div>

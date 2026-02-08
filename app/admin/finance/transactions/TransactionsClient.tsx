@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { PhotoUpload, type PhotoUploadRef } from '@/components/inventory/PhotoUpload'
 import { MarketPriceCheck } from '@/components/procurement/MarketPriceCheck'
 import { SiteFilter } from '@/components/common/SiteFilter'
+import { usePermission } from '@/hooks/use-permission'
 import type { Category, Account, Transaction } from '@/types'
 
 interface TransactionsClientProps {
@@ -19,7 +20,12 @@ export default function TransactionsClient({ categories, accounts }: Transaction
   const router = useRouter()
   const searchParams = useSearchParams()
   const accountIdParam = searchParams.get('accountId')
-  
+
+  const { hasPermission } = usePermission()
+  // Use generic expense permissions as proxy for finance transactions for now
+  const canCreate = hasPermission('expense:create')
+  const canDelete = hasPermission('expense:delete')
+
   const photoUploadRef = useRef<PhotoUploadRef>(null)
   
   const [data, setData] = useState<Transaction[]>([])
@@ -200,13 +206,15 @@ export default function TransactionsClient({ categories, accounts }: Transaction
                Pencatatan pemasukan dan pengeluaran manual.
             </p>
           </div>
-          <button 
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              onClick={() => setModalOpen(true)}
-          >
-              <HiPlus className="w-5 h-5 mr-2" />
-              Catat Transaksi
-          </button>
+          {canCreate && (
+              <button
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={() => setModalOpen(true)}
+              >
+                  <HiPlus className="w-5 h-5 mr-2" />
+                  Catat Transaksi
+              </button>
+          )}
         </div>
 
         {/* Summary (Subtle) */}
@@ -329,9 +337,9 @@ export default function TransactionsClient({ categories, accounts }: Transaction
                                     {item.type === 'EXPENSE' ? formatCurrency(item.amount) : '-'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    {!item.purchaseOrder && (
-                                        <button 
-                                            onClick={() => openDelete(item)} 
+                                    {!item.purchaseOrder && canDelete && (
+                                        <button
+                                            onClick={() => openDelete(item)}
                                             className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                             title="Hapus Transaksi Manual"
                                         >

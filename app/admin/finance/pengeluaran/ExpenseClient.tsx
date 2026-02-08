@@ -12,6 +12,7 @@ import {
     HiOutlineTrash
 } from "react-icons/hi2";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
+import { usePermission } from "@/hooks/use-permission";
 
 type Expense = {
     id: string;
@@ -23,6 +24,10 @@ type Expense = {
 };
 
 export function ClientComponent() { // ExpensePage() {
+    const { hasPermission } = usePermission();
+    const canCreate = hasPermission("expense:create") || hasPermission("mixradius_expenses:create");
+    const canDelete = hasPermission("expense:delete") || hasPermission("mixradius_expenses:delete");
+
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,13 +103,15 @@ export function ClientComponent() { // ExpensePage() {
                         Kelola pengeluaran operasional perusahaan
                     </p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-colors text-sm font-medium"
-                >
-                    <HiPlus className="w-4 h-4" />
-                    Tambah Pengeluaran
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-colors text-sm font-medium"
+                    >
+                        <HiPlus className="w-4 h-4" />
+                        Tambah Pengeluaran
+                    </button>
+                )}
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -158,13 +165,17 @@ export function ClientComponent() { // ExpensePage() {
                     ]}
                     emptyMessage="Belum ada data pengeluaran"
                     renderActions={(item) => (
-                        <button 
-                            onClick={() => handleDelete(item.id)} 
-                            className="text-gray-400 hover:text-red-500 transition-colors p-2"
-                            title="Hapus"
-                        >
-                            <HiOutlineTrash className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                            {canDelete && (
+                                <button
+                                    onClick={() => handleDelete(item.id)}
+                                    className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                                    title="Hapus"
+                                >
+                                    <HiOutlineTrash className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                     )}
                 />
             </div>

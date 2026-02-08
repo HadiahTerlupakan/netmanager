@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { FiChevronLeft, FiChevronRight, FiTrash2, FiCalendar } from 'react-icons/fi'
 import { getWithAuth, postWithAuth, deleteWithAuth } from '@/lib/api-client'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Holiday {
     id: string
@@ -16,6 +17,10 @@ const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
 const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 
 export function HolidayClient() {
+    const { hasPermission } = usePermission()
+    const canCreate = hasPermission('izin:create') // Proxy for holiday management
+    const canDelete = hasPermission('izin:delete')
+
     const [currentDate, setCurrentDate] = useState(new Date())
     const [holidays, setHolidays] = useState<Holiday[]>([])
     const [_loading, setLoading] = useState(true)
@@ -55,6 +60,8 @@ export function HolidayClient() {
     }
 
     const handleDateClick = (dateStr: string) => {
+        if (!canCreate) return
+
         setSelectedDate(dateStr)
         const holiday = holidays.find(h => new Date(h.date).toISOString().split('T')[0] === dateStr)
         if (holiday) {
@@ -150,8 +157,9 @@ export function HolidayClient() {
                         return (
                             <div
                                 key={day}
-                                onClick={() => handleDateClick(dateStr)}
-                                className={`bg-white dark:bg-gray-800 min-h-[120px] p-2 relative group cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors
+                                onClick={() => canCreate && handleDateClick(dateStr)}
+                                className={`bg-white dark:bg-gray-800 min-h-[120px] p-2 relative group transition-colors
+                    ${canCreate ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750' : ''}
                     ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}
                 `}
                             >
@@ -162,7 +170,7 @@ export function HolidayClient() {
                     `}>
                                         {day}
                                     </span>
-                                    {holiday && (
+                                    {holiday && canDelete && (
                                         <button
                                             onClick={(e) => handleDelete(holiday.id, e)}
                                             className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
@@ -199,7 +207,9 @@ export function HolidayClient() {
                     <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
                     <span>Cuti Bersama</span>
                 </div>
-                <span className="ml-auto">Klik tanggal untuk menambah/edit libur</span>
+                {canCreate && (
+                    <span className="ml-auto">Klik tanggal untuk menambah/edit libur</span>
+                )}
             </div>
 
             <Modal
