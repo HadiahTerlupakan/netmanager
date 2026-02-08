@@ -455,6 +455,7 @@ export interface UserSession {
   /** Multi-site: Primary site ID */
   primarySiteId: string | undefined
   permissions: string[] | undefined
+  isSuperAdmin?: boolean
 }
 
 export async function verifyAuth(request: NextRequest): Promise<UserSession | null> {
@@ -462,16 +463,16 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
     // 1. Check for Bearer token (Mobile)
     const authHeader = request.headers.get('Authorization')
     console.log('[AUTH_VERIFY] Authorization header:', authHeader ? (authHeader.substring(0, 15) + '...') : 'Missing')
-    
+
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1]
       if (token === 'null' || !token) {
         console.warn('[AUTH_VERIFY] Bearer token is literal "null" or empty')
         return null
       }
-      
+
       const mobilePayload = await verifyMobileToken(token)
-      
+
       if (mobilePayload) {
         console.log('[AUTH_VERIFY] Mobile token verified for:', mobilePayload.email)
         const mp = mobilePayload as Record<string, unknown>
@@ -485,6 +486,7 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
           siteIds: (mp.siteIds as string[]) || (mp.siteId ? [mp.siteId as string] : []),
           primarySiteId: mp.primarySiteId as string | undefined,
           permissions: mp.permissions as string[] | undefined,
+          isSuperAdmin: mobilePayload.isSuperAdmin as boolean | undefined
         }
       } else {
         console.warn('[AUTH_VERIFY] Mobile token verification failed')
@@ -512,6 +514,7 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
       siteIds: (token.siteIds as string[]) || (token.siteId ? [token.siteId as string] : []),
       primarySiteId: token.primarySiteId as string | undefined,
       permissions: token.permissions as string[] | undefined,
+      isSuperAdmin: (token.isSuperAdmin as boolean) || false
     }
   } catch (error) {
     console.error('[AUTH_VERIFY] Error verifying auth:', error)

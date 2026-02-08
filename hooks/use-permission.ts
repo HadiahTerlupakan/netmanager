@@ -31,8 +31,9 @@ export function usePermission() {
         }
 
         // Check if user is super admin from session (quick check)
-        const user = session.user as { role?: string }
-        if (user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
+        const user = session.user as { role?: string; isSuperAdmin?: boolean }
+        // Check both legacy string role and new boolean flag
+        if (user.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
             // Defer state update to avoid synchronous setState in effect
             requestAnimationFrame(() => {
               setPermissionState({ permissions: ['*'], isSuperAdmin: true, isLoading: false })

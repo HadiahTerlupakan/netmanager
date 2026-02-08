@@ -1,4 +1,5 @@
 import type { Session } from 'next-auth'
+import { isSuperAdmin } from '@/lib/auth'
 
 /**
  * Site Restriction Service (Multi-Site Support)
@@ -86,13 +87,13 @@ export function checkSiteRestriction(
     const legacySiteId = user.siteId || null
 
     // SUPER_ADMIN bypass - always can see all
-    if (role === 'SUPER_ADMIN') {
-        return { 
-            isRestricted: false, 
-            siteId: undefined, 
+    if (isSuperAdmin(user as any)) {
+        return {
+            isRestricted: false,
+            siteId: undefined,
             siteIds: [],
             userSiteId: legacySiteId,
-            primarySiteId 
+            primarySiteId
         }
     }
 

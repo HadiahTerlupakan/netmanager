@@ -15,13 +15,14 @@ export async function GET(_request: NextRequest) {
             return NextResponse.json({ permissions: [] }, { status: 401 })
         }
 
-        const user = session.user as { id: string; role?: string }
-        
+        const user = session.user as { id: string; role?: string; isSuperAdmin?: boolean }
+
         // Super Admin has all permissions - return special indicator
-        if (isSuperAdminRole(user.role)) {
-            return NextResponse.json({ 
+        // Check both boolean flag (new system) and legacy role name
+        if (user.isSuperAdmin || isSuperAdminRole(user.role)) {
+            return NextResponse.json({
                 permissions: ['*'], // Special marker for super admin
-                isSuperAdmin: true 
+                isSuperAdmin: true
             })
         }
 
