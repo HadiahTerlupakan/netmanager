@@ -1,13 +1,14 @@
-import { authConfig, getUserPermissions } from '@/lib/auth'
+import { authConfig, getUserPermissions, isSuperAdmin as isSuperAdminHelper } from '@/lib/auth'
 import { getServerSession } from 'next-auth'
 import type { User } from 'next-auth'
 
 interface ExtendedUser extends User {
     id: string;
     role?: string;
+    isSuperAdmin?: boolean;
 }
 
-export async function hasPermission(requiredPermission: string, user?: { id?: string; role?: string } | null): Promise<boolean> {
+export async function hasPermission(requiredPermission: string, user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null): Promise<boolean> {
     let currentUser = user;
     if (!currentUser) {
         const session = await getServerSession(authConfig)
@@ -26,7 +27,7 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     }
 
     // Bypass for SUPER_ADMIN to prevent lockout if permissions are missing in DB
-    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'Super Admin') {
+    if (isSuperAdminHelper(currentUser)) {
         return true
     }
 
@@ -34,7 +35,7 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     return permissions.includes(requiredPermission)
 }
 
-export async function hasAnyPermission(requiredPermissions: string[], user?: { id?: string; role?: string } | null): Promise<boolean> {
+export async function hasAnyPermission(requiredPermissions: string[], user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null): Promise<boolean> {
     let currentUser = user;
     if (!currentUser) {
         const session = await getServerSession(authConfig)
@@ -51,7 +52,7 @@ export async function hasAnyPermission(requiredPermissions: string[], user?: { i
     }
 
     // Bypass for SUPER_ADMIN
-    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'Super Admin') {
+    if (isSuperAdminHelper(currentUser)) {
         return true
     }
 
