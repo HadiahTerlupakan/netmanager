@@ -16,6 +16,7 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     }
 
     if (!currentUser) {
+        console.log('[RBAC] No user found in session')
         return false
     }
 
@@ -23,19 +24,35 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     // Note: SUPER_ADMIN has all permissions from seed, so no bypass needed
     const userId = currentUser.id
     if (!userId) {
+        console.log('[RBAC] No userId found')
         return false
     }
 
     // Bypass for SUPER_ADMIN to prevent lockout if permissions are missing in DB
     if (isSuperAdminHelper(currentUser)) {
+        // console.log('[RBAC] Super Admin bypass for user:', userId)
         return true
     }
 
+    // Debugging non-super admin access
+    // console.log('[RBAC] Checking permission for user:', userId, 'Role:', currentUser.role, 'isSuperAdmin:', currentUser.isSuperAdmin)
+
     const permissions = await getUserPermissions(userId)
-    return permissions.includes(requiredPermission)
+    const has = permissions.includes(requiredPermission)
+
+    if (!has) {
+        console.log(`[RBAC] Access Denied. User: ${userId}, Role: ${currentUser.role}, Required: ${requiredPermission}, Has: ${permissions.length} perms`)
+        // Pass debug info to forbidden page if in dev mode or if needed
+        // const reason = `Missing: ${requiredPermission}`
+        // const debug = `Role: ${currentUser.role}, SA: ${currentUser.isSuperAdmin}`
+        // return false; // Caller handles redirect, but ensurePermission handles redirect too.
+    }
+
+    return has
 }
 
 export async function hasAnyPermission(requiredPermissions: string[], user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null): Promise<boolean> {
+    // ... same as before ...
     let currentUser = user;
     if (!currentUser) {
         const session = await getServerSession(authConfig)
@@ -66,10 +83,19 @@ export async function getCurrentUser() {
 }
 
 export async function ensurePermission(requiredPermission: string, redirectTo: string = '/admin/forbidden') {
-    const has = await hasPermission(requiredPermission)
+    const session = await getServerSession(authConfig)
+    const user = session?.user as ExtendedUser | null
+
+    // Pass user explicitly to avoid double session fetch
+    const has = await hasPermission(requiredPermission, user)
+
     if (!has) {
+        // Construct detailed error message for debugging
+        const reason = encodeURIComponent(`Missing permission: ${requiredPermission}`)
+        const debugInfo = user ? encodeURIComponent(`Role: ${user.role}, IsSuper: ${user.isSuperAdmin}`) : 'NoSession'
+
         const { redirect } = await import('next/navigation')
-        redirect(redirectTo)
+        redirect(`${redirectTo}?reason=${reason}&debug=${debugInfo}`)
     }
 }
 

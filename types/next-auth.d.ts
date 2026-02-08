@@ -17,6 +17,7 @@ declare module 'next-auth' {
       siteIds?: string[]
       primarySiteId?: string
       departmentId?: string
+      isSuperAdmin?: boolean
       employee?: {
         id: string
         employeeId: string
@@ -38,6 +39,7 @@ declare module 'next-auth' {
     permissions?: string[]
     siteIds?: string[]
     primarySiteId?: string
+    isSuperAdmin?: boolean
     employee?: {
       id: string
       employeeId: string

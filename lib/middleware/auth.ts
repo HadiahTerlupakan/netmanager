@@ -113,7 +113,7 @@ export function withEmployeeAuth<T = unknown>(
  */
 async function checkAdminAccess(user: UserSession): Promise<boolean> {
   // SUPER_ADMIN bypass
-  if (user.role === 'SUPER_ADMIN') {
+  if (user.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
     return true
   }
 
@@ -139,7 +139,7 @@ async function checkAdminAccess(user: UserSession): Promise<boolean> {
  */
 async function checkEmployeeAccess(user: UserSession): Promise<boolean> {
   // SUPER_ADMIN bypass
-  if (user.role === 'SUPER_ADMIN') {
+  if (user.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
     return true
   }
 

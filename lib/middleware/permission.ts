@@ -114,5 +114,5 @@ export function withAllPermissions<T = unknown>(
  * Helper to check if user is SUPER_ADMIN
  */
 export function isSuperAdmin(user: UserSession): boolean {
-  return user.role === 'SUPER_ADMIN'
+  return (user.isSuperAdmin === true) || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin'
 }

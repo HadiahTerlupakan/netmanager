@@ -48,8 +48,7 @@ export default function CanvasingList() {
     const [zoomImage, setZoomImage] = useState<string | null>(null)
 
     // Permission checks
-    const { hasPermission, isLoading: permLoading, role } = usePermission()
-    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'Super Admin'
+    const { hasPermission, isLoading: permLoading, isSuperAdmin } = usePermission()
     const canRead = isSuperAdmin || hasPermission('canvasing:read')
     const canCreate = isSuperAdmin || hasPermission('canvasing:create')
     const canUpdate = isSuperAdmin || hasPermission('canvasing:update')

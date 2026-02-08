@@ -15,9 +15,10 @@ export async function ensureEmployeeAccess(permission?: string) {
         role: string;
         accessEmployeePanel?: boolean;
         permissions?: string[];
+        isSuperAdmin?: boolean;
     }
     // SUPER_ADMIN bypass
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
         return user
     }
 

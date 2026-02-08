@@ -24,6 +24,7 @@ export interface UserContext {
     permissions?: string[]
     siteId?: string
     departmentId?: string
+    isSuperAdmin?: boolean
 }
 
 export interface CreateWorkOrderInput {
@@ -829,10 +830,11 @@ export class WorkOrderService {
      * Validate user access to a specific work order based on RBAC and restrictions
      */
     private async validateWorkOrderAccess(workOrderId: string, userContext: UserContext): Promise<void> {
-        const { role, permissions = [], departmentId: userDeptId, siteId: userSiteId } = userContext
+        const { role, permissions = [], departmentId: userDeptId, siteId: userSiteId, isSuperAdmin: userIsSuperAdmin } = userContext
 
         // Bypass for SUPER_ADMIN
-        if (role === 'SUPER_ADMIN') return
+        const isSuperAdmin = userIsSuperAdmin || role === 'SUPER_ADMIN' || role === 'Super Admin'
+        if (isSuperAdmin) return
 
         // Fetch work order to check its department/site
         const workOrder = await this.repository.findById(workOrderId)

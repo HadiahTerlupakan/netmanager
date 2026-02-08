@@ -350,7 +350,27 @@ export const authConfig: NextAuthOptions = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { tokenVersion: true, isActive: true }
+            select: {
+              tokenVersion: true,
+              isActive: true,
+              role: {
+                select: {
+                  name: true,
+                  accessAdminPanel: true,
+                  accessEmployeePanel: true,
+                  isSuperAdmin: true,
+                  permission: { select: { id: true } } // Just count
+                }
+              },
+              departments: { select: { name: true } },
+              isSales: true,
+              siteId: true,
+              userSites: {
+                where: { isPrimary: true },
+                select: { siteId: true },
+                take: 1
+              }
+            }
           });
 
           // If user doesn't exist, is inactive, or token version mismatch - invalidate session
@@ -364,27 +384,48 @@ export const authConfig: NextAuthOptions = {
             console.log(`[AUTH SESSION] Token version mismatch for user ${token.id}. DB: ${dbUser.tokenVersion}, Token: ${tokenVersion}. Forcing logout.`);
             return { ...session, user: undefined as unknown as Session['user'], expires: new Date(0).toISOString() };
           }
+
+          // REFRESH SESSION DATA FROM DB
+          // This ensures that role changes (like toggling isSuperAdmin) take effect immediately
+          // without requiring the user to logout/login
+          const sessionUser = session.user as Record<string, unknown>;
+          sessionUser.id = token.id;
+
+          // Use fresh data from DB
+          const roleName = dbUser.role?.name || 'USER';
+          const isSuperAdmin = dbUser.role?.isSuperAdmin || roleName === 'SUPER_ADMIN' || roleName === 'Super Admin';
+
+          sessionUser.role = roleName;
+          sessionUser.isSuperAdmin = isSuperAdmin;
+
+          // If Super Admin, force enable access
+          if (isSuperAdmin) {
+            sessionUser.accessAdminPanel = true;
+            sessionUser.accessEmployeePanel = true;
+          } else {
+            sessionUser.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false;
+            sessionUser.accessEmployeePanel = dbUser.role?.accessEmployeePanel ?? false;
+          }
+
+          // Don't include permissions in session - they will be loaded at runtime
+          sessionUser.permissionsCount = dbUser.role?.permission.length || 0;
+          sessionUser.departmentId = token.departmentId; // Keep from token or fetch? Token is fine for now
+          sessionUser.departmentName = dbUser.departments?.name;
+
+          // Handle Site ID
+          const primarySiteId = dbUser.userSites?.[0]?.siteId || dbUser.siteId;
+          sessionUser.siteId = primarySiteId;
+          sessionUser.primarySiteId = primarySiteId;
+          sessionUser.siteIds = token.siteIds; // Keep array from token for now to avoid heavy query, or could fetch
+
+          sessionUser.isSales = dbUser.isSales;
+
         } catch (error) {
           console.error('[AUTH SESSION] Error validating tokenVersion:', error);
           // SECURITY: Fail-closed - invalidate session on validation error
           console.warn('[AUTH SESSION] SECURITY: Invalidating session due to validation error');
           return { ...session, user: undefined as unknown as Session['user'], expires: new Date(0).toISOString() };
         }
-
-        const sessionUser = session.user as Record<string, unknown>;
-        sessionUser.id = token.id;
-        sessionUser.role = token.role;
-        sessionUser.isSuperAdmin = token.isSuperAdmin;
-        sessionUser.accessAdminPanel = token.accessAdminPanel;
-        sessionUser.accessEmployeePanel = token.accessEmployeePanel;
-        // Don't include permissions in session - they will be loaded at runtime
-        sessionUser.permissionsCount = token.permissionsCount;
-        sessionUser.departmentId = token.departmentId;
-        sessionUser.departmentName = token.departmentName;
-        sessionUser.siteId = token.siteId; // Legacy: primary site
-        sessionUser.siteIds = token.siteIds; // Multi-site: all site IDs
-        sessionUser.primarySiteId = token.primarySiteId; // Multi-site: primary
-        sessionUser.isSales = token.isSales;
       }
       return session
     },
