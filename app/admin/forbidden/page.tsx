@@ -40,12 +40,6 @@ export default async function ForbiddenPage(props: { searchParams: Promise<Recor
           >
             Kembali ke Dashboard
           </Link>
-          <Link
-             href="/admin/debug-auth"
-             className="inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:underline w-full"
-          >
-             Debug Permissions
-          </Link>
         </div>
       </div>
     </div>
