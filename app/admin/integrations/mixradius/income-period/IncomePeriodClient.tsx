@@ -12,7 +12,10 @@ import {
   HiOutlineCog,
   HiOutlineInformationCircle,
   HiOutlineArrowTrendingUp,
-  HiOutlineArrowTrendingDown
+  HiOutlineArrowTrendingDown,
+  HiOutlineCalculator,
+  HiOutlineUsers,
+  HiOutlineChartBar
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -49,6 +52,37 @@ interface IncomePeriodResponse {
     totalPlusPpn: string
     totalTransactions: string
   }
+}
+
+// RAB Project types for comparison
+interface RABItem {
+  id: string
+  name: string
+  category: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  expenseType?: 'CAPEX' | 'OPEX'
+}
+
+interface RABProject {
+  id: string
+  name: string
+  description?: string
+  siteId?: string
+  mixRadiusGroupId?: string
+  site?: { name: string }
+  mixRadiusGroup?: { name: string }
+  projectedRevenue: number
+  projectedOpex: number
+  targetSubscribers?: number
+  arpu?: number
+  growthType?: 'LINEAR' | 'PERCENTAGE' | 'CUSTOM'
+  growthSettings?: unknown
+  startDate?: string
+  status: string
+  items: RABItem[]
+  createdAt: string
 }
 
 export default function IncomePeriodClient() {
@@ -88,6 +122,10 @@ export default function IncomePeriodClient() {
   const [totalExpenses, setTotalExpenses] = useState<number>(0)
   const [specificExpenses, setSpecificExpenses] = useState<number>(0)
   const [allocatedExpenses, setAllocatedExpenses] = useState<number>(0)
+
+  // RAB Project Comparison State
+  const [rabProject, setRabProject] = useState<RABProject | null>(null)
+  const [rabLoading, setRabLoading] = useState(false)
   const [isCalculatingNet, setIsCalculatingNet] = useState(false)
 
   // Sorting state
@@ -137,6 +175,49 @@ export default function IncomePeriodClient() {
     }
     fetchFilterData()
   }, [])
+
+  // Fetch RAB Project for selected group
+  useEffect(() => {
+    const fetchRABProject = async () => {
+      if (!selectedGroup || selectedGroup === 'all') {
+        setRabProject(null)
+        return
+      }
+
+      setRabLoading(true)
+      try {
+        const res = await fetch(`/api/finance/rab-projects?mixRadiusGroupId=${selectedGroup}`)
+        if (res.ok) {
+          const projects = await res.json()
+          // Get the first/active RAB project for this group
+          if (Array.isArray(projects) && projects.length > 0) {
+            // Parse numeric values
+            const project = projects[0]
+            setRabProject({
+              ...project,
+              projectedRevenue: Number(project.projectedRevenue),
+              projectedOpex: Number(project.projectedOpex),
+              arpu: project.arpu ? Number(project.arpu) : undefined,
+              items: project.items?.map((item: RABItem & { unitPrice: string | number, totalPrice: string | number }) => ({
+                ...item,
+                unitPrice: Number(item.unitPrice),
+                totalPrice: Number(item.totalPrice)
+              })) || []
+            })
+          } else {
+            setRabProject(null)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch RAB project:', err)
+        setRabProject(null)
+      } finally {
+        setRabLoading(false)
+      }
+    }
+
+    fetchRABProject()
+  }, [selectedGroup])
 
   // Move helper functions outside or use useCallback to stabilize them
   const parseNumber = useCallback((val: string | number): number => {
@@ -669,6 +750,187 @@ export default function IncomePeriodClient() {
 
       <NPLSummary groupId={selectedGroup} />
 
+      {/* RAB Project Comparison Section */}
+      {selectedGroup && selectedGroup !== 'all' && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <HiOutlineCalculator className="w-5 h-5 text-purple-500" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Proyeksi RAB vs Aktual
+              </h3>
+            </div>
+            {rabLoading && (
+              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            )}
+          </div>
+
+          {rabProject ? (
+            <div className="p-5">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{rabProject.name}</span>
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                    rabProject.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                    rabProject.status === 'DRAFT' ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' :
+                    'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                  }`}>
+                    {rabProject.status}
+                  </span>
+                </div>
+                {rabProject.description && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{rabProject.description}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Target Subscribers Comparison */}
+                <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/20 dark:to-gray-800 rounded-lg p-4 border border-indigo-100 dark:border-indigo-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <HiOutlineUsers className="w-4 h-4 text-indigo-500" />
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Target vs Aktual</span>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                      {totalRecords.toLocaleString()}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                      / {rabProject.targetSubscribers?.toLocaleString() || '-'}
+                    </span>
+                  </div>
+                  {rabProject.targetSubscribers && rabProject.targetSubscribers > 0 && (
+                    <div className="mt-2">
+                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            (totalRecords / rabProject.targetSubscribers) >= 1
+                              ? 'bg-green-500'
+                              : (totalRecords / rabProject.targetSubscribers) >= 0.5
+                                ? 'bg-yellow-500'
+                                : 'bg-indigo-500'
+                          }`}
+                          style={{ width: `${Math.min((totalRecords / rabProject.targetSubscribers) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {((totalRecords / rabProject.targetSubscribers) * 100).toFixed(1)}% tercapai
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Revenue Comparison */}
+                <div className="bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-800 rounded-lg p-4 border border-green-100 dark:border-green-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <HiOutlineCurrencyDollar className="w-4 h-4 text-green-500" />
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Pendapatan vs Proyeksi</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(parseNumber(summary?.profit || 0))}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Proyeksi: {formatCurrency(rabProject.projectedRevenue)}
+                    </span>
+                  </div>
+                  {rabProject.projectedRevenue > 0 && (
+                    <div className="mt-2">
+                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            (parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) >= 1
+                              ? 'bg-green-500'
+                              : 'bg-green-400'
+                          }`}
+                          style={{ width: `${Math.min((parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {((parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) * 100).toFixed(1)}% tercapai
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* CAPEX Summary */}
+                <div className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-gray-800 rounded-lg p-4 border border-purple-100 dark:border-purple-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <HiOutlineChartBar className="w-4 h-4 text-purple-500" />
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">CAPEX (Investasi Awal)</span>
+                  </div>
+                  <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                    {formatCurrency(
+                      rabProject.items
+                        .filter(item => !item.expenseType || item.expenseType === 'CAPEX')
+                        .reduce((sum, item) => sum + Number(item.totalPrice), 0)
+                    )}
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {rabProject.items.filter(item => !item.expenseType || item.expenseType === 'CAPEX').length} item
+                  </p>
+                </div>
+
+                {/* OPEX Comparison */}
+                <div className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-900/20 dark:to-gray-800 rounded-lg p-4 border border-orange-100 dark:border-orange-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <HiOutlineArrowTrendingDown className="w-4 h-4 text-orange-500" />
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">OPEX Aktual vs Proyeksi</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                      {formatCurrency(totalExpenses)}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Proyeksi: {formatCurrency(rabProject.projectedOpex)}/bln
+                    </span>
+                  </div>
+                  {rabProject.projectedOpex > 0 && (
+                    <p className={`text-xs mt-1 font-medium ${
+                      totalExpenses <= rabProject.projectedOpex
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {totalExpenses <= rabProject.projectedOpex
+                        ? `✓ Di bawah anggaran (${((1 - totalExpenses / rabProject.projectedOpex) * 100).toFixed(1)}%)`
+                        : `⚠ Melebihi anggaran (${((totalExpenses / rabProject.projectedOpex - 1) * 100).toFixed(1)}%)`
+                      }
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Growth Info */}
+              {rabProject.growthType && rabProject.targetSubscribers && (
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <HiOutlineArrowTrendingUp className="w-4 h-4 text-purple-400" />
+                      <span>Model: <strong className="text-gray-700 dark:text-gray-300">{rabProject.growthType}</strong></span>
+                    </div>
+                    {rabProject.arpu && (
+                      <div className="flex items-center gap-1">
+                        <span>ARPU: <strong className="text-gray-700 dark:text-gray-300">{formatCurrency(rabProject.arpu)}</strong></span>
+                      </div>
+                    )}
+                    {rabProject.startDate && (
+                      <div className="flex items-center gap-1">
+                        <HiOutlineCalendar className="w-4 h-4" />
+                        <span>Mulai: <strong className="text-gray-700 dark:text-gray-300">{new Date(rabProject.startDate).toLocaleDateString('id-ID')}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : !rabLoading ? (
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+              <HiOutlineCalculator className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+              <p className="font-medium">Belum ada RAB untuk site ini</p>
+              <p className="text-sm mt-1">Buat RAB di menu Pengeluaran &gt; RAB (Proyek) untuk melihat perbandingan</p>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

@@ -1,5 +1,6 @@
 import next from "eslint-config-next";
 import tseslint from "typescript-eslint";
+import reactHooks from "eslint-plugin-react-hooks";
 
 const eslintConfig = [
   ...next,
@@ -23,9 +24,12 @@ const eslintConfig = [
     ]
   },
   {
+    plugins: {
+      "react-hooks": reactHooks
+    },
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { 
+      "@typescript-eslint/no-unused-vars": ["warn", {
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
         "caughtErrorsIgnorePattern": "^_"

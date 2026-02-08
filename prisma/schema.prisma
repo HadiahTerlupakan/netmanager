@@ -3096,19 +3096,32 @@ model RabProject {
   description      String?
   siteId           String?
   mixRadiusGroupId String?
-  
+
   // Financial Projections (Monthly)
-  projectedRevenue BigInt   @default(0) 
-  projectedOpex    BigInt   @default(0) 
-  
+  projectedRevenue BigInt   @default(0)
+  projectedOpex    BigInt   @default(0)
+
+  // Growth Period Settings
+  targetSubscribers Int?                 // Target number of subscribers
+  arpu              BigInt?              // Average Revenue Per User
+  growthType        RabGrowthType        @default(LINEAR)
+
+  // LINEAR: subscribersPerMonth (how many new subs per month)
+  // PERCENTAGE: initialPercent (starting %), monthlyGrowthPercent (% increase per month)
+  // CUSTOM: milestones array [{month, percent}]
+  growthSettings    Json?
+
+  // Project Timeline
+  startDate         DateTime?            // When the project starts
+
   status           RabStatus            @default(DRAFT)
-  
+
   items            RabItem[]
-  
+
   createdBy        String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
-  
+
   site             Sites?               @relation(fields: [siteId], references: [id])
   mixRadiusGroup   MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
   creator          User?                @relation(fields: [createdBy], references: [id])
@@ -3160,4 +3173,10 @@ enum RabItemCategory {
   SERVICE
   OPERATIONAL
   OTHER
+}
+
+enum RabGrowthType {
+  LINEAR
+  PERCENTAGE
+  CUSTOM
 }

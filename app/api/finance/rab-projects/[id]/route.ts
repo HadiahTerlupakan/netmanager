@@ -4,9 +4,28 @@ import { getServerSession } from "next-auth";
 import { authOptions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { z } from "zod";
-import { RabItemCategory, RabExpenseType } from "@prisma/client";
+import { RabItemCategory, RabExpenseType, RabGrowthType } from "@prisma/client";
 
 export const dynamic = 'force-dynamic';
+
+// Growth settings schemas
+const linearGrowthSchema = z.object({
+    subscribersPerMonth: z.number().min(1),
+});
+
+const percentageGrowthSchema = z.object({
+    initialPercent: z.number().min(0).max(100),
+    monthlyGrowthPercent: z.number().min(0).max(100),
+});
+
+const customMilestoneSchema = z.object({
+    month: z.number().min(1),
+    percent: z.number().min(0).max(100),
+});
+
+const customGrowthSchema = z.object({
+    milestones: z.array(customMilestoneSchema).min(1),
+});
 
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
@@ -17,10 +36,14 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         }
 
         const isSuper = isSuperAdmin(session.user);
-        const hasAccess = isSuper || (await hasPermission("expense:read"));
+        const hasAccess = isSuper ||
+                         (await hasPermission("expense:read")) ||
+                         (await hasPermission("mixradius_expenses:read"));
 
         if (!hasAccess) {
-             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+             return NextResponse.json({
+                 error: "Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read"
+             }, { status: 403 });
         }
 
         const project = await prisma.rabProject.findUnique({
@@ -28,7 +51,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
             include: {
                 items: true,
                 site: { select: { name: true } },
-                mixRadiusGroup: { select: { name: true } },
+                mixRadiusGroup: { select: { name: true, owners: true } },
                 creator: { select: { name: true } }
             }
         });
@@ -41,6 +64,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
             ...project,
             projectedRevenue: project.projectedRevenue.toString(),
             projectedOpex: project.projectedOpex.toString(),
+            arpu: project.arpu?.toString() || null,
             items: project.items.map(i => ({
                 ...i,
                 unitPrice: i.unitPrice.toString(),
@@ -61,16 +85,21 @@ const updateSchema = z.object({
     status: z.enum(["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
     projectedRevenue: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(v) : undefined),
     projectedOpex: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(v) : undefined),
-    // For now, let's assume we might want to update items separately or simply not support deep update here for now unless requested
-    // But typically an edit form sends everything.
-    // If items are sent, we replace them.
+
+    // Growth period fields
+    targetSubscribers: z.number().optional(),
+    arpu: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(v) : undefined),
+    growthType: z.nativeEnum(RabGrowthType).optional(),
+    growthSettings: z.union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema]).optional(),
+    startDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
+
     items: z.array(z.object({
         name: z.string(),
         description: z.string().optional(),
         quantity: z.number(),
         unitPrice: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
-        category: z.enum(["HARDWARE", "LICENSE", "INSTALLATION", "OTHER", "DEVICE", "CABLE", "ACCESSORIES", "SERVICE", "OPERATIONAL"]),
-        expenseType: z.enum(["CAPEX", "OPEX"]).default("CAPEX"),
+        category: z.nativeEnum(RabItemCategory),
+        expenseType: z.nativeEnum(RabExpenseType).default(RabExpenseType.CAPEX),
     })).optional()
 });
 
@@ -83,10 +112,14 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         }
 
         const isSuper = isSuperAdmin(session.user);
-        const hasAccess = isSuper || (await hasPermission("expense:update"));
+        const hasAccess = isSuper ||
+                         (await hasPermission("expense:update")) ||
+                         (await hasPermission("mixradius_expenses:update"));
 
         if (!hasAccess) {
-             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+             return NextResponse.json({
+                 error: "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update"
+             }, { status: 403 });
         }
 
         const body = await req.json();
@@ -96,7 +129,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
             return NextResponse.json({ error: "Invalid data", details: validation.error.format() }, { status: 400 });
         }
 
-        const { name, description, status, projectedRevenue, projectedOpex, items } = validation.data;
+        const {
+            name, description, status, projectedRevenue, projectedOpex, items,
+            targetSubscribers, arpu, growthType, growthSettings, startDate
+        } = validation.data;
 
         const updateData: Record<string, unknown> = {};
         if (name) updateData.name = name;
@@ -105,12 +141,17 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         if (projectedRevenue !== undefined) updateData.projectedRevenue = projectedRevenue;
         if (projectedOpex !== undefined) updateData.projectedOpex = projectedOpex;
 
+        // Growth period fields
+        if (targetSubscribers !== undefined) updateData.targetSubscribers = targetSubscribers;
+        if (arpu !== undefined) updateData.arpu = arpu;
+        if (growthType !== undefined) updateData.growthType = growthType;
+        if (growthSettings !== undefined) updateData.growthSettings = growthSettings;
+        if (startDate !== undefined) updateData.startDate = startDate;
+
         if (items) {
-             // Calculate totals
+             // Calculate totals - category and expenseType already validated by Zod as proper enums
              const itemsWithTotal = items.map(item => ({
                 ...item,
-                category: item.category as RabItemCategory,
-                expenseType: item.expenseType as RabExpenseType,
                 totalPrice: BigInt(item.quantity) * item.unitPrice
             }));
 
@@ -130,6 +171,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
             ...project,
             projectedRevenue: project.projectedRevenue.toString(),
             projectedOpex: project.projectedOpex.toString(),
+            arpu: project.arpu?.toString() || null,
             items: project.items.map(i => ({
                 ...i,
                 unitPrice: i.unitPrice.toString(),
@@ -154,10 +196,14 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
         }
 
         const isSuper = isSuperAdmin(session.user);
-        const hasAccess = isSuper || (await hasPermission("expense:delete"));
+        const hasAccess = isSuper ||
+                         (await hasPermission("expense:delete")) ||
+                         (await hasPermission("mixradius_expenses:delete"));
 
         if (!hasAccess) {
-             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+             return NextResponse.json({
+                 error: "Akses ditolak. Anda memerlukan permission: expense:delete ATAU mixradius_expenses:delete"
+             }, { status: 403 });
         }
 
         const project = await prisma.rabProject.findUnique({
