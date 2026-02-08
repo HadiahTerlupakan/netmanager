@@ -57,7 +57,10 @@ export async function PUT(req: Request, { params }: Params) {
 
     try {
         const body = await req.json()
+        console.log('[ROLES API] PUT received body:', JSON.stringify(body, null, 2))
+
         const validated = roleUpdateSchema.parse(body)
+        console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
 
         const roleService = getRoleService()
         const updateData: {

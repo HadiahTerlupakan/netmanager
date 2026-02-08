@@ -10,6 +10,7 @@ export interface CreateRoleDTO {
     accessEmployeePanel?: boolean
     isRestricted?: boolean
     isTechnical?: boolean
+    isSuperAdmin?: boolean
     permissionIds?: string[]
 }
 
@@ -20,6 +21,7 @@ export interface UpdateRoleDTO {
     accessEmployeePanel?: boolean
     isRestricted?: boolean
     isTechnical?: boolean
+    isSuperAdmin?: boolean
     permissionIds?: string[]
 }
 
@@ -101,6 +103,7 @@ export class RoleRepository {
                 accessEmployeePanel: data.accessEmployeePanel ?? false,
                 isRestricted: data.isRestricted ?? false,
                 isTechnical: data.isTechnical ?? false,
+                isSuperAdmin: data.isSuperAdmin ?? false,
                 permission: {
                     connect: permissionConnections
                 }
@@ -117,6 +120,7 @@ export class RoleRepository {
         if (data.accessEmployeePanel !== undefined) updateData.accessEmployeePanel = data.accessEmployeePanel
         if (data.isRestricted !== undefined) updateData.isRestricted = data.isRestricted
         if (data.isTechnical !== undefined) updateData.isTechnical = data.isTechnical
+        if (data.isSuperAdmin !== undefined) updateData.isSuperAdmin = data.isSuperAdmin
 
         if (data.permissionIds !== undefined) {
             updateData.permission = {
