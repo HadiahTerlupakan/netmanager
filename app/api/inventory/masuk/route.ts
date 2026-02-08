@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     // SITE RESTRICTION
     const permissions = await getUserPermissions(session.user.id!);
-    const isSuper = isSuperAdmin(session.user as any)
+    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
 
     if (!isSuper && (permissions.includes('masuk:site_only') || permissions.includes('k_barang:site_only'))) {
         siteId = (session.user as { siteId?: string }).siteId ?? null

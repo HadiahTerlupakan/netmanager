@@ -23,12 +23,13 @@ export async function GET(_request: NextRequest) {
         }
 
         const user = session.user as {
-            role: string;
+            role?: string | null;
+            isSuperAdmin?: boolean;
             permissions?: string[];
             siteId?: string;
             departmentId?: string;
         };
-        const isSuper = isSuperAdmin(user as any);
+        const isSuper = isSuperAdmin(user);
 
         // Prepare RBAC filters
         let siteId: string | undefined;

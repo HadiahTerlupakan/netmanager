@@ -11,14 +11,14 @@ export type SecureContext = {
     permissions: string[];
     siteId?: string;
     departmentId?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   isSuperAdmin: boolean;
 };
 
 type HandlerFunction = (
   req: NextRequest,
-  ctx: SecureContext & { params?: any }
+  ctx: SecureContext & { params?: Record<string, string | string[] | undefined> }
 ) => Promise<NextResponse>;
 
 type PermissionRequirement = string | string[] | ((user: SecureContext['user']) => boolean | Promise<boolean>);
@@ -48,7 +48,7 @@ export function secure(
   handler: HandlerFunction,
   options: SecureOptions = {}
 ) {
-  return async (req: NextRequest, { params }: { params?: Promise<any> } = {}) => {
+  return async (req: NextRequest, { params }: { params?: Promise<Record<string, string | string[] | undefined>> } = {}) => {
     const path = req.nextUrl.pathname;
     const method = req.method;
 

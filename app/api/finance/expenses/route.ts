@@ -160,7 +160,7 @@ export async function POST(req: Request) {
         }
 
         // Allow SUPER_ADMIN to bypass permission check
-        const isSuper = isSuperAdmin(session.user as any);
+        const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean });
 
         // Check for either generic expense permission OR mixradius expense permission
         const hasAccess = isSuper ||

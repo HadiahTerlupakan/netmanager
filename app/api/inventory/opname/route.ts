@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       // NEW: Enforce Site Restriction Logic
       // const permissions = session.user.permissions || []
       const permissions = await getUserPermissions(session.user.id);
-      const isSuper = isSuperAdmin(session.user as any)
+      const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
       const userSiteId = session.user.siteId
 
       if (!isSuper && permissions.includes('opname:site_only')) {

@@ -39,12 +39,13 @@ export async function GET(request: Request) {
 
         // Enforce RBAC Restrictions
         const user = session.user as {
-            role: string;
+            role?: string | null;
+            isSuperAdmin?: boolean;
             permissions?: string[];
             siteId?: string;
             departmentId?: string
         }
-        const isSuper = isSuperAdmin(session.user as any)
+        const isSuper = isSuperAdmin(user)
 
         if (user.permissions?.includes('izin:site_only') && !isSuper) {
             siteId = user.siteId

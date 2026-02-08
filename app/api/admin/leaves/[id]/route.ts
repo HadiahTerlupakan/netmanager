@@ -57,11 +57,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         // Access Control
         const user = session.user as {
             role?: string;
+            isSuperAdmin?: boolean;
             permissions?: string[];
             siteId?: string;
             departmentId?: string;
         }
-        const isSuper = isSuperAdmin(user as any)
+        const isSuper = isSuperAdmin(user)
         if (!isSuper) {
             if (user.permissions?.includes('izin:site_only') && existing.user.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Dibatasi hanya untuk Site Anda')
@@ -119,11 +120,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         // Access Control
         const user = session.user as {
             role?: string;
+            isSuperAdmin?: boolean;
             permissions?: string[];
             siteId?: string;
             departmentId?: string;
         }
-        const isSuper = isSuperAdmin(user as any)
+        const isSuper = isSuperAdmin(user)
         if (!isSuper) {
             if (user.permissions?.includes('izin:site_only') && existing.user.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Dibatasi hanya untuk Site Anda')

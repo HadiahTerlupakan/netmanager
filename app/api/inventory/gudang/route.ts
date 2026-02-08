@@ -71,14 +71,14 @@ export async function GET(req: NextRequest) {
     // const permissions = (session.user as any).permissions || []
     const permissions = await getUserPermissions(session.user.id!);
     const siteId = (session.user as { siteId?: string }).siteId
-    const role = (session.user as { role?: string }).role
+
 
     // Only restrict if:
     // 1. User has restriction permission
     // 2. User has a site assigned
     // 3. User is NOT requesting (and authorized for) view=all
     //    (Super Admins or users with Admin Panel access can view all)
-    const isSuper = isSuperAdmin(session.user as any)
+    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
     // ONLY Super Admin can bypass site restrictions via view=all
     // Other users with accessAdminPanel must still respect site_only permission
     const canViewAll = isSuper
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
       // NEW: Enforce Site Restriction on Creation
       // const permissions = (session.user as any).permissions || []
       const permissions = await getUserPermissions(session.user.id!);
-      const isSuper = isSuperAdmin(session.user as any)
+      const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
       const userSiteId = (session.user as { siteId?: string }).siteId
 
       let finalSiteIds = siteIds

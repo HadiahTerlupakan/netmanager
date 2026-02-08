@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
 
         // Enforce Site Restriction
         const permissions = await getUserPermissions(session.user.id);
-        const user = session.user as ExtendedUser;
-        const isSuper = isSuperAdmin(user as any)
+        const user = session.user as ExtendedUser & { isSuperAdmin?: boolean };
+        const isSuper = isSuperAdmin(user)
         const siteId = (!isSuper && permissions.includes('site_only'))
             ? user.siteId
             : undefined;
@@ -186,8 +186,8 @@ export async function PATCH(request: NextRequest) {
 
         // Enforce Site Restriction
         const permissions = await getUserPermissions(session.user.id);
-        const user = session.user as ExtendedUser;
-        const isSuper = isSuperAdmin(user as any)
+        const user = session.user as ExtendedUser & { isSuperAdmin?: boolean };
+        const isSuper = isSuperAdmin(user)
         const siteId = (!isSuper && permissions.includes('site_only'))
             ? user.siteId
             : undefined;

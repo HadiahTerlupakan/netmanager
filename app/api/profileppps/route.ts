@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     }
 
     // User restriction logic
-    const isSuper = isSuperAdmin(session.user as any)
+    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
     if (!isSuper) {
       // For non-super admins, restrict to their assigned site
       if (session.user.siteId) {
@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Enforce siteId for non-SUPER_ADMIN
-    const isSuper = isSuperAdmin(session.user as any)
+    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
     if (!isSuper && session.user.siteId) {
       sanitizedBody.siteId = session.user.siteId
     }
