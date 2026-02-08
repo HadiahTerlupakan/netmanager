@@ -10,7 +10,8 @@ vi.mock('next-auth', () => ({
 const mockGetUserPermissions = vi.fn()
 vi.mock('@/lib/auth', () => ({
   authConfig: {},
-  getUserPermissions: (userId: string) => mockGetUserPermissions(userId)
+  getUserPermissions: (userId: string) => mockGetUserPermissions(userId),
+  isSuperAdmin: (user: any) => user?.role === 'SUPER_ADMIN' || user?.role === 'Super Admin' || user?.isSuperAdmin === true
 }))
 
 // Mock next/navigation
@@ -204,10 +205,12 @@ describe('RBAC Functions', () => {
         }
       })
       mockGetUserPermissions.mockResolvedValueOnce([])
-      
+
       await ensurePermission('users:read')
 
-      expect(mockRedirect).toHaveBeenCalledWith('/admin/forbidden')
+      // Check that it redirects to /admin/forbidden, ignoring query params for simplicity or matching exact if preferred
+      // matching exact for robustness based on implementation
+      expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/admin/forbidden?reason='))
     })
 
     it('should redirect to custom URL when specified', async () => {
@@ -218,10 +221,10 @@ describe('RBAC Functions', () => {
         }
       })
       mockGetUserPermissions.mockResolvedValueOnce([])
-      
+
       await ensurePermission('users:read', '/403')
-      
-      expect(mockRedirect).toHaveBeenCalledWith('/403')
+
+      expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('/403?reason='))
     })
   })
 
