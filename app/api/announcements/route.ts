@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth-helpers';
 import type { TargetAudience } from '@prisma/client';
 import { getSocketServer } from '@/lib/websocket/server';
 import { SOCKET_EVENTS } from '@/lib/websocket/types';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
     try {
@@ -112,6 +113,13 @@ export async function POST(request: NextRequest) {
                 createdBy: session.user.id,
                 updatedAt: new Date()
             }
+        });
+
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Announcement',
+            details: { id: announcement.id, title: announcement.title, target: announcement.target },
+            userId: session.user.id
         });
 
         // Broadcast announcement via WebSocket to all connected clients

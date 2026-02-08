@@ -17,6 +17,7 @@ import {
 } from '@/lib/middleware'
 import { apiSuccess } from '@/lib/api-response'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 const holidayRepo = new HolidayRepository()
 
@@ -70,7 +71,7 @@ export const GET = withErrorHandler(
 export const POST = withErrorHandler(
   withAuth(
     withPermission('holiday:create',
-      async ({ request }: AuthContext) => {
+      async ({ request, user }: AuthContext) => {
         const body = await request.json()
         
         // Validate with Zod
@@ -90,6 +91,13 @@ export const POST = withErrorHandler(
             description,
             isNational,
             updatedAt: new Date()
+          })
+
+          await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Holiday',
+            details: { id: holiday.id, date: holiday.date, description: holiday.description },
+            userId: user.id
           })
 
           return apiSuccess(holiday, { status: 201, message: 'Hari libur berhasil dibuat' })

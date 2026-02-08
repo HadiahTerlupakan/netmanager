@@ -22,6 +22,12 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
+        // Check Permission
+        const permissions = payload.permissions || [];
+        if (!permissions.includes('m_mixradius:read')) {
+            return NextResponse.json({ error: 'Forbidden: Requires m_mixradius:read permission' }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const search = searchParams.get('search') || '';
 

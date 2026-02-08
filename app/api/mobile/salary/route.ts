@@ -1,19 +1,30 @@
-
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user?.id) {
+        const authHeader = req.headers.get('authorization')
+        if (!authHeader?.startsWith('Bearer ')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const token = authHeader.split(' ')[1]
+        const payload = await verifyMobileToken(token)
+
+        if (!payload || !payload.id) {
+            return NextResponse.json({ error: 'Invalid Token' }, { status: 401 })
+        }
+
+        // Check Permission
+        const permissions = payload.permissions || []
+        if (!permissions.includes('m_salary:read')) {
+            return NextResponse.json({ error: 'Forbidden: Requires m_salary:read permission' }, { status: 403 })
         }
 
         const salaries = await prisma.salary.findMany({
             where: {
-                userId: session.user.id,
+                userId: payload.id as string,
                 status: 'PAID' // Only show paid salaries
             },
             select: {

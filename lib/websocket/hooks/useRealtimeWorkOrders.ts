@@ -88,7 +88,7 @@ export function useRealtimeWorkOrders(
         } finally {
             setLoading(false)
         }
-    }, [limit, hasPermission, isPermissionLoading])
+    }, [limit, enabled, hasPermission, isPermissionLoading])
 
     // Initial fetch
     useEffect(() => {

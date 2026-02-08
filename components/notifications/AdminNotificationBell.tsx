@@ -6,10 +6,9 @@ import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineExclamationTriangle, 
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
-import { usePermission } from '@/hooks/use-permission'
 
 export function AdminNotificationBell() {
-    const { hasPermission } = usePermission()
+    // const { hasPermission } = usePermission()
     const {
         notifications,
         unreadCount,

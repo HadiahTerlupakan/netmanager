@@ -50,7 +50,11 @@ async function main() {
 
       // Track mobile permissions separately
       if ((MOBILE_RESOURCES as readonly string[]).includes(resource)) {
-        karyawanPermissions.push(permission)
+        // Filter eksplisit: m_work_order tidak boleh otomatis diberikan ke Teknisi/Karyawan
+        // Permission ini sekarang ada di grup BERANDA (agar muncul di Matrix), tapi default-nya dimatikan untuk role Teknisi
+        if (resource !== 'm_work_order') {
+          karyawanPermissions.push(permission)
+        }
       }
     }
   }
@@ -156,7 +160,8 @@ async function main() {
       accessEmployeePanel: true,
       permission: {
         set: [], // Clear existing
-        connect: karyawanPermissions.map((p) => ({ id: p.id })),
+        connect: karyawanPermissions
+          .map((p) => ({ id: p.id })),
       },
     },
     create: {
@@ -167,7 +172,8 @@ async function main() {
       accessAdminPanel: false,
       accessEmployeePanel: true,
       permission: {
-        connect: karyawanPermissions.map((p) => ({ id: p.id })),
+        connect: karyawanPermissions
+          .map((p) => ({ id: p.id })),
       },
     },
   })

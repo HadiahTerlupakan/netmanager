@@ -5,6 +5,7 @@ import { verifyAuth } from '@/lib/auth';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 
 interface ExtendedUser {
   id: string
@@ -62,6 +63,18 @@ export async function POST(
         }
 
         const comment = result.data as CommentData;
+
+        // Log activity
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Work Order Comment',
+            details: {
+                workOrderId: id,
+                commentId: comment.id,
+                message: comment.message.substring(0, 100) // Log shortened message
+            },
+            userId: user.id
+        });
 
         // Emit WebSocket event for real-time Activity Timeline
         socketEmitter.workOrderActivity(id, {

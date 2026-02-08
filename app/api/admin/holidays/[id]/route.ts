@@ -3,6 +3,7 @@ import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepo
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { logger } from '@/lib/logger'
 
 const holidayRepo = new HolidayRepository()
 
@@ -20,6 +21,14 @@ export async function DELETE(
     try {
         const { id } = await params
         await holidayRepo.delete(id)
+
+        await logger.logActivity({
+            action: 'DELETE',
+            subject: 'Holiday',
+            details: { id },
+            userId: session.user.id
+        })
+
         return apiSuccess(null, { message: 'Hari libur berhasil dihapus' })
     } catch (error: unknown) {
         console.error('Delete holiday error:', error)
@@ -53,6 +62,14 @@ export async function PUT(
         if (isNational !== undefined) updateData.isNational = isNational
 
         const holiday = await holidayRepo.update(id, updateData)
+
+        await logger.logActivity({
+            action: 'UPDATE',
+            subject: 'Holiday',
+            details: { id, changes: updateData },
+            userId: session.user.id
+        })
+
         return apiSuccess(holiday, { message: 'Hari libur berhasil diperbarui' })
     } catch (error: unknown) {
         console.error('Update holiday error:', error)

@@ -107,7 +107,7 @@ export async function PUT(
     try {
       const dbStart = Date.now()
 
-      await prisma.$transaction(async (tx) => {
+      const transactionResult = await prisma.$transaction(async (tx) => {
         // Get current record
         const currentRecord = await tx.barangKeluar.findUnique({
           where: { id },
@@ -153,12 +153,27 @@ export async function PUT(
         }
 
         logger.dbOperation('transaction', 'BarangKeluar+BarangGudang', Date.now() - dbStart)
+        return { barangNama: currentRecord.barang.nama, jumlahLama: currentRecord.jumlah }
       })
 
       logger.apiRequest('PUT', '/api/inventory/keluar/[id]', 200, Date.now() - startTime, {
         userId: session.user.id,
         keluarId: id,
         jumlah,
+      })
+
+      // Log activity
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'Inventory Out (Admin)',
+        details: {
+          id,
+          namaBarang: transactionResult.barangNama,
+          jumlahLama: transactionResult.jumlahLama,
+          jumlahBaru: jumlah,
+          keterangan
+        },
+        userId: session.user.id
       })
 
       return apiSuccess(null, { message: 'Barang keluar berhasil diperbarui' })
@@ -203,7 +218,7 @@ export async function DELETE(
     try {
       const dbStart = Date.now()
 
-      await prisma.$transaction(async (tx) => {
+      const transactionResult = await prisma.$transaction(async (tx) => {
         // Get the record to be deleted
         const keluarRecord = await tx.barangKeluar.findUnique({
           where: { id },
@@ -249,11 +264,24 @@ export async function DELETE(
         })
 
         logger.dbOperation('transaction', 'BarangKeluar+BarangGudang', Date.now() - dbStart)
+        return { barangNama: keluarRecord.barang.nama, jumlah: keluarRecord.jumlah }
       })
 
       logger.apiRequest('DELETE', '/api/inventory/keluar/[id]', 200, Date.now() - startTime, {
         userId: session.user.id,
         keluarId: id,
+      })
+
+      // Log activity
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'Inventory Out (Admin)',
+        details: {
+          id,
+          namaBarang: transactionResult.barangNama,
+          jumlahRestored: transactionResult.jumlah
+        },
+        userId: session.user.id
       })
 
       return apiSuccess(null, { message: 'Record barang keluar berhasil dihapus dan stok dikembalikan' })

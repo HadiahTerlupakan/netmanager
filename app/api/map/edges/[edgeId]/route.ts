@@ -3,6 +3,7 @@ import { MappingService } from "@/modules/map/services/MappingService";
 import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
 import { verifyAuth } from "@/lib/auth";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 const service = new MappingService();
 
@@ -50,6 +51,14 @@ export const PUT = withErrorHandler(async (req: NextRequest, context: unknown) =
 
   try {
     const updatedEdge = await service.updateEdge(edgeId, validation.data);
+
+    await logger.logActivity({
+      action: "UPDATE",
+      subject: "Edge",
+      details: { id: edgeId, changes: validation.data },
+      userId: auth.id
+    });
+
     return apiSuccess(updatedEdge, { message: "Edge updated successfully" });
   } catch (error) {
     if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {
@@ -70,6 +79,14 @@ export const DELETE = withErrorHandler(async (req: NextRequest, context: unknown
 
   try {
     await service.deleteEdge(edgeId);
+
+    await logger.logActivity({
+      action: "DELETE",
+      subject: "Edge",
+      details: { id: edgeId },
+      userId: auth.id
+    });
+
     return apiSuccess({ deleted: true }, { message: "Edge deleted successfully" });
   } catch (error) {
     if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {

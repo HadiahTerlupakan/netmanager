@@ -1,6 +1,7 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { MappingService } from "@/modules/map/services/MappingService";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 const service = new MappingService();
 
@@ -69,6 +70,14 @@ export const PUT = createHandler({
 
   try {
     const updatedNode = await service.updateNode(nodeId, body);
+
+    await logger.logActivity({
+      action: "UPDATE",
+      subject: "Node",
+      details: { id: nodeId, changes: body },
+      userId: ctx.session?.user.id
+    });
+
     return apiSuccess(updatedNode, { message: "Node updated successfully" });
   } catch (error) {
     if (error instanceof Error && error.message === "NODE_NOT_FOUND") {
@@ -99,6 +108,14 @@ export const DELETE = createHandler({
 
   try {
     await service.deleteNode(nodeId);
+
+    await logger.logActivity({
+      action: "DELETE",
+      subject: "Node",
+      details: { id: nodeId },
+      userId: ctx.session?.user.id
+    });
+
     return apiSuccess({ deleted: true }, { message: "Node deleted successfully" });
   } catch (error) {
     if (error instanceof Error && error.message === "NODE_NOT_FOUND") {

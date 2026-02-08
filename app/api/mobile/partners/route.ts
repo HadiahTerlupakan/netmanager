@@ -20,6 +20,12 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
+        // Check Permission
+        const permissions = payload.permissions || [];
+        if (!permissions.includes('m_partners:read')) {
+            return NextResponse.json({ error: 'Forbidden: Requires m_partners:read permission' }, { status: 403 });
+        }
+
         const userId = payload.id as string;
         const search = request.nextUrl.searchParams.get('search') || '';
 

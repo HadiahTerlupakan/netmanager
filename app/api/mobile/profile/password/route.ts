@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
@@ -57,6 +58,16 @@ export async function POST(request: Request) {
         await prisma.user.update({
             where: { id: user.id as string },
             data: { passwordHash: newPasswordHash }
+        })
+
+        await logger.logActivity({
+            action: 'UPDATE',
+            subject: 'Password Change',
+            details: {
+                method: 'mobile_app',
+                timestamp: new Date().toISOString()
+            },
+            userId: user.id as string
         })
 
         return NextResponse.json({ success: true, message: 'Password updated successfully' })

@@ -1,19 +1,8 @@
 import { prisma } from '@/lib/prisma'
 
 /**
- * Evaluates if a user can access the Canvasing feature on MOBILE APP.
- * 
- * This is SEPARATE from Admin Portal RBAC which uses canvasing:read permission.
- * 
- * Mobile Access Logic:
- * 1. SUPER_ADMIN → Always allowed
- * 2. isSales = true → Allowed (Sales or Teknisi merangkap Sales)
- * 3. Otherwise → Denied
- * 
- * Note: For Admin Portal, use RBAC permissions (canvasing:read, etc.)
- * 
- * @param userId - The user ID to check
- * @returns boolean - True if user can access Canvasing on Mobile
+ * @deprecated This function implements the old bypass logic and should not be used for access control.
+ * Use standard RBAC permissions instead.
  */
 export async function canAccessCanvasingMobile(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
@@ -36,8 +25,9 @@ export async function canAccessCanvasingMobile(userId: string): Promise<boolean>
 }
 
 /**
- * Get user features for mobile app with canvasing access evaluated.
- * Only adds m_canvasing if user has isSales = true or is SUPER_ADMIN.
+ * Get user features for mobile app.
+ * Formerly included canvasing bypass logic, now strictly follows RBAC permissions.
+ * The 'm_canvasing' feature will only be present if assigned via role permissions.
  */
 export async function getUserFeaturesWithCanvasing(userId: string): Promise<string[]> {
   const user = await prisma.user.findUnique({
@@ -56,21 +46,8 @@ export async function getUserFeaturesWithCanvasing(userId: string): Promise<stri
   // Get base features from role
   const roleFeatures = [...new Set(user.role.permission.map(p => p.resource))]
 
-  // Check mobile canvasing access (isSales based, not RBAC)
-  const hasCanvasingAccess = await canAccessCanvasingMobile(userId)
-
-  if (hasCanvasingAccess) {
-    // Ensure m_canvasing is included for mobile
-    if (!roleFeatures.includes('m_canvasing')) {
-      roleFeatures.push('m_canvasing')
-    }
-  } else {
-    // Remove m_canvasing if not allowed
-    const idx = roleFeatures.indexOf('m_canvasing')
-    if (idx > -1) {
-      roleFeatures.splice(idx, 1)
-    }
-  }
-
+  // Bypass logic REMOVED to respect Matrix/RBAC permissions.
+  // The 'm_canvasing' permission must be explicitly assigned to the role.
+  
   return roleFeatures
 }

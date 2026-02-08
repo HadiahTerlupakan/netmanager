@@ -20,6 +20,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid Token' }, { status: 401 })
   }
 
+  // Check Permission
+  const permissions = payload.permissions || []
+  if (!permissions.includes('m_topology:read')) {
+    return NextResponse.json({ error: 'Forbidden: Requires m_topology:read permission' }, { status: 403 })
+  }
+
   try {
     // Execute all database queries in parallel for better performance
     const [

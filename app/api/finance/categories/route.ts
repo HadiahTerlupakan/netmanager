@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
+import { logger } from '@/lib/logger'
 
 const financeService = new FinanceService()
 
@@ -40,6 +41,13 @@ export async function POST(req: NextRequest) {
     const category = await financeService.createCategory({
         ...rest,
         ...(description ? { description } : {})
+    })
+
+    await logger.logActivity({
+        action: 'CREATE',
+        subject: 'FinanceCategory',
+        details: { id: category.id, name: category.name, type: category.type },
+        userId: session.id
     })
 
     return NextResponse.json(category)

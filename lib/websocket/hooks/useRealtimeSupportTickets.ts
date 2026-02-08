@@ -95,7 +95,7 @@ export function useRealtimeSupportTickets(
         } finally {
             setLoading(false)
         }
-    }, [limit])
+    }, [limit, enabled, hasPermission, isPermissionLoading])
 
     // Initial fetch
     useEffect(() => {

@@ -201,30 +201,34 @@ export default function MixRadiusGroupsClient() {
     {
       header: 'Status',
       key: 'isActive',
-      render: (item: OwnerGroup) => item.isActive 
+      render: (item: OwnerGroup) => item.isActive
         ? <span className="text-green-600 dark:text-green-400 text-sm font-medium">Aktif</span>
         : <span className="text-red-500 text-sm font-medium">Non-Aktif</span>
     },
-    {
+    ...((canUpdate || canDelete) ? [{
       header: 'Aksi',
       key: 'id',
       render: (item: OwnerGroup) => (
         <div className="flex gap-2">
-          <button
-            onClick={() => openEdit(item)}
-            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-900/30"
-          >
-            <HiOutlinePencil className="text-lg" />
-          </button>
-          <button
-            onClick={() => handleDelete(item.id, item.name)}
-            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-900/30"
-          >
-            <HiOutlineTrash className="text-lg" />
-          </button>
+          {canUpdate && (
+            <button
+              onClick={() => openEdit(item)}
+              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-900/30"
+            >
+              <HiOutlinePencil className="text-lg" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => handleDelete(item.id, item.name)}
+              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-900/30"
+            >
+              <HiOutlineTrash className="text-lg" />
+            </button>
+          )}
         </div>
       )
-    }
+    }] : [])
   ]
 
   const filteredGroups = groups.filter(g => 

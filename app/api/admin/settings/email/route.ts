@@ -5,6 +5,7 @@ import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
 import { verifyAuth } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
     try {
@@ -105,6 +106,20 @@ export async function PUT(request: NextRequest) {
                 }
             })
         }
+
+        await logger.logActivity({
+            action: 'UPDATE',
+            subject: 'Email Settings',
+            details: {
+                smtpHost,
+                smtpPort,
+                smtpUser,
+                fromName,
+                fromEmail,
+                updatedFields: settingsToSave.map(s => s.key)
+            },
+            userId: user.id
+        })
 
         return apiSuccess(null, { message: 'Pengaturan email berhasil disimpan' })
     } catch (error: unknown) {

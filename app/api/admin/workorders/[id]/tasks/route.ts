@@ -4,6 +4,7 @@ import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 
 // GET /api/admin/workorders/[id]/tasks - Get tasks
 export async function GET(
@@ -68,7 +69,20 @@ export async function POST(
             return apiError(result.error || 'Gagal menambah task', ErrorCodes.INTERNAL_ERROR, { status: 500 });
         }
 
-        const task = result.data!;
+        const task = result.data as { id: string; title: string; order: number };
+
+        // Log activity
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Work Order Task',
+            details: {
+                workOrderId: id,
+                taskId: task.id,
+                taskTitle: task.title,
+                order: task.order
+            },
+            userId: user.id
+        });
 
         // Real-time update
         const { socketEmitter } = await import('@/lib/websocket/emitter');

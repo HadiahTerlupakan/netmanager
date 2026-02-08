@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 import { z } from "zod";
 import { hasPermission } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,13 @@ export async function POST(req: NextRequest) {
                 name,
                 type
             }
+        });
+
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'ExpenseCategory',
+            details: { id: category.id, name: category.name, type: category.type },
+            userId: user.id
         });
 
         return NextResponse.json(category);

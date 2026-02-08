@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { ShiftService } from '@/modules/shift'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { logger } from '@/lib/logger'
 
 const shiftService = new ShiftService()
 
@@ -56,6 +57,13 @@ export async function PATCH(
             isActive: body.isActive
         })
 
+        await logger.logActivity({
+            action: 'UPDATE',
+            subject: 'Shift',
+            details: { id: shift.id, changes: body },
+            userId: session.user.id
+        })
+
         return apiSuccess(shift, { message: 'Shift berhasil diperbarui' })
     } catch (error) {
         console.error('[Shifts API] Error:', error)
@@ -81,6 +89,13 @@ export async function DELETE(
         const force = searchParams.get('force') === 'true'
 
         await shiftService.deleteShift(id, force)
+
+        await logger.logActivity({
+            action: 'DELETE',
+            subject: 'Shift',
+            details: { id, force },
+            userId: session.user.id
+        })
 
         return apiSuccess(null, { message: 'Shift berhasil dihapus' })
     } catch (error) {

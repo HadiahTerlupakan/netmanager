@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +58,13 @@ export async function DELETE(
         // 3. Delete
         await prisma.expenseCategory.delete({
             where: { id }
+        });
+
+        await logger.logActivity({
+            action: 'DELETE',
+            subject: 'ExpenseCategory',
+            details: { id },
+            userId: user.id
         });
 
         return NextResponse.json({ message: "Category deleted successfully" });

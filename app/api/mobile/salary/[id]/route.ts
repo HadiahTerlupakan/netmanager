@@ -1,7 +1,5 @@
-
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
 
 interface RouteParams {
@@ -10,16 +8,29 @@ interface RouteParams {
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user?.id) {
+        const authHeader = req.headers.get('authorization')
+        if (!authHeader?.startsWith('Bearer ')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const token = authHeader.split(' ')[1]
+        const payload = await verifyMobileToken(token)
+
+        if (!payload || !payload.id) {
+            return NextResponse.json({ error: 'Invalid Token' }, { status: 401 })
+        }
+
+        // Check Permission
+        const permissions = payload.permissions || []
+        if (!permissions.includes('m_salary:read')) {
+            return NextResponse.json({ error: 'Forbidden: Requires m_salary:read permission' }, { status: 403 })
         }
 
         const { id } = await params
         const salary = await prisma.salary.findUnique({
             where: {
                 id,
-                userId: session.user.id, // Security check: Must belong to user
+                userId: payload.id as string, // Security check: Must belong to user
                 status: 'PAID' // Security check: Must be PAID
             },
             include: {

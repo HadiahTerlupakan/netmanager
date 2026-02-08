@@ -92,6 +92,19 @@ export async function POST(request: NextRequest) {
             status: attendance.status
         })
 
+        // Log activity for user report
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Attendance Check-In',
+            details: {
+                attendanceId: attendance.id,
+                location,
+                status: attendance.status,
+                timestamp: new Date().toISOString()
+            },
+            userId
+        })
+
         return NextResponse.json({ success: true, data: attendance })
 
     } catch (error: unknown) {

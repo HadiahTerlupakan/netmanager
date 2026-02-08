@@ -31,7 +31,11 @@ export const PERMISSION_GROUPS_MOBILE = {
     INVENTORY: ['m_barang', 'm_barang_masuk', 'm_barang_keluar'],
     KEHADIRAN: ['m_absensi', 'm_lembur', 'm_izin', 'm_holidays'],
     MARKETING: ['m_canvasing'],
-    KOMUNIKASI: ['m_chat']
+    KOMUNIKASI: ['m_chat'],
+    FINANCE: ['m_salary'],
+    NETWORK: ['m_topology'],
+    INTEGRASI: ['m_mixradius'],
+    UMUM: ['m_partners']
 } as const
 
 // Backward compatibility alias (used by existing seed scripts)

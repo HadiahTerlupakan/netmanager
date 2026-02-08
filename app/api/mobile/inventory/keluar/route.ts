@@ -3,6 +3,7 @@ import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { getInventoryRepository } from '@/lib/repositories';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { logger } from '@/lib/logger';
 
 // POST - Create barang keluar (mobile)
 export async function POST(request: NextRequest) {
@@ -47,6 +48,9 @@ export async function POST(request: NextRequest) {
         const barangGudang = await prisma.barangGudang.findUnique({
             where: {
                 barangId_gudangId: { barangId, gudangId }
+            },
+            include: {
+                barang: { select: { nama: true } }
             }
         });
 
@@ -111,9 +115,25 @@ export async function POST(request: NextRequest) {
             jumlah
         });
 
-        return NextResponse.json({ 
-            success: true, 
-            data: result 
+        // Log activity
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Inventory Out (Mobile)',
+            details: {
+                barangId,
+                namaBarang: barangGudang?.barang?.nama,
+                jumlah,
+                kondisi,
+                gudangId,
+                keterangan,
+                tujuanPenggunaan
+            },
+            userId
+        });
+
+        return NextResponse.json({
+            success: true,
+            data: result
         });
     } catch (error) {
         console.error('Mobile Barang Keluar Error:', error);

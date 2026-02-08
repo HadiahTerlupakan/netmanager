@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { CouponService } from '@/modules/coupons/services/CouponService'
 import { hasPermission } from '@/lib/rbac'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 const couponService = new CouponService()
 
@@ -54,6 +57,14 @@ export async function POST(req: NextRequest) {
             ...(maxDiscount ? { maxDiscount: Number(maxDiscount) } : {}),
             quota: Number(quota || 0),
             isActive: isActive ?? true
+        })
+
+        const session = await getServerSession(authOptions)
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Coupon',
+            details: { id: coupon.id, code: coupon.code },
+            userId: session?.user?.id
         })
 
         return NextResponse.json(coupon)

@@ -1,6 +1,7 @@
 import { createHandler, apiSuccess } from "@/lib/api";
 import { MappingService } from "@/modules/map/services/MappingService";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 const service = new MappingService();
 
@@ -55,5 +56,12 @@ export const POST = createHandler({
     ...body
   });
   
+  await logger.logActivity({
+    action: "CREATE",
+    subject: "Node",
+    details: { id: newNode.nodeId, name: newNode.name, type: newNode.type },
+    userId: ctx.session?.user.id
+  });
+
   return apiSuccess(newNode, { status: 201 });
 });

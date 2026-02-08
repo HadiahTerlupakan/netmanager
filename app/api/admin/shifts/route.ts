@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { ShiftService } from '@/modules/shift'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,6 +51,13 @@ export async function POST(request: NextRequest) {
             startTime: body.startTime,
             endTime: body.endTime,
             description: body.description || null
+        })
+
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Shift',
+            details: { id: shift.id, name: shift.name, code: shift.code },
+            userId: session.user.id
         })
 
         return apiSuccess(shift, { status: 201, message: 'Shift berhasil dibuat' })

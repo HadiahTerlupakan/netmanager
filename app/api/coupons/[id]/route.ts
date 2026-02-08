@@ -4,6 +4,7 @@ import { CouponService } from '@/modules/coupons/services/CouponService'
 import { hasPermission } from '@/lib/rbac'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 const couponService = new CouponService()
 
@@ -29,6 +30,13 @@ export async function DELETE(
         // if we want to enforce it later, the Coupon model needs siteId field
 
         await couponService.deleteCoupon(id)
+
+        await logger.logActivity({
+            action: 'DELETE',
+            subject: 'Coupon',
+            details: { id },
+            userId: session.user?.id
+        })
 
         return NextResponse.json({ success: true })
     } catch (error: unknown) {
