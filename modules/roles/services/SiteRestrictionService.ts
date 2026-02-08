@@ -48,6 +48,7 @@ export interface SiteRestrictionResult {
 interface SessionUser {
     id: string
     role?: string
+    isSuperAdmin?: boolean
     permissions?: string[]
     /** @deprecated Legacy single site - use siteIds */
     siteId?: string | null
@@ -79,7 +80,6 @@ export function checkSiteRestriction(
 
     const user = session.user as SessionUser
     const permissions = user.permissions || []
-    const role = user.role
     
     // Multi-site support: Use siteIds if available, fallback to legacy siteId
     const siteIds = user.siteIds || (user.siteId ? [user.siteId] : [])
@@ -87,7 +87,7 @@ export function checkSiteRestriction(
     const legacySiteId = user.siteId || null
 
     // SUPER_ADMIN bypass - always can see all
-    if (isSuperAdmin(user as any)) {
+    if (isSuperAdmin(user)) {
         return {
             isRestricted: false,
             siteId: undefined,
