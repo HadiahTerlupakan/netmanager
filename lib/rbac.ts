@@ -38,6 +38,12 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     // console.log('[RBAC] Checking permission for user:', userId, 'Role:', currentUser.role, 'isSuperAdmin:', currentUser.isSuperAdmin)
 
     const permissions = await getUserPermissions(userId)
+
+    // Check for wildcard permission
+    if (permissions.includes('*')) {
+        return true
+    }
+
     const has = permissions.includes(requiredPermission)
 
     if (!has) {
@@ -74,6 +80,12 @@ export async function hasAnyPermission(requiredPermissions: string[], user?: { i
     }
 
     const permissions = await getUserPermissions(userId)
+
+    // Check for wildcard permission
+    if (permissions.includes('*')) {
+        return true
+    }
+
     return requiredPermissions.some(p => permissions.includes(p))
 }
 

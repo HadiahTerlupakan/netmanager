@@ -600,6 +600,20 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       }
     })
 
+    // Check for Super Admin status at the database level
+    // This provides a failsafe if session flags are missing
+    if (user?.role?.isSuperAdmin || user?.role?.name === 'SUPER_ADMIN' || user?.role?.name === 'Super Admin') {
+      const allPermissions = ['*']; // Wildcard permission
+
+      // Cache permissions (non-blocking)
+      try {
+        await redis.setex(cacheKey, PERMISSION_CACHE_TTL, JSON.stringify(allPermissions))
+      } catch (e) {
+        console.warn('[AUTH] Redis cache write error:', e)
+      }
+      return allPermissions;
+    }
+
     if (!user?.role?.permission) {
       return []
     }

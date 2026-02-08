@@ -72,14 +72,16 @@ export function usePermission() {
     const hasPermission = useCallback((requiredPermission: string) => {
         // Super Admin has all permissions
         if (permissionState.isSuperAdmin) return true
-        
+        if (permissionState.permissions.includes('*')) return true
+
         return permissionState.permissions.includes(requiredPermission)
     }, [permissionState])
 
     const hasAnyPermission = useCallback((requiredPermissions: string[]) => {
         // Super Admin has all permissions
         if (permissionState.isSuperAdmin) return true
-        
+        if (permissionState.permissions.includes('*')) return true
+
         return requiredPermissions.some(p => permissionState.permissions.includes(p))
     }, [permissionState])
 
