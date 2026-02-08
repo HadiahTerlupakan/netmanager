@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         const siteId = searchParams.get("siteId");
         const status = searchParams.get("status");
 
-        const where: any = {};
+        const where: Record<string, string> = {};
         if (siteId) where.siteId = siteId;
         if (status) where.status = status;
 

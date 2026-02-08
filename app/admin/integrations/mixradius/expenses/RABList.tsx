@@ -80,7 +80,7 @@ export default function RABList({ onEdit, refreshKey }: RABListProps) {
             if (!res.ok) throw new Error('Gagal menghapus')
             toast.success('RAB berhasil dihapus')
             fetchData()
-        } catch (error) {
+        } catch (_error) {
             toast.error('Gagal menghapus RAB')
         }
     }

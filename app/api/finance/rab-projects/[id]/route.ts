@@ -98,7 +98,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
         const { name, description, status, projectedRevenue, projectedOpex, items } = validation.data;
 
-        const updateData: any = {};
+        const updateData: Record<string, unknown> = {};
         if (name) updateData.name = name;
         if (description !== undefined) updateData.description = description;
         if (status) updateData.status = status;

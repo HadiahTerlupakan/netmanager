@@ -1,19 +1,17 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { 
-    HiOutlinePlus, 
-    HiOutlineTrash, 
+    HiOutlinePlus,
+    HiOutlineTrash,
     HiOutlineCalculator,
     HiOutlineCheck,
     HiOutlineCurrencyDollar,
     HiOutlineBuildingOffice,
     HiOutlineDocumentText,
     HiOutlineCube,
-    HiOutlineTag,
     HiOutlineUsers,
-    HiOutlineBanknotes,
-    HiOutlineChartBar
+    HiOutlineBanknotes
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
@@ -136,7 +134,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     category: item.category,
                     quantity: Number(item.quantity),
                     unitPrice: Number(item.unitPrice),
-                    // @ts-ignore - expenseType might not be in older interface definitions yet but comes from API
+                    // @ts-expect-error - expenseType might not be in older interface definitions yet but comes from API
                     expenseType: item.expenseType || 'CAPEX'
                 })))
             } else {
@@ -184,7 +182,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
         setItems(items.filter(i => i.id !== id))
     }
 
-    const updateItem = (id: string, field: string, value: any) => {
+    const updateItem = (id: string, field: string, value: string | number) => {
         setItems(items.map(item => 
             item.id === id ? { ...item, [field]: value } : item
         ))
@@ -223,7 +221,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 ...formData,
                 projectedOpex: totalOpex, // Automatically calculated from items
                 siteId: finalSiteId,
-                items: items.map(({ id, ...rest }) => rest)
+                items: items.map(({ id: _id, ...rest }) => rest)
             }
 
             const url = initialData 
