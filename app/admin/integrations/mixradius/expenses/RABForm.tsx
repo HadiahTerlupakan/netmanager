@@ -127,14 +127,12 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 })
                 
                 // Load items and ensure expenseType is set (default to CAPEX for legacy data)
-                // We map from initialData.items which might have expenseType now
                 setItems(initialData.items.map(item => ({
                     id: item.id,
                     name: item.name,
                     category: item.category,
                     quantity: Number(item.quantity),
                     unitPrice: Number(item.unitPrice),
-                    // @ts-expect-error - expenseType might not be in older interface definitions yet but comes from API
                     expenseType: item.expenseType || 'CAPEX'
                 })))
             } else {
