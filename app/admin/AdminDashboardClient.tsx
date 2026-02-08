@@ -37,7 +37,8 @@ export async function ClientComponent() {
   const permissions = await getUserPermissions(user.id as string)
 
   // Use isSuperAdmin helper if available or check boolean flag directly
-  const isSuperAdmin = (user as any).isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin'
+  const extendedUser = user as { isSuperAdmin?: boolean; role?: string }
+  const isSuperAdmin = extendedUser.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin'
 
   // Check if user has dashboard access
   const hasDashboardAccess = isSuperAdmin || permissions.includes('dashboard:read')
