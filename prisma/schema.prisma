@@ -996,7 +996,8 @@ model User {
   salaries                                   Salary[]
   salariesAuditedBy                          Salary[]                  @relation("SalaryAuditedBy")
   salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
-  userSalaryComponents                       UserSalaryComponent[]
+  userSalaryComponents       UserSalaryComponent[]
+  createdRabProjects         RabProject[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -1713,6 +1714,7 @@ model Sites {
   joinboxes            Joinbox[]
   kmzFiles             KmzFile[]
   mixRadiusOwnerGroups MixRadiusOwnerGroup[]
+  rabProjects          RabProject[]
 
   @@index([isActive])
   @@map("sites")
@@ -2874,7 +2876,8 @@ model MixRadiusOwnerGroup {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   site      Sites?    @relation(fields: [siteId], references: [id])
-  expenses  Expense[]
+  expenses    Expense[]
+  rabProjects RabProject[]
 
   @@index([siteId])
 }
@@ -3085,4 +3088,76 @@ model MapSettings {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("map_settings")
+}
+
+model RabProject {
+  id               String               @id @default(cuid())
+  name             String
+  description      String?
+  siteId           String?
+  mixRadiusGroupId String?
+  
+  // Financial Projections (Monthly)
+  projectedRevenue BigInt   @default(0) 
+  projectedOpex    BigInt   @default(0) 
+  
+  status           RabStatus            @default(DRAFT)
+  
+  items            RabItem[]
+  
+  createdBy        String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  
+  site             Sites?               @relation(fields: [siteId], references: [id])
+  mixRadiusGroup   MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
+  creator          User?                @relation(fields: [createdBy], references: [id])
+
+  @@index([siteId])
+  @@index([status])
+  @@map("rab_projects")
+}
+
+model RabItem {
+  id           String          @id @default(cuid())
+  rabProjectId String
+  name         String
+  description  String?
+  quantity     Int             @default(1)
+  unitPrice    BigInt
+  totalPrice   BigInt
+  category     RabItemCategory @default(HARDWARE)
+  expenseType  RabExpenseType  @default(CAPEX)
+  
+  rabProject   RabProject      @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+
+  @@index([rabProjectId])
+  @@map("rab_items")
+}
+
+enum RabExpenseType {
+  CAPEX
+  OPEX
+}
+
+enum RabStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum RabItemCategory {
+  HARDWARE
+  LICENSE
+  INSTALLATION
+  DEVICE
+  CABLE
+  ACCESSORIES
+  SERVICE
+  OPERATIONAL
+  OTHER
 }

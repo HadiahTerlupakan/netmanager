@@ -10,13 +10,16 @@ import {
   HiOutlineCalendar,
   HiOutlineBuildingOffice,
   HiOutlineTag,
-  HiOutlineDocumentArrowDown
+  HiOutlineDocumentArrowDown,
+  HiOutlineClipboardDocumentList
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
 import { usePermission } from '@/hooks/use-permission'
+import RABList, { type RABProject } from './RABList'
+import RABForm from './RABForm'
 
 interface Expense {
   id: string
@@ -116,6 +119,12 @@ export default function ExpensesClient() {
   const [newCategoryName, setNewCategoryName] = useState('')
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // RAB State
+  const [activeTab, setActiveTab] = useState<'daily' | 'rab'>('daily')
+  const [isRABModalOpen, setIsRABModalOpen] = useState(false)
+  const [editingRAB, setEditingRAB] = useState<RABProject | null>(null)
+  const [rabRefreshKey, setRabRefreshKey] = useState(0)
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -461,41 +470,95 @@ export default function ExpensesClient() {
       document.body.removeChild(link)
   }
 
+  // RAB Handlers
+  const handleOpenRABModal = () => {
+      setEditingRAB(null)
+      setIsRABModalOpen(true)
+  }
+
+  const handleEditRAB = (project: RABProject) => {
+      setEditingRAB(project)
+      setIsRABModalOpen(true)
+  }
+
+  const handleRABSaved = () => {
+      setRabRefreshKey(prev => prev + 1)
+      setIsRABModalOpen(false)
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <HiOutlineCurrencyDollar className="w-7 h-7 text-red-500" />
-            Pengeluaran Site (CAPEX/OPEX)
+            Keuangan & Pengeluaran
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manajemen pengeluaran operasional dan modal per site
+            Manajemen biaya operasional, modal, dan rencana anggaran
           </p>
         </div>
 
         <div className="flex gap-2">
-            <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
-            >
-                <HiOutlineDocumentArrowDown className="w-5 h-5" />
-                <span className="hidden sm:inline">Export CSV</span>
-            </button>
+            {activeTab === 'daily' && (
+                <button
+                    onClick={handleExport}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                >
+                    <HiOutlineDocumentArrowDown className="w-5 h-5" />
+                    <span className="hidden sm:inline">Export CSV</span>
+                </button>
+            )}
             {canCreate && (
                 <button
-                    onClick={() => handleOpenModal()}
+                    onClick={() => activeTab === 'daily' ? handleOpenModal() : handleOpenRABModal()}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                 >
                     <HiOutlinePlus className="w-5 h-5" />
-                    <span className="hidden sm:inline">Tambah Pengeluaran</span>
+                    <span className="hidden sm:inline">
+                        {activeTab === 'daily' ? 'Tambah Pengeluaran' : 'Buat RAB Baru'}
+                    </span>
                     <span className="sm:hidden">Tambah</span>
                 </button>
             )}
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+              <button
+                  onClick={() => setActiveTab('daily')}
+                  className={`
+                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
+                      ${activeTab === 'daily'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }
+                  `}
+              >
+                  <HiOutlineCurrencyDollar className="w-5 h-5" />
+                  Pengeluaran Harian
+              </button>
+              <button
+                  onClick={() => setActiveTab('rab')}
+                  className={`
+                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
+                      ${activeTab === 'rab'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }
+                  `}
+              >
+                  <HiOutlineClipboardDocumentList className="w-5 h-5" />
+                  RAB (Proyek)
+              </button>
+          </nav>
+      </div>
+
+      {activeTab === 'daily' ? (
+        <>
+          {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
               <div className="absolute right-0 top-0 p-4 opacity-10">
@@ -1051,6 +1114,24 @@ export default function ExpensesClient() {
               </div>
           </form>
       </Modal>
+      </>
+      ) : (
+          /* RAB View */
+          <div className="space-y-6">
+              <RABList
+                  refreshKey={rabRefreshKey}
+                  onEdit={handleEditRAB}
+              />
+
+              <RABForm
+                  isOpen={isRABModalOpen}
+                  onClose={() => setIsRABModalOpen(false)}
+                  onSaved={handleRABSaved}
+                  initialData={editingRAB}
+                  sites={sites} // Pass existing sites/groups data
+              />
+          </div>
+      )}
     </div>
   )
 }

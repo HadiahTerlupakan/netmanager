@@ -16,7 +16,9 @@ export async function GET(req: NextRequest) {
     if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius_sites:read') && !permissions.includes('mixradius:read')) {
+    const isSuper = isSuperAdmin(session)
+
+    if (!isSuper && !permissions.includes('mixradius_sites:read') && !permissions.includes('mixradius:read')) {
       return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_sites:read')
     }
 
