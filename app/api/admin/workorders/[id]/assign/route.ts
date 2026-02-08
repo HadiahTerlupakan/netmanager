@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth, isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 import { createNotification } from '@/modules/notification';
@@ -33,13 +33,13 @@ export async function POST(
         const existingWO = getResult.data!;
 
         // Access Control
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
-        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+        const isSuper = isSuperAdmin(user);
+        if (user.permissions?.includes('workorders:site_only') && !isSuper) {
             if (existingWO.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Anda hanya dapat mengakses work order di site Anda');
             }
         }
-        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('workorders:department_only') && !isSuper) {
             if (existingWO.departmentId !== user.departmentId) {
                 return ApiErrors.forbidden('Anda hanya dapat mengakses work order di departemen Anda');
             }

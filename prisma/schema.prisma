@@ -856,6 +856,7 @@ model Role {
   accessEmployeePanel Boolean      @default(false)
   isRestricted        Boolean      @default(false)
   isTechnical         Boolean      @default(false)
+  isSuperAdmin        Boolean      @default(false)
   user                User[]
   permission          Permission[] @relation("PermissionToRole")
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig, getUserPermissions } from '@/lib/auth'
+import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { logger } from '@/lib/logger'
@@ -39,10 +39,10 @@ export async function GET(req: NextRequest) {
       // NEW: Enforce Site Restriction Logic
       // const permissions = session.user.permissions || []
       const permissions = await getUserPermissions(session.user.id);
-      const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
+      const isSuper = isSuperAdmin(session.user as any)
       const userSiteId = session.user.siteId
 
-      if (!isSuperAdmin && permissions.includes('opname:site_only')) {
+      if (!isSuper && permissions.includes('opname:site_only')) {
         if (!userSiteId) {
           return NextResponse.json({
             opnameList: [],

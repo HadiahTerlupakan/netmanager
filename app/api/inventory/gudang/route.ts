@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions, getUserPermissions } from '@/lib/auth'
+import { authOptions, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
@@ -78,10 +78,10 @@ export async function GET(req: NextRequest) {
     // 2. User has a site assigned
     // 3. User is NOT requesting (and authorized for) view=all
     //    (Super Admins or users with Admin Panel access can view all)
-    const isSuperAdmin = role === 'SUPER_ADMIN'
+    const isSuper = isSuperAdmin(session.user as any)
     // ONLY Super Admin can bypass site restrictions via view=all
     // Other users with accessAdminPanel must still respect site_only permission
-    const canViewAll = isSuperAdmin 
+    const canViewAll = isSuper
 
     // Check strict site restriction
     // Support both administrative 'gudang:site_only' and mobile 'k_barang:site_only'
@@ -211,13 +211,13 @@ export async function POST(req: NextRequest) {
       // NEW: Enforce Site Restriction on Creation
       // const permissions = (session.user as any).permissions || []
       const permissions = await getUserPermissions(session.user.id!);
-      const isSuperAdmin = (session.user as { role?: string }).role === 'SUPER_ADMIN'
+      const isSuper = isSuperAdmin(session.user as any)
       const userSiteId = (session.user as { siteId?: string }).siteId
 
       let finalSiteIds = siteIds
       const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
-      
-      if (!isSuperAdmin && hasRestriction) {
+
+      if (!isSuper && hasRestriction) {
         if (userSiteId) {
           finalSiteIds = [userSiteId] // Force assignment to user's site
         }

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
@@ -169,14 +169,14 @@ export async function GET(req: NextRequest) {
 
       // Enforce Site Restriction
       const permissions = await getUserPermissions(session.id);
-      const isSuperAdmin = session.role === 'SUPER_ADMIN'
-      
+      const isSuper = isSuperAdmin(session)
+
       // Check restriction: barang:site_only (specific) OR k_barang:site_only (mobile) OR gudang:site_only (inherited)
-      const hasRestriction = permissions.includes('barang:site_only') || 
+      const hasRestriction = permissions.includes('barang:site_only') ||
                              permissions.includes('k_barang:site_only') ||
                              permissions.includes('gudang:site_only')
 
-      const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
+      const siteId = (!isSuper && hasRestriction) ? session.siteId : undefined
 
       const findAllParams: Parameters<typeof inventoryRepository.findAllBarang>[0] = {
         skip: offset,

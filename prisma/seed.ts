@@ -104,6 +104,7 @@ async function main() {
     update: {
       accessAdminPanel: true,
       accessEmployeePanel: true,
+      isSuperAdmin: true, // Mark as Super Admin
       permission: {
         set: [], // Clear existing to ensure clean slate before connecting all
         connect: permissions.map((p) => ({ id: p.id })),
@@ -116,6 +117,7 @@ async function main() {
       description: 'Super Administrator with full access to everything',
       accessAdminPanel: true,
       accessEmployeePanel: true,
+      isSuperAdmin: true, // Mark as Super Admin
       permission: {
         connect: permissions.map((p) => ({ id: p.id })),
       },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth";
+import { verifyAuth, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
@@ -15,8 +15,8 @@ export async function DELETE(
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         // Check permissions
-        const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin';
-        const hasAccess = isSuperAdmin ||
+        const isSuper = isSuperAdmin(user);
+        const hasAccess = isSuper ||
                          (await hasPermission("expense:delete")) ||
                          (await hasPermission("mixradius_expenses:delete"));
 

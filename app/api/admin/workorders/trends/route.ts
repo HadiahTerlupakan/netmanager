@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth, isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
@@ -80,23 +80,23 @@ function buildAccessFilters(user: { id: string; permissions?: string[]; role?: s
 } {
     const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
     const hasSiteRestriction = user.permissions?.includes('workorders:site_only');
-    const isSuperAdmin = user.role === 'SUPER_ADMIN';
+    const isSuper = isSuperAdmin(user);
 
     let departmentId: string | undefined;
     let siteId: string | undefined;
 
     // Department restriction
-    if (hasDepartmentRestriction && !isSuperAdmin && user.departmentId) {
+    if (hasDepartmentRestriction && !isSuper && user.departmentId) {
         departmentId = user.departmentId;
     }
 
     // Site restriction
-    if (hasSiteRestriction && !isSuperAdmin && user.siteId) {
+    if (hasSiteRestriction && !isSuper && user.siteId) {
         siteId = user.siteId;
     }
 
-    return { 
-        ...(departmentId ? { departmentId } : {}), 
-        ...(siteId ? { siteId } : {}) 
+    return {
+        ...(departmentId ? { departmentId } : {}),
+        ...(siteId ? { siteId } : {})
     };
 }

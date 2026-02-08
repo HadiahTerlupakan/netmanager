@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getLeaveService } from '@/modules/attendance/services/LeaveService'
 import { LeaveType, LeaveStatus } from '@prisma/client'
@@ -44,12 +44,12 @@ export async function GET(request: Request) {
             siteId?: string;
             departmentId?: string
         }
-        const isSuperAdmin = user.role === 'SUPER_ADMIN'
+        const isSuper = isSuperAdmin(session.user as any)
 
-        if (user.permissions?.includes('izin:site_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('izin:site_only') && !isSuper) {
             siteId = user.siteId
         }
-        if (user.permissions?.includes('izin:department_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('izin:department_only') && !isSuper) {
             departmentId = user.departmentId
         }
 

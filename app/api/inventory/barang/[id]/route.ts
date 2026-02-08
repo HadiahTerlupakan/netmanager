@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { logger } from '@/lib/logger'
 import { getInventoryRepository } from '@/lib/repositories'
@@ -26,12 +26,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Site Restriction Check
     const permissions = await getUserPermissions(session.id);
-    const isSuperAdmin = session.role === 'SUPER_ADMIN'
+    const isSuper = isSuperAdmin(session)
     const hasRestriction = permissions.includes('barang:site_only') ||
                            permissions.includes('k_barang:site_only') ||
                            permissions.includes('gudang:site_only')
 
-    const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
+    const siteId = (!isSuper && hasRestriction) ? session.siteId : undefined
 
     try {
       const dbStart = Date.now()
@@ -121,12 +121,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Site Restriction Check
     const permissions = await getUserPermissions(session.id);
-    const isSuperAdmin = session.role === 'SUPER_ADMIN'
+    const isSuper = isSuperAdmin(session)
     const hasRestriction = permissions.includes('barang:site_only') ||
                            permissions.includes('k_barang:site_only') ||
                            permissions.includes('gudang:site_only')
 
-    const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
+    const siteId = (!isSuper && hasRestriction) ? session.siteId : undefined
 
     try {
       const dbStart = Date.now()
@@ -215,12 +215,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // Site Restriction Check
     const permissions = await getUserPermissions(session.id);
-    const isSuperAdmin = session.role === 'SUPER_ADMIN'
+    const isSuper = isSuperAdmin(session)
     const hasRestriction = permissions.includes('barang:site_only') ||
                            permissions.includes('k_barang:site_only') ||
                            permissions.includes('gudang:site_only')
 
-    const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
+    const siteId = (!isSuper && hasRestriction) ? session.siteId : undefined
 
     try {
       const dbStart = Date.now()
@@ -269,6 +269,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     logger.error('Error deleting barang', err, {
       path: '/api/inventory/barang/[id]',
       method: 'DELETE',
+      id: 'unknown',
     })
     return ApiErrors.internalError('Gagal menghapus barang')
   }

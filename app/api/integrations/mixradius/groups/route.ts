@@ -1,6 +1,6 @@
 
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
@@ -40,9 +40,9 @@ export async function POST(req: NextRequest) {
     if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuper = isSuperAdmin(session)
 
-    if (!isSuperAdmin && !permissions.includes('mixradius_sites:create') && !permissions.includes('mixradius:create')) {
+    if (!isSuper && !permissions.includes('mixradius_sites:create') && !permissions.includes('mixradius:create')) {
       return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_sites:create')
     }
 

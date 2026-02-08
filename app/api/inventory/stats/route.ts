@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
@@ -15,14 +15,14 @@ export async function GET(req: NextRequest) {
 
     try {
         const permissions = await getUserPermissions(session.id);
-        const isSuperAdmin = session.role === 'SUPER_ADMIN'
+        const isSuper = isSuperAdmin(session)
 
         // Site filter logic - inherit from gudang/barang restrictions
         const hasRestriction = permissions.includes('barang:site_only') ||
                                permissions.includes('k_barang:site_only') ||
                                permissions.includes('gudang:site_only')
 
-        const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
+        const siteId = (!isSuper && hasRestriction) ? session.siteId : undefined
 
         // Build filters
         const gudangFilter: Prisma.GudangWhereInput = { isActive: true }

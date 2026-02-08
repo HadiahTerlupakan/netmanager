@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { FiInfo } from 'react-icons/fi'
+import { usePermission } from '@/hooks/use-permission'
 
 interface GudangFormData {
   nama: string
@@ -22,6 +23,12 @@ interface GudangFormProps {
 }
 
 export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps) {
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('gudang:create')
+  const canUpdate = hasPermission('gudang:update')
+  const isEditing = !!initialData?.id
+  const hasAccess = isEditing ? canUpdate : canCreate
+
   const [formData, setFormData] = useState({
     nama: initialData?.nama || '',
     lokasi: initialData?.lokasi || '',
@@ -120,7 +127,7 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
           onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           placeholder="Contoh: Gudang Utama"
-          disabled={loading}
+          disabled={loading || !hasAccess}
         />
       </div>
 
@@ -135,7 +142,7 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
           onChange={(e) => setFormData({ ...formData, lokasi: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
-          disabled={loading}
+          disabled={loading || !hasAccess}
         />
       </div>
 
@@ -147,7 +154,7 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
             checked={formData.isActive}
             onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded disabled:opacity-50"
-            disabled={loading}
+            disabled={loading || !hasAccess}
           />
           <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
             Gudang Aktif
@@ -162,15 +169,17 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
           className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={loading}
         >
-          Batal
+          {hasAccess ? 'Batal' : 'Kembali'}
         </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Menyimpan...' : initialData?.id ? 'Update' : 'Simpan'}
-        </button>
+        {hasAccess && (
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Menyimpan...' : initialData?.id ? 'Update' : 'Simpan'}
+          </button>
+        )}
       </div>
     </form>
   )

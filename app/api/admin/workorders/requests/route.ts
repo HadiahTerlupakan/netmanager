@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getWorkOrderService } from '@/modules/work-order';
 import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
+import { isSuperAdmin } from '@/lib/auth';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 interface ExtendedUser {
@@ -37,14 +38,14 @@ export async function GET(request: NextRequest) {
         const departmentId = searchParams.get('departmentId') || undefined;
         const siteId = searchParams.get('siteId') || undefined;
 
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        const isSuper = isSuperAdmin(user);
 
         // Build filters
         const filters: { departmentId?: string; siteId?: string; search?: string } = {
             ...(search ? { search } : {})
         };
 
-        if (!isSuperAdmin) {
+        if (!isSuper) {
             if (user.permissions?.includes('workorders:site_only') && user.siteId) {
                 filters.siteId = user.siteId;
             } else if (siteId) {

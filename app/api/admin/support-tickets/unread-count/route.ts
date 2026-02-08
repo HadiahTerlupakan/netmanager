@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Permission check
     const permissions = await getUserPermissions(user.id)
-    if (user.role !== 'SUPER_ADMIN' && !permissions.includes('support:read')) {
+    if (!isSuperAdmin(user) && !permissions.includes('support:read')) {
         return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: support:read')
     }
 

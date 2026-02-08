@@ -25,7 +25,8 @@ export function ClientComponent() {
         accessAdminPanel: false,
         accessEmployeePanel: false,
         isRestricted: false,
-        isTechnical: false, // New field
+        isTechnical: false,
+        isSuperAdmin: false, // New field
         permissions: [] as string[] // Store permission IDs (resource:action)
     })
     const [loading, setLoading] = useState(true)
@@ -57,6 +58,7 @@ export function ClientComponent() {
                             accessEmployeePanel: roleData.accessEmployeePanel || false,
                             isRestricted: roleData.isRestricted || false,
                             isTechnical: roleData.isTechnical || false,
+                            isSuperAdmin: roleData.isSuperAdmin || false, // Load from API
                             // Convert backend permissions (objects) to string format resource:action
                             permissions: roleData.permissions.map((p: { resource: string; action: string }) => `${p.resource}:${p.action}`)
                         })
@@ -217,8 +219,36 @@ export function ClientComponent() {
                 {/* Role Type */}
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <h2 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Tipe Role</h2>
-                    <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+
+                    {/* SUPER ADMIN TOGGLE */}
+                    <label className="flex items-start gap-3 p-4 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/10 dark:border-indigo-800 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/20 cursor-pointer transition-colors mb-4">
                         <input
+                            type="checkbox"
+                            checked={formData.isSuperAdmin}
+                            onChange={e => setFormData({
+                                ...formData,
+                                isSuperAdmin: e.target.checked,
+                                // Auto-enable access if super admin
+                                accessAdminPanel: e.target.checked ? true : formData.accessAdminPanel,
+                                accessEmployeePanel: e.target.checked ? true : formData.accessEmployeePanel
+                            })}
+                            className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 mt-0.5"
+                            disabled={formData.name === 'SUPER_ADMIN'} // Cannot uncheck for original Super Admin
+                        />
+                        <div>
+                            <span className="block font-medium text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
+                                Super Administrator
+                                <span className="text-[10px] px-2 py-0.5 bg-indigo-200 text-indigo-800 rounded-full font-bold">POWERFUL</span>
+                            </span>
+                            <span className="text-sm text-indigo-700 dark:text-indigo-400">
+                                Role ini memiliki <strong>akses penuh</strong> ke seluruh sistem, mengabaikan semua batasan permission dan site.
+                            </span>
+                        </div>
+                    </label>
+
+                    <div className={formData.isSuperAdmin ? 'opacity-50 pointer-events-none' : ''}>
+                        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                            <input
                             type="checkbox"
                             checked={formData.isRestricted}
                             onChange={e => setFormData({ ...formData, isRestricted: e.target.checked })}
@@ -248,9 +278,11 @@ export function ClientComponent() {
                             </span>
                         </div>
                     </label>
+                    </div>
                 </div>
 
-                {/* Permission Matrix */}
+                {/* Permission Matrix - Hide if Super Admin */}
+                {!formData.isSuperAdmin && (
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Matrix Hak Akses</h2>
@@ -517,6 +549,7 @@ export function ClientComponent() {
                         })}
                     </div>
                 </div>
+                )}
 
                 <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700">
                     <Link

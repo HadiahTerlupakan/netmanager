@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions, verifyAuth } from "@/lib/auth";
+import { authOptions, verifyAuth, isSuperAdmin } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { hasPermission } from "@/lib/rbac";
 
@@ -13,10 +13,10 @@ export async function GET(req: NextRequest) {
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         // Allow SUPER_ADMIN to bypass permission check
-        const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin';
+        const isSuper = isSuperAdmin(user);
 
         // Check for either generic expense permission OR mixradius expense permission
-        const hasAccess = isSuperAdmin ||
+        const hasAccess = isSuper ||
                          (await hasPermission("expense:read")) ||
                          (await hasPermission("mixradius_expenses:read"));
 
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
             where.expenseCategoryId = expenseCategoryId;
         }
 
-        if ((await hasPermission("expense:site_only")) && user.role !== 'SUPER_ADMIN') {
+        if ((await hasPermission("expense:site_only")) && !isSuper) {
             const userSiteId = (user as { siteId?: string }).siteId;
             if (userSiteId) {
                 where.siteId = userSiteId;
@@ -160,11 +160,10 @@ export async function POST(req: Request) {
         }
 
         // Allow SUPER_ADMIN to bypass permission check
-        const userRole = (session.user as { role?: string }).role;
-        const isSuperAdmin = userRole === 'SUPER_ADMIN' || userRole === 'Super Admin';
+        const isSuper = isSuperAdmin(session.user as any);
 
         // Check for either generic expense permission OR mixradius expense permission
-        const hasAccess = isSuperAdmin ||
+        const hasAccess = isSuper ||
                          (await hasPermission("expense:create")) ||
                          (await hasPermission("mixradius_expenses:create"));
 
@@ -186,7 +185,7 @@ export async function POST(req: Request) {
         const { amount, depreciation, usefulLife, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId } = validation.data;
 
         let finalSiteId = siteId;
-        if ((await hasPermission("expense:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+        if ((await hasPermission("expense:site_only")) && !isSuper) {
              const userSiteId = (session.user as { siteId?: string }).siteId;
              if (!userSiteId) {
                  return NextResponse.json({ error: "User restricted but has no site" }, { status: 403 });

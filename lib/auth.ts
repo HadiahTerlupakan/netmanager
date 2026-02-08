@@ -243,19 +243,21 @@ export const authConfig: NextAuthOptions = {
           token.role = dbUser?.role?.name || 'USER'
           token.accessAdminPanel = dbUser?.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser?.role?.accessEmployeePanel ?? false
+          token.isSuperAdmin = dbUser?.role?.isSuperAdmin ?? false
           // IMPORTANT: Don't store permissions in token to reduce cookie size
           // Permissions will be loaded at runtime when needed
           // token.permissions = dbUser?.role?.permission.map(p => `${p.resource}:${p.action}`) || []
           token.permissionsCount = dbUser?.role?.permission.length || 0
-          
+
           // Store department detail
           token.departmentName = dbUser?.departments?.name
           token.isSales = dbUser?.isSales ?? false
 
           // Handle SUPER_ADMIN special case - they should have access to everything
-          if (token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
+          if (token.isSuperAdmin || token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
             token.accessAdminPanel = true
             token.accessEmployeePanel = true
+            token.isSuperAdmin = true
           }
 
           // Multi-site support
@@ -325,10 +327,13 @@ export const authConfig: NextAuthOptions = {
           token.role = dbUser.role?.name || 'USER'
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser.role?.accessEmployeePanel ?? false
+          token.isSuperAdmin = dbUser.role?.isSuperAdmin ?? false
 
-          if (token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
+          if (token.isSuperAdmin || token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
             token.accessAdminPanel = true
             token.accessEmployeePanel = true
+            // Ensure flag is set for legacy string roles
+            token.isSuperAdmin = true
           }
 
           // Don't store permissions in token to reduce cookie size
@@ -369,6 +374,7 @@ export const authConfig: NextAuthOptions = {
         const sessionUser = session.user as Record<string, unknown>;
         sessionUser.id = token.id;
         sessionUser.role = token.role;
+        sessionUser.isSuperAdmin = token.isSuperAdmin;
         sessionUser.accessAdminPanel = token.accessAdminPanel;
         sessionUser.accessEmployeePanel = token.accessEmployeePanel;
         // Don't include permissions in session - they will be loaded at runtime
@@ -617,4 +623,18 @@ export async function hasPermission(userId: string, resource: string, action: st
   const permissions = await getUserPermissions(userId)
   const permissionKey = `${resource}:${action}`
   return permissions.includes(permissionKey)
+}
+
+/**
+ * Check if a user role is SUPER_ADMIN
+ * Centralized logic to prevent hardcoded string issues
+ */
+export function isSuperAdmin(user: { role?: string | null; isSuperAdmin?: boolean } | undefined | null): boolean {
+  if (!user) return false
+  // Check the boolean flag first (new schema)
+  if (user.isSuperAdmin === true) return true
+
+  // Fallback to legacy string check
+  if (!user.role) return false
+  return user.role === 'SUPER_ADMIN' || user.role === 'Super Admin'
 }

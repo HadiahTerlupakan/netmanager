@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
@@ -13,17 +13,17 @@ export async function GET(req: NextRequest) {
 
     try {
         const permissions = await getUserPermissions(session.id)
-        const isSuperAdmin = session.role === 'SUPER_ADMIN'
-        
+        const isSuper = isSuperAdmin(session)
+
         // Parse query parameters for custom date range
         const searchParams = req.nextUrl.searchParams
         const startDateParam = searchParams.get('startDate')
         const endDateParam = searchParams.get('endDate')
-        
+
         // Site filter logic
-        const hasRestriction = permissions.includes('barang:site_only') || 
+        const hasRestriction = permissions.includes('barang:site_only') ||
                                permissions.includes('gudang:site_only')
-        const siteId = (!isSuperAdmin && hasRestriction) ? session.siteId : undefined
+        const siteId = (!isSuper && hasRestriction) ? session.siteId : undefined
 
         // Build filters
         const gudangFilter: Record<string, unknown> = { isActive: true }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth";
+import { verifyAuth, isSuperAdmin } from "@/lib/auth";
 import { z } from "zod";
 import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         // Basic permission check - creating config requires 'expense:create' permission or super admin
-        const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin';
-        const hasAccess = isSuperAdmin ||
+        const isSuper = isSuperAdmin(user);
+        const hasAccess = isSuper ||
                          (await hasPermission("expense:create")) ||
                          (await hasPermission("mixradius_expenses:create"));
 

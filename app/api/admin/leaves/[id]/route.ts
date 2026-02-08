@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getLeaveService } from '@/modules/attendance/services/LeaveService'
 import { prisma } from '@/lib/prisma'
@@ -61,8 +61,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             siteId?: string;
             departmentId?: string;
         }
-        const isSuperAdmin = user.role === 'SUPER_ADMIN'
-        if (!isSuperAdmin) {
+        const isSuper = isSuperAdmin(user as any)
+        if (!isSuper) {
             if (user.permissions?.includes('izin:site_only') && existing.user.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Dibatasi hanya untuk Site Anda')
             }
@@ -123,8 +123,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
             siteId?: string;
             departmentId?: string;
         }
-        const isSuperAdmin = user.role === 'SUPER_ADMIN'
-        if (!isSuperAdmin) {
+        const isSuper = isSuperAdmin(user as any)
+        if (!isSuper) {
             if (user.permissions?.includes('izin:site_only') && existing.user.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Dibatasi hanya untuk Site Anda')
             }

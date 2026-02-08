@@ -4,7 +4,7 @@ import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { createPPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { randomUUID } from 'crypto'
 import { Prisma } from '@prisma/client'
@@ -42,9 +42,10 @@ export async function GET(req: NextRequest) {
     if (status) {
       where.status = status as 'AKTIF' | 'NONAKTIF'
     }
-    
+
     // User restriction logic
-    if (session.user.role !== "SUPER_ADMIN") {
+    const isSuper = isSuperAdmin(session.user as any)
+    if (!isSuper) {
       // For non-super admins, restrict to their assigned site
       if (session.user.siteId) {
         where.siteId = session.user.siteId
@@ -244,7 +245,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Enforce siteId for non-SUPER_ADMIN
-    if (session.user.role !== "SUPER_ADMIN" && session.user.siteId) {
+    const isSuper = isSuperAdmin(session.user as any)
+    if (!isSuper && session.user.siteId) {
       sanitizedBody.siteId = session.user.siteId
     }
 

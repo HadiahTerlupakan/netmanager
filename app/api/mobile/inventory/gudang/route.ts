@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
+import { isSuperAdmin } from '@/lib/auth'
 
 // GET - Get gudang list for mobile
 export async function GET(req: NextRequest) {
@@ -41,11 +42,10 @@ export async function GET(req: NextRequest) {
         // Check for Site-Based Restriction Policy
         // Mobile users are restricted to their site by default unless SUPER_ADMIN or "Super Admin"
         // This fixes the issue where users see Gudang outside their site
-        const roleName = (user.role?.name || '').trim().toUpperCase().replace(/\s+/g, '_');
-        const isSuperAdmin = roleName === 'SUPER_ADMIN';
-        
+        const isSuper = isSuperAdmin({ role: user.role?.name });
+
         // Strict default: Restricted unless Super Admin
-        const isSiteRestricted = !isSuperAdmin; 
+        const isSiteRestricted = !isSuper;
 
         const whereClause: Record<string, unknown> = { isActive: true }
 

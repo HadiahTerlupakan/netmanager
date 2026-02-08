@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { isSuperAdmin } from '@/lib/auth';
 
 // POST - Create barang masuk (mobile)
 export async function POST(request: NextRequest) {
@@ -44,9 +45,8 @@ export async function POST(request: NextRequest) {
 
         // Check for Site-Based Restriction Policy
         const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
-        const roleName = (user.role?.name || '').trim().toUpperCase().replace(/\s+/g, '_');
-        const isSuperAdmin = roleName === 'SUPER_ADMIN';
-        const isSiteRestricted = !isSuperAdmin && userPermissions.includes('k_barang:site_only');
+        const isSuper = isSuperAdmin({ role: user.role?.name });
+        const isSiteRestricted = !isSuper && userPermissions.includes('k_barang:site_only');
 
         if (isSiteRestricted) {
             if (!user.sites?.id) {

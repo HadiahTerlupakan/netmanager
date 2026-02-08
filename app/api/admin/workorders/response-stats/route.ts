@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth, isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
@@ -49,9 +49,9 @@ export async function GET(request: NextRequest) {
 
         // Enforce Department Restriction
         const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        const isSuper = isSuperAdmin(user);
 
-        if (hasDepartmentRestriction && !isSuperAdmin) {
+        if (hasDepartmentRestriction && !isSuper) {
             if (!user.departmentId) {
                 return apiSuccess([]); // No access to any department data
             }

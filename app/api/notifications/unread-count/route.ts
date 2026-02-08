@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authConfig, getUserPermissions } from '@/lib/auth';
+import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth';
 import { getUnreadCount, type NotificationType } from '@/modules/notification';
 import { apiSuccess, ApiErrors } from '@/lib/api-response';
 
@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
 
         const permissions = await getUserPermissions(session.user.id);
         const user = session.user as { role?: string; siteId?: string };
-        const isSuperAdmin = user.role === 'SUPER_ADMIN'
-        const siteId = (!isSuperAdmin && permissions.includes('site_only'))
+        const isSuper = isSuperAdmin(user)
+        const siteId = (!isSuper && permissions.includes('site_only'))
             ? user.siteId
             : undefined;
 

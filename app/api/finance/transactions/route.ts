@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, isSuperAdmin } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
     // Let's check `lib/auth.ts` -> it returns `permissions` in session.
 
     const userPermissions = session.permissions || []
-    const isSuperAdmin = session.role === 'SUPER_ADMIN'
-    const isSiteRestricted = userPermissions.includes('finance_transaction:site_only') && !isSuperAdmin
+    const isSuper = isSuperAdmin(session)
+    const isSiteRestricted = userPermissions.includes('finance_transaction:site_only') && !isSuper
 
     let filterSiteId: string | undefined = siteIdParam
     if (isSiteRestricted) {

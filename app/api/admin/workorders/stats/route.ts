@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getWorkOrderService } from '@/modules/work-order';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth, isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
@@ -33,16 +33,16 @@ export async function GET(request: NextRequest) {
         // Access Control
         const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
         const hasSiteRestriction = user.permissions?.includes('workorders:site_only');
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        const isSuper = isSuperAdmin(user);
 
-        if (hasDepartmentRestriction && !isSuperAdmin) {
+        if (hasDepartmentRestriction && !isSuper) {
             if (!user.departmentId) {
                 return apiSuccess(EMPTY_STATS);
             }
             filters.departmentId = user.departmentId;
         }
 
-        if (hasSiteRestriction && !isSuperAdmin) {
+        if (hasSiteRestriction && !isSuper) {
             if (!user.siteId) {
                 return apiSuccess(EMPTY_STATS);
             }

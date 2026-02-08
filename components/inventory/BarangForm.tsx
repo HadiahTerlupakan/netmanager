@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { FiInfo } from 'react-icons/fi'
 import { validateBarangForm, sanitizeInput } from '@/lib/validations/barang'
 import { useToast } from '@/hooks/use-toast'
+import { usePermission } from '@/hooks/use-permission'
 
 interface BarangFormProps {
   initialData?: {
@@ -30,6 +31,12 @@ const SATUAN_OPTIONS = [
 ]
 
 export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps) {
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('barang:create')
+  const canUpdate = hasPermission('barang:update')
+  const isEditing = !!initialData?.id
+  const hasAccess = isEditing ? canUpdate : canCreate
+
   const [formData, setFormData] = useState({
     nama: initialData?.nama || '',
     satuan: initialData?.satuan || '',
@@ -260,7 +267,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
             errors.nama ? 'border-red-500' : 'border-gray-300'
           }`}
           placeholder="Contoh: ONT ZTE F660"
-          disabled={loading}
+          disabled={loading || !hasAccess}
           maxLength={200}
         />
         {errors.nama && (
@@ -297,7 +304,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
             errors.satuan ? 'border-red-500' : 'border-gray-300'
           }`}
-          disabled={loading}
+          disabled={loading || !hasAccess}
         >
           <option value="">Pilih satuan</option>
           {SATUAN_OPTIONS.map((satuan) => (
@@ -347,7 +354,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
             checked={formData.isWorkOrderMaterial}
             onChange={(e) => setFormData({ ...formData, isWorkOrderMaterial: e.target.checked })}
             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-            disabled={loading}
+            disabled={loading || !hasAccess}
           />
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Material Work Order
@@ -365,15 +372,17 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           disabled={loading}
         >
-          Batal
+          {hasAccess ? 'Batal' : 'Kembali'}
         </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Menyimpan...' : initialData?.id ? 'Update' : 'Simpan'}
-        </button>
+        {hasAccess && (
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Menyimpan...' : isEditing ? 'Update' : 'Simpan'}
+          </button>
+        )}
       </div>
     </form >
   )

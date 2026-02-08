@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig, getUserPermissions } from '@/lib/auth'
+import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
@@ -36,9 +36,9 @@ export async function GET(req: NextRequest) {
     // const permissions = (session.user as any).permissions || []
     const permissions = await getUserPermissions(session.user.id);
     const user = session.user as { role?: string; siteId?: string };
-    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+    const isSuper = isSuperAdmin(user)
 
-    if (!isSuperAdmin && (permissions.includes('transfer:site_only') || permissions.includes('k_barang:site_only'))) {
+    if (!isSuper && (permissions.includes('transfer:site_only') || permissions.includes('k_barang:site_only'))) {
         siteId = user.siteId
     }
 

@@ -45,7 +45,12 @@ interface BarangDetail {
 export function ClientComponent() {
   const params = useParams()
   const { hasPermission } = usePermission()
+
+  // Permission checks
   const canUpdate = hasPermission('barang:update')
+  const canCreateMasuk = hasPermission('masuk:create') || hasPermission('stockmasuk:create')
+  const canCreateKeluar = hasPermission('keluar:create') || hasPermission('stockkeluar:create')
+  const canCreateOpname = hasPermission('opname:create') || hasPermission('stockopname:create')
 
   const [barang, setBarang] = useState<BarangDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -274,20 +279,24 @@ export function ClientComponent() {
                 Barang ini belum memiliki stok di gudang manapun
               </p>
               <div className="mt-4 flex justify-center space-x-3">
-                <Link
-                  href="/admin/inventory/masuk"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-                >
-                  <FiDownload className="h-4 w-4 mr-2" />
-                  Barang Masuk
-                </Link>
-                <Link
-                  href="/admin/inventory/opname"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
-                >
-                  <FiClipboard className="h-4 w-4 mr-2" />
-                  Stock Opname
-                </Link>
+                {canCreateMasuk && (
+                  <Link
+                    href="/admin/inventory/masuk"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                  >
+                    <FiDownload className="h-4 w-4 mr-2" />
+                    Barang Masuk
+                  </Link>
+                )}
+                {canCreateOpname && (
+                  <Link
+                    href="/admin/inventory/opname"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+                  >
+                    <FiClipboard className="h-4 w-4 mr-2" />
+                    Stock Opname
+                  </Link>
+                )}
               </div>
             </div>
           ) : (
@@ -340,27 +349,33 @@ export function ClientComponent() {
                 ]}
                 renderActions={(_item: BarangGudang) => (
                   <div className="flex justify-end space-x-2">
-                    <Link
-                      href="/admin/inventory/masuk"
-                      className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-2"
-                      title="Barang Masuk"
-                    >
-                      <FiDownload className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href="/admin/inventory/keluar"
-                      className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 p-2"
-                      title="Barang Keluar"
-                    >
-                      <FiUpload className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href="/admin/inventory/opname"
-                      className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 p-2"
-                      title="Stock Opname"
-                    >
-                      <FiClipboard className="h-4 w-4" />
-                    </Link>
+                    {canCreateMasuk && (
+                      <Link
+                        href="/admin/inventory/masuk"
+                        className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-2"
+                        title="Barang Masuk"
+                      >
+                        <FiDownload className="h-4 w-4" />
+                      </Link>
+                    )}
+                    {canCreateKeluar && (
+                      <Link
+                        href="/admin/inventory/keluar"
+                        className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 p-2"
+                        title="Barang Keluar"
+                      >
+                        <FiUpload className="h-4 w-4" />
+                      </Link>
+                    )}
+                    {canCreateOpname && (
+                      <Link
+                        href="/admin/inventory/opname"
+                        className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 p-2"
+                        title="Stock Opname"
+                      >
+                        <FiClipboard className="h-4 w-4" />
+                      </Link>
+                    )}
                   </div>
                 )}
               />

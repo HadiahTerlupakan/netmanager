@@ -1,6 +1,6 @@
 
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
@@ -22,9 +22,9 @@ export async function PUT(req: NextRequest, context: Context) {
     if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
-    
-    if (!isSuperAdmin && !permissions.includes('mixradius:update')) {
+    const isSuper = isSuperAdmin(session)
+
+    if (!isSuper && !permissions.includes('mixradius:update')) {
       return ApiErrors.forbidden()
     }
 

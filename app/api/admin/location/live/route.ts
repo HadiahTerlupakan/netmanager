@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, isSuperAdmin } from '@/lib/auth'
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
@@ -28,13 +28,13 @@ export async function GET(_request: NextRequest) {
             siteId?: string;
             departmentId?: string;
         };
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        const isSuper = isSuperAdmin(user as any);
 
         // Prepare RBAC filters
         let siteId: string | undefined;
         let departmentId: string | undefined;
 
-        if (!isSuperAdmin) {
+        if (!isSuper) {
             if (user.permissions?.includes('live_tracking:site_only') && user.siteId) {
                 siteId = user.siteId;
             }

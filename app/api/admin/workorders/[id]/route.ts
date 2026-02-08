@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getWorkOrderService, WorkOrderRepository } from '@/modules/work-order';
 import { requireAuth } from '@/lib/auth-helpers';
+import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
 import { onWorkOrderStatusChanged } from '@/modules/work-order/services/WorkOrderNotifications';
@@ -60,15 +61,15 @@ export async function GET(
         const workOrder = result.data!;
 
         // Access Control (Site & Department) - stays in route as context-specific
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        const isSuper = isSuperAdmin(user);
 
-        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('workorders:site_only') && !isSuper) {
             if (workOrder.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Anda hanya bisa mengakses work order di Site Anda');
             }
         }
 
-        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('workorders:department_only') && !isSuper) {
             if (workOrder.departmentId !== user.departmentId) {
                 return ApiErrors.forbidden('Anda hanya bisa mengakses work order di Departemen Anda');
             }
@@ -123,17 +124,17 @@ export async function PATCH(
             return ApiErrors.notFound('Work Order');
         }
 
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        const isSuper = isSuperAdmin(user);
 
         // 1. Site Check
-        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('workorders:site_only') && !isSuper) {
             if (existingWO.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Anda hanya bisa mengupdate work order di Site Anda');
             }
         }
 
         // 2. Department Check
-        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('workorders:department_only') && !isSuper) {
              if (existingWO.departmentId !== user.departmentId) {
                 return ApiErrors.forbidden('Anda hanya bisa mengupdate work order di Departemen Anda');
             }
@@ -298,17 +299,17 @@ export async function DELETE(
              return ApiErrors.notFound('Work Order');
         }
 
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        const isSuper = isSuperAdmin(user);
 
         // 1. Site Check
-        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('workorders:site_only') && !isSuper) {
             if (existingWO.siteId !== user.siteId) {
                 return ApiErrors.forbidden('Anda hanya bisa menghapus work order di Site Anda');
             }
         }
 
         // 2. Department Check
-        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+        if (user.permissions?.includes('workorders:department_only') && !isSuper) {
              if (existingWO.departmentId !== user.departmentId) {
                 return ApiErrors.forbidden('Anda hanya bisa menghapus work order di Departemen Anda');
             }

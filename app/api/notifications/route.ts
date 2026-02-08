@@ -6,7 +6,7 @@ import {
     type NotificationType,
 } from '@/modules/notification';
 import { requireAuth } from '@/lib/auth-helpers';
-import { getUserPermissions } from '@/lib/auth';
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth';
 
 interface ExtendedUser {
     id: string;
@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
         // Enforce Site Restriction
         const permissions = await getUserPermissions(session.user.id);
         const user = session.user as ExtendedUser;
-        const isSuperAdmin = user.role === 'SUPER_ADMIN'
-        const siteId = (!isSuperAdmin && permissions.includes('site_only'))
+        const isSuper = isSuperAdmin(user as any)
+        const siteId = (!isSuper && permissions.includes('site_only'))
             ? user.siteId
             : undefined;
 
@@ -187,8 +187,8 @@ export async function PATCH(request: NextRequest) {
         // Enforce Site Restriction
         const permissions = await getUserPermissions(session.user.id);
         const user = session.user as ExtendedUser;
-        const isSuperAdmin = user.role === 'SUPER_ADMIN'
-        const siteId = (!isSuperAdmin && permissions.includes('site_only'))
+        const isSuper = isSuperAdmin(user as any)
+        const siteId = (!isSuper && permissions.includes('site_only'))
             ? user.siteId
             : undefined;
 

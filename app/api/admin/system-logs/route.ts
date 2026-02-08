@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { LogType, Prisma } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
+import { isSuperAdmin } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
@@ -47,8 +48,8 @@ export async function GET(req: NextRequest) {
 
         // SITE RESTRICTION LOGIC
         const user = session.user as { role: string; siteId?: string }
-        const isSuperAdmin = user.role === 'SUPER_ADMIN'
-        const isSiteRestricted = await hasPermission('system_log:site_only') && !isSuperAdmin
+        const isSuper = isSuperAdmin(user)
+        const isSiteRestricted = await hasPermission('system_log:site_only') && !isSuper
 
         if (isSiteRestricted) {
             if (!user.siteId) {
