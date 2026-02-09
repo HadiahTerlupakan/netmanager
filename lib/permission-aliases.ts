@@ -52,11 +52,20 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   'opname:read': ['stockopname:read'],
 
   // 'k_barang:*' adalah nama dari mobile app (karyawan)
-  'k_barang:read': ['barang:read', 'm_barang:read'],
-  'k_barang:site_only': ['barang:site_only'],
+  'k_barang:read': ['barang:read', 'm_barang:read', 'gudang:read'],
+  'k_barang:create': ['barang:create', 'gudang:create'],
+  'k_barang:update': ['barang:update', 'gudang:update'],
+  'k_barang:delete': ['barang:delete', 'gudang:delete'],
+  'k_barang:site_only': ['barang:site_only', 'gudang:site_only'],
 
   // Mobile app resources to admin
   'm_barang:read': ['barang:read', 'k_barang:read'],
+
+  // Gudang specific aliases
+  'gudang:read': ['k_barang:read', 'barang:read'],
+  'gudang:create': ['k_barang:create', 'barang:create'],
+  'gudang:update': ['k_barang:update', 'barang:update'],
+  'gudang:delete': ['k_barang:delete', 'barang:delete'],
 
   // ====== ROLES MODULE ======
   // 'role:*' vs 'roles:*' (singular vs plural)
