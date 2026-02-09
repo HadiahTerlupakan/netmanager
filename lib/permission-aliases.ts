@@ -90,6 +90,22 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   // Beberapa komponen menggunakan 'izin:*' untuk holiday
   'holiday:create': ['izin:create'],
   'holiday:delete': ['izin:delete'],
+
+  // ====== ASSETS MODULE ======
+  // Menu uses 'assets' (plural), API uses 'asset' (singular)
+  'asset:read': ['assets:read'],
+  'asset:create': ['assets:create'],
+  'asset:update': ['assets:update'],
+  'asset:delete': ['assets:delete'],
+  'asset:site_only': ['assets:site_only'],
+  'asset:department_only': ['assets:department_only'],
+
+  'assets:read': ['asset:read'],
+  'assets:create': ['asset:create'],
+  'assets:update': ['asset:update'],
+  'assets:delete': ['asset:delete'],
+  'assets:site_only': ['asset:site_only'],
+  'assets:department_only': ['asset:department_only'],
 }
 
 /**
