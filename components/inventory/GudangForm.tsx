@@ -50,10 +50,15 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
 
     try {
       if (initialData?.id) {
+        // Include kode for update request (API requires it)
+        const updateData = {
+          ...formData,
+          kode: initialData.kode
+        }
         const response = await fetch(`/api/inventory/gudang/${initialData.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(updateData),
         })
 
         if (!response.ok) {
