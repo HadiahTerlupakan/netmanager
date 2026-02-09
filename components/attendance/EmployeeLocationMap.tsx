@@ -159,6 +159,7 @@ export default function EmployeeLocationMap({
     // Update markers when locations change OR map becomes ready
     useEffect(() => {
         if (!mapReady) return // Wait for map to be ready
+        console.log('[EmployeeLocationMap] Updating markers, locations:', locations.length, locations)
         ;(async () => {
             if (!markerLayerRef.current || !mapRef.current) return
             if (locations.length === 0) return

@@ -50,11 +50,10 @@ export async function GET(_request: NextRequest) {
             ...(departmentId ? { departmentId } : {})
         })
 
-        return apiSuccess({
-            data: liveLocations,
-            count: liveLocations.length,
-            timestamp: new Date().toISOString()
-        })
+        console.log('[API /api/admin/location/live] isSuper:', isSuper, 'filters:', { siteId, departmentId }, 'count:', liveLocations.length)
+
+        // Return locations array directly for frontend compatibility
+        return apiSuccess(liveLocations)
 
     } catch (error: unknown) {
         console.error('Error fetching live locations:', error)

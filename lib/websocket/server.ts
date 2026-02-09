@@ -166,8 +166,9 @@ function isRoomAllowed(socket: Socket, room: string): boolean {
     // User can join their own room
     if (room === `user:${userId}`) return true
 
-    // Admin can join admin rooms
-    if (userRole === 'ADMIN' && room.startsWith('admin:')) return true
+    // Admin can join admin rooms (includes SUPER_ADMIN, ADMIN, and users with admin panel access)
+    const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'OWNER', 'MANAGER']
+    if (adminRoles.includes(userRole) && room.startsWith('admin:')) return true
 
     // Anyone can join their department room
     if (room.startsWith('department:')) return true

@@ -49,6 +49,7 @@ export default function LiveMapClient() {
             const data = await res.json()
 
             if (data.success) {
+                console.log('[LiveMapClient] API Response:', data)
                 setLocations(data.data || [])
                 setLastUpdated(new Date())
                 setError(null)

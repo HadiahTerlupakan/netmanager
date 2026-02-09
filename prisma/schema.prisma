@@ -1210,7 +1210,7 @@ model Departments {
   description            String?
   jobDescription         String?
   isReminderTarget       Boolean                @default(false) // Muncul di dropdown reminder WO
-  showInMobileWO         Boolean                @default(true) // Muncul di dropdown WO request mobile app
+  showInMobileWO         Boolean                @default(false) // Muncul di dropdown WO request mobile app
   createdAt              DateTime               @default(now())
   updatedAt              DateTime
   user                   User[]
