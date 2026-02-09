@@ -19,6 +19,8 @@ export interface MenuConfig {
     icon?: string | undefined          // Icon name from react-icons/hi2 (optional)
     children?: MenuConfig[] | undefined // Submenu items
     exact?: boolean | undefined        // Match path exactly (for dashboard routes)
+    section?: string | undefined       // Section label for grouping
+    divider?: boolean | undefined      // Show divider before this item
 }
 
 /**
@@ -27,20 +29,31 @@ export interface MenuConfig {
  * Menu codes menggunakan format:
  * - Parent: 'NETWORK', 'FTTH', 'PELANGGAN', etc.
  * - Child: 'NETWORK.MIKROTIK', 'NETWORK.OLT', etc.
+ *
+ * Grouped by functional categories for better navigation
  */
 export const ADMIN_MENU_CONFIG: MenuConfig[] = [
+    // ═══════════════════════════════════════════
+    // UTAMA
+    // ═══════════════════════════════════════════
     {
         code: 'DASHBOARD',
         name: 'Dashboard',
         path: '/admin',
         icon: 'HiOutlineChartBar',
-        exact: true
+        exact: true,
+        section: 'Utama'
     },
+
+    // ═══════════════════════════════════════════
+    // OPERASIONAL
+    // ═══════════════════════════════════════════
     {
         code: 'NETWORK',
         name: 'Network',
         path: '/admin/network',
         icon: 'HiOutlineGlobeAlt',
+        section: 'Operasional',
         children: [
             { code: 'NETWORK.MAP', name: 'Topology Map', path: '/admin/map', icon: 'HiOutlineMap' },
             { code: 'NETWORK.MIKROTIK', name: 'MikroTik', path: '/admin/network/mikrotik', icon: 'HiOutlineServer' },
@@ -49,9 +62,9 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     },
     {
         code: 'PAKET',
-        name: 'Paket',
+        name: 'Paket Internet',
         path: '/admin/paket',
-        icon: 'HiOutlineShoppingCart',
+        icon: 'HiOutlineWifi',
         children: [
             { code: 'PAKET.BANDWIDTH', name: 'Bandwidth', path: '/admin/paket/bandwidth', icon: 'HiOutlineCircleStack' },
             { code: 'PAKET.PROFILEPPP', name: 'Profile PPP', path: '/admin/paket/profileppp', icon: 'HiOutlineUser' },
@@ -65,23 +78,40 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineUsers',
         children: [
             { code: 'PELANGGAN.PPP', name: 'Pelanggan PPP', path: '/admin/pelanggan/ppp', icon: 'HiOutlineUser' },
-            { code: 'PELANGGAN.REGISTRATION', name: 'Pelanggan Registrasi', path: '/admin/registrations', icon: 'HiOutlineClipboardDocumentCheck' },
+            { code: 'PELANGGAN.REGISTRATION', name: 'Registrasi Baru', path: '/admin/registrations', icon: 'HiOutlineClipboardDocumentCheck' },
         ],
     },
+    {
+        code: 'WORKORDERS',
+        name: 'Work Orders',
+        path: '/admin/workorders',
+        icon: 'HiOutlineWrench',
+        children: [
+            { code: 'WORKORDERS.WORK_ORDER_DASHBOARD', name: 'Dashboard', path: '/admin/workorders', icon: 'HiOutlineChartBar', exact: true },
+            { code: 'WORKORDERS.LIST', name: 'Daftar WO', path: '/admin/workorders/list', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'WORKORDERS.SITE', name: 'Per Site', path: '/admin/workorders/sites', icon: 'HiOutlineBuildingOffice' },
+            { code: 'WORKORDERS.DEPARTMENT', name: 'Per Departemen', path: '/admin/workorders/departments', icon: 'HiOutlineUserGroup' },
+        ],
+    },
+
+    // ═══════════════════════════════════════════
+    // INVENTORY & PROCUREMENT
+    // ═══════════════════════════════════════════
     {
         code: 'INVENTORY',
         name: 'Inventory',
         path: '/admin/inventory',
         icon: 'HiOutlineCube',
+        section: 'Inventaris',
         children: [
             { code: 'INVENTORY.INVENTORY', name: 'Dashboard', path: '/admin/inventory', icon: 'HiOutlineChartBar', exact: true },
-            { code: 'INVENTORY.BARANG', name: 'Barang', path: '/admin/inventory/barang', icon: 'HiOutlineCube' },
+            { code: 'INVENTORY.BARANG', name: 'Master Barang', path: '/admin/inventory/barang', icon: 'HiOutlineCube' },
+            { code: 'INVENTORY.GUDANG', name: 'Gudang', path: '/admin/inventory/gudang', icon: 'HiOutlineHome' },
             { code: 'INVENTORY.MASUK', name: 'Barang Masuk', path: '/admin/inventory/masuk', icon: 'HiOutlineArrowDownTray' },
             { code: 'INVENTORY.KELUAR', name: 'Barang Keluar', path: '/admin/inventory/keluar', icon: 'HiOutlineArrowUpTray' },
-            { code: 'INVENTORY.TRANSFER', name: 'Transfer Antar Gudang', path: '/admin/inventory/transfer', icon: 'HiOutlineTruck' },
-            { code: 'INVENTORY.RESTOCK', name: 'Restock Management', path: '/admin/inventory/restock', icon: 'HiOutlineArrowTrendingUp' },
+            { code: 'INVENTORY.TRANSFER', name: 'Transfer Gudang', path: '/admin/inventory/transfer', icon: 'HiOutlineTruck' },
             { code: 'INVENTORY.OPNAME', name: 'Stock Opname', path: '/admin/inventory/opname', icon: 'HiOutlineClipboard' },
-            { code: 'INVENTORY.GUDANG', name: 'Gudang', path: '/admin/inventory/gudang', icon: 'HiOutlineHome' },
+            { code: 'INVENTORY.RESTOCK', name: 'Restock', path: '/admin/inventory/restock', icon: 'HiOutlineArrowTrendingUp' },
             { code: 'INVENTORY.ASSETS', name: 'Aset Tetap', path: '/admin/inventory/assets', icon: 'HiOutlineComputerDesktop' },
         ],
     },
@@ -92,28 +122,20 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineShoppingBag',
         children: [
             { code: 'PROCUREMENT.PROCUREMENT', name: 'Dashboard', path: '/admin/procurement', icon: 'HiOutlineChartBar', exact: true },
-
             { code: 'PROCUREMENT.PURCHASE_ORDERS', name: 'Purchase Order', path: '/admin/procurement/purchase-orders', icon: 'HiOutlineDocumentText' },
-            { code: 'PROCUREMENT.MARKET_PRICE', name: 'Analisa Harga Pasar', path: '/admin/procurement/market-price', icon: 'HiOutlinePresentationChartBar' },
+            { code: 'PROCUREMENT.MARKET_PRICE', name: 'Harga Pasar', path: '/admin/procurement/market-price', icon: 'HiOutlinePresentationChartBar' },
         ],
     },
+
+    // ═══════════════════════════════════════════
+    // SDM & KEHADIRAN
+    // ═══════════════════════════════════════════
     {
         code: 'USERS',
-        name: 'Users',
+        name: 'Karyawan',
         path: '/admin/users',
-        icon: 'HiOutlineUsers'
-    },
-    {
-        code: 'WORKORDERS',
-        name: 'Work Orders',
-        path: '/admin/workorders',
-        icon: 'HiOutlineWrench',
-        children: [
-            { code: 'WORKORDERS.WORK_ORDER_DASHBOARD', name: 'Dashboard', path: '/admin/workorders', icon: 'HiOutlineChartBar', exact: true },
-            { code: 'WORKORDERS.LIST', name: 'List', path: '/admin/workorders/list', icon: 'HiOutlineClipboardDocumentList' },
-            { code: 'WORKORDERS.SITE', name: 'Site', path: '/admin/workorders/sites', icon: 'HiOutlineBuildingOffice' },
-            { code: 'WORKORDERS.DEPARTMENT', name: 'Department', path: '/admin/workorders/departments', icon: 'HiOutlineUserGroup' },
-        ],
+        icon: 'HiOutlineUsers',
+        section: 'SDM'
     },
     {
         code: 'KEHADIRAN',
@@ -124,10 +146,10 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'KEHADIRAN.REPORT', name: 'Laporan', path: '/admin/kehadiran/laporan', icon: 'HiOutlineDocumentText' },
             { code: 'KEHADIRAN.ATTENDANCE', name: 'Data Absensi', path: '/admin/attendance', icon: 'HiOutlineClipboardDocumentList' },
             { code: 'KEHADIRAN.LIVE_TRACKING', name: 'Live Tracking', path: '/admin/kehadiran/live-map', icon: 'HiOutlineMapPin' },
-            { code: 'KEHADIRAN.HOLIDAY', name: 'Hari Libur', path: '/admin/kehadiran/holidays', icon: 'HiOutlineCalendar' },
-            { code: 'KEHADIRAN.LEMBUR', name: 'Manajemen Lembur', path: '/admin/lembur', icon: 'HiOutlineClock' },
+            { code: 'KEHADIRAN.SHIFT', name: 'Shift Kerja', path: '/admin/kehadiran/shift', icon: 'HiOutlineArrowPath' },
+            { code: 'KEHADIRAN.LEMBUR', name: 'Lembur', path: '/admin/lembur', icon: 'HiOutlineClock' },
             { code: 'KEHADIRAN.IZIN', name: 'Izin & Cuti', path: '/admin/kehadiran/izin', icon: 'HiOutlineClipboardDocumentCheck' },
-            { code: 'KEHADIRAN.SHIFT', name: 'Manajemen Shift', path: '/admin/kehadiran/shift', icon: 'HiOutlineArrowPath' },
+            { code: 'KEHADIRAN.HOLIDAY', name: 'Hari Libur', path: '/admin/kehadiran/holidays', icon: 'HiOutlineCalendar' },
         ],
     },
     {
@@ -140,13 +162,58 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'SALARY.USERS', name: 'Karyawan Digaji', path: '/admin/salary/users', icon: 'HiOutlineUsers' },
         ],
     },
+
+    // ═══════════════════════════════════════════
+    // PEMASARAN
+    // ═══════════════════════════════════════════
     {
-        code: 'SUPPORT',
-        name: 'Dukungan',
-        path: '/admin/support',
-        icon: 'HiOutlineChatBubbleLeftRight',
+        code: 'MARKETING',
+        name: 'Marketing',
+        path: '/admin/marketing',
+        icon: 'HiOutlineMegaphone',
+        section: 'Pemasaran',
+        children: [
+            { code: 'MARKETING.SALES_DASHBOARD', name: 'Dashboard', path: '/admin/marketing/sales-dashboard', icon: 'HiOutlineChartBar' },
+            { code: 'MARKETING.SALES', name: 'Tim Sales', path: '/admin/marketing/sales', icon: 'HiOutlineUsers' },
+            { code: 'MARKETING.CANVASING', name: 'Canvasing', path: '/admin/marketing/canvasing', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'MARKETING.COUPON', name: 'Kupon', path: '/admin/marketing/coupons', icon: 'HiOutlineTicket' },
+        ]
+    },
+    {
+        code: 'ANNOUNCEMENT',
+        name: 'Pengumuman',
+        path: '/admin/announcement',
+        icon: 'HiOutlineSpeakerWave',
     },
 
+    // ═══════════════════════════════════════════
+    // KEUANGAN
+    // ═══════════════════════════════════════════
+    {
+        code: 'FINANCE',
+        name: 'Keuangan',
+        path: '/admin/finance',
+        icon: 'HiOutlineBuildingLibrary',
+        section: 'Keuangan',
+        children: [
+            { code: 'FINANCE.ACCOUNTS', name: 'Kas & Bank', path: '/admin/finance/accounts', icon: 'HiOutlineBuildingLibrary' },
+            { code: 'FINANCE.TRANSACTIONS', name: 'Transaksi', path: '/admin/finance/transactions', icon: 'HiOutlineQueueList' },
+            { code: 'FINANCE.DEBTS', name: 'Hutang & Piutang', path: '/admin/finance/debts-receivables', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'FINANCE.CATEGORIES', name: 'Kategori', path: '/admin/finance/categories', icon: 'HiOutlineTag' },
+            { code: 'FINANCE.REPORTS', name: 'Laporan', path: '/admin/finance/reports', icon: 'HiOutlineChartPie' }
+        ],
+    },
+
+    // ═══════════════════════════════════════════
+    // KOMUNIKASI
+    // ═══════════════════════════════════════════
+    {
+        code: 'SUPPORT',
+        name: 'Tiket Support',
+        path: '/admin/support',
+        icon: 'HiOutlineChatBubbleLeftRight',
+        section: 'Komunikasi',
+    },
     {
         code: 'CHAT',
         name: 'Chat',
@@ -154,23 +221,23 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineChatBubbleLeftRight',
     },
 
+    // ═══════════════════════════════════════════
+    // SISTEM
+    // ═══════════════════════════════════════════
     {
-        code: 'MARKETING',
-        name: 'Marketing',
-        path: '/admin/marketing',
-        icon: 'HiOutlineMegaphone',
+        code: 'INTEGRATION',
+        name: 'Integrasi',
+        path: '/admin/integrations',
+        icon: 'HiOutlineArrowsRightLeft',
+        section: 'Sistem',
         children: [
-            { code: 'MARKETING.SALES_DASHBOARD', name: 'Dashboard Sales', path: '/admin/marketing/sales-dashboard', icon: 'HiOutlineChartBar' },
-            { code: 'MARKETING.COUPON', name: 'Manajemen Kupon', path: '/admin/marketing/coupons', icon: 'HiOutlineTicket' },
-            { code: 'MARKETING.SALES', name: 'Manajemen Sales', path: '/admin/marketing/sales', icon: 'HiOutlineUsers' },
-            { code: 'MARKETING.CANVASING', name: 'Canvasing', path: '/admin/marketing/canvasing', icon: 'HiOutlineClipboardDocumentList' },
-        ]
-    },
-    {
-        code: 'ANNOUNCEMENT',
-        name: 'Pengumuman',
-        path: '/admin/announcement',
-        icon: 'HiOutlineMegaphone',
+            { code: 'INTEGRATION.MIXRADIUS', name: 'MixRadius', path: '/admin/integrations/mixradius', icon: 'HiOutlineCloud' },
+            { code: 'INTEGRATION.MIXRADIUS_ISOLIR', name: 'Isolir', path: '/admin/integrations/mixradius/isolir', icon: 'HiOutlineNoSymbol' },
+            { code: 'INTEGRATION.MIXRADIUS_SITES', name: 'Sites', path: '/admin/integrations/mixradius/groups', icon: 'HiOutlineBuildingOffice' },
+            { code: 'INTEGRATION.MIXRADIUS_ACCOUNTS', name: 'Akun', path: '/admin/integrations/mixradius/accounts', icon: 'HiOutlineServer' },
+            { code: 'INTEGRATION.MIXRADIUS_INCOME', name: 'Pendapatan', path: '/admin/integrations/mixradius/income-period', icon: 'HiOutlineCurrencyDollar' },
+            { code: 'INTEGRATION.MIXRADIUS_EXPENSES', name: 'Pengeluaran', path: '/admin/integrations/mixradius/expenses', icon: 'HiOutlineCreditCard' },
+        ],
     },
     {
         code: 'PENGATURAN',
@@ -179,51 +246,24 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineCog6Tooth',
         children: [
             { code: 'PENGATURAN.UMUM', name: 'Umum', path: '/admin/pengaturan/umum', icon: 'HiOutlineCog6Tooth' },
-            { code: 'PENGATURAN.LOGO', name: 'Logo Perusahaan', path: '/admin/pengaturan/logo', icon: 'HiOutlinePhoto' },
+            { code: 'PENGATURAN.ROLES', name: 'Hak Akses', path: '/admin/settings/roles', icon: 'HiOutlineShieldCheck' },
+            { code: 'PENGATURAN.LOGO', name: 'Logo', path: '/admin/pengaturan/logo', icon: 'HiOutlinePhoto' },
             { code: 'PENGATURAN.EMAIL', name: 'Email', path: '/admin/pengaturan/email', icon: 'HiOutlineEnvelope' },
             { code: 'PENGATURAN.WHATSAPP', name: 'WhatsApp', path: '/admin/pengaturan/whatsapp', icon: 'HiOutlineChatBubbleLeftRight' },
-            { code: 'PENGATURAN.ROLES', name: 'Hak Akses & Role', path: '/admin/settings/roles', icon: 'HiOutlineShieldCheck' },
-            { code: 'PENGATURAN.PAYMENT_GATEWAY', name: 'Payment Gateway', path: '/admin/pengaturan/payment-gateway', icon: 'HiOutlineCreditCard' },
+            { code: 'PENGATURAN.PAYMENT_GATEWAY', name: 'Payment', path: '/admin/pengaturan/payment-gateway', icon: 'HiOutlineCreditCard' },
             { code: 'PENGATURAN.API', name: 'API', path: '/admin/pengaturan/api', icon: 'HiOutlineCodeBracket' },
             { code: 'PENGATURAN.NADA_DERING', name: 'Nada Dering', path: '/admin/pengaturan/nada-dering', icon: 'HiOutlineSpeakerWave' },
-            { code: 'PENGATURAN.APP_VERSION', name: 'Versi Aplikasi', path: '/admin/pengaturan/app-version', icon: 'HiOutlineDevicePhoneMobile' },
-        ],
-    },
-    {
-        code: 'FINANCE',
-        name: 'Data Keuangan',
-        path: '/admin/finance',
-        icon: 'HiOutlineCurrencyDollar',
-        children: [
-            { code: 'FINANCE.FINANCE', name: 'Hutang & Piutang', path: '/admin/finance/debts-receivables', icon: 'HiOutlineClipboardDocumentList' },
-            { code: 'FINANCE.FINANCE', name: 'Kas & Bank', path: '/admin/finance/accounts', icon: 'HiOutlineBuildingLibrary' },
-            { code: 'FINANCE.FINANCE', name: 'Daftar Transaksi', path: '/admin/finance/transactions', icon: 'HiOutlineQueueList' },
-            { code: 'FINANCE.FINANCE', name: 'Kategori Transaksi', path: '/admin/finance/categories', icon: 'HiOutlineTag' },
-            { code: 'FINANCE.FINANCE', name: 'Laporan & Analisis', path: '/admin/finance/reports', icon: 'HiOutlineChartPie' }
+            { code: 'PENGATURAN.APP_VERSION', name: 'Versi App', path: '/admin/pengaturan/app-version', icon: 'HiOutlineDevicePhoneMobile' },
         ],
     },
     {
         code: 'SYSTEM_LOG',
-        name: 'System Log',
+        name: 'Log Sistem',
         path: '/admin/log',
         icon: 'HiOutlineClipboardDocumentList',
         children: [
-            { code: 'SYSTEM_LOG.SYSTEM_LOG', name: 'Log Login', path: '/admin/log/login', icon: 'HiOutlineShieldCheck' },
-            { code: 'SYSTEM_LOG.SYSTEM_LOG', name: 'Log Aktivitas', path: '/admin/log/activity', icon: 'HiOutlineDocumentText' },
-        ],
-    },
-    {
-        code: 'INTEGRATION',
-        name: 'Integrasi',
-        path: '/admin/integrations',
-        icon: 'HiOutlineArrowsRightLeft',
-        children: [
-            { code: 'INTEGRATION.MIXRADIUS', name: 'MixRadius', path: '/admin/integrations/mixradius', icon: 'HiOutlineCloud' },
-            { code: 'INTEGRATION.MIXRADIUS_ISOLIR', name: 'MixRadius Isolir', path: '/admin/integrations/mixradius/isolir', icon: 'HiOutlineNoSymbol' },
-            { code: 'INTEGRATION.MIXRADIUS_SITES', name: 'Manajemen Site', path: '/admin/integrations/mixradius/groups', icon: 'HiOutlineBuildingOffice' },
-            { code: 'INTEGRATION.MIXRADIUS_ACCOUNTS', name: 'Akun MixRadius', path: '/admin/integrations/mixradius/accounts', icon: 'HiOutlineServer' },
-            { code: 'INTEGRATION.MIXRADIUS_INCOME', name: 'Laporan Pendapatan', path: '/admin/integrations/mixradius/income-period', icon: 'HiOutlineCurrencyDollar' },
-            { code: 'INTEGRATION.MIXRADIUS_EXPENSES', name: 'Pengeluaran Site', path: '/admin/integrations/mixradius/expenses', icon: 'HiOutlineCreditCard' },
+            { code: 'SYSTEM_LOG.LOGIN', name: 'Log Login', path: '/admin/log/login', icon: 'HiOutlineShieldCheck' },
+            { code: 'SYSTEM_LOG.ACTIVITY', name: 'Log Aktivitas', path: '/admin/log/activity', icon: 'HiOutlineDocumentText' },
         ],
     },
 ]

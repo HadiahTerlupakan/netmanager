@@ -317,7 +317,10 @@ export default function Sidebar() {
           {/* Scrollable Navigation Area */}
           <nav className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800 scrollbar-track-transparent hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-gray-700">
             <div className="space-y-1">
-              {navItems.map((item) => {
+              {navItems.map((item, index) => {
+                // Render section header if this item starts a new section
+                const prevItem = index > 0 ? navItems[index - 1] : null
+                const showSectionHeader = item.section && item.section !== prevItem?.section
                 const itemPath = item.path || '' // Fallback for parent items
                 const isActive = item.exact
                   ? pathname === itemPath
@@ -333,9 +336,20 @@ export default function Sidebar() {
                   }
                 )
 
+                // Section header component
+                const SectionHeader = showSectionHeader ? (
+                  <div className="pt-4 pb-2 first:pt-0">
+                    <h3 className="px-4 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                      {item.section}
+                    </h3>
+                  </div>
+                ) : null
+
                 if (hasChildren) {
                   return (
-                    <div key={item.code} className="space-y-1 mb-1">
+                    <div key={item.code}>
+                      {SectionHeader}
+                      <div className="space-y-1 mb-1">
                       <button
                         onClick={() => toggleMenu(item.code)}
                         className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
@@ -394,15 +408,17 @@ export default function Sidebar() {
                           </div>
                         </div>
                       </div>
+                      </div>
                     </div>
                   )
                 }
 
                 return (
-                  <Link
-                    key={item.code}
-                    href={itemPath}
-                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1 ${isActive
+                  <div key={item.code}>
+                    {SectionHeader}
+                    <Link
+                      href={itemPath}
+                      className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1 ${isActive
                       ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10 shadow-sm shadow-indigo-100/50 dark:shadow-none'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
                       }`}
@@ -417,6 +433,7 @@ export default function Sidebar() {
                     </div>
                     <span>{item.name}</span>
                   </Link>
+                  </div>
                 )
               })}
             </div>
