@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
 
     // Add RBAC permission check
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read')) {
+    const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius:read');
+    if (!hasAccess) {
       return ApiErrors.forbidden()
     }
 

@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
     if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read')) {
+    const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius:read');
+    if (!hasAccess) {
       return ApiErrors.forbidden()
     }
 

@@ -14,7 +14,9 @@ export async function GET(req: NextRequest) {
         const session = await verifyAuth(req)
         if (!session) return ApiErrors.unauthorized()
 
-        const hasAccess = (await getUserPermissions(session.id)).includes('mixradius:read')
+        const permissions = await getUserPermissions(session.id)
+        const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius:read')
+        
         if (!hasAccess) return ApiErrors.forbidden()
 
         const setting = await prisma.settings.findUnique({
@@ -36,8 +38,9 @@ export async function POST(req: NextRequest) {
         const session = await verifyAuth(req)
         if (!session) return ApiErrors.unauthorized()
 
-        const hasAccess = (await getUserPermissions(session.id)).includes('mixradius:read') // Assuming read access is enough or check for update
-        // Better to check for settings update permission if available, but stick to mixradius context
+        const permissions = await getUserPermissions(session.id)
+        const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius:read')
+
         if (!hasAccess) return ApiErrors.forbidden()
 
         const body = await req.json()

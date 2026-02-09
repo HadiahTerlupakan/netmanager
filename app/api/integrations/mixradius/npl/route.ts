@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
   }
 
   const permissions = await getUserPermissions(user.id);
-  if (!permissions.includes("mixradius:read")) {
+  const isSuperAdmin = user.isSuperAdmin || permissions.includes('*');
+
+  if (!isSuperAdmin && !permissions.includes("mixradius:read")) {
     return ApiErrors.forbidden("You do not have permission to access MixRadius statistics");
   }
 

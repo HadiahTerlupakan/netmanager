@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
 
     const permissions = await getUserPermissions(session.id)
     // Check specific permission for this report
-    if (!permissions.includes('mixradius_income:read') && !permissions.includes('mixradius:read')) {
+    const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius_income:read') || permissions.includes('mixradius:read');
+    
+    if (!hasAccess) {
        return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_income:read')
     }
 
