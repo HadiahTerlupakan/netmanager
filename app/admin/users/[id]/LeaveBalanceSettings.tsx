@@ -41,16 +41,54 @@ export default function LeaveBalanceSettings({ userId, year, workingHourMode, on
       const data = await res.json()
       if (res.ok) {
         const responseData = data.data || data
-        setBalances(responseData.balances || [])
-        // Initialize quotas from fetched data
-        const initialQuotas: Record<string, number> = {}
-        responseData.balances?.forEach((b: LeaveBalanceData) => {
-          initialQuotas[b.leaveType] = b.quota
-        })
-        setQuotas(initialQuotas)
+        const fetchedBalances = responseData.balances || []
+
+        // If no balances returned, use defaults
+        if (fetchedBalances.length === 0) {
+          const defaultBalances: LeaveBalanceData[] = [
+            { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
+            { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
+            { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
+            { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
+            { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
+          ]
+          setBalances(defaultBalances)
+          const initialQuotas: Record<string, number> = {}
+          defaultBalances.forEach((b) => {
+            initialQuotas[b.leaveType] = b.quota
+          })
+          setQuotas(initialQuotas)
+        } else {
+          setBalances(fetchedBalances)
+          // Initialize quotas from fetched data
+          const initialQuotas: Record<string, number> = {}
+          fetchedBalances.forEach((b: LeaveBalanceData) => {
+            initialQuotas[b.leaveType] = b.quota
+          })
+          setQuotas(initialQuotas)
+        }
+      } else {
+        // On error, show defaults
+        const defaultBalances: LeaveBalanceData[] = [
+          { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
+          { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
+          { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
+          { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
+          { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
+        ]
+        setBalances(defaultBalances)
       }
     } catch (error) {
       console.error('Error fetching leave balances:', error)
+      // On error, show defaults
+      const defaultBalances: LeaveBalanceData[] = [
+        { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
+        { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
+        { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
+        { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
+        { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
+      ]
+      setBalances(defaultBalances)
     } finally {
       setLoading(false)
     }

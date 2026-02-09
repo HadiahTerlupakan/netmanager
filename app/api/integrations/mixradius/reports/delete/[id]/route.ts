@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
@@ -14,14 +14,17 @@ export async function POST(
     if (!session) return ApiErrors.unauthorized()
 
     const { id } = await params
-    const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:delete')) { // Assuming a delete permission or admin check
-       // For now, let's assume if they can access the page they might have permission,
-       // but typically 'mixradius:write' or specific admin role is needed.
-       // Let's check if 'administrator' role is available in session or permissions.
-       // The client code had a check `if(usertype =='Administrator')`.
-       // We'll trust the verifyAuth for now and maybe add a stricter check later if needed.
-       // Ideally: if (!permissions.includes('mixradius:write')) return ApiErrors.forbidden()
+
+    // Permission check - require mixradius:delete permission
+    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(session.id)
+      const hasAccess = permissions.includes('mixradius:delete') || permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus data MixRadius')
+      }
     }
 
     const service = getMixRadiusService()

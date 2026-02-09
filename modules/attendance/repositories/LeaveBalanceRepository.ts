@@ -8,7 +8,7 @@ export const DEFAULT_LEAVE_QUOTAS: Record<LeaveType, number> = {
     SAKIT: 6,
     IZIN: 6,
     LAINNYA: 3,
-    TUKAR_LIBUR: 999 // Unlimited
+    TUKAR_LIBUR: 365 // Unlimited (max validation)
 }
 
 export class LeaveBalanceRepository {

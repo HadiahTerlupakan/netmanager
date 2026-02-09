@@ -129,7 +129,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     try {
       const res = await fetch(`/api/admin/users/${id}`)
       const data = await res.json()
-      const usr = data.user
+      // Handle both wrapped (apiSuccess) and unwrapped response formats
+      const result = data.data || data
+      const usr = result.user
 
       if (usr) {
         setUser(usr)
@@ -174,7 +176,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       const res = await fetch('/api/admin/departments')
       if (res.ok) {
         const data = await res.json()
-        const depts = data.departments || data || []
+        // Handle both wrapped (apiSuccess) and unwrapped response formats
+        const result = data.data || data
+        const depts = result.departments || result || []
         setDepartments(Array.isArray(depts) ? depts : [])
       }
     } catch (error) {
@@ -187,7 +191,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       const res = await fetch('/api/roles')
       if (res.ok) {
         const data = await res.json()
-        setRoles(data.roles || data || [])
+        // Handle both wrapped (apiSuccess) and unwrapped response formats
+        const result = data.data || data
+        setRoles(result.roles || result || [])
       }
     } catch (error) {
       console.error('Error fetching roles:', error)
@@ -199,7 +205,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       const res = await fetch('/api/sites')
       if (res.ok) {
         const data = await res.json()
-        setSites(data.sites || data || [])
+        // Handle both wrapped (apiSuccess) and unwrapped response formats
+        const result = data.data || data
+        setSites(result.sites || result || [])
       }
     } catch (error) {
       console.error('Error fetching sites:', error)

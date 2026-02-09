@@ -1,16 +1,72 @@
 import { NextRequest } from 'next/server'
 import { getServerSession, type Session } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { hasPermission } from '@/lib/rbac'
 
-async function requireAdmin() {
+interface UserSession {
+  id: string
+  siteId?: string | null
+  role?: string
+  isSuperAdmin?: boolean
+}
+
+async function requireAdmin(): Promise<{ session: Session; user: UserSession } | null> {
   const session = await getServerSession(authConfig) as Session | null
-  if (!session) {
+  if (!session?.user) {
     return null
   }
-  return session
+  return { session, user: session.user as UserSession }
+}
+
+/**
+ * Validate site access for masuk record
+ * Returns the record if user has access, null otherwise
+ */
+async function validateMasukSiteAccess(
+  masukId: string,
+  user: UserSession,
+  permissions: string[]
+): Promise<{ allowed: boolean; record?: unknown; error?: string }> {
+  const isSuper = isSuperAdmin(user)
+  if (isSuper) {
+    const record = await prisma.barangMasuk.findUnique({
+      where: { id: masukId },
+      include: {
+        barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+        gudang: { select: { id: true, kode: true, nama: true, sites: { select: { id: true } } } }
+      }
+    })
+    return record ? { allowed: true, record } : { allowed: false, error: 'Record tidak ditemukan' }
+  }
+
+  // Check site restriction
+  const hasSiteRestriction = permissions.includes('masuk:site_only') ||
+    permissions.includes('k_barang:site_only') ||
+    permissions.includes('gudang:site_only')
+
+  const record = await prisma.barangMasuk.findUnique({
+    where: { id: masukId },
+    include: {
+      barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+      gudang: { select: { id: true, kode: true, nama: true, sites: { select: { id: true } } } }
+    }
+  })
+
+  if (!record) {
+    return { allowed: false, error: 'Record tidak ditemukan' }
+  }
+
+  if (hasSiteRestriction && user.siteId) {
+    const gudangSiteIds = record.gudang.sites?.map((s: { id: string }) => s.id) || []
+    if (!gudangSiteIds.includes(user.siteId)) {
+      return { allowed: false, error: 'Anda tidak memiliki akses ke data ini' }
+    }
+  }
+
+  return { allowed: true, record }
 }
 
 /**
@@ -23,52 +79,37 @@ export async function GET(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const auth = await requireAdmin()
+    if (!auth) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/masuk/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
     }
 
+    const { user } = auth
+
+    // Permission check
+    if (!await hasPermission('masuk:read', user)) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data barang masuk')
+    }
+
     const { id } = await params
-    try {
-      const dbStart = Date.now()
+    const permissions = await getUserPermissions(user.id)
 
-      const masukRecord = await prisma.barangMasuk.findUnique({
-        where: { id },
-        include: {
-          barang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              satuan: true
-            }
-          },
-          gudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true
-            }
-          }
-        }
-      })
-
-      logger.dbOperation('findUnique', 'BarangMasuk+Relations', Date.now() - dbStart)
-
-      if (!masukRecord) {
+    // Validate site access
+    const accessCheck = await validateMasukSiteAccess(id, user, permissions)
+    if (!accessCheck.allowed) {
+      if (accessCheck.error === 'Record tidak ditemukan') {
         return ApiErrors.notFound('Record barang masuk')
       }
-
-      logger.apiRequest('GET', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
-        userId: session.user.id,
-        masukId: id,
-      })
-
-      return apiSuccess({ masuk: masukRecord })
-    } finally {
-      // do not disconnect shared prisma client
+      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
     }
+
+    logger.apiRequest('GET', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
+      userId: user.id,
+      masukId: id,
+    })
+
+    return apiSuccess({ masuk: accessCheck.record })
   } catch (error) {
     const err = error as Error
     logger.error('Error fetching barang masuk', err, {
@@ -89,13 +130,31 @@ export async function PUT(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const auth = await requireAdmin()
+    if (!auth) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/masuk/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
     }
 
+    const { user } = auth
+
+    // Permission check
+    if (!await hasPermission('masuk:update', user)) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah data barang masuk')
+    }
+
     const { id } = await params
+    const permissions = await getUserPermissions(user.id)
+
+    // Validate site access before allowing update
+    const accessCheck = await validateMasukSiteAccess(id, user, permissions)
+    if (!accessCheck.allowed) {
+      if (accessCheck.error === 'Record tidak ditemukan') {
+        return ApiErrors.notFound('Record barang masuk')
+      }
+      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
+    }
+
     const body = await req.json()
     const { jumlah, kondisi, keterangan } = body
 
@@ -166,7 +225,7 @@ export async function PUT(
       })
 
       logger.apiRequest('PUT', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: user.id,
         masukId: id,
         jumlah,
       })
@@ -203,13 +262,31 @@ export async function DELETE(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const auth = await requireAdmin()
+    if (!auth) {
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/masuk/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
     }
 
+    const { user } = auth
+
+    // Permission check
+    if (!await hasPermission('masuk:delete', user)) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus data barang masuk')
+    }
+
     const { id } = await params
+    const permissions = await getUserPermissions(user.id)
+
+    // Validate site access before allowing delete
+    const accessCheck = await validateMasukSiteAccess(id, user, permissions)
+    if (!accessCheck.allowed) {
+      if (accessCheck.error === 'Record tidak ditemukan') {
+        return ApiErrors.notFound('Record barang masuk')
+      }
+      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
+    }
+
     try {
       const dbStart = Date.now()
 
@@ -258,7 +335,7 @@ export async function DELETE(
       })
 
       logger.apiRequest('DELETE', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: user.id,
         masukId: id,
       })
 

@@ -24,6 +24,7 @@ interface CalculatedOpnameData {
   kondisiBaik: number
   kondisiRusak: number
   kondisiExpire: number
+  alasanSelisih?: string
   lokasiPenyimpanan?: string
   nomorRak?: string
   nomorBox?: string
@@ -34,6 +35,19 @@ interface CalculatedOpnameData {
   nomorBatch?: string
   catatanDetail?: string
 }
+
+// Alasan selisih options
+const ALASAN_SELISIH_OPTIONS = [
+  { value: '', label: '-- Pilih Alasan --' },
+  { value: 'hilang', label: 'Hilang / Kehilangan' },
+  { value: 'rusak', label: 'Rusak / Tidak Layak' },
+  { value: 'revisi', label: 'Revisi Stok / Koreksi Data' },
+  { value: 'salah_input', label: 'Kesalahan Input Sebelumnya' },
+  { value: 'terpakai', label: 'Terpakai Tidak Tercatat' },
+  { value: 'expired', label: 'Kadaluarsa / Expire' },
+  { value: 'lebih', label: 'Stok Lebih / Ditemukan' },
+  { value: 'lainnya', label: 'Lainnya' },
+]
 
 interface Gudang {
   id: string
@@ -126,6 +140,12 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
 
     try {
       const promises = itemsToRecord.map(async (item) => {
+        // Build keterangan with alasan selisih
+        const alasanLabel = ALASAN_SELISIH_OPTIONS.find(o => o.value === item.alasanSelisih)?.label || ''
+        const keterangan = item.alasanSelisih
+          ? `Stock Opname ${new Date().toLocaleDateString('id-ID')} - ${alasanLabel}${item.catatanDetail ? ': ' + item.catatanDetail : ''}`
+          : `Stock Opname Otomatis ${new Date().toLocaleDateString('id-ID')} - ${item.catatanDetail || 'Berdasarkan transaksi aktual'}`
+
         const response = await fetch('/api/inventory/opname', {
           method: 'POST',
           headers: {
@@ -135,7 +155,8 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
             barangId: item.barangId,
             gudangId,
             stokFisik: item.stokFisik,
-            keterangan: `Stock Opname Otomatis ${new Date().toLocaleDateString('id-ID')} - ${item.catatanDetail || 'Berdasarkan transaksi aktual'}`,
+            keterangan,
+            alasanSelisih: item.alasanSelisih || undefined,
             kondisiBaik: item.kondisiBaik,
             kondisiRusak: item.kondisiRusak,
             kondisiExpire: item.kondisiExpire,
@@ -162,6 +183,11 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
       await Promise.all(promises)
 
       setSuccess(`Stock opname berhasil dicatat untuk ${itemsToRecord.length} item!`)
+
+      // Reset form after successful submission
+      setCalculatedData([])
+      setSummary(null)
+      setGudangId('')
 
       if (onSuccess) {
         setTimeout(() => {
@@ -322,6 +348,9 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Alasan Selisih
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Lokasi
                     </th>
                   </tr>
@@ -446,6 +475,29 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {hasDiscrepancy ? (
+                            <select
+                              value={item.alasanSelisih || ''}
+                              onChange={(e) => {
+                                const updatedData = calculatedData.map(d =>
+                                  d.barangId === item.barangId
+                                    ? { ...d, alasanSelisih: e.target.value }
+                                    : d
+                                )
+                                setCalculatedData(updatedData)
+                              }}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                              disabled={loading}
+                            >
+                              {ALASAN_SELISIH_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-sm text-gray-900 dark:text-white">

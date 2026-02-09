@@ -1,6 +1,6 @@
 
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { syncService } from '@/modules/integrations/services/MixRadiusSyncService'
 import type { MixRadiusCustomerDetail } from '@/modules/integrations/services/MixRadiusService'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
@@ -16,9 +16,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Permission Check
-    const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read')) {
-      return ApiErrors.forbidden()
+    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(session.id)
+      const hasAccess = permissions.includes('mixradius:read') || permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses ke MixRadius')
+      }
     }
 
     // 3. Parse Body

@@ -1,16 +1,71 @@
 import { NextRequest } from 'next/server'
 import { getServerSession, type Session } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { hasPermission } from '@/lib/rbac'
 
-async function requireAdmin() {
+interface UserSession {
+  id: string
+  siteId?: string | null
+  role?: string
+  isSuperAdmin?: boolean
+}
+
+async function requireAdmin(): Promise<{ session: Session; user: UserSession } | null> {
   const session = await getServerSession(authConfig) as Session | null
-  if (!session) {
+  if (!session?.user) {
     return null
   }
-  return session
+  return { session, user: session.user as UserSession }
+}
+
+/**
+ * Validate site access for keluar record
+ */
+async function validateKeluarSiteAccess(
+  keluarId: string,
+  user: UserSession,
+  permissions: string[]
+): Promise<{ allowed: boolean; record?: unknown; error?: string }> {
+  const isSuper = isSuperAdmin(user)
+  if (isSuper) {
+    const record = await prisma.barangKeluar.findUnique({
+      where: { id: keluarId },
+      include: {
+        barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+        gudang: { select: { id: true, kode: true, nama: true, sites: { select: { id: true } } } }
+      }
+    })
+    return record ? { allowed: true, record } : { allowed: false, error: 'Record tidak ditemukan' }
+  }
+
+  // Check site restriction
+  const hasSiteRestriction = permissions.includes('keluar:site_only') ||
+    permissions.includes('k_barang:site_only') ||
+    permissions.includes('gudang:site_only')
+
+  const record = await prisma.barangKeluar.findUnique({
+    where: { id: keluarId },
+    include: {
+      barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+      gudang: { select: { id: true, kode: true, nama: true, sites: { select: { id: true } } } }
+    }
+  })
+
+  if (!record) {
+    return { allowed: false, error: 'Record tidak ditemukan' }
+  }
+
+  if (hasSiteRestriction && user.siteId) {
+    const gudangSiteIds = record.gudang.sites?.map((s: { id: string }) => s.id) || []
+    if (!gudangSiteIds.includes(user.siteId)) {
+      return { allowed: false, error: 'Anda tidak memiliki akses ke data ini' }
+    }
+  }
+
+  return { allowed: true, record }
 }
 
 /**
@@ -23,52 +78,37 @@ export async function GET(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const auth = await requireAdmin()
+    if (!auth) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/keluar/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
     }
 
+    const { user } = auth
+
+    // Permission check
+    if (!await hasPermission('keluar:read', user)) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data barang keluar')
+    }
+
     const { id } = await params
-    try {
-      const dbStart = Date.now()
+    const permissions = await getUserPermissions(user.id)
 
-      const keluarRecord = await prisma.barangKeluar.findUnique({
-        where: { id },
-        include: {
-          barang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              satuan: true
-            }
-          },
-          gudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true
-            }
-          }
-        }
-      })
-
-      logger.dbOperation('findUnique', 'BarangKeluar+Relations', Date.now() - dbStart)
-
-      if (!keluarRecord) {
+    // Validate site access
+    const accessCheck = await validateKeluarSiteAccess(id, user, permissions)
+    if (!accessCheck.allowed) {
+      if (accessCheck.error === 'Record tidak ditemukan') {
         return ApiErrors.notFound('Record barang keluar')
       }
-
-      logger.apiRequest('GET', '/api/inventory/keluar/[id]', 200, Date.now() - startTime, {
-        userId: session.user.id,
-        keluarId: id,
-      })
-
-      return apiSuccess({ keluar: keluarRecord })
-    } finally {
-      // do not disconnect shared prisma client
+      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
     }
+
+    logger.apiRequest('GET', '/api/inventory/keluar/[id]', 200, Date.now() - startTime, {
+      userId: user.id,
+      keluarId: id,
+    })
+
+    return apiSuccess({ keluar: accessCheck.record })
   } catch (error) {
     const err = error as Error
     logger.error('Error fetching barang keluar', err, {
@@ -89,13 +129,31 @@ export async function PUT(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const auth = await requireAdmin()
+    if (!auth) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/keluar/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
     }
 
+    const { user } = auth
+
+    // Permission check
+    if (!await hasPermission('keluar:update', user)) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah data barang keluar')
+    }
+
     const { id } = await params
+    const permissions = await getUserPermissions(user.id)
+
+    // Validate site access before allowing update
+    const accessCheck = await validateKeluarSiteAccess(id, user, permissions)
+    if (!accessCheck.allowed) {
+      if (accessCheck.error === 'Record tidak ditemukan') {
+        return ApiErrors.notFound('Record barang keluar')
+      }
+      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
+    }
+
     const body = await req.json()
     const { jumlah, keterangan } = body
 
@@ -157,7 +215,7 @@ export async function PUT(
       })
 
       logger.apiRequest('PUT', '/api/inventory/keluar/[id]', 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: user.id,
         keluarId: id,
         jumlah,
       })
@@ -173,7 +231,7 @@ export async function PUT(
           jumlahBaru: jumlah,
           keterangan
         },
-        userId: session.user.id
+        userId: user.id
       })
 
       return apiSuccess(null, { message: 'Barang keluar berhasil diperbarui' })
@@ -208,13 +266,31 @@ export async function DELETE(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const auth = await requireAdmin()
+    if (!auth) {
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/keluar/[id]')
       return ApiErrors.unauthorized('Session tidak valid')
     }
 
+    const { user } = auth
+
+    // Permission check
+    if (!await hasPermission('keluar:delete', user)) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus data barang keluar')
+    }
+
     const { id } = await params
+    const permissions = await getUserPermissions(user.id)
+
+    // Validate site access before allowing delete
+    const accessCheck = await validateKeluarSiteAccess(id, user, permissions)
+    if (!accessCheck.allowed) {
+      if (accessCheck.error === 'Record tidak ditemukan') {
+        return ApiErrors.notFound('Record barang keluar')
+      }
+      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
+    }
+
     try {
       const dbStart = Date.now()
 
@@ -268,7 +344,7 @@ export async function DELETE(
       })
 
       logger.apiRequest('DELETE', '/api/inventory/keluar/[id]', 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: user.id,
         keluarId: id,
       })
 
@@ -281,7 +357,7 @@ export async function DELETE(
           namaBarang: transactionResult.barangNama,
           jumlahRestored: transactionResult.jumlah
         },
-        userId: session.user.id
+        userId: user.id
       })
 
       return apiSuccess(null, { message: 'Record barang keluar berhasil dihapus dan stok dikembalikan' })

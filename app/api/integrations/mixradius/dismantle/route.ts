@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { MixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications'
@@ -13,10 +13,10 @@ const workOrderRepo = new WorkOrderRepository(prisma)
 
 /**
  * POST /api/integrations/mixradius/dismantle
- * 
+ *
  * Request dismantle (bongkar) for a MixRadius customer.
  * Creates a Work Order with type DISCONNECTION.
- * 
+ *
  * Body: { customerId: string, reason: string, notes?: string }
  */
 export async function POST(req: NextRequest) {
@@ -27,14 +27,21 @@ export async function POST(req: NextRequest) {
       return ApiErrors.unauthorized()
     }
 
+    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
     // Permission check - need mixradius:read to view customer AND workorders:create to create WO
-    const permissions = await getUserPermissions(session.id)
-    const hasAccess = permissions.includes('mixradius:read') && 
-                      (permissions.includes('workorders:create') || permissions.includes('list:create'))
-    
-    if (!hasAccess) {
-      console.warn('[Dismantle] Access denied for user:', session.id, 'Permissions:', permissions.filter(p => p.includes('mixradius') || p.includes('workorder') || p.includes('list')))
-      return ApiErrors.forbidden()
+    if (!isSuper) {
+      const permissions = await getUserPermissions(session.id)
+      const hasAccess = permissions.includes('*') || (
+        permissions.includes('mixradius:read') &&
+        (permissions.includes('workorders:create') || permissions.includes('list:create'))
+      )
+
+      if (!hasAccess) {
+        console.warn('[Dismantle] Access denied for user:', session.id, 'Permissions:', permissions.filter(p => p.includes('mixradius') || p.includes('workorder') || p.includes('list')))
+        return ApiErrors.forbidden()
+      }
     }
 
 

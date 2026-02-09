@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +12,19 @@ export async function GET(
     const session = await verifyAuth(req)
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    // Permission check
+    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(user.id)
+      const hasAccess = permissions.includes('mixradius:read') ||
+                        permissions.includes('*')
+      if (!hasAccess) {
+        return new NextResponse('Forbidden: Anda tidak memiliki akses ke data MixRadius', { status: 403 })
+      }
     }
 
     const { id } = await params

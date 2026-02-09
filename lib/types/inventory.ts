@@ -20,6 +20,7 @@ export interface StockOpnameRecord {
     tanggalExpire: string | null
     nomorBatch: string | null
     catatanDetail: string | null
+    alasanSelisih: string | null
     createdAt: string
     barang: {
         id: string
@@ -55,4 +56,5 @@ export interface StockOpnameFormData {
     tanggalExpire?: string | null
     nomorBatch?: string | null
     catatanDetail?: string | null
+    alasanSelisih?: string | null
 }

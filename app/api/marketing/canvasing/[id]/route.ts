@@ -37,9 +37,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params
     const session = await verifyAuth(req)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const body = await req.json()
-    const service = getCanvasingService()
 
+    // RBAC Check - Allow owner to update their own request
+    const service = getCanvasingService()
+    const existingRequest = await service.getRequestById(id)
+    if (!existingRequest) return NextResponse.json({ error: 'Request tidak ditemukan' }, { status: 404 })
+
+    const isSuperAdmin = isSuperAdminRole(session.role)
+    const permissions = await getUserPermissions(session.id)
+    const isOwner = existingRequest.salesId === session.id
+
+    // Allow if: super admin, owner, or has canvasing:update permission
+    if (!isSuperAdmin && !isOwner && !permissions.includes('canvasing:update')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const body = await req.json()
     const request = await service.updateRequest(id, body)
 
     return NextResponse.json(request)
@@ -98,7 +111,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // RBAC Check
     const isSuperAdmin = isSuperAdminRole(session.role)
-    const permissions = session.permissions || []
+    const permissions = await getUserPermissions(session.id)
 
     if (!isSuperAdmin && !permissions.includes('canvasing:delete')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

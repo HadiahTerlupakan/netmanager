@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/integrations/mixradius/invoice-counts
- * 
+ *
  * Batch fetch invoice counts for multiple customers
  * Body: { customerIds: string[] }
  * Returns: { [customerId]: { paidCount: number, totalCount: number } }
@@ -18,6 +18,19 @@ export async function POST(req: NextRequest) {
     const session = await verifyAuth(req)
     if (!session) {
       return ApiErrors.unauthorized()
+    }
+
+    // Permission check
+    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(user.id)
+      const hasAccess = permissions.includes('mixradius:read') ||
+                        permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses ke data MixRadius')
+      }
     }
 
     const body = await req.json()

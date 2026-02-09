@@ -156,7 +156,8 @@ export async function POST(req: NextRequest) {
       kelembaban,
       tanggalExpire,
       nomorBatch,
-      catatanDetail
+      catatanDetail,
+      alasanSelisih
     } = body
 
     // Validation
@@ -227,13 +228,27 @@ export async function POST(req: NextRequest) {
             kelembaban,
             tanggalExpire: tanggalExpire ? new Date(tanggalExpire) : null,
             nomorBatch,
-            catatanDetail
+            catatanDetail,
+            alasanSelisih
           }
         })
 
         // Create adjustment transaction to maintain transaction history integrity
         // This ensures SUM(masuk) - SUM(keluar) always equals BarangGudang.stok
         if (selisih !== 0) {
+          // Map alasan to readable text for keterangan
+          const alasanLabels: Record<string, string> = {
+            'hilang': 'Barang hilang',
+            'rusak': 'Barang rusak/tidak layak',
+            'revisi': 'Revisi stok/koreksi data',
+            'salah_input': 'Kesalahan input sebelumnya',
+            'terpakai': 'Terpakai tidak tercatat',
+            'expired': 'Barang kadaluarsa',
+            'lebih': 'Stok lebih/ditemukan',
+            'lainnya': 'Lainnya'
+          }
+          const alasanText = alasanSelisih ? alasanLabels[alasanSelisih] || alasanSelisih : 'Penyesuaian stok'
+
           if (selisih > 0) {
             // Stock gain - record as barang masuk (goods found during opname)
             await tx.barangMasuk.create({
@@ -243,21 +258,23 @@ export async function POST(req: NextRequest) {
                 gudangId,
                 jumlah: selisih,
                 kondisi: 'BARU',
-                keterangan: `Penyesuaian stok opname (+${selisih}). Ref: ${opnameRecord.id}`
+                keterangan: `Opname: ${alasanText} (+${selisih}). Ref: ${opnameRecord.id}`
               }
             })
           } else {
-            // Stock loss - record as barang keluar with isHilang flag
-            // Use kondisi BARU with isHilang: true (assuming lost items were good condition)
+            // Stock loss - record as barang keluar
+            // Only set isHilang: true if alasanSelisih is explicitly 'hilang'
+            const isActuallyLost = alasanSelisih === 'hilang'
+
             await tx.barangKeluar.create({
               data: {
                 id: randomUUID(),
                 barangId,
                 gudangId,
                 jumlah: Math.abs(selisih),
-                kondisi: 'BARU', // Default to BARU, actual condition unknown for stock discrepancy
-                isHilang: true, // Mark as lost/missing
-                keterangan: `Penyesuaian stok opname (${selisih}) - Barang hilang. Ref: ${opnameRecord.id}`
+                kondisi: alasanSelisih === 'rusak' ? 'RUSAK' : 'BARU',
+                isHilang: isActuallyLost,
+                keterangan: `Opname: ${alasanText} (${selisih}). Ref: ${opnameRecord.id}`
               }
             })
           }

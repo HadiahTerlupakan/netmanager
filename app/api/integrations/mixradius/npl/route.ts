@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { verifyAuth, getUserPermissions } from "@/lib/auth";
+import { verifyAuth, getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { syncService } from "@/modules/integrations/services/MixRadiusSyncService";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 
@@ -10,11 +10,15 @@ export async function GET(request: NextRequest) {
     return ApiErrors.unauthorized();
   }
 
-  const permissions = await getUserPermissions(user.id);
-  const isSuperAdmin = user.isSuperAdmin || permissions.includes('*');
+  const userWithRole = user as { id: string; role?: string; isSuperAdmin?: boolean }
+  const isSuper = isSuperAdmin(userWithRole)
 
-  if (!isSuperAdmin && !permissions.includes("mixradius:read")) {
-    return ApiErrors.forbidden("You do not have permission to access MixRadius statistics");
+  if (!isSuper) {
+    const permissions = await getUserPermissions(user.id);
+    const hasAccess = permissions.includes('*') || permissions.includes("mixradius:read");
+    if (!hasAccess) {
+      return ApiErrors.forbidden("You do not have permission to access MixRadius statistics");
+    }
   }
 
   try {

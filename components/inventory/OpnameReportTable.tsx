@@ -34,8 +34,9 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
     : 100
   const totalBaik = opnameList.reduce((sum, item) => sum + item.kondisiBaik, 0)
   const totalRusak = opnameList.reduce((sum, item) => sum + item.kondisiRusak, 0)
+  // Only count as "hilang" if alasanSelisih is explicitly 'hilang'
   const totalHilang = opnameList
-    .filter(item => item.selisih < 0)
+    .filter(item => item.alasanSelisih === 'hilang')
     .reduce((sum, item) => sum + Math.abs(item.selisih), 0)
   const totalPerluPerhatian = totalRusak + totalHilang
 
@@ -141,11 +142,11 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
 
   const getSelisihBadge = (selisih: number) => {
     if (selisih === 0) {
-      return { color: 'bg-green-100 text-green-800', text: 'Tidak ada selisih', isHilang: false }
+      return { color: 'bg-green-100 text-green-800', text: 'Tidak ada selisih' }
     } else if (selisih > 0) {
-      return { color: 'bg-blue-100 text-blue-800', text: `+${selisih}`, isHilang: false }
+      return { color: 'bg-blue-100 text-blue-800', text: `+${selisih}` }
     } else {
-      return { color: 'bg-red-100 text-red-800', text: `${selisih}`, isHilang: true } // Negative = missing/lost items
+      return { color: 'bg-red-100 text-red-800', text: `${selisih}` }
     }
   }
 
@@ -239,17 +240,41 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
       priority: 'primary',
       render: (item) => {
         const selisihBadge = getSelisihBadge(item.selisih)
+        const isHilang = item.alasanSelisih === 'hilang'
         return (
             <div className="flex flex-col items-center gap-1">
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${selisihBadge.color}`}>
                 {selisihBadge.text}
                 </span>
-                {selisihBadge.isHilang && (
+                {isHilang && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
                     <FiMinusCircle className="w-3 h-3" /> HILANG
                 </span>
                 )}
             </div>
+        )
+      }
+    },
+    {
+      key: 'alasanSelisih',
+      header: 'Alasan',
+      priority: 'secondary',
+      render: (item) => {
+        if (item.selisih === 0) return <span className="text-gray-400">-</span>
+        const alasanLabels: Record<string, string> = {
+          'hilang': 'Hilang',
+          'rusak': 'Rusak',
+          'revisi': 'Revisi',
+          'salah_input': 'Salah Input',
+          'terpakai': 'Terpakai',
+          'expired': 'Expired',
+          'lebih': 'Stok Lebih',
+          'lainnya': 'Lainnya'
+        }
+        return (
+          <span className="text-sm text-gray-900 dark:text-white">
+            {item.alasanSelisih ? alasanLabels[item.alasanSelisih] || item.alasanSelisih : '-'}
+          </span>
         )
       }
     },

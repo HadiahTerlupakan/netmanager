@@ -1767,6 +1767,7 @@ model StockOpname {
   tanggalExpire     DateTime?
   nomorBatch        String?
   catatanDetail     String?
+  alasanSelisih     String?   // hilang, rusak, revisi, salah_input, terpakai, expired, lebih, lainnya
   createdAt         DateTime  @default(now())
   barang            Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang            Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)

@@ -44,12 +44,41 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
       const res = await fetch(`/api/admin/leave-balance?userId=${userId}&year=${currentYear}`)
       const data = await res.json()
       if (res.ok) {
-        // Filter out TUKAR_LIBUR (unlimited)
         const responseData = data.data || data
-        setBalances((responseData.balances || []).filter((b: LeaveBalanceData) => b.leaveType !== 'TUKAR_LIBUR'))
+        const fetchedBalances = responseData.balances || []
+
+        // If no balances returned, use defaults
+        if (fetchedBalances.length === 0) {
+          setBalances([
+            { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
+            { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
+            { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
+            { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
+            { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
+          ])
+        } else {
+          setBalances(fetchedBalances)
+        }
+      } else {
+        // On error, show defaults
+        setBalances([
+          { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
+          { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
+          { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
+          { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
+          { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
+        ])
       }
     } catch (error) {
       console.error('Error fetching leave balances:', error)
+      // On error, show defaults
+      setBalances([
+        { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
+        { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
+        { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
+        { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
+        { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
+      ])
     } finally {
       setLoading(false)
     }

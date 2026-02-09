@@ -1,6 +1,6 @@
 
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
@@ -14,9 +14,17 @@ export async function GET(req: NextRequest) {
       return ApiErrors.unauthorized()
     }
 
-    const permissions = await getUserPermissions(auth.id)
-    if (!permissions.includes('mixradius_accounts:read') && !permissions.includes('mixradius:read')) {
-      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:read')
+    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(auth.id)
+      const hasAccess = permissions.includes('mixradius_accounts:read') ||
+                        permissions.includes('mixradius:read') ||
+                        permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:read')
+      }
     }
 
     const configs = await mixRadiusConfigRepo.getAllConfigs()
@@ -34,10 +42,17 @@ export async function POST(req: NextRequest) {
       return ApiErrors.unauthorized()
     }
 
-    const permissions = await getUserPermissions(auth.id)
-    // Reusing create permission or generic mixradius permission
-    if (!permissions.includes('mixradius_accounts:create') && !permissions.includes('mixradius:create')) {
-      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:create')
+    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(auth.id)
+      const hasAccess = permissions.includes('mixradius_accounts:create') ||
+                        permissions.includes('mixradius:create') ||
+                        permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:create')
+      }
     }
 
     const body = await req.json()

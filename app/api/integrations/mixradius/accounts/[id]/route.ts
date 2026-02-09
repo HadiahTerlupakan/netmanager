@@ -1,6 +1,6 @@
 
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
@@ -17,9 +17,15 @@ export async function PUT(
       return ApiErrors.unauthorized()
     }
 
-    const permissions = await getUserPermissions(auth.id)
-    if (!permissions.includes('mixradius:update')) {
-      return ApiErrors.forbidden()
+    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(auth.id)
+      const hasAccess = permissions.includes('mixradius:update') || permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk update MixRadius')
+      }
     }
 
     const body = await req.json()
@@ -55,9 +61,15 @@ export async function DELETE(
       return ApiErrors.unauthorized()
     }
 
-    const permissions = await getUserPermissions(auth.id)
-    if (!permissions.includes('mixradius:delete')) {
-      return ApiErrors.forbidden()
+    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(auth.id)
+      const hasAccess = permissions.includes('mixradius:delete') || permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk delete MixRadius')
+      }
     }
 
     const { id } = await params

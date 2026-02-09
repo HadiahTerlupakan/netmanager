@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/integrations/mixradius/test
- * 
+ *
  * Test endpoint untuk debug MixRadius login
  */
 export async function GET(req: NextRequest) {
@@ -15,6 +15,18 @@ export async function GET(req: NextRequest) {
     const session = await verifyAuth(req)
     if (!session) {
       return ApiErrors.unauthorized()
+    }
+
+    // Permission check - only super admin or user with mixradius:read
+    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+      const permissions = await getUserPermissions(session.id)
+      const hasAccess = permissions.includes('mixradius:read') || permissions.includes('*')
+      if (!hasAccess) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses ke data MixRadius')
+      }
     }
 
     const baseUrl = process.env.MIXRADIUS_URL || 'https://sblnet.topsetting.com:973'

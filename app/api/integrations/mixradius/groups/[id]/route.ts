@@ -65,7 +65,9 @@ export async function DELETE(req: NextRequest, context: Context) {
     if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:delete')) {
+    const isSuper = isSuperAdmin(session)
+
+    if (!isSuper && !permissions.includes('mixradius:delete') && !permissions.includes('*')) {
       return ApiErrors.forbidden()
     }
 
