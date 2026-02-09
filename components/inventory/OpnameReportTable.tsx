@@ -59,9 +59,11 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
       }
 
       const data = await response.json()
-      setOpnameList(data.opnameList || [])
-      setTotalPages(data.pagination?.totalPages || 0)
-      setTotal(data.pagination?.total || 0)
+      // Handle both wrapped (apiSuccess) and unwrapped response formats
+      const result = data.data || data
+      setOpnameList(result.opnameList || [])
+      setTotalPages(result.pagination?.totalPages || 0)
+      setTotal(result.pagination?.total || 0)
     } catch (error) {
       console.error('Error fetching opname list:', error)
       setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
