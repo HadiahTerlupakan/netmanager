@@ -110,9 +110,11 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
             // Re-using GET /api/inventory/gudang logic. It might filter by site if user is restricted
             const res = await fetch(`/api/inventory/gudang`)
             const json = await res.json()
-            if (json.gudangs) {
+            // Handle both wrapped (apiSuccess) and unwrapped response formats
+            const result = json.data || json
+            if (result.gudangs) {
                 // cache details for address display
-                const details = json.gudangs.reduce((acc: Record<string, GudangDetail>, g: GudangDetail) => ({ ...acc, [g.id]: g }), {})
+                const details = result.gudangs.reduce((acc: Record<string, GudangDetail>, g: GudangDetail) => ({ ...acc, [g.id]: g }), {})
                 setGudangDetails(prev => ({ ...prev, ...details }))
             }
         } catch (e) {

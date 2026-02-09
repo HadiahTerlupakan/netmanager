@@ -100,7 +100,9 @@ export default function AmbilBarangForm() {
         // Fetch gudang
         const gudangResponse = await fetch('/api/inventory/gudang')
         const gudangData = await gudangResponse.json()
-        setGudangs(gudangData.gudangs || [])
+        // Handle both wrapped (apiSuccess) and unwrapped response formats
+        const gudangResult = gudangData.data || gudangData
+        setGudangs(gudangResult.gudangs || [])
       } catch (error) {
         console.error('Error fetching initial data:', error)
         setError('Gagal memuat data awal')

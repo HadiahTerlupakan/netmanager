@@ -65,7 +65,9 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
       try {
         const response = await fetch('/api/inventory/gudang')
         const data = await response.json()
-        setGudangs(data.gudangs || [])
+        // Handle both wrapped (apiSuccess) and unwrapped response formats
+        const result = data.data || data
+        setGudangs(result.gudangs || [])
       } catch (error) {
         console.error('Error fetching gudangs:', error)
         setError('Gagal memuat data gudang')
