@@ -282,20 +282,48 @@ export async function POST(req: NextRequest) {
 
         // Update stock to match physical count
         if (currentStock) {
+          // Calculate the stock breakdown update based on reason
+          // Default: adjust stokBaru (new stock) since it's most common
+          const updateData: { stok: number; stokBaru?: number; stokBekas?: number; stokRusak?: number } = {
+            stok: stokFisik
+          }
+
+          if (selisih !== 0) {
+            // For stock loss (negative selisih)
+            if (selisih < 0) {
+              const absSelisih = Math.abs(selisih)
+
+              // Determine which stock category to reduce based on reason
+              if (alasanSelisih === 'rusak' || alasanSelisih === 'expired') {
+                // Reduce from stokBaru, add to stokRusak (if items became damaged)
+                // But total stok is still reduced, so we just reduce stokBaru
+                updateData.stokBaru = Math.max(0, (currentStock.stokBaru || 0) - absSelisih)
+              } else {
+                // Default: reduce from stokBaru
+                updateData.stokBaru = Math.max(0, (currentStock.stokBaru || 0) - absSelisih)
+              }
+            } else {
+              // For stock gain (positive selisih), add to stokBaru
+              updateData.stokBaru = (currentStock.stokBaru || 0) + selisih
+            }
+          }
+
           await tx.barangGudang.update({
             where: { barangId_gudangId: { barangId, gudangId } },
-            data: {
-              stok: stokFisik
-            }
+            data: updateData
           })
         } else if (stokFisik > 0) {
           // Create stock record if it doesn't exist and stokFisik > 0
+          // Default: set all as stokBaru (new stock)
           await tx.barangGudang.create({
             data: {
               id: randomUUID(),
               barangId,
               gudangId,
               stok: stokFisik,
+              stokBaru: stokFisik,
+              stokBekas: 0,
+              stokRusak: 0,
               updatedAt: new Date()
             }
           })
