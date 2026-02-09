@@ -262,78 +262,84 @@ async function main() {
 
   const technicalDept = await prisma.departments.upsert({
     where: { name: 'Technical' },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Technical',
       description: 'Technical Support & Network Operations',
-      jobDescription: 'Mengelola infrastruktur jaringan dan dukungan teknis'
+      jobDescription: 'Mengelola infrastruktur jaringan dan dukungan teknis',
+      showInMobileWO: true
     },
   })
   console.log('   ✅ Department: Technical')
 
   await prisma.departments.upsert({
     where: { name: 'Customer Service' },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Customer Service',
       description: 'Customer Support & Relations',
-      jobDescription: 'Menangani pertanyaan dan keluhan pelanggan'
+      jobDescription: 'Menangani pertanyaan dan keluhan pelanggan',
+      showInMobileWO: true
     },
   })
   console.log('   ✅ Department: Customer Service')
 
   const operationsDept = await prisma.departments.upsert({
     where: { name: 'Operations' },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Operations',
       description: 'Field Operations & Maintenance',
-      jobDescription: 'Operasi lapangan dan pemeliharaan jaringan'
+      jobDescription: 'Operasi lapangan dan pemeliharaan jaringan',
+      showInMobileWO: true
     },
   })
   console.log('   ✅ Department: Operations')
 
   const financeDept = await prisma.departments.upsert({
     where: { name: 'Finance' },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Finance',
       description: 'Finance & Accounting',
-      jobDescription: 'Mengelola keuangan dan akuntansi'
+      jobDescription: 'Mengelola keuangan dan akuntansi',
+      showInMobileWO: true
     },
   })
   console.log('   ✅ Department: Finance')
 
   const marketingDept = await prisma.departments.upsert({
     where: { name: 'Marketing' },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Marketing',
       description: 'Marketing & Sales',
-      jobDescription: 'Pemasaran dan penjualan'
+      jobDescription: 'Pemasaran dan penjualan',
+      showInMobileWO: true
     },
   })
   console.log('   ✅ Department: Marketing')
 
   await prisma.departments.upsert({
     where: { name: 'HR' },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'HR',
       description: 'Human Resources',
-      jobDescription: 'Manajemen sumber daya manusia'
+      jobDescription: 'Manajemen sumber daya manusia',
+      showInMobileWO: true
     },
   })
   console.log('   ✅ Department: HR')
