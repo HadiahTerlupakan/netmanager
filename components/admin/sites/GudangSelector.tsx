@@ -35,7 +35,9 @@ export default function GudangSelector({ selectedIds, onChange, currentSiteId }:
                 const response = await fetch('/api/inventory/gudang?view=all', { cache: 'no-store' })
                 const data = await response.json()
                 if (response.ok) {
-                    setGudangs(data.gudangs || [])
+                    // Handle both wrapped (apiSuccess) and unwrapped response formats
+                    const result = data.data || data
+                    setGudangs(result.gudangs || [])
                 } else {
                     setError('Gagal memuat daftar gudang')
                 }
