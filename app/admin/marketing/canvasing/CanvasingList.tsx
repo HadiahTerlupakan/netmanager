@@ -61,8 +61,8 @@ export default function CanvasingList() {
 
             const res = await fetch(`/api/marketing/canvasing?${params.toString()}`)
             if (res.ok) {
-                const data = await res.json()
-                setItems(data)
+                const json = await res.json()
+                setItems(json.data || json)
             }
         } catch (error) {
             console.error('Failed to fetch canvasing', error)

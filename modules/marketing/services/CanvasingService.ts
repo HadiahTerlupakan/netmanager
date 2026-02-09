@@ -1,7 +1,7 @@
 import type { Canvasing, CanvasingStatus } from '@prisma/client'
-import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput } from '../repositories/ICanvasingRepository'
+import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput, CanvasingWithSalesInfo } from '../repositories/ICanvasingRepository'
 import type { IWorkOrderRepository } from '../../work-order/repositories/IWorkOrderRepository'
-import { createNotification } from '../../notification/services/NotificationService'
+import { createNotification, notifyNewCanvasing } from '../../notification/services/NotificationService'
 
 export class CanvasingService {
   constructor(
@@ -9,18 +9,16 @@ export class CanvasingService {
     private readonly woRepository: IWorkOrderRepository
   ) {}
 
-  async createRequest(data: CreateCanvasingInput): Promise<Canvasing> {
+  async createRequest(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo> {
     const canvasing = await this.repository.create(data)
 
-    // Notify admins about new canvasing request
-    createNotification({
-      type: 'ANNOUNCEMENT',
-      priority: 'NORMAL',
-      title: '📋 Canvasing Baru',
-      message: `Request canvasing baru untuk ${canvasing.nama}`,
-      link: `/admin/marketing/canvasing/${canvasing.id}`,
-      sourceType: 'CANVASING',
-      sourceId: canvasing.id,
+    // Notify admins/managers with canvasing:verify permission
+    notifyNewCanvasing({
+      canvasingId: canvasing.id,
+      customerName: canvasing.nama,
+      salesId: canvasing.salesId,
+      salesName: canvasing.sales?.name || undefined,
+      siteId: canvasing.sales?.siteId,
     }).catch(err => console.error('[Canvasing Notif] Error:', err))
 
     return canvasing

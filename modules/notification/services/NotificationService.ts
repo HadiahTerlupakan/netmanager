@@ -687,3 +687,83 @@ function getStatusEmoji(status: string): string {
             return '📋';
     }
 }
+
+// ============================================
+// CANVASING NOTIFICATIONS
+// ============================================
+
+export interface CanvasingNotificationData {
+    canvasingId: string;
+    customerName: string;
+    salesId: string;
+    salesName?: string;
+    siteId?: string | null;
+}
+
+/**
+ * Find users with canvasing:verify permission in a specific site
+ */
+async function findCanvasingVerifiers(siteId?: string | null): Promise<{ id: string }[]> {
+    console.log(`[NotificationDebug] Finding canvasing verifiers for Site: ${siteId}`);
+
+    const whereClause: Prisma.UserWhereInput = {
+        isActive: true,
+        role: {
+            permission: {
+                some: {
+                    resource: 'canvasing',
+                    action: 'verify'
+                }
+            }
+        }
+    };
+
+    // Site filter - only notify users who have access to this site
+    if (siteId) {
+        whereClause.OR = [
+            { siteId: siteId },
+            { siteId: null }, // Global users (no site restriction)
+            { userSites: { some: { siteId: siteId } } }
+        ];
+    }
+
+    const users = await prisma.user.findMany({
+        where: whereClause,
+        select: { id: true, name: true }
+    });
+
+    console.log(`[NotificationDebug] Found ${users.length} canvasing verifiers`);
+    return users;
+}
+
+/**
+ * Notify admins/managers about new canvasing request
+ */
+export async function notifyNewCanvasing(data: CanvasingNotificationData) {
+    console.log(`[NotificationDebug] Processing New Canvasing Notification for: ${data.customerName}`);
+
+    const recipients = await findCanvasingVerifiers(data.siteId);
+
+    if (recipients.length === 0) {
+        console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New Canvasing. Check permissions.`);
+        return null;
+    }
+
+    const promises = recipients.map(async (user) => {
+        await createNotification({
+            type: 'ANNOUNCEMENT',
+            priority: 'NORMAL',
+            title: '📋 Canvasing Baru',
+            message: `Request canvasing baru untuk ${data.customerName} dari ${data.salesName || 'Sales'}`,
+            link: `/admin/marketing/canvasing/${data.canvasingId}`,
+            userId: user.id,
+            siteId: data.siteId || undefined,
+            sourceType: 'CANVASING',
+            sourceId: data.canvasingId,
+        });
+    });
+
+    await Promise.all(promises);
+    console.log(`[Notification] New Canvasing: Notified ${recipients.length} verifiers`);
+    return { count: recipients.length };
+}

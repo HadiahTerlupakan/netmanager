@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const isSuperAdmin = isSuperAdminRole(session.role)
 
     const permissions = await getUserPermissions(session.id)
-    const _canReadAll = isSuperAdmin || permissions.includes('canvasing:verify')
+    const canReadAll = isSuperAdmin || permissions.includes('canvasing:read') || permissions.includes('canvasing:verify')
     const isSiteRestricted = permissions.includes('canvasing:site_only') && !isSuperAdmin
 
     const { searchParams } = new URL(req.url)
@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
     // 3. Super Admin: Sees everything.
 
     const canVerify = permissions.includes('canvasing:verify')
-    const canViewOthers = isSuperAdmin || canVerify
+    const canViewOthers = isSuperAdmin || canVerify || canReadAll
+
+    console.log(`[API_CANVASING] User: ${session.email}, isSuperAdmin: ${isSuperAdmin}, canReadAll: ${canReadAll}, canVerify: ${canVerify}, canViewOthers: ${canViewOthers}`)
 
     if (!canViewOthers) {
         // Absolute restriction for regular Sales/Staff
@@ -58,7 +60,10 @@ export async function GET(req: NextRequest) {
     if (filterSiteId) filterParams.siteId = filterSiteId
     const requests = await service.getAllRequests(filterParams)
 
-    return NextResponse.json(requests)
+    console.log(`[API_CANVASING] Filters: ${JSON.stringify(filterParams)}, Results: ${requests.length}`)
+
+    // Return with data wrapper for mobile app compatibility
+    return NextResponse.json({ data: requests })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })

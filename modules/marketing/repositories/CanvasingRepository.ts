@@ -1,11 +1,11 @@
 import { PrismaClient, CanvasingStatus } from '@prisma/client'
 import type { Canvasing } from '@prisma/client'
-import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput, CanvasingWithSalesSite } from './ICanvasingRepository'
+import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput, CanvasingWithSalesSite, CanvasingWithSalesInfo } from './ICanvasingRepository'
 
 export class CanvasingRepository implements ICanvasingRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async create(data: CreateCanvasingInput): Promise<Canvasing> {
+  async create(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo> {
     return this.db.canvasing.create({
       data: {
         ...data,
@@ -13,12 +13,14 @@ export class CanvasingRepository implements ICanvasingRepository {
       include: {
           sales: {
               select: {
+                  id: true,
                   name: true,
-                  email: true
+                  email: true,
+                  siteId: true
               }
           }
       }
-    })
+    }) as Promise<CanvasingWithSalesInfo>
   }
 
   async findById(id: string): Promise<Canvasing | null> {

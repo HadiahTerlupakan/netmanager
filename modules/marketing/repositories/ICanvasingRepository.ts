@@ -45,8 +45,17 @@ export interface CanvasingWithSalesSite extends Canvasing {
   }
 }
 
+export interface CanvasingWithSalesInfo extends Canvasing {
+  sales: {
+    id: string
+    name: string | null
+    email: string | null
+    siteId: string | null
+  } | null
+}
+
 export interface ICanvasingRepository {
-  create(data: CreateCanvasingInput): Promise<Canvasing>
+  create(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo>
   findById(id: string): Promise<Canvasing | null>
   findByIdWithSales(id: string): Promise<CanvasingWithSalesSite | null>
   findAll(filters?: { status?: CanvasingStatus; salesId?: string; siteId?: string }): Promise<Canvasing[]>
