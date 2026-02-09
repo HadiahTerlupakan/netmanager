@@ -1,8 +1,10 @@
+import { ensureAnyPermission } from '@/lib/rbac'
 import TemplateForm from '@/components/workorder/TemplateForm'
 import Link from 'next/link'
 import { HiArrowLeft } from 'react-icons/hi2'
 
-export default function NewTemplatePage() {
+export default async function NewTemplatePage() {
+    await ensureAnyPermission(['workorders:create', 'workorder_templates:create'])
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">

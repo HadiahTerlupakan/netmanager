@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { hasPermission } from '@/lib/rbac'
+import { isSuperAdmin as checkSuperAdmin } from '@/lib/auth'
 import type { UserSession } from '@/lib/auth'
 import { ForbiddenError } from './error-handler'
 import type { AuthContext } from './auth'
@@ -112,7 +113,8 @@ export function withAllPermissions<T = unknown>(
 
 /**
  * Helper to check if user is SUPER_ADMIN
+ * Re-exported from @/lib/auth for convenience
  */
 export function isSuperAdmin(user: UserSession): boolean {
-  return (user.isSuperAdmin === true) || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin'
+  return checkSuperAdmin(user)
 }

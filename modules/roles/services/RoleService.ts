@@ -3,6 +3,7 @@ import type { RoleWithCount, RoleWithPermissions, FilterOptions } from '../repos
 import type { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
+import { invalidateRolePermissionCache } from '@/lib/auth'
 
 export class RoleService {
     private roleRepository: RoleRepository
@@ -190,7 +191,7 @@ export class RoleService {
             select: { id: true }
         })
 
-        return this.roleRepository.update(id, {
+        const updatedRole = await this.roleRepository.update(id, {
             name: data.name,
             description: data.description,
             accessAdminPanel: data.accessAdminPanel,
@@ -200,6 +201,13 @@ export class RoleService {
             isSuperAdmin: data.isSuperAdmin,
             permissionIds: finalPermissions.map(p => p.id)
         })
+
+        // Invalidate permission cache for all users with this role
+        // This ensures permission changes take effect immediately
+        await invalidateRolePermissionCache(id)
+        console.log(`[RoleService] Permission cache invalidated for role: ${id}`)
+
+        return updatedRole
     }
 
     async deleteRole(id: string): Promise<Role> {

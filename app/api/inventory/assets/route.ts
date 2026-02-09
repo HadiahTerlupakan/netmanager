@@ -3,6 +3,7 @@ import { AssetService } from '@/modules/inventory/services/AssetService'
 import { z, ZodError } from 'zod'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const assetService = new AssetService()
@@ -29,13 +30,18 @@ export async function GET(req: NextRequest) {
         if (!session || !session.user?.id) {
             return ApiErrors.unauthorized('Session tidak valid')
         }
-        
+
+        // Permission check
+        if (!(await hasPermission('asset:read'))) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data aset')
+        }
+
         const { searchParams } = new URL(req.url)
         const page = Number(searchParams.get('page')) || 1
         const limit = Number(searchParams.get('limit')) || 10
         const search = searchParams.get('search') || undefined
         const status = searchParams.get('status') ? searchParams.get('status') as AssetStatus : undefined
-        
+
         const result = await assetService.findAllAssets({
             page,
             limit,
@@ -63,8 +69,11 @@ export async function POST(req: NextRequest) {
         if (!session || !session.user?.id) {
             return ApiErrors.unauthorized('Session tidak valid')
         }
-        
-        // TODO: Check permission (inventory:create)
+
+        // Permission check
+        if (!(await hasPermission('asset:create'))) {
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat aset')
+        }
 
         const body = await req.json()
         const validated = createAssetSchema.parse(body)

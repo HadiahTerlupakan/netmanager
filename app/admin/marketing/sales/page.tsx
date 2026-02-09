@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ensureAnyPermission } from '@/lib/rbac'
 import SalesListClient from './SalesListClient'
 
 export const metadata: Metadata = {
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default async function SalesPage() {
+    await ensureAnyPermission(['sales:read', 'canvasing:read'])
     return (
         <div className="p-6 max-w-7xl mx-auto">
             <SalesListClient />

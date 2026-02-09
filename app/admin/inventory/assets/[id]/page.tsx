@@ -1,3 +1,4 @@
+import { ensurePermission } from '@/lib/rbac'
 import { AssetService } from '@/modules/inventory/services/AssetService'
 import { AssetDetailView } from '@/components/inventory/assets/AssetDetailView'
 import Link from 'next/link'
@@ -5,6 +6,8 @@ import { FiArrowLeft } from 'react-icons/fi'
 import { notFound } from 'next/navigation'
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await ensurePermission('asset:read')
+
   const { id } = await params
   const assetService = new AssetService()
   const asset = await assetService.getAsset(id)

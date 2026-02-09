@@ -1,6 +1,9 @@
+import { ensurePermission } from '@/lib/rbac'
 import { CreateAssetForm } from '@/components/inventory/assets/CreateAssetForm'
 
-export default function NewAssetPage() {
+export default async function NewAssetPage() {
+  await ensurePermission('asset:create')
+
   return (
     <div className="space-y-6">
       <div>

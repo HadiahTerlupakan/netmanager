@@ -1,8 +1,11 @@
+import { ensurePermission } from '@/lib/rbac'
 import { AssetTable } from '@/components/inventory/assets/AssetTable'
 import Link from 'next/link'
 import { FiPlus } from 'react-icons/fi'
 
-export default function AssetsPage() {
+export default async function AssetsPage() {
+  await ensurePermission('asset:read')
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

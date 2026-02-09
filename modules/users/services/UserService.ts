@@ -4,6 +4,7 @@ import { WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
 import { hash } from 'bcryptjs'
 import { cache } from '@/lib/cache'
+import { invalidatePermissionCache } from '@/lib/auth'
 
 export interface CreateUserInput {
     email: string
@@ -129,10 +130,16 @@ export class UserService {
         }
 
         const updatedUser = await this.userRepository.update(id, updateData)
-        
+
         // Invalidate attendance schedule cache
         cache.invalidate(`user:schedule:${id}`)
-        
+
+        // Invalidate permission cache when role changes
+        if (data.roleId !== undefined) {
+            await invalidatePermissionCache(id)
+            console.log(`[UserService] Permission cache invalidated for user: ${id}`)
+        }
+
         return updatedUser
     }
 

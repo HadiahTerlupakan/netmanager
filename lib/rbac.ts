@@ -1,6 +1,7 @@
 import { authConfig, getUserPermissions, isSuperAdmin as isSuperAdminHelper } from '@/lib/auth'
 import { getServerSession } from 'next-auth'
 import type { User } from 'next-auth'
+import { hasPermissionWithAlias, expandPermissionsWithAliases } from '@/lib/permission-aliases'
 
 interface ExtendedUser extends User {
     id: string;
@@ -44,14 +45,11 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
         return true
     }
 
-    const has = permissions.includes(requiredPermission)
+    // Check permission with alias support
+    const has = hasPermissionWithAlias(permissions, requiredPermission)
 
     if (!has) {
         console.log(`[RBAC] Access Denied. User: ${userId}, Role: ${currentUser.role}, Required: ${requiredPermission}, Has: ${permissions.length} perms`)
-        // Pass debug info to forbidden page if in dev mode or if needed
-        // const reason = `Missing: ${requiredPermission}`
-        // const debug = `Role: ${currentUser.role}, SA: ${currentUser.isSuperAdmin}`
-        // return false; // Caller handles redirect, but ensurePermission handles redirect too.
     }
 
     return has
@@ -86,7 +84,9 @@ export async function hasAnyPermission(requiredPermissions: string[], user?: { i
         return true
     }
 
-    return requiredPermissions.some(p => permissions.includes(p))
+    // Expand required permissions with aliases and check if any match
+    const expandedRequired = expandPermissionsWithAliases(requiredPermissions)
+    return expandedRequired.some(p => permissions.includes(p))
 }
 
 export async function getCurrentUser() {

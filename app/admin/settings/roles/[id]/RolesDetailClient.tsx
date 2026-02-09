@@ -499,31 +499,49 @@ export function ClientComponent() {
                                                                 </div>
                                                             )}
 
-                                                            {/* 3. Scope Zone */}
+                                                            {/* 3. Scope Zone - Restrictions */}
                                                             {scopeActions.length > 0 && (
                                                                 <div className="mt-auto pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                                                                    {/* Info banner explaining the counter-intuitive logic */}
+                                                                    <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                                                                        <p className="text-[10px] text-blue-700 dark:text-blue-400 leading-relaxed">
+                                                                            <strong>Info:</strong> Mengaktifkan pembatasan di bawah akan <strong>MEMBATASI</strong> user hanya ke data site/departemen mereka sendiri.
+                                                                            Jika tidak diaktifkan, user bisa melihat <strong>semua</strong> data.
+                                                                        </p>
+                                                                    </div>
                                                                     <div className="space-y-2">
                                                                         {scopeActions.map(action => {
                                                                             const permissionId = `${resource}:${action}`
                                                                             const isSelected = formData.permissions.includes(permissionId)
+                                                                            const scopeLabel = action === 'site_only' ? 'Site Sendiri' : 'Departemen Sendiri'
+                                                                            const scopeDescription = action === 'site_only'
+                                                                                ? 'User hanya dapat mengakses data dari site yang ditugaskan kepadanya'
+                                                                                : 'User hanya dapat mengakses data dari departemen yang sama'
 
                                                                             return (
                                                                                 <label key={action} className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-all ${
-                                                                                    isSelected 
-                                                                                        ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/50' 
+                                                                                    isSelected
+                                                                                        ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/50'
                                                                                         : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                                                                                }`}>
+                                                                                }`} title={scopeDescription}>
                                                                                     <div className="flex items-center gap-2">
                                                                                         <div className={`w-8 h-4 rounded-full relative transition-colors ${isSelected ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
                                                                                             <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform shadow-sm ${isSelected ? 'left-4.5' : 'left-0.5'}`} style={{ left: isSelected ? 'calc(100% - 14px)' : '2px' }}></div>
                                                                                         </div>
-                                                                                        <span className={`text-xs font-medium ${isSelected ? 'text-amber-800 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                                                                                            Limit to {action.replace('_only', '')}
-                                                                                        </span>
+                                                                                        <div className="flex flex-col">
+                                                                                            <span className={`text-xs font-medium ${isSelected ? 'text-amber-800 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                                                                                                Batasi ke {scopeLabel}
+                                                                                            </span>
+                                                                                            {isSelected && (
+                                                                                                <span className="text-[9px] text-amber-600 dark:text-amber-500">
+                                                                                                    Aktif - akses dibatasi
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
                                                                                     </div>
-                                                                                    <input 
-                                                                                        type="checkbox" 
-                                                                                        className="hidden" 
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        className="hidden"
                                                                                         checked={isSelected}
                                                                                         onChange={() => {
                                                                                             let newPerms = [...formData.permissions]

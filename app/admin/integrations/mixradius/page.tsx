@@ -1,6 +1,8 @@
+import { ensurePermission } from '@/lib/rbac'
 import MixRadiusClient from './MixRadiusClient'
 
-export default function MixRadiusPage() {
+export default async function MixRadiusPage() {
+  await ensurePermission('mixradius:read')
   return <MixRadiusClient />
 }
 

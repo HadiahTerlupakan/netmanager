@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyAuth } from '@/lib/auth'
 
 // Headers to mimic a real browser to avoid simple bot detection
 const TOKOPEDIA_HEADERS = {
@@ -88,6 +89,12 @@ interface MarketPriceResult {
 }
 
 export async function GET(request: NextRequest) {
+  // Auth check - only authenticated users can use this endpoint
+  const session = await verifyAuth(request)
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const keyword = searchParams.get('keyword')
 

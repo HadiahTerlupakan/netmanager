@@ -1,3 +1,4 @@
+import { ensureAnyPermission } from '@/lib/rbac'
 import TemplatesClient from './TemplatesClient'
 
 export const metadata = {
@@ -5,6 +6,7 @@ export const metadata = {
     description: 'Manage work order templates',
 }
 
-export default function TemplatesPage() {
+export default async function TemplatesPage() {
+    await ensureAnyPermission(['workorders:read', 'workorder_templates:read'])
     return <TemplatesClient />
 }

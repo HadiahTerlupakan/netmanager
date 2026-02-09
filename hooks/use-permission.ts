@@ -2,6 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useState } from 'react'
+import { hasPermissionWithAlias, expandPermissionsWithAliases } from '@/lib/permission-aliases'
 
 interface PermissionState {
     permissions: string[]
@@ -9,11 +10,24 @@ interface PermissionState {
     isLoading: boolean
 }
 
+/**
+ * Client-side helper to check if user is Super Admin
+ * Mirrors the server-side logic in lib/auth.ts
+ */
+function checkIsSuperAdmin(user: { role?: string | null; isSuperAdmin?: boolean } | null | undefined): boolean {
+    if (!user) return false
+    // Check the boolean flag first (new schema)
+    if (user.isSuperAdmin === true) return true
+    // Fallback to legacy string check
+    if (!user.role) return false
+    return user.role === 'SUPER_ADMIN' || user.role === 'Super Admin'
+}
+
 export function usePermission() {
     const { data: session, status } = useSession()
     const isAuthLoading = status === 'loading'
     const isAuthenticated = status === 'authenticated'
-    
+
     const [permissionState, setPermissionState] = useState<PermissionState>({
         permissions: [],
         isSuperAdmin: false,
@@ -32,8 +46,8 @@ export function usePermission() {
 
         // Check if user is super admin from session (quick check)
         const user = session.user as { role?: string; isSuperAdmin?: boolean }
-        // Check both legacy string role and new boolean flag
-        if (user.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
+        // Use centralized helper function
+        if (checkIsSuperAdmin(user)) {
             // Defer state update to avoid synchronous setState in effect
             requestAnimationFrame(() => {
               setPermissionState({ permissions: ['*'], isSuperAdmin: true, isLoading: false })
@@ -74,7 +88,8 @@ export function usePermission() {
         if (permissionState.isSuperAdmin) return true
         if (permissionState.permissions.includes('*')) return true
 
-        return permissionState.permissions.includes(requiredPermission)
+        // Use alias-aware permission check
+        return hasPermissionWithAlias(permissionState.permissions, requiredPermission)
     }, [permissionState])
 
     const hasAnyPermission = useCallback((requiredPermissions: string[]) => {
@@ -82,7 +97,9 @@ export function usePermission() {
         if (permissionState.isSuperAdmin) return true
         if (permissionState.permissions.includes('*')) return true
 
-        return requiredPermissions.some(p => permissionState.permissions.includes(p))
+        // Expand permissions with aliases and check if any match
+        const expandedRequired = expandPermissionsWithAliases(requiredPermissions)
+        return expandedRequired.some(p => permissionState.permissions.includes(p))
     }, [permissionState])
 
     return {
