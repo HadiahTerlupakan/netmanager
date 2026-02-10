@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-    HiOutlineChevronLeft, 
-    HiOutlineCheck, 
+import {
+    HiOutlineChevronLeft,
+    HiOutlineCheck,
     HiOutlineXMark,
     HiOutlineMapPin,
     HiOutlinePhone,
@@ -15,7 +15,13 @@ import {
     HiOutlineSquare3Stack3D,
     HiOutlineQrCode,
     HiOutlineGift,
-    HiOutlineStar
+    HiOutlineStar,
+    HiOutlineCamera,
+    HiOutlineDocumentText,
+    HiOutlineUserCircle,
+    HiOutlineCalendarDays,
+    HiOutlineCheckBadge,
+    HiOutlineExclamationTriangle
 } from 'react-icons/hi2';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
@@ -30,6 +36,10 @@ interface PointClaim {
     keterangan?: string;
     pointValue: number;
     reviewNotes?: string;
+    reviewedAt?: string;
+    reviewedBy?: {
+        name: string;
+    };
     createdAt: string;
 }
 
@@ -58,7 +68,7 @@ interface CanvasingDetail {
         workOrderNumber: string;
         status: string;
     };
-    pointClaims?: PointClaim[];
+    pointClaims?: PointClaim | null;
 }
 
 export default function CanvasingDetailClient({ id }: { id: string }) {
@@ -395,88 +405,158 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                         </div>
                     )}
 
-                    {/* Point Claims Section */}
-                    {item.pointClaims && item.pointClaims.length > 0 && (
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                                    <HiOutlineGift className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Claim Poin</h3>
-                            </div>
-                            
-                            {item.pointClaims.map((claim) => (
-                                <div key={claim.id} className={`border rounded-xl p-4 mb-4 last:mb-0 ${
-                                    claim.status === 'APPROVED' 
-                                        ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20' 
-                                        : claim.status === 'REJECTED'
-                                        ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
-                                        : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20'
-                                }`}>
-                                    {/* Claim Header */}
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <HiOutlineStar className={`w-5 h-5 ${
-                                                claim.status === 'APPROVED' ? 'text-green-600' 
-                                                : claim.status === 'REJECTED' ? 'text-red-600' 
-                                                : 'text-amber-600'
-                                            }`} />
-                                            <span className={`text-sm font-bold ${
-                                                claim.status === 'APPROVED' ? 'text-green-700 dark:text-green-400' 
-                                                : claim.status === 'REJECTED' ? 'text-red-700 dark:text-red-400' 
-                                                : 'text-amber-700 dark:text-amber-400'
-                                            }`}>
-                                                +{claim.pointValue} Poin - {claim.status}
+                    {/* Point Claim Section */}
+                    {item.pointClaims && (() => {
+                        const claim = item.pointClaims;
+                        const statusConfig = {
+                            APPROVED: {
+                                bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+                                border: 'border-emerald-200 dark:border-emerald-800',
+                                accent: 'text-emerald-600 dark:text-emerald-400',
+                                accentBg: 'bg-emerald-100 dark:bg-emerald-900/40',
+                                badge: 'bg-emerald-600 text-white',
+                                label: 'Disetujui',
+                                icon: <HiOutlineCheckBadge className="w-5 h-5" />,
+                            },
+                            REJECTED: {
+                                bg: 'bg-red-50 dark:bg-red-950/40',
+                                border: 'border-red-200 dark:border-red-800',
+                                accent: 'text-red-600 dark:text-red-400',
+                                accentBg: 'bg-red-100 dark:bg-red-900/40',
+                                badge: 'bg-red-600 text-white',
+                                label: 'Ditolak',
+                                icon: <HiOutlineExclamationTriangle className="w-5 h-5" />,
+                            },
+                            PENDING: {
+                                bg: 'bg-amber-50 dark:bg-amber-950/40',
+                                border: 'border-amber-200 dark:border-amber-800',
+                                accent: 'text-amber-600 dark:text-amber-400',
+                                accentBg: 'bg-amber-100 dark:bg-amber-900/40',
+                                badge: 'bg-amber-500 text-white',
+                                label: 'Menunggu Review',
+                                icon: <HiOutlineClock className="w-5 h-5" />,
+                            },
+                        };
+                        const cfg = statusConfig[claim.status];
+
+                        return (
+                            <div className={`rounded-2xl shadow-sm border ${cfg.border} overflow-hidden`}>
+                                {/* Claim Header */}
+                                <div className={`${cfg.bg} px-6 py-5`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-11 h-11 rounded-xl ${cfg.accentBg} flex items-center justify-center ${cfg.accent}`}>
+                                                <HiOutlineGift className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Claim Poin</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    Diajukan {format(new Date(claim.createdAt), 'dd MMMM yyyy, HH:mm', { locale: idLocale })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 rounded-lg px-3 py-1.5 shadow-sm border border-gray-200 dark:border-gray-700">
+                                                <HiOutlineStar className="w-4 h-4 text-amber-500" />
+                                                <span className="text-sm font-bold text-gray-900 dark:text-white">+{claim.pointValue} Poin</span>
+                                            </div>
+                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${cfg.badge}`}>
+                                                {cfg.icon}
+                                                {cfg.label}
                                             </span>
                                         </div>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                                            {format(new Date(claim.createdAt), 'dd MMM yyyy, HH:mm', { locale: idLocale })}
-                                        </span>
                                     </div>
+                                </div>
+
+                                <div className="bg-white dark:bg-gray-800 px-6 py-5 space-y-5">
+                                    {/* Keterangan */}
+                                    {claim.keterangan && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <HiOutlineDocumentText className="w-4 h-4 text-gray-400" />
+                                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Keterangan Sales</p>
+                                            </div>
+                                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+                                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{claim.keterangan}</p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Bukti Photos */}
                                     {claim.buktiUrls && claim.buktiUrls.length > 0 && (
-                                        <div className="mb-4">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Bukti Foto:</p>
-                                            <div className="flex gap-2 flex-wrap">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <HiOutlineCamera className="w-4 h-4 text-gray-400" />
+                                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Bukti Foto ({claim.buktiUrls.length})
+                                                </p>
+                                            </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                                 {claim.buktiUrls.map((url, idx) => (
-                                                    <div key={idx} className="relative w-20 h-20">
+                                                    <div
+                                                        key={idx}
+                                                        className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 cursor-zoom-in hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors group"
+                                                        onClick={() => setZoomImage(url)}
+                                                    >
                                                         <Image
                                                             src={url}
                                                             alt={`Bukti ${idx + 1}`}
                                                             fill
-                                                            className="rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600"
-                                                            onClick={() => setZoomImage(url)}
+                                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                         />
+                                                        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/60 to-transparent" />
+                                                        <span className="absolute bottom-1.5 left-2 text-white text-xs font-medium">
+                                                            Bukti {idx + 1}
+                                                        </span>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Keterangan */}
-                                    {claim.keterangan && (
-                                        <div className="mb-4">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Keterangan:</p>
-                                            <p className="text-sm text-gray-700 dark:text-gray-300">{claim.keterangan}</p>
-                                        </div>
-                                    )}
-
-                                    {/* Review Notes */}
-                                    {claim.reviewNotes && (
-                                        <div className="mb-4 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Catatan Review:</p>
-                                            <p className="text-sm text-gray-700 dark:text-gray-300">{claim.reviewNotes}</p>
+                                    {/* Review Info */}
+                                    {(claim.status === 'APPROVED' || claim.status === 'REJECTED') && (
+                                        <div className={`rounded-xl p-4 border ${cfg.border} ${cfg.bg}`}>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                {cfg.icon}
+                                                <p className={`text-xs font-semibold uppercase tracking-wider ${cfg.accent}`}>
+                                                    Hasil Review
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {claim.reviewedBy && (
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <HiOutlineUserCircle className="w-4 h-4 text-gray-400 shrink-0" />
+                                                        <span className="text-gray-500 dark:text-gray-400">Direview oleh:</span>
+                                                        <span className="font-medium text-gray-800 dark:text-gray-200">{claim.reviewedBy.name}</span>
+                                                    </div>
+                                                )}
+                                                {claim.reviewedAt && (
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <HiOutlineCalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+                                                        <span className="text-gray-500 dark:text-gray-400">Tanggal:</span>
+                                                        <span className="font-medium text-gray-800 dark:text-gray-200">
+                                                            {format(new Date(claim.reviewedAt), 'dd MMMM yyyy, HH:mm', { locale: idLocale })}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {claim.reviewNotes && (
+                                                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Catatan Review:</p>
+                                                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{claim.reviewNotes}</p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
 
                                     {/* Action Buttons for PENDING */}
                                     {claim.status === 'PENDING' && (
-                                        <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                        <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
                                             <button
                                                 onClick={() => handleApproveClaim(claim.id)}
                                                 disabled={isProcessing}
-                                                className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                                                className="flex-1 py-2.5 px-5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
                                             >
                                                 <HiOutlineCheck className="w-4 h-4" />
                                                 Setujui Claim
@@ -484,7 +564,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                             <button
                                                 onClick={() => handleRejectClaim(claim.id)}
                                                 disabled={isProcessing}
-                                                className="py-2 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                                                className="py-2.5 px-5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
                                             >
                                                 <HiOutlineXMark className="w-4 h-4" />
                                                 Tolak
@@ -492,9 +572,9 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                         </div>
                                     )}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            </div>
+                        );
+                    })()}
 
                     {/* Action Buttons */}
                     {item.status === 'PENDING' && (

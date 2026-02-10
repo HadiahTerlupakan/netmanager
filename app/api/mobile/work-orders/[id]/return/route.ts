@@ -55,15 +55,24 @@ export async function POST(
         }
 
         const workOrder = await prisma.workOrders.findUnique({
-            where: { id }
+            where: { id },
+            include: {
+                assignments: { select: { userId: true, status: true } }
+            }
         })
 
         if (!workOrder) {
             return NextResponse.json({ error: 'Work order tidak ditemukan' }, { status: 404 })
         }
 
-        if (workOrder.assignedToId !== userId) {
-            return NextResponse.json({ error: 'Work order ini bukan milik Anda' }, { status: 403 })
+        // Check if user is authorized (lead technician OR approved partner)
+        const isAssignedTo = workOrder.assignedToId === userId
+        const isApprovedPartner = workOrder.assignments.some(
+            (a) => a.userId === userId && a.status === 'APPROVED'
+        )
+
+        if (!isAssignedTo && !isApprovedPartner) {
+            return NextResponse.json({ error: 'Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.' }, { status: 403 })
         }
 
         // Allow material return for DISCONNECTION and RELOCATION types

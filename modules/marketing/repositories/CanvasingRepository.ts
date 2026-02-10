@@ -52,6 +52,12 @@ export class CanvasingRepository implements ICanvasingRepository {
                   keterangan: true,
                   pointValue: true,
                   reviewNotes: true,
+                  reviewedAt: true,
+                  reviewedBy: {
+                      select: {
+                          name: true
+                      }
+                  },
                   createdAt: true
               }
           }
@@ -110,6 +116,12 @@ export class CanvasingRepository implements ICanvasingRepository {
                   keterangan: true,
                   pointValue: true,
                   reviewNotes: true,
+                  reviewedAt: true,
+                  reviewedBy: {
+                      select: {
+                          name: true
+                      }
+                  },
                   createdAt: true
               },
 
