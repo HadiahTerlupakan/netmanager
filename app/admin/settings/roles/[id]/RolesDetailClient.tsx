@@ -5,9 +5,32 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
-import { FiArrowLeft, FiSave, FiEye, FiPlus, FiEdit2, FiTrash2, FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import { FiArrowLeft, FiSave, FiEye, FiPlus, FiEdit2, FiTrash2, FiChevronDown, FiChevronUp, FiCheck, FiX } from 'react-icons/fi'
+import {
+    HiOutlineWrench,
+    HiOutlineComputerDesktop,
+    HiOutlineBanknotes,
+    HiOutlinePresentationChartBar,
+    HiOutlineBriefcase,
+    HiOutlineGlobeAlt,
+    HiOutlineCube,
+    HiOutlineBolt,
+} from 'react-icons/hi2'
+import { MdOutlineHeadsetMic } from 'react-icons/md'
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS } from '@/lib/permission-config'
 import { getResourceCapabilities } from '@/lib/resource-capabilities'
+import { ROLE_TEMPLATES, type RoleTemplate } from '@/lib/role-templates'
+
+const TEMPLATE_ICONS: Record<string, React.ReactNode> = {
+    wrench: <HiOutlineWrench className="w-5 h-5" />,
+    computer: <HiOutlineComputerDesktop className="w-5 h-5" />,
+    headset: <MdOutlineHeadsetMic className="w-5 h-5" />,
+    banknotes: <HiOutlineBanknotes className="w-5 h-5" />,
+    chart: <HiOutlinePresentationChartBar className="w-5 h-5" />,
+    briefcase: <HiOutlineBriefcase className="w-5 h-5" />,
+    globe: <HiOutlineGlobeAlt className="w-5 h-5" />,
+    cube: <HiOutlineCube className="w-5 h-5" />,
+}
 import type { ResourceAction } from '@/lib/resource-capabilities'
 
 
@@ -33,6 +56,47 @@ export function ClientComponent() {
     const [saving, setSaving] = useState(false)
     const [activeTab, setActiveTab] = useState<'admin' | 'employee'>('admin')
     const [expandedGroups, setExpandedGroups] = useState<string[]>([])
+    const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+    const [showTemplates, setShowTemplates] = useState(isNew)
+
+    const applyTemplate = (template: RoleTemplate) => {
+        setFormData({
+            name: template.name,
+            description: template.description,
+            accessAdminPanel: template.accessAdminPanel,
+            accessEmployeePanel: template.accessEmployeePanel,
+            isRestricted: template.isRestricted,
+            isTechnical: template.isTechnical,
+            isSuperAdmin: template.isSuperAdmin,
+            permissions: [...template.permissions],
+        })
+        setSelectedTemplate(template.id)
+        setShowTemplates(false)
+
+        // Auto-expand groups that have permissions
+        const activeResources = new Set(template.permissions.map(p => p.split(':')[0]))
+        const groupsToExpand: string[] = []
+        Object.entries(PERMISSION_GROUPS).forEach(([groupName, resources]) => {
+            if ((resources as readonly string[]).some(r => activeResources.has(r))) {
+                groupsToExpand.push(`admin-${groupName}`)
+            }
+        })
+        Object.entries(PERMISSION_GROUPS_MOBILE).forEach(([groupName, resources]) => {
+            if ((resources as readonly string[]).some(r => activeResources.has(r))) {
+                groupsToExpand.push(`employee-${groupName}`)
+            }
+        })
+        setExpandedGroups(groupsToExpand)
+
+        // Switch to the right tab
+        if (template.accessAdminPanel) {
+            setActiveTab('admin')
+        } else if (template.accessEmployeePanel) {
+            setActiveTab('employee')
+        }
+
+        toast.success(`Template "${template.name}" diterapkan`)
+    }
 
     const toggleGroup = (groupName: string) => {
         setExpandedGroups(prev => 
@@ -280,6 +344,124 @@ export function ClientComponent() {
                     </label>
                     </div>
                 </div>
+
+                {/* Template Picker - Only for new roles, placed after Tipe Role */}
+                {isNew && !formData.isSuperAdmin && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => setShowTemplates(!showTemplates)}
+                        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md">
+                                <HiOutlineBolt className="w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                                <h2 className="text-base font-semibold text-gray-800 dark:text-white">
+                                    {selectedTemplate ? `Template: ${ROLE_TEMPLATES.find(t => t.id === selectedTemplate)?.name}` : 'Mulai dari Template'}
+                                </h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {selectedTemplate
+                                        ? 'Klik untuk mengganti template atau sesuaikan permission di bawah'
+                                        : 'Pilih template peran untuk mengaktifkan permission secara otomatis'
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {selectedTemplate && (
+                                <span
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        setSelectedTemplate(null)
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            permissions: [],
+                                        }))
+                                        setExpandedGroups([])
+                                        toast.success('Template direset')
+                                    }}
+                                    className="text-xs px-2.5 py-1 rounded-lg bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors cursor-pointer flex items-center gap-1"
+                                >
+                                    <FiX className="w-3 h-3" /> Reset
+                                </span>
+                            )}
+                            <div className={`transition-transform duration-200 text-gray-400 ${showTemplates ? 'rotate-180' : ''}`}>
+                                <FiChevronDown className="w-5 h-5" />
+                            </div>
+                        </div>
+                    </button>
+
+                    {showTemplates && (
+                        <div className="px-6 pb-6 border-t border-gray-100 dark:border-gray-700">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+                                {ROLE_TEMPLATES.map((template) => {
+                                    const isSelected = selectedTemplate === template.id
+                                    const colorMap: Record<string, { bg: string; border: string; ring: string; tagBg: string; tagText: string }> = {
+                                        blue:    { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-300 dark:border-blue-700', ring: 'ring-blue-400', tagBg: 'bg-blue-100 dark:bg-blue-900/40', tagText: 'text-blue-700 dark:text-blue-300' },
+                                        indigo:  { bg: 'bg-indigo-50 dark:bg-indigo-950/30', border: 'border-indigo-300 dark:border-indigo-700', ring: 'ring-indigo-400', tagBg: 'bg-indigo-100 dark:bg-indigo-900/40', tagText: 'text-indigo-700 dark:text-indigo-300' },
+                                        emerald: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-300 dark:border-emerald-700', ring: 'ring-emerald-400', tagBg: 'bg-emerald-100 dark:bg-emerald-900/40', tagText: 'text-emerald-700 dark:text-emerald-300' },
+                                        amber:   { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-300 dark:border-amber-700', ring: 'ring-amber-400', tagBg: 'bg-amber-100 dark:bg-amber-900/40', tagText: 'text-amber-700 dark:text-amber-300' },
+                                        rose:    { bg: 'bg-rose-50 dark:bg-rose-950/30', border: 'border-rose-300 dark:border-rose-700', ring: 'ring-rose-400', tagBg: 'bg-rose-100 dark:bg-rose-900/40', tagText: 'text-rose-700 dark:text-rose-300' },
+                                        violet:  { bg: 'bg-violet-50 dark:bg-violet-950/30', border: 'border-violet-300 dark:border-violet-700', ring: 'ring-violet-400', tagBg: 'bg-violet-100 dark:bg-violet-900/40', tagText: 'text-violet-700 dark:text-violet-300' },
+                                        cyan:    { bg: 'bg-cyan-50 dark:bg-cyan-950/30', border: 'border-cyan-300 dark:border-cyan-700', ring: 'ring-cyan-400', tagBg: 'bg-cyan-100 dark:bg-cyan-900/40', tagText: 'text-cyan-700 dark:text-cyan-300' },
+                                        orange:  { bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-300 dark:border-orange-700', ring: 'ring-orange-400', tagBg: 'bg-orange-100 dark:bg-orange-900/40', tagText: 'text-orange-700 dark:text-orange-300' },
+                                    }
+                                    const colors = colorMap[template.color] || colorMap.blue
+
+                                    return (
+                                        <button
+                                            key={template.id}
+                                            type="button"
+                                            onClick={() => applyTemplate(template)}
+                                            className={`relative text-left p-4 rounded-xl border-2 transition-all duration-200 group hover:shadow-md ${
+                                                isSelected
+                                                    ? `${colors.bg} ${colors.border} ring-2 ${colors.ring} shadow-md`
+                                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
+                                            }`}
+                                        >
+                                            {isSelected && (
+                                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
+                                                    <FiCheck className="w-3 h-3 text-white" />
+                                                </div>
+                                            )}
+
+                                            <div className="mb-2 text-gray-600 dark:text-gray-300">{TEMPLATE_ICONS[template.icon] || <HiOutlineWrench className="w-5 h-5" />}</div>
+                                            <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{template.name}</h3>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">{template.description}</p>
+
+                                            <div className="flex flex-wrap gap-1 mt-3">
+                                                {template.tags.map(tag => (
+                                                    <span
+                                                        key={tag}
+                                                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                                            isSelected ? `${colors.tagBg} ${colors.tagText}` : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                                                        }`}
+                                                    >
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex items-center gap-2 mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                                    {template.permissions.length} permission
+                                                </span>
+                                                <span className="text-gray-300 dark:text-gray-600">·</span>
+                                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                                    {template.accessAdminPanel && template.accessEmployeePanel ? 'Admin + Mobile' :
+                                                     template.accessAdminPanel ? 'Admin Portal' : 'Mobile App'}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                )}
 
                 {/* Permission Matrix - Hide if Super Admin */}
                 {!formData.isSuperAdmin && (

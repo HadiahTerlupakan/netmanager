@@ -1,0 +1,341 @@
+/**
+ * Role Templates
+ *
+ * Predefined permission sets for common roles in ISP/network management.
+ * Used by the "Tambah Role Baru" form to quickly configure permissions.
+ */
+
+export interface RoleTemplate {
+    id: string
+    name: string
+    description: string
+    icon: string // icon identifier mapped to React Icons in UI
+    color: string // tailwind color key
+    accessAdminPanel: boolean
+    accessEmployeePanel: boolean
+    isTechnical: boolean
+    isRestricted: boolean
+    isSuperAdmin: boolean
+    permissions: string[] // resource:action format
+    tags: string[]
+}
+
+export const ROLE_TEMPLATES: RoleTemplate[] = [
+    {
+        id: 'teknisi',
+        name: 'Teknisi',
+        description: 'Teknisi lapangan yang menangani work order, absensi, dan inventory material di mobile app.',
+        icon: 'wrench',
+        color: 'blue',
+        accessAdminPanel: false,
+        accessEmployeePanel: true,
+        isTechnical: true,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Mobile', 'Lapangan', 'Work Order'],
+        permissions: [
+            // Mobile - Beranda
+            'm_dashboard:read',
+            // Mobile - Work Order (full access)
+            'm_work_order:read', 'm_work_order:create', 'm_work_order:update',
+            // Mobile - Inventory
+            'm_barang:read',
+            'm_barang_masuk:read', 'm_barang_masuk:create',
+            'm_barang_keluar:read', 'm_barang_keluar:create',
+            // Mobile - Kehadiran
+            'm_absensi:read', 'm_absensi:create',
+            'm_lembur:read', 'm_lembur:create',
+            'm_izin:read', 'm_izin:create',
+            'm_holidays:read',
+            // Mobile - Chat
+            'm_chat:read', 'm_chat:create',
+            // Mobile - Partners
+            'm_partners:read',
+            // Admin WO read (for notifications)
+            'workorders:read', 'workorders:site_only', 'workorders:department_only',
+        ],
+    },
+    {
+        id: 'admin',
+        name: 'Admin',
+        description: 'Staff administrasi dengan akses penuh ke portal admin. Mengelola pelanggan, network, dan operasional.',
+        icon: 'computer',
+        color: 'indigo',
+        accessAdminPanel: true,
+        accessEmployeePanel: false,
+        isTechnical: false,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Portal Admin', 'Kantor', 'Manajemen'],
+        permissions: [
+            // Dashboard
+            'dashboard:read',
+            // Pelanggan (full CRUD)
+            'pelanggan:read', 'pelanggan:create', 'pelanggan:update', 'pelanggan:delete', 'pelanggan:site_only',
+            // Network
+            'network:read', 'map:read', 'mikrotik:read', 'radius:read',
+            // Paket
+            'paket:read', 'paket:create', 'paket:update',
+            'bandwidth:read', 'profileppp:read', 'harga:read',
+            // Work Orders
+            'workorders:read', 'workorders:create', 'workorders:update', 'workorders:site_only',
+            'work_order_dashboard:read', 'work_order_dashboard:site_only',
+            'list:read', 'list:create', 'list:update', 'list:site_only',
+            // Support
+            'support:read', 'support:create', 'support:update', 'support:site_only',
+            // Users (read only)
+            'users:read', 'users:site_only',
+            // Announcement
+            'announcement:read', 'announcement:create', 'announcement:update', 'announcement:site_only',
+            // Chat
+            'chat:read', 'chat:create',
+            // Inventory (read)
+            'inventory:read', 'inventory:site_only',
+            'barang:read', 'barang:site_only',
+        ],
+    },
+    {
+        id: 'helpdesk',
+        name: 'Helpdesk',
+        description: 'Staff helpdesk yang menangani tiket support, troubleshoot pelanggan, dan membuat work order.',
+        icon: 'headset',
+        color: 'emerald',
+        accessAdminPanel: true,
+        accessEmployeePanel: true,
+        isTechnical: true,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Support', 'Tiket', 'Work Order'],
+        permissions: [
+            // Dashboard
+            'dashboard:read',
+            // Support (full)
+            'support:read', 'support:create', 'support:update', 'support:delete', 'support:site_only',
+            // Pelanggan (read + update for troubleshoot)
+            'pelanggan:read', 'pelanggan:update', 'pelanggan:site_only',
+            // Work Orders (create + read)
+            'workorders:read', 'workorders:create', 'workorders:update', 'workorders:site_only',
+            'work_order_dashboard:read', 'work_order_dashboard:site_only',
+            'list:read', 'list:create', 'list:update', 'list:site_only',
+            // Network (read - for troubleshooting)
+            'network:read', 'network:site_only', 'map:read', 'map:site_only',
+            'mikrotik:read', 'mikrotik:site_only', 'radius:read', 'radius:site_only',
+            // Chat
+            'chat:read', 'chat:create',
+            // Announcement (read)
+            'announcement:read', 'announcement:site_only',
+            // Mobile - Beranda
+            'm_dashboard:read',
+            'm_chat:read', 'm_chat:create',
+        ],
+    },
+    {
+        id: 'staff-keuangan',
+        name: 'Staff Keuangan',
+        description: 'Staff bagian keuangan yang mengelola invoice, pembayaran, pengeluaran, dan laporan keuangan.',
+        icon: 'banknotes',
+        color: 'amber',
+        accessAdminPanel: true,
+        accessEmployeePanel: false,
+        isTechnical: false,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Finance', 'Invoice', 'Laporan'],
+        permissions: [
+            // Dashboard
+            'dashboard:read',
+            // Finance (full)
+            'finance:read', 'finance:site_only',
+            'transactions:read', 'transactions:create', 'transactions:update', 'transactions:delete', 'transactions:site_only',
+            'categories:read', 'categories:create', 'categories:update',
+            'expense:read', 'expense:create', 'expense:update', 'expense:delete', 'expense:site_only',
+            'daily_income:read', 'daily_income:site_only',
+            'period_income:read', 'period_income:site_only',
+            'profit_loss:read', 'profit_loss:site_only',
+            'debts_receivables:read', 'debts_receivables:create', 'debts_receivables:update', 'debts_receivables:site_only',
+            'treasury:read', 'treasury:create', 'treasury:update', 'treasury:site_only',
+            'reports:read', 'reports:site_only',
+            // Pelanggan (read - for invoice reference)
+            'pelanggan:read', 'pelanggan:site_only',
+            // Chat
+            'chat:read', 'chat:create',
+        ],
+    },
+    {
+        id: 'sales',
+        name: 'Sales / Marketing',
+        description: 'Tim sales yang menangani canvasing, kupon promo, dan tracking performa penjualan.',
+        icon: 'chart',
+        color: 'rose',
+        accessAdminPanel: false,
+        accessEmployeePanel: true,
+        isTechnical: false,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Marketing', 'Canvasing', 'Mobile'],
+        permissions: [
+            // Mobile
+            'm_dashboard:read',
+            'm_canvasing:read', 'm_canvasing:create',
+            'm_absensi:read', 'm_absensi:create',
+            'm_izin:read', 'm_izin:create',
+            'm_holidays:read',
+            'm_chat:read', 'm_chat:create',
+            // Canvasing read (for notifications)
+            'canvasing:read', 'canvasing:site_only',
+        ],
+    },
+    {
+        id: 'manager',
+        name: 'Manager / Supervisor',
+        description: 'Manager atau supervisor dengan akses luas ke portal admin, termasuk approval, verifikasi, dan laporan.',
+        icon: 'briefcase',
+        color: 'violet',
+        accessAdminPanel: true,
+        accessEmployeePanel: true,
+        isTechnical: false,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Supervisi', 'Approval', 'Laporan'],
+        permissions: [
+            // Dashboard
+            'dashboard:read',
+            // Pelanggan
+            'pelanggan:read', 'pelanggan:create', 'pelanggan:update', 'pelanggan:delete', 'pelanggan:site_only',
+            // Network
+            'network:read', 'network:site_only',
+            'map:read', 'map:site_only',
+            'mikrotik:read', 'mikrotik:site_only',
+            'radius:read', 'radius:site_only',
+            // Work Orders (with verify + approve)
+            'workorders:read', 'workorders:create', 'workorders:update', 'workorders:delete', 'workorders:verify', 'workorders:cancel', 'workorders:reminder', 'workorders:approve_request', 'workorders:site_only',
+            'work_order_dashboard:read', 'work_order_dashboard:site_only',
+            'list:read', 'list:create', 'list:update', 'list:delete', 'list:verify', 'list:cancel', 'list:site_only',
+            // Users (manage)
+            'users:read', 'users:create', 'users:update', 'users:site_only',
+            'department:read', 'department:create', 'department:update', 'department:site_only',
+            'site:read',
+            // Kehadiran (with verify)
+            'kehadiran:read', 'kehadiran:site_only',
+            'attendance:read', 'attendance:update', 'attendance:site_only', 'attendance:department_only',
+            'izin:read', 'izin:update', 'izin:verify', 'izin:site_only', 'izin:department_only',
+            'lembur:read', 'lembur:update', 'lembur:verify', 'lembur:site_only', 'lembur:department_only',
+            'report:read', 'report:site_only', 'report:department_only',
+            'live_tracking:read', 'live_tracking:site_only', 'live_tracking:department_only',
+            // Inventory (manage)
+            'inventory:read', 'inventory:create', 'inventory:update', 'inventory:site_only',
+            'barang:read', 'barang:create', 'barang:update', 'barang:site_only',
+            'gudang:read', 'gudang:create', 'gudang:update', 'gudang:site_only',
+            'masuk:read', 'masuk:create', 'masuk:site_only',
+            'keluar:read', 'keluar:create', 'keluar:site_only',
+            'transfer:read', 'transfer:create', 'transfer:site_only',
+            'opname:read', 'opname:create', 'opname:site_only',
+            // Finance (read reports)
+            'finance:read', 'finance:site_only',
+            'daily_income:read', 'daily_income:site_only',
+            'period_income:read', 'period_income:site_only',
+            'profit_loss:read', 'profit_loss:site_only',
+            // Support
+            'support:read', 'support:create', 'support:update', 'support:site_only',
+            // Marketing
+            'marketing:read', 'marketing:site_only',
+            'canvasing:read', 'canvasing:verify', 'canvasing:site_only',
+            'sales_dashboard:read', 'sales_dashboard:site_only',
+            'sales:read', 'sales:site_only',
+            // Chat + Broadcast
+            'chat:read', 'chat:create',
+            'broadcast:create',
+            // Announcement
+            'announcement:read', 'announcement:create', 'announcement:update', 'announcement:site_only',
+            // Mobile
+            'm_dashboard:read',
+            'm_work_order:read',
+            'm_absensi:read', 'm_absensi:create',
+            'm_chat:read', 'm_chat:create',
+        ],
+    },
+    {
+        id: 'noc',
+        name: 'NOC / Network',
+        description: 'Tim Network Operations Center yang mengelola perangkat jaringan, monitoring, dan radius server.',
+        icon: 'globe',
+        color: 'cyan',
+        accessAdminPanel: true,
+        accessEmployeePanel: false,
+        isTechnical: true,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Network', 'Monitoring', 'MikroTik'],
+        permissions: [
+            // Dashboard
+            'dashboard:read',
+            // Network (full)
+            'network:read', 'network:create', 'network:update', 'network:delete', 'network:site_only',
+            'map:read', 'map:create', 'map:update', 'map:delete', 'map:site_only',
+            'mikrotik:read', 'mikrotik:create', 'mikrotik:update', 'mikrotik:delete', 'mikrotik:site_only',
+            'radius:read', 'radius:create', 'radius:update', 'radius:delete', 'radius:site_only',
+            // Paket & Bandwidth (manage)
+            'paket:read', 'paket:create', 'paket:update', 'paket:delete',
+            'bandwidth:read', 'bandwidth:create', 'bandwidth:update', 'bandwidth:delete',
+            'profileppp:read', 'profileppp:create', 'profileppp:update', 'profileppp:delete',
+            'harga:read',
+            // PPP
+            'ppp:read', 'ppp:create', 'ppp:update', 'ppp:delete',
+            // Pelanggan (read - for PPP reference)
+            'pelanggan:read', 'pelanggan:site_only',
+            // Integration
+            'mixradius:read', 'mixradius:create', 'mixradius:update',
+            'mixradius_isolir:read', 'mixradius_isolir:update',
+            'mixradius_sites:read',
+            'mixradius_accounts:read', 'mixradius_accounts:create', 'mixradius_accounts:update',
+            // Chat
+            'chat:read', 'chat:create',
+        ],
+    },
+    {
+        id: 'inventory-staff',
+        name: 'Staff Gudang',
+        description: 'Staff yang mengelola gudang, stok barang, barang masuk/keluar, transfer, dan stock opname.',
+        icon: 'cube',
+        color: 'orange',
+        accessAdminPanel: true,
+        accessEmployeePanel: true,
+        isTechnical: false,
+        isRestricted: false,
+        isSuperAdmin: false,
+        tags: ['Gudang', 'Stok', 'Inventory'],
+        permissions: [
+            // Dashboard
+            'dashboard:read',
+            // Inventory (full)
+            'inventory:read', 'inventory:create', 'inventory:update', 'inventory:delete', 'inventory:site_only', 'inventory:department_only',
+            'barang:read', 'barang:create', 'barang:update', 'barang:delete', 'barang:site_only', 'barang:department_only',
+            'gudang:read', 'gudang:create', 'gudang:update', 'gudang:delete', 'gudang:site_only', 'gudang:department_only',
+            'masuk:read', 'masuk:create', 'masuk:update', 'masuk:delete', 'masuk:site_only', 'masuk:department_only',
+            'keluar:read', 'keluar:create', 'keluar:update', 'keluar:delete', 'keluar:site_only', 'keluar:department_only',
+            'transfer:read', 'transfer:create', 'transfer:update', 'transfer:delete', 'transfer:site_only', 'transfer:department_only',
+            'opname:read', 'opname:create', 'opname:update', 'opname:delete', 'opname:site_only', 'opname:department_only',
+            'restock:read', 'restock:create', 'restock:update', 'restock:site_only',
+            'assets:read', 'assets:create', 'assets:update', 'assets:delete', 'assets:site_only',
+            // Procurement
+            'procurement:read', 'procurement:create', 'procurement:update', 'procurement:site_only',
+            'supplier:read', 'supplier:create', 'supplier:update',
+            // Chat
+            'chat:read', 'chat:create',
+            // Mobile - Inventory
+            'm_dashboard:read',
+            'm_barang:read',
+            'm_barang_masuk:read', 'm_barang_masuk:create',
+            'm_barang_keluar:read', 'm_barang_keluar:create',
+            'm_absensi:read', 'm_absensi:create',
+            'm_chat:read', 'm_chat:create',
+        ],
+    },
+]
+
+/**
+ * Get a role template by ID
+ */
+export function getRoleTemplate(id: string): RoleTemplate | undefined {
+    return ROLE_TEMPLATES.find(t => t.id === id)
+}
