@@ -11,10 +11,13 @@ import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
 import { Server as SocketIOServer } from 'socket.io'
+import { createAdapter } from '@socket.io/redis-adapter'
+import Redis from 'ioredis'
 import { initializeSocketServer } from './lib/websocket/server'
 import cron from 'node-cron'
 import type { ScheduledTask } from 'node-cron'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
+import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
 import { prisma } from './lib/prisma'
 
 const dev = process.env.NODE_ENV !== 'production'
@@ -318,8 +321,30 @@ app.prepare().then(() => {
     // Set reference for internal emit endpoint
     ioRef = io
 
+    // Setup Redis adapter for horizontal scaling (multi-worker support)
+    try {
+        const redisUrl = process.env.REDIS_URL || 'redis://localhost:6380'
+        const pubClient = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 2 })
+        const subClient = pubClient.duplicate()
+
+        Promise.all([pubClient.connect(), subClient.connect()])
+            .then(() => {
+                io.adapter(createAdapter(pubClient, subClient))
+                console.log('[WS] Redis adapter connected for horizontal scaling')
+            })
+            .catch((error) => {
+                console.warn('[WS] Redis adapter connection failed, using in-memory adapter:', error instanceof Error ? error.message : error)
+            })
+    } catch (error) {
+        console.warn('[WS] Redis adapter setup failed, falling back to in-memory adapter:', error instanceof Error ? error.message : error)
+        // Socket.IO will continue with its default in-memory adapter
+    }
+
     // Initialize WebSocket handlers
     initializeSocketServer(io)
+
+    // Start Push Notification Retry Processor
+    startPushRetryProcessor()
 
     // Start Radius Monitoring Service
     // Dynamic import to avoid issues if module dependencies aren't ready
@@ -426,6 +451,7 @@ app.prepare().then(() => {
         // 2. Stop Monitoring Services
         try {
             stopRadiusMonitoring()
+            stopPushRetryProcessor()
             if (mikroTikMonitorRef) {
                 mikroTikMonitorRef.stop()
             }

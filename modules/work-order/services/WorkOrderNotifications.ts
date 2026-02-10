@@ -31,7 +31,7 @@ interface WorkOrderData {
  * Trigger notification when a new Work Order is created
  * - Notifies all employees in the department (filtered by Site)
  */
-export async function onWorkOrderCreated(workOrder: WorkOrderData) {
+export async function onWorkOrderCreated(workOrder: WorkOrderData, triggeredByUserId?: string) {
     try {
         await notifyNewWorkOrder({
             workOrderId: workOrder.id,
@@ -40,7 +40,8 @@ export async function onWorkOrderCreated(workOrder: WorkOrderData) {
             type: workOrder.type,
             priority: workOrder.priority,
             departmentId: workOrder.departmentId || undefined,
-            siteId: workOrder.siteId || undefined
+            siteId: workOrder.siteId || undefined,
+            triggeredByUserId,
         });
         console.log(`[Notification] New WO notification triggered for Dept: ${workOrder.departmentId}, Site: ${workOrder.siteId}`);
     } catch (error) {

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { enqueuePushRetry } from './PushRetryQueue'
 
 interface ExpoPushMessage {
     to: string
@@ -49,6 +50,21 @@ export async function sendPushNotification(
 
     } catch (error) {
         console.error('[Push] Error sending notification:', error)
+        // Enqueue for retry
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { pushToken: true }
+        })
+        if (user?.pushToken) {
+            enqueuePushRetry({
+                type: 'expo',
+                userId,
+                title,
+                body,
+                data,
+                pushToken: user.pushToken,
+            })
+        }
         return false
     }
 }
@@ -95,6 +111,7 @@ export async function sendPushToUsers(
 
 /**
  * Send push notifications via Expo Push API
+ * Includes throttling between chunks and per-ticket error handling
  */
 async function sendExpoPush(messages: ExpoPushMessage[]): Promise<boolean> {
     if (messages.length === 0) return false
@@ -105,33 +122,54 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<boolean> {
         chunks.push(messages.slice(i, i + 100))
     }
 
+    let allSucceeded = true
+
     try {
-        for (const chunk of chunks) {
+        for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+            const chunk = chunks[chunkIndex]
 
-            const response = await fetch('https://exp.host/--/api/v2/push/send', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(chunk)
-            })
+            // Throttle: wait 200ms between chunks to avoid overwhelming Expo API
+            if (chunkIndex > 0) {
+                await new Promise(resolve => setTimeout(resolve, 200))
+            }
 
-            const result = await response.json()
-            
-            if (result.data) {
-                const tickets = result.data as ExpoPushTicket[]
-                tickets.forEach((ticket, index) => {
-                    if (ticket.status === 'error') {
-                        console.error(`[Push] Error for message ${index}:`, ticket.message, ticket.details)
-                    } else {
-                        console.log(`[Push] Sent successfully, ticket: ${ticket.id}`)
-                    }
+            try {
+                const response = await fetch('https://exp.host/--/api/v2/push/send', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(chunk)
                 })
+
+                if (!response.ok) {
+                    console.error(`[Push] Expo API HTTP error ${response.status} for chunk ${chunkIndex + 1}/${chunks.length}`)
+                    allSucceeded = false
+                    continue
+                }
+
+                const result = await response.json()
+
+                if (result.data) {
+                    const tickets = result.data as ExpoPushTicket[]
+                    tickets.forEach((ticket, index) => {
+                        if (ticket.status === 'error') {
+                            console.error(`[Push] Error for chunk ${chunkIndex + 1} message ${index}:`, ticket.message, ticket.details)
+                            allSucceeded = false
+                        }
+                    })
+                }
+
+                console.log(`[Push] Chunk ${chunkIndex + 1}/${chunks.length} sent (${chunk.length} messages)`)
+            } catch (chunkError) {
+                console.error(`[Push] Failed to send chunk ${chunkIndex + 1}/${chunks.length}:`, chunkError)
+                allSucceeded = false
+                // Continue with next chunk instead of aborting all
             }
         }
-        return true
+        return allSucceeded
     } catch (error) {
         console.error('[Push] Expo API error:', error)
         return false

@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
         priority: workOrder.priority,
         departmentId: workOrder.departmentId,
         siteId: workOrder.siteId,
-    }).catch(err => console.error('[Dismantle] Notification error:', err))
+    }, user.id).catch(err => console.error('[Dismantle] Notification error:', err))
 
     // 6. Broadcast via WebSocket
     try {

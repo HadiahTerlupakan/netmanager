@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { randomUUID } from 'crypto';
+import { getPriorityEmoji, getStatusEmoji, getActionEmoji, getWorkOrderTypeLabel } from '@/lib/notification-constants';
 
 export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT' | 'ANNOUNCEMENT';
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -111,7 +112,10 @@ export async function createNotification(data: CreateNotificationData) {
  *    - Jika departmentId diset, hanya user di department tersebut
  */
 async function findEligibleRecipients(departmentId?: string, siteId?: string, excludeUserId?: string) {
-    console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}`);
+    if (!excludeUserId) {
+        console.warn(`[NotificationDebug] WARNING: findEligibleRecipients called without excludeUserId. This may cause self-notifications.`);
+    }
+    console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}, Exclude: ${excludeUserId || 'NONE'}`);
 
     // Build where clause
     const whereClause: Prisma.UserWhereInput = {
@@ -241,12 +245,12 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
 /**
  * Create notification for new Work Order (notify users by Department AND Site)
  */
-export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
+export async function notifyNewWorkOrder(data: WorkOrderNotificationData & { triggeredByUserId?: string }) {
     const priorityEmoji = getPriorityEmoji(data.priority);
     const typeLabel = getWorkOrderTypeLabel(data.type);
 
     console.log(`[NotificationDebug] Processing New WO Notification: ${data.workOrderNumber}`);
-    const recipients = await findEligibleRecipients(data.departmentId, data.siteId);
+    const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
     
     console.log(`[Notification] New WO ${data.workOrderNumber}: Found ${recipients.length} recipients`);
 
@@ -395,20 +399,7 @@ export async function notifyAdminsAboutMobileAction(data: {
     departmentId?: string;
     siteId?: string;
 }) {
-    const actionEmojis: Record<string, string> = {
-        CLAIM: '🎯',
-        START: '▶️',
-        COMPLETE: '✅',
-        PAUSE: '⏸️',
-        NOTE: '📝',
-        MATERIAL_PICKUP: '📦',
-        MATERIAL_RETURN: '📥',
-        PARTNER_INVITE: '🤝',
-        PARTNER_RESPONSE: '📨',
-        COMMENT: '💬'
-    };
-    
-    const emoji = actionEmojis[data.actionType] || '📋';
+    const emoji = getActionEmoji(data.actionType);
 
     // Get admin users who should be notified (with workorders permission, excluding the triggerer)
     const adminUsersRaw = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
@@ -639,54 +630,7 @@ export async function unsubscribeDevice(endpoint: string) {
     });
 }
 
-// Helper functions
-function getPriorityEmoji(priority: string): string {
-    switch (priority) {
-        case 'URGENT':
-        case 'CRITICAL':
-            return '🚨';
-        case 'HIGH':
-            return '⚠️';
-        case 'NORMAL':
-            return '📋';
-        case 'LOW':
-            return '📝';
-        default:
-            return '📋';
-    }
-}
-
-function getWorkOrderTypeLabel(type: string): string {
-    const labels: Record<string, string> = {
-        INSTALLATION: 'Instalasi',
-        TROUBLESHOOT: 'Troubleshoot',
-        MAINTENANCE: 'Maintenance',
-        DISCONNECTION: 'Penarikan',
-        RELOCATION: 'Relokasi',
-    };
-    return labels[type] || type;
-}
-
-function getStatusEmoji(status: string): string {
-    switch (status) {
-        case 'COMPLETED':
-            return '✅';
-        case 'VERIFIED':
-            return '✔️';
-        case 'CLOSED':
-            return '🔒';
-        case 'CANCELLED':
-            return '❌';
-        case 'IN_PROGRESS':
-            return '🔄';
-        case 'ON_HOLD':
-            return '⏸️';
-        case 'ASSIGNED':
-            return '👤';
-        default:
-            return '📋';
-    }
-}
+// Helper functions imported from @/lib/notification-constants
 
 // ============================================
 // CANVASING NOTIFICATIONS

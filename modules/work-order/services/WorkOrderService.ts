@@ -281,7 +281,7 @@ export class WorkOrderService {
             const workOrder = await this.repository.create(createData)
 
             // Trigger notifications
-            await this.notifyWorkOrderCreated(workOrder)
+            await this.notifyWorkOrderCreated(workOrder, userContext.id)
 
             // Broadcast socket event
             this.broadcastWorkOrderCreated(workOrder)
@@ -857,7 +857,7 @@ export class WorkOrderService {
         }
     }
 
-    private async notifyWorkOrderCreated(workOrder: unknown): Promise<void> {
+    private async notifyWorkOrderCreated(workOrder: unknown, triggeredByUserId?: string): Promise<void> {
         try {
             const wo = workOrder as {
                 id: string;
@@ -878,7 +878,7 @@ export class WorkOrderService {
                 departmentId: wo.departmentId,
                 siteId: wo.siteId,
                 assignedToId: wo.assignedToId,
-            })
+            }, triggeredByUserId)
         } catch (err) {
             logger.error('Failed to send work order notification', err instanceof Error ? err : undefined)
         }

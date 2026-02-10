@@ -47,6 +47,8 @@ export const socketEmitter = {
         if (io) {
             io.to(`user:${userId}`).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
             console.log(`[WS] Emitted notification to user:${userId}`)
+        } else {
+            emitViaHttp(SOCKET_EVENTS.NOTIFICATION_NEW, `user:${userId}`, notification)
         }
     },
 
@@ -58,6 +60,8 @@ export const socketEmitter = {
         if (io) {
             io.to(`department:${departmentId}`).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
             console.log(`[WS] Emitted notification to department:${departmentId}`)
+        } else {
+            emitViaHttp(SOCKET_EVENTS.NOTIFICATION_NEW, `department:${departmentId}`, notification)
         }
     },
 
@@ -66,10 +70,12 @@ export const socketEmitter = {
      */
     notifyAdmins(notification: NotificationPayload, siteId?: string) {
         const io = getSocketServer()
+        const room = siteId ? `admin:notifications:site:${siteId}` : 'admin:notifications'
         if (io) {
-            const room = siteId ? `admin:notifications:site:${siteId}` : 'admin:notifications'
             io.to(room).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
             console.log(`[WS] Emitted notification to ${room}`)
+        } else {
+            emitViaHttp(SOCKET_EVENTS.NOTIFICATION_NEW, room, notification)
         }
     },
 
