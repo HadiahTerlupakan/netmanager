@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle, HiOutlineDevicePhoneMobile, HiOutlineMap, HiOutlineStar } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle, HiOutlineDevicePhoneMobile, HiOutlineMap, HiOutlineStar, HiOutlineClock } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { toast } from 'react-hot-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -39,6 +39,7 @@ interface User {
     lastVersionCode?: number
     lastVersionName?: string
     lastVersionUpdate?: string
+    lastLoginAt?: string
 }
 
 export default function UserList() {
@@ -328,6 +329,41 @@ export default function UserList() {
                     )}
                 </div>
             )
+        },
+        {
+            key: 'lastLoginAt',
+            header: 'Terakhir Login',
+            priority: 'secondary',
+            render: (user) => {
+                if (!user.lastLoginAt) {
+                    return <span className="text-sm text-gray-400">Belum pernah</span>
+                }
+                const date = new Date(user.lastLoginAt)
+                const now = new Date()
+                const diffMs = now.getTime() - date.getTime()
+                const diffMins = Math.floor(diffMs / 60000)
+                const diffHours = Math.floor(diffMs / 3600000)
+                const diffDays = Math.floor(diffMs / 86400000)
+
+                let timeAgo: string
+                if (diffMins < 1) timeAgo = 'Baru saja'
+                else if (diffMins < 60) timeAgo = `${diffMins} menit lalu`
+                else if (diffHours < 24) timeAgo = `${diffHours} jam lalu`
+                else if (diffDays < 7) timeAgo = `${diffDays} hari lalu`
+                else timeAgo = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+
+                return (
+                    <div className="flex flex-col">
+                        <span className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+                            <HiOutlineClock className="w-3.5 h-3.5 text-gray-400" />
+                            {timeAgo}
+                        </span>
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                            {date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    </div>
+                )
+            }
         },
         {
             key: 'isActive',

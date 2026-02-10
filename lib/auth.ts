@@ -444,8 +444,14 @@ export const authConfig: NextAuthOptions = {
           include: { role: true }
         })
         roleName = dbUser?.role?.name || 'No Role'
-        portal = dbUser?.role?.accessAdminPanel ? 'Admin Portal' : 
+        portal = dbUser?.role?.accessAdminPanel ? 'Admin Portal' :
                  dbUser?.role?.accessEmployeePanel ? 'Employee Portal' : 'Unknown'
+
+        // Update lastLoginAt
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() }
+        })
       } catch (e) {
         console.error('[AUTH] Failed to fetch user role for logging:', e)
       }

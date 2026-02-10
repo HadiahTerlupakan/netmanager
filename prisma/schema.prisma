@@ -929,6 +929,7 @@ model User {
   lastVersionCode                            Int?
   lastVersionName                            String?
   lastVersionUpdate                          DateTime?
+  lastLoginAt                                DateTime?
   canvasingTarget                            Int                       @default(50)
   isSales                                    Boolean                   @default(false)
   // Salary configuration fields
