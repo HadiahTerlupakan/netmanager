@@ -15,7 +15,11 @@ import {
   HiOutlineArrowTrendingDown,
   HiOutlineCalculator,
   HiOutlineUsers,
-  HiOutlineChartBar
+  HiOutlineChartBar,
+  HiOutlineBanknotes,
+  HiOutlineCheckCircle,
+  HiOutlineXCircle,
+  HiOutlineClipboardDocumentList
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
@@ -125,8 +129,26 @@ export default function IncomePeriodClient() {
 
   // RAB Project Comparison State
   const [rabProject, setRabProject] = useState<RABProject | null>(null)
+  const [rabProjects, setRabProjects] = useState<RABProject[]>([])
+  const [selectedProject, setSelectedProject] = useState('')
   const [rabLoading, setRabLoading] = useState(false)
   const [isCalculatingNet, setIsCalculatingNet] = useState(false)
+
+  // ROI Tracking State
+  const [cumulativeRevenue, setCumulativeRevenue] = useState<number>(0)
+  const [cumulativeExpenses, setCumulativeExpenses] = useState<number>(0)
+  const [cumulativeNetIncome, setCumulativeNetIncome] = useState<number>(0)
+  const [cumulativeGatewayFee, setCumulativeGatewayFee] = useState<number>(0)
+  const [_cumulativeSellerFee, setCumulativeSellerFee] = useState<number>(0)
+  const [roiLoading, setRoiLoading] = useState(false)
+  const [projectMonthsElapsed, setProjectMonthsElapsed] = useState<number>(0)
+  // Breakdown pengeluaran kumulatif
+  const [cumCapexFromRab, setCumCapexFromRab] = useState<number>(0)
+  const [cumCapexUmum, setCumCapexUmum] = useState<number>(0)
+  const [cumOpexAktual, setCumOpexAktual] = useState<number>(0)
+  const [cumOpexUmum, setCumOpexUmum] = useState<number>(0)
+  const [cumOpexProyeksi, setCumOpexProyeksi] = useState<number>(0)
+  const [cumDepreciation, setCumDepreciation] = useState<number>(0)
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState('renewed_on')
@@ -147,13 +169,27 @@ export default function IncomePeriodClient() {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Fetch data for filters & Fees
+  // Helper to parse RAB project numeric values
+  const parseRABProject = useCallback((project: Record<string, unknown>): RABProject => ({
+    ...project,
+    projectedRevenue: Number(project.projectedRevenue),
+    projectedOpex: Number(project.projectedOpex),
+    arpu: project.arpu ? Number(project.arpu) : undefined,
+    items: ((project.items as Array<RABItem & { unitPrice: string | number, totalPrice: string | number }>) || []).map(item => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+      totalPrice: Number(item.totalPrice)
+    }))
+  } as RABProject), [])
+
+  // Fetch data for filters, Fees & RAB Projects
   useEffect(() => {
     const fetchFilterData = async () => {
       try {
-        const [groupsRes, feesRes] = await Promise.all([
+        const [groupsRes, feesRes, rabRes] = await Promise.all([
           fetch('/api/integrations/mixradius/groups'),
-          fetch('/api/integrations/mixradius/fees')
+          fetch('/api/integrations/mixradius/fees'),
+          fetch('/api/finance/rab-projects')
         ])
 
         if (groupsRes.ok) {
@@ -169,16 +205,58 @@ export default function IncomePeriodClient() {
                 setFeeConfig(result.data)
             }
         }
+
+        if (rabRes.ok) {
+          const projects = await rabRes.json()
+          if (Array.isArray(projects)) {
+            setRabProjects(projects.map(parseRABProject))
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch filter data:', err)
       }
     }
     fetchFilterData()
-  }, [])
+  }, [parseRABProject])
 
-  // Fetch RAB Project for selected group
+  // Handle project selection - auto-set group and date range
+  const handleProjectSelect = useCallback((projectId: string) => {
+    setSelectedProject(projectId)
+
+    if (!projectId) {
+      // Clearing project selection - don't reset group/date
+      setRabProject(null)
+      return
+    }
+
+    const project = rabProjects.find(p => p.id === projectId)
+    if (project) {
+      setRabProject(project)
+
+      // Auto-set group filter
+      if (project.mixRadiusGroupId) {
+        setSelectedGroup(project.mixRadiusGroupId)
+      }
+
+      // Auto-set start date from project start date
+      if (project.startDate) {
+        const d = new Date(project.startDate)
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        setStartDate(`${year}-${month}-${day}`)
+      }
+
+      setPage(0)
+    }
+  }, [rabProjects])
+
+  // Fetch RAB Project for selected group (when no project is explicitly selected)
   useEffect(() => {
     const fetchRABProject = async () => {
+      // Skip if project is explicitly selected (already handled by handleProjectSelect)
+      if (selectedProject) return
+
       if (!selectedGroup || selectedGroup === 'all') {
         setRabProject(null)
         return
@@ -189,21 +267,8 @@ export default function IncomePeriodClient() {
         const res = await fetch(`/api/finance/rab-projects?mixRadiusGroupId=${selectedGroup}`)
         if (res.ok) {
           const projects = await res.json()
-          // Get the first/active RAB project for this group
           if (Array.isArray(projects) && projects.length > 0) {
-            // Parse numeric values
-            const project = projects[0]
-            setRabProject({
-              ...project,
-              projectedRevenue: Number(project.projectedRevenue),
-              projectedOpex: Number(project.projectedOpex),
-              arpu: project.arpu ? Number(project.arpu) : undefined,
-              items: project.items?.map((item: RABItem & { unitPrice: string | number, totalPrice: string | number }) => ({
-                ...item,
-                unitPrice: Number(item.unitPrice),
-                totalPrice: Number(item.totalPrice)
-              })) || []
-            })
+            setRabProject(parseRABProject(projects[0]))
           } else {
             setRabProject(null)
           }
@@ -217,7 +282,7 @@ export default function IncomePeriodClient() {
     }
 
     fetchRABProject()
-  }, [selectedGroup])
+  }, [selectedGroup, selectedProject, parseRABProject])
 
   // Move helper functions outside or use useCallback to stabilize them
   const parseNumber = useCallback((val: string | number): number => {
@@ -446,6 +511,173 @@ export default function IncomePeriodClient() {
 
       return () => clearTimeout(timer)
   }, [totalRecords, feeConfig, startDate, endDate, serviceType, paymentMethod, selectedGroup, debouncedSearch, sortColumn, sortDirection, calculateNetIncome, groups.length, parseNumber]) // Recalculate when filters or fees change
+
+  // Calculate Cumulative ROI for selected project (lifetime from startDate to now)
+  useEffect(() => {
+      if (!rabProject || !rabProject.startDate || !rabProject.mixRadiusGroupId) {
+          setCumulativeRevenue(0)
+          setCumulativeExpenses(0)
+          setCumulativeNetIncome(0)
+          setCumulativeGatewayFee(0)
+          setCumulativeSellerFee(0)
+          setProjectMonthsElapsed(0)
+          setCumCapexFromRab(0)
+          setCumCapexUmum(0)
+          setCumOpexAktual(0)
+          setCumOpexUmum(0)
+          setCumOpexProyeksi(0)
+          setCumDepreciation(0)
+          return
+      }
+
+      const calcROI = async () => {
+          setRoiLoading(true)
+          try {
+              const projectStart = new Date(rabProject.startDate!)
+              const now = new Date()
+              const projectStartStr = `${projectStart.getFullYear()}-${String(projectStart.getMonth() + 1).padStart(2, '0')}-${String(projectStart.getDate()).padStart(2, '0')}`
+              const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+              // Calculate months elapsed
+              const months = (now.getFullYear() - projectStart.getFullYear()) * 12 + (now.getMonth() - projectStart.getMonth())
+              setProjectMonthsElapsed(Math.max(0, months))
+
+              // Fetch all revenue data for project lifetime
+              const revenueParams = new URLSearchParams({
+                start: '0',
+                length: '10000',
+                search: '',
+                sortBy: 'renewed_on',
+                sortDir: 'desc',
+                fdate: projectStartStr,
+                tdate: nowStr,
+                groupId: rabProject.mixRadiusGroupId!,
+              })
+
+              const [revenueRes, specificExpRes, generalExpRes] = await Promise.all([
+                fetch(`/api/integrations/mixradius/reports/period?${revenueParams}`),
+                fetch(`/api/finance/expenses?startDate=${projectStartStr}&endDate=${nowStr}&mixRadiusGroupId=${rabProject.mixRadiusGroupId}`),
+                fetch(`/api/finance/expenses?startDate=${projectStartStr}&endDate=${nowStr}&scope=general`)
+              ])
+
+              let cumRevenue = 0
+              let cumSellerFee = 0
+              let cumGatewayFee = 0
+
+              if (revenueRes.ok) {
+                const revenueData = await revenueRes.json()
+                if (revenueData.success && revenueData.data) {
+                  // Gunakan summary.profit agar konsisten dengan "Pendapatan vs Proyeksi"
+                  // summary.profit = Pendapatan setelah potongan MixRadius (sama dengan yang ditampilkan di Periode Terpilih)
+                  const summaryData = revenueData.data.summary
+                  if (summaryData) {
+                    cumRevenue = parseNumber(summaryData.profit)
+                    cumSellerFee = parseNumber(summaryData.feeSeller)
+                  }
+
+                  // Gateway fee tetap hitung dari per-record karena tergantung metode bayar
+                  const records = revenueData.data.data as IncomePeriodRecord[]
+                  if (records && records.length > 0) {
+                    const { fee } = calculateNetIncome(records)
+                    cumGatewayFee = fee
+                  }
+                }
+              }
+
+              setCumulativeRevenue(cumRevenue)
+              setCumulativeSellerFee(cumSellerFee)
+              setCumulativeGatewayFee(cumGatewayFee)
+
+              // ═══════════════════════════════════════════════════
+              // HITUNG PENGELUARAN - Pisah CAPEX vs OPEX, Spesifik vs Umum
+              // ═══════════════════════════════════════════════════
+              const specificJson = specificExpRes.ok ? await specificExpRes.json() : []
+              const generalJson = generalExpRes.ok ? await generalExpRes.json() : []
+
+              // Pisahkan expense spesifik (untuk group ini) by category
+              let specOpex = 0
+              let specCapex = 0
+              let specDepreciation = 0
+              if (Array.isArray(specificJson)) {
+                specificJson.forEach((item: { amount: string | number; depreciation?: string | number; category?: string }) => {
+                  if (item.category === 'CAPEX') {
+                    specCapex += Number(item.amount)
+                  } else {
+                    specOpex += Number(item.amount)
+                  }
+                  specDepreciation += Number(item.depreciation || 0)
+                })
+              }
+
+              // Pisahkan expense umum (shared) by category
+              let genOpex = 0
+              let genCapex = 0
+              let genDepreciation = 0
+              if (Array.isArray(generalJson)) {
+                generalJson.forEach((item: { amount: string | number; depreciation?: string | number; category?: string }) => {
+                  if (item.category === 'CAPEX') {
+                    genCapex += Number(item.amount)
+                  } else {
+                    genOpex += Number(item.amount)
+                  }
+                  genDepreciation += Number(item.depreciation || 0)
+                })
+              }
+
+              // Alokasi expense umum proportional ke jumlah group
+              const totalGroups = groups.length || 1
+              const allocatedGenOpex = genOpex / totalGroups
+              const allocatedGenCapex = genCapex / totalGroups
+              const allocatedGenDepreciation = genDepreciation / totalGroups
+
+              // ── CAPEX ──
+              // 1. CAPEX dari RAB items (investasi proyek)
+              const capexFromRab = rabProject.items
+                .filter(item => !item.expenseType || item.expenseType === 'CAPEX')
+                .reduce((sum, item) => sum + Number(item.totalPrice), 0)
+              // 2. CAPEX Umum (alokasi dari pengeluaran umum)
+              const capexUmum = specCapex + allocatedGenCapex
+
+              // ── OPEX ──
+              // 1. OPEX dari RAB = biaya operasional yang sudah direncanakan di RAB (otomatis × bulan)
+              const monthsForOpex = Math.max(1, months)
+              const opexRabPerBulan = rabProject.items
+                .filter(item => item.expenseType === 'OPEX')
+                .reduce((sum, item) => sum + Number(item.totalPrice), 0)
+              const opexProyeksi = opexRabPerBulan * monthsForOpex
+
+              // 2. OPEX Tambahan dari Pengeluaran = biaya di luar RAB (spesifik + alokasi umum)
+              const opexTambahan = specOpex + allocatedGenOpex
+
+              // ── Depresiasi ──
+              const totalDepreciation = specDepreciation + allocatedGenDepreciation
+
+              // Set state untuk breakdown UI
+              setCumCapexFromRab(capexFromRab)
+              setCumCapexUmum(capexUmum)
+              setCumOpexAktual(opexTambahan)
+              setCumOpexUmum(allocatedGenOpex)
+              setCumOpexProyeksi(opexProyeksi)
+              setCumDepreciation(totalDepreciation)
+
+              // ── Total Biaya Operasional = OPEX RAB (otomatis) + OPEX Tambahan + Depresiasi ──
+              const cumExpenses = opexProyeksi + opexTambahan + totalDepreciation
+              setCumulativeExpenses(cumExpenses)
+
+              // ── Laba Operasional = Pendapatan - Fee Gateway - Biaya Operasional ──
+              const operatingProfit = cumRevenue - cumGatewayFee - cumExpenses
+              setCumulativeNetIncome(operatingProfit)
+
+          } catch (err) {
+              console.error('Error calculating ROI:', err)
+          } finally {
+              setRoiLoading(false)
+          }
+      }
+
+      const timer = setTimeout(() => { calcROI() }, 500)
+      return () => clearTimeout(timer)
+  }, [rabProject, calculateNetIncome, parseNumber, groups.length])
 
   const handleSaveFees = async (newFees: FeeConfig) => {
       try {
@@ -720,6 +952,7 @@ export default function IncomePeriodClient() {
                 value={selectedGroup}
                 onChange={(e) => {
                     setSelectedGroup(e.target.value)
+                    setSelectedProject('') // Clear project when manually changing group
                     setPage(0)
                 }}
                 className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
@@ -731,6 +964,22 @@ export default function IncomePeriodClient() {
                     </option>
                 ))}
             </select>
+
+            {/* RAB Project Filter */}
+            {rabProjects.length > 0 && (
+              <select
+                  value={selectedProject}
+                  onChange={(e) => handleProjectSelect(e.target.value)}
+                  className="border border-purple-300 dark:border-purple-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent min-w-[160px]"
+              >
+                  <option value="">Pilih Proyek RAB</option>
+                  {rabProjects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                          {project.name} {project.mixRadiusGroup ? `(${project.mixRadiusGroup.name})` : ''}
+                      </option>
+                  ))}
+              </select>
+            )}
 
 
         </div>
@@ -750,179 +999,371 @@ export default function IncomePeriodClient() {
 
       <NPLSummary groupId={selectedGroup} />
 
-      {/* RAB Project Comparison Section */}
+      {/* RAB Project Comparison & ROI Tracking Section */}
       {selectedGroup && selectedGroup !== 'all' && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <HiOutlineCalculator className="w-5 h-5 text-purple-500" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Proyeksi RAB vs Aktual
+                {rabProject ? 'Proyeksi RAB & ROI Tracking' : 'Proyeksi RAB vs Aktual'}
               </h3>
+              {rabProject && (
+                <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                  rabProject.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                  rabProject.status === 'DRAFT' ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' :
+                  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                }`}>
+                  {rabProject.status}
+                </span>
+              )}
             </div>
-            {rabLoading && (
+            {(rabLoading || roiLoading) && (
               <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
             )}
           </div>
 
-          {rabProject ? (
-            <div className="p-5">
-              <div className="mb-4">
+          {rabProject ? (() => {
+            const totalOpexItems = rabProject.items
+              .filter(item => item.expenseType === 'OPEX')
+              .reduce((sum, item) => sum + Number(item.totalPrice), 0)
+            // Total CAPEX = RAB (dari state) + CAPEX Umum (dialokasikan)
+            const totalCapex = cumCapexFromRab + cumCapexUmum
+
+            // Laba Operasional sudah dihitung di state (cumulativeNetIncome)
+            // ROI = (Laba Operasional - Total CAPEX) / Total CAPEX × 100
+            const roiPercent = totalCapex > 0 ? ((cumulativeNetIncome - totalCapex) / totalCapex) * 100 : 0
+            // BEP = Laba Operasional >= Total CAPEX
+            const bepReached = cumulativeNetIncome >= totalCapex
+            // BEP Progress = berapa % investasi sudah terbayar dari laba operasional
+            const bepProgress = totalCapex > 0 ? Math.min((cumulativeNetIncome / totalCapex) * 100, 100) : 0
+
+            return (
+            <div className="p-5 space-y-5">
+              {/* Project Header */}
+              <div>
                 <div className="flex items-center gap-2 mb-1">
+                  <HiOutlineClipboardDocumentList className="w-4 h-4 text-purple-500" />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">{rabProject.name}</span>
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                    rabProject.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                    rabProject.status === 'DRAFT' ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' :
-                    'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
-                  }`}>
-                    {rabProject.status}
-                  </span>
                 </div>
                 {rabProject.description && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{rabProject.description}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">{rabProject.description}</p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Target Subscribers Comparison */}
-                <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/20 dark:to-gray-800 rounded-lg p-4 border border-indigo-100 dark:border-indigo-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <HiOutlineUsers className="w-4 h-4 text-indigo-500" />
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Target vs Aktual</span>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                      {totalRecords.toLocaleString()}
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                      / {rabProject.targetSubscribers?.toLocaleString() || '-'}
-                    </span>
-                  </div>
-                  {rabProject.targetSubscribers && rabProject.targetSubscribers > 0 && (
-                    <div className="mt-2">
-                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            (totalRecords / rabProject.targetSubscribers) >= 1
-                              ? 'bg-green-500'
-                              : (totalRecords / rabProject.targetSubscribers) >= 0.5
-                                ? 'bg-yellow-500'
-                                : 'bg-indigo-500'
-                          }`}
-                          style={{ width: `${Math.min((totalRecords / rabProject.targetSubscribers) * 100, 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {((totalRecords / rabProject.targetSubscribers) * 100).toFixed(1)}% tercapai
-                      </p>
+              {/* Period Metrics (Current Filter) */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Periode Terpilih — Aktual vs Proyeksi</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Target Subscribers */}
+                  <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/20 dark:to-gray-800 rounded-lg p-4 border border-indigo-100 dark:border-indigo-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <HiOutlineUsers className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Target vs Aktual</span>
                     </div>
-                  )}
-                </div>
-
-                {/* Revenue Comparison */}
-                <div className="bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-800 rounded-lg p-4 border border-green-100 dark:border-green-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <HiOutlineCurrencyDollar className="w-4 h-4 text-green-500" />
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Pendapatan vs Proyeksi</span>
+                    <div className="flex items-end gap-2">
+                      <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                        {totalRecords.toLocaleString()}
+                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                        / {rabProject.targetSubscribers?.toLocaleString() || '-'}
+                      </span>
+                    </div>
+                    {rabProject.targetSubscribers && rabProject.targetSubscribers > 0 && (
+                      <div className="mt-2">
+                        <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              (totalRecords / rabProject.targetSubscribers) >= 1 ? 'bg-green-500' :
+                              (totalRecords / rabProject.targetSubscribers) >= 0.5 ? 'bg-yellow-500' : 'bg-indigo-500'
+                            }`}
+                            style={{ width: `${Math.min((totalRecords / rabProject.targetSubscribers) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {((totalRecords / rabProject.targetSubscribers) * 100).toFixed(1)}% tercapai
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col">
+
+                  {/* Revenue vs Projection */}
+                  <div className="bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-800 rounded-lg p-4 border border-green-100 dark:border-green-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <HiOutlineCurrencyDollar className="w-4 h-4 text-green-500" />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Pendapatan vs Proyeksi</span>
+                    </div>
                     <span className="text-lg font-bold text-green-600 dark:text-green-400">
                       {formatCurrency(parseNumber(summary?.profit || 0))}
                     </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Proyeksi: {formatCurrency(rabProject.projectedRevenue)}
-                    </span>
-                  </div>
-                  {rabProject.projectedRevenue > 0 && (
-                    <div className="mt-2">
-                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            (parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) >= 1
-                              ? 'bg-green-500'
-                              : 'bg-green-400'
-                          }`}
-                          style={{ width: `${Math.min((parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) * 100, 100)}%` }}
-                        />
+                    </p>
+                    {rabProject.projectedRevenue > 0 && (
+                      <div className="mt-2">
+                        <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              (parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) >= 1 ? 'bg-green-500' : 'bg-green-400'
+                            }`}
+                            style={{ width: `${Math.min((parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) * 100, 100)}%` }}
+                          />
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {((parseNumber(summary?.profit || 0) / rabProject.projectedRevenue) * 100).toFixed(1)}% tercapai
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* CAPEX Summary */}
-                <div className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-gray-800 rounded-lg p-4 border border-purple-100 dark:border-purple-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <HiOutlineChartBar className="w-4 h-4 text-purple-500" />
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">CAPEX (Investasi Awal)</span>
-                  </div>
-                  <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                    {formatCurrency(
-                      rabProject.items
-                        .filter(item => !item.expenseType || item.expenseType === 'CAPEX')
-                        .reduce((sum, item) => sum + Number(item.totalPrice), 0)
                     )}
-                  </span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {rabProject.items.filter(item => !item.expenseType || item.expenseType === 'CAPEX').length} item
-                  </p>
-                </div>
-
-                {/* OPEX Comparison */}
-                <div className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-900/20 dark:to-gray-800 rounded-lg p-4 border border-orange-100 dark:border-orange-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <HiOutlineArrowTrendingDown className="w-4 h-4 text-orange-500" />
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">OPEX Aktual vs Proyeksi</span>
                   </div>
-                  <div className="flex flex-col">
+
+                  {/* CAPEX */}
+                  <div className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-gray-800 rounded-lg p-4 border border-purple-100 dark:border-purple-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <HiOutlineChartBar className="w-4 h-4 text-purple-500" />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">CAPEX (Investasi Awal)</span>
+                    </div>
+                    <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                      {formatCurrency(totalCapex)}
+                    </span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {rabProject.items.filter(item => !item.expenseType || item.expenseType === 'CAPEX').length} item
+                      {totalOpexItems > 0 && ` + OPEX: ${formatCurrency(totalOpexItems)}/bln`}
+                    </p>
+                  </div>
+
+                  {/* OPEX vs Projection */}
+                  <div className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-900/20 dark:to-gray-800 rounded-lg p-4 border border-orange-100 dark:border-orange-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <HiOutlineArrowTrendingDown className="w-4 h-4 text-orange-500" />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">OPEX Aktual vs Proyeksi</span>
+                    </div>
                     <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
                       {formatCurrency(totalExpenses)}
                     </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Proyeksi: {formatCurrency(rabProject.projectedOpex)}/bln
-                    </span>
-                  </div>
-                  {rabProject.projectedOpex > 0 && (
-                    <p className={`text-xs mt-1 font-medium ${
-                      totalExpenses <= rabProject.projectedOpex
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {totalExpenses <= rabProject.projectedOpex
-                        ? `✓ Di bawah anggaran (${((1 - totalExpenses / rabProject.projectedOpex) * 100).toFixed(1)}%)`
-                        : `⚠ Melebihi anggaran (${((totalExpenses / rabProject.projectedOpex - 1) * 100).toFixed(1)}%)`
-                      }
                     </p>
-                  )}
+                    {rabProject.projectedOpex > 0 && (
+                      <p className={`text-xs mt-1 font-medium ${
+                        totalExpenses <= rabProject.projectedOpex
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {totalExpenses <= rabProject.projectedOpex
+                          ? `Di bawah anggaran (${((1 - totalExpenses / rabProject.projectedOpex) * 100).toFixed(1)}%)`
+                          : `Melebihi anggaran (${((totalExpenses / rabProject.projectedOpex - 1) * 100).toFixed(1)}%)`
+                        }
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Growth Info */}
-              {rabProject.growthType && rabProject.targetSubscribers && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <HiOutlineArrowTrendingUp className="w-4 h-4 text-purple-400" />
-                      <span>Model: <strong className="text-gray-700 dark:text-gray-300">{rabProject.growthType}</strong></span>
+              {/* ROI Tracking Section (Cumulative - Lifetime) */}
+              {rabProject.startDate && (
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <HiOutlineBanknotes className="w-4 h-4 text-emerald-500" />
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      ROI Tracking — Sejak {new Date(rabProject.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} ({projectMonthsElapsed} bulan)
+                    </p>
+                    {roiLoading && (
+                      <div className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Cumulative Revenue (using profit = same as Pendapatan vs Proyeksi) */}
+                    <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800 rounded-lg p-4 border border-emerald-100 dark:border-emerald-800">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Kumulatif Pendapatan</span>
+                      <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                        {formatCurrency(cumulativeRevenue)}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Profit dari MixRadius (sejak proyek dimulai)
+                      </p>
+                      {cumulativeGatewayFee > 0 && (
+                        <p className="text-[10px] text-gray-400 flex justify-between mt-0.5">
+                          <span>Est. Fee Gateway:</span>
+                          <span className="text-red-400">-{formatCurrency(cumulativeGatewayFee)}</span>
+                        </p>
+                      )}
                     </div>
-                    {rabProject.arpu && (
-                      <div className="flex items-center gap-1">
-                        <span>ARPU: <strong className="text-gray-700 dark:text-gray-300">{formatCurrency(rabProject.arpu)}</strong></span>
+
+                    {/* Total Investasi (CAPEX) */}
+                    <div className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-gray-800 rounded-lg p-4 border border-purple-100 dark:border-purple-800">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Investasi (CAPEX)</span>
+                      <p className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+                        {formatCurrency(totalCapex)}
+                      </p>
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        <p className="text-[10px] text-gray-400 flex justify-between">
+                          <span>CAPEX RAB Proyek:</span>
+                          <span className="font-medium">{formatCurrency(cumCapexFromRab)}</span>
+                        </p>
+                        {cumCapexUmum > 0 && (
+                          <p className="text-[10px] text-gray-400 flex justify-between">
+                            <span>CAPEX Umum (alokasi):</span>
+                            <span className="font-medium">{formatCurrency(cumCapexUmum)}</span>
+                          </p>
+                        )}
                       </div>
-                    )}
-                    {rabProject.startDate && (
-                      <div className="flex items-center gap-1">
-                        <HiOutlineCalendar className="w-4 h-4" />
-                        <span>Mulai: <strong className="text-gray-700 dark:text-gray-300">{new Date(rabProject.startDate).toLocaleDateString('id-ID')}</strong></span>
+                    </div>
+
+                    {/* Biaya Operasional (OPEX) */}
+                    <div className="bg-gradient-to-br from-red-50 to-white dark:from-red-900/20 dark:to-gray-800 rounded-lg p-4 border border-red-100 dark:border-red-800">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Biaya Operasional</span>
+                      <p className="text-xl font-bold text-red-600 dark:text-red-400 mt-1">
+                        {formatCurrency(cumulativeExpenses)}
+                      </p>
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        {cumOpexProyeksi > 0 && (
+                          <p className="text-[10px] text-gray-400 flex justify-between">
+                            <span>OPEX RAB ({projectMonthsElapsed || 1} bln):</span>
+                            <span className="font-medium">{formatCurrency(cumOpexProyeksi)}</span>
+                          </p>
+                        )}
+                        {cumOpexAktual > 0 && (
+                          <p className="text-[10px] text-gray-400 flex justify-between">
+                            <span>Pengeluaran tambahan:</span>
+                            <span className="font-medium">{formatCurrency(cumOpexAktual)}</span>
+                          </p>
+                        )}
+                        {cumOpexUmum > 0 && (
+                          <p className="text-[10px] text-gray-300 dark:text-gray-500 flex justify-between pl-2">
+                            <span>(termasuk umum: {formatCurrency(cumOpexUmum)})</span>
+                          </p>
+                        )}
+                        {cumDepreciation > 0 && (
+                          <p className="text-[10px] text-gray-400 flex justify-between">
+                            <span>Depresiasi:</span>
+                            <span className="font-medium">{formatCurrency(cumDepreciation)}</span>
+                          </p>
+                        )}
                       </div>
-                    )}
+                    </div>
+
+                    {/* Cumulative Net Income */}
+                    <div className={`bg-gradient-to-br rounded-lg p-4 border ${
+                      cumulativeNetIncome >= 0
+                        ? 'from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800 border-emerald-100 dark:border-emerald-800'
+                        : 'from-red-50 to-white dark:from-red-900/20 dark:to-gray-800 border-red-100 dark:border-red-800'
+                    }`}>
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Laba Operasional</span>
+                      <p className={`text-xl font-bold mt-1 ${
+                        cumulativeNetIncome >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {formatCurrency(cumulativeNetIncome)}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Pendapatan - Fee - Biaya Operasional
+                      </p>
+                    </div>
+
+                    {/* ROI Percentage */}
+                    <div className={`bg-gradient-to-br rounded-lg p-4 border ${
+                      roiPercent >= 100
+                        ? 'from-green-50 to-white dark:from-green-900/20 dark:to-gray-800 border-green-100 dark:border-green-800'
+                        : roiPercent >= 0
+                          ? 'from-blue-50 to-white dark:from-blue-900/20 dark:to-gray-800 border-blue-100 dark:border-blue-800'
+                          : 'from-red-50 to-white dark:from-red-900/20 dark:to-gray-800 border-red-100 dark:border-red-800'
+                    }`}>
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">ROI</span>
+                      <p className={`text-xl font-bold mt-1 ${
+                        roiPercent >= 100 ? 'text-green-600 dark:text-green-400' :
+                        roiPercent >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {totalCapex > 0 ? `${roiPercent.toFixed(1)}%` : '-'}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {totalCapex > 0 ? `(Laba Operasional - CAPEX) / CAPEX` : 'Tidak ada CAPEX'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* BEP Progress Bar */}
+                  {totalCapex > 0 && (
+                    <div className="mt-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {bepReached ? (
+                            <HiOutlineCheckCircle className="w-5 h-5 text-green-500" />
+                          ) : (
+                            <HiOutlineXCircle className="w-5 h-5 text-yellow-500" />
+                          )}
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                            {bepReached ? 'BEP Tercapai!' : 'Progress Menuju BEP'}
+                          </span>
+                        </div>
+                        <span className={`text-sm font-bold ${bepReached ? 'text-green-600' : 'text-yellow-600'}`}>
+                          {bepProgress.toFixed(1)}%
+                        </span>
+                      </div>
+
+                      <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            bepReached ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                            bepProgress >= 50 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' :
+                            'bg-gradient-to-r from-blue-400 to-blue-500'
+                          }`}
+                          style={{ width: `${Math.max(bepProgress, 0)}%` }}
+                        />
+                      </div>
+
+                      <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span>Investasi: {formatCurrency(totalCapex)}</span>
+                        <span>Laba Operasional: {formatCurrency(Math.max(0, cumulativeNetIncome))}</span>
+                        {!bepReached && cumulativeNetIncome > 0 && projectMonthsElapsed > 0 && (
+                          <span className="text-blue-500 font-medium">
+                            Est. BEP: ~{Math.ceil((totalCapex / (cumulativeNetIncome / projectMonthsElapsed)) - projectMonthsElapsed)} bulan lagi
+                          </span>
+                        )}
+                        {!bepReached && cumulativeNetIncome <= 0 && (
+                          <span className="text-red-500 font-medium">
+                            Belum bisa estimasi BEP
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Growth Info */}
+                  {rabProject.growthType && rabProject.targetSubscribers && (
+                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mt-3">
+                      <div className="flex items-center gap-1">
+                        <HiOutlineArrowTrendingUp className="w-4 h-4 text-purple-400" />
+                        <span>Model: <strong className="text-gray-700 dark:text-gray-300">{rabProject.growthType}</strong></span>
+                      </div>
+                      {rabProject.arpu && (
+                        <div className="flex items-center gap-1">
+                          <span>ARPU: <strong className="text-gray-700 dark:text-gray-300">{formatCurrency(rabProject.arpu)}</strong></span>
+                        </div>
+                      )}
+                      {rabProject.startDate && (
+                        <div className="flex items-center gap-1">
+                          <HiOutlineCalendar className="w-4 h-4" />
+                          <span>Mulai: <strong className="text-gray-700 dark:text-gray-300">{new Date(rabProject.startDate).toLocaleDateString('id-ID')}</strong></span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* No startDate - show hint */}
+              {!rabProject.startDate && (
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800 rounded-lg p-3 flex items-start gap-2">
+                    <HiOutlineInformationCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">ROI Tracking belum tersedia</p>
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                        Atur tanggal mulai proyek di RAB untuk mengaktifkan ROI tracking kumulatif dan progress BEP.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-          ) : !rabLoading ? (
+          )})() : !rabLoading ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <HiOutlineCalculator className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
               <p className="font-medium">Belum ada RAB untuk site ini</p>
