@@ -155,7 +155,7 @@ describe('Site Restriction Helper', () => {
             })
             const error = validateSiteAccess(session as unknown as Session, 'users', 'site-2')
 
-            expect(error).toContain('Unauthorized')
+            expect(error).toContain('Tidak diizinkan')
             expect(error).toContain('users')
         })
     })

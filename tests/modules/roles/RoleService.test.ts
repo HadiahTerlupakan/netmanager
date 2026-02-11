@@ -51,7 +51,7 @@ describe('RoleService', () => {
         name: 'Manager',
         permissions: []
       }))
-        .rejects.toThrow('Role with this name already exists')
+        .rejects.toThrow('Role dengan nama ini sudah ada')
     })
 
     it('should parse permissions and find existing permission IDs', async () => {
@@ -122,7 +122,7 @@ describe('RoleService', () => {
         name: 'New Name',
         permissions: []
       }))
-        .rejects.toThrow('Role not found')
+        .rejects.toThrow('Role tidak ditemukan')
     })
 
     it('should not allow renaming SUPER_ADMIN role', async () => {
@@ -135,7 +135,7 @@ describe('RoleService', () => {
         name: 'Admin', // Trying to rename
         permissions: []
       }))
-        .rejects.toThrow('Cannot rename SUPER_ADMIN role')
+        .rejects.toThrow('Tidak dapat mengubah nama role SUPER_ADMIN')
     })
 
     it('should allow updating SUPER_ADMIN without renaming', async () => {
@@ -166,7 +166,7 @@ describe('RoleService', () => {
       prismaMock.role.findUnique.mockResolvedValueOnce(null)
 
       await expect(service.deleteRole('non-existent'))
-        .rejects.toThrow('Role not found')
+        .rejects.toThrow('Role tidak ditemukan')
     })
 
     it('should not allow deleting SUPER_ADMIN role', async () => {
@@ -176,7 +176,7 @@ describe('RoleService', () => {
       } as unknown as Role)
 
       await expect(service.deleteRole('super-admin-id'))
-        .rejects.toThrow('Cannot delete SUPER_ADMIN role')
+        .rejects.toThrow('Tidak dapat menghapus role SUPER_ADMIN')
     })
 
     it('should not allow deleting role with assigned users', async () => {
@@ -188,7 +188,7 @@ describe('RoleService', () => {
       prismaMock.user.count.mockResolvedValueOnce(5)
 
       await expect(service.deleteRole('role-1'))
-        .rejects.toThrow('Cannot delete role that has assigned users')
+        .rejects.toThrow('Tidak dapat menghapus role yang masih memiliki pengguna')
     })
 
     it('should delete role with no users', async () => {

@@ -52,14 +52,14 @@ describe('UserService', () => {
     }
 
     it('should reject duplicate email', async () => {
-      // Mock: Email already exists
+      // Mock: Email sudah terdaftar
       prismaMock.user.findFirst.mockResolvedValueOnce({
         id: 'existing-user',
         email: 'newuser@example.com'
       } as unknown as User)
 
       await expect(service.createUser(validInput))
-        .rejects.toThrow('Email already exists')
+        .rejects.toThrow('Email sudah terdaftar')
     })
 
     it('should hash password before creating user', async () => {
@@ -98,7 +98,7 @@ describe('UserService', () => {
       prismaMock.user.findUnique.mockResolvedValueOnce(null)
 
       await expect(service.updateUser('non-existent', { name: 'New Name' }))
-        .rejects.toThrow('User not found')
+        .rejects.toThrow('User tidak ditemukan')
     })
 
     it('should reject duplicate email when updating', async () => {
@@ -115,7 +115,7 @@ describe('UserService', () => {
       } as unknown as User)
 
       await expect(service.updateUser('user-1', { email: 'taken@example.com' }))
-        .rejects.toThrow('Email already exists')
+        .rejects.toThrow('Email sudah terdaftar')
     })
 
     it('should allow same email when not changing it', async () => {
@@ -146,7 +146,7 @@ describe('UserService', () => {
       prismaMock.user.findUnique.mockResolvedValueOnce(null)
 
       await expect(service.deleteUser('non-existent'))
-        .rejects.toThrow('User not found')
+        .rejects.toThrow('User tidak ditemukan')
     })
 
     it('should delete user successfully', async () => {

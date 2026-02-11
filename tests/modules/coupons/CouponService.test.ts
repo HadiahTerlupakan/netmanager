@@ -77,7 +77,7 @@ describe('CouponService', () => {
       const result = await service.verifyCoupon('', 100000)
 
       expect(result.valid).toBe(false)
-      expect(result.error).toBe('Code required')
+      expect(result.error).toBe('Kode diperlukan')
     })
 
     it('should return invalid for non-existent coupon', async () => {
