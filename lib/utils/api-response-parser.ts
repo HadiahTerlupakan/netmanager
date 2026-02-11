@@ -86,7 +86,7 @@ export async function parseApiResponse<T>(response: Response): Promise<T> {
     json = await response.json()
   } catch {
     throw new ApiError(
-      'Failed to parse JSON response',
+      'Gagal memproses respon JSON',
       response.status
     )
   }
@@ -203,7 +203,7 @@ export async function parsePaginatedResponse<T>(
   try {
     json = await response.json()
   } catch {
-    throw new ApiError('Failed to parse JSON response', response.status)
+    throw new ApiError('Gagal memproses respon JSON', response.status)
   }
 
   if (!response.ok) {

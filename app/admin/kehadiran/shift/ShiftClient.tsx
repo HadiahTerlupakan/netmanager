@@ -112,14 +112,14 @@ export default function ShiftClient() {
                 if (data.error && data.error.includes('already exists')) {
                     throw new Error('Kode Shift sudah digunakan (mungkin oleh shift yang nonaktif/diarsip). Gunakan kode lain.')
                 }
-                throw new Error(data.error || 'Failed to save')
+                throw new Error(data.error || 'Gagal menyimpan')
             }
 
             toast.success(editingShift ? 'Shift berhasil diperbarui' : 'Shift berhasil dibuat')
             setShowModal(false)
             await fetchShifts()
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'An error occurred'
+            const msg = err instanceof Error ? err.message : 'Terjadi kesalahan'
             setError(msg)
             toast.error(msg)
         } finally {
@@ -150,20 +150,20 @@ export default function ShiftClient() {
                         return // User cancelled
                     }
                 } else {
-                    throw new Error(data.error || 'Failed to delete')
+                    throw new Error(data.error || 'Gagal menghapus')
                 }
             }
 
             // Check result of the second attempt (if any)
             if (!res.ok) {
                 const data = await res.json()
-                throw new Error(data.error || 'Failed to delete')
+                throw new Error(data.error || 'Gagal menghapus')
             }
 
             toast.success('Shift berhasil dihapus')
             fetchShifts()
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'An error occurred'
+            const msg = err instanceof Error ? err.message : 'Terjadi kesalahan'
             toast.error(msg)
         }
     }

@@ -30,16 +30,16 @@ export async function POST(
         // ============================================
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const payload = await verifyMobileToken(token);
         if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const userId = payload.id as string;
@@ -66,7 +66,7 @@ export async function POST(
         });
 
         if (!workOrder) {
-            return NextResponse.json({ error: 'Work Order not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Work Order tidak ditemukan' }, { status: 404 });
         }
 
         // Check if user is authorized to update this WO
@@ -78,7 +78,7 @@ export async function POST(
 
         if (!isAssignedTo && !isAssignmentMember && !isCreator) {
             return NextResponse.json(
-                { error: 'You are not authorized to update this Work Order' },
+                { error: 'Anda tidak memiliki akses untuk mengubah Work Order ini' },
                 { status: 403 }
             );
         }
@@ -153,7 +153,7 @@ export async function POST(
         // 5. VALIDATE ACTION
         // ============================================
         if (!action) {
-            return NextResponse.json({ error: 'Action is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Action wajib diisi' }, { status: 400 });
         }
 
         // ============================================
@@ -163,7 +163,7 @@ export async function POST(
             // Validate status transition: only ASSIGNED can be started
             if (!['ASSIGNED', 'ON_HOLD'].includes(workOrder.status)) {
                 return NextResponse.json(
-                    { error: `Cannot start Work Order with status: ${workOrder.status}. Must be ASSIGNED or ON_HOLD.` },
+                    { error: `Tidak dapat memulai Work Order dengan status: ${workOrder.status}. Harus berstatus ASSIGNED atau ON_HOLD.` },
                     { status: 400 }
                 );
             }
@@ -208,7 +208,7 @@ export async function POST(
             // Validate status: must be PENDING
             if (workOrder.status !== 'PENDING') {
                 return NextResponse.json(
-                    { error: `Cannot claim Work Order with status: ${workOrder.status}. Must be PENDING.` },
+                    { error: `Tidak dapat mengklaim Work Order dengan status: ${workOrder.status}. Harus berstatus PENDING.` },
                     { status: 400 }
                 );
             }
@@ -232,7 +232,7 @@ export async function POST(
             // Validate status transition
             if (workOrder.status !== 'IN_PROGRESS') {
                 return NextResponse.json(
-                    { error: `Cannot complete Work Order with status: ${workOrder.status}. Must be IN_PROGRESS.` },
+                    { error: `Tidak dapat menyelesaikan Work Order dengan status: ${workOrder.status}. Harus berstatus IN_PROGRESS.` },
                     { status: 400 }
                 );
             }
@@ -325,7 +325,7 @@ export async function POST(
             // Validate: only IN_PROGRESS can be paused
             if (workOrder.status !== 'IN_PROGRESS') {
                 return NextResponse.json(
-                    { error: `Cannot pause Work Order with status: ${workOrder.status}. Must be IN_PROGRESS.` },
+                    { error: `Tidak dapat menunda Work Order dengan status: ${workOrder.status}. Harus berstatus IN_PROGRESS.` },
                     { status: 400 }
                 );
             }
@@ -368,7 +368,7 @@ export async function POST(
 
         } else if (action === 'COMMENT') {
             if (!notes && !photo && !photoUrl) {
-                return NextResponse.json({ error: 'Comment text or photo required' }, { status: 400 });
+                return NextResponse.json({ error: 'Teks komentar atau foto wajib diisi' }, { status: 400 });
             }
 
             // Handle photo from JSON URL
@@ -451,7 +451,7 @@ export async function POST(
 
         } else if (action === 'NOTE') {
             if (!notes && !photo && !photoUrl) {
-                return NextResponse.json({ error: 'Notes or photo required' }, { status: 400 });
+                return NextResponse.json({ error: 'Catatan atau foto wajib diisi' }, { status: 400 });
             }
 
             // Handle photo from JSON URL
@@ -462,7 +462,7 @@ export async function POST(
                     photoUrl,
                     0,
                     'image/jpeg',
-                    notes || 'Photo Update',
+                    notes || 'Update Foto',
                     userId
                 );
             }
@@ -492,7 +492,7 @@ export async function POST(
                     attachmentPath,
                     photo.size,
                     photo.type,
-                    notes || 'Photo Update',
+                    notes || 'Update Foto',
                     userId
                 );
             }
@@ -500,7 +500,7 @@ export async function POST(
             await repository.addUpdate({
                 workOrderId,
                 updateType: 'NOTE',
-                message: notes || (photo || photoUrl ? 'Uploaded a photo' : ''),
+                message: notes || (photo || photoUrl ? 'Mengunggah foto' : ''),
                 createdById: userId
             });
             
@@ -530,10 +530,10 @@ export async function POST(
             return NextResponse.json({ success: true, message: 'Note added' });
         }
 
-        return NextResponse.json({ error: 'Invalid Action' }, { status: 400 });
+        return NextResponse.json({ error: 'Action tidak valid' }, { status: 400 });
 
     } catch (error: unknown) {
         console.error('Mobile WO Update Error:', error);
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

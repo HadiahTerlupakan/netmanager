@@ -7,17 +7,17 @@ export async function GET(req: NextRequest) {
         // 1. Verify Token
         const authHeader = req.headers.get('authorization')
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
         }
         const payload = await verifyMobileToken(token)
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid Token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const userId = payload.id as string
@@ -108,6 +108,6 @@ export async function GET(req: NextRequest) {
         })
     } catch (error) {
         console.error('Error fetching mobile dashboard stats:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

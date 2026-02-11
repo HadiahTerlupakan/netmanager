@@ -47,7 +47,7 @@ export class SiteService {
     async getSiteById(id: string) {
         const site = await this.repository.findById(id)
         if (!site) {
-            throw new Error('Site not found')
+            throw new Error('Site tidak ditemukan')
         }
         return site
     }
@@ -58,13 +58,13 @@ export class SiteService {
     async createSite(data: SiteCreateInput, userId: string) {
         // Validate required fields
         if (!data.code || !data.name) {
-            throw new Error('Code and name are required')
+            throw new Error('Kode dan nama wajib diisi')
         }
 
         // Check for duplicate code
         const existing = await this.repository.findByCode(data.code)
         if (existing) {
-            throw new Error('Site code already exists')
+            throw new Error('Kode site sudah digunakan')
         }
 
         // Prepare data with type conversions
@@ -108,14 +108,14 @@ export class SiteService {
         // Check if site exists
         const existing = await this.repository.findById(id)
         if (!existing) {
-            throw new Error('Site not found')
+            throw new Error('Site tidak ditemukan')
         }
 
         // If updating code, check for duplicates
         if (data.code && data.code.toUpperCase() !== existing.code) {
             const duplicate = await this.repository.findByCode(data.code)
             if (duplicate) {
-                throw new Error('Site code already exists')
+                throw new Error('Kode site sudah digunakan')
             }
         }
 
@@ -158,7 +158,7 @@ export class SiteService {
     async deleteSite(id: string, userId: string) {
         const site = await this.repository.findWithCounts(id)
         if (!site) {
-            throw new Error('Site not found')
+            throw new Error('Site tidak ditemukan')
         }
 
         const hasAssociations = site._count.user > 0 || site._count.work_orders > 0
@@ -178,7 +178,7 @@ export class SiteService {
                 console.error('Logging failed', e)
             }
 
-            return { softDeleted: true, message: 'Site deactivated (has associated users/work orders)' }
+            return { softDeleted: true, message: 'Site dinonaktifkan (memiliki pengguna/work order terkait)' }
         }
 
         // Hard delete
@@ -195,6 +195,6 @@ export class SiteService {
             console.error('Logging failed', e)
         }
 
-        return { softDeleted: false, message: 'Site deleted successfully' }
+        return { softDeleted: false, message: 'Site berhasil dihapus' }
     }
 }

@@ -39,7 +39,7 @@ export async function afterCustomerCreate(
         console.error('[RADIUS Hook] Error in afterCustomerCreate:', error);
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Terjadi kesalahan',
         };
     }
 }
@@ -77,7 +77,7 @@ export async function afterCustomerUpdate(
         console.error('[RADIUS Hook] Error in afterCustomerUpdate:', error);
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Terjadi kesalahan',
         };
     }
 }
@@ -102,7 +102,7 @@ export async function beforeCustomerDelete(
         console.error('[RADIUS Hook] Error in beforeCustomerDelete:', error);
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Terjadi kesalahan',
         };
     }
 }

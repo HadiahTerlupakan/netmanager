@@ -13,7 +13,7 @@ async function requireAdmin() {
 
 export async function POST() {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
   try {
     const count = await checkAllMikroTikRouterStatus()

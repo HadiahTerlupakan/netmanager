@@ -57,7 +57,7 @@ export async function protectRoute(
     })
 
     return NextResponse.json(
-      { error: 'Authentication required' },
+      { error: 'Autentikasi diperlukan' },
       { status: 401 }
     )
   }
@@ -79,7 +79,7 @@ export async function protectRoute(
       })
 
       return NextResponse.json(
-        { error: 'Cannot access other users\' data' },
+        { error: 'Tidak dapat mengakses data user lain' },
         { status: 403 }
       )
     }
@@ -142,7 +142,7 @@ export function withRateLimit(
         })
 
         return NextResponse.json(
-          { error: 'Too many requests' },
+          { error: 'Terlalu banyak permintaan' },
           {
             status: 429,
             headers: {

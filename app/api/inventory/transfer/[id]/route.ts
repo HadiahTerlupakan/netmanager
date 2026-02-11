@@ -49,7 +49,7 @@ export async function GET(
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     logger.error('Error fetching transfer record', err, {
       path: '/api/inventory/transfer/[id]',
       method: 'GET',
@@ -100,7 +100,7 @@ export async function PUT(
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     logger.error('Error updating transfer record', err, {
       path: '/api/inventory/transfer/[id]',
       method: 'PUT',
@@ -153,7 +153,7 @@ export async function DELETE(
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     logger.error('Error deleting transfer record', err, {
       path: '/api/inventory/transfer/[id]',
       method: 'DELETE',

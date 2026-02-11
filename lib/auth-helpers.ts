@@ -65,7 +65,7 @@ export async function requireAuth(request: NextRequest) {
     })
 
     return NextResponse.json(
-      { error: 'Authentication required' },
+      { error: 'Autentikasi diperlukan' },
       { status: 401 }
     )
   }
@@ -88,7 +88,7 @@ export async function requireAdmin(request: NextRequest) {
     })
 
     return NextResponse.json(
-      { error: 'Unauthorized' },
+      { error: 'Tidak terautentikasi' },
       { status: 401 }
     )
   }
@@ -114,7 +114,7 @@ export async function requireSelfAccess(request: NextRequest, resourceId: string
     })
 
     return NextResponse.json(
-      { error: 'Authentication required' },
+      { error: 'Autentikasi diperlukan' },
       { status: 401 }
     )
   }
@@ -129,7 +129,7 @@ export async function requireSelfAccess(request: NextRequest, resourceId: string
     })
 
     return NextResponse.json(
-      { error: 'Cannot access other users\' data' },
+      { error: 'Tidak dapat mengakses data user lain' },
       { status: 403 }
     )
   }

@@ -52,12 +52,15 @@ export default function MixRadiusAccountsClient() {
     try {
       setLoading(true)
       const res = await fetch('/api/integrations/mixradius/accounts')
-      if (!res.ok) throw new Error('Failed to fetch accounts')
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal mengambil daftar akun')
+      }
       const data = await res.json()
       // Handle both { data: [...] } and direct array response
       setConfigs(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch accounts')
+      toast.error(error instanceof Error ? error.message : 'Gagal mengambil daftar akun')
     } finally {
       setLoading(false)
     }
@@ -67,7 +70,16 @@ export default function MixRadiusAccountsClient() {
     e.preventDefault()
     
     if (!formData.name.trim() || !formData.baseUrl.trim() || !formData.username.trim()) {
-      toast.error('Semua kolom wajib diisi')
+      const missing: string[] = []
+      if (!formData.name.trim()) missing.push('Nama Akun')
+      if (!formData.baseUrl.trim()) missing.push('Base URL')
+      if (!formData.username.trim()) missing.push('Username')
+      toast.error(`Kolom berikut wajib diisi: ${missing.join(', ')}`)
+      return
+    }
+
+    if (!editingId && !formData.password.trim()) {
+      toast.error('Password wajib diisi untuk akun baru')
       return
     }
 
@@ -91,15 +103,15 @@ export default function MixRadiusAccountsClient() {
       })
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to save')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Gagal menyimpan akun')
       }
 
       toast.success(editingId ? 'Akun berhasil diperbarui' : 'Akun berhasil ditambahkan')
       setIsModalOpen(false)
       fetchData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save')
+      toast.error(error instanceof Error ? error.message : 'Gagal menyimpan akun')
     }
   }
 
@@ -111,12 +123,15 @@ export default function MixRadiusAccountsClient() {
         method: 'DELETE'
       })
 
-      if (!res.ok) throw new Error('Failed to delete')
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal menghapus akun')
+      }
 
       toast.success('Akun berhasil dihapus')
       fetchData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete')
+      toast.error(error instanceof Error ? error.message : 'Gagal menghapus akun')
     }
   }
 
@@ -133,12 +148,15 @@ export default function MixRadiusAccountsClient() {
               body: JSON.stringify({ isActive: true })
           })
 
-          if (!res.ok) throw new Error('Gagal mengaktifkan akun');
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}))
+              throw new Error(errData.error || 'Gagal mengaktifkan akun')
+          }
           toast.success(`Akun "${name}" diaktifkan`);
           fetchData(); // Refresh to ensure sync
       } catch (error) {
           setConfigs(previousConfigs); // Revert on error
-          toast.error(error instanceof Error ? error.message : 'Failed to activate');
+          toast.error(error instanceof Error ? error.message : 'Gagal mengaktifkan akun');
       }
   }
 
@@ -315,7 +333,7 @@ export default function MixRadiusAccountsClient() {
               value={formData.baseUrl}
               onChange={e => setFormData({ ...formData, baseUrl: e.target.value })}
             />
-            <p className="text-xs text-gray-500 mt-1">Include protocol (http/https) and port.</p>
+            <p className="text-xs text-gray-500 mt-1">Sertakan protokol (http/https) dan port.</p>
           </div>
 
           <div>

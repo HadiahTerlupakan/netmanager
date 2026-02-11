@@ -7,14 +7,14 @@ export async function GET(request: NextRequest) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         // Get all conversations where user is a participant
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: unknown) {
         console.error('Error fetching conversations:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }
@@ -102,14 +102,14 @@ export async function POST(request: NextRequest) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const body = await request.json()
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
         })
     } catch (error: unknown) {
         console.error('Error creating conversation:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }

@@ -82,10 +82,17 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
         const fetchDetail = async () => {
             try {
                 const res = await axios.get(`/api/marketing/canvasing/${id}`);
-                setItem(res.data);
+                setItem(res.data?.data || res.data);
             } catch (error) {
                 console.error('Fetch detail error:', error);
-                toast.error('Gagal memuat detail canvasing');
+                const axiosError = error as { response?: { data?: { error?: string }; status?: number } }
+                if (axiosError.response?.status === 404) {
+                    toast.error('Data canvasing tidak ditemukan');
+                } else if (axiosError.response?.status === 403) {
+                    toast.error('Anda tidak memiliki akses untuk melihat data ini');
+                } else {
+                    toast.error(axiosError.response?.data?.error || 'Gagal memuat detail canvasing');
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -95,14 +102,14 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
 
     const handleApprove = async () => {
         if (!confirm('Setujui request ini? Sistem akan otomatis membuat Work Order instalasi.')) return;
-        
+
         setIsProcessing(true);
         try {
             await axios.post(`/api/marketing/canvasing/${id}/approve`);
             toast.success('Request disetujui dan Work Order telah dibuat');
             router.refresh();
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
-            setItem(res.data);
+            setItem(res.data?.data || res.data);
         } catch (error: unknown) {
             const axiosError = error as { response?: { data?: { error?: string } } }
             toast.error(axiosError.response?.data?.error || 'Gagal menyetujui request');
@@ -113,16 +120,17 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
 
     const handleReject = async () => {
         if (!confirm('Tolak request ini?')) return;
-        
+
         setIsProcessing(true);
         try {
             await axios.put(`/api/marketing/canvasing/${id}`, { status: 'REJECTED' });
             toast.success('Request ditolak');
             router.refresh();
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
-            setItem(res.data);
-        } catch (_error: unknown) {
-            toast.error('Gagal menolak request');
+            setItem(res.data?.data || res.data);
+        } catch (error: unknown) {
+            const axiosError = error as { response?: { data?: { error?: string } } }
+            toast.error(axiosError.response?.data?.error || 'Gagal menolak request');
         } finally {
             setIsProcessing(false);
         }
@@ -131,12 +139,12 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
     const handleApproveClaim = async (claimId: string) => {
         setIsProcessing(true);
         try {
-            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
+            await axios.put(`/api/marketing/point-claims/${claimId}`, {
                 action: 'approve'
             });
             toast.success('Claim poin berhasil disetujui');
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
-            setItem(res.data);
+            setItem(res.data?.data || res.data);
         } catch (error: unknown) {
             const axiosError = error as { response?: { data?: { error?: string } } }
             toast.error(axiosError.response?.data?.error || 'Gagal menyetujui claim');
@@ -151,16 +159,16 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             toast.error('Alasan penolakan harus diisi');
             return;
         }
-        
+
         setIsProcessing(true);
         try {
-            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
-                action: 'reject', 
-                notes 
+            await axios.put(`/api/marketing/point-claims/${claimId}`, {
+                action: 'reject',
+                notes
             });
             toast.success('Claim poin ditolak');
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
-            setItem(res.data);
+            setItem(res.data?.data || res.data);
         } catch (error: unknown) {
             const axiosError = error as { response?: { data?: { error?: string } } }
             toast.error(axiosError.response?.data?.error || 'Gagal menolak claim');

@@ -161,7 +161,7 @@ export default function RABList({ onEdit, refreshKey }: RABListProps) {
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}))
                 console.error('RAB fetch error:', res.status, errorData)
-                throw new Error(errorData.error || `Failed to fetch RAB projects (${res.status})`)
+                throw new Error(errorData.error || `Gagal mengambil data RAB (status: ${res.status})`)
             }
             const json = await res.json()
             setData(json)
@@ -184,7 +184,10 @@ export default function RABList({ onEdit, refreshKey }: RABListProps) {
             const res = await fetch(`/api/finance/rab-projects/${id}`, {
                 method: 'DELETE'
             })
-            if (!res.ok) throw new Error('Gagal menghapus')
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}))
+                throw new Error(errData.error || 'Gagal menghapus RAB')
+            }
             toast.success('RAB berhasil dihapus')
             fetchData()
         } catch (_error) {

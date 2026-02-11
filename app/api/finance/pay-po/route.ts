@@ -1,29 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const financeService = new FinanceService()
 
 const payPoSchema = z.object({
-  poId: z.string().min(1),
+  poId: z.string().min(1, 'ID Purchase Order wajib diisi'),
   categoryId: z.string().min(1, 'Kategori transaksi wajib dipilih'),
-  date: z.string().or(z.date()), // Payment date
-  amount: z.number().min(1),
+  date: z.string().or(z.date()),
+  amount: z.number().min(1, 'Jumlah pembayaran harus lebih dari 0'),
   notes: z.string().optional(),
   paidFromAccountId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
-  const session = await verifyAuth(req)
-  if (!session) return new NextResponse('Unauthorized', { status: 401 })
-
   try {
+    const session = await verifyAuth(req)
+    if (!session) return ApiErrors.unauthorized()
+
     const json = await req.json()
     const result = payPoSchema.safeParse(json)
 
     if (!result.success) {
-        return new NextResponse(result.error.issues[0]?.message || 'Validasi gagal', { status: 400 })
+        return ApiErrors.badRequest(result.error.issues[0]?.message || 'Validasi gagal')
     }
 
     const { poId, categoryId, date, amount, notes, paidFromAccountId } = result.data
@@ -38,11 +39,14 @@ export async function POST(req: NextRequest) {
       ...(paidFromAccountId ? { paidFromAccountId } : {})
     })
 
-    return NextResponse.json(transaction)
+    return apiSuccess(transaction, { message: 'Pembayaran PO berhasil dicatat' })
 
   } catch (error: unknown) {
     console.error('Error paying PO:', error)
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
-    return new NextResponse(message, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal memproses pembayaran PO'
+    if (message.toLowerCase().includes('not found') || message.toLowerCase().includes('tidak ditemukan')) {
+      return ApiErrors.notFound('Purchase Order')
+    }
+    return ApiErrors.internalError(message)
   }
 }

@@ -7,7 +7,7 @@ export async function GET(_request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session || !session.user || !session.user.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const user = await prisma.user.findUnique({
@@ -28,7 +28,7 @@ export async function GET(_request: NextRequest) {
         // console.log('[attendance:config] fetched for user', session.user.id)
 
         if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
         }
 
         return NextResponse.json({
@@ -39,6 +39,6 @@ export async function GET(_request: NextRequest) {
         })
     } catch (error) {
         console.error('Error fetching attendance config:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

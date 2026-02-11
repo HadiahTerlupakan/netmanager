@@ -7,23 +7,23 @@ export async function GET(request: Request) {
   // Verify mobile authentication
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
   }
 
   const token = authHeader.split(' ')[1]
   if (!token) {
-    return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+    return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
   }
   const payload = await verifyMobileToken(token)
 
   if (!payload) {
-    return NextResponse.json({ error: 'Invalid Token' }, { status: 401 })
+    return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
   }
 
   // Check Permission
   const permissions = payload.permissions || []
   if (!permissions.includes('m_topology:read')) {
-    return NextResponse.json({ error: 'Forbidden: Requires m_topology:read permission' }, { status: 403 })
+    return NextResponse.json({ error: 'Akses ditolak: Memerlukan izin m_topology:read' }, { status: 403 })
   }
 
   try {
@@ -429,6 +429,6 @@ export async function GET(request: Request) {
     })
   } catch (error: unknown) {
     console.error('Error fetching topology data:', error)
-    return NextResponse.json({ error: 'Failed to fetch topology data' }, { status: 500 })
+    return NextResponse.json({ error: 'Gagal mengambil data topologi' }, { status: 500 })
   }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { toast } from 'react-hot-toast'
 
 // Dynamically import Chart.js wrapper components
 const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), {
@@ -71,10 +72,21 @@ export default function ReportsClient() {
                 fetch('/api/finance/reports?type=TAX')
             ])
 
-            if (resCapex.ok) setCapexOpex(await resCapex.json())
-            if (resTax.ok) setTaxReport(await resTax.json())
+            if (resCapex.ok) {
+                setCapexOpex(await resCapex.json())
+            } else {
+                const errData = await resCapex.json().catch((): null => null)
+                toast.error(errData?.error || 'Gagal mengambil laporan CAPEX/OPEX')
+            }
+            if (resTax.ok) {
+                setTaxReport(await resTax.json())
+            } else {
+                const errData = await resTax.json().catch((): null => null)
+                toast.error(errData?.error || 'Gagal mengambil laporan pajak')
+            }
         } catch (error) {
             console.error('Error fetching reports', error)
+            toast.error('Gagal mengambil data laporan')
         } finally {
             setLoading(false)
         }

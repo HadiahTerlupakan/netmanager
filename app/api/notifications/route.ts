@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('Error fetching notifications:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch notifications' },
+            { error: 'Gagal mengambil notifikasi' },
             { status: 500 }
         );
     }
@@ -196,12 +196,12 @@ export async function PATCH(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: 'All notifications marked as read',
+            message: 'Semua notifikasi telah ditandai dibaca',
         });
     } catch (error) {
         console.error('Error marking notifications as read:', error);
         return NextResponse.json(
-            { error: 'Failed to mark notifications as read' },
+            { error: 'Gagal menandai notifikasi sebagai dibaca' },
             { status: 500 }
         );
     }

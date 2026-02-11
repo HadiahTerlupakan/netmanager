@@ -226,7 +226,7 @@ export function ClientComponent() {
 
     const handleVerify = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation()
-        if (!confirm('Are you sure you want to verify this work order?')) return
+        if (!confirm('Apakah Anda yakin ingin memverifikasi work order ini?')) return
 
         setProcessingApproval(true)
         try {
@@ -239,11 +239,12 @@ export function ClientComponent() {
             if (response.ok) {
                 fetchWorkOrders()
             } else {
-                alert('Failed to verify work order')
+                const errData = await response.json().catch(() => ({}))
+                alert(errData.error || 'Gagal memverifikasi work order')
             }
         } catch (error: unknown) {
             console.error('Error verifying:', error)
-            alert('An error occurred')
+            alert('Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -257,7 +258,7 @@ export function ClientComponent() {
 
     const handleReject = async () => {
         if (!rejectReason.trim()) {
-            alert('Please provide a rejection reason')
+            alert('Silakan berikan alasan penolakan')
             return
         }
 
@@ -280,11 +281,12 @@ export function ClientComponent() {
                 setSelectedWorkOrderId(null)
                 fetchWorkOrders()
             } else {
-                alert('Failed to reject work order')
+                const errData = await response.json().catch(() => ({}))
+                alert(errData.error || 'Gagal menolak work order')
             }
         } catch (error: unknown) {
             console.error('Error rejecting:', error)
-            alert('An error occurred')
+            alert('Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -298,7 +300,7 @@ export function ClientComponent() {
 
     const handleCancel = async () => {
         if (!cancelReason.trim()) {
-            alert('Please provide a cancellation reason')
+            alert('Silakan berikan alasan pembatalan')
             return
         }
 
@@ -316,11 +318,12 @@ export function ClientComponent() {
                 setSelectedWorkOrderId(null)
                 fetchWorkOrders()
             } else {
-                alert('Failed to cancel work order')
+                const errData = await response.json().catch(() => ({}))
+                alert(errData.error || 'Gagal membatalkan work order')
             }
         } catch (error: unknown) {
             console.error('Error cancelling:', error)
-            alert('An error occurred')
+            alert('Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }

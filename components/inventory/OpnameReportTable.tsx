@@ -56,7 +56,8 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
 
       const response = await fetch(`/api/inventory/opname/list?${params}`)
       if (!response.ok) {
-        throw new Error('Gagal memuat data stock opname')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal memuat data stock opname')
       }
 
       const data = await response.json()

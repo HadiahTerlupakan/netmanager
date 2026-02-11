@@ -13,11 +13,11 @@ export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         if (!(await hasPermission('purchase_orders:read'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
 
         const { searchParams } = new URL(req.url)
@@ -58,8 +58,8 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ data, total })
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         console.error('Error fetching purchase requests:', error)
-        return NextResponse.json({ error: errorMessage || 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: errorMessage || 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

@@ -1,31 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getCanvasingService } from '@/lib/repositories'
+import { apiSuccess, ApiErrors, apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     // RBAC Check
     const isSuperAdmin = isSuperAdminRole(session.role)
-    // const permissions = session.permissions || []
     const permissions = await getUserPermissions(session.id)
-    
-    // console.log(`[API_CANVASING_APPROVE] User: ${session.email}, Role: ${session.role}, IsSuperAdmin: ${isSuperAdmin}, Permissions: ${permissions.length}`)
 
     if (!isSuperAdmin && !permissions.includes('canvasing:update')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menyetujui canvasing')
     }
 
     const service = getCanvasingService()
     const request = await service.approveRequest(id, session.id)
 
-    return NextResponse.json(request)
+    return apiSuccess(request, { message: 'Canvasing berhasil disetujui dan Work Order telah dibuat' })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal menyetujui canvasing'
+    if (message.includes('tidak ditemukan')) {
+      return ApiErrors.notFound('Data canvasing')
+    }
+    if (message.includes('Hanya request PENDING')) {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+    return ApiErrors.internalError(message)
   }
 }

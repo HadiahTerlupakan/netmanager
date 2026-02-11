@@ -11,17 +11,17 @@ export async function POST(request: NextRequest) {
         const authHeader = request.headers.get('authorization')
 
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
         }
         const decoded = await verifyMobileToken(token)
 
         if (!decoded) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const userId = decoded.userId as string
@@ -113,13 +113,13 @@ export async function POST(request: NextRequest) {
                                   }
                                   if (!verifySignature(dataToVerify, meta.signature)) {
                                       return NextResponse.json({
-                                          error: 'Invalid offline data signature',
+                                          error: 'Tanda tangan data offline tidak valid',
                                           code: 'VALIDATION_ERROR'
                                       }, { status: 400 })
                                   }
                              } else {
                                  return NextResponse.json({
-                                     error: 'Offline data must be signed',
+                                     error: 'Data offline harus ditandatangani',
                                      code: 'VALIDATION_ERROR'
                                  }, { status: 400 })
                              }
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
                     // Verify Signature - Enforce for all offline data
                     if (!body._offline_meta.signature) {
                         return NextResponse.json({
-                            error: 'Offline data must be signed',
+                            error: 'Data offline harus ditandatangani',
                             code: 'VALIDATION_ERROR'
                         }, { status: 400 })
                     }
@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
                     }
                     if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
                          return NextResponse.json({
-                             error: 'Invalid offline data signature',
+                             error: 'Tanda tangan data offline tidak valid',
                              code: 'VALIDATION_ERROR'
                          }, { status: 400 })
                     }
@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
 
         logger.error('Error in mobile check-in', error as Error)
         return NextResponse.json({
-            error: 'Internal server error',
+            error: 'Terjadi kesalahan server',
             code: 'INTERNAL_ERROR'
         }, { status: 500 })
     }

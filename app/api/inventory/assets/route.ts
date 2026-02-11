@@ -12,8 +12,8 @@ import { AssetStatus } from '@prisma/client'
 
 // Schema for creating asset
 const createAssetSchema = z.object({
-    barangId: z.string().min(1, 'Barang is required'),
-    kodeAsset: z.string().min(1, 'Kode Asset is required'),
+    barangId: z.string().min(1, 'Barang wajib dipilih'),
+    kodeAsset: z.string().min(1, 'Kode Asset wajib diisi'),
     purchaseDate: z.string().or(z.date()).transform(val => new Date(val)),
     purchasePrice: z.number().min(0),
     usefulLife: z.number().int().min(1),

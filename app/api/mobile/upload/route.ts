@@ -13,18 +13,18 @@ export async function POST(request: NextRequest) {
         // Check mobile authentication
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
 
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const formData = await request.formData();
@@ -44,18 +44,18 @@ export async function POST(request: NextRequest) {
 
         // Validate required fields
         if (!file) {
-            return NextResponse.json({ error: 'File is required' }, { status: 400 });
+            return NextResponse.json({ error: 'File wajib diisi' }, { status: 400 });
         }
 
         // Validate file is an image
         if (!isImageFile(file)) {
-            return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
+            return NextResponse.json({ error: 'Hanya file gambar yang diperbolehkan' }, { status: 400 });
         }
 
         // Validate file size (max 10MB)
         const maxSize = 10 * 1024 * 1024; // 10MB
         if (file.size > maxSize) {
-            return NextResponse.json({ error: 'File size exceeds 10MB limit' }, { status: 400 });
+            return NextResponse.json({ error: 'Ukuran file melebihi batas 10MB' }, { status: 400 });
         }
 
         // Generate filename

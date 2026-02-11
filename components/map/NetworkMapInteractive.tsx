@@ -628,11 +628,11 @@ export default function NetworkMapInteractive() {
         fetchData();
       } else {
         const error = await res.json();
-        showToast("error", error.error || "Failed to add fiber line");
+        showToast("error", error.error || "Gagal menambah jalur fiber");
       }
     } catch (error) {
       console.error(error);
-      showToast("error", "Failed to add fiber line");
+      showToast("error", "Gagal menambah jalur fiber");
     }
 
     setShowFiberForm(false);
@@ -663,7 +663,7 @@ export default function NetworkMapInteractive() {
       }
     } catch (error) {
       console.error(error);
-      showToast("error", "Failed to update position");
+      showToast("error", "Gagal mengupdate posisi");
     }
   };
 
@@ -701,11 +701,11 @@ export default function NetworkMapInteractive() {
         setOntTempPosition(null);
       } else {
         const error = await res.json();
-        showToast("error", error.error || "Failed to save node");
+        showToast("error", error.error || "Gagal menyimpan node");
       }
     } catch (error) {
       console.error(error);
-      showToast("error", "Failed to save node");
+      showToast("error", "Gagal menyimpan node");
     }
   };
 
@@ -720,7 +720,7 @@ export default function NetworkMapInteractive() {
       }
     } catch (error) {
       console.error(error);
-      showToast("error", "Failed to delete node");
+      showToast("error", "Gagal menghapus node");
     }
   };
 
@@ -733,7 +733,7 @@ export default function NetworkMapInteractive() {
       }
     } catch (error) {
       console.error(error);
-      showToast("error", "Failed to delete fiber line");
+      showToast("error", "Gagal menghapus jalur fiber");
     }
   };
 
@@ -1714,7 +1714,7 @@ export default function NetworkMapInteractive() {
                 fetchData();
               } else {
                 const error = await res.json();
-                showToast("error", error.error || "Failed to reset");
+                showToast("error", error.error || "Gagal mereset");
               }
             }}
           />

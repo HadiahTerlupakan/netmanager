@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess(owners)
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     console.error('[API] MixRadius Owners Error:', message)
     return ApiErrors.internalError(message)
   }

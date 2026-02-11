@@ -82,11 +82,12 @@ export default function SalesListClient() {
                     setUsers(json.data || [])
                 }
             } else {
-                toast.error('Gagal memuat data sales')
+                const json = await res.json().catch((): null => null)
+                toast.error(json?.error || 'Gagal memuat data sales')
             }
         } catch (error) {
             console.error('Error:', error)
-            toast.error('Terjadi kesalahan')
+            toast.error('Gagal menghubungi server, coba lagi nanti')
         } finally {
             setLoading(false)
         }
@@ -124,7 +125,7 @@ export default function SalesListClient() {
             }
         } catch (error) {
             console.error('Error saving target:', error)
-            toast.error('Gagal menghubungi server')
+            toast.error('Gagal menghubungi server untuk menyimpan target')
         } finally {
             setSaving(false)
         }

@@ -146,7 +146,7 @@ export class WorkOrderService {
             return { success: true, data: result }
         } catch (error) {
             logger.error('WorkOrderService.getWorkOrders failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch work orders', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil daftar work order', code: 'FETCH_ERROR' }
         }
     }
 
@@ -168,7 +168,7 @@ export class WorkOrderService {
             return { success: true, data: result }
         } catch (error) {
             logger.error('WorkOrderService.getWorkOrderRequests failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch work order requests', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil daftar permintaan work order', code: 'FETCH_ERROR' }
         }
     }
 
@@ -181,7 +181,7 @@ export class WorkOrderService {
             return { success: true, data: stats }
         } catch (error) {
             logger.error('WorkOrderService.getStatistics failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch statistics', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil statistik', code: 'FETCH_ERROR' }
         }
     }
 
@@ -194,7 +194,7 @@ export class WorkOrderService {
             return { success: true, data: workOrders }
         } catch (error) {
             logger.error('WorkOrderService.getRecentWorkOrders failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch recent work orders', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil work order terbaru', code: 'FETCH_ERROR' }
         }
     }
 
@@ -210,7 +210,7 @@ export class WorkOrderService {
             const workOrder = await this.repository.findById(id)
 
             if (!workOrder) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             return { success: true, data: workOrder }
@@ -218,8 +218,8 @@ export class WorkOrderService {
             logger.error('WorkOrderService.getWorkOrderById failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to fetch work order',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'FETCH_ERROR'
+                error: error instanceof Error ? error.message : 'Gagal mengambil work order',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'FETCH_ERROR'
             }
         }
     }
@@ -241,7 +241,7 @@ export class WorkOrderService {
             if (!input.type || !input.title || !input.description) {
                 return {
                     success: false,
-                    error: 'Type, title, and description are required',
+                    error: 'Tipe, judul, dan deskripsi wajib diisi',
                     code: 'VALIDATION_ERROR',
                 }
             }
@@ -251,7 +251,7 @@ export class WorkOrderService {
                 if (input.siteId && input.siteId !== userSiteId) {
                     return {
                         success: false,
-                        error: 'Access denied: You can only create work orders for your assigned site',
+                        error: 'Akses ditolak: Anda hanya dapat membuat work order untuk site Anda',
                         code: 'FORBIDDEN',
                     }
                 }
@@ -263,7 +263,7 @@ export class WorkOrderService {
                 if (input.departmentId && input.departmentId !== userDeptId) {
                     return {
                         success: false,
-                        error: 'Access denied: You can only create work orders for your assigned department',
+                        error: 'Akses ditolak: Anda hanya dapat membuat work order untuk departemen Anda',
                         code: 'FORBIDDEN',
                     }
                 }
@@ -304,7 +304,7 @@ export class WorkOrderService {
             return { success: true, data: workOrder as WorkOrderWithRelations }
         } catch (error) {
             logger.error('WorkOrderService.createWorkOrder failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to create work order', code: 'CREATE_ERROR' }
+            return { success: false, error: 'Gagal membuat work order', code: 'CREATE_ERROR' }
         }
     }
 
@@ -325,7 +325,7 @@ export class WorkOrderService {
             // Check exists
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Update - ensure scheduledDate is Date or undefined
@@ -354,8 +354,8 @@ export class WorkOrderService {
             logger.error('WorkOrderService.updateWorkOrder failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to update work order',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'UPDATE_ERROR'
+                error: error instanceof Error ? error.message : 'Gagal mengupdate work order',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'UPDATE_ERROR'
             }
         }
     }
@@ -375,7 +375,7 @@ export class WorkOrderService {
 
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             const previousStatus = existing.status
@@ -426,8 +426,8 @@ export class WorkOrderService {
             logger.error('WorkOrderService.updateStatus failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to update status',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'STATUS_ERROR'
+                error: error instanceof Error ? error.message : 'Gagal mengupdate status',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'STATUS_ERROR'
             }
         }
     }
@@ -449,7 +449,7 @@ export class WorkOrderService {
 
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Validate employee status
@@ -459,13 +459,13 @@ export class WorkOrderService {
             })
 
             if (!employee) {
-                return { success: false, error: 'Employee not found', code: 'EMPLOYEE_NOT_FOUND' }
+                return { success: false, error: 'Karyawan tidak ditemukan', code: 'EMPLOYEE_NOT_FOUND' }
             }
 
             if (!employee.isActive) {
                 return {
                     success: false,
-                    error: `Cannot assign work order to inactive employee: ${employee.name || 'Unknown'}`,
+                    error: `Tidak dapat menugaskan work order ke karyawan yang tidak aktif: ${employee.name || 'Tidak Diketahui'}`,
                     code: 'EMPLOYEE_INACTIVE'
                 }
             }
@@ -510,8 +510,8 @@ export class WorkOrderService {
             logger.error('WorkOrderService.assignWorkOrder failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to assign work order',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'ASSIGN_ERROR'
+                error: error instanceof Error ? error.message : 'Gagal menugaskan work order',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'ASSIGN_ERROR'
             }
         }
     }
@@ -531,13 +531,13 @@ export class WorkOrderService {
 
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             if (existing.status !== 'REQUESTED') {
                 return {
                     success: false,
-                    error: 'Only REQUESTED work orders can be approved',
+                    error: 'Hanya work order dengan status REQUESTED yang dapat disetujui',
                     code: 'INVALID_STATUS',
                 }
             }
@@ -560,8 +560,8 @@ export class WorkOrderService {
             logger.error('WorkOrderService.approveRequest failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to approve request',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'APPROVE_ERROR'
+                error: error instanceof Error ? error.message : 'Gagal menyetujui permintaan',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'APPROVE_ERROR'
             }
         }
     }
@@ -579,18 +579,18 @@ export class WorkOrderService {
             await this.validateWorkOrderAccess(id, userContext)
 
             if (!reason) {
-                return { success: false, error: 'Rejection reason is required', code: 'VALIDATION_ERROR' }
+                return { success: false, error: 'Alasan penolakan wajib diisi', code: 'VALIDATION_ERROR' }
             }
 
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             if (existing.status !== 'REQUESTED') {
                 return {
                     success: false,
-                    error: 'Only REQUESTED work orders can be rejected',
+                    error: 'Hanya work order dengan status REQUESTED yang dapat ditolak',
                     code: 'INVALID_STATUS',
                 }
             }
@@ -614,8 +614,8 @@ export class WorkOrderService {
             logger.error('WorkOrderService.rejectRequest failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to reject request',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'REJECT_ERROR'
+                error: error instanceof Error ? error.message : 'Gagal menolak permintaan',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'REJECT_ERROR'
             }
         }
     }
@@ -632,7 +632,7 @@ export class WorkOrderService {
 
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             const deletedById = userContext.id
@@ -652,8 +652,8 @@ export class WorkOrderService {
             logger.error('WorkOrderService.deleteWorkOrder failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to delete work order',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'DELETE_ERROR'
+                error: error instanceof Error ? error.message : 'Gagal menghapus work order',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'DELETE_ERROR'
             }
         }
     }
@@ -680,7 +680,7 @@ export class WorkOrderService {
                 // Check work order
                 const workOrder = await tx.workOrders.findUnique({ where: { id: workOrderId } })
                 if (!workOrder) {
-                    throw new Error('Work order not found')
+                    throw new Error('Work order tidak ditemukan')
                 }
 
                 // Check barang
@@ -706,14 +706,14 @@ export class WorkOrderService {
                 })
 
                 if (!barang) {
-                    throw new Error('Barang not found')
+                    throw new Error('Barang tidak ditemukan')
                 }
 
                 // Find available stock
                 const gudangSource = barang.barangGudang[0]
                 if (!gudangSource || gudangSource.stok < quantity) {
                      // Note: Simple check. For production, might need to split across warehouses if needed.
-                    throw new Error(`Insufficient stock. Available: ${gudangSource?.stok || 0}`)
+                    throw new Error(`Stok tidak mencukupi. Tersedia: ${gudangSource?.stok || 0}`)
                 }
 
                 const deductAmount = quantity
@@ -766,7 +766,7 @@ export class WorkOrderService {
             logger.error('WorkOrderService.addMaterial failed', error instanceof Error ? error : undefined)
             return { 
                 success: false, 
-                error: error instanceof Error ? error.message : 'Failed to add material', 
+                error: error instanceof Error ? error.message : 'Gagal menambahkan material', 
                 code: 'ADD_MATERIAL_ERROR' 
             }
         }
@@ -787,7 +787,7 @@ export class WorkOrderService {
             // Check work order
             const workOrder = await this.repository.findById(workOrderId)
             if (!workOrder) {
-                return { success: false, error: 'Work order not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Get template items
@@ -797,7 +797,7 @@ export class WorkOrderService {
             })
 
             if (templateItems.length === 0) {
-                return { success: false, error: 'Template has no items', code: 'EMPTY_TEMPLATE' }
+                return { success: false, error: 'Template tidak memiliki item', code: 'EMPTY_TEMPLATE' }
             }
 
             // Create tasks
@@ -820,7 +820,7 @@ export class WorkOrderService {
             return { success: true, data: tasks }
         } catch (error) {
             logger.error('WorkOrderService.createTasksFromTemplate failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to create tasks from template', code: 'CREATE_TASKS_ERROR' }
+            return { success: false, error: 'Gagal membuat tugas dari template', code: 'CREATE_TASKS_ERROR' }
         }
     }
 
@@ -839,20 +839,20 @@ export class WorkOrderService {
         // Fetch work order to check its department/site
         const workOrder = await this.repository.findById(workOrderId)
         if (!workOrder) {
-            throw new Error('Work order not found')
+            throw new Error('Work order tidak ditemukan')
         }
 
         // Check department restriction
         if (permissions.includes('workorders:department_only')) {
             if (workOrder.departmentId !== userDeptId) {
-                throw new Error('Access denied: Different department')
+                throw new Error('Akses ditolak: Departemen berbeda')
             }
         }
 
         // Check site restriction
         if (permissions.includes('workorders:site_only')) {
             if (workOrder.siteId !== userSiteId) {
-                throw new Error('Access denied: Different site')
+                throw new Error('Akses ditolak: Site berbeda')
             }
         }
     }
@@ -983,11 +983,11 @@ export class WorkOrderService {
             const comment = await this.repository.addComment(workOrderId, message, userContext.id)
             return { success: true, data: comment }
         } catch (error) {
-            logger.error('Failed to add comment', error instanceof Error ? error : undefined)
+            logger.error('Gagal menambahkan komentar', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to add comment',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'OPERATION_FAILED'
+                error: error instanceof Error ? error.message : 'Gagal menambahkan komentar',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'OPERATION_FAILED'
             }
         }
     }
@@ -1016,11 +1016,11 @@ export class WorkOrderService {
             })
             return { success: true, data: task }
         } catch (error) {
-            logger.error('Failed to add task', error instanceof Error ? error : undefined)
+            logger.error('Gagal menambahkan tugas', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to add task',
-                code: error instanceof Error && error.message.includes('Access denied') ? 'FORBIDDEN' : 'OPERATION_FAILED'
+                error: error instanceof Error ? error.message : 'Gagal menambahkan tugas',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'OPERATION_FAILED'
             }
         }
     }

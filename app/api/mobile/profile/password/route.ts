@@ -8,14 +8,14 @@ export async function POST(request: Request) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const body = await request.json()
@@ -23,19 +23,19 @@ export async function POST(request: Request) {
 
         if (!currentPassword || !newPassword || !confirmPassword) {
             return NextResponse.json({ 
-                error: 'Current password, new password, and confirm password are required' 
+                error: 'Password lama, password baru, dan konfirmasi password wajib diisi'
             }, { status: 400 })
         }
 
         if (newPassword !== confirmPassword) {
             return NextResponse.json({ 
-                error: 'New password and confirm password do not match' 
+                error: 'Password baru dan konfirmasi password tidak cocok'
             }, { status: 400 })
         }
 
         if (newPassword.length < 6) {
             return NextResponse.json({ 
-                error: 'Password must be at least 6 characters' 
+                error: 'Password harus minimal 6 karakter'
             }, { status: 400 })
         }
 
@@ -45,12 +45,12 @@ export async function POST(request: Request) {
         })
 
         if (!dbUser || !dbUser.passwordHash) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
         }
 
         const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash)
         if (!isValidPassword) {
-            return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
+            return NextResponse.json({ error: 'Password lama salah' }, { status: 400 })
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, 10)
@@ -70,10 +70,10 @@ export async function POST(request: Request) {
             userId: user.id as string
         })
 
-        return NextResponse.json({ success: true, message: 'Password updated successfully' })
+        return NextResponse.json({ success: true, message: 'Password berhasil diubah' })
     } catch (error: unknown) {
         console.error('Password change error:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

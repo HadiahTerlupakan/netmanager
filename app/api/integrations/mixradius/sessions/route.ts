@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (error: unknown) {
     console.error('[API] Sessions error:', error)
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return ApiErrors.internalError(message)
   }
 }

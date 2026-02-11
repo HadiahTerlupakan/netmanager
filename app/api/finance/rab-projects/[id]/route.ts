@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
         }
 
         const isSuper = isSuperAdmin(session.user);
@@ -57,7 +57,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         });
 
         if (!project) {
-            return NextResponse.json({ error: "Not found" }, { status: 404 });
+            return NextResponse.json({ error: "Proyek RAB tidak ditemukan" }, { status: 404 });
         }
 
         const serialized = {
@@ -75,7 +75,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         return NextResponse.json(serialized);
     } catch (error) {
         console.error("Error fetching RAB project:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }
 
@@ -108,7 +108,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
         }
 
         const isSuper = isSuperAdmin(session.user);
@@ -126,7 +126,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         const validation = updateSchema.safeParse(body);
 
         if (!validation.success) {
-            return NextResponse.json({ error: "Invalid data", details: validation.error.format() }, { status: 400 });
+            return NextResponse.json({ error: "Data tidak valid", details: validation.error.format() }, { status: 400 });
         }
 
         const {
@@ -183,7 +183,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
     } catch (error) {
         console.error("Error updating RAB project:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }
 
@@ -192,7 +192,7 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
         }
 
         const isSuper = isSuperAdmin(session.user);
@@ -211,11 +211,11 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
         });
 
         if (!project) {
-            return NextResponse.json({ error: "Not found" }, { status: 404 });
+            return NextResponse.json({ error: "Proyek RAB tidak ditemukan" }, { status: 404 });
         }
 
         if (project.status !== 'DRAFT') {
-            return NextResponse.json({ error: "Only DRAFT projects can be deleted" }, { status: 400 });
+            return NextResponse.json({ error: "Hanya proyek RAB dengan status DRAFT yang dapat dihapus" }, { status: 400 });
         }
 
         await prisma.rabProject.delete({
@@ -226,6 +226,6 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
 
     } catch (error) {
         console.error("Error deleting RAB project:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }

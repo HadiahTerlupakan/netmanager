@@ -126,7 +126,7 @@ export class DANAProvider implements PaymentProvider {
             if (!data) {
                 return {
                     success: false,
-                    error: 'Invalid response from DANA'
+                    error: 'Respon tidak valid dari DANA'
                 }
             }
 
@@ -358,7 +358,7 @@ export class DANAProvider implements PaymentProvider {
                 }
             }
 
-            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            const errorMessage = error instanceof Error ? error.message : 'Koneksi gagal'
             return {
                 success: false,
                 message: errorMessage

@@ -68,7 +68,7 @@ export async function convertAndSaveImage(
     return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder, watermarkLines)
   } catch (error) {
     console.error('Error converting image to WebP:', error)
-    throw new Error(`Gagal mengkonversi gambar: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(`Gagal mengkonversi gambar: ${error instanceof Error ? error.message : 'Terjadi kesalahan'}`)
   }
 }
 
@@ -90,7 +90,7 @@ export async function convertAndSaveBase64(
     return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder, watermarkLines)
   } catch (error) {
     console.error('Error converting base64 to WebP:', error)
-    throw new Error(`Gagal mengkonversi base64: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(`Gagal mengkonversi base64: ${error instanceof Error ? error.message : 'Terjadi kesalahan'}`)
   }
 }
 
@@ -205,7 +205,7 @@ export async function saveFile(
     return normalizedPath
   } catch (error) {
     console.error('Error saving file:', error)
-    throw new Error(`Gagal menyimpan file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(`Gagal menyimpan file: ${error instanceof Error ? error.message : 'Terjadi kesalahan'}`)
   }
 }
 
@@ -270,7 +270,7 @@ export async function uploadInventoryPhotos(
 
   } catch (error) {
     console.error('Error uploading inventory photos:', error)
-    throw new Error(`Gagal mengupload foto inventaris: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(`Gagal mengupload foto inventaris: ${error instanceof Error ? error.message : 'Terjadi kesalahan'}`)
   }
 }
 

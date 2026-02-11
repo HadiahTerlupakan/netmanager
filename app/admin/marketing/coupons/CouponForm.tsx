@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HiArrowLeft } from 'react-icons/hi2'
+import { toast } from 'react-hot-toast'
 
 export default function CouponForm() {
     const router = useRouter()
@@ -42,8 +43,8 @@ export default function CouponForm() {
             router.push('/admin/marketing/coupons')
             router.refresh()
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
-            alert(message)
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan saat membuat kupon'
+            toast.error(message)
         } finally {
             setLoading(false)
         }

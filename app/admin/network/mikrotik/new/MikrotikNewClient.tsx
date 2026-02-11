@@ -68,7 +68,7 @@ export function ClientComponent() {
 
       router.push('/admin/network/mikrotik')
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
       console.error('Error creating router:', error)
       alert('Terjadi kesalahan saat menambahkan router: ' + errorMessage)
     } finally {
@@ -108,7 +108,7 @@ export function ClientComponent() {
       // Set testPassed hanya jika test berhasil
       setTestPassed(result.success === true)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
       console.error('Error testing connection:', error)
       setTestResult({
         success: false,

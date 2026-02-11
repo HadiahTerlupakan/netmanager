@@ -91,7 +91,7 @@ export function ClientComponent() {
       router.push('/admin/network/mikrotik')
     } catch (error) {
       console.error('Error updating router:', error)
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
       alert('Terjadi kesalahan saat mengupdate router: ' + message)
     } finally {
       setSaving(false)
@@ -135,7 +135,7 @@ export function ClientComponent() {
       }
     } catch (error) {
       console.error('Error testing connection:', error)
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
       setTestResult({
         success: false,
         ping: { success: false, message: 'Error: ' + message },

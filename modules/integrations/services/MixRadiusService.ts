@@ -403,7 +403,7 @@ export class MixRadiusService {
         throw new Error('Login may have failed - unexpected response')
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
       console.error('[MixRadius] Login error:', message)
       this.isLoggedIn = false
       throw new Error(`MixRadius login failed: ${message}`)
@@ -758,7 +758,7 @@ export class MixRadiusService {
         data: pagedData
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
       console.error('[MixRadius] Fetch error:', message)
 
       // If it's a session error, try to re-login
@@ -1161,7 +1161,7 @@ export class MixRadiusService {
       }
 
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       // Graceful handling for missing configuration
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
@@ -1415,7 +1415,7 @@ export class MixRadiusService {
       return false
 
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (deleteIncomeRecord): ${message}`)
         return false
@@ -1459,7 +1459,7 @@ export class MixRadiusService {
       return html
 
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (getPrintInvoiceHtml): ${message}`)
@@ -1569,7 +1569,7 @@ export class MixRadiusService {
 
       return activeMap
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchActiveSessionsPPP): ${message}`)
@@ -1939,7 +1939,7 @@ export class MixRadiusService {
 
       return customerDetail
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchCustomerDetail): ${message}`)
@@ -2185,7 +2185,7 @@ export class MixRadiusService {
       console.log(`[MixRadius] Parsed ${odps.length} ODPs with valid coordinates`)
       return odps
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchODPList): ${message}`)
@@ -2302,7 +2302,7 @@ export class MixRadiusService {
       console.log(`[MixRadius] Found ${customers.length} customers for ODP ${odpId}`)
       return customers
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchODPCustomers): ${message}`)
@@ -2395,7 +2395,7 @@ export class MixRadiusService {
       
       return result
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchTopologyData): ${message}`)

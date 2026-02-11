@@ -132,14 +132,15 @@ export function KeluarTable({
       const response = await deleteWithAuth(`/api/inventory/keluar/${id}`)
 
       if (!response.ok) {
-        throw new Error('Gagal menghapus record barang keluar')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal menghapus record barang keluar')
       }
 
       // Refresh data
       window.location.reload()
     } catch (error) {
       console.error('Failed to delete barang keluar:', error)
-      alert('Gagal menghapus record barang keluar')
+      alert(error instanceof Error ? error.message : 'Gagal menghapus record barang keluar')
     }
   }
 

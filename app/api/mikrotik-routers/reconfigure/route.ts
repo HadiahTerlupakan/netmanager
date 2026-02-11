@@ -17,7 +17,7 @@ async function requireAdmin() {
 
 export async function POST(req: Request) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
   try {
     const body = await req.json()
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
                 name: router.name,
                 success: false,
                 logs: [],
-                error: error instanceof Error ? error.message : 'Unknown error'
+                error: error instanceof Error ? error.message : 'Terjadi kesalahan'
             });
         }
     }
@@ -102,6 +102,6 @@ export async function POST(req: Request) {
 
   } catch (error: unknown) {
     console.error('Error reconfiguring routers:', error)
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to reconfigure routers' }, { status: 500 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Gagal mengkonfigurasi ulang router' }, { status: 500 })
   }
 }

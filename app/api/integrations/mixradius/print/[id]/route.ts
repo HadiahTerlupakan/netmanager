@@ -11,7 +11,7 @@ export async function GET(
   try {
     const session = await verifyAuth(req)
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 })
+      return new NextResponse('Tidak terautentikasi', { status: 401 })
     }
 
     // Permission check
@@ -23,7 +23,7 @@ export async function GET(
       const hasAccess = permissions.includes('mixradius:read') ||
                         permissions.includes('*')
       if (!hasAccess) {
-        return new NextResponse('Forbidden: Anda tidak memiliki akses ke data MixRadius', { status: 403 })
+        return new NextResponse('Akses ditolak: Anda tidak memiliki akses ke data MixRadius', { status: 403 })
       }
     }
 
@@ -43,7 +43,7 @@ export async function GET(
       },
     })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return new NextResponse(message, { status: 500 })
   }
 }

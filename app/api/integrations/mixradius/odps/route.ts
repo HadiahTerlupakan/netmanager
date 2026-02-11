@@ -46,7 +46,7 @@ export async function GET(_request: Request) {
     })
   } catch (error: unknown) {
     console.error('Error fetching ODP list:', error)
-    const message = error instanceof Error ? error.message : 'Failed to fetch ODP list'
+    const message = error instanceof Error ? error.message : 'Gagal mengambil daftar ODP'
     return ApiErrors.internalError(message)
   }
 }

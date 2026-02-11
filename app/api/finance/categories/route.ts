@@ -3,6 +3,7 @@ import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { logger } from '@/lib/logger'
+import { ApiErrors } from '@/lib/api-response'
 
 const financeService = new FinanceService()
 
@@ -14,27 +15,28 @@ const categorySchema = z.object({
 
 export async function GET(req: NextRequest) {
   const session = await verifyAuth(req)
-  if (!session) return new NextResponse('Unauthorized', { status: 401 })
+  if (!session) return ApiErrors.unauthorized()
 
   try {
     const categories = await financeService.getAllCategories()
     return NextResponse.json(categories)
   } catch (error) {
     console.error('Error fetching categories:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal mengambil data kategori'
+    return ApiErrors.internalError(message)
   }
 }
 
 export async function POST(req: NextRequest) {
   const session = await verifyAuth(req)
-  if (!session) return new NextResponse('Unauthorized', { status: 401 })
+  if (!session) return ApiErrors.unauthorized()
 
   try {
     const json = await req.json()
     const result = categorySchema.safeParse(json)
 
     if (!result.success) {
-      return new NextResponse(result.error.issues[0]?.message || 'Validasi gagal', { status: 400 })
+      return ApiErrors.badRequest(result.error.issues[0]?.message || 'Validasi gagal')
     }
 
     const { description, ...rest } = result.data
@@ -50,9 +52,10 @@ export async function POST(req: NextRequest) {
         userId: session.id
     })
 
-    return NextResponse.json(category)
+    return NextResponse.json(category, { status: 201 })
   } catch (error) {
     console.error('Error creating category:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal membuat kategori'
+    return ApiErrors.internalError(message)
   }
 }

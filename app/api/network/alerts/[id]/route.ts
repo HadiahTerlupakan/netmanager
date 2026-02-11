@@ -49,7 +49,7 @@ export async function GET(
 ): Promise<NextResponse> {
   try {
     const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
     const { id } = await params
 
@@ -144,7 +144,7 @@ export async function PUT(
 ): Promise<NextResponse> {
   try {
     const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
     const { id } = await params
     const json = await req.json()
@@ -239,7 +239,7 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
     const { id } = await params
 

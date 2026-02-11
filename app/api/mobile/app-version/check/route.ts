@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
         if (!currentVersionCode) {
             return NextResponse.json(
-                { error: 'versionCode is required' },
+                { error: 'versionCode wajib diisi' },
                 { status: 400 }
             )
         }
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: unknown) {
         console.error('Error checking app version:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Failed to check version'
+        const errorMessage = error instanceof Error ? error.message : 'Gagal memeriksa versi'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

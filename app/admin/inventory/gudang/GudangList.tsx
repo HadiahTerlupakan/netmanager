@@ -61,14 +61,15 @@ export default function GudangPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Gagal menghapus gudang')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal menghapus gudang')
       }
 
       // Refresh data
       window.location.reload()
     } catch (error: unknown) {
       console.error('Failed to delete gudang:', error)
-      alert('Gagal menghapus gudang')
+      alert(error instanceof Error ? error.message : 'Gagal menghapus gudang')
     }
   }
 

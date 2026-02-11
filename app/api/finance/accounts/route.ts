@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { z } from 'zod'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const accountSchema = z.object({
   name: z.string().min(1, 'Nama akun wajib diisi'),
@@ -15,17 +16,14 @@ export async function POST(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const body = await req.json()
     const validation = accountSchema.safeParse(body)
 
     if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Validasi gagal', details: validation.error.format() },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Validasi gagal', { details: validation.error.format() as unknown as Record<string, unknown> })
     }
 
     const financeService = new FinanceService()
@@ -36,13 +34,10 @@ export async function POST(req: NextRequest) {
         ...(description ? { description } : {})
     })
 
-    return NextResponse.json({ success: true, data: account })
+    return apiSuccess(account, { status: 201, message: 'Akun berhasil dibuat' })
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
-    console.error('Create Account Error:', err)
-    return NextResponse.json(
-      { error: err.message || 'Terjadi kesalahan saat membuat akun' },
-      { status: 500 }
-    )
+    console.error('Create Account Error:', error)
+    const message = error instanceof Error ? error.message : 'Gagal membuat akun keuangan'
+    return ApiErrors.internalError(message)
   }
 }

@@ -55,11 +55,11 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return ApiErrors.unauthorized('Unauthorized')
+      return ApiErrors.unauthorized('Tidak terautentikasi')
     }
 
     if (!(await hasPermission("gudang:read"))) {
-      return ApiErrors.forbidden('Forbidden')
+      return ApiErrors.forbidden('Akses ditolak')
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error fetching gudangs', err, {
       path: '/api/inventory/gudang',
       method: 'GET',
@@ -183,11 +183,11 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return ApiErrors.unauthorized('Unauthorized')
+      return ApiErrors.unauthorized('Tidak terautentikasi')
     }
 
     if (!(await hasPermission("gudang:create"))) {
-      return ApiErrors.forbidden('Forbidden')
+      return ApiErrors.forbidden('Akses ditolak')
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -256,7 +256,7 @@ export async function POST(req: NextRequest) {
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error creating gudang', err, {
       path: '/api/inventory/gudang',
       method: 'POST',

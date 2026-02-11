@@ -27,7 +27,7 @@ export default function CanvasingEditClient({ id }: { id: string }) {
         const fetchDetail = async () => {
             try {
                 const res = await axios.get(`/api/marketing/canvasing/${id}`);
-                const data = res.data;
+                const data = res.data?.data || res.data;
                 setFormData({
                     nama: data.nama,
                     noKtp: data.noKtp,
@@ -41,7 +41,11 @@ export default function CanvasingEditClient({ id }: { id: string }) {
                 });
             } catch (error) {
                 console.error('Fetch detail error:', error);
-                toast.error('Gagal memuat data canvasing');
+                if (axios.isAxiosError(error)) {
+                    toast.error(error.response?.data?.error || 'Gagal memuat data canvasing');
+                } else {
+                    toast.error('Gagal memuat data canvasing');
+                }
             } finally {
                 setIsLoading(false);
             }

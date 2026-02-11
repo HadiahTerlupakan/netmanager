@@ -13,7 +13,7 @@ export async function PATCH(
         // We cast req to any or NextRequest if strict typing allows, or just pass req as any
         const session = await verifyAuth(req)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const params = await props.params
@@ -38,7 +38,7 @@ export async function PATCH(
         // Action: START SHOPPING (Draft -> Ordered)
         if (action === 'START_SHOPPING') {
             const hasAccess = await hasPermission(session.id, 'purchase_orders', 'update')
-            if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            if (!hasAccess) return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
 
             if (po.status !== 'DRAFT') {
                 return NextResponse.json({ error: 'Hanya PO Draft yang bisa mulai diproses' }, { status: 400 })
@@ -67,7 +67,7 @@ export async function PATCH(
                  hasAccess = await hasPermission(session.id, 'purchase_orders', 'update')
             }
             
-            if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            if (!hasAccess) return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
 
             if (po.status !== 'ORDERED' && po.status !== 'PARTIAL') {
                  return NextResponse.json({ error: 'Hanya PO dalam proses yang bisa diterima' }, { status: 400 })
@@ -288,11 +288,11 @@ export async function PATCH(
             return NextResponse.json(result)
         }
 
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+        return NextResponse.json({ error: 'Aksi tidak valid' }, { status: 400 })
 
     } catch (error: unknown) {
         console.error('Error updating PO:', error)
-        const message = error instanceof Error ? error.message : 'Internal Server Error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }

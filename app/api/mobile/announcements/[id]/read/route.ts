@@ -15,21 +15,21 @@ export async function POST(
         if (!authHeader?.startsWith('Bearer ')) {
             console.log('[Mobile Announcement Read] No Bearer token');
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: 'Tidak terautentikasi' },
                 { status: 401 }
             );
         }
 
         const token = authHeader.substring(7);
         console.log('[Mobile Announcement Read] Token length:', token.length);
-        
+
         const payload = await verifyMobileToken(token);
         console.log('[Mobile Announcement Read] Payload:', payload ? 'valid' : 'invalid', payload?.sub);
-        
+
         if (!payload?.sub) {
             console.log('[Mobile Announcement Read] Invalid token payload');
             return NextResponse.json(
-                { error: 'Invalid token' },
+                { error: 'Token tidak valid' },
                 { status: 401 }
             );
         }
@@ -46,7 +46,7 @@ export async function POST(
 
         if (!announcement) {
             return NextResponse.json(
-                { error: 'Announcement not found' },
+                { error: 'Pengumuman tidak ditemukan' },
                 { status: 404 }
             );
         }

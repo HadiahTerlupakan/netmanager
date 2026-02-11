@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error fetching transfer records', err, {
       path: '/api/inventory/transfer',
       method: 'GET',
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error creating transfer', err, {
       path: '/api/inventory/transfer',
       method: 'POST',

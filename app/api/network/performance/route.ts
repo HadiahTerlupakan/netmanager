@@ -91,7 +91,7 @@ async function requireAdmin() {
 export async function GET(req: Request) {
   try {
     const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const queryParams = Object.fromEntries(searchParams.entries())
@@ -279,7 +279,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
     const json = await req.json()
     const { networkPerformanceCreateSchema } = await import('@/lib/validations/network-performance')

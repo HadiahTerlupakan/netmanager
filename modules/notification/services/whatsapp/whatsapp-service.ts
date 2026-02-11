@@ -91,7 +91,7 @@ export class WhatsAppService {
             if (!config) {
                 return {
                     success: false,
-                    error: 'WhatsApp not configured'
+                    error: 'WhatsApp belum dikonfigurasi'
                 }
             }
 
@@ -112,7 +112,7 @@ export class WhatsAppService {
             console.error('[WhatsApp] Error:', error)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error'
+                error: error instanceof Error ? error.message : 'Terjadi kesalahan'
             }
         }
     }
@@ -128,7 +128,7 @@ export class WhatsAppService {
             if (!config) {
                 return {
                     success: false,
-                    error: 'WhatsApp not configured'
+                    error: 'WhatsApp belum dikonfigurasi'
                 }
             }
 
@@ -136,7 +136,7 @@ export class WhatsAppService {
 
             // Check if provider supports file sending
             if (!provider.sendFile) {
-                throw new Error(`Provider ${config.provider} does not support file sending`)
+                throw new Error(`Provider ${config.provider} tidak mendukung pengiriman file`)
             }
 
             console.log(`[WhatsApp] Sending file via ${config.provider} to ${params.phone}`)
@@ -154,7 +154,7 @@ export class WhatsAppService {
             console.error('[WhatsApp] Error:', error)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error'
+                error: error instanceof Error ? error.message : 'Terjadi kesalahan'
             }
         }
     }
@@ -165,7 +165,7 @@ export class WhatsAppService {
     async testConnection(testPhone: string): Promise<SendResult> {
         return this.sendMessage({
             phone: testPhone,
-            message: `✅ *Test Message from NetManager*\n\nYour WhatsApp API is configured correctly!\n\nTimestamp: ${new Date().toLocaleString('id-ID')}`
+            message: `✅ *Pesan Percobaan dari NetManager*\n\nAPI WhatsApp Anda telah dikonfigurasi dengan benar!\n\nTimestamp: ${new Date().toLocaleString('id-ID')}`
         })
     }
 }

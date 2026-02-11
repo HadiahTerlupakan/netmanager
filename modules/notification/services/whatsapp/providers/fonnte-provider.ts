@@ -45,13 +45,13 @@ export class FonnteProvider implements WhatsAppProvider {
             } else {
                 return {
                     success: false,
-                    error: result.reason || result.message || 'Failed to send message'
+                    error: result.reason || result.message || 'Gagal mengirim pesan'
                 }
             }
         } catch (error: unknown) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Network error'
+                error: error instanceof Error ? error.message : 'Kesalahan jaringan'
             }
         }
     }
@@ -86,13 +86,13 @@ export class FonnteProvider implements WhatsAppProvider {
             } else {
                 return {
                     success: false,
-                    error: result.reason || result.message || 'Failed to send file'
+                    error: result.reason || result.message || 'Gagal mengirim file'
                 }
             }
         } catch (error: unknown) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Network error'
+                error: error instanceof Error ? error.message : 'Kesalahan jaringan'
             }
         }
     }

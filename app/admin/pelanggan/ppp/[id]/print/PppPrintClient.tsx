@@ -157,7 +157,7 @@ export default function PppPrintClient() {
         }
 
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred')
+        setError(err instanceof Error ? err.message : 'Terjadi kesalahan')
       } finally {
         setLoading(false)
       }

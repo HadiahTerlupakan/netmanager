@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error fetching stock opname', err, {
       path: '/api/inventory/opname',
       method: 'GET',
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
     const { validateGudangAccess } = await import('@/lib/inventory-validation');
     const access = await validateGudangAccess(session, gudangId);
     if (!access.allowed) {
-      return ApiErrors.forbidden(access.error || 'Forbidden');
+      return ApiErrors.forbidden(access.error || 'Akses ditolak');
     }
 
     // Validate condition breakdown
@@ -376,7 +376,7 @@ export async function POST(req: NextRequest) {
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error creating stock opname', err, {
       path: '/api/inventory/opname',
       method: 'POST',

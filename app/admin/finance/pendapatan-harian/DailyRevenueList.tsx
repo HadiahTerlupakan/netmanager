@@ -52,6 +52,7 @@ export default function DailyRevenueList() {
                     setTotalRevenue(data.totalRevenue);
                 } else {
                     console.error("Invalid API response for daily revenue:", data);
+                    toast.error(data?.error || "Format data pendapatan tidak valid");
                     setTotalRevenue(0);
                 }
 
@@ -81,6 +82,7 @@ export default function DailyRevenueList() {
                 setTotalRevenue(data.totalRevenue);
             } else {
                 console.error("Invalid API response for daily revenue:", data);
+                toast.error(data?.error || "Format data pendapatan tidak valid");
                 setTotalRevenue(0);
             }
 

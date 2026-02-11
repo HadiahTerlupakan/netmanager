@@ -104,7 +104,7 @@ export async function sendPushNotifications(
         return {
             endpoint: subscriptions[index].endpoint,
             success: false,
-            error: (result.reason as Error)?.message || 'Unknown error',
+            error: (result.reason as Error)?.message || 'Terjadi kesalahan',
         };
     });
 }

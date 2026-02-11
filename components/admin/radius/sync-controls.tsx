@@ -32,7 +32,7 @@ export function SyncControls() {
                 throw new Error(data.error || 'Sync failed');
             }
         } catch (error) {
-            setToastMessage(error instanceof Error ? error.message : 'Unknown error');
+            setToastMessage(error instanceof Error ? error.message : 'Terjadi kesalahan');
             setToastType('error');
             setShowToast(true);
         } finally {

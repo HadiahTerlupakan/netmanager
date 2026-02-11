@@ -12,16 +12,16 @@ export async function GET(
         // 1. Auth Check
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const payload = await verifyMobileToken(token);
         if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const workOrderId = params.id;
@@ -31,7 +31,7 @@ export async function GET(
         const workOrder = await repository.findById(workOrderId);
 
         if (!workOrder) {
-            return NextResponse.json({ error: 'Work Order Not Found' }, { status: 404 });
+            return NextResponse.json({ error: 'Work Order tidak ditemukan' }, { status: 404 });
         }
 
         // 3. Return Data
@@ -42,6 +42,6 @@ export async function GET(
 
     } catch (error) {
         console.error('Mobile Work Order Detail Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

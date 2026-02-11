@@ -39,11 +39,11 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     if (!(await hasPermission("pelanggan:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Error fetching pelanggans:', error)
     return NextResponse.json(
-      { error: (error as Error)?.message || 'Internal Server Error' },
+      { error: (error as Error)?.message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -114,11 +114,11 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     if (!(await hasPermission("pelanggan:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const formData = await req.formData()
@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: err.message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

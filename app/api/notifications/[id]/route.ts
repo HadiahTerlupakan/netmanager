@@ -23,14 +23,14 @@ export async function PATCH(
 
         if (!notification) {
             return NextResponse.json(
-                { error: 'Notification not found' },
+                { error: 'Notifikasi tidak ditemukan' },
                 { status: 404 }
             );
         }
 
         if (notification.userId && notification.userId !== session.user.id) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: 'Tidak terautentikasi' },
                 { status: 403 }
             );
         }
@@ -39,12 +39,12 @@ export async function PATCH(
 
         return NextResponse.json({
             success: true,
-            message: 'Notification marked as read',
+            message: 'Notifikasi telah ditandai dibaca',
         });
     } catch (error) {
         console.error('Error marking notification as read:', error);
         return NextResponse.json(
-            { error: 'Failed to mark notification as read' },
+            { error: 'Gagal menandai notifikasi sebagai dibaca' },
             { status: 500 }
         );
     }

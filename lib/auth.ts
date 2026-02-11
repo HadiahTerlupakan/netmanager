@@ -128,7 +128,7 @@ export const authConfig: NextAuthOptions = {
           const dbConnected = await validateDatabaseConnection()
           if (!dbConnected) {
             console.error('[AUTH] Database connection failed during login attempt')
-            throw new Error('Database connection error. Please try again later.')
+            throw new Error('Koneksi database gagal. Silakan coba lagi beberapa saat.')
           }
 
           // Validate Redis connection for rate limiting

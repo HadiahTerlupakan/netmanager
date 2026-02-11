@@ -48,8 +48,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { customerId, reason, notes } = body
 
-    if (!customerId || !reason) {
-      return apiError(ErrorCodes.VALIDATION_ERROR, 'Customer ID and Reason are required')
+    const missingFields: string[] = []
+    if (!customerId) missingFields.push('ID Pelanggan')
+    if (!reason) missingFields.push('Alasan Bongkar')
+
+    if (missingFields.length > 0) {
+      return apiError(
+        `Data berikut wajib diisi: ${missingFields.join(', ')}`,
+        ErrorCodes.VALIDATION_ERROR,
+        { details: { missingFields } }
+      )
     }
 
     const service = new MixRadiusService()
@@ -57,7 +65,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch live detail from MixRadius to get latest address/phone
     const mrCustomer = await service.fetchCustomerDetail(customerId)
     if (!mrCustomer) {
-      return ApiErrors.notFound('Customer not found in MixRadius')
+      return ApiErrors.notFound('Pelanggan tidak ditemukan di MixRadius')
     }
 
     // 2. Fetch full Requester info and try to find matched local Pelanggan
@@ -175,7 +183,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: unknown) {
     console.error('[API] Dismantle error:', error)
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return ApiErrors.internalError(message)
   }
 }

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
         if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
             console.log('[Cron WO Reminder] Unauthorized access attempt')
-            return ApiErrors.unauthorized('Unauthorized')
+            return ApiErrors.unauthorized('Tidak terautentikasi')
         }
 
         const now = new Date()
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
 
     } catch (error: unknown) {
         console.error('[Cron WO Reminder] Error:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return ApiErrors.internalError(message)
     }
 }

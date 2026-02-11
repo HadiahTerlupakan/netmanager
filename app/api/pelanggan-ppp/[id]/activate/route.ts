@@ -337,7 +337,7 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

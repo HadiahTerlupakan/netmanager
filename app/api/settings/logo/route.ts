@@ -16,12 +16,12 @@ export async function GET(_req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     // Ambil pengaturan logo dari database
@@ -43,7 +43,7 @@ export async function GET(_req: NextRequest) {
   } catch (error) {
     console.error('Error fetching logo settings:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -58,12 +58,12 @@ export async function POST(req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const formData = await req.formData()
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error uploading logo:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -199,12 +199,12 @@ export async function DELETE(req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -257,7 +257,7 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     console.error('Error deleting logo:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

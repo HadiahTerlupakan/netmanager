@@ -8,17 +8,17 @@ export async function GET(req: NextRequest) {
     try {
         const authHeader = req.headers.get('Authorization')
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
         }
         const decoded = await verifyMobileToken(token)
 
         if (!decoded || !decoded.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const userId = decoded.id as string
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         })
 
         if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
         }
 
         // Check for Site-Based Restriction Policy
@@ -117,6 +117,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ gudangList: gudangs })
     } catch (error) {
         console.error('Error fetching gudangs (mobile):', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

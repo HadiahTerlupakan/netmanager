@@ -272,7 +272,7 @@ export class AppVersionService {
             console.error('[AppVersionService] Error in uploadVersion:', error)
             const err = error as { message?: string }
             // Re-throw with more context
-            throw new Error(`Failed to upload app version: ${err?.message || 'Unknown error'}`)
+            throw new Error(`Gagal mengunggah versi aplikasi: ${err?.message || 'Terjadi kesalahan'}`)
         }
     }
 
@@ -314,7 +314,7 @@ export class AppVersionService {
                 }
                 
                 if (!uploadBuffer) {
-                    throw new Error('No APK content provided')
+                    throw new Error('Konten APK tidak disediakan')
                 }
 
                 console.log(`[AppVersionService] Uploading APK to R2 (${(uploadBuffer.length / 1024 / 1024).toFixed(2)}MB)`)
@@ -340,7 +340,7 @@ export class AppVersionService {
                     console.log(`[AppVersionService] Writing buffer to ${destPath}`)
                     await fs.writeFile(destPath, buffer)
                 } else {
-                    throw new Error('No APK content provided (no buffer or path)')
+                    throw new Error('Konten APK tidak disediakan (tidak ada buffer atau path)')
                 }
                 
                 const url = `/uploads/apk/${sanitizedFilename}`
@@ -350,7 +350,7 @@ export class AppVersionService {
         } catch (error: unknown) {
             console.error('[AppVersionService] Error uploading APK file:', error)
             const err = error as { message?: string }
-            throw new Error(`Failed to upload APK file: ${err?.message || 'Unknown error'}`)
+            throw new Error(`Gagal mengunggah file APK: ${err?.message || 'Terjadi kesalahan'}`)
         }
     }
 

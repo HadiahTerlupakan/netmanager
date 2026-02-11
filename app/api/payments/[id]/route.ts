@@ -50,7 +50,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { id } = await params
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch (error) {
     console.error('Error fetching payment:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

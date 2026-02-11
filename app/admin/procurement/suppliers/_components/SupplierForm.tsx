@@ -41,14 +41,14 @@ export default function SupplierForm({ initialData }: SupplierFormProps) {
             const data = await res.json()
 
             if (!res.ok) {
-                throw new Error(data.error || 'Something went wrong')
+                throw new Error(data.error || 'Terjadi kesalahan')
             }
 
             router.push('/admin/procurement/suppliers')
             router.refresh()
         } catch (error) {
             console.error(error)
-            alert(error instanceof Error ? error.message : 'Something went wrong')
+            alert(error instanceof Error ? error.message : 'Terjadi kesalahan')
         } finally {
             setIsLoading(false)
         }

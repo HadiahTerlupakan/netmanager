@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
         }
 
         const isSuper = isSuperAdmin(session.user);
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(serialized);
     } catch (error) {
         console.error("Error fetching RAB projects:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }
 
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
         }
 
         const isSuper = isSuperAdmin(session.user);
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
         if (!validation.success) {
             console.log('[RAB_CREATE] Validation failed:', validation.error.format());
-            return NextResponse.json({ error: "Invalid data", details: validation.error.format() }, { status: 400 });
+            return NextResponse.json({ error: "Data tidak valid", details: validation.error.format() }, { status: 400 });
         }
 
         console.log('[RAB_CREATE] Validation passed, items count:', validation.data.items.length);
@@ -201,9 +201,9 @@ export async function POST(req: NextRequest) {
 
     } catch (error) {
         console.error("[RAB_CREATE] Error creating RAB project:", error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan";
         return NextResponse.json({
-            error: "Internal Server Error",
+            error: "Terjadi kesalahan server",
             details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
         }, { status: 500 });
     }

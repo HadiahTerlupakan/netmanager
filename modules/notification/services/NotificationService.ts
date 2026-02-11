@@ -305,12 +305,12 @@ export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & 
     // Also notify Admins/Department (excluding assignee)
     const observers = await findEligibleRecipients(data.departmentId, data.siteId, data.assignedToId);
     
-    await Promise.all(observers.map(user => 
+    await Promise.all(observers.map(user =>
         createNotification({
             type: 'WORK_ORDER',
             priority: 'NORMAL',
-            title: `👤 Work Order Assigned`,
-            message: `${data.workOrderNumber} assigned to ${data.assigneeName || 'user'}`,
+            title: `👤 Work Order Ditugaskan`,
+            message: `${data.workOrderNumber} ditugaskan kepada ${data.assigneeName || 'user'}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
             siteId: data.siteId,

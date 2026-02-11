@@ -6,6 +6,7 @@ import { HiPlus, HiTrash } from 'react-icons/hi2'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { usePermission } from '@/hooks/use-permission'
+import { toast } from 'react-hot-toast'
 import type { Category } from '@/types'
 
 interface CategoriesClientProps {
@@ -41,7 +42,7 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
 
   const handleCreate = async () => {
     if (!name) {
-        alert('Nama kategori wajib diisi')
+        toast.error('Nama kategori wajib diisi')
         return
     }
 
@@ -58,18 +59,21 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
         body: JSON.stringify(payload)
       })
 
-      if (!res.ok) throw new Error(await res.text())
-      
+      if (!res.ok) {
+        const errData = await res.json().catch((): null => null)
+        throw new Error(errData?.error || 'Gagal membuat kategori')
+      }
+
       const newItem = await res.json()
       setData([...data, newItem])
-      
+
       // Reset & Close
       resetForm()
       setModalOpen(false)
-      
+      toast.success('Kategori berhasil dibuat')
       router.refresh()
     } catch (e: unknown) {
-        alert(e instanceof Error ? e.message : 'Terjadi kesalahan')
+        toast.error(e instanceof Error ? e.message : 'Gagal membuat kategori')
     } finally {
         setLoading(false)
     }
@@ -88,16 +92,20 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
             body: JSON.stringify(payload)
         })
 
-        if (!res.ok) throw new Error(await res.text())
+        if (!res.ok) {
+          const errData = await res.json().catch((): null => null)
+          throw new Error(errData?.error || 'Gagal mengupdate kategori')
+        }
 
         const updatedItem = await res.json()
         setData(data.map(d => d.id === updatedItem.id ? updatedItem : d))
-        
+
         setEditModalOpen(false)
         resetForm()
+        toast.success('Kategori berhasil diupdate')
         router.refresh()
       } catch (e: unknown) {
-          alert(e instanceof Error ? e.message : 'Terjadi kesalahan')
+          toast.error(e instanceof Error ? e.message : 'Gagal mengupdate kategori')
       } finally {
           setLoading(false)
       }
@@ -110,14 +118,18 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
           const res = await fetch(`/api/finance/categories?id=${selectedItem.id}`, {
               method: 'DELETE'
           })
-          if (!res.ok) throw new Error(await res.text())
-          
+          if (!res.ok) {
+            const errData = await res.json().catch((): null => null)
+            throw new Error(errData?.error || 'Gagal menghapus kategori')
+          }
+
           setData(data.filter(d => d.id !== selectedItem.id))
           setDeleteModalOpen(false)
           setSelectedItem(null)
+          toast.success('Kategori berhasil dihapus')
           router.refresh()
       } catch (e: unknown) {
-          alert(e instanceof Error ? e.message : 'Terjadi kesalahan')
+          toast.error(e instanceof Error ? e.message : 'Gagal menghapus kategori')
       } finally {
           setLoading(false)
       }

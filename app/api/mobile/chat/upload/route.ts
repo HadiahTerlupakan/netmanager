@@ -9,33 +9,33 @@ export async function POST(request: NextRequest) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const formData = await request.formData()
         const file = formData.get('image') as File | null
 
         if (!file) {
-            return NextResponse.json({ error: 'No image provided' }, { status: 400 })
+            return NextResponse.json({ error: 'Gambar tidak disediakan' }, { status: 400 })
         }
 
         // Validate file type
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
         if (!allowedTypes.includes(file.type)) {
-            return NextResponse.json({ error: 'Invalid file type. Only JPEG, PNG, GIF, WEBP allowed.' }, { status: 400 })
+            return NextResponse.json({ error: 'Tipe file tidak valid. Hanya JPEG, PNG, GIF, WEBP yang diperbolehkan.' }, { status: 400 })
         }
 
         // Validate file size (max 5MB)
         const maxSize = 5 * 1024 * 1024
         if (file.size > maxSize) {
-            return NextResponse.json({ error: 'File too large. Max 5MB allowed.' }, { status: 400 })
+            return NextResponse.json({ error: 'File terlalu besar. Maksimal 5MB.' }, { status: 400 })
         }
 
         // Create upload directory
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         })
     } catch (error: unknown) {
         console.error('Error uploading image:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }

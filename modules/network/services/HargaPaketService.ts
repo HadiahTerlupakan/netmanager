@@ -49,7 +49,7 @@ export class HargaPaketService {
         if (!validation.success) {
             throw {
                 code: 'VALIDATION_ERROR',
-                message: 'Validation error',
+                message: 'Validasi gagal',
                 details: validation.error.flatten(),
             }
         }

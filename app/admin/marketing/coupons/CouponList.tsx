@@ -34,10 +34,14 @@ export default function CouponList() {
             const res = await fetch('/api/coupons')
             if (res.ok) {
                 const data = await res.json()
-                setCoupons(data)
+                setCoupons(data.data || data)
+            } else {
+                const json = await res.json().catch((): null => null)
+                toast.error(json?.error || 'Gagal memuat data kupon')
             }
         } catch (error) {
             console.error('Failed to fetch coupons', error)
+            toast.error('Gagal menghubungi server, coba lagi nanti')
         } finally {
             setLoading(false)
         }

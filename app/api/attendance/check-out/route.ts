@@ -10,13 +10,13 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi', code: 'UNAUTHORIZED' }, { status: 401 })
         }
 
         const userId = session.user.id
         if (!userId) {
             return NextResponse.json({
-                error: 'Unauthorized',
+                error: 'Tidak terautentikasi',
                 code: 'UNAUTHORIZED'
             }, { status: 401 })
         }
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
             try {
                 photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
             } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+                const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
                 return NextResponse.json({
                     error: errorMessage,
                     code: 'VALIDATION_ERROR'
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         const err = error instanceof Error ? error : new Error(String(error))
         logger.error('Error in check-out', err)
         return NextResponse.json({
-            error: 'Internal server error',
+            error: 'Terjadi kesalahan server',
             code: 'INTERNAL_ERROR'
         }, { status: 500 })
     }

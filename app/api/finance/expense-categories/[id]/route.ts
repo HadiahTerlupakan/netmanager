@@ -12,7 +12,7 @@ export async function DELETE(
 ) {
     try {
         const user = await verifyAuth(req);
-        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!user) return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
 
         // Check permissions
         const isSuper = isSuperAdmin(user);
@@ -31,7 +31,7 @@ export async function DELETE(
         const { id } = await params;
 
         if (!id) {
-            return NextResponse.json({ error: "ID required" }, { status: 400 });
+            return NextResponse.json({ error: "ID kategori wajib diisi" }, { status: 400 });
         }
 
         // 1. Check if category exists
@@ -45,7 +45,7 @@ export async function DELETE(
         });
 
         if (!category) {
-            return NextResponse.json({ error: "Category not found" }, { status: 404 });
+            return NextResponse.json({ error: "Kategori pengeluaran tidak ditemukan" }, { status: 404 });
         }
 
         // 2. Check if category is in use
@@ -67,9 +67,9 @@ export async function DELETE(
             userId: user.id
         });
 
-        return NextResponse.json({ message: "Category deleted successfully" });
+        return NextResponse.json({ message: "Kategori pengeluaran berhasil dihapus" });
     } catch (error) {
         console.error("[EXPENSE_CATEGORY_DELETE]", error);
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }

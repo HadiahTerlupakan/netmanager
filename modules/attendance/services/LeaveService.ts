@@ -114,7 +114,7 @@ export class LeaveService {
             }
         } catch (error) {
             logger.error('LeaveService.getLeaves failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch leaves', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil data cuti', code: 'FETCH_ERROR' }
         }
     }
 
@@ -128,12 +128,12 @@ export class LeaveService {
                 include: { user: true }
             })
             if (!leave) {
-                return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
             }
             return { success: true, data: leave }
         } catch (error) {
             logger.error('LeaveService.getLeaveById failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch leave', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil cuti', code: 'FETCH_ERROR' }
         }
     }
 
@@ -217,7 +217,7 @@ export class LeaveService {
             return { success: true, data: leave }
         } catch (error) {
             logger.error('LeaveService.createLeave failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to create leave', code: 'CREATE_ERROR' }
+            return { success: false, error: 'Gagal membuat cuti', code: 'CREATE_ERROR' }
         }
     }
 
@@ -236,11 +236,11 @@ export class LeaveService {
             })
 
             if (!existing) {
-                return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             if (existing.status === 'APPROVED') {
-                 return { success: false, error: 'Leave is already approved', code: 'ALREADY_APPROVED' }
+                 return { success: false, error: 'Cuti sudah disetujui', code: 'ALREADY_APPROVED' }
             }
 
             // Calculate days and check balance BEFORE approving
@@ -310,7 +310,7 @@ export class LeaveService {
             return { success: true, data: leave }
         } catch (error) {
             logger.error('LeaveService.approveLeave failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to approve leave', code: 'APPROVE_ERROR' }
+            return { success: false, error: 'Gagal menyetujui cuti', code: 'APPROVE_ERROR' }
         }
     }
 
@@ -329,7 +329,7 @@ export class LeaveService {
             })
 
             if (!existing) {
-                return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Refund balance if previously approved
@@ -376,7 +376,7 @@ export class LeaveService {
             return { success: true, data: leave }
         } catch (error) {
             logger.error('LeaveService.rejectLeave failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to reject leave', code: 'REJECT_ERROR' }
+            return { success: false, error: 'Gagal menolak cuti', code: 'REJECT_ERROR' }
         }
     }
 
@@ -391,7 +391,7 @@ export class LeaveService {
             })
 
             if (!existing) {
-                return { success: false, error: 'Leave not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Refund balance if previously approved
@@ -424,7 +424,7 @@ export class LeaveService {
             return { success: true }
         } catch (error) {
             logger.error('LeaveService.deleteLeave failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to delete leave', code: 'DELETE_ERROR' }
+            return { success: false, error: 'Gagal menghapus cuti', code: 'DELETE_ERROR' }
         }
     }
 

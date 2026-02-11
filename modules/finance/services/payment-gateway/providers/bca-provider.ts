@@ -312,10 +312,10 @@ export class BCAProvider implements PaymentProvider {
 
             return {
                 success: false,
-                message: 'Failed to obtain access token'
+                message: 'Gagal mendapatkan access token'
             }
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            const errorMessage = error instanceof Error ? error.message : 'Koneksi gagal'
             const errorCode = (error as { code?: string })?.code
             return {
                 success: false,

@@ -54,10 +54,10 @@ export default function LiveMapClient() {
                 setLastUpdated(new Date())
                 setError(null)
             } else {
-                setError(data.error || 'Failed to fetch locations')
+                setError(data.error || 'Gagal mengambil lokasi')
             }
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch locations')
+            setError(err instanceof Error ? err.message : 'Gagal mengambil lokasi')
         } finally {
             setLoading(false)
         }

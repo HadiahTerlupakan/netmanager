@@ -16,18 +16,18 @@ export async function GET(request: Request) {
         const token = authHeader?.replace('Bearer ', '')
 
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
 
         const user = await verifyMobileToken(token) as unknown as { id: string };
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const leaves = await repo.findAll({ userId: user.id })
         return NextResponse.json({ success: true, data: leaves })
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan';
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
@@ -38,19 +38,19 @@ export async function POST(request: Request) {
         const token = authHeader?.replace('Bearer ', '')
 
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
 
         const user = await verifyMobileToken(token) as unknown as { id: string };
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const body = await request.json()
         const { type, startDate, endDate, reason, photos, replacementDate } = body
 
         if (!type || !startDate || !endDate || !reason) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+            return NextResponse.json({ error: 'Field wajib tidak lengkap' }, { status: 400 })
         }
 
         // Calculate leave days
@@ -210,6 +210,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, data: requestData }, { status: 201 })
     } catch (error: unknown) {
         console.error('Leave request error:', error)
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan' }, { status: 500 })
     }
 }

@@ -7,30 +7,30 @@ export async function POST(request: Request) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const formData = await request.formData()
         const photo = formData.get('photo') as File
 
         if (!photo) {
-            return NextResponse.json({ error: 'Photo is required' }, { status: 400 })
+            return NextResponse.json({ error: 'Foto wajib diisi' }, { status: 400 })
         }
 
         if (!photo.type.startsWith('image/')) {
-            return NextResponse.json({ error: 'File must be an image' }, { status: 400 })
+            return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
         }
 
         const MAX_SIZE = 5 * 1024 * 1024 // 5MB
         if (photo.size > MAX_SIZE) {
-            return NextResponse.json({ error: 'Photo size max 5MB' }, { status: 400 })
+            return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
         }
 
         const uploadDir = 'public/uploads/profiles'
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, data: updated })
     } catch (error: unknown) {
         console.error('Profile photo upload error:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

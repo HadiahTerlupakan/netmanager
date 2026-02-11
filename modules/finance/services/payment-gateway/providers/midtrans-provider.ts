@@ -249,9 +249,9 @@ export class MidtransProvider implements PaymentProvider {
                 if (err.httpStatusCode === 401) {
                     return {
                         success: false,
-                        message: 'Invalid API key',
+                        message: 'API key tidak valid',
                         details: {
-                            error: 'Unauthorized'
+                            error: 'Tidak terautentikasi'
                         }
                     }
                 }
@@ -268,7 +268,7 @@ export class MidtransProvider implements PaymentProvider {
             const err = error as Record<string, unknown>
             return {
                 success: false,
-                message: (error as Error).message || 'Connection failed',
+                message: (error as Error).message || 'Koneksi gagal',
                 details: {
                     error: (err.code as string) || (err.error_code as string)
                 }

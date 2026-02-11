@@ -9,17 +9,17 @@ export async function GET(request: NextRequest) {
     try {
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
 
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 });
         }
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const userId = payload.id as string;
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: unknown) {
         console.error('Mobile Overtime GET Error:', error);
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan' }, { status: 500 });
     }
 }
 
@@ -67,17 +67,17 @@ export async function POST(request: NextRequest) {
     try {
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
 
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 });
         }
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const userId = payload.id as string;
@@ -173,6 +173,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error: unknown) {
         console.error('Mobile Overtime POST Error:', error);
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 400 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan' }, { status: 400 });
     }
 }

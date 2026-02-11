@@ -12,21 +12,21 @@ type Props = {
 export async function GET(req: NextRequest, props: Props) {
     const params = await props.params;
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const po = await service.getPurchaseOrderById(params.id);
         if (!po) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
         return NextResponse.json(po);
     } catch (error: unknown) {
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan server' }, { status: 500 });
     }
 }
 
 export async function PUT(req: NextRequest, props: Props) {
     const params = await props.params;
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const body = await req.json();
@@ -36,19 +36,19 @@ export async function PUT(req: NextRequest, props: Props) {
         const result = await service.updatePurchaseOrder(params.id, data);
         return NextResponse.json(result);
     } catch (error: unknown) {
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan server' }, { status: 500 });
     }
 }
 
 export async function DELETE(_req: NextRequest, props: Props) {
     const params = await props.params;
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const result = await service.deletePurchaseOrder(params.id);
         return NextResponse.json(result);
     } catch (error: unknown) {
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

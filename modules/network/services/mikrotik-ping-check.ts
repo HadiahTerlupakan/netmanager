@@ -125,7 +125,7 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
 
     return updatedCount
   } catch (error: unknown) {
-    console.error('Error checking MikroTik router status:', error)
+    // Re-throw with original error - caller handles logging
     throw error
   }
 }

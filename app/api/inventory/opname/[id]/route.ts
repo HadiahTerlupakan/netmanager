@@ -67,7 +67,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     logger.error('Error fetching stock opname record', err, {
       path: '/api/inventory/opname/[id]',
       method: 'GET',
@@ -221,7 +221,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     logger.error('Error updating stock opname', err, {
       path: '/api/inventory/opname/[id]',
       method: 'PUT',
@@ -313,7 +313,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       message: 'Stock opname berhasil dihapus'
     })
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     console.error('Delete error:', err.message)
 
     if (err.message.includes('tidak ditemukan')) {

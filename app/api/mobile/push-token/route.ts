@@ -7,14 +7,14 @@ export async function POST(request: NextRequest) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const body = await request.json()
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
 
         if (!pushToken) {
-            return NextResponse.json({ error: 'Push token required' }, { status: 400 })
+            return NextResponse.json({ error: 'Push token wajib diisi' }, { status: 400 })
         }
 
         // Unique Token Enforcement: Remove this token from any other users
@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        return NextResponse.json({ success: true, message: 'Push token registered' })
+        return NextResponse.json({ success: true, message: 'Push token terdaftar' })
 
     } catch (error: unknown) {
         console.error('Push token registration error:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
@@ -61,14 +61,14 @@ export async function DELETE(request: NextRequest) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         // Remove push token
@@ -80,10 +80,10 @@ export async function DELETE(request: NextRequest) {
             }
         })
 
-        return NextResponse.json({ success: true, message: 'Push token removed' })
+        return NextResponse.json({ success: true, message: 'Push token dihapus' })
     } catch (error: unknown) {
         console.error('Push token removal error:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

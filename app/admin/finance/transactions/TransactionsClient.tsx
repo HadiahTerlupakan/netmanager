@@ -9,6 +9,7 @@ import { PhotoUpload, type PhotoUploadRef } from '@/components/inventory/PhotoUp
 import { MarketPriceCheck } from '@/components/procurement/MarketPriceCheck'
 import { SiteFilter } from '@/components/common/SiteFilter'
 import { usePermission } from '@/hooks/use-permission'
+import { toast } from 'react-hot-toast'
 import type { Category, Account, Transaction } from '@/types'
 
 interface TransactionsClientProps {
@@ -66,6 +67,10 @@ export default function TransactionsClient({ categories, accounts }: Transaction
       if (accountIdParam) params.append('accountId', accountIdParam)
 
       const res = await fetch(`/api/finance/transactions?${params.toString()}`)
+      if (!res.ok) {
+        const errData = await res.json().catch((): null => null)
+        throw new Error(errData?.error || 'Gagal mengambil data transaksi')
+      }
       const json = await res.json()
       setData(json)
 
@@ -80,6 +85,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
 
     } catch (e) {
       console.error(e)
+      toast.error(e instanceof Error ? e.message : 'Gagal mengambil data transaksi')
     } finally {
       setLoading(false)
     }
@@ -92,13 +98,17 @@ export default function TransactionsClient({ categories, accounts }: Transaction
       const res = await fetch(`/api/finance/transactions/${selectedItem.id}`, {
           method: 'DELETE'
       })
-          if (!res.ok) throw new Error(await res.text())
-          
+          if (!res.ok) {
+            const errData = await res.json().catch((): null => null)
+            throw new Error(errData?.error || 'Gagal menghapus transaksi')
+          }
+
+          toast.success('Transaksi berhasil dihapus')
           setDeleteModalOpen(false)
           setSelectedItem(null)
-          fetchTransactions() // Refresh data
+          fetchTransactions()
       } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'An unknown error occurred')
+      toast.error(e instanceof Error ? e.message : 'Gagal menghapus transaksi')
       } finally {
           setLoading(false)
       }
@@ -115,7 +125,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
 
   const handleCreate = async () => {
     if (!form.categoryId || form.amount <= 0 || !form.accountId) {
-      alert('Mohon lengkapi data (Kategori, Akun, Jumlah)')
+      toast.error('Mohon lengkapi data (Kategori, Akun, Jumlah)')
       return
     }
 
@@ -128,7 +138,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
               uploadedUrls = await photoUploadRef.current.uploadPhotos()
           } catch (e) {
               console.error('Upload failed', e)
-              alert('Gagal mengupload foto bukti. Transaksi dibatalkan.')
+              toast.error('Gagal mengupload foto bukti. Transaksi dibatalkan.')
               setLoading(false)
               return
           }
@@ -143,8 +153,12 @@ export default function TransactionsClient({ categories, accounts }: Transaction
         })
       })
 
-      if (!res.ok) throw new Error(await res.text())
-      
+      if (!res.ok) {
+        const errData = await res.json().catch((): null => null)
+        throw new Error(errData?.error || 'Gagal mencatat transaksi')
+      }
+
+      toast.success('Transaksi berhasil dicatat')
       setModalOpen(false)
       fetchTransactions()
       // reset form, including attachments
@@ -160,7 +174,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
       if (photoUploadRef.current) photoUploadRef.current.resetPhotos()
 
     } catch (e: unknown) {
-        alert(e instanceof Error ? e.message : 'An unknown error occurred')
+        toast.error(e instanceof Error ? e.message : 'Gagal mencatat transaksi')
     } finally {
         setLoading(false) // Ensure loading is off in all cases
     }

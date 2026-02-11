@@ -9,12 +9,12 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
     const session = await verifyAuth(req)
     if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Permission check
     if (!(await hasPermission('barang:read'))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     try {
@@ -251,10 +251,10 @@ export async function GET(req: NextRequest) {
         })
 
     } catch (error: unknown) {
-        const err = error instanceof Error ? error : new Error('Unknown error')
+        const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
         logger.error('Error fetching inventory dashboard:', err)
         return NextResponse.json(
-            { error: 'Internal Server Error' },
+            { error: 'Gagal memuat data dashboard inventaris' },
             { status: 500 }
         )
     }

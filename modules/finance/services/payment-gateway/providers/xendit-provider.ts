@@ -231,7 +231,7 @@ export class XenditProvider implements PaymentProvider {
                 }
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Connection failed'
+            const message = error instanceof Error ? error.message : 'Koneksi gagal'
             const err = error as { error_code?: string; code?: string }
             return {
                 success: false,

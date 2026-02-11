@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const userId = session.user.id as string
@@ -92,6 +92,6 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Error fetching attendance analytics:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }

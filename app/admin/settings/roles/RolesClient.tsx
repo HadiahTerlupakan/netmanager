@@ -65,7 +65,7 @@ export function ClientComponent() {
     }
 
     if (authLoading || loading) {
-        return <div className="p-8 text-center">Loading...</div>
+        return <div className="p-8 text-center">Memuat...</div>
     }
 
     if (!hasPermission('roles:read')) {

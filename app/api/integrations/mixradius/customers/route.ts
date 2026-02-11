@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     return apiSuccess(data)
   } catch (error: unknown) {
     console.error('[API] MixRadius customers error:', error)
-    const message = error instanceof Error ? error.message : 'Failed to fetch MixRadius data'
+    const message = error instanceof Error ? error.message : 'Gagal mengambil data pelanggan MixRadius'
     return ApiErrors.internalError(message)
   }
 }

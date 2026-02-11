@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { HiOutlineDocumentText, HiMagnifyingGlass, HiOutlineExclamationCircle } from 'react-icons/hi2'
 import clsx from 'clsx'
+import { toast } from 'react-hot-toast'
 import type { Invoice } from '@/types'
 
 interface ReceivablesClientProps {
@@ -171,7 +172,7 @@ export default function ReceivablesClient({ initialData, hideHeader = false }: R
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button 
-                                    onClick={() => alert('Fitur Detail/Remind belum tersedia')} // Placeholder
+                                    onClick={() => toast('Fitur Detail/Remind belum tersedia', { icon: 'ℹ️' })} // Placeholder
                                     className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
                                 >
                                     Detail

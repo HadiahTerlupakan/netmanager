@@ -1,10 +1,11 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { CouponService } from '@/modules/coupons/services/CouponService'
 import { hasPermission } from '@/lib/rbac'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors, apiError, ErrorCodes } from '@/lib/api-response'
 
 const couponService = new CouponService()
 
@@ -15,19 +16,14 @@ export async function DELETE(
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return ApiErrors.unauthorized('Tidak terautentikasi')
         }
 
         if (!await hasPermission('coupon:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus kupon')
         }
 
         const { id } = await params
-        const user = session.user as { role?: string; siteId?: string }
-        const userRole = user.role
-        const _isSuperAdmin = userRole === 'SUPER_ADMIN' || userRole === 'Super Admin'
-        // siteId check removed from service, so we don't pass it here for now
-        // if we want to enforce it later, the Coupon model needs siteId field
 
         await couponService.deleteCoupon(id)
 
@@ -38,15 +34,15 @@ export async function DELETE(
             userId: session.user?.id
         })
 
-        return NextResponse.json({ success: true })
+        return apiSuccess(null, { message: 'Kupon berhasil dihapus' })
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Gagal menghapus kupon'
         if (errorMessage === 'Coupon not found') {
-            return NextResponse.json({ error: errorMessage }, { status: 404 })
+            return ApiErrors.notFound('Kupon')
         }
         if (errorMessage.includes('has been used')) {
-            return NextResponse.json({ error: errorMessage }, { status: 400 })
+            return apiError('Kupon tidak bisa dihapus karena sudah pernah digunakan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
-        return NextResponse.json({ error: errorMessage }, { status: 500 })
+        return ApiErrors.internalError(errorMessage)
     }
 }

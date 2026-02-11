@@ -19,11 +19,11 @@ export async function GET(
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         if (!(await hasPermission('purchase_orders:read'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
 
         const { id } = await params
@@ -48,7 +48,7 @@ export async function GET(
 
         return NextResponse.json(pr)
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         console.error('Error fetching purchase request:', error)
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
@@ -67,11 +67,11 @@ export async function PATCH(
     try {
         const session = await getServerSession(authOptions)
         if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         if (!(await hasPermission('purchase_orders:update'))) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
 
         const { id } = await params
@@ -80,7 +80,7 @@ export async function PATCH(
 
         // Validate action
         if (!['APPROVE', 'REJECT'].includes(action)) {
-            return NextResponse.json({ error: 'Invalid action. Must be APPROVE or REJECT' }, { status: 400 })
+            return NextResponse.json({ error: 'Aksi tidak valid. Harus APPROVE atau REJECT' }, { status: 400 })
         }
 
         // Find existing PR with items and barang details
@@ -200,7 +200,7 @@ export async function PATCH(
             _poError: poError
         })
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         logger.error('Error updating purchase request', error instanceof Error ? error : new Error(errorMessage), {
             path: '/api/procurement/purchase-requests/[id]',
             method: 'PATCH'

@@ -67,7 +67,7 @@ export async function PATCH(
     } catch (error: unknown) {
         console.error('[API] Error updating status:', error);
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Internal Server Error' },
+            { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
             { status: 500 }
         );
     }

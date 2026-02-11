@@ -8,6 +8,11 @@ export const redis =
     maxRetriesPerRequest: 2,
     lazyConnect: false,
     enableOfflineQueue: false,
+    retryStrategy: (times) => {
+      // Stop retrying after 3 attempts to avoid log spam
+      if (times > 3) return null
+      return Math.min(times * 500, 3000)
+    },
   })
 
 if (process.env.NODE_ENV !== 'production') {

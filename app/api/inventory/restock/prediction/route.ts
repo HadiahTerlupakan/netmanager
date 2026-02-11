@@ -248,7 +248,7 @@ export async function GET(req: NextRequest) {
       // do not disconnect shared prisma client
     }
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     logger.error('Error generating restock predictions', err, {
       path: '/api/inventory/restock/prediction',
       method: 'GET',

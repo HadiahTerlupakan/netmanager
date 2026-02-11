@@ -92,14 +92,14 @@ export async function GET(request: NextRequest) {
   // Auth check - only authenticated users can use this endpoint
   const session = await verifyAuth(request)
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
   }
 
   const searchParams = request.nextUrl.searchParams
   const keyword = searchParams.get('keyword')
 
   if (!keyword) {
-    return NextResponse.json({ error: 'Keyword required' }, { status: 400 })
+    return NextResponse.json({ error: 'Kata kunci wajib diisi' }, { status: 400 })
   }
 
   try {
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!response.ok) {
-        throw new Error(`Tokopedia API error: ${response.status}`)
+        throw new Error(`Error API Tokopedia: ${response.status}`)
     }
 
     const json = await response.json()
@@ -197,10 +197,10 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
     console.error('Market Price API Error:', error)
     return NextResponse.json({
-        error: 'Failed to fetch market prices',
+        error: 'Gagal mengambil harga pasar',
         details: message
     }, { status: 500 })
   }

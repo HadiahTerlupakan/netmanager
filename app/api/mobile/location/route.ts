@@ -13,17 +13,17 @@ export async function POST(request: NextRequest) {
         const authHeader = request.headers.get('Authorization')
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             console.log(`[API][${timestamp}] Location update: Missing token`)
-            return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token hilang atau tidak valid' }, { status: 401 })
         }
 
         const token = authHeader.split(" ")[1]
         if (!token) {
-            return NextResponse.json({ error: "Token not provided" }, { status: 401 })
+            return NextResponse.json({ error: "Token tidak tersedia" }, { status: 401 })
         }
         const payload = await verifyMobileToken(token)
         if (!payload) {
             console.log(`[API][${timestamp}] Location update: Invalid token`)
-            return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid atau kadaluarsa' }, { status: 401 })
         }
 
         const userId = payload.id as string
@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
 
         if (!isCheckedIn) {
             console.log(`[API][${timestamp}] ❌ User not checked in, stopping tracking`)
-            return NextResponse.json({ 
-                success: false, 
-                message: 'User is not currently checked in',
-                shouldStopTracking: true 
+            return NextResponse.json({
+                success: false,
+                message: 'User belum melakukan check-in',
+                shouldStopTracking: true
             })
         }
 
@@ -87,10 +87,10 @@ export async function POST(request: NextRequest) {
 
         console.log(`[API][${timestamp}] ✅ Single location saved successfully`)
         console.log(`[API][${timestamp}] ==========================================`)
-        return NextResponse.json({ success: true, message: 'Location saved' })
+        return NextResponse.json({ success: true, message: 'Lokasi tersimpan' })
 
     } catch (error: unknown) {
         console.error(`[API][${timestamp}] ❌ Error saving location:`, error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

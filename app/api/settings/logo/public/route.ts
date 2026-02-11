@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest) {
   } catch (error) {
     console.error('Error fetching logo settings:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

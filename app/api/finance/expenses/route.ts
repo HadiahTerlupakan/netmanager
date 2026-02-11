@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
     try {
         const user = await verifyAuth(req);
-        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!user) return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
 
         // Allow SUPER_ADMIN to bypass permission check
         const isSuper = isSuperAdmin(user);
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
             const end = new Date(endDate);
 
             if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+                return NextResponse.json({ error: "Format tanggal tidak valid" }, { status: 400 });
             }
 
             where.date = {
@@ -127,12 +127,12 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json(serializedExpenses);
     } catch (error: unknown) {
-        const err = error instanceof Error ? error : new Error('Unknown error')
+        const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
         console.error("[EXPENSES_GET] Error:", err);
         // Important: Return empty array on error to prevent frontend breakage, OR explicit error structure
         // But since we want to debug, let's return error object with details
         return NextResponse.json({
-            error: "Internal Error",
+            error: "Terjadi kesalahan server",
             details: process.env.NODE_ENV === 'development' ? (err.message || String(err)) : undefined
         }, { status: 500 });
     }
@@ -145,7 +145,7 @@ const expenseSchema = z.object({
     depreciation: z.union([z.string(), z.number()]).optional().transform((val) => val ? BigInt(val) : BigInt(0)),
     usefulLife: z.union([z.string(), z.number()]).optional().transform((val) => val ? Number(val) : 0),
     date: z.string().or(z.date()).transform((val) => new Date(val)),
-    category: z.string().min(1, "Category is required"),
+    category: z.string().min(1, "Kategori wajib diisi"),
     expenseCategoryId: z.string().optional(),
     description: z.string().optional(),
     siteId: z.string().optional(),
@@ -156,7 +156,7 @@ export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
         if (!session || !session.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
         }
 
         // Allow SUPER_ADMIN to bypass permission check
@@ -179,7 +179,7 @@ export async function POST(req: Request) {
 
         const validation = expenseSchema.safeParse(body);
         if (!validation.success) {
-            return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
+            return NextResponse.json({ error: "Input tidak valid", details: validation.error.format() }, { status: 400 });
         }
 
         const { amount, depreciation, usefulLife, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId } = validation.data;
@@ -188,7 +188,7 @@ export async function POST(req: Request) {
         if ((await hasPermission("expense:site_only")) && !isSuper) {
              const userSiteId = (session.user as { siteId?: string }).siteId;
              if (!userSiteId) {
-                 return NextResponse.json({ error: "User restricted but has no site" }, { status: 403 });
+                 return NextResponse.json({ error: "User terikat site namun belum memiliki site" }, { status: 403 });
              }
              finalSiteId = userSiteId;
         }
@@ -219,6 +219,6 @@ export async function POST(req: Request) {
         });
     } catch (error) {
         console.error("[EXPENSES_POST]", error);
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }

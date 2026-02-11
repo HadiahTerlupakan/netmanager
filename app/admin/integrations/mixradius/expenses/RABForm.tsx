@@ -396,9 +396,32 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!formData.name) {
-            toast.error('Nama proyek wajib diisi')
-            setMainTab('info')
+
+        // Comprehensive validation with clear messages
+        const validationErrors: string[] = []
+
+        if (!formData.name.trim()) {
+            validationErrors.push('Nama proyek wajib diisi')
+        }
+        if (items.length === 0) {
+            validationErrors.push('Minimal 1 item biaya harus ditambahkan')
+        }
+        const emptyItems = items.filter(i => !i.name.trim())
+        if (emptyItems.length > 0) {
+            validationErrors.push(`${emptyItems.length} item belum diisi namanya`)
+        }
+        const zeroItems = items.filter(i => i.unitPrice <= 0)
+        if (zeroItems.length > 0) {
+            validationErrors.push(`${zeroItems.length} item memiliki harga Rp 0`)
+        }
+
+        if (validationErrors.length > 0) {
+            toast.error(
+                `Mohon perbaiki data berikut:\n${validationErrors.map(e => `- ${e}`).join('\n')}`,
+                { duration: 6000 }
+            )
+            if (!formData.name.trim()) setMainTab('info')
+            else if (items.length === 0 || emptyItems.length > 0 || zeroItems.length > 0) setMainTab('items')
             return
         }
 

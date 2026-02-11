@@ -53,14 +53,14 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!transactionId) {
       return NextResponse.json(
-        { error: 'Transaction ID is required' },
+        { error: 'ID Transaksi wajib disertakan' },
         { status: 400 }
       )
     }
 
     if (!transactionType || !['inventory-masuk', 'inventory-keluar', 'inventory-transfer', 'finance-transaction'].includes(transactionType)) {
       return NextResponse.json(
-        { error: 'Transaction type must be "inventory-masuk", "inventory-keluar", "inventory-transfer", or "finance-transaction"' },
+        { error: 'Tipe transaksi tidak valid. Gunakan: inventory-masuk, inventory-keluar, inventory-transfer, atau finance-transaction' },
         { status: 400 }
       )
     }
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Validate that at least one photo is provided
     if (validPhotos.length === 0) {
       return NextResponse.json(
-        { error: 'At least one photo must be uploaded' },
+        { error: 'Minimal 1 foto harus diunggah' },
         { status: 400 }
       )
     }
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (!validation.isValid) {
       return NextResponse.json(
         {
-          error: 'Validation failed',
+          error: 'Validasi foto gagal: ' + validation.errors.join(', '),
           details: validation.errors
         },
         { status: 400 }
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
           if (!transaction) {
             return NextResponse.json(
-              { error: 'Inventory masuk transaction not found' },
+              { error: 'Transaksi barang masuk tidak ditemukan' },
               { status: 404 }
             )
           }
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
           if (!transaction) {
             return NextResponse.json(
-              { error: 'Inventory keluar transaction not found' },
+              { error: 'Transaksi barang keluar tidak ditemukan' },
               { status: 404 }
             )
           }
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
           if (!transaction) {
             return NextResponse.json(
-              { error: 'Inventory transfer transaction not found' },
+              { error: 'Transaksi transfer tidak ditemukan' },
               { status: 404 }
             )
           }
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
           transactionType
         })
         return NextResponse.json(
-          { error: 'Failed to verify transaction' },
+          { error: 'Gagal memverifikasi transaksi' },
           { status: 500 }
         )
       }
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
         photoCount: photos.length
       })
       return NextResponse.json(
-        { error: err.message || 'Failed to upload photos' },
+        { error: err.message || 'Gagal mengunggah foto' },
         { status: 500 }
       )
     }
@@ -225,8 +225,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: 'Internal server error',
-        message: 'Failed to process photo upload'
+        error: 'Terjadi kesalahan server',
+        message: 'Gagal memproses unggahan foto'
       },
       { status: 500 }
     )
@@ -257,14 +257,14 @@ export async function GET(request: NextRequest) {
     // Validate query parameters
     if (!transactionId) {
       return NextResponse.json(
-        { error: 'Transaction ID is required' },
+        { error: 'ID Transaksi wajib disertakan' },
         { status: 400 }
       )
     }
 
     if (!transactionType || !['inventory-masuk', 'inventory-keluar'].includes(transactionType)) {
       return NextResponse.json(
-        { error: 'Transaction type must be either "inventory-masuk" or "inventory-keluar"' },
+        { error: 'Tipe transaksi harus "inventory-masuk" atau "inventory-keluar"' },
         { status: 400 }
       )
     }
@@ -297,7 +297,7 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan server saat mengambil data foto' },
       { status: 500 }
     )
   }

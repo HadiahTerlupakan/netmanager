@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 
 export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     // RBAC Check & Filtering
     const isSuperAdmin = isSuperAdminRole(session.role)
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
       where: { ...whereClause, status: 'REJECTED' }
     })
 
-    return NextResponse.json({
+    return apiSuccess({
       total,
       woStartedToday,
       completedToday,
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
       rejected
     })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal mengambil ringkasan canvasing'
+    return ApiErrors.internalError(message)
   }
 }

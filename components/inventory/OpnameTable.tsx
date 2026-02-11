@@ -106,7 +106,8 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
 
       const response = await getWithAuth(`/api/inventory/opname/list?${params}`)
       if (!response.ok) {
-        throw new Error('Gagal memuat data stock opname')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal memuat data stock opname')
       }
 
       const data = await response.json()

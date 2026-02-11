@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -60,13 +60,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ exists: pelanggan !== null })
     } catch (error: unknown) {
       // Jika error (misalnya tabel belum ada), anggap ID belum ada
-      console.warn('Error checking ID pelanggan (table mungkin belum ada):', error instanceof Error ? error.message : 'Unknown error')
+      console.warn('Error checking ID pelanggan (table mungkin belum ada):', error instanceof Error ? error.message : 'Terjadi kesalahan')
       return NextResponse.json({ exists: false })
     }
   } catch (error: unknown) {
     console.error('Error checking pelanggan ID:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getCanvasingService } from '@/lib/repositories'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 
 export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     // RBAC Check & Filtering
     const isSuperAdmin = isSuperAdminRole(session.role)
@@ -45,46 +46,53 @@ export async function GET(req: NextRequest) {
              if (session.siteId) {
                  filterSiteId = session.siteId
              } else {
-                 return NextResponse.json([])
+                 return apiSuccess([])
              }
         }
     }
 
     const service = getCanvasingService()
-    // NOTE: Service needs update to support `siteId` filtering or we rely on Prisma relation filter in service
-    // Checking CanvasingService...
-    // If service doesn't support siteId, we might need to modify it or the Repo.
     const filterParams: Record<string, unknown> = {}
     if (status) filterParams.status = status
     if (salesId) filterParams.salesId = salesId
     if (filterSiteId) filterParams.siteId = filterSiteId
     const requests = await service.getAllRequests(filterParams)
 
-    console.log(`[API_CANVASING] Filters: ${JSON.stringify(filterParams)}, Results: ${requests.length}`)
-
     // Return with data wrapper for mobile app compatibility
     return NextResponse.json({ data: requests })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal mengambil data canvasing'
+    return ApiErrors.internalError(message)
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     const body = await req.json()
+
+    // Validate required fields
+    if (!body.nama || !body.nama.trim()) {
+      return ApiErrors.badRequest('Nama pelanggan wajib diisi')
+    }
+    if (!body.noTelpon || !body.noTelpon.trim()) {
+      return ApiErrors.badRequest('Nomor telepon wajib diisi')
+    }
+    if (!body.alamat || !body.alamat.trim()) {
+      return ApiErrors.badRequest('Alamat wajib diisi')
+    }
+
     const service = getCanvasingService()
 
     // Explicitly map and sanitize fields
     const payload = {
-      nama: body.nama,
+      nama: body.nama.trim(),
       noKtp: body.noKtp,
-      noTelpon: body.noTelpon,
+      noTelpon: body.noTelpon.trim(),
       email: body.email || null,
-      alamat: body.alamat,
+      alamat: body.alamat.trim(),
       kabel: body.kabel ? Number(body.kabel) : 0,
       odp: body.odp || null,
       paket: body.paket || null,
@@ -98,9 +106,9 @@ export async function POST(req: NextRequest) {
 
     const request = await service.createRequest(payload)
 
-    return NextResponse.json(request, { status: 201 })
+    return apiSuccess(request, { status: 201 })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal membuat data canvasing'
+    return ApiErrors.internalError(message)
   }
 }

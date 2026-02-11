@@ -1,6 +1,7 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { CouponService } from '@/modules/coupons/services/CouponService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const couponService = new CouponService()
 
@@ -10,18 +11,18 @@ export async function POST(req: NextRequest) {
         const { code, amount, pelangganId } = json
 
         if (!code) {
-            return NextResponse.json({ valid: false, error: 'Kode kupon harus diisi' }, { status: 400 })
+            return ApiErrors.badRequest('Kode kupon harus diisi')
         }
 
         const result = await couponService.verifyCoupon(code, Number(amount), pelangganId)
 
         if (!result.valid) {
-            return NextResponse.json(result, { status: 400 })
+            return ApiErrors.badRequest(result.error || 'Kupon tidak valid')
         }
 
-        return NextResponse.json({
+        return apiSuccess({
             valid: true,
-            code: code.toUpperCase(), // Echo back the code
+            code: code.toUpperCase(),
             discountAmount: result.discountAmount,
             finalAmount: result.finalAmount,
             couponId: result.couponId
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
 
     } catch (error: unknown) {
         console.error('Coupon verify error:', error)
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
+        const message = error instanceof Error ? error.message : 'Gagal memverifikasi kupon'
+        return ApiErrors.internalError(message)
     }
 }

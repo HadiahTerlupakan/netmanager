@@ -234,13 +234,13 @@ export function ClientComponent() {
                     assignedToId: result.data.assignedTo?.id || '',
                 })
             } else if (response.status === 404) {
-                alert('Work order not found')
+                alert('Work order tidak ditemukan')
                 router.push('/admin/workorders/list')
             }
         } catch (error: unknown) {
             const axiosError = error as { response?: { data?: { error?: string } } }
             console.error('Error fetching work order:', error)
-            alert('An error occurred while fetching the work order: ' + (axiosError.response?.data?.error || 'Unknown error'))
+            alert('Terjadi kesalahan saat memuat work order: ' + (axiosError.response?.data?.error || 'Kesalahan tidak diketahui'))
         } finally {
             setLoading(false)
         }
@@ -273,7 +273,7 @@ export function ClientComponent() {
         if (!file) return
 
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file')
+            alert('Silakan pilih file gambar')
             return
         }
 
@@ -290,7 +290,7 @@ export function ClientComponent() {
                 body: formData,
             })
 
-            if (!uploadRes.ok) throw new Error('Failed to upload image')
+            if (!uploadRes.ok) throw new Error('Gagal mengunggah gambar')
             const { url, fileName } = await uploadRes.json()
 
             // 2. Attach to Work Order
@@ -306,14 +306,14 @@ export function ClientComponent() {
                 }),
             })
 
-            if (!attachRes.ok) throw new Error('Failed to attach image to work order')
+            if (!attachRes.ok) throw new Error('Gagal melampirkan gambar ke work order')
             
             // Refresh
             fetchWorkOrder()
             
         } catch (error) {
             console.error('Upload failed:', error)
-            alert('Failed to upload image')
+            alert('Gagal mengunggah gambar')
         } finally {
             setIsUploading(false)
             if (fileInputRef.current) {
@@ -389,11 +389,11 @@ export function ClientComponent() {
                 fetchWorkOrder()
             } else {
                 const error = await response.json()
-                alert(`Error: ${error.error || 'Failed to update'}`)
+                alert(`Error: ${error.error || 'Gagal memperbarui'}`)
             }
         } catch (error) {
             console.error('Error updating:', error)
-            alert('An error occurred')
+            alert('Terjadi kesalahan')
         }
     }
 
@@ -413,11 +413,12 @@ export function ClientComponent() {
                 setShowVerifyModal(false)
                 fetchWorkOrder()
             } else {
-                alert('Failed to verify work order')
+                const errData = await response.json().catch(() => ({}))
+                alert(errData.error || 'Gagal memverifikasi work order')
             }
         } catch (error) {
             console.error('Error verifying:', error)
-            alert('An error occurred')
+            alert('Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -430,7 +431,7 @@ export function ClientComponent() {
 
     const handleReject = async () => {
         if (!rejectReason.trim()) {
-            alert('Please provide a rejection reason')
+            alert('Silakan berikan alasan penolakan')
             return
         }
 
@@ -450,11 +451,12 @@ export function ClientComponent() {
                 setRejectReason('')
                 fetchWorkOrder()
             } else {
-                alert('Failed to reject work order')
+                const errData = await response.json().catch(() => ({}))
+                alert(errData.error || 'Gagal menolak work order')
             }
         } catch (error) {
             console.error('Error rejecting:', error)
-            alert('An error occurred')
+            alert('Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -462,7 +464,7 @@ export function ClientComponent() {
 
     const handleCancel = async () => {
         if (!cancelReason.trim()) {
-            alert('Please provide a cancellation reason')
+            alert('Silakan berikan alasan pembatalan')
             return
         }
 
@@ -477,11 +479,12 @@ export function ClientComponent() {
                 setCancelReason('')
                 fetchWorkOrder()
             } else {
-                alert('Failed to cancel work order')
+                const errData = await response.json().catch(() => ({}))
+                alert(errData.error || 'Gagal membatalkan work order')
             }
         } catch (error) {
             console.error('Error cancelling:', error)
-            alert('An error occurred')
+            alert('Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -565,11 +568,12 @@ export function ClientComponent() {
                 setNewComment('')
                 fetchWorkOrder()
             } else {
-                alert('Failed to add comment')
+                const errData = await response.json().catch(() => ({}))
+                alert(errData.error || 'Gagal menambahkan komentar')
             }
         } catch (error) {
             console.error('Error adding comment:', error)
-            alert('Error adding comment')
+            alert('Terjadi kesalahan saat menambahkan komentar')
         } finally {
             setAddingComment(false)
         }

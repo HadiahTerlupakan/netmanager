@@ -97,7 +97,7 @@ export function CreateAssetForm() {
             })
 
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed to create asset')
+            if (!res.ok) throw new Error(data.error || 'Gagal membuat aset baru')
 
             router.push('/admin/inventory/assets')
             router.refresh()

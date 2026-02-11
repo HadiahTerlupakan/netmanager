@@ -15,14 +15,14 @@ export async function GET(
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const { id: conversationId } = await params
@@ -122,7 +122,7 @@ export async function GET(
         })
     } catch (error: unknown) {
         console.error('Error fetching messages:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }
@@ -135,14 +135,14 @@ export async function POST(
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
-        
+
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const { id: conversationId } = await params
@@ -263,7 +263,7 @@ export async function POST(
         })
     } catch (error: unknown) {
         console.error('Error sending message:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

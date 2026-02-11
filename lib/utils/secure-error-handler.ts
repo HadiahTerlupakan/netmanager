@@ -63,16 +63,16 @@ export function createSecureError(
 
   // User-friendly messages based on error type
   const messages: Record<ErrorType, string> = {
-    [ErrorType.VALIDATION]: 'Invalid request data',
-    [ErrorType.AUTHENTICATION]: 'Authentication required',
-    [ErrorType.AUTHORIZATION]: 'Access denied',
-    [ErrorType.NOT_FOUND]: 'Resource not found',
-    [ErrorType.CONFLICT]: 'Resource conflict',
-    [ErrorType.RATE_LIMIT]: 'Too many requests. Please try again later.',
-    [ErrorType.DATABASE]: 'Service temporarily unavailable',
-    [ErrorType.EXTERNAL_SERVICE]: 'External service unavailable',
-    [ErrorType.SYSTEM]: 'Service temporarily unavailable',
-    [ErrorType.MALICIOUS_REQUEST]: 'Invalid request'
+    [ErrorType.VALIDATION]: 'Data permintaan tidak valid',
+    [ErrorType.AUTHENTICATION]: 'Autentikasi diperlukan',
+    [ErrorType.AUTHORIZATION]: 'Akses ditolak',
+    [ErrorType.NOT_FOUND]: 'Data tidak ditemukan',
+    [ErrorType.CONFLICT]: 'Konflik data',
+    [ErrorType.RATE_LIMIT]: 'Terlalu banyak permintaan. Silakan coba lagi nanti.',
+    [ErrorType.DATABASE]: 'Layanan sementara tidak tersedia',
+    [ErrorType.EXTERNAL_SERVICE]: 'Layanan eksternal tidak tersedia',
+    [ErrorType.SYSTEM]: 'Layanan sementara tidak tersedia',
+    [ErrorType.MALICIOUS_REQUEST]: 'Permintaan tidak valid'
   }
 
   // HTTP status codes based on error type
@@ -127,7 +127,7 @@ export function createValidationError(errors: Array<{ field: string; message: st
     validationErrors: errors.map(err => ({
       field: err.field,
       // Don't expose detailed validation messages to prevent information leakage
-      message: 'Invalid value'
+      message: 'Nilai tidak valid'
     }))
   })
 }
@@ -136,14 +136,14 @@ export function createValidationError(errors: Array<{ field: string; message: st
  * Creates an authentication error response
  */
 export function createAuthError(message?: string): NextResponse {
-  return createSecureError(ErrorType.AUTHENTICATION, message || 'Authentication required')
+  return createSecureError(ErrorType.AUTHENTICATION, message || 'Autentikasi diperlukan')
 }
 
 /**
  * Creates an authorization error response
  */
 export function createAuthorizationError(message?: string): NextResponse {
-  return createSecureError(ErrorType.AUTHORIZATION, message || 'Access denied')
+  return createSecureError(ErrorType.AUTHORIZATION, message || 'Akses ditolak')
 }
 
 /**
@@ -196,7 +196,7 @@ export function logSecureError(
     requestId,
     type,
     severity,
-    message: userMessage || err?.message || 'Unknown error',
+    message: userMessage || err?.message || 'Terjadi kesalahan',
     originalError: process.env.NODE_ENV === 'development' ? originalError : undefined,
     context: {
       ...context,

@@ -58,7 +58,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
         setLoading(true)
         try {
             const res = await fetch(`/api/procurement/purchase-orders/${id}`)
-            if (!res.ok) throw new Error('Not found')
+            if (!res.ok) throw new Error('Tidak ditemukan')
             const json = await res.json()
             setPo(json)
         } catch (_error) {

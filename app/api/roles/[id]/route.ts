@@ -23,7 +23,7 @@ type Params = {
 
 export async function GET(req: Request, { params }: Params) {
     if (!await hasPermission('roles:read')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
     }
 
     const { id } = await params
@@ -33,24 +33,24 @@ export async function GET(req: Request, { params }: Params) {
         const role = await roleService.getRoleWithPermissions(id)
 
         if (!role) {
-            return NextResponse.json({ error: 'Role not found' }, { status: 404 })
+            return NextResponse.json({ error: 'Role tidak ditemukan' }, { status: 404 })
         }
 
         return NextResponse.json(role)
     } catch (error) {
         console.error('Error fetching role:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }
 
 export async function PUT(req: Request, { params }: Params) {
     const session = await getServerSession(authOptions)
     if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     if (!await hasPermission('roles:update')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
     }
 
     const { id } = await params
@@ -105,18 +105,18 @@ export async function PUT(req: Request, { params }: Params) {
     } catch (error: unknown) {
         console.error('Error updating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: error.issues[0]?.message || 'Validation error' }, { status: 400 })
+            return NextResponse.json({ error: error.issues[0]?.message || 'Validasi gagal' }, { status: 400 })
         }
         if (error instanceof Error) {
-            if (error.message === 'Role not found') {
-                return NextResponse.json({ error: error.message }, { status: 404 })
+            if (error.message === 'Role tidak ditemukan') {
+                return NextResponse.json({ error: 'Role tidak ditemukan' }, { status: 404 })
             }
-            if (error.message === 'Cannot rename SUPER_ADMIN role') {
-                return NextResponse.json({ error: error.message }, { status: 400 })
+            if (error.message === 'Tidak dapat mengubah nama role SUPER_ADMIN') {
+                return NextResponse.json({ error: 'Tidak dapat mengubah nama role SUPER_ADMIN' }, { status: 400 })
             }
             return NextResponse.json({ error: error.message }, { status: 400 })
         }
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }
 
@@ -124,11 +124,11 @@ export async function DELETE(req: Request, { params }: Params) {
     const session = await getServerSession(authOptions)
     if (!session) {
         // DELETE requires auth check for logging mainly, though permission check covers it
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     if (!await hasPermission('roles:delete')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
     }
 
     const { id } = await params
@@ -152,14 +152,14 @@ export async function DELETE(req: Request, { params }: Params) {
     } catch (error: unknown) {
         console.error('Error deleting role:', error)
         if (error instanceof Error) {
-            if (error.message === 'Role not found') {
-                return NextResponse.json({ error: error.message }, { status: 404 })
+            if (error.message === 'Role tidak ditemukan') {
+                return NextResponse.json({ error: 'Role tidak ditemukan' }, { status: 404 })
             }
-            if (error.message === 'Cannot delete SUPER_ADMIN role' ||
-                error.message === 'Cannot delete role that has assigned users') {
+            if (error.message === 'Tidak dapat menghapus role SUPER_ADMIN' ||
+                error.message === 'Tidak dapat menghapus role yang masih memiliki pengguna') {
                 return NextResponse.json({ error: error.message }, { status: 400 })
             }
         }
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

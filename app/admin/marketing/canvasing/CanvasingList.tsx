@@ -63,9 +63,13 @@ export default function CanvasingList() {
             if (res.ok) {
                 const json = await res.json()
                 setItems(json.data || json)
+            } else {
+                const json = await res.json().catch((): null => null)
+                toast.error(json?.error || 'Gagal memuat data canvasing')
             }
         } catch (error) {
             console.error('Failed to fetch canvasing', error)
+            toast.error('Gagal menghubungi server, coba lagi nanti')
         } finally {
             setLoading(false)
         }

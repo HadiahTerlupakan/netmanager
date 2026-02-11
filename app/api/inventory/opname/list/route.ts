@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (!(await hasPermission("opname:read"))) {
-      return ApiErrors.forbidden('Forbidden')
+      return ApiErrors.forbidden('Akses ditolak')
     }
 
     const searchParams = req.nextUrl.searchParams

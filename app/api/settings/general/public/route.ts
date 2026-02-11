@@ -35,7 +35,7 @@ export async function GET(_req: NextRequest) {
   } catch (error: unknown) {
     console.error('Error fetching public general settings:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

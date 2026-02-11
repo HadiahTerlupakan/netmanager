@@ -17,7 +17,7 @@ export class MixRadiusSyncService {
    */
   async syncCustomer(data: MixRadiusCustomerDetail) {
     if (!data.username) {
-      throw new Error("Username is required for sync")
+      throw new Error("Username diperlukan untuk sinkronisasi")
     }
 
     console.log(`[MixRadiusSync] Syncing customer: ${data.username} (${data.id})`)
@@ -81,7 +81,7 @@ export class MixRadiusSyncService {
         linkedToPelanggan = true
       }
     } catch (err) {
-      console.warn(`[MixRadiusSync] Failed to link to Pelanggan table: ${err instanceof Error ? err.message : "Unknown error"}`)
+      console.warn(`[MixRadiusSync] Failed to link to Pelanggan table: ${err instanceof Error ? err.message : "Terjadi kesalahan"}`)
     }
 
     return { action: "synced", customer: result, linked: linkedToPelanggan }

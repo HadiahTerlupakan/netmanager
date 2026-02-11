@@ -97,7 +97,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
       const res = await fetch(`/api/integrations/market-price?keyword=${encodeURIComponent(keyword)}`)
       const data = await res.json()
 
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch data')
+      if (!res.ok) throw new Error(data.error || 'Gagal mengambil data')
 
       setResult(data)
       setSelectedBrand('') // Reset filter on new search

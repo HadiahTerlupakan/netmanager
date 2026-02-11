@@ -200,12 +200,12 @@ export async function GET(_req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     // Ambil semua pengaturan umum dari database
@@ -265,7 +265,7 @@ export async function GET(_req: NextRequest) {
   } catch (error) {
     console.error('Error fetching general settings:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -280,12 +280,12 @@ export async function POST(req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const body: GeneralSettings = await req.json()
@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
     // Validasi body
     if (!body || typeof body !== 'object') {
       return NextResponse.json(
-        { error: 'Invalid request body' },
+        { error: 'Body request tidak valid' },
         { status: 400 }
       )
     }
@@ -590,7 +590,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error saving general settings:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

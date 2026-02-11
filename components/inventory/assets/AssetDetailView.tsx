@@ -46,7 +46,7 @@ export function AssetDetailView({ asset: initialAsset }: AssetDetailProps) {
                 method: 'POST'
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed')
+            if (!res.ok) throw new Error(data.error || 'Gagal memproses penyusutan')
             
             if (data.message) alert(data.message)
             else alert('Penyusutan berhasil dicatat.')

@@ -1,31 +1,32 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { CouponService } from '@/modules/coupons/services/CouponService'
 import { hasPermission } from '@/lib/rbac'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const couponService = new CouponService()
 
 export async function GET(_req: NextRequest) {
     try {
         if (!await hasPermission('coupon:read')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data kupon')
         }
 
         const result = await couponService.getAllCoupons()
-        return NextResponse.json(result.items)
+        return apiSuccess(result.items)
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: errorMessage }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Gagal mengambil data kupon'
+        return ApiErrors.internalError(errorMessage)
     }
 }
 
 export async function POST(req: NextRequest) {
     try {
         if (!await hasPermission('coupon:create')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat kupon')
         }
 
         const json = await req.json()
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
         } = json
 
         if (!code || !discountType || discountValue === undefined || !startDate || !endDate) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+            return ApiErrors.badRequest('Field wajib tidak lengkap: kode, tipe diskon, nilai diskon, tanggal mulai, dan tanggal berakhir harus diisi')
         }
 
         const coupon = await couponService.createCoupon({
@@ -67,12 +68,12 @@ export async function POST(req: NextRequest) {
             userId: session?.user?.id
         })
 
-        return NextResponse.json(coupon)
+        return apiSuccess(coupon, { status: 201, message: 'Kupon berhasil dibuat' })
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Gagal membuat kupon'
         if (errorMessage === 'Coupon code already exists') {
-            return NextResponse.json({ error: 'Kode kupon sudah ada' }, { status: 409 })
+            return ApiErrors.conflict('Kode kupon sudah digunakan, silakan gunakan kode lain')
         }
-        return NextResponse.json({ error: errorMessage }, { status: 500 })
+        return ApiErrors.internalError(errorMessage)
     }
 }

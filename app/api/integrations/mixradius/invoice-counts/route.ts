@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     return apiSuccess(data)
   } catch (error: unknown) {
     console.error('[API] Invoice counts error:', error)
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return ApiErrors.internalError(message)
   }
 }

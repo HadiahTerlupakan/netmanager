@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
     } catch (error: unknown) {
         console.error('Error downloading APK:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Failed to download APK'
+        const errorMessage = error instanceof Error ? error.message : 'Gagal mengunduh APK'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

@@ -27,11 +27,11 @@ export async function GET(req: NextRequest) {
     // Cek autentikasi menggunakan fungsi terpusat
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     if (!(await hasPermission("profileppp:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     console.error('Error fetching profile PPPs:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -216,11 +216,11 @@ export async function POST(req: NextRequest) {
     // Cek autentikasi admin menggunakan fungsi terpusat
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     if (!(await hasPermission("profileppp:create"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -263,7 +263,7 @@ export async function POST(req: NextRequest) {
     const validation = profilePPPSchema.safeParse(sanitizedBody)
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
+        { error: 'Validasi gagal', details: validation.error.flatten() },
         { status: 400 }
       )
     }
@@ -359,7 +359,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

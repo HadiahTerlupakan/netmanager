@@ -153,7 +153,7 @@ export async function GET(
   } catch (error: unknown) {
     console.error('Error fetching profile PPP:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -321,7 +321,7 @@ export async function PUT(
     const validation = profilePPPSchema.safeParse(sanitizedBody)
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
+        { error: 'Validasi gagal', details: validation.error.flatten() },
         { status: 400 }
       )
     }
@@ -419,7 +419,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -566,7 +566,7 @@ export async function DELETE(
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

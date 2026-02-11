@@ -44,7 +44,7 @@ export function withAuth<T = unknown>(
     const user = await verifyAuth(request)
 
     if (!user) {
-      throw new UnauthorizedError('Authentication required')
+      throw new UnauthorizedError('Autentikasi diperlukan')
     }
 
     return handler({ user, request }, routeContext)
@@ -70,13 +70,13 @@ export function withAdminAuth<T = unknown>(
     const user = await verifyAuth(request)
 
     if (!user) {
-      throw new UnauthorizedError('Authentication required')
+      throw new UnauthorizedError('Autentikasi diperlukan')
     }
 
     // Check admin panel access
     const hasAdminAccess = await checkAdminAccess(user)
     if (!hasAdminAccess) {
-      throw new UnauthorizedError('Admin access required')
+      throw new UnauthorizedError('Akses admin diperlukan')
     }
 
     return handler({ user, request }, routeContext)
@@ -94,13 +94,13 @@ export function withEmployeeAuth<T = unknown>(
     const user = await verifyAuth(request)
 
     if (!user) {
-      throw new UnauthorizedError('Authentication required')
+      throw new UnauthorizedError('Autentikasi diperlukan')
     }
 
     // Check employee panel access
     const hasEmployeeAccess = await checkEmployeeAccess(user)
     if (!hasEmployeeAccess) {
-      throw new UnauthorizedError('Employee access required')
+      throw new UnauthorizedError('Akses karyawan diperlukan')
     }
 
     return handler({ user, request }, routeContext)

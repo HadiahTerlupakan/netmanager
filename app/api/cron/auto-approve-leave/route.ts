@@ -12,7 +12,7 @@ export async function POST(_request: Request) {
         const authHeader = headersList.get('authorization')
 
         if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
-            return ApiErrors.unauthorized('Unauthorized')
+            return ApiErrors.unauthorized('Tidak terautentikasi')
         }
 
         const result = await autoApproveTukarLibur()

@@ -285,7 +285,7 @@ async function createIPPool(
       if (updateResult && Array.isArray(updateResult) && updateResult.length > 0) {
         const firstResult = updateResult[0]
         if (firstResult && firstResult['!trap']) {
-          const errorMsg = firstResult['message'] || 'Unknown error'
+          const errorMsg = firstResult['message'] || 'Terjadi kesalahan'
           return { success: false, error: `MikroTik error: ${errorMsg}` }
         }
       }
@@ -317,7 +317,7 @@ async function createIPPool(
     if (result && Array.isArray(result) && result.length > 0) {
       const firstResult = result[0]
       if (firstResult && firstResult['!trap']) {
-        const errorMsg = firstResult['message'] || 'Unknown error'
+        const errorMsg = firstResult['message'] || 'Terjadi kesalahan'
         return { success: false, error: `MikroTik error: ${errorMsg}` }
       }
     }
@@ -452,7 +452,7 @@ export async function createPPPProfileInMikroTik(
       if (result && Array.isArray(result) && result.length > 0) {
         const firstResult = result[0]
         if (firstResult && firstResult['!trap']) {
-          const errorMsg = firstResult['message'] || 'Unknown error'
+          const errorMsg = firstResult['message'] || 'Terjadi kesalahan'
           conn.close()
           return { success: false, error: `MikroTik error: ${errorMsg}` }
         }
@@ -665,7 +665,7 @@ export async function updatePPPProfileInMikroTik(
         if (result && Array.isArray(result) && result.length > 0) {
           const firstResult = result[0]
           if (firstResult && firstResult['!trap']) {
-            const errorMsg = firstResult['message'] || 'Unknown error'
+            const errorMsg = firstResult['message'] || 'Terjadi kesalahan'
             conn.close()
             return { success: false, error: `MikroTik error: ${errorMsg}` }
           }

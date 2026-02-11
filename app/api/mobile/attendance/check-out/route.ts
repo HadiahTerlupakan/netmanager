@@ -12,19 +12,19 @@ export async function POST(request: NextRequest) {
         const authHeader = request.headers.get('Authorization')
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return NextResponse.json({
-                error: 'Missing or invalid token',
+                error: 'Token hilang atau tidak valid',
                 code: 'UNAUTHORIZED'
             }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
         }
         const payload = await verifyMobileToken(token)
         if (!payload) {
             return NextResponse.json({
-                error: 'Invalid or expired token',
+                error: 'Token tidak valid atau kadaluarsa',
                 code: 'UNAUTHORIZED'
             }, { status: 401 })
         }
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         const userId = (payload.userId || payload.id) as string
         if (!userId) {
             return NextResponse.json({
-                error: 'Invalid token structure',
+                error: 'Struktur token tidak valid',
                 code: 'UNAUTHORIZED'
             }, { status: 401 })
         }
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
             if (body._offline_meta?.capturedAt) {
                 if (!body._offline_meta.signature) {
                     return NextResponse.json({
-                        error: 'Offline data must be signed',
+                        error: 'Data offline harus ditandatangani',
                         code: 'VALIDATION_ERROR'
                     }, { status: 400 })
                 }
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
                 }
                 if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
                     return NextResponse.json({
-                        error: 'Invalid offline data signature',
+                        error: 'Tanda tangan data offline tidak valid',
                         code: 'VALIDATION_ERROR'
                     }, { status: 400 })
                 }
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     } catch (error: unknown) {
         logger.error('Error in mobile check-out', error as Error)
         return NextResponse.json({
-            error: 'Internal server error',
+            error: 'Terjadi kesalahan server',
             code: 'INTERNAL_ERROR'
         }, { status: 500 })
     }

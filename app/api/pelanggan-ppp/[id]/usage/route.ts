@@ -136,7 +136,7 @@ export async function GET(
     // Check authentication
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
     // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
@@ -196,14 +196,14 @@ export async function GET(
         endDate = new Date(endDateParam)
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
           return NextResponse.json(
-            { error: 'Invalid date format. Use YYYY-MM-DD format' },
+            { error: 'Format tanggal tidak valid. Gunakan format YYYY-MM-DD' },
             { status: 400 }
           )
         }
         break
       default:
         return NextResponse.json(
-          { error: 'Invalid period parameter' },
+          { error: 'Parameter periode tidak valid' },
           { status: 400 }
         )
     }
@@ -317,7 +317,7 @@ export async function GET(
   } catch (error: unknown) {
     console.error('Error fetching customer usage:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

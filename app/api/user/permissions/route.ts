@@ -34,6 +34,6 @@ export async function GET(_request: NextRequest) {
         })
     } catch (error) {
         console.error('[API] Error fetching user permissions:', error)
-        return NextResponse.json({ permissions: [], error: 'Failed to fetch permissions' }, { status: 500 })
+        return NextResponse.json({ permissions: [], error: 'Gagal mengambil izin' }, { status: 500 })
     }
 }

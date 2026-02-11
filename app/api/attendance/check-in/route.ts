@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const userId = session.user.id as string
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         try {
             photoUrl = await photoService.processPhoto(photo, userId, 'checkin')
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan';
             return NextResponse.json({
                 error: errorMessage,
                 code: 'VALIDATION_ERROR'
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         const err = error instanceof Error ? error : new Error(String(error))
         logger.error('Error in check-in', err)
 
-        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server';
 
         // Handle Custom Service Errors
         if (errorMessage === 'DUPLICATE_ENTRY') {
@@ -128,9 +128,9 @@ export async function POST(request: NextRequest) {
                 details: { reason }
             }, { status: 400 })
         }
-        
+
         return NextResponse.json({
-            error: 'Internal server error',
+            error: 'Terjadi kesalahan server',
             code: 'INTERNAL_ERROR'
         }, { status: 500 })
     }

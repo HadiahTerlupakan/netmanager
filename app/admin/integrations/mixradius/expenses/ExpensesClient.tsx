@@ -217,7 +217,10 @@ export default function ExpensesClient() {
               })
           })
 
-          if (!res.ok) throw new Error('Failed to create category')
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}))
+              throw new Error(errData.error || 'Gagal membuat kategori baru')
+          }
 
           const newCategory = await res.json()
           setCategories(prev => [...prev, newCategory].sort((a, b) => a.name.localeCompare(b.name)))
@@ -273,14 +276,16 @@ export default function ExpensesClient() {
       const response = await fetch(`/api/finance/expenses?${params}`)
 
       if (!response.ok) {
-        throw new Error('Failed to fetch expenses')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal mengambil data pengeluaran')
       }
 
       const result = await response.json()
       setData(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      toast.error('Gagal mengambil data pengeluaran')
+      const errorMsg = err instanceof Error ? err.message : 'Gagal mengambil data pengeluaran'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -357,13 +362,19 @@ export default function ExpensesClient() {
       e.preventDefault()
       
       // Validasi tambahan
-      if (parseFloat(formData.amount) <= 0) {
-          toast.error('Nominal harus lebih besar dari 0')
-          return
+      const validationErrors: string[] = []
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+          validationErrors.push('Nominal harus lebih besar dari 0')
+      }
+      if (!formData.date) {
+          validationErrors.push('Tanggal transaksi wajib diisi')
+      }
+      if (formData.category === 'CAPEX' && (!formData.usefulLife || formData.usefulLife < 1)) {
+          validationErrors.push('Masa manfaat CAPEX minimal 1 bulan')
       }
 
-      if (formData.category === 'CAPEX' && (!formData.usefulLife || formData.usefulLife < 1)) {
-          toast.error('Masa manfaat CAPEX minimal 1 bulan')
+      if (validationErrors.length > 0) {
+          toast.error(validationErrors.join('\n'), { duration: 5000 })
           return
       }
 
@@ -403,13 +414,16 @@ export default function ExpensesClient() {
               body: JSON.stringify(payload)
           })
 
-          if (!res.ok) throw new Error('Gagal menyimpan data')
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}))
+              throw new Error(errData.error || 'Gagal menyimpan data pengeluaran')
+          }
 
-          toast.success(editingItem ? '✅ Data berhasil diperbarui' : '✅ Pengeluaran berhasil ditambahkan')
+          toast.success(editingItem ? 'Data berhasil diperbarui' : 'Pengeluaran berhasil ditambahkan')
           setIsModalOpen(false)
           fetchData()
-      } catch (_err) {
-          toast.error('Terjadi kesalahan saat menyimpan')
+      } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Gagal menyimpan data pengeluaran')
       } finally {
           setIsSubmitting(false)
       }
@@ -423,12 +437,15 @@ export default function ExpensesClient() {
               method: 'DELETE'
           })
 
-          if (!res.ok) throw new Error('Gagal menghapus')
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}))
+              throw new Error(errData.error || 'Gagal menghapus data')
+          }
 
           toast.success('Data dihapus')
           fetchData()
-      } catch (_err) {
-          toast.error('Gagal menghapus data')
+      } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Gagal menghapus data pengeluaran')
       }
   }
 

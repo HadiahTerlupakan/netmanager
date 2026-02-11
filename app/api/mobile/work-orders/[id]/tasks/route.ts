@@ -15,16 +15,16 @@ export async function PATCH(
     try {
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const user = await verifyMobileToken(token) as unknown as { id: string; name?: string };
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const workOrderId = params.id;
@@ -32,7 +32,7 @@ export async function PATCH(
         const { taskId, isCompleted } = body;
 
         if (!taskId) {
-            return NextResponse.json({ error: 'Task ID required' }, { status: 400 });
+            return NextResponse.json({ error: 'Task ID wajib diisi' }, { status: 400 });
         }
 
         const repository = new WorkOrderRepository(prisma);
@@ -78,11 +78,11 @@ export async function PATCH(
         // Fetch updated WO to return? Or just success
         return NextResponse.json({
             success: true,
-            message: 'Task updated'
+            message: 'Task berhasil diupdate'
         });
 
     } catch (error) {
         console.error('Task Update Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

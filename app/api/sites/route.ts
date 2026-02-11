@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   const user = await getHybridUser(req) as { role?: string; siteId?: string } | null;
 
   if (!user) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    return new NextResponse("Tidak terautentikasi", { status: 401 });
   }
 
   try {
@@ -31,6 +31,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ sites });
   } catch (error) {
     console.error("[SITES_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return new NextResponse("Terjadi kesalahan server", { status: 500 });
   }
 }

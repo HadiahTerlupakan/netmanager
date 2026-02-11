@@ -50,7 +50,7 @@ export class EmailService {
         // Decrypt password
         const encryptedPass = settingsMap['SMTP_PASS']
         if (!encryptedPass) {
-            throw new Error('SMTP password not configured')
+            throw new Error('Password SMTP belum dikonfigurasi')
         }
 
         const smtpPass = decryptApiKey(encryptedPass)
@@ -115,13 +115,13 @@ export class EmailService {
     async testConnection(testEmail: string): Promise<SendEmailResult> {
         return this.sendEmail({
             to: testEmail,
-            subject: 'Test Email from NetManager',
+            subject: 'Email Percobaan dari NetManager',
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2 style="color: #10b981;">✅ Email Configuration Test</h2>
-                    <p>This is a test email to verify your email configuration.</p>
+                    <h2 style="color: #10b981;">✅ Tes Konfigurasi Email</h2>
+                    <p>Ini adalah email percobaan untuk memverifikasi konfigurasi email Anda.</p>
                     <p style="margin-top: 20px; color: #10b981; font-weight: bold;">
-                        If you received this email, your configuration is working correctly!
+                        Jika Anda menerima email ini, konfigurasi Anda berfungsi dengan benar!
                     </p>
                 </div>
             `

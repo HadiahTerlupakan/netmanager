@@ -21,7 +21,7 @@ export class CouponService {
     }
 
     async verifyCoupon(code: string, amount: number, _pelangganId?: string): Promise<VerifyCouponResult> {
-        if (!code) return { valid: false, error: 'Code required', discountAmount: 0, finalAmount: amount }
+        if (!code) return { valid: false, error: 'Kode diperlukan', discountAmount: 0, finalAmount: amount }
 
         const coupon = await this.repo.findByCode(code.toUpperCase())
         if (!coupon) return { valid: false, error: 'Kupon tidak ditemukan', discountAmount: 0, finalAmount: amount }

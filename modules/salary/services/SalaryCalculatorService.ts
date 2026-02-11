@@ -371,7 +371,7 @@ export class SalaryCalculatorService {
             } catch (error) {
                 failed.push({
                     userId: user.id,
-                    error: error instanceof Error ? error.message : 'Unknown error'
+                    error: error instanceof Error ? error.message : 'Terjadi kesalahan'
                 })
             }
         }

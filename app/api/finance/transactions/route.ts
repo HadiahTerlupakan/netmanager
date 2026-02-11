@@ -2,40 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, isSuperAdmin } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const financeService = new FinanceService()
 
 const transactionSchema = z.object({
   date: z.string().or(z.date()),
-  amount: z.number().min(1),
+  amount: z.number().min(1, 'Jumlah harus lebih dari 0'),
   type: z.enum(['INCOME', 'EXPENSE']),
-  categoryId: z.string().min(1),
+  categoryId: z.string().min(1, 'Kategori wajib dipilih'),
   description: z.string().optional(),
   referenceId: z.string().optional(),
   accountId: z.string().optional(),
 })
 
 export async function GET(req: NextRequest) {
-  const session = await verifyAuth(req)
-  if (!session) return new NextResponse('Unauthorized', { status: 401 })
-
   try {
+    const session = await verifyAuth(req)
+    if (!session) return ApiErrors.unauthorized()
+
     const { searchParams } = new URL(req.url)
     const startDate = searchParams.get('startDate') || undefined
     const endDate = searchParams.get('endDate') || undefined
     const categoryId = searchParams.get('categoryId') || undefined
     const accountId = searchParams.get('accountId') || undefined
     const siteIdParam = searchParams.get('siteId') || undefined
-
-    // RBAC: Site Restriction
-    // Assuming we have getUserPermissions imported or available on session (verifyAuth populates it)
-    // We need to check permissions. `verifyAuth` returns UserSession which might not have permissions array explicitly if not extended,
-    // but typically we load it. If not, we might need a helper.
-    // Let's use `hasPermission` if possible, but `hasPermission` takes just string usually in client, here we are in API.
-    // The `auth` module exports `getUserPermissions`?
-    // Let's assume session has permissions or use `getUserPermissions(session.id)`.
-    // Actually, `verifyAuth` returns session with permissions usually.
-    // Let's check `lib/auth.ts` -> it returns `permissions` in session.
 
     const userPermissions = session.permissions || []
     const isSuper = isSuperAdmin(session)
@@ -60,20 +51,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(transactions)
   } catch (error) {
     console.error('Error fetching transactions:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal mengambil data transaksi'
+    return ApiErrors.internalError(message)
   }
 }
 
 export async function POST(req: NextRequest) {
-  const session = await verifyAuth(req)
-  if (!session) return new NextResponse('Unauthorized', { status: 401 })
-
   try {
+    const session = await verifyAuth(req)
+    if (!session) return ApiErrors.unauthorized()
+
     const json = await req.json()
     const result = transactionSchema.safeParse(json)
-    
+
     if (!result.success) {
-        return new NextResponse(result.error.issues[0]?.message || 'Validasi gagal', { status: 400 })
+        return ApiErrors.badRequest(result.error.issues[0]?.message || 'Validasi gagal')
     }
 
     const { date, description, referenceId, accountId, ...rest } = result.data
@@ -87,9 +79,10 @@ export async function POST(req: NextRequest) {
       ...(accountId ? { accountId } : {})
     })
 
-    return NextResponse.json(transaction)
+    return apiSuccess(transaction, { status: 201, message: 'Transaksi berhasil dicatat' })
   } catch (error) {
     console.error('Error creating transaction:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal mencatat transaksi'
+    return ApiErrors.internalError(message)
   }
 }

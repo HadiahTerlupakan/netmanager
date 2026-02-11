@@ -7,13 +7,13 @@ const service = new ProcurementService();
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const { prIds, supplierId } = await req.json();
         
         if (!prIds || !Array.isArray(prIds)) {
-            return NextResponse.json({ error: 'Invalid PR IDs' }, { status: 400 });
+            return NextResponse.json({ error: 'ID PR tidak valid' }, { status: 400 });
         }
 
         // Pass user ID from session
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         const result = await service.generatePOFromPRs(prIds, actualUserId, supplierId);
         return NextResponse.json(result);
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Internal Server Error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: message }, { status: 500 });
     }
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { HiOutlineBanknotes, HiMagnifyingGlass } from 'react-icons/hi2'
 import clsx from 'clsx'
 import { Modal } from '@/components/ui/Modal'
+import { toast } from 'react-hot-toast'
 import type { Category, Account, PurchaseOrder } from '@/types'
 
 interface UnpaidBillsClientProps {
@@ -40,11 +41,11 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
     if (!selectedPo) return
     
     if (!categoryId) {
-      alert('Pilih kategori transaksi')
+      toast.error('Pilih kategori transaksi')
       return
     }
     if (!paidFromAccountId) {
-      alert('Pilih sumber dana (akun)')
+      toast.error('Pilih sumber dana (akun)')
       return
     }
 
@@ -64,16 +65,15 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
       })
 
       if (!res.ok) {
-        const err = await res.text()
-        throw new Error(err)
+        const errData = await res.json().catch((): null => null)
+        throw new Error(errData?.error || 'Gagal memproses pembayaran')
       }
 
-      // Close modal by clearing state
+      toast.success('Pembayaran PO berhasil dicatat')
       router.refresh()
       setSelectedPo(null)
-      // Optional: Add toast here if available in the system
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'An unknown error occurred')
+      toast.error(error instanceof Error ? error.message : 'Gagal memproses pembayaran')
     } finally {
       setLoading(false)
     }

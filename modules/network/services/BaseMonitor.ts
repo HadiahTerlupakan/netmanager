@@ -85,6 +85,19 @@ export abstract class BaseMonitor {
   }
 
   /**
+   * Check if an error is a connection error (DB/Redis unavailable)
+   */
+  private isConnectionError(error: unknown): boolean {
+    if (error && typeof error === 'object') {
+      const code = (error as { code?: string }).code;
+      const message = (error as { message?: string }).message || '';
+      return code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT'
+        || message.includes('ECONNREFUSED') || message.includes('Connection refused');
+    }
+    return false;
+  }
+
+  /**
    * Execute the poll with error handling
    */
   private async runPoll(): Promise<void> {
@@ -92,30 +105,42 @@ export abstract class BaseMonitor {
 
     try {
       await this.poll();
-      
+
       // Reset error count and backoff on success
+      if (this.errorCount > 0) {
+        console.log(`[${this.getMonitorName()}] Connection restored, resuming normal operation`);
+      }
       this.errorCount = 0;
       this.backoffMultiplier = 1;
-      
+
     } catch (error) {
       this.errorCount++;
-      console.error(
-        `[${this.getMonitorName()}] Poll error (${this.errorCount}/${this.maxErrors}):`,
-        error
-      );
+
+      // Log connection errors concisely (no stack trace spam)
+      if (this.isConnectionError(error)) {
+        const code = (error as { code?: string }).code || 'ECONNREFUSED';
+        console.warn(
+          `[${this.getMonitorName()}] DB connection failed (${code}) - attempt ${this.errorCount}/${this.maxErrors}`
+        );
+      } else {
+        console.error(
+          `[${this.getMonitorName()}] Poll error (${this.errorCount}/${this.maxErrors}):`,
+          error instanceof Error ? error.message : error
+        );
+      }
 
       // Exponential backoff after 2 consecutive errors
       if (this.errorCount > 2) {
         this.backoffMultiplier = Math.min(2 ** (this.errorCount - 2), 8);
         console.log(
-          `[${this.getMonitorName()}] Backoff multiplier: ${this.backoffMultiplier}x`
+          `[${this.getMonitorName()}] Next retry in ${(this.getPollInterval() * this.backoffMultiplier / 1000).toFixed(0)}s (backoff ${this.backoffMultiplier}x)`
         );
       }
 
       // Stop after max errors
       if (this.errorCount >= this.maxErrors) {
         console.error(
-          `[${this.getMonitorName()}] Stopping due to too many consecutive errors`
+          `[${this.getMonitorName()}] Stopping after ${this.maxErrors} consecutive failures. Will not auto-restart.`
         );
         this.stop();
       }

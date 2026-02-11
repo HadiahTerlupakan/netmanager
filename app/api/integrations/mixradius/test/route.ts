@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       })
       logs.push(`Login page status: ${loginPageResponse.status}`)
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Unknown error'
+      const message = e instanceof Error ? e.message : 'Terjadi kesalahan'
       logs.push(`Login page fetch error: ${message}`)
       return apiSuccess({ success: false, logs, error: message })
     }
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
       logs.push(`Login response status: ${loginResponse.status}`)
       logs.push(`Login response location: ${loginResponse.headers.get('location')}`)
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Unknown error'
+      const message = e instanceof Error ? e.message : 'Terjadi kesalahan'
       logs.push(`Login fetch error: ${message}`)
       return apiSuccess({ success: false, logs, error: message })
     }
@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
       })
       logs.push(`Page response status: ${pageResponse.status}`)
     } catch (e: unknown) {
-       const message = e instanceof Error ? e.message : 'Unknown error'
+       const message = e instanceof Error ? e.message : 'Terjadi kesalahan'
        logs.push(`Page fetch error: ${message}`)
        return apiSuccess({ success: false, logs, error: message })
     }
@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
     return apiSuccess({ success: true, logs })
 
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return ApiErrors.internalError(message)
   }
 }

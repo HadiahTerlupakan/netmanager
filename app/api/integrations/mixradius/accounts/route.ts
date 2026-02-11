@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
     return apiSuccess(configs)
   } catch (error) {
     console.error('[API] Error fetching MixRadius configs:', error)
-    return ApiErrors.internalError()
+    const message = error instanceof Error ? error.message : 'Gagal mengambil daftar akun MixRadius'
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -58,8 +59,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { name, baseUrl, username, password, isActive } = body
 
-    if (!name || !baseUrl || !username || !password) {
-      return apiError(ErrorCodes.VALIDATION_ERROR, 'Missing required fields')
+    const missingFields: string[] = []
+    if (!name) missingFields.push('Nama Akun')
+    if (!baseUrl) missingFields.push('Base URL')
+    if (!username) missingFields.push('Username')
+    if (!password) missingFields.push('Password')
+
+    if (missingFields.length > 0) {
+      return apiError(
+        `Data berikut wajib diisi: ${missingFields.join(', ')}`,
+        ErrorCodes.VALIDATION_ERROR,
+        { details: { missingFields } }
+      )
+    }
+
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      return apiError(
+        'Base URL harus diawali dengan http:// atau https://',
+        ErrorCodes.VALIDATION_ERROR
+      )
     }
 
     const newConfig = await mixRadiusConfigRepo.createConfig({
@@ -82,6 +100,7 @@ export async function POST(req: NextRequest) {
     return apiSuccess(newConfig, { status: 201 })
   } catch (error) {
     console.error('[API] Error creating MixRadius config:', error)
-    return ApiErrors.internalError()
+    const message = error instanceof Error ? error.message : 'Gagal menyimpan akun MixRadius'
+    return ApiErrors.internalError(message)
   }
 }

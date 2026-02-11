@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     // Cek autentikasi (Support Mobile & Web)
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Ambil API Key dari database atau environment variable

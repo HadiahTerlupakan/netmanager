@@ -20,7 +20,7 @@ export class WablasProvider implements WhatsAppProvider {
     async sendMessage(params: SendMessageParams): Promise<SendResult> {
         try {
             if (!this.config.domain) {
-                throw new Error('Wablas domain not configured')
+                throw new Error('Domain Wablas belum dikonfigurasi')
             }
 
             const url = `https://${this.config.domain}/api/send-message`
@@ -50,13 +50,13 @@ export class WablasProvider implements WhatsAppProvider {
             } else {
                 return {
                     success: false,
-                    error: result.message || 'Failed to send message'
+                    error: result.message || 'Gagal mengirim pesan'
                 }
             }
         } catch (error: unknown) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Network error'
+                error: error instanceof Error ? error.message : 'Kesalahan jaringan'
             }
         }
     }
@@ -64,7 +64,7 @@ export class WablasProvider implements WhatsAppProvider {
     async sendFile(params: SendFileParams): Promise<SendResult> {
         try {
             if (!this.config.domain) {
-                throw new Error('Wablas domain not configured')
+                throw new Error('Domain Wablas belum dikonfigurasi')
             }
 
             const url = `https://${this.config.domain}/api/send-document`
@@ -96,13 +96,13 @@ export class WablasProvider implements WhatsAppProvider {
             } else {
                 return {
                     success: false,
-                    error: result.message || 'Failed to send file'
+                    error: result.message || 'Gagal mengirim file'
                 }
             }
         } catch (error: unknown) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Network error'
+                error: error instanceof Error ? error.message : 'Kesalahan jaringan'
             }
         }
     }

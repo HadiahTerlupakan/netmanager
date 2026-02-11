@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('Get holidays error:', error)
         return NextResponse.json(
-            { success: false, error: 'Failed to fetch holidays' },
+            { success: false, error: 'Gagal mengambil data hari libur' },
             { status: 500 }
         )
     }

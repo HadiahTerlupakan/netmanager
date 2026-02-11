@@ -7,13 +7,13 @@ const service = new ProcurementService();
 
 export async function GET(_req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const result = await service.getAvailablePRs();
         return NextResponse.json(result);
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

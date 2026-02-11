@@ -59,11 +59,11 @@ export default function SupplierListPage() {
       if (res.ok) {
         fetchSuppliers()
       } else {
-        alert('Failed to delete')
+        alert('Gagal menghapus')
       }
     } catch (error) {
       console.error(error)
-      alert('Error deleting')
+      alert('Kesalahan saat menghapus')
     }
   }
 

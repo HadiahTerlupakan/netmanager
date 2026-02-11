@@ -66,9 +66,18 @@ export default function MixRadiusGroupsClient() {
         fetch('/api/admin/sites?activeOnly=true')
       ])
 
-      if (!groupsRes.ok) throw new Error('Failed to fetch groups')
-      if (!ownersRes.ok) throw new Error('Failed to fetch owners')
-      if (!sitesRes.ok) throw new Error('Failed to fetch sites')
+      if (!groupsRes.ok) {
+        const err = await groupsRes.json().catch(() => ({}))
+        throw new Error(err.error || 'Gagal mengambil data grup/site')
+      }
+      if (!ownersRes.ok) {
+        const err = await ownersRes.json().catch(() => ({}))
+        throw new Error(err.error || 'Gagal mengambil data owner')
+      }
+      if (!sitesRes.ok) {
+        const err = await sitesRes.json().catch(() => ({}))
+        throw new Error(err.error || 'Gagal mengambil data site manajemen')
+      }
 
       const groupsData = await groupsRes.json()
       const ownersData = await ownersRes.json()
@@ -81,7 +90,7 @@ export default function MixRadiusGroupsClient() {
       setOwners(rawOwners.map((o: unknown) => (typeof o === 'object' && o && 'name' in o ? (o as { name: string }).name : String(o))))
       setSites(Array.isArray(sitesData) ? sitesData : (sitesData.data || []))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch data')
+      toast.error(error instanceof Error ? error.message : 'Gagal mengambil data')
     } finally {
       setLoading(false)
     }
@@ -113,15 +122,15 @@ export default function MixRadiusGroupsClient() {
       })
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to save')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Gagal menyimpan data site')
       }
 
       toast.success(editingId ? 'Site berhasil diperbarui' : 'Site berhasil dibuat')
       setIsModalOpen(false)
       fetchData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save')
+      toast.error(error instanceof Error ? error.message : 'Gagal menyimpan data site')
     }
   }
 
@@ -133,12 +142,15 @@ export default function MixRadiusGroupsClient() {
         method: 'DELETE'
       })
 
-      if (!res.ok) throw new Error('Failed to delete')
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal menghapus site')
+      }
 
       toast.success('Site berhasil dihapus')
       fetchData()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete')
+      toast.error(error instanceof Error ? error.message : 'Gagal menghapus site')
     }
   }
 

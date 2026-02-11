@@ -58,12 +58,12 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
             const result = await response.json()
 
             if (!response.ok) {
-                throw new Error(result.error || 'Failed to fetch site')
+                throw new Error(result.error || 'Gagal memuat data site')
             }
 
             setSite(result.data)
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Unknown error')
+            setError(err instanceof Error ? err.message : 'Kesalahan tidak diketahui')
         } finally {
             setLoading(false)
         }

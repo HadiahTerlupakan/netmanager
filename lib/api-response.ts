@@ -222,14 +222,14 @@ export function apiPaginatedWithSummary<T, S = unknown>(
  * Common error response shortcuts
  */
 export const ApiErrors = {
-    unauthorized: (message = 'Unauthorized') =>
+    unauthorized: (message = 'Tidak terautentikasi') =>
         apiError(message, ErrorCodes.UNAUTHORIZED, { status: 401 }),
 
-    forbidden: (message = 'Forbidden') =>
+    forbidden: (message = 'Akses ditolak') =>
         apiError(message, ErrorCodes.FORBIDDEN, { status: 403 }),
 
-    notFound: (resource = 'Resource') =>
-        apiError(`${resource} not found`, ErrorCodes.NOT_FOUND, { status: 404 }),
+    notFound: (resource = 'Data') =>
+        apiError(`${resource} tidak ditemukan`, ErrorCodes.NOT_FOUND, { status: 404 }),
 
     badRequest: (message: string, details?: Record<string, unknown>) =>
         apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400, ...(details && { details }) }),

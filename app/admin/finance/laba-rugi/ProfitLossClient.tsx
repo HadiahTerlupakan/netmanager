@@ -81,6 +81,7 @@ export function ClientComponent() {
                 });
             } else {
                 console.error("Invalid API response for laba rugi:", data);
+                toast.error(data?.error || "Format data keuangan tidak valid");
                 setStats({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, paymentCount: 0, expenseCount: 0, history: [] });
             }
         } catch (_error) {

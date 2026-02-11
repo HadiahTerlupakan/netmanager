@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   // 1. Authorization Check
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
   }
 
   try {
@@ -190,6 +190,6 @@ export async function POST(req: NextRequest) {
       path: '/api/scheduler/restock-check',
       method: 'POST',
     })
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }

@@ -109,11 +109,11 @@ export default function PaymentGatewayTab() {
             if (response.ok) {
                 fetchConfigs()
             } else {
-                alert('Failed to update provider status')
+                alert('Gagal mengupdate status provider')
             }
         } catch (error) {
             console.error('Error toggling provider:', error)
-            alert('Error updating provider')
+            alert('Kesalahan saat mengupdate provider')
         }
     }
 
@@ -138,13 +138,13 @@ export default function PaymentGatewayTab() {
             const result = await response.json()
 
             if (result.success) {
-                alert(`Connection successful!\n\n${result.message}`)
+                alert(`Koneksi berhasil!\n\n${result.message}`)
             } else {
-                alert(`Connection failed!\n\n${result.message}`)
+                alert(`Koneksi gagal!\n\n${result.message}`)
             }
         } catch (error) {
             console.error('Error testing connection:', error)
-            alert('Error testing connection')
+            alert('Kesalahan saat testing koneksi')
         } finally {
             setTesting(false)
         }
@@ -162,16 +162,16 @@ export default function PaymentGatewayTab() {
             })
 
             if (response.ok) {
-                alert('Configuration saved successfully!')
+                alert('Konfigurasi berhasil disimpan!')
                 setModalOpen(false)
                 fetchConfigs()
             } else {
                 const error = await response.json()
-                alert(`Failed to save: ${error.details || error.error}`)
+                alert(`Gagal menyimpan: ${error.details || error.error}`)
             }
         } catch (error) {
             console.error('Error saving config:', error)
-            alert('Error saving configuration')
+            alert('Kesalahan saat menyimpan konfigurasi')
         } finally {
             setSaving(false)
         }

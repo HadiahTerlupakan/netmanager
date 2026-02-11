@@ -45,7 +45,7 @@ export async function GET(
         return apiSuccess(result)
     } catch (error: unknown) {
         console.error('Error fetching messages:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         
         if (message === 'Not a participant') {
             return ApiErrors.forbidden('Anda bukan peserta percakapan ini')
@@ -96,7 +96,7 @@ export async function POST(
         return apiSuccess(result, { status: 201, message: 'Pesan berhasil dikirim' })
     } catch (error: unknown) {
         console.error('Error sending message:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         
         if (message === 'Not a participant') {
             return ApiErrors.forbidden('Anda bukan peserta percakapan ini')

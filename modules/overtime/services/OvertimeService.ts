@@ -95,8 +95,8 @@ export class OvertimeService {
     async startOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date }) {
         const overtime = await this.repository.findById(overtimeId)
 
-        if (!overtime) throw new Error('Overtime data not found')
-        if (overtime.userId !== userId) throw new Error('Unauthorized')
+        if (!overtime) throw new Error('Data lembur tidak ditemukan')
+        if (overtime.userId !== userId) throw new Error('Akses ditolak')
 
         if (overtime.status !== OvertimeStatus.APPROVED) {
             throw new Error('Pengajuan lembur belum disetujui atau status tidak valid.')
@@ -201,8 +201,8 @@ export class OvertimeService {
     async stopOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date }) {
         const overtime = await this.repository.findById(overtimeId)
 
-        if (!overtime) throw new Error('Overtime data not found')
-        if (overtime.userId !== userId) throw new Error('Unauthorized')
+        if (!overtime) throw new Error('Data lembur tidak ditemukan')
+        if (overtime.userId !== userId) throw new Error('Akses ditolak')
 
         if (overtime.status !== OvertimeStatus.IN_PROGRESS) {
             throw new Error('Lembur belum dimulai.')

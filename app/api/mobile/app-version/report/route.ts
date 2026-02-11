@@ -6,14 +6,14 @@ export async function POST(req: NextRequest) {
     try {
         const session = await verifyAuth(req)
         if (!session || !session.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const body = await req.json()
         const { versionCode, versionName } = body
 
         if (!versionCode) {
-            return NextResponse.json({ error: 'versionCode is required' }, { status: 400 })
+            return NextResponse.json({ error: 'versionCode wajib diisi' }, { status: 400 })
         }
 
         await prisma.user.update({
@@ -29,6 +29,6 @@ export async function POST(req: NextRequest) {
         
     } catch (error) {
         console.error('Error reporting app version:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

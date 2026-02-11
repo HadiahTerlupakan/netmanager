@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session || !session.user || !session.user.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const userId = session.user.id
@@ -40,6 +40,6 @@ export async function GET(request: NextRequest) {
         })
 
     } catch (_error) {
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

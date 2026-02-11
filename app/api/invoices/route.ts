@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -160,10 +160,10 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     console.error('Error fetching invoices:', err)
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: err.message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const body = await req.json()
@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
+        { error: 'Validasi gagal', details: validation.error.flatten() },
         { status: 400 }
       )
     }
@@ -427,7 +427,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error('Error creating invoice:', error)
 
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
 
     // Handle unique constraint violation
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {

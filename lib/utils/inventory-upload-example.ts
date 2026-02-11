@@ -177,7 +177,7 @@ export function processPhotosFromFormData(formData: FormData): File[] {
  *     return Response.json({ success: true, photos: result.photos })
  *   } catch (error) {
  *     return Response.json(
- *       { error: 'Internal server error' },
+ *       { error: 'Terjadi kesalahan server' },
  *       { status: 500 }
  *     )
  *   }

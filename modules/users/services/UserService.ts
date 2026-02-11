@@ -63,7 +63,7 @@ export class UserService {
         // Check if email already exists
         const existingUser = await this.userRepository.findByEmail(data.email)
         if (existingUser) {
-            throw new Error('Email already exists')
+            throw new Error('Email sudah terdaftar')
         }
 
         // Hash password
@@ -95,14 +95,14 @@ export class UserService {
         // Check if user exists
         const existingUser = await this.userRepository.findById(id)
         if (!existingUser) {
-            throw new Error('User not found')
+            throw new Error('User tidak ditemukan')
         }
 
         // If email is being changed, check if new email is available
         if (data.email && data.email !== existingUser.email) {
             const emailExists = await this.userRepository.findByEmail(data.email)
             if (emailExists) {
-                throw new Error('Email already exists')
+                throw new Error('Email sudah terdaftar')
             }
         }
 
@@ -147,7 +147,7 @@ export class UserService {
         // Check if user exists
         const existingUser = await this.userRepository.findById(id)
         if (!existingUser) {
-            throw new Error('User not found')
+            throw new Error('User tidak ditemukan')
         }
 
         return this.userRepository.delete(id)
@@ -164,10 +164,10 @@ export class UserService {
         // Validation logic
         if (data.workingHourMode === WorkingHourMode.FIXED) {
             if (!data.startWorkTime || !data.endWorkTime) {
-                throw new Error('Start time and end time are required for Fixed mode')
+                throw new Error('Waktu mulai dan waktu selesai diperlukan untuk mode Fixed')
             }
             if (!data.workDays) {
-                throw new Error('Work days are required for Fixed mode')
+                throw new Error('Hari kerja diperlukan untuk mode Fixed')
             }
         }
 

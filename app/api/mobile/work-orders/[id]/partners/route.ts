@@ -15,25 +15,25 @@ export async function POST(
 
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
 
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const body = await request.json();
         const { userId, role } = body;
 
         if (!userId) {
-            return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+            return NextResponse.json({ error: 'User ID wajib diisi' }, { status: 400 });
         }
 
         const assignment = await prisma.workOrderAssignments.create({
@@ -67,7 +67,7 @@ export async function POST(
                 id: randomUUID(),
                 workOrderId: id,
                 updateType: 'ASSIGNMENT',
-                message: `Added partner (Pending Approval)`,
+                message: `Partner ditambahkan (Menunggu Persetujuan)`,
                 createdById: payload.id as string
             }
         });
@@ -128,7 +128,7 @@ export async function POST(
 
     } catch (error) {
         console.error('Add Partner Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
     }
 }
 
@@ -142,18 +142,18 @@ export async function DELETE(
 
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
 
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const searchParams = request.nextUrl.searchParams;
@@ -161,7 +161,7 @@ export async function DELETE(
         const userId = searchParams.get('userId');
 
         if (!assignmentId && !userId) {
-            return NextResponse.json({ error: 'Assignment ID or User ID is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Assignment ID atau User ID wajib diisi' }, { status: 400 });
         }
 
         // Find the assignment first to get the userId before deleting
@@ -186,7 +186,7 @@ export async function DELETE(
                 id: randomUUID(),
                 workOrderId: id,
                 updateType: 'ASSIGNMENT',
-                message: `Removed partner`,
+                message: `Partner dihapus`,
                 createdById: payload.id as string
             }
         });
@@ -225,6 +225,6 @@ export async function DELETE(
 
     } catch (error) {
         console.error('Remove Partner Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

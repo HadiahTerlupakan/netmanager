@@ -7,7 +7,7 @@ const service = new ProcurementService();
 
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get('search') || undefined;
@@ -22,14 +22,14 @@ export async function GET(req: NextRequest) {
         });
         return NextResponse.json(result);
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     // Check permission?
     // const { hasPermission } = usePermission() // Hook not avail here.
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         const result = await service.createSupplier(body);
         return NextResponse.json(result);
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

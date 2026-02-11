@@ -72,7 +72,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
         const userSiteId = (session.user as { siteId?: string }).siteId
         if (!userSiteId || router.siteId !== userSiteId) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
     }
 
@@ -210,7 +210,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
         const userSiteId = (session.user as { siteId?: string }).siteId
         if (!userSiteId || existingRouter.siteId !== userSiteId) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
         // Force siteId to remain unchanged or set to user's site
         data.siteId = userSiteId
@@ -310,7 +310,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
          if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
             const userSiteId = (session.user as { siteId?: string }).siteId
             if (!userSiteId || router.siteId !== userSiteId) {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+                return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
             }
         }
          // Auto Deprovisioning

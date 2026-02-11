@@ -37,7 +37,7 @@ export const dateRangeSchema = z.object({
 /**
  * UUID validation schema
  */
-export const idSchema = z.string().uuid({ message: 'Invalid ID format' })
+export const idSchema = z.string().uuid({ message: 'Format ID tidak valid' })
 
 /**
  * Optional UUID validation schema
@@ -107,7 +107,7 @@ export const exportSchema = z.object({
 /**
  * Common email validation
  */
-export const emailSchema = z.string().email({ message: 'Invalid email format' })
+export const emailSchema = z.string().email({ message: 'Format email tidak valid' })
 
 /**
  * Common phone number validation (Indonesian format)

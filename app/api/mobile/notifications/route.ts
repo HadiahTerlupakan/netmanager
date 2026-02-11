@@ -9,12 +9,12 @@ export async function GET(request: NextRequest) {
         const token = authHeader?.replace('Bearer ', '')
         
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
         
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const { notifications, total } = await getNotificationsForUser(user.id as string, {
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: unknown) {
         console.error('Error fetching notifications:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
@@ -70,12 +70,12 @@ export async function POST(request: NextRequest) {
         const token = authHeader?.replace('Bearer ', '')
         
         if (!token) {
-            return NextResponse.json({ error: 'Token required' }, { status: 401 })
+            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
         }
         
         const user = await verifyMobileToken(token)
         if (!user) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const body = await request.json()
@@ -83,16 +83,16 @@ export async function POST(request: NextRequest) {
 
         if (action === 'markAllRead') {
             await markAllAsRead(user.id as string)
-            return NextResponse.json({ success: true, message: 'All notifications marked as read' })
+            return NextResponse.json({ success: true, message: 'Semua notifikasi ditandai sudah dibaca' })
         } else if (action === 'markRead' && notificationId) {
             await markAsRead(notificationId)
-            return NextResponse.json({ success: true, message: 'Notification marked as read' })
+            return NextResponse.json({ success: true, message: 'Notifikasi ditandai sudah dibaca' })
         }
 
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+        return NextResponse.json({ error: 'Aksi tidak valid' }, { status: 400 })
     } catch (error: unknown) {
         console.error('Error updating notifications:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

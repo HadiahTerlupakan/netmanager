@@ -165,7 +165,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       }
     } catch (error: unknown) {
       console.error('Error fetching user:', error)
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
       toast.error('Gagal memuat data user: ' + message)
       setErrors({ fetch: message })
     }
@@ -315,7 +315,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       const userData = await userRes.json()
 
       if (!userRes.ok) {
-        throw new Error(userData.error || 'Failed to update user account')
+        throw new Error(userData.error || 'Gagal mengupdate akun user')
       }
 
       // Save leave quotas (if user is not FLEXIBLE and quotas were modified)

@@ -67,7 +67,7 @@ export async function requireCustomerAuth(request: NextRequest): Promise<{
     if (!session) {
         return {
             response: NextResponse.json(
-                { error: 'Unauthorized', message: 'Silakan login terlebih dahulu' },
+                { error: 'Tidak terautentikasi', message: 'Silakan login terlebih dahulu' },
                 { status: 401 }
             ),
         }
@@ -77,7 +77,7 @@ export async function requireCustomerAuth(request: NextRequest): Promise<{
     if (session.status !== 'AKTIF') {
         return {
             response: NextResponse.json(
-                { error: 'Forbidden', message: 'Akun Anda tidak aktif. Hubungi customer service.' },
+                { error: 'Akses ditolak', message: 'Akun Anda tidak aktif. Hubungi customer service.' },
                 { status: 403 }
             ),
         }

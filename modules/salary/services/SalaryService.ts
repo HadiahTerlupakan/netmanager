@@ -75,7 +75,7 @@ export class SalaryService {
             }
         } catch (error) {
             logger.error('SalaryService.getSalaries failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch salaries', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil data gaji', code: 'FETCH_ERROR' }
         }
     }
 
@@ -86,12 +86,12 @@ export class SalaryService {
         try {
             const salary = await this.repository.findById(id)
             if (!salary) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
             return { success: true, data: salary }
         } catch (error) {
             logger.error('SalaryService.getSalaryById failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch salary', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil gaji', code: 'FETCH_ERROR' }
         }
     }
 
@@ -120,7 +120,7 @@ export class SalaryService {
             logger.error('SalaryService.calculateSingle failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to calculate salary',
+                error: error instanceof Error ? error.message : 'Gagal menghitung gaji',
                 code: 'CALCULATION_ERROR'
             }
         }
@@ -152,7 +152,7 @@ export class SalaryService {
             logger.error('SalaryService.calculateBulk failed', error instanceof Error ? error : undefined)
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to bulk calculate salaries',
+                error: error instanceof Error ? error.message : 'Gagal menghitung gaji massal',
                 code: 'BULK_CALCULATION_ERROR'
             }
         }
@@ -169,14 +169,14 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Validate status transition
             if (existing.status !== 'AUDITED') {
                 return {
                     success: false,
-                    error: 'Salary must be audited before approval',
+                    error: 'Gaji harus diaudit sebelum disetujui',
                     code: 'INVALID_STATUS'
                 }
             }
@@ -193,7 +193,7 @@ export class SalaryService {
             return { success: true, data: salary }
         } catch (error) {
             logger.error('SalaryService.approveSalary failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to approve salary', code: 'APPROVE_ERROR' }
+            return { success: false, error: 'Gagal menyetujui gaji', code: 'APPROVE_ERROR' }
         }
     }
 
@@ -208,13 +208,13 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             if (existing.status !== 'APPROVED') {
                 return {
                     success: false,
-                    error: 'Salary must be approved before marking as paid',
+                    error: 'Gaji harus disetujui sebelum ditandai dibayar',
                     code: 'INVALID_STATUS'
                 }
             }
@@ -231,7 +231,7 @@ export class SalaryService {
             return { success: true, data: salary }
         } catch (error) {
             logger.error('SalaryService.markAsPaid failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to mark salary as paid', code: 'PAID_ERROR' }
+            return { success: false, error: 'Gagal menandai gaji sebagai dibayar', code: 'PAID_ERROR' }
         }
     }
 
@@ -246,13 +246,13 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             if (existing.status !== 'CALCULATED') {
                 return {
                     success: false,
-                    error: 'Salary must be calculated before auditing',
+                    error: 'Gaji harus dihitung sebelum diaudit',
                     code: 'INVALID_STATUS'
                 }
             }
@@ -269,7 +269,7 @@ export class SalaryService {
             return { success: true, data: salary }
         } catch (error) {
             logger.error('SalaryService.auditSalary failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to audit salary', code: 'AUDIT_ERROR' }
+            return { success: false, error: 'Gagal mengaudit gaji', code: 'AUDIT_ERROR' }
         }
     }
 
@@ -283,14 +283,14 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Only draft or calculated salaries can be recalculated
             if (!['DRAFT', 'CALCULATED'].includes(existing.status)) {
                 return {
                     success: false,
-                    error: 'Only draft or calculated salaries can be recalculated',
+                    error: 'Hanya gaji draft atau yang sudah dihitung yang dapat dihitung ulang',
                     code: 'INVALID_STATUS'
                 }
             }
@@ -313,7 +313,7 @@ export class SalaryService {
             return { success: true, data: { salaryId } }
         } catch (error) {
             logger.error('SalaryService.recalculateSalary failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to recalculate salary', code: 'RECALCULATE_ERROR' }
+            return { success: false, error: 'Gagal menghitung ulang gaji', code: 'RECALCULATE_ERROR' }
         }
     }
 
@@ -327,14 +327,14 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Only draft salaries can be deleted
             if (existing.status !== 'DRAFT') {
                 return {
                     success: false,
-                    error: 'Only draft salaries can be deleted',
+                    error: 'Hanya gaji draft yang dapat dihapus',
                     code: 'INVALID_STATUS'
                 }
             }
@@ -351,7 +351,7 @@ export class SalaryService {
             return { success: true }
         } catch (error) {
             logger.error('SalaryService.deleteSalary failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to delete salary', code: 'DELETE_ERROR' }
+            return { success: false, error: 'Gagal menghapus gaji', code: 'DELETE_ERROR' }
         }
     }
 
@@ -366,14 +366,14 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Only allow update if status is CALCULATED or REVISED
             if (!['CALCULATED', 'REVISED'].includes(existing.status)) {
                 return {
                     success: false,
-                    error: `Cannot update salary with status: ${existing.status}`,
+                    error: `Tidak dapat mengubah gaji dengan status: ${existing.status}`,
                     code: 'INVALID_STATUS'
                 }
             }
@@ -392,7 +392,7 @@ export class SalaryService {
             return { success: true, data: salary }
         } catch (error) {
             logger.error('SalaryService.updateSalary failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to update salary', code: 'UPDATE_ERROR' }
+            return { success: false, error: 'Gagal mengupdate gaji', code: 'UPDATE_ERROR' }
         }
     }
 
@@ -407,7 +407,7 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             await this.auditService.addManualAdjustment(
@@ -428,7 +428,7 @@ export class SalaryService {
             return { success: true }
         } catch (error) {
             logger.error('SalaryService.addAdjustment failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to add adjustment', code: 'ADJUSTMENT_ERROR' }
+            return { success: false, error: 'Gagal menambah penyesuaian', code: 'ADJUSTMENT_ERROR' }
         }
     }
 
@@ -443,7 +443,7 @@ export class SalaryService {
         try {
             const existing = await this.repository.findById(id)
             if (!existing) {
-                return { success: false, error: 'Salary not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             await this.auditService.requestRevision(id, requestedById, reason)
@@ -457,7 +457,7 @@ export class SalaryService {
             return { success: true }
         } catch (error) {
             logger.error('SalaryService.requestRevision failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to request revision', code: 'REVISION_ERROR' }
+            return { success: false, error: 'Gagal meminta revisi', code: 'REVISION_ERROR' }
         }
     }
 

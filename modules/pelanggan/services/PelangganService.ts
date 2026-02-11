@@ -173,7 +173,7 @@ export class PelangganService {
         } catch (syncError: unknown) {
             console.error('[RADIUS] Auto-sync error:', syncError)
             // Update DB with failure
-            const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown error'
+            const errorMessage = syncError instanceof Error ? syncError.message : 'Terjadi kesalahan'
             await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'FAILED', errorMessage)
         }
 

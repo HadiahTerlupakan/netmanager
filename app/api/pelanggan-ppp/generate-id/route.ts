@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Fungsi untuk generate ID 8 digit
@@ -77,7 +77,7 @@ export async function GET(_req: NextRequest) {
   } catch (error: unknown) {
     console.error('Error generating pelanggan ID:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

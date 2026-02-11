@@ -54,7 +54,7 @@ export async function GET(_request: NextRequest) {
     } catch (error) {
         console.error('[API] Get public settings error:', error)
         return NextResponse.json(
-            { success: false, error: 'Failed to load settings' },
+            { success: false, error: 'Gagal memuat pengaturan' },
             { status: 500 }
         )
     }

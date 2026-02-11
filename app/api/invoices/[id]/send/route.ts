@@ -88,7 +88,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { id } = await params
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
+        { error: 'Validasi gagal', details: validation.error.flatten() },
         { status: 400 }
       )
     }
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via EMAIL`)
         sentVia.push('EMAIL')
       } catch (emailError: unknown) {
-        const err = emailError instanceof Error ? emailError : new Error('Unknown error')
+        const err = emailError instanceof Error ? emailError : new Error('Terjadi kesalahan')
         console.error('Error sending email:', err)
         return NextResponse.json(
           { error: `Gagal mengirim email: ${err.message}` },
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via WHATSAPP`)
         sentVia.push('WHATSAPP')
       } catch (whatsappError: unknown) {
-        const err = whatsappError instanceof Error ? whatsappError : new Error('Unknown error')
+        const err = whatsappError instanceof Error ? whatsappError : new Error('Terjadi kesalahan')
         console.error('Error sending WhatsApp:', err)
         return NextResponse.json(
           { error: `Gagal mengirim WhatsApp: ${err.message}` },
@@ -207,10 +207,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       sentVia,
     })
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     console.error('Error sending invoice:', err)
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: err.message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

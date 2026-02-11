@@ -79,7 +79,7 @@ app.prepare().then(() => {
                 const user = await verifyAuth(nextReq)
                 if (!user) {
                     res.writeHead(401, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({ error: 'Unauthorized' }))
+                    res.end(JSON.stringify({ error: 'Tidak terautentikasi' }))
                     return
                 }
                 
@@ -94,7 +94,7 @@ app.prepare().then(() => {
 
                 if (!dbUser) {
                     res.writeHead(401, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({ error: 'User not found' }))
+                    res.end(JSON.stringify({ error: 'User tidak ditemukan' }))
                     return
                 }
 
@@ -116,7 +116,7 @@ app.prepare().then(() => {
                 if (!hasCreatePermission) {
                     console.log(`[Upload] Forbidden access by ${dbUser.email}. Role: ${userRole}, AdminPanelAccess: ${hasAdminPanelAccess}, Permissions count: ${userPermissions.length}`)
                     res.writeHead(403, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({ error: 'Forbidden: Missing app_version:create permission' }))
+                    res.end(JSON.stringify({ error: 'Akses ditolak: Memerlukan izin app_version:create' }))
                     return
                 }
                 
@@ -205,7 +205,7 @@ app.prepare().then(() => {
 
                 const err = error as { message?: string; code?: string; name?: string; stack?: string }
                 // Safe error object construction
-                const errorMessage = err?.message || 'Failed to upload app version'
+                const errorMessage = err?.message || 'Gagal mengunggah versi aplikasi'
                 // Avoid passing entire error object to JSON.stringify as it might cause circular reference
                 const errorDetails = {
                     error: errorMessage,
@@ -241,7 +241,7 @@ app.prepare().then(() => {
                     // Simple secret check (in production, use proper authentication)
                     if (secret !== process.env.INTERNAL_WS_SECRET && secret !== 'netmanager-ws-internal-2024') {
                         res.writeHead(401, { 'Content-Type': 'application/json' })
-                        res.end(JSON.stringify({ error: 'Unauthorized' }))
+                        res.end(JSON.stringify({ error: 'Tidak terautentikasi' }))
                         return
                     }
 
@@ -252,12 +252,12 @@ app.prepare().then(() => {
                         res.end(JSON.stringify({ success: true }))
                     } else {
                         res.writeHead(400, { 'Content-Type': 'application/json' })
-                        res.end(JSON.stringify({ error: 'Missing required fields or io not ready' }))
+                        res.end(JSON.stringify({ error: 'Field wajib tidak lengkap atau io tidak siap' }))
                     }
                 } catch (error) {
                     console.error('[WS Internal] Error:', error)
                     res.writeHead(500, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({ error: 'Internal error' }))
+                    res.end(JSON.stringify({ error: 'Kesalahan internal' }))
                 }
             })
         }
@@ -324,8 +324,12 @@ app.prepare().then(() => {
     // Setup Redis adapter for horizontal scaling (multi-worker support)
     try {
         const redisUrl = process.env.REDIS_URL || 'redis://localhost:6380'
-        const pubClient = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 2 })
+        const pubClient = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 2, retryStrategy: (times) => times > 3 ? null : Math.min(times * 500, 3000) })
         const subClient = pubClient.duplicate()
+
+        // Suppress unhandled error events when Redis is unavailable
+        pubClient.on('error', () => {})
+        subClient.on('error', () => {})
 
         Promise.all([pubClient.connect(), subClient.connect()])
             .then(() => {

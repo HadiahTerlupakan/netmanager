@@ -84,7 +84,7 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
             router.refresh();
         } catch (error) {
             console.error(error);
-            alert('Failed to save announcement');
+            alert('Gagal menyimpan pengumuman');
         } finally {
             setSaving(false);
         }

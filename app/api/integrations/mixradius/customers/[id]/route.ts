@@ -31,7 +31,7 @@ export async function GET(
     const { id } = await params
 
     if (!id) {
-      return apiError(ErrorCodes.VALIDATION_ERROR, 'Customer ID is required')
+      return apiError('ID Pelanggan wajib disertakan', ErrorCodes.VALIDATION_ERROR)
     }
 
     const service = getMixRadiusService()
@@ -40,6 +40,6 @@ export async function GET(
     return apiSuccess(customerDetail)
   } catch (error) {
     console.error('Error fetching customer detail:', error)
-    return ApiErrors.internalError(error instanceof Error ? error.message : 'Failed to fetch customer detail')
+    return ApiErrors.internalError(error instanceof Error ? error.message : 'Gagal mengambil detail pelanggan')
   }
 }

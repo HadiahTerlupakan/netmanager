@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
         const authHeader = req.headers.get('authorization')
 
         if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
-            return ApiErrors.unauthorized('Unauthorized')
+            return ApiErrors.unauthorized('Tidak terautentikasi')
         }
 
         let systemUser = await prisma.user.findFirst({

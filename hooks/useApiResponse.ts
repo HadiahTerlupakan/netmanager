@@ -168,7 +168,7 @@ export async function apiFetch<T>(
   } catch (err: unknown) {
     return {
       data: null,
-      error: err instanceof Error ? err.message : 'Network error'
+      error: err instanceof Error ? err.message : 'Kesalahan jaringan'
     }
   }
 }

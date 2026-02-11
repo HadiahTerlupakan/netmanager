@@ -23,18 +23,18 @@ export async function POST(
     try {
         const authHeader = req.headers.get('Authorization')
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 })
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 })
         }
 
         const decoded = await verifyMobileToken(token)
 
         if (!decoded || !decoded.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         const userId = decoded.id as string
@@ -50,7 +50,7 @@ export async function POST(
         const { items } = body
 
         if (!items || !Array.isArray(items) || items.length === 0) {
-            return NextResponse.json({ error: 'Items is required' }, { status: 400 })
+            return NextResponse.json({ error: 'Items wajib diisi' }, { status: 400 })
         }
 
         const workOrder = await prisma.workOrders.findUnique({
@@ -193,7 +193,7 @@ export async function POST(
     } catch (error) {
         console.error('Error adding materials to work order (mobile):', error)
         return NextResponse.json({
-            error: error instanceof Error ? error.message : 'Internal server error'
+            error: error instanceof Error ? error.message : 'Terjadi kesalahan server'
         }, { status: 500 })
     }
 }

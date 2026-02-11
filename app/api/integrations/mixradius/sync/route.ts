@@ -33,7 +33,11 @@ export async function POST(req: NextRequest) {
     const customerData = body as MixRadiusCustomerDetail
 
     if (!customerData || !customerData.id || !customerData.username) {
-        return apiError(ErrorCodes.VALIDATION_ERROR, 'Invalid data provided')
+        return apiError(
+          'Data pelanggan tidak valid. Pastikan ID dan Username tersedia.',
+          ErrorCodes.VALIDATION_ERROR,
+          { details: { missingFields: [!customerData?.id ? 'ID Pelanggan' : '', !customerData?.username ? 'Username' : ''].filter(Boolean) } }
+        )
     }
 
     // 4. Perform Sync
@@ -43,12 +47,12 @@ export async function POST(req: NextRequest) {
         action: result.action,
         localId: result.customer.id,
         customer: result.customer,
-        message: `Successfully ${result.action} customer record`
+        message: result.action === 'created' ? 'Berhasil membuat data pelanggan' : 'Berhasil memperbarui data pelanggan'
     })
 
   } catch (error: unknown) {
     console.error('[API] MixRadius Sync Error:', error)
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return ApiErrors.internalError(message)
   }
 }

@@ -72,7 +72,7 @@ export function ClientComponent() {
 
             if (!res.ok) {
                 const errorData = await res.json()
-                throw new Error(errorData.error || 'Failed to save settings')
+                throw new Error(errorData.error || 'Gagal menyimpan pengaturan')
             }
 
             setSuccess(true)
@@ -80,7 +80,7 @@ export function ClientComponent() {
             fetchSettings() // Reload to show saved password
         } catch (err) {
             console.error('Error saving settings:', err)
-            setError(err instanceof Error ? err.message : 'An error occurred while saving settings')
+            setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan pengaturan')
         } finally {
             setSaving(false)
         }
@@ -101,13 +101,13 @@ export function ClientComponent() {
             const result = await response.json()
 
             if (result.success) {
-                alert('Test email sent successfully!')
+                alert('Email percobaan berhasil dikirim!')
             } else {
-                alert(`Test failed: ${result.message}`)
+                alert(`Tes gagal: ${result.message}`)
             }
         } catch (error) {
             console.error('Error testing email:', error)
-            alert('Error testing email')
+            alert('Kesalahan saat testing email')
         } finally {
             setTesting(false)
         }

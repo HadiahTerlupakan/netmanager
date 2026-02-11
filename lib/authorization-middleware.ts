@@ -130,7 +130,7 @@ export async function authorize(
     console.error('[AUTH] Error getting session:', error)
     return {
       error: NextResponse.json(
-        { error: errorMessages.unauthorized || 'Authentication error' },
+        { error: errorMessages.unauthorized || 'Kesalahan autentikasi' },
         { status: 500 }
       )
     }
@@ -149,7 +149,7 @@ export async function authorize(
 
     return {
       error: NextResponse.json(
-        { error: errorMessages.unauthorized || 'Authentication required' },
+        { error: errorMessages.unauthorized || 'Autentikasi diperlukan' },
         { status: 401 }
       )
     }
@@ -173,7 +173,7 @@ export async function authorize(
     // Fail-closed: deny access if permissions can't be loaded
     return {
       error: NextResponse.json(
-        { error: 'Authorization error' },
+        { error: 'Kesalahan otorisasi' },
         { status: 500 }
       )
     }
@@ -237,7 +237,7 @@ export async function authorize(
 
       return {
         error: NextResponse.json(
-          { error: errorMessages.forbidden || 'Insufficient permissions' },
+          { error: errorMessages.forbidden || 'Izin tidak mencukupi' },
           { status: 403 }
         )
       }

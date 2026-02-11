@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
         if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
             console.log('[Cron] Unauthorized access attempt')
-            return ApiErrors.unauthorized('Unauthorized')
+            return ApiErrors.unauthorized('Tidak terautentikasi')
         }
 
         const { searchParams } = new URL(request.url)
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         }
     } catch (error: unknown) {
         console.error('[Cron] Attendance alert error:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
         return ApiErrors.internalError(message)
     }
 }

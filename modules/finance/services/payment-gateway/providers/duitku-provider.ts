@@ -274,11 +274,11 @@ export class DuitkuProvider implements PaymentProvider {
             } else {
                 return {
                     success: false,
-                    message: 'Invalid response from Duitku API'
+                    message: 'Respon tidak valid dari Duitku API'
                 }
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Connection failed'
+            const message = error instanceof Error ? error.message : 'Koneksi gagal'
             return {
                 success: false,
                 message,

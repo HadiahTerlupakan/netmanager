@@ -50,6 +50,6 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({ ...data, summary })
   } catch (error) {
-    return ApiErrors.internalError(error instanceof Error ? error.message : 'Unknown error')
+    return ApiErrors.internalError(error instanceof Error ? error.message : 'Terjadi kesalahan')
   }
 }

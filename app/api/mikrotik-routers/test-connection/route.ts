@@ -143,7 +143,7 @@ async function testMikroTikAPI(
         } else if (error.message?.includes('invalid user name or password') || error.message?.includes('authentication')) {
           errorMessage = `Autentikasi gagal - Username atau Password salah`
         } else {
-          errorMessage = `Koneksi API gagal: ${error.message || error.code || 'Unknown error'}`
+          errorMessage = `Koneksi API gagal: ${error.message || error.code || 'Terjadi kesalahan'}`
         }
 
         resolve({
@@ -156,7 +156,7 @@ async function testMikroTikAPI(
 
 export async function POST(req: Request) {
   const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
   try {
     const body = await req.json()

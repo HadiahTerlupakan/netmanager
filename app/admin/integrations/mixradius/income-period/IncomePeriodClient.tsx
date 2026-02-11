@@ -720,8 +720,8 @@ export default function IncomePeriodClient() {
       const response = await fetch(`/api/integrations/mixradius/reports/period?${params}`)
 
       if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.error || 'Failed to fetch data')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal mengambil data laporan pendapatan')
       }
 
       const result = await response.json()
@@ -732,8 +732,9 @@ export default function IncomePeriodClient() {
       setTotalRecords(responseData.recordsFiltered || 0)
       setGlobalTotal(responseData.recordsTotal || 0)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      toast.error('Gagal mengambil data laporan pendapatan')
+      const errorMsg = err instanceof Error ? err.message : 'Gagal mengambil data laporan pendapatan'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }

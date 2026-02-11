@@ -22,7 +22,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       })
       return routers
     } catch (error) {
-      console.error('Error in MikroTikRouterRepository.findAll:', error)
+      // Re-throw — caller handles logging to avoid duplicate error output
       throw error
     }
   }

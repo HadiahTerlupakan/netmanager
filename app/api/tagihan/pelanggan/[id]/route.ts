@@ -10,7 +10,7 @@ export async function GET(
     try {
         const session = await getServerSession(authConfig)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const { id } = await params
@@ -66,7 +66,7 @@ export async function GET(
     } catch (error) {
         console.error('Error fetching tagihan adapter:', error)
         return NextResponse.json(
-            { error: 'Internal Server Error' },
+            { error: 'Terjadi kesalahan server' },
             { status: 500 }
         )
     }

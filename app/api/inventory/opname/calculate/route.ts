@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const session = await requireAdmin() as { user: { id: string } } | null
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/opname/calculate')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const searchParams = req.nextUrl.searchParams

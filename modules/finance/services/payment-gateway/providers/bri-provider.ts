@@ -285,10 +285,10 @@ export class BRIProvider implements PaymentProvider {
 
             return {
                 success: false,
-                message: 'Failed to obtain access token'
+                message: 'Gagal mendapatkan access token'
             }
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            const errorMessage = error instanceof Error ? error.message : 'Koneksi gagal'
             return {
                 success: false,
                 message: errorMessage,

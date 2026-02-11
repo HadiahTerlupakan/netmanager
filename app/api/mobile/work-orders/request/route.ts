@@ -17,16 +17,16 @@ export async function POST(request: NextRequest) {
         // Auth Check
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const payload = await verifyMobileToken(token);
         if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const userId = payload.id as string;
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         // Validation
         if (!body.type || !body.title || !body.description) {
             return NextResponse.json(
-                { error: 'Type, title, and description are required' },
+                { error: 'Tipe, judul, dan deskripsi wajib diisi' },
                 { status: 400 }
             );
         }
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error creating work order request:', error);
         return NextResponse.json(
-            { error: 'Failed to create work order request' },
+            { error: 'Gagal membuat permintaan work order' },
             { status: 500 }
         );
     }

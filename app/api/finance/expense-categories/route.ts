@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
     try {
         const user = await verifyAuth(req);
-        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!user) return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
 
         const { searchParams } = new URL(req.url);
         const type = searchParams.get("type"); // CAPEX or OPEX
@@ -30,19 +30,19 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(categories);
     } catch (error) {
         console.error("[EXPENSE_CATEGORIES_GET]", error);
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }
 
 const createCategorySchema = z.object({
-    name: z.string().min(1, "Name is required"),
-    type: z.string().refine(val => ['CAPEX', 'OPEX'].includes(val), "Invalid category type"),
+    name: z.string().min(1, "Nama kategori wajib diisi"),
+    type: z.string().refine(val => ['CAPEX', 'OPEX'].includes(val), "Tipe kategori tidak valid (harus CAPEX atau OPEX)"),
 });
 
 export async function POST(req: NextRequest) {
     try {
         const user = await verifyAuth(req);
-        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!user) return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
 
         // Basic permission check - creating config requires 'expense:create' permission or super admin
         const isSuper = isSuperAdmin(user);
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         const validation = createCategorySchema.safeParse(body);
 
         if (!validation.success) {
-            return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
+            return NextResponse.json({ error: "Input tidak valid", details: validation.error.format() }, { status: 400 });
         }
 
         const { name, type } = validation.data;
@@ -99,6 +99,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(category);
     } catch (error) {
         console.error("[EXPENSE_CATEGORIES_POST]", error);
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
     }
 }

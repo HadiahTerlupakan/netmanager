@@ -9,15 +9,15 @@ export async function GET(request: NextRequest) {
         // 1. Auth Check
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 });
         }
         const payload = await verifyMobileToken(token);
         if (!payload) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const userId = payload.id as string;
@@ -60,6 +60,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error('Mobile Work Order List Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

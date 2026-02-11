@@ -217,7 +217,7 @@ export async function GET(
 
       const pelangganId = await verifyPelangganToken(token)
       if (!pelangganId || pelangganId !== id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
       }
     }
 
@@ -247,7 +247,7 @@ export async function GET(
         const user = session.user as ExtendedUser;
         const userSiteId = user.siteId
         if (pelanggan.siteId !== userSiteId) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+          return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
       }
     }
@@ -265,7 +265,7 @@ export async function GET(
   } catch (error: unknown) {
     console.error('Error fetching pelanggan:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -556,7 +556,7 @@ export async function PUT(
         const user = session.user as ExtendedUser;
         const userSiteId = user.siteId
         if (existingPelanggan.siteId !== userSiteId) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+          return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
     }
 
@@ -923,7 +923,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: prismaError.message || 'Internal Server Error' },
+      { error: prismaError.message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -1104,7 +1104,7 @@ export async function DELETE(
         const user = session.user as ExtendedUser;
         const userSiteId = user.siteId
         if (pelanggan.siteId !== userSiteId) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+          return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
     }
 
@@ -1179,7 +1179,7 @@ export async function DELETE(
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

@@ -53,7 +53,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { id } = await params
@@ -81,21 +81,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         // If invoice has NO siteId, assume accessible OR restricted (safer to allow for legacy data if needed, but for now strict)
         // Let's rely on siteId being present for strictness.
         if (invoice.siteId && userSiteId && invoice.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
         // If current user has site, but invoice has none?
         // Maybe allow if inferred from Pelanggan? The query included pelanggan.
         if (!invoice.siteId && invoice.pelanggan.siteId && userSiteId && invoice.pelanggan.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
     }
 
     return NextResponse.json(invoice)
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     console.error('Error fetching invoice:', err)
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: err.message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -203,7 +203,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { id } = await params
@@ -222,7 +222,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (isRestricted) {
          if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
          }
     }
 
@@ -231,7 +231,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
+        { error: 'Validasi gagal', details: validation.error.flatten() },
         { status: 400 }
       )
     }
@@ -240,7 +240,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // If restricted, prevent changing siteId or force it to user site
     if (isRestricted && updateData.siteId && updateData.siteId !== userSiteId) {
-         return NextResponse.json({ error: 'Cannot change invoice site to another site' }, { status: 403 })
+         return NextResponse.json({ error: 'Tidak dapat mengubah site invoice ke site lain' }, { status: 403 })
     }
     // Force valid siteId if updating
     if (isRestricted) {
@@ -360,7 +360,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch (error) {
     console.error('Error updating invoice:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -417,7 +417,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { id } = await params
@@ -434,7 +434,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
         const userSiteId = (session.user as { siteId?: string }).siteId
         if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
         }
     }
 
@@ -470,10 +470,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return NextResponse.json({ message: 'Invoice berhasil dihapus' })
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     console.error('Error deleting invoice:', err)
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: err.message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

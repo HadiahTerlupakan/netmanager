@@ -192,7 +192,7 @@ function formatValidationError(error: ZodError): NextResponse<ErrorResponse> {
     }
     
     return apiError(
-        'Validation error',
+        'Validasi gagal',
         ErrorCodes.VALIDATION_ERROR,
         { status: 400, details }
     )

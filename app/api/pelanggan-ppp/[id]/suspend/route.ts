@@ -314,7 +314,7 @@ export async function POST(
   } catch (error: unknown) {
     console.error('Error suspending customer service:', error)
 
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+    const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     const errorCode = (error as { code?: string }).code
 
     // Handle specific errors

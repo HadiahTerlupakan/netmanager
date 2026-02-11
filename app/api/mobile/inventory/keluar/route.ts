@@ -10,17 +10,17 @@ export async function POST(request: NextRequest) {
     try {
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
 
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Token not provided' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 });
         }
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const userId = payload.id as string;
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
         }
 
         // Check stock
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
         if (isSiteRestricted) {
             if (!user.sites?.id) {
-                return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 });
+                return NextResponse.json({ error: 'Akses ditolak: Tidak ada site yang ditugaskan' }, { status: 403 });
             }
 
             // Verify the target gudang belongs to user's site
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
             const gudangSiteIds = targetGudang.sites.map(s => s.id);
             if (!gudangSiteIds.includes(user.sites?.id || '')) {
-                return NextResponse.json({ error: 'Access denied: Gudang outside your site' }, { status: 403 });
+                return NextResponse.json({ error: 'Akses ditolak: Gudang di luar site Anda' }, { status: 403 });
             }
         }
 
@@ -136,6 +136,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Mobile Barang Keluar Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

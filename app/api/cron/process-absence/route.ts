@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
         if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
             return NextResponse.json(
-                { success: false, error: 'Unauthorized' },
+                { success: false, error: 'Tidak terautentikasi' },
                 { status: 401 }
             )
         }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     } catch (error: unknown) {
         console.error('Error processing absence:', error)
         return NextResponse.json(
-            { success: false, error: 'Internal Server Error' },
+            { success: false, error: 'Terjadi kesalahan server' },
             { status: 500 }
         )
     }

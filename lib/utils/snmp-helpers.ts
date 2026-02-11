@@ -101,7 +101,7 @@ export async function snmpGet(
           if (snmp.isVarbindError(varbind)) {
             // Log error untuk debugging (hanya untuk beberapa OID pertama)
             if (Math.random() < 0.01) { // Log 1% dari error untuk debugging
-              const errorMsg = varbind.value?.toString() || 'Unknown error'
+              const errorMsg = varbind.value?.toString() || 'Terjadi kesalahan'
               console.log(`[SNMP-Get] Varbind error for OID ${oid}: ${errorMsg}`)
             }
             finish(null)
@@ -1203,7 +1203,7 @@ export async function snmpWalk(
         }
 
         if (error) {
-          let errorMsg = 'Unknown error'
+          let errorMsg = 'Terjadi kesalahan'
           try {
             if (error instanceof Error) {
               errorMsg = error.message

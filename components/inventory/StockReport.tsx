@@ -54,7 +54,10 @@ export function StockReport() {
     async function fetchGudangList() {
         try {
             const response = await fetch('/api/inventory/gudang?view=all')
-            if (!response.ok) throw new Error('Gagal memuat daftar gudang')
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}))
+                throw new Error(errData.error || 'Gagal memuat daftar gudang')
+            }
             const data = await response.json()
             const result = data.data || data
             // API returns { success: true, data: { gudangs: [...] } }
@@ -75,7 +78,10 @@ export function StockReport() {
 
         try {
             const response = await fetch(`/api/inventory/opname/report?gudangId=${gudangId}`)
-            if (!response.ok) throw new Error('Gagal memuat laporan stok')
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}))
+                throw new Error(errData.error || 'Gagal memuat laporan stok')
+            }
 
             const data = await response.json()
             const result = data.data || data

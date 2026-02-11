@@ -14,12 +14,12 @@ export async function GET(_req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     // Ambil semua settings dari database
@@ -56,7 +56,7 @@ export async function GET(_req: NextRequest) {
   } catch (error: unknown) {
     console.error('Error fetching API settings:', error)
     return NextResponse.json(
-      { error: (error as Error).message || 'Internal Server Error' },
+      { error: (error as Error).message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
@@ -71,12 +71,12 @@ export async function POST(req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error('Error saving API settings:', error)
     return NextResponse.json(
-      { error: (error as Error).message || 'Internal Server Error' },
+      { error: (error as Error).message || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

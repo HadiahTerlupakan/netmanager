@@ -32,7 +32,7 @@ export async function PUT(
     const { id } = await params
     
     // Validate ID
-    if (!id) return apiError(ErrorCodes.VALIDATION_ERROR, 'ID required')
+    if (!id) return apiError('ID akun wajib disertakan', ErrorCodes.VALIDATION_ERROR)
 
     const updatedConfig = await mixRadiusConfigRepo.updateConfig(id, body)
 
@@ -47,7 +47,8 @@ export async function PUT(
     return apiSuccess(updatedConfig)
   } catch (error) {
     console.error('[API] Error updating MixRadius config:', error)
-    return ApiErrors.internalError()
+    const message = error instanceof Error ? error.message : 'Gagal memperbarui akun MixRadius'
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -75,7 +76,7 @@ export async function DELETE(
     const { id } = await params
     
     // Validate ID
-    if (!id) return apiError(ErrorCodes.VALIDATION_ERROR, 'ID required')
+    if (!id) return apiError('ID akun wajib disertakan', ErrorCodes.VALIDATION_ERROR)
 
     await mixRadiusConfigRepo.deleteConfig(id)
 
@@ -91,6 +92,7 @@ export async function DELETE(
     return apiSuccess({ success: true })
   } catch (error) {
     console.error('[API] Error deleting MixRadius config:', error)
-    return ApiErrors.internalError()
+    const message = error instanceof Error ? error.message : 'Gagal menghapus akun MixRadius'
+    return ApiErrors.internalError(message)
   }
 }

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const permissions = await getUserPermissions(user.id);
     const hasAccess = permissions.includes('*') || permissions.includes("mixradius:read");
     if (!hasAccess) {
-      return ApiErrors.forbidden("You do not have permission to access MixRadius statistics");
+      return ApiErrors.forbidden("Anda tidak memiliki izin untuk mengakses statistik MixRadius");
     }
   }
 
@@ -29,6 +29,6 @@ export async function GET(request: NextRequest) {
     return apiSuccess(stats);
   } catch (error) {
     console.error("[MixRadius NPL API] Error:", error);
-    return ApiErrors.internalError("Failed to fetch NPL statistics");
+    return ApiErrors.internalError("Gagal mengambil statistik NPL");
   }
 }

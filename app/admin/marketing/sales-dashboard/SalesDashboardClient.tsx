@@ -93,11 +93,12 @@ export default function SalesDashboardClient() {
                 const json = await res.json()
                 setData(json.data)
             } else {
-                toast.error('Gagal memuat data dashboard')
+                const json = await res.json().catch((): null => null)
+                toast.error(json?.error || 'Gagal memuat data dashboard')
             }
         } catch (error) {
             console.error('Error:', error)
-            toast.error('Terjadi kesalahan')
+            toast.error('Gagal menghubungi server, coba lagi nanti')
         } finally {
             setLoading(false)
         }

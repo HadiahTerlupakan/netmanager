@@ -94,7 +94,10 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
 
     try {
       const response = await fetch(`/api/inventory/opname/calculate?gudangId=${gudangId}`)
-      if (!response.ok) throw new Error('Gagal menghitung data stock opname')
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal menghitung data stock opname')
+      }
 
       const data = await response.json()
       setCalculatedData(data.items || [])

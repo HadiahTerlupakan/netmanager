@@ -131,11 +131,11 @@ export async function GET(req: NextRequest) {
     // Cek autentikasi admin menggunakan fungsi terpusat
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     if (!(await hasPermission("mikrotik:read"))) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -188,10 +188,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   // Cek autentikasi admin menggunakan fungsi terpusat
   const session = await getServerSession(authOptions)
-  if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session || !session.user) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
   if (!(await hasPermission("mikrotik:create"))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
   }
   const body = await req.json()
   const parsed = mikrotikRouterCreateSchema.safeParse(body)

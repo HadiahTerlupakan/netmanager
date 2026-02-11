@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const { searchParams } = new URL(req.url)

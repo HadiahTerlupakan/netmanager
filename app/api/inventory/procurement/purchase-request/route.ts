@@ -14,24 +14,24 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Check permission (assuming restock:update or new PR permission)
     // For now reusing restock:update as it's part of restock management
     if (!(await hasPermission("restock:update"))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const body = await req.json()
     const { items, gudangId, keterangan } = body
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-        return NextResponse.json({ error: 'Items are required' }, { status: 400 })
+        return NextResponse.json({ error: 'Daftar item wajib diisi (minimal 1 item)' }, { status: 400 })
     }
 
     if (!gudangId) {
-        return NextResponse.json({ error: 'Gudang ID is required' }, { status: 400 })
+        return NextResponse.json({ error: 'Gudang tujuan wajib dipilih' }, { status: 400 })
     }
 
     // Generate PR Number (PR-YYYYMMDD-XXXX)
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(pr, { status: 201 })
 
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error')
+    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
     logger.error('Error creating purchase request', err, {
       path: '/api/inventory/procurement/purchase-request',
       method: 'POST',

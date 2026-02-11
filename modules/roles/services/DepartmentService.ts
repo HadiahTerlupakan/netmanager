@@ -66,7 +66,7 @@ export class DepartmentService {
             return { success: true, data: departments }
         } catch (error) {
             logger.error('DepartmentService.getDepartments failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch departments', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil daftar departemen', code: 'FETCH_ERROR' }
         }
     }
 
@@ -96,13 +96,13 @@ export class DepartmentService {
             })
 
             if (!department) {
-                return { success: false, error: 'Department not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Departemen tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             return { success: true, data: department }
         } catch (error) {
             logger.error('DepartmentService.getDepartmentById failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to fetch department', code: 'FETCH_ERROR' }
+            return { success: false, error: 'Gagal mengambil departemen', code: 'FETCH_ERROR' }
         }
     }
 
@@ -112,7 +112,7 @@ export class DepartmentService {
     async createDepartment(data: CreateDepartmentData, createdById: string): Promise<ServiceResult<unknown>> {
         try {
             if (!data.name) {
-                return { success: false, error: 'Name is required', code: 'VALIDATION_ERROR' }
+                return { success: false, error: 'Nama wajib diisi', code: 'VALIDATION_ERROR' }
             }
 
             // Check if name already exists
@@ -121,7 +121,7 @@ export class DepartmentService {
             })
 
             if (existing) {
-                return { success: false, error: 'Department name already exists', code: 'DUPLICATE_NAME' }
+                return { success: false, error: 'Nama departemen sudah digunakan', code: 'DUPLICATE_NAME' }
             }
 
             const department = await prisma.departments.create({
@@ -144,7 +144,7 @@ export class DepartmentService {
             return { success: true, data: department }
         } catch (error) {
             logger.error('DepartmentService.createDepartment failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to create department', code: 'CREATE_ERROR' }
+            return { success: false, error: 'Gagal membuat departemen', code: 'CREATE_ERROR' }
         }
     }
 
@@ -158,7 +158,7 @@ export class DepartmentService {
             })
 
             if (!existing) {
-                return { success: false, error: 'Department not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Departemen tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             // Check for duplicate name
@@ -168,7 +168,7 @@ export class DepartmentService {
                 })
 
                 if (duplicate) {
-                    return { success: false, error: 'Department name already exists', code: 'DUPLICATE_NAME' }
+                    return { success: false, error: 'Nama departemen sudah digunakan', code: 'DUPLICATE_NAME' }
                 }
             }
 
@@ -191,7 +191,7 @@ export class DepartmentService {
             return { success: true, data: department }
         } catch (error) {
             logger.error('DepartmentService.updateDepartment failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to update department', code: 'UPDATE_ERROR' }
+            return { success: false, error: 'Gagal mengupdate departemen', code: 'UPDATE_ERROR' }
         }
     }
 
@@ -213,13 +213,13 @@ export class DepartmentService {
             })
 
             if (!department) {
-                return { success: false, error: 'Department not found', code: 'NOT_FOUND' }
+                return { success: false, error: 'Departemen tidak ditemukan', code: 'NOT_FOUND' }
             }
 
             if (department._count.user > 0) {
                 return {
                     success: false,
-                    error: `Cannot delete department. It has ${department._count.user} user(s) assigned.`,
+                    error: `Tidak dapat menghapus departemen. Terdapat ${department._count.user} pengguna yang terhubung.`,
                     code: 'HAS_USERS'
                 }
             }
@@ -227,7 +227,7 @@ export class DepartmentService {
             if (department._count.work_orders > 0) {
                 return {
                     success: false,
-                    error: `Cannot delete department. It has ${department._count.work_orders} work order(s) assigned.`,
+                    error: `Tidak dapat menghapus departemen. Terdapat ${department._count.work_orders} work order yang terhubung.`,
                     code: 'HAS_WORKORDERS'
                 }
             }
@@ -244,7 +244,7 @@ export class DepartmentService {
             return { success: true }
         } catch (error) {
             logger.error('DepartmentService.deleteDepartment failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Failed to delete department', code: 'DELETE_ERROR' }
+            return { success: false, error: 'Gagal menghapus departemen', code: 'DELETE_ERROR' }
         }
     }
 

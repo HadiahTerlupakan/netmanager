@@ -37,7 +37,7 @@ export class RoleService {
         // Check if role already exists
         const existingRole = await this.roleRepository.findByName(data.name)
         if (existingRole) {
-            throw new Error('Role with this name already exists')
+            throw new Error('Role dengan nama ini sudah ada')
         }
 
         // Deduplicate permissions
@@ -80,7 +80,7 @@ export class RoleService {
                         action: p.action,
                         // Helper to capitalise first letter
                         name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
-                        description: `Allow ${p.action} on ${p.resource}`,
+                        description: `Izinkan ${p.action} pada ${p.resource}`,
                         updatedAt: new Date()
                     })),
                     skipDuplicates: true
@@ -124,12 +124,12 @@ export class RoleService {
         // Check if role exists
         const currentRole = await this.roleRepository.findById(id)
         if (!currentRole) {
-            throw new Error('Role not found')
+            throw new Error('Role tidak ditemukan')
         }
 
         // Don't allow renaming SUPER_ADMIN
         if (currentRole.name === 'SUPER_ADMIN' && data.name !== 'SUPER_ADMIN') {
-            throw new Error('Cannot rename SUPER_ADMIN role')
+            throw new Error('Tidak dapat mengubah nama role SUPER_ADMIN')
         }
 
         // Deduplicate permissions
@@ -172,7 +172,7 @@ export class RoleService {
                         action: p.action,
                         // Helper to capitalise first letter
                         name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
-                        description: `Allow ${p.action} on ${p.resource}`,
+                        description: `Izinkan ${p.action} pada ${p.resource}`,
                         updatedAt: new Date()
                     })),
                     skipDuplicates: true
@@ -214,18 +214,18 @@ export class RoleService {
         // Check if role exists
         const currentRole = await this.roleRepository.findById(id)
         if (!currentRole) {
-            throw new Error('Role not found')
+            throw new Error('Role tidak ditemukan')
         }
 
         // Don't allow deleting SUPER_ADMIN
         if (currentRole.name === 'SUPER_ADMIN') {
-            throw new Error('Cannot delete SUPER_ADMIN role')
+            throw new Error('Tidak dapat menghapus role SUPER_ADMIN')
         }
 
         // Check if role has users
         const userCount = await this.roleRepository.countUsers(id)
         if (userCount > 0) {
-            throw new Error('Cannot delete role that has assigned users')
+            throw new Error('Tidak dapat menghapus role yang masih memiliki pengguna')
         }
 
         return this.roleRepository.delete(id)

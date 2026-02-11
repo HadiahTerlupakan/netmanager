@@ -198,7 +198,7 @@ export async function GET(
     // Check authentication
     const session = await getServerSession(authConfig) as Session | null
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
     // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
@@ -233,7 +233,7 @@ export async function GET(
     // Validate pagination
     if (page < 1 || limit < 1 || limit > 100) {
       return NextResponse.json(
-        { error: 'Invalid pagination parameters' },
+        { error: 'Parameter paginasi tidak valid' },
         { status: 400 }
       )
     }
@@ -246,7 +246,7 @@ export async function GET(
       startDate = new Date(startDateParam)
       if (isNaN(startDate.getTime())) {
         return NextResponse.json(
-          { error: 'Invalid startDate format. Use YYYY-MM-DD format' },
+          { error: 'Format startDate tidak valid. Gunakan format YYYY-MM-DD' },
           { status: 400 }
         )
       }
@@ -256,7 +256,7 @@ export async function GET(
       endDate = new Date(endDateParam)
       if (isNaN(endDate.getTime())) {
         return NextResponse.json(
-          { error: 'Invalid endDate format. Use YYYY-MM-DD format' },
+          { error: 'Format endDate tidak valid. Gunakan format YYYY-MM-DD' },
           { status: 400 }
         )
       }
@@ -385,7 +385,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching suspension history:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

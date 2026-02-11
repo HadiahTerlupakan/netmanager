@@ -1,34 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getCanvasingService } from '@/lib/repositories'
+import { apiSuccess, ApiErrors, apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     const service = getCanvasingService()
     const request = await service.getRequestById(id)
 
-    if (!request) return NextResponse.json({ error: 'Request tidak ditemukan' }, { status: 404 })
+    if (!request) return ApiErrors.notFound('Data canvasing')
 
     // RBAC Check - Allow owner to view their own request
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const isOwner = request.salesId === session.id
-    
-    console.log(`[API_CANVASING_ID] User: ${session.email}, SessionId: ${session.id}, SalesId: ${request.salesId}, IsOwner: ${isOwner}`)
 
     if (!isSuperAdmin && !isOwner && !permissions.includes('canvasing:read')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data ini')
     }
 
-    return NextResponse.json(request)
+    return apiSuccess(request)
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal mengambil detail canvasing'
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -36,12 +35,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     // RBAC Check - Allow owner to update their own request
     const service = getCanvasingService()
     const existingRequest = await service.getRequestById(id)
-    if (!existingRequest) return NextResponse.json({ error: 'Request tidak ditemukan' }, { status: 404 })
+    if (!existingRequest) return ApiErrors.notFound('Data canvasing')
 
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
@@ -49,16 +48,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Allow if: super admin, owner, or has canvasing:update permission
     if (!isSuperAdmin && !isOwner && !permissions.includes('canvasing:update')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah data ini')
     }
 
     const body = await req.json()
     const request = await service.updateRequest(id, body)
 
-    return NextResponse.json(request)
+    return apiSuccess(request)
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal memperbarui data canvasing'
+    if (message.includes('tidak ditemukan')) {
+      return ApiErrors.notFound('Data canvasing')
+    }
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -66,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     const body = await req.json()
 
@@ -75,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const permissions = await getUserPermissions(session.id)
 
     if (!isSuperAdmin && !permissions.includes('canvasing:update')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah data ini')
     }
 
     const service = getCanvasingService()
@@ -83,23 +85,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Handle cancel_approval action
     if (body.action === 'cancel_approval') {
       const request = await service.getRequestById(id)
-      if (!request) return NextResponse.json({ error: 'Request tidak ditemukan' }, { status: 404 })
+      if (!request) return ApiErrors.notFound('Data canvasing')
 
       if (request.status !== 'APPROVED') {
-        return NextResponse.json({ error: 'Hanya canvasing APPROVED yang bisa dibatalkan' }, { status: 400 })
+        return apiError('Hanya canvasing dengan status APPROVED yang bisa dibatalkan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
       }
 
       // Cancel approval - reset to PENDING
       const updated = await service.cancelApproval(id)
-      return NextResponse.json(updated)
+      return apiSuccess(updated, { message: 'Approval berhasil dibatalkan' })
     }
 
     // Regular update
     const request = await service.updateRequest(id, body)
-    return NextResponse.json(request)
+    return apiSuccess(request)
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal memperbarui data canvasing'
+    if (message.includes('tidak ditemukan')) {
+      return ApiErrors.notFound('Data canvasing')
+    }
+    if (message.includes('APPROVED') || message.includes('PENDING')) {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -107,22 +115,30 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const { id } = await params
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     // RBAC Check
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
 
     if (!isSuperAdmin && !permissions.includes('canvasing:delete')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus data ini')
     }
 
     const service = getCanvasingService()
+
+    // Check if exists first
+    const existing = await service.getRequestById(id)
+    if (!existing) return ApiErrors.notFound('Data canvasing')
+
     await service.deleteRequest(id)
 
-    return NextResponse.json({ success: true })
+    return apiSuccess(null, { message: 'Data canvasing berhasil dihapus' })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal menghapus data canvasing'
+    if (message.includes('tidak ditemukan')) {
+      return ApiErrors.notFound('Data canvasing')
+    }
+    return ApiErrors.internalError(message)
   }
 }

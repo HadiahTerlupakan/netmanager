@@ -51,7 +51,7 @@ export async function GET(
     })
   } catch (error: unknown) {
     console.error(`Error fetching customers for ODP ${id}:`, error)
-    const message = error instanceof Error ? error.message : 'Failed to fetch ODP customers'
+    const message = error instanceof Error ? error.message : 'Gagal mengambil data pelanggan ODP'
     return ApiErrors.internalError(message)
   }
 }

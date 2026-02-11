@@ -26,7 +26,7 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
 
             if (!userId) {
                 console.error('[WS] Auth failed: No userId provided')
-                return next(new Error('Authentication required'))
+                return next(new Error('Autentikasi diperlukan'))
             }
 
             // Attach user data to socket

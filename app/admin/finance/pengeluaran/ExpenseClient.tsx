@@ -69,25 +69,32 @@ export function ClientComponent() { // ExpensePage() {
                 body: JSON.stringify(data),
             });
 
-            if (!res.ok) throw new Error("Gagal menyimpan");
+            if (!res.ok) {
+                const errData = await res.json().catch((): null => null);
+                throw new Error(errData?.error || "Gagal menyimpan pengeluaran");
+            }
 
             toast.success("Pengeluaran berhasil disimpan");
             setIsModalOpen(false);
             reset();
             fetchExpenses();
-        } catch (_error) {
-            toast.error("Terjadi kesalahan");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Gagal menyimpan pengeluaran");
         }
     };
 
     const handleDelete = async (id: string) => {
         if (!confirm("Apakah Anda yakin ingin menghapus data ini?")) return;
         try {
-            await fetch(`/api/finance/expenses/${id}`, { method: 'DELETE' });
-            toast.success("Data dihapus");
+            const res = await fetch(`/api/finance/expenses/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const errData = await res.json().catch((): null => null);
+                throw new Error(errData?.error || "Gagal menghapus pengeluaran");
+            }
+            toast.success("Pengeluaran berhasil dihapus");
             fetchExpenses();
-        } catch (_error) {
-            toast.error("Gagal menghapus");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Gagal menghapus pengeluaran");
         }
     }
 

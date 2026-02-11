@@ -35,7 +35,7 @@ export class ValidationError extends AppError {
  * Unauthorized error (401)
  */
 export class UnauthorizedError extends AppError {
-  constructor(message: string = 'Unauthorized') {
+  constructor(message: string = 'Tidak terautentikasi') {
     super(message, ErrorCodes.UNAUTHORIZED, 401)
     this.name = 'UnauthorizedError'
   }
@@ -45,7 +45,7 @@ export class UnauthorizedError extends AppError {
  * Forbidden error (403)
  */
 export class ForbiddenError extends AppError {
-  constructor(message: string = 'Forbidden') {
+  constructor(message: string = 'Akses ditolak') {
     super(message, ErrorCodes.FORBIDDEN, 403)
     this.name = 'ForbiddenError'
   }

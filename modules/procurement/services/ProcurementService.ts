@@ -25,7 +25,7 @@ export class ProcurementService {
     async createSupplier(data: Prisma.SupplierCreateInput) {
         // Check duplicate code
         const existing = await this.supplierRepo.findByCode(data.code);
-        if (existing) throw new Error(`Supplier code ${data.code} already exists`);
+        if (existing) throw new Error(`Kode supplier ${data.code} sudah ada`);
         return this.supplierRepo.create(data);
     }
 

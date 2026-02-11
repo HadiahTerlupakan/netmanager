@@ -45,7 +45,7 @@ export async function validateRequestBody<T>(
       success: false,
       errors: [{
         field: 'general',
-        message: 'Invalid request format'
+        message: 'Format request tidak valid'
       }]
     }
   }
@@ -98,7 +98,7 @@ export function validateQuery<T>(
       success: false,
       errors: [{
         field: 'general',
-        message: 'Invalid query parameters'
+        message: 'Parameter query tidak valid'
       }]
     }
   }
@@ -118,7 +118,7 @@ export function withValidation<T>(
     if (!validation.success) {
       return NextResponse.json(
         {
-          error: 'Validation failed',
+          error: 'Validasi gagal',
           details: validation.errors
         },
         { status: 400 }
@@ -147,7 +147,7 @@ export function withQueryValidation<T>(
     if (!validation.success) {
       return NextResponse.json(
         {
-          error: 'Invalid query parameters',
+          error: 'Parameter query tidak valid',
           details: validation.errors
         },
         { status: 400 }
@@ -252,7 +252,7 @@ export function validateFileUpload(file: File, allowedTypes: string[], maxSize: 
       success: false,
       errors: [{
         field: 'file',
-        message: 'Invalid filename'
+        message: 'Nama file tidak valid'
       }]
     }
   }

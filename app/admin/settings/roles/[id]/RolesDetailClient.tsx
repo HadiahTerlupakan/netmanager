@@ -147,7 +147,7 @@ export function ClientComponent() {
 
                         setExpandedGroups(groupsToExpand)
                     } else {
-                        toast.error(roleData.error || 'Failed to fetch role')
+                        toast.error(roleData.error || 'Gagal memuat data role')
                         router.push('/admin/settings/roles')
                     }
                 }

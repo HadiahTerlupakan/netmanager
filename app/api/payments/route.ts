@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching payments:', error)
-    return apiError(ErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : 'Internal Server Error')
+    return apiError(ErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : 'Terjadi kesalahan server')
   }
 }
 
@@ -252,7 +252,7 @@ export async function POST(req: NextRequest) {
     const validation = paymentSchema.safeParse(body)
 
     if (!validation.success) {
-      return apiError(ErrorCodes.VALIDATION_ERROR, 'Validation error', { details: validation.error.flatten() })
+      return apiError(ErrorCodes.VALIDATION_ERROR, 'Validasi gagal', { details: validation.error.flatten() })
     }
 
     const { invoiceId, pelangganId, amount, ...paymentData } = validation.data
@@ -359,6 +359,6 @@ export async function POST(req: NextRequest) {
       return apiError(ErrorCodes.VALIDATION_ERROR, 'Pelanggan atau Invoice tidak ditemukan')
     }
 
-    return apiError(ErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : 'Internal Server Error')
+    return apiError(ErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : 'Terjadi kesalahan server')
   }
 }

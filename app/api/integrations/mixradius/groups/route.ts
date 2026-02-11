@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess(groups)
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return ApiErrors.internalError(message)
   }
 }
@@ -51,8 +51,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { name, owners, siteId } = body
 
-    if (!name || !owners || !Array.isArray(owners)) {
-      return apiError(ErrorCodes.VALIDATION_ERROR, 'Invalid data')
+    const missingFields: string[] = []
+    if (!name || !name.trim()) missingFields.push('Nama Site')
+    if (!owners || !Array.isArray(owners) || owners.length === 0) missingFields.push('Owner (minimal 1)')
+
+    if (missingFields.length > 0) {
+      return apiError(
+        `Data berikut wajib diisi: ${missingFields.join(', ')}`,
+        ErrorCodes.VALIDATION_ERROR,
+        { details: { missingFields } }
+      )
     }
 
     const service = getMixRadiusService()
@@ -73,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(newGroup, { status: 201 })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
     return ApiErrors.internalError(message)
   }
 }

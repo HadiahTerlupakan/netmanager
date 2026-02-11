@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     const canUpdateUsers = await hasPermission('users:update')
 
     if (!canReadRoles && !canCreateUsers && !canUpdateUsers) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
     }
 
     try {
@@ -68,13 +68,13 @@ export async function GET(req: Request) {
         return NextResponse.json(roles)
     } catch (error) {
         console.error('Error fetching roles:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }
 
 export async function POST(req: Request) {
     if (!await hasPermission('roles:create')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
     }
 
     try {
@@ -130,11 +130,11 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error('Error creating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: error.issues[0]?.message || 'Validation error' }, { status: 400 })
+            return NextResponse.json({ error: error.issues[0]?.message || 'Validasi gagal' }, { status: 400 })
         }
         if (error instanceof Error) {
             return NextResponse.json({ error: error.message }, { status: 400 })
         }
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

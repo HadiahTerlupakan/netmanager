@@ -94,7 +94,7 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
 
     const { id } = await params
     const json = await req.json()
@@ -135,7 +135,7 @@ export async function POST(
       // Handle case where model doesn't exist yet
       if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
         return NextResponse.json(
-          { error: 'Configuration restore will be available after database migration' },
+          { error: 'Pemulihan konfigurasi akan tersedia setelah migrasi database' },
           { status: 503 }
         )
       }

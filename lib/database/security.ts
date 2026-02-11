@@ -358,7 +358,7 @@ export function withDatabaseSecurity(
           'unknown',
           propertyName,
           {
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Terjadi kesalahan',
             timestamp: new Date().toISOString()
           }
         )

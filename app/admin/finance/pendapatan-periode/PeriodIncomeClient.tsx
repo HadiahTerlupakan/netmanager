@@ -48,6 +48,7 @@ export function ClientComponent() {
                     setTotalRevenue(data.totalRevenue);
                 } else {
                     console.error("Invalid API response for period revenue:", data);
+                    toast.error(data?.error || "Format data pendapatan tidak valid");
                     setTotalRevenue(0);
                 }
 

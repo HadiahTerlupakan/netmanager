@@ -11,7 +11,7 @@ export async function GET() {
     try {
         const session = await getServerSession(authOptions)
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const settings = await prisma.settings.findMany({
@@ -31,7 +31,7 @@ export async function GET() {
         return NextResponse.json(config)
     } catch (error) {
         console.error('Error fetching captcha settings:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }
 
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         const session = await getServerSession(authOptions)
         // Check if user is admin/super_admin is better, but session check is minimum
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const body = await request.json()
@@ -69,6 +69,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Settings saved successfully' })
     } catch (error) {
         console.error('Error saving captcha settings:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
     }
 }

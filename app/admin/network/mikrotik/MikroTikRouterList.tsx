@@ -164,7 +164,7 @@ export default function MikroTikRouterList() {
         fetchRouters() // Refresh status in table
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
       console.error('Test connection error:', error)
       setTestResult({
         success: false,

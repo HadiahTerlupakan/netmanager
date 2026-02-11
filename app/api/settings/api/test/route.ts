@@ -12,12 +12,12 @@ export async function POST(req: NextRequest) {
     // Cek autentikasi
     const session = await getServerSession(authConfig as AuthOptions)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     // Cek role admin
     if (false) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
     const body = await req.json()

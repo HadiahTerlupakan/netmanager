@@ -15,10 +15,10 @@ export class WhatsAppFactory {
 
             case 'OFFICIAL':
                 // TODO: Implement Official WhatsApp Business API provider
-                throw new Error('Official WhatsApp API not yet implemented')
+                throw new Error('API resmi WhatsApp belum diimplementasikan')
 
             default:
-                throw new Error(`Unknown provider: ${config.provider}`)
+                throw new Error(`Provider tidak dikenal: ${config.provider}`)
         }
     }
 
@@ -26,7 +26,7 @@ export class WhatsAppFactory {
         return [
             { id: 'WABLAS', name: 'Wablas' },
             { id: 'FONNTE', name: 'Fonnte' },
-            { id: 'OFFICIAL', name: 'Official WhatsApp Business API (Coming Soon)' }
+            { id: 'OFFICIAL', name: 'API Bisnis WhatsApp Resmi (Segera Hadir)' }
         ]
     }
 }

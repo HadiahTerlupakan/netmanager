@@ -13,22 +13,22 @@ interface Context {
 
 export async function GET(req: NextRequest, { params }: Context) {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const { id } = await params;
         const result = await service.getSupplierById(id);
-        if (!result) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        if (!result) return NextResponse.json({ error: 'Tidak ditemukan' }, { status: 404 });
         return NextResponse.json(result);
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
 export async function PUT(req: NextRequest, { params }: Context) {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const { id } = await params;
@@ -36,21 +36,21 @@ export async function PUT(req: NextRequest, { params }: Context) {
         const result = await service.updateSupplier(id, body);
         return NextResponse.json(result);
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
 export async function DELETE(req: NextRequest, { params }: Context) {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
 
     try {
         const { id } = await params;
         const result = await service.deleteSupplier(id);
         return NextResponse.json(result);
     } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error'
+        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan server'
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

@@ -23,7 +23,7 @@ export async function POST(
 
         if (!announcement) {
             return NextResponse.json(
-                { error: 'Announcement not found' },
+                { error: 'Pengumuman tidak ditemukan' },
                 { status: 404 }
             );
         }
@@ -92,7 +92,7 @@ export async function GET(
 
         if (!announcement) {
             return NextResponse.json(
-                { error: 'Announcement not found' },
+                { error: 'Pengumuman tidak ditemukan' },
                 { status: 404 }
             );
         }

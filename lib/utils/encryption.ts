@@ -56,7 +56,7 @@ export function decryptApiKey(encryptedText: string): string {
         return decrypted
     } catch (error) {
         console.error('Decryption error:', error)
-        throw new Error('Failed to decrypt API key')
+        throw new Error('Gagal mendekripsi API key')
     }
 }
 

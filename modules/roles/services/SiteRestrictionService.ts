@@ -191,7 +191,7 @@ export function validateSiteAccess(
     targetSiteId: string | null | undefined
 ): string | null {
     if (!canAccessSite(session, resource, targetSiteId)) {
-        return `Unauthorized: You can only access ${resource} from your assigned sites.`
+        return `Tidak diizinkan: Anda hanya dapat mengakses ${resource} dari site Anda.`
     }
     return null
 }

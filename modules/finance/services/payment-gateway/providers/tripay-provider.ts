@@ -249,7 +249,7 @@ export class TripayProvider implements PaymentProvider {
                 }
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Connection failed'
+            const message = error instanceof Error ? error.message : 'Koneksi gagal'
             return {
                 success: false,
                 message

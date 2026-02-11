@@ -78,11 +78,11 @@ export function ClientComponent() {
                 fetchSettings()
             } else {
                 const errorData = await response.json()
-                setError(errorData.error || 'Failed to save settings')
+                setError(errorData.error || 'Gagal menyimpan pengaturan')
             }
         } catch (error: unknown) {
             console.error('Error saving settings:', error)
-            setError(error instanceof Error ? error.message : 'Failed to save settings')
+            setError(error instanceof Error ? error.message : 'Gagal menyimpan pengaturan')
         } finally {
             setSaving(false)
         }
@@ -108,13 +108,13 @@ export function ClientComponent() {
             const result = await response.json()
 
             if (result.success) {
-                alert('Test message sent successfully!\n\nCheck your WhatsApp.')
+                alert('Pesan percobaan berhasil dikirim!\n\nPeriksa WhatsApp Anda.')
             } else {
-                alert(`Test failed!\n\n${result.message}`)
+                alert(`Tes gagal!\n\n${result.message}`)
             }
         } catch (error: unknown) {
             console.error('Error testing WhatsApp:', error)
-            alert('Error testing WhatsApp')
+            alert('Kesalahan saat testing WhatsApp')
         } finally {
             setTesting(false)
         }

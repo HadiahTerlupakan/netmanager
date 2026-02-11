@@ -13,25 +13,25 @@ export async function POST(
         const { id } = await params;
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
         }
 
         const token = authHeader.split(' ')[1];
         if (!token) {
-            return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
         }
 
         const payload = await verifyMobileToken(token);
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
         }
 
         const body = await request.json();
         const { response } = body;
 
         if (!['APPROVED', 'REJECTED'].includes(response)) {
-            return NextResponse.json({ error: 'Invalid response' }, { status: 400 });
+            return NextResponse.json({ error: 'Response tidak valid' }, { status: 400 });
         }
 
         // Find assignment
@@ -44,7 +44,7 @@ export async function POST(
         });
 
         if (!assignment) {
-            return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Assignment tidak ditemukan' }, { status: 404 });
         }
 
         const updatedAssignment = await prisma.workOrderAssignments.update({
@@ -58,7 +58,7 @@ export async function POST(
                 id: randomUUID(),
                 workOrderId: id,
                 updateType: 'PARTNER_RESPONSE',
-                message: `Partner ${response === 'APPROVED' ? 'accepted' : 'rejected'} the request`,
+                message: `Partner ${response === 'APPROVED' ? 'menerima' : 'menolak'} permintaan`,
                 createdById: payload.id as string
             }
         });
@@ -150,6 +150,6 @@ export async function POST(
 
     } catch (error) {
         console.error('Partner Response Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
     }
 }

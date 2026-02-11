@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { getPointClaimService } from '@/lib/repositories'
+import { apiSuccess, ApiErrors, apiError, ErrorCodes } from '@/lib/api-response'
 
 // POST - Sales submit claim dengan bukti
 export async function POST(
@@ -9,7 +10,7 @@ export async function POST(
 ) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     const { id: canvasingId } = await params
     const body = await req.json()
@@ -23,20 +24,19 @@ export async function POST(
       keterangan: body.keterangan,
     })
 
-    return NextResponse.json(claim, { status: 201 })
+    return apiSuccess(claim, { status: 201, message: 'Claim poin berhasil diajukan' })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    // Handle specific errors with appropriate status codes
+    const message = error instanceof Error ? error.message : 'Gagal mengajukan claim poin'
     if (message.includes('tidak ditemukan')) {
-      return NextResponse.json({ error: message }, { status: 404 })
+      return ApiErrors.notFound('Data canvasing')
     }
     if (message.includes('tidak memiliki akses') || message.includes('sudah dikunci')) {
-      return NextResponse.json({ error: message }, { status: 403 })
+      return ApiErrors.forbidden(message)
     }
     if (message.includes('belum') || message.includes('sudah pernah')) {
-      return NextResponse.json({ error: message }, { status: 400 })
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
-    return NextResponse.json({ error: message }, { status: 500 })
+    return ApiErrors.internalError(message)
   }
 }
 
@@ -47,19 +47,15 @@ export async function GET(
 ) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
 
     const { id: canvasingId } = await params
     const service = getPointClaimService()
     const claim = await service.getClaimByCanvasingId(canvasingId)
 
-    if (!claim) {
-      return NextResponse.json({ claim: null })
-    }
-
-    return NextResponse.json({ claim })
+    return apiSuccess({ claim: claim || null })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Gagal mengambil data claim'
+    return ApiErrors.internalError(message)
   }
 }

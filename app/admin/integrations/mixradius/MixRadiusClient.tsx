@@ -240,14 +240,15 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       const response = await fetch(`/api/integrations/mixradius/customers/${customerId}`)
       
       if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.error || 'Failed to fetch detail')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal mengambil detail pelanggan')
       }
 
       const result = await response.json()
       setSelectedCustomer(result.data)
     } catch (_err) {
-      toast.error('Gagal mengambil detail pelanggan')
+      const errMsg = _err instanceof Error ? _err.message : 'Gagal mengambil detail pelanggan'
+      toast.error(errMsg)
       setShowDetailModal(false)
     } finally {
       setDetailLoading(false)
@@ -378,8 +379,8 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       const response = await fetch(`/api/integrations/mixradius/customers?${params}`)
       
       if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.error || 'Failed to fetch data')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal mengambil data pelanggan')
       }
 
       const result = await response.json()
@@ -389,8 +390,9 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       setTotalRecords(responseData.recordsFiltered || 0)
       setGlobalTotal(responseData.recordsTotal || 0)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      toast.error('Gagal mengambil data dari MixRadius')
+      const errorMsg = err instanceof Error ? err.message : 'Gagal mengambil data dari MixRadius'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }

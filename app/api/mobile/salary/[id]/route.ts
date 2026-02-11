@@ -10,20 +10,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     try {
         const authHeader = req.headers.get('authorization')
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         const payload = await verifyMobileToken(token)
 
         if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Invalid Token' }, { status: 401 })
+            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         // Check Permission
         const permissions = payload.permissions || []
         if (!permissions.includes('m_salary:read')) {
-            return NextResponse.json({ error: 'Forbidden: Requires m_salary:read permission' }, { status: 403 })
+            return NextResponse.json({ error: 'Dilarang: Memerlukan izin m_salary:read' }, { status: 403 })
         }
 
         const { id } = await params
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         })
 
         if (!salary) {
-            return NextResponse.json({ error: 'Salary not found or not available' }, { status: 404 })
+            return NextResponse.json({ error: 'Gaji tidak ditemukan atau tidak tersedia' }, { status: 404 })
         }
 
         const earnings = salary.details.filter(d => d.type === 'EARNING')
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     } catch (error) {
         console.error('Error fetching mobile salary detail:', error)
         return NextResponse.json(
-            { error: 'Failed to fetch salary detail' },
+            { error: 'Gagal mengambil detail gaji' },
             { status: 500 }
         )
     }
