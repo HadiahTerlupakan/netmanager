@@ -73,7 +73,7 @@ describe('WorkOrderService', () => {
             const result = await service.getWorkOrderById('wo-123', userContext)
 
             expect(result.success).toBe(false)
-            expect(result.error).toContain('Access denied: Different department')
+            expect(result.error).toContain('Akses ditolak: Departemen berbeda')
             expect(result.code).toBe('FORBIDDEN')
         })
 
@@ -105,7 +105,7 @@ describe('WorkOrderService', () => {
             const result = await service.getWorkOrderById('wo-123', userContext)
 
             expect(result.success).toBe(false)
-            expect(result.error).toContain('Access denied: Different site')
+            expect(result.error).toContain('Akses ditolak: Site berbeda')
             expect(result.code).toBe('FORBIDDEN')
         })
 

@@ -166,7 +166,7 @@ describe('UserService', () => {
         workingHourMode: WorkingHourMode.FIXED,
         // Missing startWorkTime and endWorkTime
       }))
-        .rejects.toThrow('Start time and end time are required for Fixed mode')
+        .rejects.toThrow('Waktu mulai dan waktu selesai diperlukan untuk mode Fixed')
     })
 
     it('should require work days for FIXED mode', async () => {
@@ -176,7 +176,7 @@ describe('UserService', () => {
         endWorkTime: '17:00'
         // Missing workDays
       }))
-        .rejects.toThrow('Work days are required for Fixed mode')
+        .rejects.toThrow('Hari kerja diperlukan untuk mode Fixed')
     })
 
     it('should update working hours successfully', async () => {
