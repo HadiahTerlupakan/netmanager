@@ -9,7 +9,7 @@ interface ExtendedUser extends User {
     isSuperAdmin?: boolean;
 }
 
-export async function hasPermission(requiredPermission: string, user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null): Promise<boolean> {
+export async function hasPermission(requiredPermission: string, user?: { id?: string; role?: string; isSuperAdmin?: boolean } | null, options: { silent?: boolean } = {}): Promise<boolean> {
     let currentUser = user;
     if (!currentUser) {
         const session = await getServerSession(authConfig)
@@ -17,7 +17,7 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     }
 
     if (!currentUser) {
-        console.log('[RBAC] No user found in session')
+        if (!options.silent) console.log('[RBAC] No user found in session')
         return false
     }
 
@@ -25,7 +25,7 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     // Note: SUPER_ADMIN has all permissions from seed, so no bypass needed
     const userId = currentUser.id
     if (!userId) {
-        console.log('[RBAC] No userId found')
+        if (!options.silent) console.log('[RBAC] No userId found')
         return false
     }
 
@@ -48,7 +48,7 @@ export async function hasPermission(requiredPermission: string, user?: { id?: st
     // Check permission with alias support
     const has = hasPermissionWithAlias(permissions, requiredPermission)
 
-    if (!has) {
+    if (!has && !options.silent) {
         console.log(`[RBAC] Access Denied. User: ${userId}, Role: ${currentUser.role}, Required: ${requiredPermission}, Has: ${permissions.length} perms`)
     }
 

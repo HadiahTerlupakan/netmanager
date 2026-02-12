@@ -42,7 +42,7 @@ export function applySiteRestriction<T extends Record<string, unknown> = Record<
     const filters = parseQuery(new URL(request.url).searchParams) as Record<string, unknown>
 
     // Apply site restriction if user has the permission and is not SUPER_ADMIN
-    if (!isSuperAdmin(user) && await hasPermission(permission, user)) {
+    if (!isSuperAdmin(user) && await hasPermission(permission, user, { silent: true })) {
       // Override siteId with user's site
       if (user.primarySiteId) {
         filters.siteId = user.primarySiteId
@@ -70,7 +70,7 @@ export function applyDepartmentRestriction<T extends Record<string, unknown> = R
     const filters = parseQuery(new URL(request.url).searchParams) as Record<string, unknown>
 
     // Apply department restriction if user has the permission and is not SUPER_ADMIN
-    if (!isSuperAdmin(user) && await hasPermission(permission, user)) {
+    if (!isSuperAdmin(user) && await hasPermission(permission, user, { silent: true })) {
       // Override departmentId with user's department
       if (user.departmentId) {
         filters.departmentId = user.departmentId
@@ -101,7 +101,7 @@ export function applyRBACRestrictions<T extends Record<string, unknown> = Record
     // Apply restrictions only if user is not SUPER_ADMIN
     if (!isSuperAdmin(user)) {
       // Apply site restriction
-      if (options.sitePermission && await hasPermission(options.sitePermission, user)) {
+      if (options.sitePermission && await hasPermission(options.sitePermission, user, { silent: true })) {
         if (user.primarySiteId) {
           filters.siteId = user.primarySiteId
         } else if (user.siteId) {
@@ -110,7 +110,7 @@ export function applyRBACRestrictions<T extends Record<string, unknown> = Record
       }
 
       // Apply department restriction
-      if (options.departmentPermission && await hasPermission(options.departmentPermission, user)) {
+      if (options.departmentPermission && await hasPermission(options.departmentPermission, user, { silent: true })) {
         if (user.departmentId) {
           filters.departmentId = user.departmentId
         }

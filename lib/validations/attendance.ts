@@ -5,7 +5,7 @@ import { z } from 'zod'
  */
 export const AttendanceStatus = {
     ON_TIME: 'ON_TIME',
-    LATE: 'LATE', 
+    LATE: 'LATE',
     ABSENT: 'ABSENT',
     SICK: 'SICK',
     PERMIT: 'PERMIT',
@@ -17,23 +17,25 @@ export type AttendanceStatusType = keyof typeof AttendanceStatus
 /**
  * Query params validation for listing attendance
  */
+const emptyToUndefined = (v: unknown) => (typeof v === 'string' && v === '' ? undefined : v)
+
 export const attendanceFilterSchema = z.object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
-    userId: z.string().uuid().optional(),
-    siteId: z.string().uuid().optional(),
-    departmentId: z.string().uuid().optional(),
-    status: z.enum([
+    startDate: z.preprocess(emptyToUndefined, z.string().optional()),
+    endDate: z.preprocess(emptyToUndefined, z.string().optional()),
+    userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+    siteId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+    departmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+    status: z.preprocess(emptyToUndefined, z.enum([
         AttendanceStatus.ON_TIME,
         AttendanceStatus.LATE,
         AttendanceStatus.ABSENT,
         AttendanceStatus.SICK,
         AttendanceStatus.PERMIT,
         AttendanceStatus.DAY_OFF,
-    ]).optional(),
-    export: z.enum(['true', 'false']).optional(),
+    ]).optional()),
+    export: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).optional()),
 })
 
 export type AttendanceFilter = z.infer<typeof attendanceFilterSchema>

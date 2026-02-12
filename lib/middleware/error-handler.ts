@@ -103,6 +103,7 @@ export function withErrorHandler<T = unknown>(
       // Handle Zod validation errors
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: unknown[] }
+        console.error('[API Validation Error Details]', JSON.stringify(zodError.issues, null, 2))
         return apiError(
           'Validation failed',
           ErrorCodes.VALIDATION_ERROR,
@@ -116,7 +117,7 @@ export function withErrorHandler<T = unknown>(
       // Handle Prisma errors
       if (error && typeof error === 'object' && 'code' in error) {
         const prismaError = error as { code: string }
-        
+
         // Unique constraint violation
         if (prismaError.code === 'P2002') {
           return apiError(
@@ -125,7 +126,7 @@ export function withErrorHandler<T = unknown>(
             { status: 409 }
           )
         }
-        
+
         // Record not found
         if (prismaError.code === 'P2025') {
           return apiError(
