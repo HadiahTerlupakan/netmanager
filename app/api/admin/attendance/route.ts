@@ -15,14 +15,14 @@ export const GET = withErrorHandler(
   withAuth(
     withPermission('attendance:read',
       applyRBACRestrictions(
-        { 
-          sitePermission: 'attendance:site_only', 
-          departmentPermission: 'attendance:department_only' 
+        {
+          sitePermission: 'attendance:site_only',
+          departmentPermission: 'attendance:department_only'
         },
         withRateLimit(RateLimits.STANDARD,
           async ({ user: _user, request: _request, filters }) => {
             // filters is already sanitized by applyRBACRestrictions using parseQuery
-            
+
             // Validate query params with Zod
             const parseResult = attendanceFilterSchema.safeParse(filters)
 
@@ -30,11 +30,14 @@ export const GET = withErrorHandler(
               throw new ValidationError('Parameter tidak valid', parseResult.error.flatten().fieldErrors)
             }
 
-            const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, status, export: isExportStr } = parseResult.data
+            const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, export: isExportStr } = parseResult.data
 
             const skip = (page - 1) * limit
 
             const where: Prisma.AttendanceWhereInput = {}
+
+            console.log('[DEBUG ATTENDANCE] Filters Raw:', filters)
+            console.log('[DEBUG ATTENDANCE] Parsed Data:', parseResult.data)
 
             // Apply date range filter
             if (startDateStr && endDateStr) {
@@ -54,13 +57,15 @@ export const GET = withErrorHandler(
             }
 
             // Apply filters to User relation (includes RBAC restrictions from middleware)
-            if (userId || filters.siteId || filters.departmentId) {
+            if (userId || siteId || departmentId) {
               where.user = {
                 ...(userId && { id: userId }),
-                ...(filters.siteId && { siteId: filters.siteId }),
-                ...(filters.departmentId && { departmentId: filters.departmentId })
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
               }
             }
+
+            console.log('[DEBUG ATTENDANCE] Generated Where:', JSON.stringify(where, null, 2))
 
             // Apply status filter if provided
             if (status) {
@@ -169,6 +174,12 @@ export const GET = withErrorHandler(
                 }
               })
             ])
+
+            console.log('[DEBUG ATTENDANCE] Query Result:', {
+              attendancesCount: attendances.length,
+              total,
+              statusSummary
+            })
 
             // Format summary
             const summary = statusSummary.reduce((acc, curr) => {
