@@ -94,6 +94,9 @@ export function withErrorHandler<T = unknown>(
 
       // Handle custom AppError instances
       if (error instanceof AppError) {
+        if (error instanceof ValidationError && error.details) {
+          console.error('[API Validation Error Details]', JSON.stringify(error.details, null, 2))
+        }
         return apiError(error.message, error.code, {
           status: error.status,
           ...(error.details ? { details: error.details } : {})

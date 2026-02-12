@@ -17,7 +17,11 @@ export type AttendanceStatusType = keyof typeof AttendanceStatus
 /**
  * Query params validation for listing attendance
  */
-const emptyToUndefined = (v: unknown) => (typeof v === 'string' && v === '' ? undefined : v)
+const emptyToUndefined = (v: unknown) => {
+    if (typeof v === 'string' && v === '') return undefined
+    if (v === 'null' || v === 'undefined') return undefined
+    return v
+}
 
 export const attendanceFilterSchema = z.object({
     page: z.coerce.number().int().positive().default(1),
@@ -35,7 +39,7 @@ export const attendanceFilterSchema = z.object({
         AttendanceStatus.PERMIT,
         AttendanceStatus.DAY_OFF,
     ]).optional()),
-    export: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).optional()),
+    export: z.preprocess((v) => (v === 'true' || v === true ? 'true' : v === 'false' || v === false ? 'false' : undefined), z.enum(['true', 'false']).optional()),
 })
 
 export type AttendanceFilter = z.infer<typeof attendanceFilterSchema>
