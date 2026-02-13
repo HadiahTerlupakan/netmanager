@@ -74,7 +74,7 @@ export async function fetchWithHandling<T = unknown>(
     return {
       success: true,
       data: data.data ?? data,
-      pagination: data.pagination,
+      pagination: data.pagination || data.meta,
       summary: data.summary,
     }
   } catch (error) {
