@@ -536,21 +536,6 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                             )}
                         </div>
 
-                        {/* Force Local Option */}
-                        <div className="flex items-center gap-2 mb-2">
-                            <input
-                                type="checkbox"
-                                id="forceLocal"
-                                checked={isForceLocal}
-                                onChange={(e) => setIsForceLocal(e.target.checked)}
-                                className="h-4 w-4"
-                                disabled={loading}
-                            />
-                            <label htmlFor="forceLocal" className="text-sm text-gray-700 dark:text-gray-300">
-                                Simpan di Local Storage (Bypass R2)
-                            </label>
-                        </div>
-
                         {/* Manual input - hanya tampil jika tidak ada APK */}
                         {!hasApk && (
                             <>
@@ -648,6 +633,21 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                             <label htmlFor="forceUpdate" className="text-sm">
                                 <span className="font-medium">Force Update</span>
                                 <span className="text-gray-500"> - Pengguna wajib update</span>
+                            </label>
+                        </div>
+
+                        {/* Force Local Option (Moved for visibility) */}
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                id="forceLocal"
+                                checked={isForceLocal}
+                                onChange={(e) => setIsForceLocal(e.target.checked)}
+                                className="h-4 w-4"
+                                disabled={loading}
+                            />
+                            <label htmlFor="forceLocal" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Simpan di Local Storage (Bypass R2)
                             </label>
                         </div>
 
