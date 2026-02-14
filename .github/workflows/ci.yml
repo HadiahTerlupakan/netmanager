@@ -54,9 +54,6 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Update npm
-        run: npm install -g npm@11
-
       - name: Install dependencies
         run: npm ci
 
@@ -123,9 +120,6 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Update npm
-        run: npm install -g npm@11
-
       - name: Install dependencies
         run: npm ci
 
@@ -170,9 +164,6 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-
-      - name: Update npm
-        run: npm install -g npm@11
 
       - name: Install dependencies
         run: npm ci
