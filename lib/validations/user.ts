@@ -37,18 +37,18 @@ export const createUserSchema = z.object({
   name: z.string().min(1, 'Nama wajib diisi'),
   password: z.string().min(8, 'Password minimal 8 karakter'),
   phone: z.string().optional(),
-  roleId: z.string().uuid('Role ID tidak valid'),
+  roleId: idSchema,
   siteId: optionalIdSchema,
   departmentId: optionalIdSchema,
   isActive: z.boolean().default(true),
   isSales: z.boolean().default(false),
-  
+
   // Multi-site support
   userSites: z.array(z.object({
-    siteId: z.string().uuid(),
+    siteId: idSchema,
     isPrimary: z.boolean().default(false),
   })).optional(),
-  
+
   // Working hours configuration
   workingHourMode: workingHourModeEnum.default('FIXED'),
   startWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).default('09:00'),
@@ -56,15 +56,15 @@ export const createUserSchema = z.object({
   workDays: z.string().default('Mon,Tue,Wed,Thu,Fri'),
   flexibleTargetHour: z.number().int().min(1).max(24).default(8),
   shiftId: optionalIdSchema,
-  
+
   // Sales configuration
   canvasingTarget: z.number().int().min(0).default(50),
-  
+
   // Salary configuration
   basicSalary: z.number().min(0).optional(),
   payPeriodDay: z.number().int().min(1).max(31).default(25),
   payDay: z.number().int().min(1).max(31).default(1),
-  
+
   // Overtime rates
   overtimeRateNormal: z.number().min(0).default(0),
   overtimeRateHoliday: z.number().min(0).default(0),
@@ -72,7 +72,7 @@ export const createUserSchema = z.object({
   overtimeCalcTypeNormal: overtimeCalcTypeEnum.default('PER_HOUR'),
   overtimeCalcTypeHoliday: overtimeCalcTypeEnum.default('PER_HOUR'),
   overtimeCalcTypeNational: overtimeCalcTypeEnum.default('PER_HOUR'),
-  
+
   // Incentives and deductions
   woIncentiveEnabled: z.boolean().default(false),
   woIncentiveRate: z.number().min(0).default(0),
@@ -93,13 +93,13 @@ export const updateUserSchema = z.object({
   departmentId: optionalIdSchema,
   isActive: z.boolean().optional(),
   isSales: z.boolean().optional(),
-  
+
   // Multi-site support
   userSites: z.array(z.object({
-    siteId: z.string().uuid(),
+    siteId: idSchema,
     isPrimary: z.boolean().default(false),
   })).optional(),
-  
+
   // Working hours configuration
   workingHourMode: workingHourModeEnum.optional(),
   startWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
@@ -107,15 +107,15 @@ export const updateUserSchema = z.object({
   workDays: z.string().optional(),
   flexibleTargetHour: z.number().int().min(1).max(24).optional(),
   shiftId: optionalIdSchema,
-  
+
   // Sales configuration
   canvasingTarget: z.number().int().min(0).optional(),
-  
+
   // Salary configuration
   basicSalary: z.number().min(0).optional(),
   payPeriodDay: z.number().int().min(1).max(31).optional(),
   payDay: z.number().int().min(1).max(31).optional(),
-  
+
   // Overtime rates
   overtimeRateNormal: z.number().min(0).optional(),
   overtimeRateHoliday: z.number().min(0).optional(),
@@ -123,7 +123,7 @@ export const updateUserSchema = z.object({
   overtimeCalcTypeNormal: overtimeCalcTypeEnum.optional(),
   overtimeCalcTypeHoliday: overtimeCalcTypeEnum.optional(),
   overtimeCalcTypeNational: overtimeCalcTypeEnum.optional(),
-  
+
   // Incentives and deductions
   woIncentiveEnabled: z.boolean().optional(),
   woIncentiveRate: z.number().min(0).optional(),

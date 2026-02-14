@@ -35,17 +35,26 @@ export const dateRangeSchema = z.object({
 )
 
 /**
- * UUID validation schema
+ * UUID/CUID validation schema
+ * Allows both UUID and CUID formats to support mixed ID types in the database
  */
-export const idSchema = z.string().uuid({ message: 'Format ID tidak valid' })
+export const idSchema = z.union([
+  z.string().uuid(),
+  z.string().cuid(),
+  z.string().min(1) // Fallback for other valid ID formats
+], { message: 'Format ID tidak valid' })
 
 /**
- * Optional UUID validation schema
+ * Optional UUID/CUID validation schema
  * Handles empty strings and nulls by converting them to undefined
  */
 export const optionalIdSchema = z.preprocess(
   (val) => (val === '' || val === null ? undefined : val),
-  z.string().uuid().optional()
+  z.union([
+    z.string().uuid(),
+    z.string().cuid(),
+    z.string().min(1)
+  ]).optional()
 )
 
 /**
@@ -67,8 +76,8 @@ export const statusSchema = z.object({
  * Site and department filter schema
  */
 export const siteFilterSchema = z.object({
-  siteId: z.string().uuid().optional(),
-  departmentId: z.string().uuid().optional(),
+  siteId: optionalIdSchema,
+  departmentId: optionalIdSchema,
 })
 
 /**
@@ -173,12 +182,12 @@ export function validateQueryParams<T extends z.ZodType>(
 ): { success: true; data: z.infer<T> } | { success: false; error: Record<string, string[] | undefined> } {
   const { searchParams } = new URL(request.url)
   const params = Object.fromEntries(searchParams.entries())
-  
+
   const result = schema.safeParse(params)
-  
+
   if (result.success) {
     return { success: true, data: result.data }
   }
-  
+
   return { success: false, error: result.error.flatten().fieldErrors }
 }

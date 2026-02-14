@@ -61,7 +61,7 @@ export const POST = createHandler({
 }, async (req, ctx) => {
   const startTime = Date.now()
   const { session, validated: body } = ctx
-  
+
   if (!session) return ApiErrors.unauthorized()
 
   // Site restriction check using centralized helper
@@ -108,15 +108,15 @@ export const POST = createHandler({
     // Handle multi-site: create userSites records
     if (body.userSites && Array.isArray(body.userSites) && body.userSites.length > 0) {
       await prisma.userSite.createMany({
-        data: body.userSites.map((us: { siteId: string; isPrimary: boolean }) => ({
+        data: body.userSites.map((us) => ({
           userId: user.id,
-          siteId: us.siteId,
+          siteId: us.siteId!,
           isPrimary: us.isPrimary || false
         }))
       })
 
       // Update legacy siteId to primary site for backward compatibility
-      const primarySite = body.userSites.find((us: { isPrimary: boolean }) => us.isPrimary)
+      const primarySite = body.userSites.find((us) => us.isPrimary)
       if (primarySite) {
         await prisma.user.update({
           where: { id: user.id },

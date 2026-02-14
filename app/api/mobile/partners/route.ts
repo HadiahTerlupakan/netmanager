@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { apiSuccess, ApiErrors } from '@/lib/api-response';
+import { ApiErrors } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
     try {
