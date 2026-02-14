@@ -24,6 +24,7 @@ export async function GET(req: Request) {
       },
       select: {
         id: true,
+        code: true,
         name: true,
       },
     });

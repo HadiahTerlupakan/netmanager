@@ -55,7 +55,7 @@ export async function POST(
                 type: 'PARTNER_REQUEST',
                 title: 'Permintaan Partner Kerja',
                 message: `Anda diminta menjadi partner kerja di Work Order. Silakan berikan tanggapan.`,
-                link: `/mobile/work-order-detail/${id}`, // Mobile deep link path
+                link: `/work-order-detail/${id}`, // Mobile deep link path
                 sourceType: 'WORK_ORDER',
                 sourceId: id
             }

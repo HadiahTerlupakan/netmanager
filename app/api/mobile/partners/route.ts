@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import { apiSuccess, apiError, ApiErrors } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
     try {
@@ -23,42 +25,56 @@ export async function GET(request: NextRequest) {
         // Check Permission
         const permissions = payload.permissions || [];
         if (!permissions.includes('m_partners:read')) {
-            return NextResponse.json({ error: 'Akses ditolak: Memerlukan izin m_partners:read' }, { status: 403 });
+            return ApiErrors.forbidden('Akses ditolak: Memerlukan izin m_partners:read');
         }
 
         const userId = payload.id as string;
         const search = request.nextUrl.searchParams.get('search') || '';
+        const page = parseInt(request.nextUrl.searchParams.get('page') || '1');
+        const limit = parseInt(request.nextUrl.searchParams.get('limit') || '20');
+        const skip = (page - 1) * limit;
 
-        // Fetch users (excluding self)
-        const users = await prisma.user.findMany({
-            where: {
-                id: { not: userId },
-                isActive: true,
-                ...(search && {
-                    OR: [
-                        { name: { contains: search, mode: 'insensitive' } },
-                        { email: { contains: search, mode: 'insensitive' } }
-                    ]
-                }),
-                // Optional: Filter by site or role if needed
-                // siteId: ...
-            },
-            select: {
-                id: true,
-                name: true,
-                role: {
-                    select: { name: true }
+        const where: Prisma.UserWhereInput = {
+            id: { not: userId },
+            isActive: true,
+            ...(search && {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { email: { contains: search, mode: 'insensitive' } }
+                ]
+            }),
+        };
+
+        // Fetch users (excluding self) with pagination
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                select: {
+                    id: true,
+                    name: true,
+                    role: {
+                        select: { name: true }
+                    },
+                    sites: {
+                        select: { name: true }
+                    }
                 },
-                sites: {
-                    select: { name: true }
-                }
-            },
-            take: 20
-        });
+                skip,
+                take: limit,
+                orderBy: { name: 'asc' }
+            }),
+            prisma.user.count({ where })
+        ]);
 
-        return NextResponse.json({
-            success: true,
-            data: users
+        return apiSuccess(users, {
+            message: 'Berhasil mengambil daftar partner',
+            // @ts-ignore - manual pagination structure for now
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         });
 
     } catch (error) {

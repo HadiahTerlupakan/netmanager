@@ -72,7 +72,7 @@ export async function POST(
                     type: 'PARTNER_RESPONSE',
                     title: 'Respon Partner Kerja',
                     message: `${payload.name || 'Partner'} telah ${response === 'APPROVED' ? 'menerima' : 'menolak'} permintaan partner kerja.`,
-                    link: `/karyawan/work-order/${id}`,
+                    link: `/work-order-detail/${id}`,
                     sourceType: 'WORK_ORDER',
                     sourceId: id
                 }
