@@ -42,7 +42,7 @@ export function AppVersionClient() {
     const [showUploadModal, setShowUploadModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
     const [selectedVersion, setSelectedVersion] = useState<AppVersion | null>(null)
-    const [stats, setStats] = useState<{updatedCount: number, outdatedCount: number, unknownCount: number, latestVersion: AppVersion | null} | null>(null)
+    const [stats, setStats] = useState<{ updatedCount: number, outdatedCount: number, unknownCount: number, latestVersion: AppVersion | null } | null>(null)
 
     // Fetch stats
     const fetchStats = async () => {
@@ -134,9 +134,8 @@ export function AppVersionClient() {
             header: 'Platform',
             priority: 'secondary',
             render: (item) => (
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                    item.platform === 'ios' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'
-                }`}>
+                <span className={`px-2 py-1 text-xs rounded-full ${item.platform === 'ios' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'
+                    }`}>
                     {item.platform.toUpperCase()}
                 </span>
             )
@@ -146,9 +145,8 @@ export function AppVersionClient() {
             header: 'Tipe Update',
             priority: 'secondary',
             render: (item) => (
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                    item.isForceUpdate ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                }`}>
+                <span className={`px-2 py-1 text-xs rounded-full ${item.isForceUpdate ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                    }`}>
                     {item.isForceUpdate ? 'Wajib' : 'Opsional'}
                 </span>
             )
@@ -164,9 +162,8 @@ export function AppVersionClient() {
             header: 'Status',
             priority: 'secondary',
             render: (item) => (
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                    item.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                }`}>
+                <span className={`px-2 py-1 text-xs rounded-full ${item.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                    }`}>
                     {item.isActive ? 'Aktif' : 'Nonaktif'}
                 </span>
             )
@@ -372,6 +369,7 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
         minVersion: ''
     })
     const [apkFile, setApkFile] = useState<File | null>(null)
+    const [isForceLocal, setIsForceLocal] = useState(false)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -390,8 +388,8 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             let apkFilename = ''
             let apkSize = 0
 
-            // 1. Jika ada file, upload langsung ke storage (Direct Upload)
-            if (apkFile) {
+            // 1. Jika ada file, upload langsung ke storage (Direct Upload) - KECUALI forceLocal
+            if (apkFile && !isForceLocal) {
                 setStatus('Meminta URL upload...')
 
                 // Get Presigned URL
@@ -458,8 +456,12 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             form.append('isForceUpdate', formData.isForceUpdate.toString())
             if (formData.minVersion) form.append('minVersion', formData.minVersion)
 
-            // Kirim info file yang sudah diupload (bukan filenya lagi)
-            if (apkKey) {
+            // Kirim info file yang sudah diupload (bukan filenya lagi) atau file jika force local
+            if (isForceLocal) {
+                if (apkFile) form.append('apk', apkFile)
+                form.append('forceLocal', 'true')
+                setStatus('Mengupload ke Local Storage...')
+            } else if (apkKey) {
                 form.append('uploadedKey', apkKey)
                 form.append('uploadedFilename', apkFilename)
                 form.append('uploadedSize', apkSize.toString())
@@ -532,6 +534,21 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                     </div>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Force Local Option */}
+                        <div className="flex items-center gap-2 mb-2">
+                            <input
+                                type="checkbox"
+                                id="forceLocal"
+                                checked={isForceLocal}
+                                onChange={(e) => setIsForceLocal(e.target.checked)}
+                                className="h-4 w-4"
+                                disabled={loading}
+                            />
+                            <label htmlFor="forceLocal" className="text-sm text-gray-700 dark:text-gray-300">
+                                Simpan di Local Storage (Bypass R2)
+                            </label>
                         </div>
 
                         {/* Manual input - hanya tampil jika tidak ada APK */}
@@ -716,7 +733,7 @@ function EditVersionModal({ version, onClose, onSuccess }: { version: AppVersion
             <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md">
                 <div className="p-6">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit v{version.version}</h2>
-                    
+
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium mb-1">Catatan Rilis</label>

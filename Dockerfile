@@ -93,6 +93,7 @@ RUN mkdir -p /app/public/uploads/attendance \
     && mkdir -p /app/public/uploads/work-orders \
     && mkdir -p /app/public/uploads/profiles \
     && mkdir -p /app/public/uploads/ktp \
+    && mkdir -p /app/public/uploads/apk \
     && chown -R nextjs:nodejs /app/public/uploads
 
 USER nextjs

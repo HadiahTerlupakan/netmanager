@@ -35,6 +35,7 @@ export interface UploadVersionInput {
     uploadedKey?: string
     uploadedFilename?: string
     uploadedSize?: number
+    forceLocal?: boolean
 }
 
 export interface CheckVersionResult {
@@ -77,15 +78,15 @@ export class AppVersionService {
      */
     async parseApkInfo(input: { buffer?: Buffer, path?: string }): Promise<ParsedApkInfo | null> {
         let tempFilePath: string | null = null
-        
+
         try {
             console.log('[AppVersionService] Starting APK parsing...')
-            
+
             // Dynamic import for adbkit-apkreader (CommonJS module)
             const apkReaderModule = await import('adbkit-apkreader')
             const ApkReader = apkReaderModule.default || apkReaderModule
             console.log('[AppVersionService] APK reader module loaded')
-            
+
             // Use provided path or write buffer to temp file
             if (input.path) {
                 tempFilePath = input.path
@@ -98,22 +99,22 @@ export class AppVersionService {
                 console.warn('[AppVersionService] No APK buffer or path provided')
                 return null
             }
-            
+
             // Open and read APK
             console.log(`[AppVersionService] Opening APK file: ${tempFilePath}`)
             const reader = await ApkReader.open(tempFilePath)
             console.log('[AppVersionService] Reading APK manifest...')
             const manifest = await reader.readManifest() as ApkManifest
             console.log(`[AppVersionService] APK manifest read: versionName=${manifest.versionName}, versionCode=${manifest.versionCode}`)
-            
+
             // Extract version info
             const versionName = manifest.versionName || ''
             const versionCode = manifest.versionCode || 0
-            
+
             // Parse build number from version (e.g., "1.0.54" -> 54)
             const versionParts = versionName.split('.')
             const buildNumber = versionParts.length >= 3 ? parseInt(versionParts[2] ?? '0', 10) || versionCode : versionCode
-            
+
             const result = {
                 versionName,
                 versionCode,
@@ -157,7 +158,7 @@ export class AppVersionService {
         const page = options?.page || 1
         const limit = options?.limit || 10
         const result = await this.repository.findAll(options)
-        
+
         return {
             ...result,
             page,
@@ -243,7 +244,8 @@ export class AppVersionService {
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
                     ...(input.apkPath ? { path: input.apkPath } : {}),
                     filename: input.apkFilename,
-                    version
+                    version,
+                    forceLocal: input.forceLocal
                 })
                 console.log(`[AppVersionService] APK uploaded successfully: ${apkUrl}`)
             }
@@ -286,9 +288,10 @@ export class AppVersionService {
         buffer?: Buffer,
         path?: string,
         filename: string,
-        version: string
+        version: string,
+        forceLocal?: boolean
     }): Promise<string> {
-        const { buffer, path: filePath, version } = input
+        const { buffer, path: filePath, version, forceLocal } = input
         const sanitizedFilename = `netmanager_v${version}.apk`
 
         try {
@@ -297,12 +300,12 @@ export class AppVersionService {
             const r2Enabled = await isR2Enabled()
             console.log(`[AppVersionService] R2 enabled: ${r2Enabled}`)
 
-            if (r2Enabled) {
+            if (r2Enabled && !forceLocal) {
                 // Upload to R2
                 console.log('[AppVersionService] Uploading to R2 storage...')
                 const key = generateR2Key('app-version', sanitizedFilename)
                 console.log(`[AppVersionService] R2 key: ${key}`)
-                
+
                 // Note: uploadToR2 currently expects buffer, assuming it can handle it or we might need to update it too.
                 // For now, if we have path, read it to buffer (R2 Might limit this, but let's assume R2 client handles small chunks or we optimize later)
                 // Ideally R2 client should support stream.
@@ -312,7 +315,7 @@ export class AppVersionService {
                     console.log(`[AppVersionService] Reading APK from path: ${filePath}`)
                     uploadBuffer = await fs.readFile(filePath)
                 }
-                
+
                 if (!uploadBuffer) {
                     throw new Error('Konten APK tidak disediakan')
                 }
@@ -328,10 +331,10 @@ export class AppVersionService {
                 const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'apk')
                 console.log(`[AppVersionService] Upload directory: ${uploadDir}`)
                 await fs.mkdir(uploadDir, { recursive: true })
-                
+
                 const destPath = path.join(uploadDir, sanitizedFilename)
                 console.log(`[AppVersionService] Destination path: ${destPath}`)
-                
+
                 if (filePath) {
                     // Efficient copy/move
                     console.log(`[AppVersionService] Copying file from ${filePath} to ${destPath}`)
@@ -342,7 +345,7 @@ export class AppVersionService {
                 } else {
                     throw new Error('Konten APK tidak disediakan (tidak ada buffer atau path)')
                 }
-                
+
                 const url = `/uploads/apk/${sanitizedFilename}`
                 console.log(`[AppVersionService] Local upload successful: ${url}`)
                 return url
@@ -449,7 +452,7 @@ export class AppVersionService {
         }
 
         const updateAvailable = latestVersion.versionCode > currentVersionCode
-        
+
         // Determine if force update is required
         let isForceUpdate = false
         if (updateAvailable && latestVersion.isForceUpdate) {

@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '10')
         const platform = searchParams.get('platform') || undefined
-        const isActive = searchParams.get('isActive') === 'true' ? true : 
-                         searchParams.get('isActive') === 'false' ? false : undefined
+        const isActive = searchParams.get('isActive') === 'true' ? true :
+            searchParams.get('isActive') === 'false' ? false : undefined
 
         const service = getAppVersionService()
         const result = await service.getAllVersions({
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         }
 
         const formData = await request.formData()
-        
+
         // Semua field optional karena bisa auto-extract dari APK
         const version = formData.get('version') as string | null
         const buildNumberStr = formData.get('buildNumber') as string | null
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
         const uploadedFilename = formData.get('uploadedFilename') as string | null
         const uploadedSizeStr = formData.get('uploadedSize') as string | null
         const uploadedSize = uploadedSizeStr ? parseInt(uploadedSizeStr) : undefined
+        const forceLocal = formData.get('forceLocal') === 'true'
 
         const buildNumber = buildNumberStr ? parseInt(buildNumberStr) : undefined
         const versionCode = versionCodeStr ? parseInt(versionCodeStr) : undefined
@@ -135,7 +136,8 @@ export async function POST(request: NextRequest) {
             // New direct upload fields
             ...(uploadedKey ? { uploadedKey } : {}),
             ...(uploadedFilename ? { uploadedFilename } : {}),
-            ...(uploadedSize ? { uploadedSize } : {})
+            ...(uploadedSize ? { uploadedSize } : {}),
+            forceLocal,
         })
 
         // Cleanup temp file after successful upload
