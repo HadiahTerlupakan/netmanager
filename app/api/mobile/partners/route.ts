@@ -66,9 +66,10 @@ export async function GET(request: NextRequest) {
             prisma.user.count({ where })
         ]);
 
-        return apiSuccess(users, {
+        return NextResponse.json({
+            success: true,
+            data: users,
             message: 'Berhasil mengambil daftar partner',
-            // @ts-expect-error - manual pagination structure for now
             pagination: {
                 total,
                 page,
