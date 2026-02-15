@@ -1236,6 +1236,7 @@ export default function NetworkMapInteractive() {
           <>
             <div className="flex-1 relative z-[0]">
               <MapContainer
+                key={`map-${activeTab}-${mapStyle}`} // Add unique key to force remount on tab/style change
                 center={centerPosition}
                 zoom={zoomLevel}
                 minZoom={minZoomOut}
@@ -1246,8 +1247,12 @@ export default function NetworkMapInteractive() {
                 ref={(map) => {
                   if (map) {
                     mapRef.current = map;
-                    map.off("click");
-                    map.on("click", handleMapClick);
+                    // Use a timeout to ensure map is fully initialized before attaching events
+                    // This helps prevent "Map container is being reused" issues in some cases
+                    setTimeout(() => {
+                        map.off("click");
+                        map.on("click", handleMapClick);
+                    }, 0);
                   }
                 }}
               >
