@@ -103,9 +103,15 @@ export async function POST(request: NextRequest) {
             watermarkLines
         );
 
+        // Construct absolute URL
+        const protocol = request.headers.get('x-forwarded-proto') || 'http';
+        const host = request.headers.get('host');
+        const baseUrl = `${protocol}://${host}`;
+        const absoluteUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+
         return NextResponse.json({
             success: true,
-            url,
+            url: absoluteUrl,
             fileName: `${fileName}.webp`
         });
 

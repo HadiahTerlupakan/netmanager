@@ -54,8 +54,11 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes)
         await writeFile(filePath, buffer)
 
-        // Return public URL
-        const imageUrl = `/uploads/chat/${filename}`
+        // Return public URL with absolute path
+        const protocol = request.headers.get('x-forwarded-proto') || 'http'
+        const host = request.headers.get('host')
+        const baseUrl = `${protocol}://${host}`
+        const imageUrl = `${baseUrl}/uploads/chat/${filename}`
 
         return NextResponse.json({
             success: true,
