@@ -16,49 +16,54 @@ export async function POST(req: Request) {
         }
 
         // ==========================================
-        // CUSTOMER LOGIN (MixRadius)
+        // CUSTOMER LOGIN (Local Database - Pelanggan Table)
         // ==========================================
         if (loginType === 'CUSTOMER') {
             try {
-                // Dynamic Import to avoid circular deps if any
-                const { MixRadiusService } = await import('@/modules/integrations/services/MixRadiusService')
-                const mixRadiusService = new MixRadiusService()
-
-                // 1. Search Customer by Username (or MemberID)
-                // We use fetchCustomersPPP with search parameter
-                const searchResult = await mixRadiusService.fetchCustomersPPP({
-                    search: email, // User inputs username/ID here
-                    length: 1,
-                    // searchType: 'username' // Prioritize username search - REMOVED to allow broader search
-                    searchType: 'all' // Search in all fields (username, member_id, etc.)
+                // Search in local Pelanggan table
+                // Allow login by: Username (PPPoE), ID Pelanggan, or Email
+                const customer = await prisma.pelanggan.findFirst({
+                    where: {
+                        OR: [
+                            { username: email },
+                            { idPelanggan: email },
+                            { email: email }
+                        ]
+                    },
+                    include: {
+                        hargaPaket: true // Include plan details
+                    }
                 })
-
-                const customer = searchResult.data[0]
 
                 if (!customer) {
                     return NextResponse.json({
                         success: false,
-                        error: 'ID Pelanggan tidak ditemukan'
+                        error: 'ID Pelanggan atau Username tidak ditemukan'
                     }, { status: 401 })
                 }
 
-                // 2. Verify Password
-                // MixRadius often returns cleartext password in the customer object. 
-                // WARNING: Ideally we should use a proper auth endpoint, but standard Radius admins usually expose it.
-                if (customer.password !== password) {
+                // Verify Password
+                // Check against 'password' (PPPoE) OR 'passwordLogin' (Portal specific)
+                // In many ISPs, customers use their PPPoE password for portal
+                let isPasswordValid = false
+                
+                if (customer.password === password) isPasswordValid = true
+                if (customer.passwordLogin === password) isPasswordValid = true
+
+                if (!isPasswordValid) {
                     return NextResponse.json({
                         success: false,
                         error: 'Password salah'
                     }, { status: 401 })
                 }
 
-                // 3. Generate Token for Customer
+                // Generate Token for Customer
                 const tokenPayload = {
-                    id: customer.id, // MixRadius ID
-                    email: customer.username, // Use username as email/identifier
-                    name: customer.fullname,
-                    role: 'CUSTOMER', // Special Role
-                    memberId: customer.member_id // Store member ID for reference
+                    id: customer.id,
+                    email: customer.username, // Use username as identifier
+                    name: customer.nama,
+                    role: 'CUSTOMER',
+                    memberId: customer.idPelanggan
                 }
                 
                 const token = await signMobileToken(tokenPayload)
@@ -68,19 +73,19 @@ export async function POST(req: Request) {
                     token,
                     user: {
                         id: customer.id,
-                        name: customer.fullname,
-                        email: customer.username, // Username as identifier
+                        name: customer.nama,
+                        email: customer.username,
                         role: 'CUSTOMER',
                         isSales: false,
                         features: {
                             canvasing: false,
-                            attendance: false, // Customers don't do attendance
-                            workOrder: true // Customers can create tickets
+                            attendance: false,
+                            workOrder: true
                         },
-                        // Extra customer data
-                        mixRadiusId: customer.id,
-                        memberId: customer.member_id,
-                        planName: customer.plan_name
+                        // Extra customer data for dashboard
+                        memberId: customer.idPelanggan,
+                        planName: customer.hargaPaket?.name || 'Paket Internet',
+                        address: customer.alamat
                     }
                 })
 
@@ -88,7 +93,7 @@ export async function POST(req: Request) {
                 console.error('[Login] Customer Login Error:', error)
                 return NextResponse.json({
                     success: false,
-                    error: 'Gagal menghubungi server pelanggan. Coba lagi nanti.'
+                    error: 'Terjadi kesalahan saat login pelanggan.'
                 }, { status: 500 })
             }
         }
