@@ -887,10 +887,14 @@ export default function NetworkMapInteractive() {
   return (
     <div className="flex flex-col h-[calc(100vh-150px)] bg-gray-100 dark:bg-gray-900">
       {/* Top Toolbar */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 relative z-[9999] overflow-visible">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 relative z-10 overflow-visible">
         <div className="flex items-center justify-between">
-          {/* Left: Tabs */}
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white hidden md:block">
+              Topology Map
+            </h1>
+            {/* Left: Tabs */}
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             <button
               onClick={() => setActiveTab("map")}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -925,11 +929,12 @@ export default function NetworkMapInteractive() {
               Settings
             </button>
           </div>
+          </div>
 
           {/* Right: Tools */}
           <div className="flex items-center gap-2">
             {/* Search */}
-            <div className="relative z-[10002]">
+            <div className="relative z-20">
               <button
                 onClick={() => setShowSearchDropdown(!showSearchDropdown)}
                 className={toolButtonClass(showSearchDropdown)}
@@ -939,7 +944,7 @@ export default function NetworkMapInteractive() {
               </button>
               {showSearchDropdown && (
                 <div
-                  className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[9999]"
+                  className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50"
                   style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}
                 >
                   <div className="p-3">
