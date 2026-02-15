@@ -48,12 +48,12 @@ interface PeriodStats {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    DRAFT: 'bg-gray-100 text-gray-700',
-    CALCULATED: 'bg-blue-100 text-blue-700',
-    AUDITED: 'bg-yellow-100 text-yellow-700',
-    APPROVED: 'bg-green-100 text-green-700',
-    PAID: 'bg-emerald-100 text-emerald-700',
-    REVISED: 'bg-red-100 text-red-700',
+    DRAFT: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700',
+    CALCULATED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800',
+    AUDITED: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800',
+    APPROVED: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800',
+    PAID: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800',
+    REVISED: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800',
 }
 
 const MONTHS = [
@@ -68,7 +68,7 @@ export default function SalaryListClient() {
     const [stats, setStats] = useState<PeriodStats | null>(null)
     const [loading, setLoading] = useState(true)
     const [calculating, setCalculating] = useState(false)
-    
+
     const currentDate = new Date()
     const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1)
     const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear())
@@ -101,7 +101,7 @@ export default function SalaryListClient() {
 
     const handleCalculateBulk = async () => {
         if (!confirm('Hitung gaji untuk semua karyawan aktif?')) return
-        
+
         setCalculating(true)
         try {
             const res = await fetch('/api/admin/salary', {
@@ -182,7 +182,7 @@ export default function SalaryListClient() {
             header: 'Earning',
             priority: 'tertiary',
             align: 'right',
-            className: 'text-green-600 text-xs',
+            className: 'text-green-600 dark:text-green-400 text-xs',
             render: (item) => `+${formatCurrencyCompact(item.totalEarnings)}`
         },
         {
@@ -190,7 +190,7 @@ export default function SalaryListClient() {
             header: 'Deduct',
             priority: 'tertiary',
             align: 'right',
-            className: 'text-red-500 text-xs',
+            className: 'text-red-500 dark:text-red-400 text-xs',
             render: (item) => `-${formatCurrencyCompact(item.totalDeductions)}`
         },
         {
@@ -239,11 +239,11 @@ export default function SalaryListClient() {
     )
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
                         Manajemen Penggajian
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400">
@@ -269,40 +269,40 @@ export default function SalaryListClient() {
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     <Card>
                         <CardContent className="pt-4">
-                            <div className="text-2xl font-bold">{stats.total}</div>
-                            <div className="text-sm text-gray-500">Total</div>
+                            <div className="text-2xl font-bold text-gray-900 dark:text-gray-50">{stats.total}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Total</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="pt-4">
-                            <div className="text-2xl font-bold text-blue-600">{stats.calculated}</div>
-                            <div className="text-sm text-gray-500">Calculated</div>
+                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.calculated}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Calculated</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="pt-4">
-                            <div className="text-2xl font-bold text-yellow-600">{stats.audited}</div>
-                            <div className="text-sm text-gray-500">Audited</div>
+                            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.audited}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Audited</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="pt-4">
-                            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
-                            <div className="text-sm text-gray-500">Approved</div>
+                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.approved}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Approved</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="pt-4">
-                            <div className="text-2xl font-bold text-emerald-600">{stats.paid}</div>
-                            <div className="text-sm text-gray-500">Paid</div>
+                            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.paid}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Paid</div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="pt-4">
-                            <div className="text-lg font-bold text-indigo-600">
+                            <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
                                 {formatCurrency(stats.totalNetSalary)}
                             </div>
-                            <div className="text-sm text-gray-500">Total Gaji</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Total Gaji</div>
                         </CardContent>
                     </Card>
                 </div>
@@ -313,11 +313,11 @@ export default function SalaryListClient() {
                 <CardContent className="pt-4">
                     <div className="flex flex-wrap gap-4">
                         <div>
-                            <label className="block text-sm font-medium mb-1">Bulan</label>
+                            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-300">Bulan</label>
                             <select
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm text-gray-900 dark:text-gray-50"
                             >
                                 {MONTHS.map((name, idx) => (
                                     <option key={idx} value={idx + 1}>{name}</option>
@@ -329,7 +329,7 @@ export default function SalaryListClient() {
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm text-gray-900 dark:text-gray-50"
                             >
                                 {[2024, 2025, 2026].map(y => (
                                     <option key={y} value={y}>{y}</option>
@@ -341,7 +341,7 @@ export default function SalaryListClient() {
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm text-gray-900 dark:text-gray-50"
                             >
                                 <option value="">Semua</option>
                                 <option value="DRAFT">Draft</option>
@@ -368,12 +368,12 @@ export default function SalaryListClient() {
                         loading={loading}
                         emptyMessage={
                             <div className="text-center py-12">
-                                <HiOutlineBanknotes className="w-16 h-16 mx-auto mb-4 text-gray-200 dark:text-gray-700" />
+                                <HiOutlineBanknotes className="w-16 h-16 mx-auto mb-4 text-gray-200 dark:text-gray-600" />
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">Pencatatan Gaji Kosong</h3>
-                                <p className="text-gray-500 dark:text-gray-400 mt-1">Belum ada data gaji untuk periode {MONTHS[selectedMonth -1]} {selectedYear}.</p>
-                                <button 
+                                <p className="text-gray-500 dark:text-gray-400 mt-1">Belum ada data gaji untuk periode {MONTHS[selectedMonth - 1]} {selectedYear}.</p>
+                                <button
                                     onClick={handleCalculateBulk}
-                                    className="mt-6 text-indigo-600 hover:text-indigo-700 font-semibold"
+                                    className="mt-6 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold"
                                 >
                                     Generate Sekarang &rarr;
                                 </button>

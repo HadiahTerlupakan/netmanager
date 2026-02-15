@@ -80,7 +80,7 @@ export default function SalaryUsersClient() {
     const [woIncentiveRate, setWoIncentiveRate] = useState('')
     const [lateDeductionRate, setLateDeductionRate] = useState('')
     const [absentDeductionRate, setAbsentDeductionRate] = useState('')
-    const [pendingComponents, setPendingComponents] = useState<{name: string, type: 'EARNING' | 'DEDUCTION', rateType: 'FIXED' | 'PERCENTAGE', amount: number, notes: string}[]>([])
+    const [pendingComponents, setPendingComponents] = useState<{ name: string, type: 'EARNING' | 'DEDUCTION', rateType: 'FIXED' | 'PERCENTAGE', amount: number, notes: string }[]>([])
 
     // Form states untuk komponen dicover oleh newComponent* states di atas
     // const [selectedComponentId, setSelectedComponentId] = useState('')
@@ -172,7 +172,7 @@ export default function SalaryUsersClient() {
                     })
                     const createJson = await createRes.json()
                     const createData = createJson.data || createJson
-                    
+
                     if (createJson.success && createData.component) {
                         // Then assign to user with action='assign'
                         await fetch('/api/admin/salary/components', {
@@ -342,7 +342,7 @@ export default function SalaryUsersClient() {
                     }),
                 })
                 const assignData = await assignRes.json()
-                
+
                 if (assignData.success) {
                     setNewComponentName('')
                     setNewComponentAmount('')
@@ -414,8 +414,8 @@ export default function SalaryUsersClient() {
                         <div className="flex items-center gap-3">
                             <HiOutlineUsers className="w-8 h-8 text-indigo-500" />
                             <div>
-                                <div className="text-2xl font-bold">{users.length}</div>
-                                <div className="text-sm text-gray-500">Total Karyawan</div>
+                                <div className="text-2xl font-bold text-gray-900 dark:text-white">{users.length}</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">Total Karyawan</div>
                             </div>
                         </div>
                     </CardContent>
@@ -425,10 +425,10 @@ export default function SalaryUsersClient() {
                         <div className="flex items-center gap-3">
                             <HiOutlineCurrencyDollar className="w-8 h-8 text-green-500" />
                             <div>
-                                <div className="text-lg font-bold">
+                                <div className="text-lg font-bold text-gray-900 dark:text-white">
                                     {formatCurrency(users.reduce((sum, u) => sum + (u.basicSalary || 0), 0))}
                                 </div>
-                                <div className="text-sm text-gray-500">Total Gaji Pokok</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">Total Gaji Pokok</div>
                             </div>
                         </div>
                     </CardContent>
@@ -439,11 +439,11 @@ export default function SalaryUsersClient() {
             <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
                 <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-4">
                     <div className="flex items-center justify-between">
-                        <CardTitle className="text-base font-semibold">Daftar Karyawan</CardTitle>
+                        <CardTitle className="text-base font-semibold text-gray-900 dark:text-white">Daftar Karyawan</CardTitle>
                         <div className="flex gap-2">
-                           <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
-                               {users.length} Karyawan
-                           </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+                                {users.length} Karyawan
+                            </span>
                         </div>
                     </div>
                 </CardHeader>
@@ -451,7 +451,7 @@ export default function SalaryUsersClient() {
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20">
                             <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-                            <p className="text-sm text-gray-500 animate-pulse">Memuat data...</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">Memuat data...</p>
                         </div>
                     ) : users.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -459,12 +459,12 @@ export default function SalaryUsersClient() {
                                 <HiOutlineUsers className="w-8 h-8 text-gray-400" />
                             </div>
                             <h3 className="text-gray-900 dark:text-gray-200 font-medium mb-1">Daftar Kosong</h3>
-                            <p className="text-sm text-gray-500 max-w-xs mx-auto mb-6">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto mb-6">
                                 Belum ada karyawan yang ditambahkan ke daftar gaji.
                             </p>
                             <button
                                 onClick={() => setShowAddModal(true)}
-                                className="text-sm text-indigo-600 font-medium hover:text-indigo-700 hover:underline"
+                                className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline"
                             >
                                 + Tambah Karyawan Sekarang
                             </button>
@@ -474,43 +474,43 @@ export default function SalaryUsersClient() {
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
                                     <tr>
-                                        <th className="py-3 px-6 font-medium text-gray-500 w-[300px]">KARYAWAN</th>
-                                        <th className="py-3 px-6 font-medium text-gray-500">DEPARTEMEN</th>
-                                        <th className="py-3 px-6 font-medium text-gray-500">STATUS</th>
-                                        <th className="py-3 px-6 font-medium text-gray-500 text-right">GAJI POKOK</th>
-                                        <th className="py-3 px-6 font-medium text-gray-500 text-center w-[100px]">AKSI</th>
+                                        <th className="py-3 px-6 font-medium text-gray-500 dark:text-gray-400 w-[300px]">KARYAWAN</th>
+                                        <th className="py-3 px-6 font-medium text-gray-500 dark:text-gray-400">DEPARTEMEN</th>
+                                        <th className="py-3 px-6 font-medium text-gray-500 dark:text-gray-400">STATUS</th>
+                                        <th className="py-3 px-6 font-medium text-gray-500 dark:text-gray-400 text-right">GAJI POKOK</th>
+                                        <th className="py-3 px-6 font-medium text-gray-500 dark:text-gray-400 text-center w-[100px]">AKSI</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {users.map((user) => {
                                         // Generate avatar color based on name length
                                         const colors = [
-                                            'bg-blue-100 text-blue-600 border-blue-200',
-                                            'bg-purple-100 text-purple-600 border-purple-200',
-                                            'bg-emerald-100 text-emerald-600 border-emerald-200',
-                                            'bg-amber-100 text-amber-600 border-amber-200',
-                                            'bg-rose-100 text-rose-600 border-rose-200',
-                                            'bg-indigo-100 text-indigo-600 border-indigo-200'
+                                            'bg-blue-100 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+                                            'bg-purple-100 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800',
+                                            'bg-emerald-100 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+                                            'bg-amber-100 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+                                            'bg-rose-100 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800',
+                                            'bg-indigo-100 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
                                         ]
                                         const colorIndex = (user.name?.length || 0) % colors.length
                                         const avatarColor = colors[colorIndex]
                                         const initials = (user.name || '?').substring(0, 2).toUpperCase()
 
                                         return (
-                                            <tr 
-                                                key={user.id} 
+                                            <tr
+                                                key={user.id}
                                                 className="group hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors"
                                             >
                                                 <td className="py-4 px-6">
                                                     <Link href={`/admin/salary/users/${user.id}`} className="flex items-center gap-3">
-                                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold border ${avatarColor} dark:bg-opacity-20 dark:border-opacity-20 group-hover:ring-2 ring-indigo-100 transition-all`}>
+                                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold border ${avatarColor} dark:bg-opacity-20 dark:border-opacity-20 group-hover:ring-2 ring-indigo-100 dark:ring-indigo-900 transition-all`}>
                                                             {initials}
                                                         </div>
                                                         <div>
-                                                            <div className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 transition-colors">
+                                                            <div className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                                                 {user.name || 'Tanpa Nama'}
                                                             </div>
-                                                            <div className="text-xs text-gray-500 font-normal">
+                                                            <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
                                                                 {user.email}
                                                             </div>
                                                         </div>
@@ -519,7 +519,7 @@ export default function SalaryUsersClient() {
                                                 <td className="py-4 px-6">
                                                     <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                                                         {user.departments ? (
-                                                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800">
+                                                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                                                                 {user.departments.name}
                                                             </span>
                                                         ) : (
@@ -549,7 +549,7 @@ export default function SalaryUsersClient() {
                                                     <div className="flex items-center justify-center gap-1">
                                                         <Link
                                                             href={`/admin/salary/users/${user.id}`}
-                                                            className="p-1.5 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-lg transition-colors"
+                                                            className="p-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg transition-colors"
                                                             title="Lihat Detail"
                                                         >
                                                             <HiOutlineEye className="w-4 h-4" />
@@ -557,7 +557,7 @@ export default function SalaryUsersClient() {
                                                         <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                                                         <button
                                                             onClick={() => openEditModal(user)}
-                                                            className="p-1.5 hover:bg-orange-50 text-gray-400 hover:text-orange-500 rounded-lg transition-colors"
+                                                            className="p-1.5 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 rounded-lg transition-colors"
                                                             title="Edit Konfigurasi"
                                                         >
                                                             <HiOutlinePencil className="w-4 h-4" />
@@ -565,7 +565,7 @@ export default function SalaryUsersClient() {
                                                         <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                                                         <button
                                                             onClick={() => handleDeleteUser(user.id)}
-                                                            className="p-1.5 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors"
+                                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
                                                             title="Hapus dari Daftar"
                                                         >
                                                             <HiOutlineTrash className="w-4 h-4" />
@@ -594,11 +594,11 @@ export default function SalaryUsersClient() {
                     {/* Pilih Karyawan */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium mb-1">Pilih Karyawan *</label>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Pilih Karyawan *</label>
                             <select
                                 value={selectedUserId}
                                 onChange={(e) => setSelectedUserId(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 required
                             >
                                 <option value="">-- Pilih Karyawan --</option>
@@ -610,11 +610,11 @@ export default function SalaryUsersClient() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Tipe Karyawan *</label>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tipe Karyawan *</label>
                             <select
                                 value={employeeType}
                                 onChange={(e) => setEmployeeType(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 required
                             >
                                 <option value="KARYAWAN">Karyawan</option>
@@ -625,12 +625,12 @@ export default function SalaryUsersClient() {
 
                     {/* Gaji Pokok */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">Gaji Pokok (Rp) *</label>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Gaji Pokok (Rp) *</label>
                         <input
                             type="number"
                             value={basicSalary}
                             onChange={(e) => setBasicSalary(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                             placeholder="0"
                             required
                         />
@@ -639,26 +639,26 @@ export default function SalaryUsersClient() {
                     {/* Siklus Gaji & Cutoff */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium mb-1 text-emerald-600">Tanggal Cutoff (Siklus) *</label>
+                            <label className="block text-sm font-medium mb-1 text-emerald-600 dark:text-emerald-400">Tanggal Cutoff (Siklus) *</label>
                             <input
                                 type="number"
                                 min="1"
                                 max="31"
                                 value={payPeriodDay}
                                 onChange={(e) => setPayPeriodDay(parseInt(e.target.value))}
-                                className="w-full px-3 py-2 border-2 border-emerald-100 rounded-lg dark:bg-gray-700 dark:border-emerald-900/30"
+                                className="w-full px-3 py-2 border-2 border-emerald-100 rounded-lg dark:bg-gray-700 dark:border-emerald-900/30 text-gray-900 dark:text-white"
                                 required
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Tanggal Gajian *</label>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tanggal Gajian *</label>
                             <input
                                 type="number"
                                 min="1"
                                 max="31"
                                 value={payDay}
                                 onChange={(e) => setPayDay(parseInt(e.target.value))}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 required
                             />
                         </div>
@@ -680,7 +680,7 @@ export default function SalaryUsersClient() {
                                     <select
                                         value={overtimeCalcTypeNormal}
                                         onChange={(e) => setOvertimeCalcTypeNormal(e.target.value)}
-                                        className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600"
+                                        className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                     >
                                         <option value="PER_HOUR">/Jam</option>
                                         <option value="FIXED">/Hari</option>
@@ -692,7 +692,7 @@ export default function SalaryUsersClient() {
                                     type="number"
                                     value={overtimeRateNormal}
                                     onChange={(e) => setOvertimeRateNormal(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                     placeholder={overtimeCalcTypeNormal === 'PERCENTAGE' ? '1.5' : '50000'}
                                 />
                             </div>
@@ -704,7 +704,7 @@ export default function SalaryUsersClient() {
                                     <select
                                         value={overtimeCalcTypeHoliday}
                                         onChange={(e) => setOvertimeCalcTypeHoliday(e.target.value)}
-                                        className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600"
+                                        className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                     >
                                         <option value="PER_HOUR">/Jam</option>
                                         <option value="FIXED">/Hari</option>
@@ -716,7 +716,7 @@ export default function SalaryUsersClient() {
                                     type="number"
                                     value={overtimeRateHoliday}
                                     onChange={(e) => setOvertimeRateHoliday(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                     placeholder={overtimeCalcTypeHoliday === 'PERCENTAGE' ? '2' : '75000'}
                                 />
                             </div>
@@ -728,7 +728,7 @@ export default function SalaryUsersClient() {
                                     <select
                                         value={overtimeCalcTypeNational}
                                         onChange={(e) => setOvertimeCalcTypeNational(e.target.value)}
-                                        className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600"
+                                        className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                     >
                                         <option value="PER_HOUR">/Jam</option>
                                         <option value="FIXED">/Hari</option>
@@ -740,7 +740,7 @@ export default function SalaryUsersClient() {
                                     type="number"
                                     value={overtimeRateNational}
                                     onChange={(e) => setOvertimeRateNational(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                     placeholder={overtimeCalcTypeNational === 'PERCENTAGE' ? '3' : '100000'}
                                 />
                             </div>
@@ -762,7 +762,7 @@ export default function SalaryUsersClient() {
                                     type="number"
                                     value={woIncentiveRate}
                                     onChange={(e) => setWoIncentiveRate(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                     placeholder="25000"
                                 />
                             </div>
@@ -772,7 +772,7 @@ export default function SalaryUsersClient() {
                                     type="number"
                                     value={lateDeductionRate}
                                     onChange={(e) => setLateDeductionRate(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                     placeholder="25000"
                                 />
                             </div>
@@ -782,7 +782,7 @@ export default function SalaryUsersClient() {
                                     type="number"
                                     value={absentDeductionRate}
                                     onChange={(e) => setAbsentDeductionRate(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                     placeholder="100000"
                                 />
                             </div>
@@ -798,44 +798,40 @@ export default function SalaryUsersClient() {
                             Komponen Gaji Tambahan
                             <span className="text-xs text-gray-400 font-normal">(opsional)</span>
                         </h4>
-                        
+
                         {/* Pending Components List */}
                         {pendingComponents.length > 0 && (
                             <div className="space-y-1.5 mb-3">
                                 {pendingComponents.map((pc, idx) => (
                                     <div
                                         key={idx}
-                                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:shadow-md border ${
-                                            pc.type === 'EARNING'
-                                                ? 'bg-linear-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300'
-                                                : 'bg-linear-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300'
-                                        }`}
+                                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:shadow-md border ${pc.type === 'EARNING'
+                                            ? 'bg-linear-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300'
+                                            : 'bg-linear-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300'
+                                            }`}
                                     >
                                         <div className="flex items-center gap-2">
-                                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                                                pc.type === 'EARNING' 
-                                                    ? 'bg-green-500 text-white' 
-                                                    : 'bg-red-500 text-white'
-                                            }`}>
+                                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${pc.type === 'EARNING'
+                                                ? 'bg-green-500 text-white'
+                                                : 'bg-red-500 text-white'
+                                                }`}>
                                                 {pc.type === 'EARNING' ? '+' : '-'}
                                             </span>
                                             <span className="font-medium text-gray-700 dark:text-gray-200">{pc.name}</span>
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                                pc.rateType === 'PERCENTAGE'
-                                                    ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
-                                                    : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                                            }`}>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${pc.rateType === 'PERCENTAGE'
+                                                ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                                                : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                                                }`}>
                                                 {pc.rateType === 'PERCENTAGE' ? '%' : 'Fix'}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className={`font-semibold ${
-                                                pc.type === 'EARNING' 
-                                                    ? 'text-green-600 dark:text-green-400' 
-                                                    : 'text-red-600 dark:text-red-400'
-                                            }`}>
-                                                {pc.rateType === 'PERCENTAGE' 
-                                                    ? `${pc.amount}%` 
+                                            <span className={`font-semibold ${pc.type === 'EARNING'
+                                                ? 'text-green-600 dark:text-green-400'
+                                                : 'text-red-600 dark:text-red-400'
+                                                }`}>
+                                                {pc.rateType === 'PERCENTAGE'
+                                                    ? `${pc.amount}%`
                                                     : `Rp ${pc.amount.toLocaleString('id-ID')}`
                                                 }
                                             </span>
@@ -860,12 +856,12 @@ export default function SalaryUsersClient() {
                                     value={newComponentName}
                                     onChange={(e) => setNewComponentName(e.target.value)}
                                     placeholder="Nama komponen (mis: Tunjangan Transport)"
-                                    className="col-span-4 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="col-span-4 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                 />
                                 <select
                                     value={newComponentType}
                                     onChange={(e) => setNewComponentType(e.target.value as 'EARNING' | 'DEDUCTION')}
-                                    className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 >
                                     <option value="EARNING">+ Pendapatan</option>
                                     <option value="DEDUCTION">- Potongan</option>
@@ -873,7 +869,7 @@ export default function SalaryUsersClient() {
                                 <select
                                     value={newComponentRateType}
                                     onChange={(e) => setNewComponentRateType(e.target.value as 'FIXED' | 'PERCENTAGE')}
-                                    className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 >
                                     <option value="FIXED">Fix (Rp)</option>
                                     <option value="PERCENTAGE">% Gaji</option>
@@ -883,7 +879,7 @@ export default function SalaryUsersClient() {
                                     value={newComponentAmount}
                                     onChange={(e) => setNewComponentAmount(e.target.value)}
                                     placeholder={newComponentRateType === 'PERCENTAGE' ? '5 (5%)' : '500000'}
-                                    className="col-span-3 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                    className="col-span-3 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                 />
                                 <button
                                     type="button"
@@ -948,11 +944,11 @@ export default function SalaryUsersClient() {
                         {/* Basic Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Tipe Karyawan</label>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tipe Karyawan</label>
                                 <select
                                     value={editForm.employeeType}
                                     onChange={(e) => setEditForm({ ...editForm, employeeType: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 >
                                     <option value="KARYAWAN">Karyawan</option>
                                     <option value="MITRA">Mitra</option>
@@ -961,7 +957,7 @@ export default function SalaryUsersClient() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Gaji Pokok (Rp)</label>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Gaji Pokok (Rp)</label>
                                 <input
                                     type="text"
                                     value={editForm.basicSalary ? Number(editForm.basicSalary).toLocaleString('id-ID') : ''}
@@ -969,7 +965,7 @@ export default function SalaryUsersClient() {
                                         const val = e.target.value.replace(/\D/g, '')
                                         setEditForm({ ...editForm, basicSalary: val })
                                     }}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                     placeholder="0"
                                 />
                             </div>
@@ -978,25 +974,25 @@ export default function SalaryUsersClient() {
                         {/* Cutoff & Pay Day */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div>
-                                <label className="block text-sm font-bold mb-1 text-emerald-600">Tanggal Cutoff (Siklus)</label>
+                                <label className="block text-sm font-bold mb-1 text-emerald-600 dark:text-emerald-400">Tanggal Cutoff (Siklus)</label>
                                 <input
                                     type="number"
                                     min="1"
                                     max="31"
                                     value={editForm.payPeriodDay}
                                     onChange={(e) => setEditForm({ ...editForm, payPeriodDay: parseInt(e.target.value) })}
-                                    className="w-full px-3 py-2 border-2 border-emerald-100 rounded-lg dark:bg-gray-700 dark:border-emerald-900/30 font-semibold"
+                                    className="w-full px-3 py-2 border-2 border-emerald-100 rounded-lg dark:bg-gray-700 dark:border-emerald-900/30 font-semibold text-gray-900 dark:text-white"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Tanggal Gajian</label>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tanggal Gajian</label>
                                 <input
                                     type="number"
                                     min="1"
                                     max="31"
                                     value={editForm.payDay}
                                     onChange={(e) => setEditForm({ ...editForm, payDay: parseInt(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 />
                             </div>
                         </div>
@@ -1014,10 +1010,10 @@ export default function SalaryUsersClient() {
                                 <div className="bg-gray-50/80 dark:bg-gray-800/30 p-3 rounded-lg border border-gray-100 dark:border-gray-700/30">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Hari Biasa</span>
-                                        <select 
+                                        <select
                                             value={editForm.overtimeCalcTypeNormal || 'PER_HOUR'}
-                                            onChange={(e) => setEditForm({...editForm, overtimeCalcTypeNormal: e.target.value})}
-                                            className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600"
+                                            onChange={(e) => setEditForm({ ...editForm, overtimeCalcTypeNormal: e.target.value })}
+                                            className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                         >
                                             <option value="PER_HOUR">/Jam</option>
                                             <option value="FIXED">/Hari</option>
@@ -1029,7 +1025,7 @@ export default function SalaryUsersClient() {
                                         type="text"
                                         value={editForm.overtimeRateNormal ? Number(editForm.overtimeRateNormal).toLocaleString('id-ID') : ''}
                                         onChange={(e) => setEditForm({ ...editForm, overtimeRateNormal: e.target.value.replace(/\D/g, '') })}
-                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                         placeholder={editForm.overtimeCalcTypeNormal === 'PERCENTAGE' ? '1.5' : '50000'}
                                     />
                                 </div>
@@ -1038,10 +1034,10 @@ export default function SalaryUsersClient() {
                                 <div className="bg-orange-50/80 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-700/30">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Hari Libur</span>
-                                        <select 
+                                        <select
                                             value={editForm.overtimeCalcTypeHoliday || 'PER_HOUR'}
-                                            onChange={(e) => setEditForm({...editForm, overtimeCalcTypeHoliday: e.target.value})}
-                                            className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600"
+                                            onChange={(e) => setEditForm({ ...editForm, overtimeCalcTypeHoliday: e.target.value })}
+                                            className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                         >
                                             <option value="PER_HOUR">/Jam</option>
                                             <option value="FIXED">/Hari</option>
@@ -1053,7 +1049,7 @@ export default function SalaryUsersClient() {
                                         type="text"
                                         value={editForm.overtimeRateHoliday ? Number(editForm.overtimeRateHoliday).toLocaleString('id-ID') : ''}
                                         onChange={(e) => setEditForm({ ...editForm, overtimeRateHoliday: e.target.value.replace(/\D/g, '') })}
-                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                         placeholder={editForm.overtimeCalcTypeHoliday === 'PERCENTAGE' ? '2' : '75000'}
                                     />
                                 </div>
@@ -1062,10 +1058,10 @@ export default function SalaryUsersClient() {
                                 <div className="bg-red-50/80 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-700/30">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-xs font-medium text-red-600 dark:text-red-400">Libur Nasional</span>
-                                        <select 
+                                        <select
                                             value={editForm.overtimeCalcTypeNational || 'PER_HOUR'}
-                                            onChange={(e) => setEditForm({...editForm, overtimeCalcTypeNational: e.target.value})}
-                                            className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600"
+                                            onChange={(e) => setEditForm({ ...editForm, overtimeCalcTypeNational: e.target.value })}
+                                            className="px-1.5 py-0.5 border border-gray-200 rounded text-[10px] bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                         >
                                             <option value="PER_HOUR">/Jam</option>
                                             <option value="FIXED">/Hari</option>
@@ -1077,7 +1073,7 @@ export default function SalaryUsersClient() {
                                         type="text"
                                         value={editForm.overtimeRateNational ? Number(editForm.overtimeRateNational).toLocaleString('id-ID') : ''}
                                         onChange={(e) => setEditForm({ ...editForm, overtimeRateNational: e.target.value.replace(/\D/g, '') })}
-                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                         placeholder={editForm.overtimeCalcTypeNational === 'PERCENTAGE' ? '3' : '100000'}
                                     />
                                 </div>
@@ -1100,7 +1096,7 @@ export default function SalaryUsersClient() {
                                         type="text"
                                         value={editForm.woIncentiveRate ? Number(editForm.woIncentiveRate).toLocaleString('id-ID') : ''}
                                         onChange={(e) => setEditForm({ ...editForm, woIncentiveRate: e.target.value.replace(/\D/g, '') })}
-                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                         placeholder="0"
                                     />
                                 </div>
@@ -1112,7 +1108,7 @@ export default function SalaryUsersClient() {
                                         type="text"
                                         value={editForm.lateDeductionRate ? Number(editForm.lateDeductionRate).toLocaleString('id-ID') : ''}
                                         onChange={(e) => setEditForm({ ...editForm, lateDeductionRate: e.target.value.replace(/\D/g, '') })}
-                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                         placeholder="0"
                                     />
                                 </div>
@@ -1124,13 +1120,13 @@ export default function SalaryUsersClient() {
                                         type="text"
                                         value={editForm.absentDeductionRate ? Number(editForm.absentDeductionRate).toLocaleString('id-ID') : ''}
                                         onChange={(e) => setEditForm({ ...editForm, absentDeductionRate: e.target.value.replace(/\D/g, '') })}
-                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                         placeholder="0"
                                     />
                                 </div>
                             </div>
                         </div>
-                        
+
                         {/* Komponen Gaji Tambahan Section */}
                         <div className="border-t border-gray-100 dark:border-gray-700/50 pt-4">
                             <h4 className="font-medium mb-3 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
@@ -1139,7 +1135,7 @@ export default function SalaryUsersClient() {
                                 </span>
                                 Kelola Komponen Gaji Tambahan
                             </h4>
-                            
+
                             <div className="space-y-4">
                                 {/* Existing Components List - Moved to Top */}
                                 <div className="space-y-2">
@@ -1147,37 +1143,33 @@ export default function SalaryUsersClient() {
                                         userComponents.map((uc) => (
                                             <div
                                                 key={uc.id}
-                                                className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:shadow-md border ${
-                                                    uc.component.type === 'EARNING'
-                                                        ? 'bg-linear-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300'
-                                                        : 'bg-linear-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300'
-                                                }`}
+                                                className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:shadow-md border ${uc.component.type === 'EARNING'
+                                                    ? 'bg-linear-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300'
+                                                    : 'bg-linear-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300'
+                                                    }`}
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                                                        uc.component.type === 'EARNING' 
-                                                            ? 'bg-green-500 text-white' 
-                                                            : 'bg-red-500 text-white'
-                                                    }`}>
+                                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${uc.component.type === 'EARNING'
+                                                        ? 'bg-green-500 text-white'
+                                                        : 'bg-red-500 text-white'
+                                                        }`}>
                                                         {uc.component.type === 'EARNING' ? '+' : '-'}
                                                     </span>
                                                     <span className="font-medium text-gray-700 dark:text-gray-200">{uc.component.name}</span>
-                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                                        uc.component.rateType === 'PERCENTAGE'
-                                                            ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' 
-                                                            : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                                                    }`}>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${uc.component.rateType === 'PERCENTAGE'
+                                                        ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                                                        : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                                                        }`}>
                                                         {uc.component.rateType === 'PERCENTAGE' ? '%' : 'Fix'}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`font-semibold ${
-                                                        uc.component.type === 'EARNING' 
-                                                            ? 'text-green-600 dark:text-green-400' 
-                                                            : 'text-red-600 dark:text-red-400'
-                                                    }`}>
+                                                    <span className={`font-semibold ${uc.component.type === 'EARNING'
+                                                        ? 'text-green-600 dark:text-green-400'
+                                                        : 'text-red-600 dark:text-red-400'
+                                                        }`}>
                                                         {uc.component.rateType === 'PERCENTAGE'
-                                                            ? `${uc.amount}%` 
+                                                            ? `${uc.amount}%`
                                                             : formatCurrency(uc.amount)
                                                         }
                                                     </span>
@@ -1207,12 +1199,12 @@ export default function SalaryUsersClient() {
                                             value={newComponentName}
                                             onChange={(e) => setNewComponentName(e.target.value)}
                                             placeholder="Nama komponen"
-                                            className="col-span-4 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            className="col-span-4 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                         />
                                         <select
                                             value={newComponentType}
                                             onChange={(e) => setNewComponentType(e.target.value as 'EARNING' | 'DEDUCTION')}
-                                            className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                         >
                                             <option value="EARNING">+ Pend</option>
                                             <option value="DEDUCTION">- Pot</option>
@@ -1220,7 +1212,7 @@ export default function SalaryUsersClient() {
                                         <select
                                             value={newComponentRateType}
                                             onChange={(e) => setNewComponentRateType(e.target.value as 'FIXED' | 'PERCENTAGE')}
-                                            className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                            className="col-span-2 px-2 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                         >
                                             <option value="FIXED">Fix (Rp)</option>
                                             <option value="PERCENTAGE">% Gaji</option>
@@ -1238,7 +1230,7 @@ export default function SalaryUsersClient() {
                                                     }
                                                 }}
                                                 placeholder={newComponentRateType === 'PERCENTAGE' ? '5' : '500.000'}
-                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                             />
                                         </div>
                                         <button

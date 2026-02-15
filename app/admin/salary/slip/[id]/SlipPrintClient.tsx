@@ -61,7 +61,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
     const deductions = salary.details.filter((d: SalaryDetail) => d.type === 'DEDUCTION')
 
     return (
-        <div className="min-h-screen bg-gray-100 p-8 flex justify-center items-start print:bg-white print:p-0">
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-8 flex justify-center items-start print:bg-white print:p-0">
             <style jsx global>{`
                 @media print {
                     @page { margin: 0; }
@@ -73,7 +73,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
             <div className="bg-white p-8 w-[80mm] min-h-[100mm] shadow-lg font-mono text-sm print:shadow-none print:w-full">
                 {/* Actions */}
                 <div className="mb-6 flex justify-center no-print">
-                    <button 
+                    <button
                         onClick={() => window.print()}
                         className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
                     >
@@ -100,7 +100,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
                         <span className="text-gray-500">Nama:</span>
                         <span className="font-bold">{salary.user.name}</span>
                     </div>
-                     <div className="flex justify-between">
+                    <div className="flex justify-between">
                         <span className="text-gray-500">ID:</span>
                         <span>{salary.user.employeeId || '-'}</span>
                     </div>
@@ -108,7 +108,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
                         <span className="text-gray-500">Jabatan:</span>
                         <span>{salary.user.departments?.name || '-'}</span>
                     </div>
-                     <div className="flex justify-between">
+                    <div className="flex justify-between">
                         <span className="text-gray-500">Status:</span>
                         <span>{salary.user.employeeType}</span>
                     </div>
@@ -144,7 +144,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
                 {deductions.length > 0 && (
                     <div className="mb-4">
                         <h3 className="font-bold mb-2 text-red-600 print:text-black">POTONGAN</h3>
-                         <div className="space-y-1">
+                        <div className="space-y-1">
                             {deductions.map((item: SalaryDetail) => (
                                 <div key={item.id} className="flex justify-between text-red-600 print:text-black">
                                     <span className={item.quantity ? 'text-xs' : ''}>

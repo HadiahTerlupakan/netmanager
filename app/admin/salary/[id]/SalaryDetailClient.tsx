@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { 
+import {
     HiOutlineArrowLeft,
     HiOutlinePrinter,
     HiOutlineCheckCircle,
@@ -95,13 +95,13 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
     // Status colors
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'DRAFT': return 'bg-gray-100 text-gray-800'
-            case 'CALCULATED': return 'bg-blue-100 text-blue-800'
-            case 'AUDITED': return 'bg-yellow-100 text-yellow-800'
-            case 'APPROVED': return 'bg-green-100 text-green-800'
-            case 'PAID': return 'bg-emerald-100 text-emerald-800'
-            case 'REVISED': return 'bg-red-100 text-red-800'
-            default: return 'bg-gray-100 text-gray-800'
+            case 'DRAFT': return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
+            case 'CALCULATED': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+            case 'AUDITED': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800'
+            case 'APPROVED': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200 border border-green-200 dark:border-green-800'
+            case 'PAID': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800'
+            case 'REVISED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200 border border-red-200 dark:border-red-800'
+            default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
         }
     }
 
@@ -229,9 +229,8 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                         <CardContent className="p-6">
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
-                                        salary.user.employeeType === 'KARYAWAN' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'
-                                    }`}>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${salary.user.employeeType === 'KARYAWAN' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'
+                                        }`}>
                                         {salary.user.name?.substring(0, 2).toUpperCase()}
                                     </div>
                                     <div>
@@ -275,7 +274,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     {salary.status === 'REVISED' && (
                                         <button
                                             onClick={() => {
-                                                setAdjustData({...adjustData, type: 'EARNING'})
+                                                setAdjustData({ ...adjustData, type: 'EARNING' })
                                                 setShowAdjustModal(true)
                                             }}
                                             className="text-xs flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50 px-2 py-1 rounded transition-colors border border-transparent hover:border-green-200"
@@ -318,7 +317,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     {salary.status === 'REVISED' && (
                                         <button
                                             onClick={() => {
-                                                setAdjustData({...adjustData, type: 'DEDUCTION'})
+                                                setAdjustData({ ...adjustData, type: 'DEDUCTION' })
                                                 setShowAdjustModal(true)
                                             }}
                                             className="text-xs flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors border border-transparent hover:border-red-200"
@@ -382,7 +381,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     // e.g. "Bonus: 500000" -> "Bonus: Rp 500.000"
                                     const getValueLabel = (val: string | null) => {
                                         if (!val) return '-'
-                                        
+
                                         // Case 1: Pure number
                                         if (!isNaN(Number(val))) {
                                             return formatCurrency(Number(val))
@@ -403,7 +402,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
 
                                     // Check if reason is a UUID (UUID regex)
                                     const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-                                    
+
                                     // Determine display reason
                                     const displayReason = isUUID(rev.reason) ? (
                                         rev.field === 'status' ? 'Status updated via system/audit' : 'Manual adjustment'
@@ -425,7 +424,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                                         {new Date(rev.createdAt).toLocaleString('id-ID')}
                                                     </span>
                                                 </div>
-                                                
+
                                                 {rev.field && rev.field !== 'status' && (
                                                     <div className="mt-2 text-xs bg-white dark:bg-gray-900 p-2 rounded border border-gray-200 dark:border-gray-700 inline-block">
                                                         {rev.oldValue ? (
@@ -436,13 +435,13 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                                         </span>
                                                     </div>
                                                 )}
-                                                
+
                                                 {rev.field === 'status' && (
-                                                     <div className="mt-2 text-xs">
+                                                    <div className="mt-2 text-xs">
                                                         <span className={`px-2 py-0.5 rounded ${getStatusColor(rev.oldValue || '')} border border-black/5`}>{rev.oldValue || '-'}</span>
                                                         <span className="text-gray-400 mx-2">→</span>
                                                         <span className={`px-2 py-0.5 rounded ${getStatusColor(rev.newValue || '')} border border-black/5`}>{rev.newValue}</span>
-                                                     </div>
+                                                    </div>
                                                 )}
 
                                                 <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
@@ -466,7 +465,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {/* Actions based on Status & Permission */}
-                            
+
                             {/* DRAFT / CALCULATED / REVISED -> Audit */}
                             {(salary.status === 'CALCULATED' || salary.status === 'REVISED') && hasPermission('salary:audit') && (
                                 <>
@@ -482,7 +481,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                         <button
                                             onClick={() => handleAction('recalculate')}
                                             disabled={loading}
-                                            className="flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-3 px-4 rounded-lg transition-colors border border-blue-200"
+                                            className="flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-3 px-4 rounded-lg transition-colors border border-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800"
                                             title="Hitung ulang gaji (ambil data terbaru dari absensi & settings)"
                                         >
                                             <HiOutlineArrowPath className="w-5 h-5" />
@@ -490,9 +489,9 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     </div>
 
                                     {(salary.status === 'REVISED') && (
-                                         <div className="p-3 bg-amber-50 border border-amber-100 rounded text-sm text-amber-800 mb-2">
+                                        <div className="p-3 bg-amber-50 border border-amber-100 rounded text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 mb-2">
                                             Tips: Gunakan tombol <strong>+ Tambah Pendapatan/Potongan Manual</strong> di bagian rincian gaji untuk menambahkan komponen revisi.
-                                         </div>
+                                        </div>
                                     )}
 
                                     {/* Minta Revisi - Only show if current status is NOT Revised */}
@@ -501,15 +500,15 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                             <button
                                                 onClick={() => setShowRevisionInput(true)}
                                                 disabled={loading}
-                                                className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-medium py-3 px-4 rounded-lg transition-colors"
+                                                className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-medium py-3 px-4 rounded-lg transition-colors dark:bg-red-900/10 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                                             >
                                                 <HiOutlineXCircle className="w-5 h-5" />
                                                 Minta Revisi
                                             </button>
                                         ) : (
-                                            <div className="bg-red-50 p-4 rounded-lg space-y-3">
+                                            <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg space-y-3 border border-red-100 dark:border-red-800">
                                                 <textarea
-                                                    className="w-full p-2 border border-red-200 rounded text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                                                    className="w-full p-2 border border-red-200 rounded text-sm focus:ring-2 focus:ring-red-500 outline-none dark:bg-red-950/30 dark:border-red-800 dark:text-red-200 dark:placeholder-red-400"
                                                     placeholder="Alasan revisi..."
                                                     rows={3}
                                                     value={auditNotes}
@@ -525,7 +524,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                                     </button>
                                                     <button
                                                         onClick={() => setShowRevisionInput(false)}
-                                                        className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+                                                        className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                                                     >
                                                         Batal
                                                     </button>
@@ -539,12 +538,12 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                             {/* AUDITED -> Approve */}
                             {salary.status === 'AUDITED' && hasPermission('salary:approve') && (
                                 <div className="space-y-3">
-                                    <div className="bg-yellow-50 border border-yellow-100 p-3 rounded-lg text-sm text-yellow-800">
+                                    <div className="bg-yellow-50 border border-yellow-100 p-3 rounded-lg text-sm text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200">
                                         <p className="font-semibold flex items-center gap-1">
                                             <HiOutlineCheckCircle className="w-4 h-4" />
                                             Diaudit oleh: {salary.auditedBy?.name || 'Unknown'}
                                         </p>
-                                        <p className="text-xs mt-1 text-yellow-700">
+                                        <p className="text-xs mt-1 text-yellow-700 dark:text-yellow-300">
                                             Data telah diverifikasi dan siap untuk approval manajer.
                                         </p>
                                     </div>
@@ -559,14 +558,14 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     <button
                                         onClick={() => setShowRevisionInput(true)}
                                         disabled={loading}
-                                        className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-3 px-4 rounded-lg transition-colors"
+                                        className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-3 px-4 rounded-lg transition-colors dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
                                         Tolak / Revisi
                                     </button>
                                     {showRevisionInput && (
-                                         <div className="bg-red-50 p-4 rounded-lg space-y-3">
+                                        <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg space-y-3 border border-red-100 dark:border-red-800">
                                             <textarea
-                                                className="w-full p-2 border border-red-200 rounded text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                                                className="w-full p-2 border border-red-200 rounded text-sm focus:ring-2 focus:ring-red-500 outline-none dark:bg-red-950/30 dark:border-red-800 dark:text-red-200 dark:placeholder-red-400"
                                                 placeholder="Alasan penolakan / revisi..."
                                                 rows={3}
                                                 value={auditNotes}
@@ -582,7 +581,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                                 </button>
                                                 <button
                                                     onClick={() => setShowRevisionInput(false)}
-                                                    className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+                                                    className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                                                 >
                                                     Batal
                                                 </button>
@@ -615,8 +614,8 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                 </div>
                             )}
 
-                             {/* PAID */}
-                             {salary.status === 'PAID' && (
+                            {/* PAID */}
+                            {salary.status === 'PAID' && (
                                 <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-lg text-center">
                                     <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3 text-emerald-600">
                                         <HiOutlineCheckCircle className="w-8 h-8" />
@@ -628,10 +627,10 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
 
                             {/* Downloads - Available for all (if can view) */}
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
-                                <Link 
+                                <Link
                                     href={`/admin/salary/slip/${salary.id}`}
                                     target="_blank"
-                                    className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors"
+                                    className="w-full flex items-center justify-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors"
                                 >
                                     <HiOutlinePrinter className="w-5 h-5" />
                                     Print Struk & PDF
@@ -645,7 +644,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
 
                     <Card>
                         <CardContent className="p-4 text-xs text-gray-500 space-y-2">
-                             <div className="flex justify-between">
+                            <div className="flex justify-between">
                                 <span>Status</span>
                                 <span className="font-mono">{salary.status}</span>
                             </div>
@@ -666,20 +665,20 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 space-y-4">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white">Tambah Komponen Manual</h3>
-                        
+
                         <div className="space-y-3">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipe</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipe</label>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => setAdjustData({...adjustData, type: 'EARNING'})}
-                                        className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'EARNING' ? 'bg-green-100 border-green-500 text-green-700 font-bold' : 'bg-gray-50 border-gray-200'}`}
+                                        onClick={() => setAdjustData({ ...adjustData, type: 'EARNING' })}
+                                        className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'EARNING' ? 'bg-green-100 border-green-500 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
                                     >
                                         Pendapatan
                                     </button>
                                     <button
-                                        onClick={() => setAdjustData({...adjustData, type: 'DEDUCTION'})}
-                                        className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'DEDUCTION' ? 'bg-red-100 border-red-500 text-red-700 font-bold' : 'bg-gray-50 border-gray-200'}`}
+                                        onClick={() => setAdjustData({ ...adjustData, type: 'DEDUCTION' })}
+                                        className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'DEDUCTION' ? 'bg-red-100 border-red-500 text-red-700 font-bold dark:bg-red-900/30 dark:text-red-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
                                     >
                                         Potongan
                                     </button>
@@ -687,35 +686,35 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Komponen</label>
-                                <input 
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Komponen</label>
+                                <input
                                     type="text"
-                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none"
+                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                                     placeholder={adjustData.type === 'EARNING' ? "Contoh: Bonus Project, Susulan Lembur" : "Contoh: Potongan Kasbon, Denda"}
                                     value={adjustData.name}
-                                    onChange={e => setAdjustData({...adjustData, name: e.target.value})}
+                                    onChange={e => setAdjustData({ ...adjustData, name: e.target.value })}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah (Rp)</label>
-                                <input 
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah (Rp)</label>
+                                <input
                                     type="number"
-                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none"
+                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                                     placeholder="0"
                                     value={adjustData.amount}
-                                    onChange={e => setAdjustData({...adjustData, amount: e.target.value})}
+                                    onChange={e => setAdjustData({ ...adjustData, amount: e.target.value })}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Catatan / Alasan</label>
-                                <textarea 
-                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none"
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catatan / Alasan</label>
+                                <textarea
+                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                                     rows={2}
                                     placeholder="Alasan penambahan..."
                                     value={adjustData.notes}
-                                    onChange={e => setAdjustData({...adjustData, notes: e.target.value})}
+                                    onChange={e => setAdjustData({ ...adjustData, notes: e.target.value })}
                                 />
                             </div>
                         </div>
@@ -730,7 +729,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                             </button>
                             <button
                                 onClick={() => setShowAdjustModal(false)}
-                                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+                                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal
                             </button>
