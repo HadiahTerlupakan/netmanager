@@ -62,6 +62,7 @@ export async function POST(req: Request) {
                 // console.log(`[MobileLogin] Input: ${password}, DB Plain: ${customer.password}, DB Login: ${customer.passwordLogin}`)
 
                 // 1. Check Plain text (Common for PPP synchronization)
+                // IMPORTANT: Ensure exact match (case-sensitive for password usually, but PPP might be lenient)
                 if (customer.password && customer.password === password) isPasswordValid = true
                 if (customer.passwordLogin && customer.passwordLogin === password) isPasswordValid = true
 
