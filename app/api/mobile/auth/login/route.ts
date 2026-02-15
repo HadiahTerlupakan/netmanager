@@ -43,12 +43,17 @@ export async function POST(req: Request) {
                 }
 
                 // Verify Password
-                // Check against 'password' (PPPoE) OR 'passwordLogin' (Portal specific)
-                // In many ISPs, customers use their PPPoE password for portal
+                // Check against 'password' (PPPoE/Plain) OR 'passwordLogin' (Portal Plain) OR 'passwordHash' (Secure)
                 let isPasswordValid = false
                 
-                if (customer.password === password) isPasswordValid = true
-                if (customer.passwordLogin === password) isPasswordValid = true
+                // 1. Check Plain text (Common for PPP synchronization)
+                if (customer.password && customer.password === password) isPasswordValid = true
+                if (customer.passwordLogin && customer.passwordLogin === password) isPasswordValid = true
+
+                // 2. Check Hash (If user changed password via portal securely)
+                if (!isPasswordValid && customer.passwordHash) {
+                    isPasswordValid = await compare(password, customer.passwordHash)
+                }
 
                 if (!isPasswordValid) {
                     return NextResponse.json({
