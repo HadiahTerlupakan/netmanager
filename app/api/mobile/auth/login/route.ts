@@ -6,7 +6,10 @@ import { signMobileToken } from '@/lib/mobile-auth'
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { email, password, versionCode, loginType } = body // Accept loginType
+        // DEBUG LOGGING
+        console.log('[MobileAuth] Login Request Body:', JSON.stringify(body, null, 2))
+        
+        const { email, password, versionCode, loginType } = body 
 
         if (!email || !password) {
             return NextResponse.json({ 
@@ -20,6 +23,8 @@ export async function POST(req: Request) {
         // ==========================================
         if (loginType === 'CUSTOMER') {
             try {
+                console.log(`[MobileLogin] Attempting Customer Login. Identifier: ${email}`)
+
                 // Search in local Pelanggan table
                 // Allow login by: Username (PPPoE), ID Pelanggan, or Email
                 const customer = await prisma.pelanggan.findFirst({
@@ -36,16 +41,23 @@ export async function POST(req: Request) {
                 })
 
                 if (!customer) {
+                    console.log(`[MobileLogin] Customer not found for: ${email}`)
                     return NextResponse.json({
                         success: false,
                         error: 'ID Pelanggan atau Username tidak ditemukan'
                     }, { status: 401 })
                 }
 
+                console.log(`[MobileLogin] Customer found: ${customer.nama} (${customer.id}). Verifying password...`)
+
                 // Verify Password
                 // Check against 'password' (PPPoE/Plain) OR 'passwordLogin' (Portal Plain) OR 'passwordHash' (Secure)
+                // In many ISPs, customers use their PPPoE password for portal
                 let isPasswordValid = false
                 
+                // Debug log (don't log passwords in production, but useful for dev)
+                // console.log(`[MobileLogin] Input: ${password}, DB Plain: ${customer.password}, DB Login: ${customer.passwordLogin}`)
+
                 // 1. Check Plain text (Common for PPP synchronization)
                 if (customer.password && customer.password === password) isPasswordValid = true
                 if (customer.passwordLogin && customer.passwordLogin === password) isPasswordValid = true
@@ -56,11 +68,14 @@ export async function POST(req: Request) {
                 }
 
                 if (!isPasswordValid) {
+                    console.log(`[MobileLogin] Password mismatch for customer: ${customer.id}`)
                     return NextResponse.json({
                         success: false,
                         error: 'Password salah'
                     }, { status: 401 })
                 }
+
+                console.log(`[MobileLogin] Login Success for customer: ${customer.nama}`)
 
                 // Generate Token for Customer
                 const tokenPayload = {
