@@ -29,7 +29,8 @@ export async function POST(req: Request) {
                 const searchResult = await mixRadiusService.fetchCustomersPPP({
                     search: email, // User inputs username/ID here
                     length: 1,
-                    searchType: 'username' // Prioritize username search
+                    // searchType: 'username' // Prioritize username search - REMOVED to allow broader search
+                    searchType: 'all' // Search in all fields (username, member_id, etc.)
                 })
 
                 const customer = searchResult.data[0]
