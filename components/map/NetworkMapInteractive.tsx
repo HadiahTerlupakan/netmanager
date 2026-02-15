@@ -138,6 +138,10 @@ const nodeIcons = {
   pole: {
     color: "#6b7280", // Gray
     svg: '<path d="M12 3v18M8 6h8M8 10h8M8 14h8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+  },
+  joinbox: {
+    color: "#d97706", // Amber-600
+    svg: '<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
   }
 };
 
@@ -279,6 +283,7 @@ export default function NetworkMapInteractive() {
   const [odpActionMode, setOdpActionMode] = useState<NodeActionMode>("idle");
   const [ontActionMode, setOntActionMode] = useState<NodeActionMode>("idle");
   const [poleActionMode, setPoleActionMode] = useState<NodeActionMode>("idle");
+  const [joinboxActionMode, setJoinboxActionMode] = useState<NodeActionMode>("idle");
 
   // Temp positions for adding/editing
   const [serverTempPosition, setServerTempPosition] = useState<[number, number] | null>(null);
@@ -286,6 +291,7 @@ export default function NetworkMapInteractive() {
   const [odpTempPosition, setOdpTempPosition] = useState<[number, number] | null>(null);
   const [ontTempPosition, setOntTempPosition] = useState<[number, number] | null>(null);
   const [poleTempPosition, setPoleTempPosition] = useState<[number, number] | null>(null);
+  const [joinboxTempPosition, setJoinboxTempPosition] = useState<[number, number] | null>(null);
 
   // Selected nodes for editing
   const [selectedServerNode, setSelectedServerNode] = useState<MappingNode | null>(null);
@@ -293,6 +299,7 @@ export default function NetworkMapInteractive() {
   const [selectedOdpNode, setSelectedOdpNode] = useState<MappingNode | null>(null);
   const [selectedOntNode, setSelectedOntNode] = useState<MappingNode | null>(null);
   const [selectedPoleNode, setSelectedPoleNode] = useState<MappingNode | null>(null);
+  const [selectedJoinboxNode, setSelectedJoinboxNode] = useState<MappingNode | null>(null);
 
   // ============================================
   // FIBER LINE MODE - EXACT FROM GENIEACS
@@ -428,12 +435,16 @@ export default function NetworkMapInteractive() {
       setPoleTempPosition(latlng);
       return;
     }
+    if (joinboxActionMode === "adding") {
+      setJoinboxTempPosition(latlng);
+      return;
+    }
 
     // If drawing fiber line, add waypoint
     if (fiberLineMode === "drawing" && fiberSourceNode) {
       setFiberWaypoints(prev => [...prev, latlng]);
     }
-  }, [serverActionMode, odcActionMode, odpActionMode, ontActionMode, poleActionMode, fiberLineMode, fiberSourceNode]);
+  }, [serverActionMode, odcActionMode, odpActionMode, ontActionMode, poleActionMode, joinboxActionMode, fiberLineMode, fiberSourceNode]);
 
   // ============================================
   // NODE CLICK HANDLER - EXACT LOGIC FROM GENIEACS
@@ -468,8 +479,9 @@ export default function NetworkMapInteractive() {
 
   // Determine fiber type based on source and target node types - FROM GENIEACS
   const determineFiberType = (sourceType: string, targetType: string): string => {
-    // Pole logic (treat as distribution/passthrough usually, or same as ODP)
+    // Pole/Joinbox logic (pass-through infrastructure)
     if (sourceType === "pole" || targetType === "pole") return "distribution";
+    if (sourceType === "joinbox" || targetType === "joinbox") return "distribution";
 
     if (sourceType === "odp" && targetType === "odp") return "odp_to_odp";
     if (sourceType === "odc" && targetType === "odc") return "odc_to_odc";
@@ -623,6 +635,34 @@ export default function NetworkMapInteractive() {
     setSelectedPoleNode(null);
   };
 
+  // Joinbox handlers
+  const handleJoinboxPositionSave = async () => {
+    if (!joinboxTempPosition) return;
+
+    if (joinboxActionMode === "adding") {
+      setNodeFormType("joinbox");
+      setNodeFormData({
+        type: "joinbox",
+        latitude: joinboxTempPosition[0],
+        longitude: joinboxTempPosition[1],
+        capacity: 24, // Default capacity
+      });
+      setShowNodeForm(true);
+    } else if (joinboxActionMode === "editing" && selectedJoinboxNode) {
+      await updateNodePosition(selectedJoinboxNode.nodeId, joinboxTempPosition);
+    }
+
+    setJoinboxActionMode("idle");
+    setJoinboxTempPosition(null);
+    setSelectedJoinboxNode(null);
+  };
+
+  const handleJoinboxPositionCancel = () => {
+    setJoinboxActionMode("idle");
+    setJoinboxTempPosition(null);
+    setSelectedJoinboxNode(null);
+  };
+
   // ============================================
   // FIBER LINE HANDLERS - EXACT FROM GENIEACS
   // ============================================
@@ -739,11 +779,13 @@ export default function NetworkMapInteractive() {
         setOdpActionMode("idle");
         setOntActionMode("idle");
         setPoleActionMode("idle");
+        setJoinboxActionMode("idle");
         setServerTempPosition(null);
         setOdcTempPosition(null);
         setOdpTempPosition(null);
         setOntTempPosition(null);
         setPoleTempPosition(null);
+        setJoinboxTempPosition(null);
       } else {
         const error = await res.json();
         showToast("error", error.error || "Gagal menyimpan node");
@@ -812,6 +854,11 @@ export default function NetworkMapInteractive() {
         setPoleTempPosition(position);
         setPoleActionMode("editing");
         break;
+      case "joinbox":
+        setSelectedJoinboxNode(node);
+        setJoinboxTempPosition(position);
+        setJoinboxActionMode("editing");
+        break;
     }
   };
 
@@ -848,6 +895,7 @@ export default function NetworkMapInteractive() {
     handleOdpPositionCancel();
     handleOntPositionCancel();
     handlePolePositionCancel();
+    handleJoinboxPositionCancel();
     handleFiberLineCancel();
     setIsManualAdd(false);
 
@@ -871,6 +919,10 @@ export default function NetworkMapInteractive() {
       case "pole":
         setPoleActionMode("adding");
         showToast("info", "Click on map to place Pole");
+        break;
+      case "joinbox":
+        setJoinboxActionMode("adding");
+        showToast("info", "Click on map to place Joinbox");
         break;
       case "fiber":
         setFiberLineMode("drawing");
@@ -897,6 +949,7 @@ export default function NetworkMapInteractive() {
     odpActionMode !== "idle" ||
     ontActionMode !== "idle" ||
     poleActionMode !== "idle" ||
+    joinboxActionMode !== "idle" ||
     fiberLineMode !== "idle";
 
   // ============================================
@@ -1083,6 +1136,15 @@ export default function NetworkMapInteractive() {
               </svg>
               Pole
             </button>
+            <button
+              onClick={() => handleToolbarClick("joinbox")}
+              className={toolButtonClass(joinboxActionMode !== "idle")}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              Joinbox
+            </button>
 
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
 
@@ -1114,11 +1176,13 @@ export default function NetworkMapInteractive() {
             {ontActionMode === "editing" && "Drag marker to new position, then click Save"}
             {poleActionMode === "adding" && "Click on map to place Pole, then click Save"}
             {poleActionMode === "editing" && "Drag marker to new position, then click Save"}
+            {joinboxActionMode === "adding" && "Click on map to place Joinbox, then click Save"}
+            {joinboxActionMode === "editing" && "Drag marker to new position, then click Save"}
             {fiberLineMode === "drawing" && !fiberSourceNode && "Click on source node to start"}
             {fiberLineMode === "drawing" && fiberSourceNode && `From: ${fiberSourceNode.name}. Click map for waypoints, click target node to finish. (${fiberWaypoints.length} waypoints)`}
           </span>
           <div className="flex items-center gap-2">
-            {(serverTempPosition || odcTempPosition || odpTempPosition || ontTempPosition || poleTempPosition) && (
+            {(serverTempPosition || odcTempPosition || odpTempPosition || ontTempPosition || poleTempPosition || joinboxTempPosition) && (
               <button
                 onClick={() => {
                   if (serverActionMode !== "idle") handleServerPositionSave();
@@ -1126,6 +1190,7 @@ export default function NetworkMapInteractive() {
                   if (odpActionMode !== "idle") handleOdpPositionSave();
                   if (ontActionMode !== "idle") handleOntPositionSave();
                   if (poleActionMode !== "idle") handlePolePositionSave();
+                  if (joinboxActionMode !== "idle") handleJoinboxPositionSave();
                 }}
                 className="px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-sm font-medium"
               >
@@ -1139,6 +1204,7 @@ export default function NetworkMapInteractive() {
                 handleOdpPositionCancel();
                 handleOntPositionCancel();
                 handlePolePositionCancel();
+                handleJoinboxPositionCancel();
                 handleFiberLineCancel();
               }}
               className="p-1 hover:bg-blue-600 rounded"
@@ -1350,6 +1416,24 @@ export default function NetworkMapInteractive() {
                   </Marker>
                 )}
 
+                {joinboxTempPosition && (
+                  <Marker
+                    position={joinboxTempPosition}
+                    icon={createTempMarkerIcon("joinbox")}
+                    draggable
+                    eventHandlers={{
+                      dragend: (e) => setJoinboxTempPosition([e.target.getLatLng().lat, e.target.getLatLng().lng]),
+                    }}
+                  >
+                    <Popup>
+                      <div className="text-sm">
+                        <p className="font-semibold mb-1">{joinboxActionMode === "adding" ? "New Joinbox Position" : "Editing Position"}</p>
+                        <p className="text-xs text-gray-600">Drag marker to adjust position</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+
                 {/* Existing Nodes */}
                 {nodes.map((node) => {
                   if (!node.latitude || !node.longitude) return null;
@@ -1360,7 +1444,8 @@ export default function NetworkMapInteractive() {
                     (odcActionMode === "editing" && selectedOdcNode?.nodeId === node.nodeId) ||
                     (odpActionMode === "editing" && selectedOdpNode?.nodeId === node.nodeId) ||
                     (ontActionMode === "editing" && selectedOntNode?.nodeId === node.nodeId) ||
-                    (poleActionMode === "editing" && selectedPoleNode?.nodeId === node.nodeId)
+                    (poleActionMode === "editing" && selectedPoleNode?.nodeId === node.nodeId) ||
+                    (joinboxActionMode === "editing" && selectedJoinboxNode?.nodeId === node.nodeId)
                   )
                     return null;
 
@@ -1397,6 +1482,8 @@ export default function NetworkMapInteractive() {
                         return { label: "ONT Device", color: "bg-orange-500" };
                       case "pole":
                         return { label: "Pole / Tiang", color: "bg-gray-600" };
+                      case "joinbox":
+                        return { label: "Joinbox / Closure", color: "bg-amber-600" };
                       default:
                         return { label: type.toUpperCase(), color: "bg-gray-500" };
                     }
@@ -1932,6 +2019,7 @@ function NodeFormModal({
   const isOdp = nodeType === "odp";
   const isOnt = nodeType === "ont";
   const isPole = nodeType === "pole";
+  const isJoinbox = nodeType === "joinbox";
 
   const handlePhotoUpdate = (urls: string[]) => {
     // Filter out any potential non-string values and handle empty strings
@@ -2446,6 +2534,102 @@ function NodeFormModal({
             </div>
           </>
         )}
+
+        {/* Joinbox Form */}
+        {isJoinbox && (
+          <>
+            <div>
+              <label className={labelClass}>Joinbox Name *</label>
+              <input
+                type="text"
+                value={data.name || ""}
+                onChange={(e) => onChange({ ...data, name: e.target.value })}
+                placeholder="e.g., JB-001"
+                className={inputClass}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Capacity (Cores)</label>
+                <select
+                  value={data.capacity || 24}
+                  onChange={(e) => onChange({ ...data, capacity: parseInt(e.target.value) })}
+                  className={inputClass}
+                >
+                  <option value={12}>12 Core</option>
+                  <option value={24}>24 Core</option>
+                  <option value={48}>48 Core</option>
+                  <option value={96}>96 Core</option>
+                  <option value={144}>144 Core</option>
+                  <option value={288}>288 Core</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Closure Type</label>
+                <select
+                  value={data.metadata?.closureType || "dome"}
+                  onChange={(e) => onChange({ 
+                    ...data, 
+                    metadata: { ...data.metadata, closureType: e.target.value } 
+                  })}
+                  className={inputClass}
+                >
+                  <option value="dome">Dome (Vertical)</option>
+                  <option value="inline">Inline (Horizontal)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Latitude</label>
+                <input
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.latitude || "") : (data.latitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, latitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "-6.xxxxx" : ""}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Longitude</label>
+                <input
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.longitude || "") : (data.longitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, longitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "106.xxxxx" : ""}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Notes</label>
+              <textarea
+                value={data.notes || ""}
+                onChange={(e) => onChange({ ...data, notes: e.target.value })}
+                rows={2}
+                placeholder="Additional notes (optional)"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="mt-4">
+              <ImageUpload
+                label="Foto Joinbox"
+                value={data.photo && typeof data.photo === "string" ? [data.photo] : []}
+                onChange={handlePhotoUpdate}
+                maxFiles={1}
+                folder="joinbox-photos"
+              />
+            </div>
+          </>
+        )}
       </div>
       <ModalFooter>
         <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
@@ -2453,7 +2637,7 @@ function NodeFormModal({
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          {isEditing ? "Save Changes" : isOnt ? "Save ONT" : isPole ? "Save Pole" : "Add Node"}
+          {isEditing ? "Save Changes" : isOnt ? "Save ONT" : isPole ? "Save Pole" : isJoinbox ? "Save Joinbox" : "Add Node"}
         </button>
       </ModalFooter>
     </Modal>
