@@ -33,9 +33,9 @@ export async function POST(req: Request) {
                 const customer = await prisma.pelanggan.findFirst({
                     where: {
                         OR: [
-                            { username: email },
-                            { idPelanggan: email },
-                            { email: email }
+                            { username: { equals: email, mode: 'insensitive' } },
+                            { idPelanggan: { equals: email, mode: 'insensitive' } },
+                            { email: { equals: email, mode: 'insensitive' } }
                         ]
                     },
                     include: {
