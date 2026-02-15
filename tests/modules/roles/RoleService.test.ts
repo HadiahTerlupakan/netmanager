@@ -3,6 +3,12 @@ import { prismaMock } from '../../setup'
 import { RoleService } from '@/modules/roles/services/RoleService'
 import type { Role, Permission } from '@prisma/client'
 
+// Mock auth lib
+vi.mock('@/lib/auth', () => ({
+  invalidateRolePermissionCache: vi.fn(),
+  invalidatePermissionCache: vi.fn()
+}))
+
 // Mock RoleRepository
 vi.mock('@/modules/roles/repositories/RoleRepository', () => ({
   RoleRepository: class MockRoleRepository {

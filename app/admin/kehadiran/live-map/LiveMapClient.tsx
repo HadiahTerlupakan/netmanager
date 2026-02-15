@@ -11,7 +11,7 @@ import Image from 'next/image'
 // Dynamic import untuk Map component (OpenLayers needs client-side only)
 const EmployeeLocationMap = dynamic(
     () => import('@/components/attendance/EmployeeLocationMap'),
-    { ssr: false, loading: () => <div className="h-[500px] bg-gray-100 rounded-xl animate-pulse flex items-center justify-center"><span className="text-gray-400">Memuat peta...</span></div> }
+    { ssr: false, loading: () => <div className="h-[500px] bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse flex items-center justify-center"><span className="text-gray-400 dark:text-gray-500">Memuat peta...</span></div> }
 )
 
 interface EmployeeLocation {
@@ -125,26 +125,28 @@ export default function LiveMapClient() {
     )
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
             {/* Header */}
             <div className="mb-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            <HiOutlineMapPin className="w-6 h-6 text-blue-600" />
+                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            <HiOutlineMapPin className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                             Live Tracking - Lokasi Karyawan
                         </h1>
-                        <p className="text-gray-500 mt-1">
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
                             Pantau lokasi karyawan yang sedang aktif bekerja secara real-time
                         </p>
                     </div>
                     <div className="flex items-center gap-4 flex-wrap">
                         {/* View Toggle */}
-                        <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                        <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                             <button
                                 onClick={() => setViewMode('map')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                                    viewMode === 'map' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                                    viewMode === 'map' 
+                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                                 }`}
                             >
                                 <HiOutlineMap className="w-4 h-4" />
@@ -153,7 +155,9 @@ export default function LiveMapClient() {
                             <button
                                 onClick={() => setViewMode('cards')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                                    viewMode === 'cards' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                                    viewMode === 'cards' 
+                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                                 }`}
                             >
                                 <HiOutlineSquares2X2 className="w-4 h-4" />
@@ -161,16 +165,16 @@ export default function LiveMapClient() {
                             </button>
                         </div>
                         {/* Stats Badge */}
-                        <div className="flex items-center gap-2 bg-blue-100 px-4 py-2 rounded-full">
-                            <HiOutlineUsers className="w-5 h-5 text-blue-600" />
-                            <span className="font-semibold text-blue-800">{locations.length} Aktif</span>
+                        <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full">
+                            <HiOutlineUsers className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <span className="font-semibold text-blue-800 dark:text-blue-200">{locations.length} Aktif</span>
                         </div>
 
                         {/* Manual Refresh */}
                         <button
                             onClick={fetchLocations}
                             disabled={loading}
-                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                         >
                             <HiOutlineArrowPath className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
@@ -194,13 +198,13 @@ export default function LiveMapClient() {
                     placeholder="Cari karyawan, site, atau departemen..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
                 />
             </div>
 
             {/* Error Message */}
             {error && (
-                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
                     {error}
                 </div>
             )}
@@ -220,12 +224,12 @@ export default function LiveMapClient() {
                 <>
                     {/* Employee Cards Grid */}
                     {filteredLocations.length === 0 ? (
-                        <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
-                            <HiOutlineUsers className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-12 text-center border border-gray-100 dark:border-gray-700">
+                            <HiOutlineUsers className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">
                                 {loading ? 'Memuat...' : 'Tidak Ada Karyawan Aktif'}
                             </h3>
-                            <p className="text-gray-400">
+                            <p className="text-gray-400 dark:text-gray-500">
                                 {loading ? 'Mengambil data lokasi...' : 'Belum ada karyawan yang check-in hari ini'}
                             </p>
                         </div>
@@ -234,7 +238,7 @@ export default function LiveMapClient() {
                             {filteredLocations.map((loc) => (
                                 <div
                                     key={loc.userId}
-                                    className="bg-white rounded-2xl shadow-sm p-5 hover:shadow-md transition border border-gray-100"
+                                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 hover:shadow-md transition border border-gray-100 dark:border-gray-700"
                                 >
                                     {/* Header with Avatar */}
                                     <div className="flex items-center gap-3 mb-4">
@@ -253,11 +257,11 @@ export default function LiveMapClient() {
                                             </div>
                                         )}
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-gray-800 truncate">{loc.userName}</p>
-                                            <p className="text-sm text-gray-500 truncate">{loc.departmentName || '-'}</p>
+                                            <p className="font-semibold text-gray-800 dark:text-white truncate">{loc.userName}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{loc.departmentName || '-'}</p>
                                         </div>
                                         {loc.isMoving && (
-                                            <span className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                            <span className="flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
                                                 <HiOutlineSignal className="w-3 h-3" />
                                                 Moving
                                             </span>
@@ -266,13 +270,13 @@ export default function LiveMapClient() {
 
                                     {/* Location Info */}
                                     <div className="space-y-2 text-sm">
-                                        <div className="flex items-center gap-2 text-gray-600">
-                                            <HiOutlineMapPin className="w-4 h-4 text-blue-500" />
+                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                                            <HiOutlineMapPin className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                                             <span className="truncate">{loc.siteName || 'Unknown'}</span>
                                         </div>
 
-                                        <div className="flex items-center gap-2 text-gray-600">
-                                            <HiOutlineClock className="w-4 h-4 text-green-500" />
+                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                                            <HiOutlineClock className="w-4 h-4 text-green-500 dark:text-green-400" />
                                             <span>Check-in: {format(new Date(loc.checkInTime), 'HH:mm')}</span>
                                         </div>
 
@@ -283,15 +287,15 @@ export default function LiveMapClient() {
                                     </div>
 
                                     {/* Footer */}
-                                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+                                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-400">
                                         <span>
                                             Update: {formatDistanceToNow(new Date(loc.recordedAt), { addSuffix: true, locale: id })}
                                         </span>
                                         {loc.batteryLevel !== null && (
                                             <span className={`px-2 py-1 rounded ${
-                                                loc.batteryLevel > 0.5 ? 'bg-green-50 text-green-600' :
-                                                loc.batteryLevel > 0.2 ? 'bg-yellow-50 text-yellow-600' :
-                                                'bg-red-50 text-red-600'
+                                                loc.batteryLevel > 0.5 ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' :
+                                                loc.batteryLevel > 0.2 ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400' :
+                                                'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
                                             }`}>
                                                 🔋 {Math.round(loc.batteryLevel * 100)}%
                                             </span>

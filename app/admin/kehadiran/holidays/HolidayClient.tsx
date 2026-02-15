@@ -121,14 +121,14 @@ export function HolidayClient() {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white pb-2 flex items-center gap-2">
                     <FiCalendar /> Pengaturan Hari Libur
                 </h1>
-                <div className="flex bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                    <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-l-lg border-r border-gray-200 dark:border-gray-700">
+                <div className="flex bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200">
+                    <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-l-lg border-r border-gray-200 dark:border-gray-700 transition-colors">
                         <FiChevronLeft />
                     </button>
                     <div className="px-4 py-2 font-semibold min-w-[150px] text-center">
                         {MONTHS[month]} {year}
                     </div>
-                    <button onClick={handleNextMonth} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-r-lg border-l border-gray-200 dark:border-gray-700">
+                    <button onClick={handleNextMonth} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-r-lg border-l border-gray-200 dark:border-gray-700 transition-colors">
                         <FiChevronRight />
                     </button>
                 </div>
@@ -137,7 +137,7 @@ export function HolidayClient() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                     {DAYS.map(day => (
-                        <div key={day} className={`p-4 text-center font-semibold text-sm ${day === 'Minggu' ? 'text-red-500' : 'text-gray-600 dark:text-gray-300'}`}>
+                        <div key={day} className={`p-4 text-center font-semibold text-sm ${day === 'Minggu' ? 'text-red-500 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}`}>
                             {day}
                         </div>
                     ))}
@@ -151,22 +151,22 @@ export function HolidayClient() {
                     {days.map(day => {
                         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                         const holiday = holidays.find(h => new Date(h.date).toISOString().split('T')[0] === dateStr)
-                        const isToday = new Date().toISOString().split('T')[0] === dateStr
+                        const today = new Date()
+                        const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year
                         const isSunday = new Date(year, month, day).getDay() === 0
 
                         return (
                             <div
                                 key={day}
                                 onClick={() => canCreate && handleDateClick(dateStr)}
-                                className={`bg-white dark:bg-gray-800 min-h-[120px] p-2 relative group transition-colors
-                    ${canCreate ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750' : ''}
-                    ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}
+                                className={`${isToday ? 'bg-blue-50/50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'} min-h-[120px] p-2 relative group transition-colors
+                    ${canCreate ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''}
                 `}
                             >
                                 <div className="flex justify-between items-start">
                                     <span className={`
                         w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium
-                        ${isToday ? 'bg-blue-600 text-white shadow-md' : isSunday ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}
+                        ${isToday ? 'bg-blue-600 text-white shadow-md' : isSunday ? 'text-red-500 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}
                     `}>
                                         {day}
                                     </span>
@@ -200,11 +200,11 @@ export function HolidayClient() {
 
             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
+                    <div className="w-3 h-3 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded"></div>
                     <span>Libur Nasional</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
+                    <div className="w-3 h-3 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded"></div>
                     <span>Cuti Bersama</span>
                 </div>
                 {canCreate && (

@@ -522,16 +522,28 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                 </p>
                             )}
 
-                            {/* Progress Bar */}
-                            {loading && uploadProgress > 0 && (
-                                <div className="mt-4">
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span>{status}</span>
+                            {/* Progress Bar & Skeleton Loading */}
+                            {loading && (
+                                <div className="mt-4 space-y-2">
+                                    <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                                        <span className="flex items-center gap-2">
+                                            {uploadProgress === 0 && <div className="w-3 h-3 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>}
+                                            {status || 'Menyiapkan upload...'}
+                                        </span>
                                         <span>{uploadProgress}%</span>
                                     </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                        <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                                    </div>
+                                    
+                                    {uploadProgress === 0 ? (
+                                        // Skeleton / Indeterminate Loading
+                                        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden">
+                                            <div className="bg-indigo-300 dark:bg-indigo-700 h-2.5 rounded-full w-full animate-pulse"></div>
+                                        </div>
+                                    ) : (
+                                        // Actual Progress Bar
+                                        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                            <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
