@@ -7,7 +7,7 @@ const service = new MappingService();
 
 // Schema Validation
 const createNodeSchema = z.object({
-  type: z.enum(['olt', 'odc', 'odp', 'ont']),
+  type: z.enum(['olt', 'odc', 'odp', 'ont', 'pole']),
   name: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -20,6 +20,7 @@ const createNodeSchema = z.object({
   attenuationOut: z.number().nullish(),
   inputCoreColor: z.string().nullish(),
   photo: z.string().nullish(),
+  metadata: z.any().nullish(), // Allow metadata JSON
 });
 
 /**

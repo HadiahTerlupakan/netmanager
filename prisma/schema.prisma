@@ -3050,6 +3050,7 @@ model MappingNode {
   attenuationOut Float?   @map("attenuation_out")
   inputCoreColor String?  @map("input_core_color")
   photo          String?
+  metadata       Json?    @map("metadata") // For extra fields like poleSize, hasSlack, etc.
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 

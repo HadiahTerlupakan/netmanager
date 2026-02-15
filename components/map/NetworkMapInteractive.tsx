@@ -231,6 +231,7 @@ type MappingNode = PrismaMappingNode & {
   attenuationOut?: number | null;
   inputCoreColor?: string | null;
   photo?: string | null;
+  metadata?: any;
 };
 
 type ActiveTab = "map" | "list" | "settings";
@@ -831,6 +832,7 @@ export default function NetworkMapInteractive() {
       attenuationOut: node.attenuationOut,
       inputCoreColor: node.inputCoreColor,
       photo: node.photo,
+      metadata: node.metadata,
     });
     setShowNodeForm(true);
   };
@@ -1929,6 +1931,7 @@ function NodeFormModal({
   const isOdc = nodeType === "odc";
   const isOdp = nodeType === "odp";
   const isOnt = nodeType === "ont";
+  const isPole = nodeType === "pole";
 
   const handlePhotoUpdate = (urls: string[]) => {
     // Filter out any potential non-string values and handle empty strings
@@ -2344,6 +2347,105 @@ function NodeFormModal({
             </div>
           </>
         )}
+
+        {/* Pole Form */}
+        {isPole && (
+          <>
+            <div>
+              <label className={labelClass}>Pole Name *</label>
+              <input
+                type="text"
+                value={data.name || ""}
+                onChange={(e) => onChange({ ...data, name: e.target.value })}
+                placeholder="e.g., POLE-001"
+                className={inputClass}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Pole Size</label>
+                <select
+                  value={data.metadata?.poleSize || "7m"}
+                  onChange={(e) => onChange({ 
+                    ...data, 
+                    metadata: { ...data.metadata, poleSize: e.target.value } 
+                  })}
+                  className={inputClass}
+                >
+                  <option value="6m">6m</option>
+                  <option value="7m">7m</option>
+                  <option value="9m">9m</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Cable Slack</label>
+                <div className="flex items-center h-[42px]">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={data.metadata?.hasSlack || false}
+                      onChange={(e) => onChange({ 
+                        ...data, 
+                        metadata: { ...data.metadata, hasSlack: e.target.checked } 
+                      })}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Ada Slack</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Latitude</label>
+                <input
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.latitude || "") : (data.latitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, latitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "-6.xxxxx" : ""}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Longitude</label>
+                <input
+                  type={allowManualCoordinates ? "number" : "text"}
+                  step="any"
+                  value={allowManualCoordinates ? (data.longitude || "") : (data.longitude?.toFixed(6) || "")}
+                  readOnly={!allowManualCoordinates}
+                  onChange={allowManualCoordinates ? (e) => onChange({ ...data, longitude: parseFloat(e.target.value) }) : undefined}
+                  className={allowManualCoordinates ? inputClass : inputReadonlyClass}
+                  placeholder={allowManualCoordinates ? "106.xxxxx" : ""}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Notes</label>
+              <textarea
+                value={data.notes || ""}
+                onChange={(e) => onChange({ ...data, notes: e.target.value })}
+                rows={2}
+                placeholder="Additional notes (optional)"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="mt-4">
+              <ImageUpload
+                label="Foto Pole"
+                value={data.photo && typeof data.photo === "string" ? [data.photo] : []}
+                onChange={handlePhotoUpdate}
+                maxFiles={1}
+                folder="pole-photos"
+              />
+            </div>
+          </>
+        )}
       </div>
       <ModalFooter>
         <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
@@ -2351,7 +2453,7 @@ function NodeFormModal({
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          {isEditing ? "Save Changes" : isOnt ? "Save ONT" : "Add Node"}
+          {isEditing ? "Save Changes" : isOnt ? "Save ONT" : isPole ? "Save Pole" : "Add Node"}
         </button>
       </ModalFooter>
     </Modal>
