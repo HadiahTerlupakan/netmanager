@@ -212,13 +212,13 @@ export class MixRadiusService {
   private loggedInCredentials: { username: string, baseUrl: string } | null = null // Track active session credentials
   private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number, lastRenewedOn: string }>
 
-  // Cache for Customers List - DISABLED
-  // Set to 0 to disable caching and ensure real-time data
+  // Cache for Customers List - ENABLED
+  // Set to 15 minutes to reduce load on upstream server
   private customersCache: {
     data: MixRadiusCustomer[]
     expiresAt: number
   } = { data: [], expiresAt: 0 }
-  private static CUSTOMERS_CACHE_TTL = 0 // Disabled (was 30s)
+  private static CUSTOMERS_CACHE_TTL = 15 * 60 * 1000 // 15 Minutes
 
   // Topology cache - DISABLED
   private topologyCache: {
@@ -256,7 +256,7 @@ export class MixRadiusService {
     this.client = wrapper(axios.create({
       jar: this.jar,
       withCredentials: true,
-      timeout: 30000,
+      timeout: 60000, // Increased to 60s
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -445,6 +445,7 @@ export class MixRadiusService {
       let allData: MixRadiusCustomer[] = []
 
       // Check Cache First (Skip if forceRefresh is true)
+      // When searching, we should DEFINITELY use cache to be fast/interactive
       if (!forceRefresh && this.customersCache.data.length > 0 && this.customersCache.expiresAt > Date.now()) {
         console.log(`[MixRadius] Using cached customer list (${this.customersCache.data.length} records). Expires in ${Math.round((this.customersCache.expiresAt - Date.now())/1000)}s`)
         allData = [...this.customersCache.data] // Use copy
