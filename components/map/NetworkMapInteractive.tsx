@@ -230,12 +230,19 @@ const getFiberColor = (fiberType?: string | null) => {
 // TYPES - MATCHING GENIEACS
 // ============================================
 
+type NodeMetadata = {
+  poleSize?: string;
+  hasSlack?: boolean;
+  closureType?: string;
+  [key: string]: unknown;
+};
+
 type MappingNode = PrismaMappingNode & {
   attenuationIn?: number | null;
   attenuationOut?: number | null;
   inputCoreColor?: string | null;
   photo?: string | null;
-  metadata?: any;
+  metadata?: NodeMetadata | null;
 };
 
 type ActiveTab = "map" | "list" | "settings";
@@ -2477,7 +2484,7 @@ function NodeFormModal({
                   value={data.metadata?.poleSize || "7m"}
                   onChange={(e) => onChange({ 
                     ...data, 
-                    metadata: { ...data.metadata, poleSize: e.target.value } 
+                    metadata: { ...(data.metadata as NodeMetadata || {}), poleSize: e.target.value } 
                   })}
                   className={inputClass}
                 >
@@ -2495,7 +2502,7 @@ function NodeFormModal({
                       checked={data.metadata?.hasSlack || false}
                       onChange={(e) => onChange({ 
                         ...data, 
-                        metadata: { ...data.metadata, hasSlack: e.target.checked } 
+                        metadata: { ...(data.metadata as NodeMetadata || {}), hasSlack: e.target.checked } 
                       })}
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
@@ -2594,7 +2601,7 @@ function NodeFormModal({
                   value={data.metadata?.closureType || "dome"}
                   onChange={(e) => onChange({ 
                     ...data, 
-                    metadata: { ...data.metadata, closureType: e.target.value } 
+                    metadata: { ...(data.metadata as NodeMetadata || {}), closureType: e.target.value } 
                   })}
                   className={inputClass}
                 >
