@@ -27,8 +27,15 @@ export interface CustomerSession {
  */
 export async function getCustomerSession(request: NextRequest): Promise<CustomerSession | null> {
     try {
-        // Try to get token from cookie
-        const token = request.cookies.get(CUSTOMER_ACCESS_TOKEN_COOKIE)?.value
+        let token = request.cookies.get(CUSTOMER_ACCESS_TOKEN_COOKIE)?.value
+
+        // If no cookie, check Authorization header (Bearer token) for Mobile App
+        if (!token) {
+            const authHeader = request.headers.get('Authorization')
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7)
+            }
+        }
 
         if (!token) {
             return null
