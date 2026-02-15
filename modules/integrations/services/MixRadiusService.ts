@@ -681,16 +681,27 @@ export class MixRadiusService {
       // const recordsFiltered = allData.length
 
       // FETCH ACTIVE SESSIONS and MERGE
+      // DISABLED for searching specific customers to improve performance
+      // Only fetch active sessions if we are NOT searching, or if explicit refresh needed
       let activeSessions = new Map<string, { ip: string; uptime: string }>();
-      try {
-        // Active sessions also changes frequently, but we can respect cache if desired.
-        // However, user usually wants live status.
-        // We can add a very short cache (10s) to active sessions or keep it live.
-        // Let's keep it live but add delay
-        await this.randomDelay(100, 300)
-        activeSessions = await this.fetchActiveSessionsPPP()
-      } catch (_err) {
-        // console.error("Active session fetch failed", err);
+      
+      // OPTIMIZATION: Skip fetching active sessions when searching
+      // Searching is usually for autocomplete/dropdown which needs to be fast
+      const isSearching = !!search && search.length > 0;
+      
+      if (!isSearching || forceRefresh) {
+        try {
+          // Active sessions also changes frequently, but we can respect cache if desired.
+          // However, user usually wants live status.
+          // We can add a very short cache (10s) to active sessions or keep it live.
+          // Let's keep it live but add delay
+          await this.randomDelay(100, 300)
+          activeSessions = await this.fetchActiveSessionsPPP()
+        } catch (_err) {
+          // console.error("Active session fetch failed", err);
+        }
+      } else {
+        console.log('[MixRadius] Skipping active sessions fetch for search query optimization')
       }
 
       // Merge online status
@@ -705,7 +716,9 @@ export class MixRadiusService {
           active_session_ip: session ? session.ip : undefined
         }
       })
-      console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
+      if (!isSearching) {
+        console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
+      }
 
       // 4. Online Status Filtering
       if (params.onlineStatus) {
