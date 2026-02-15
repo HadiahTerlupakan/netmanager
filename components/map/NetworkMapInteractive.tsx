@@ -134,6 +134,10 @@ const nodeIcons = {
   ont: {
     color: "#ea580c",
     svg: '<path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+  },
+  pole: {
+    color: "#6b7280", // Gray
+    svg: '<path d="M12 3v18M8 6h8M8 10h8M8 14h8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
   }
 };
 
@@ -273,18 +277,21 @@ export default function NetworkMapInteractive() {
   const [odcActionMode, setOdcActionMode] = useState<NodeActionMode>("idle");
   const [odpActionMode, setOdpActionMode] = useState<NodeActionMode>("idle");
   const [ontActionMode, setOntActionMode] = useState<NodeActionMode>("idle");
+  const [poleActionMode, setPoleActionMode] = useState<NodeActionMode>("idle");
 
   // Temp positions for adding/editing
   const [serverTempPosition, setServerTempPosition] = useState<[number, number] | null>(null);
   const [odcTempPosition, setOdcTempPosition] = useState<[number, number] | null>(null);
   const [odpTempPosition, setOdpTempPosition] = useState<[number, number] | null>(null);
   const [ontTempPosition, setOntTempPosition] = useState<[number, number] | null>(null);
+  const [poleTempPosition, setPoleTempPosition] = useState<[number, number] | null>(null);
 
   // Selected nodes for editing
   const [selectedServerNode, setSelectedServerNode] = useState<MappingNode | null>(null);
   const [selectedOdcNode, setSelectedOdcNode] = useState<MappingNode | null>(null);
   const [selectedOdpNode, setSelectedOdpNode] = useState<MappingNode | null>(null);
   const [selectedOntNode, setSelectedOntNode] = useState<MappingNode | null>(null);
+  const [selectedPoleNode, setSelectedPoleNode] = useState<MappingNode | null>(null);
 
   // ============================================
   // FIBER LINE MODE - EXACT FROM GENIEACS
@@ -416,12 +423,16 @@ export default function NetworkMapInteractive() {
       setOntTempPosition(latlng);
       return;
     }
+    if (poleActionMode === "adding") {
+      setPoleTempPosition(latlng);
+      return;
+    }
 
     // If drawing fiber line, add waypoint
     if (fiberLineMode === "drawing" && fiberSourceNode) {
       setFiberWaypoints(prev => [...prev, latlng]);
     }
-  }, [serverActionMode, odcActionMode, odpActionMode, ontActionMode, fiberLineMode, fiberSourceNode]);
+  }, [serverActionMode, odcActionMode, odpActionMode, ontActionMode, poleActionMode, fiberLineMode, fiberSourceNode]);
 
   // ============================================
   // NODE CLICK HANDLER - EXACT LOGIC FROM GENIEACS
@@ -456,6 +467,9 @@ export default function NetworkMapInteractive() {
 
   // Determine fiber type based on source and target node types - FROM GENIEACS
   const determineFiberType = (sourceType: string, targetType: string): string => {
+    // Pole logic (treat as distribution/passthrough usually, or same as ODP)
+    if (sourceType === "pole" || targetType === "pole") return "distribution";
+
     if (sourceType === "odp" && targetType === "odp") return "odp_to_odp";
     if (sourceType === "odc" && targetType === "odc") return "odc_to_odc";
     if (sourceType === "odp" && targetType === "ont") return "drop";
@@ -580,6 +594,34 @@ export default function NetworkMapInteractive() {
     setSelectedOntNode(null);
   };
 
+  // Pole handlers
+  const handlePolePositionSave = async () => {
+    if (!poleTempPosition) return;
+
+    if (poleActionMode === "adding") {
+      setNodeFormType("pole");
+      setNodeFormData({
+        type: "pole",
+        latitude: poleTempPosition[0],
+        longitude: poleTempPosition[1],
+        capacity: 0, // Poles typically don't have port capacity like ODP
+      });
+      setShowNodeForm(true);
+    } else if (poleActionMode === "editing" && selectedPoleNode) {
+      await updateNodePosition(selectedPoleNode.nodeId, poleTempPosition);
+    }
+
+    setPoleActionMode("idle");
+    setPoleTempPosition(null);
+    setSelectedPoleNode(null);
+  };
+
+  const handlePolePositionCancel = () => {
+    setPoleActionMode("idle");
+    setPoleTempPosition(null);
+    setSelectedPoleNode(null);
+  };
+
   // ============================================
   // FIBER LINE HANDLERS - EXACT FROM GENIEACS
   // ============================================
@@ -695,10 +737,12 @@ export default function NetworkMapInteractive() {
         setOdcActionMode("idle");
         setOdpActionMode("idle");
         setOntActionMode("idle");
+        setPoleActionMode("idle");
         setServerTempPosition(null);
         setOdcTempPosition(null);
         setOdpTempPosition(null);
         setOntTempPosition(null);
+        setPoleTempPosition(null);
       } else {
         const error = await res.json();
         showToast("error", error.error || "Gagal menyimpan node");
@@ -762,6 +806,11 @@ export default function NetworkMapInteractive() {
         setOntTempPosition(position);
         setOntActionMode("editing");
         break;
+      case "pole":
+        setSelectedPoleNode(node);
+        setPoleTempPosition(position);
+        setPoleActionMode("editing");
+        break;
     }
   };
 
@@ -796,6 +845,7 @@ export default function NetworkMapInteractive() {
     handleOdcPositionCancel();
     handleOdpPositionCancel();
     handleOntPositionCancel();
+    handlePolePositionCancel();
     handleFiberLineCancel();
     setIsManualAdd(false);
 
@@ -815,6 +865,10 @@ export default function NetworkMapInteractive() {
       case "ont":
         setOntActionMode("adding");
         showToast("info", "Click on map to place ONT");
+        break;
+      case "pole":
+        setPoleActionMode("adding");
+        showToast("info", "Click on map to place Pole");
         break;
       case "fiber":
         setFiberLineMode("drawing");
@@ -840,6 +894,7 @@ export default function NetworkMapInteractive() {
     odcActionMode !== "idle" ||
     odpActionMode !== "idle" ||
     ontActionMode !== "idle" ||
+    poleActionMode !== "idle" ||
     fiberLineMode !== "idle";
 
   // ============================================
@@ -1016,6 +1071,16 @@ export default function NetworkMapInteractive() {
               <HiCpuChip className="w-4 h-4" />
               ONT
             </button>
+            <button
+              onClick={() => handleToolbarClick("pole")}
+              className={toolButtonClass(poleActionMode !== "idle")}
+            >
+              {/* Using HiMap for Pole as a generic icon, or can use SVG */}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v18M8 6h8M8 10h8M8 14h8" />
+              </svg>
+              Pole
+            </button>
 
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
 
@@ -1045,17 +1110,20 @@ export default function NetworkMapInteractive() {
             {odpActionMode === "editing" && "Drag marker to new position, then click Save"}
             {ontActionMode === "adding" && "Click on map to place ONT, then click Save"}
             {ontActionMode === "editing" && "Drag marker to new position, then click Save"}
+            {poleActionMode === "adding" && "Click on map to place Pole, then click Save"}
+            {poleActionMode === "editing" && "Drag marker to new position, then click Save"}
             {fiberLineMode === "drawing" && !fiberSourceNode && "Click on source node to start"}
             {fiberLineMode === "drawing" && fiberSourceNode && `From: ${fiberSourceNode.name}. Click map for waypoints, click target node to finish. (${fiberWaypoints.length} waypoints)`}
           </span>
           <div className="flex items-center gap-2">
-            {(serverTempPosition || odcTempPosition || odpTempPosition || ontTempPosition) && (
+            {(serverTempPosition || odcTempPosition || odpTempPosition || ontTempPosition || poleTempPosition) && (
               <button
                 onClick={() => {
                   if (serverActionMode !== "idle") handleServerPositionSave();
                   if (odcActionMode !== "idle") handleOdcPositionSave();
                   if (odpActionMode !== "idle") handleOdpPositionSave();
                   if (ontActionMode !== "idle") handleOntPositionSave();
+                  if (poleActionMode !== "idle") handlePolePositionSave();
                 }}
                 className="px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-sm font-medium"
               >
@@ -1068,6 +1136,7 @@ export default function NetworkMapInteractive() {
                 handleOdcPositionCancel();
                 handleOdpPositionCancel();
                 handleOntPositionCancel();
+                handlePolePositionCancel();
                 handleFiberLineCancel();
               }}
               className="p-1 hover:bg-blue-600 rounded"
@@ -1261,6 +1330,24 @@ export default function NetworkMapInteractive() {
                   </Marker>
                 )}
 
+                {poleTempPosition && (
+                  <Marker
+                    position={poleTempPosition}
+                    icon={createTempMarkerIcon("pole")}
+                    draggable
+                    eventHandlers={{
+                      dragend: (e) => setPoleTempPosition([e.target.getLatLng().lat, e.target.getLatLng().lng]),
+                    }}
+                  >
+                    <Popup>
+                      <div className="text-sm">
+                        <p className="font-semibold mb-1">{poleActionMode === "adding" ? "New Pole Position" : "Editing Position"}</p>
+                        <p className="text-xs text-gray-600">Drag marker to adjust position</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+
                 {/* Existing Nodes */}
                 {nodes.map((node) => {
                   if (!node.latitude || !node.longitude) return null;
@@ -1270,7 +1357,8 @@ export default function NetworkMapInteractive() {
                     (serverActionMode === "editing" && selectedServerNode?.nodeId === node.nodeId) ||
                     (odcActionMode === "editing" && selectedOdcNode?.nodeId === node.nodeId) ||
                     (odpActionMode === "editing" && selectedOdpNode?.nodeId === node.nodeId) ||
-                    (ontActionMode === "editing" && selectedOntNode?.nodeId === node.nodeId)
+                    (ontActionMode === "editing" && selectedOntNode?.nodeId === node.nodeId) ||
+                    (poleActionMode === "editing" && selectedPoleNode?.nodeId === node.nodeId)
                   )
                     return null;
 
@@ -1305,6 +1393,8 @@ export default function NetworkMapInteractive() {
                         return { label: "ODP Box", color: "bg-cyan-500" };
                       case "ont":
                         return { label: "ONT Device", color: "bg-orange-500" };
+                      case "pole":
+                        return { label: "Pole / Tiang", color: "bg-gray-600" };
                       default:
                         return { label: type.toUpperCase(), color: "bg-gray-500" };
                     }
