@@ -2557,6 +2557,9 @@ function NodeFormModal({
                   onChange={(e) => onChange({ ...data, capacity: parseInt(e.target.value) })}
                   className={inputClass}
                 >
+                  <option value={2}>2 Core</option>
+                  <option value={4}>4 Core</option>
+                  <option value={6}>6 Core</option>
                   <option value={12}>12 Core</option>
                   <option value={24}>24 Core</option>
                   <option value={48}>48 Core</option>
