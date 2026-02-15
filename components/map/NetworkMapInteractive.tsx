@@ -479,15 +479,30 @@ export default function NetworkMapInteractive() {
 
   // Determine fiber type based on source and target node types - FROM GENIEACS
   const determineFiberType = (sourceType: string, targetType: string): string => {
-    // Pole/Joinbox logic (pass-through infrastructure)
-    if (sourceType === "pole" || targetType === "pole") return "distribution";
-    if (sourceType === "joinbox" || targetType === "joinbox") return "distribution";
+    // 1. Feeder: Involves Server/OLT
+    if (
+      sourceType === "server" || sourceType === "olt" ||
+      targetType === "server" || targetType === "olt"
+    ) {
+      return "feeder";
+    }
 
-    if (sourceType === "odp" && targetType === "odp") return "odp_to_odp";
-    if (sourceType === "odc" && targetType === "odc") return "odc_to_odc";
-    if (sourceType === "odp" && targetType === "ont") return "drop";
-    if (sourceType === "odc" && targetType === "odp") return "distribution";
-    if ((sourceType === "server" || sourceType === "olt") && targetType === "odc") return "feeder";
+    // 2. Drop: Involves ONT
+    if (sourceType === "ont" || targetType === "ont") {
+      return "drop";
+    }
+
+    // 3. ODP to ODP (Cascading)
+    if (sourceType === "odp" && targetType === "odp") {
+      return "odp_to_odp";
+    }
+
+    // 4. Pole/Joinbox special cases
+    // If connecting ODP to Pole/Joinbox, it could be Drop or Distribution.
+    // We'll default to Distribution to keep the map clean (Blue lines),
+    // unless explicitly connecting to an ONT (Green lines).
+    
+    // Default to Distribution for everything else (ODC->ODP, ODC->Pole, Pole->Pole, Joinbox, etc.)
     return "distribution";
   };
 
