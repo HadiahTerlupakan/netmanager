@@ -686,23 +686,15 @@ export class MixRadiusService {
       // Only fetch active sessions if we are NOT searching, or if explicit refresh needed
       let activeSessions = new Map<string, { ip: string; uptime: string }>();
       
-      // OPTIMIZATION: Skip fetching active sessions when searching
-      // Searching is usually for autocomplete/dropdown which needs to be fast
-      const isSearching = !!search && search.length > 0;
-      
-      if (!isSearching || forceRefresh) {
-        try {
-          // Active sessions also changes frequently, but we can respect cache if desired.
-          // However, user usually wants live status.
-          // We can add a very short cache (10s) to active sessions or keep it live.
-          // Let's keep it live but add delay
-          await this.randomDelay(100, 300)
-          activeSessions = await this.fetchActiveSessionsPPP()
-        } catch (_err) {
-          // console.error("Active session fetch failed", err);
-        }
-      } else {
-        console.log('[MixRadius] Skipping active sessions fetch for search query optimization')
+      // OPTIMIZATION: If searching, only fetch RELEVANT sessions (filter by search query)
+      // If not searching, fetch ALL sessions (to populate full list status)
+      try {
+        await this.randomDelay(100, 300)
+        // Pass search query to fetchActiveSessionsPPP
+        // If search is present, MixRadius will filter active sessions server-side
+        activeSessions = await this.fetchActiveSessionsPPP(search)
+      } catch (_err) {
+        // console.error("Active session fetch failed", err);
       }
 
       // Merge online status
@@ -717,9 +709,7 @@ export class MixRadiusService {
           active_session_ip: session ? session.ip : undefined
         }
       })
-      if (!isSearching) {
-        console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
-      }
+      console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
 
       // 4. Online Status Filtering
       if (params.onlineStatus) {
@@ -1525,11 +1515,11 @@ export class MixRadiusService {
    * Endpoint: /rad-get-active-sessions (or similar, verifying via implementation)
    * Returns: Map of username -> session info
    */
-  async fetchActiveSessionsPPP(): Promise<Map<string, { ip: string, uptime: string }>> {
+  async fetchActiveSessionsPPP(search: string = ''): Promise<Map<string, { ip: string, uptime: string }>> {
     try {
       if (!this.isLoggedIn) await this.login()
 
-      console.log('[MixRadius] Fetching active sessions...')
+      console.log(`[MixRadius] Fetching active sessions${search ? ` (search: "${search}")` : ''}...`)
 
       // Standard DataTables request params for Active Sessions
       // Based on typical MixRadius admin panel network requests
@@ -1537,7 +1527,7 @@ export class MixRadiusService {
       formData.append('draw', '1')
       formData.append('start', '0')
       formData.append('length', '5000') // Fetch max to get all online users
-      formData.append('search[value]', '')
+      formData.append('search[value]', search) // Pass search query if provided
       formData.append('search[regex]', 'false')
 
       // Add delay
@@ -1563,9 +1553,9 @@ export class MixRadiusService {
         // Usually objects with 'username', 'framedipaddress', 'acctstarttime'
         
         const sessions = response.data.data
-        console.log(`[MixRadius] Found ${sessions.length} active sessions`)
+        console.log(`[MixRadius] Found ${sessions.length} active sessions${search ? ` matching "${search}"` : ''}`)
         if (sessions.length > 0) {
-            console.log('[MixRadius] First session sample:', JSON.stringify(sessions[0], null, 2))
+            // console.log('[MixRadius] First session sample:', JSON.stringify(sessions[0], null, 2))
         }
         
         sessions.forEach((session: Record<string, unknown>) => {
