@@ -69,7 +69,36 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
         })
 
         if (!dbUser) {
-            console.log('[MOBILE_AUTH] User not found in DB:', userId)
+            console.log('[MOBILE_AUTH] User not found in User table, checking Pelanggan...', userId)
+            
+            // Fallback: Check if it's a Customer
+            const customer = await prisma.pelanggan.findUnique({
+                where: { id: userId as string },
+                select: {
+                    id: true,
+                    nama: true,
+                    username: true,
+                    status: true,
+                    tokenVersion: true
+                }
+            })
+
+            if (customer) {
+                console.log('[MOBILE_AUTH] Customer found:', customer.nama)
+                
+                // Customer permission mapping
+                return {
+                    ...payload,
+                    sub: customer.id,
+                    userId: customer.id,
+                    role: 'CUSTOMER',
+                    permissions: ['customer:read', 'customer:write'], // Basic permissions
+                    isSales: false,
+                    siteId: null
+                } as unknown as MobileTokenPayload
+            }
+
+            console.log('[MOBILE_AUTH] User/Customer not found in DB:', userId)
             return null
         }
 

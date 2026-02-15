@@ -43,7 +43,7 @@ export function generatePelangganAccessToken(pelanggan: {
   nama: string
   username: string
   status: string
-}): string {
+}, expiresIn: string | number = JWT_EXPIRES_IN): string {
   const payload: PelangganJWTPayload = {
     id: pelanggan.id,
     idPelanggan: pelanggan.idPelanggan,
@@ -53,7 +53,7 @@ export function generatePelangganAccessToken(pelanggan: {
   }
 
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
+    expiresIn: expiresIn,
     issuer: 'netmanager',
     audience: 'pelanggan-portal',
   })

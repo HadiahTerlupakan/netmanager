@@ -82,15 +82,17 @@ export async function POST(req: Request) {
                 console.log(`[MobileLogin] Login Success for customer: ${customer.nama}`)
 
                 // Generate Token for Customer
-                const tokenPayload = {
-                    id: customer.id,
-                    email: customer.username, // Use username as identifier
-                    name: customer.nama,
-                    role: 'CUSTOMER',
-                    memberId: customer.idPelanggan
-                }
+                // Use generatePelangganAccessToken to ensure compatibility with /api/customer/* endpoints
+                // Set expiration to 7 days for mobile app convenience
+                const { generatePelangganAccessToken } = await import('@/lib/jwt')
                 
-                const token = await signMobileToken(tokenPayload)
+                const token = generatePelangganAccessToken({
+                    id: customer.id,
+                    idPelanggan: customer.idPelanggan,
+                    nama: customer.nama,
+                    username: customer.username,
+                    status: customer.status
+                }, '7d') // 7 Days expiration
 
                 return NextResponse.json({
                     success: true,
