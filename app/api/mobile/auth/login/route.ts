@@ -11,6 +11,9 @@ export async function POST(req: Request) {
         
         const { email, password, versionCode, loginType } = body 
 
+        // IMPORTANT: Log what we received to debug why "loginType" might be wrong
+        console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`)
+
         if (!email || !password) {
             return NextResponse.json({ 
                 success: false,
