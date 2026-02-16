@@ -63,6 +63,7 @@ export class HargaPaketService {
             durasi: validData.durasi,
             ...(validData.durasiUnit ? { durasiUnit: validData.durasiUnit } : {}),
             profilePPPId: validData.profilePPPId,
+            ...(validData.siteId ? { siteId: validData.siteId } : {}),
             ...(validData.bandwidthId ? { bandwidthId: validData.bandwidthId } : {}),
             ...(validData.description ? { description: validData.description } : {}),
             ...(validData.featured !== undefined ? { featured: validData.featured } : {}),
@@ -109,6 +110,13 @@ export class HargaPaketService {
         if (data.description !== undefined) sanitizedData.description = sanitizeInput(data.description)
         if (data.featured !== undefined) sanitizedData.featured = data.featured
         if (data.status !== undefined) sanitizedData.status = data.status
+        
+        // Handle site - can be null to disconnect
+        if (data.siteId === null || data.siteId === '') {
+            sanitizedData.siteId = null
+        } else if (data.siteId) {
+            sanitizedData.siteId = data.siteId
+        }
         
         // Handle bandwidth - can be null to disconnect
         if (data.bandwidthId === null || data.bandwidthId === '') {

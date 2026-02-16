@@ -247,9 +247,10 @@ model Expense {
 
 model HargaPaket {
   id                   String        @id
-  name                 String        @unique
+  name                 String
   bandwidthId          String?
   profilePPPId         String
+  siteId               String?
   harga                Int
   durasi               Int           @default(30)
   durasiUnit           DurasiUnit    @default(HARI)
@@ -267,11 +268,14 @@ model HargaPaket {
   updatedAt            DateTime
   bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id])
   profilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id])
+  site                 Sites?        @relation(fields: [siteId], references: [id])
   pelanggan            Pelanggan[]
 
+  @@unique([name, siteId])
   @@index([bandwidthId])
   @@index([featured])
   @@index([profilePPPId])
+  @@index([siteId])
   @@index([status])
 }
 
@@ -729,6 +733,11 @@ model Pelanggan {
   siteId                        String?
   mixRadiusId                   String?             @unique
   lastSyncedAt                  DateTime?
+  pushToken                     String?
+  pushTokenUpdatedAt            DateTime?
+  lastVersionCode               Int?
+  lastVersionName               String?
+  lastVersionUpdate             DateTime?
   couponUsage                   CouponUsage[]
   invoice                       Invoice[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
@@ -1712,6 +1721,7 @@ model Sites {
   gudang               Gudang[]              @relation("GudangToSite")
   bandwidths           Bandwidth[]
   profilePPPs          ProfilePPP[]
+  hargaPakets          HargaPaket[]
   joinboxes            Joinbox[]
   kmzFiles             KmzFile[]
   mixRadiusOwnerGroups MixRadiusOwnerGroup[]

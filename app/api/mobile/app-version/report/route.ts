@@ -16,14 +16,26 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'versionCode wajib diisi' }, { status: 400 })
         }
 
-        await prisma.user.update({
-            where: { id: session.id },
-            data: {
-                lastVersionCode: parseInt(versionCode),
-                lastVersionName: versionName,
-                lastVersionUpdate: new Date()
-            }
-        })
+        // Update the correct table based on user type
+        if (session.role === 'CUSTOMER') {
+            await prisma.pelanggan.update({
+                where: { id: session.id },
+                data: {
+                    lastVersionCode: parseInt(versionCode),
+                    lastVersionName: versionName,
+                    lastVersionUpdate: new Date()
+                }
+            })
+        } else {
+            await prisma.user.update({
+                where: { id: session.id },
+                data: {
+                    lastVersionCode: parseInt(versionCode),
+                    lastVersionName: versionName,
+                    lastVersionUpdate: new Date()
+                }
+            })
+        }
 
         return NextResponse.json({ success: true })
         

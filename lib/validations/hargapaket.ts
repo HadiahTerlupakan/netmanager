@@ -4,6 +4,7 @@ export const hargaPaketSchema = z.object({
   name: z.string().min(1, 'Nama paket harus diisi').max(100, 'Nama paket maksimal 100 karakter'),
   bandwidthId: z.string().optional().nullable(), // Bandwidth opsional (rate limit diambil dari Profile PPP)
   profilePPPId: z.string().min(1, 'Profile PPP harus dipilih'),
+  siteId: z.string().optional().nullable(),
   harga: z.number().min(0, 'Harga minimal 0'),
   durasi: z.number().min(1, 'Durasi minimal 1').default(30),
   durasiUnit: z.enum(['JAM', 'HARI', 'BULAN', 'TAHUN']).default('HARI'),

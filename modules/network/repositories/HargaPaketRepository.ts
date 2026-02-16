@@ -7,6 +7,7 @@ export interface HargaPaketCreateInput {
     durasi: number
     durasiUnit?: string
     profilePPPId: string
+    siteId?: string
     bandwidthId?: string
     description?: string
     featured?: boolean
@@ -19,6 +20,7 @@ export interface HargaPaketUpdateInput {
     durasi?: number
     durasiUnit?: string
     profilePPPId?: string
+    siteId?: string | null
     bandwidthId?: string | null
     description?: string
     featured?: boolean
@@ -48,11 +50,7 @@ export class HargaPaketRepository {
             where.featured = options.featured
         }
         if (options.siteId) {
-            where.profilePPP = {
-                mikroTikRouter: {
-                    siteId: options.siteId
-                }
-            }
+            where.siteId = options.siteId
         }
 
         return prisma.hargaPaket.findMany({
@@ -99,6 +97,10 @@ export class HargaPaketRepository {
             status: data.status || 'AKTIF',
         }
 
+        if (data.siteId && data.siteId.trim() !== '') {
+            createData.site = { connect: { id: data.siteId } }
+        }
+
         if (data.bandwidthId && data.bandwidthId.trim() !== '') {
             createData.bandwidth = { connect: { id: data.bandwidthId } }
         }
@@ -132,6 +134,13 @@ export class HargaPaketRepository {
         if (data.description !== undefined) updateData.description = data.description
         if (data.featured !== undefined) updateData.featured = data.featured
         if (data.status !== undefined) updateData.status = data.status
+
+        // Handle optional site
+        if (data.siteId === null) {
+            updateData.site = { disconnect: true }
+        } else if (data.siteId && data.siteId.trim() !== '') {
+            updateData.site = { connect: { id: data.siteId } }
+        }
 
         // Handle optional bandwidth
         if (data.bandwidthId === null) {

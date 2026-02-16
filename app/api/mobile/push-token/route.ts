@@ -86,14 +86,24 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
-        // Remove push token
-        await prisma.user.update({
-            where: { id: user.id as string },
-            data: {
-                pushToken: null,
-                pushTokenUpdatedAt: null
-            }
-        })
+        // Remove push token from correct table
+        if (user.role === 'CUSTOMER') {
+            await prisma.pelanggan.update({
+                where: { id: user.id as string },
+                data: {
+                    pushToken: null,
+                    pushTokenUpdatedAt: null
+                }
+            })
+        } else {
+            await prisma.user.update({
+                where: { id: user.id as string },
+                data: {
+                    pushToken: null,
+                    pushTokenUpdatedAt: null
+                }
+            })
+        }
 
         return NextResponse.json({ success: true, message: 'Push token dihapus' })
     } catch (error: unknown) {

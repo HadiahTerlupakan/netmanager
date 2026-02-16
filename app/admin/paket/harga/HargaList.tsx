@@ -14,6 +14,19 @@ type ProfilePPP = {
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
 }
 
+type Site = {
+  id: string
+  name: string
+  code: string
+}
+
+type Bandwidth = {
+  id: string
+  name: string
+  maxLimitDownload: string
+  maxLimitUpload: string
+}
+
 type HargaPaket = {
   id: string
   name: string
@@ -26,6 +39,8 @@ type HargaPaket = {
   } | null
   profilePPPId: string
   profilePPP: ProfilePPP
+  siteId?: string | null
+  site?: Site | null
   harga: number
   durasi: number
   durasiUnit: 'JAM' | 'HARI' | 'BULAN' | 'TAHUN'
@@ -46,6 +61,8 @@ export default function HargaPaketPage() {
   const [loading, setLoading] = useState(true)
   const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([])
   const [profilePPPs, setProfilePPPs] = useState<ProfilePPP[]>([])
+  const [sites, setSites] = useState<Site[]>([])
+  const [bandwidths, setBandwidths] = useState<Bandwidth[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPaket, setEditingPaket] = useState<HargaPaket | null>(null)
@@ -53,6 +70,8 @@ export default function HargaPaketPage() {
   const [formData, setFormData] = useState({
     name: '',
     profilePPPId: '',
+    bandwidthId: '' as string | null,
+    siteId: '' as string | null,
     harga: 0,
     durasi: 30,
     durasiUnit: 'HARI' as 'JAM' | 'HARI' | 'BULAN' | 'TAHUN',
@@ -74,9 +93,11 @@ export default function HargaPaketPage() {
       const params = new URLSearchParams()
       if (siteId) params.append('siteId', siteId)
 
-      const [hargaPaketsRes, profilePPPsRes] = await Promise.all([
+      const [hargaPaketsRes, profilePPPsRes, sitesRes, bandwidthsRes] = await Promise.all([
         fetch(`/api/hargapakets?${params.toString()}`),
         fetch(`/api/profileppps?${params.toString()}`),
+        fetch('/api/admin/sites'),
+        fetch(`/api/bandwidths?${params.toString()}`),
       ])
 
       if (!hargaPaketsRes.ok) {
@@ -94,9 +115,13 @@ export default function HargaPaketPage() {
 
       const hargaPaketsData = await hargaPaketsRes.json()
       const profilePPPsData = await profilePPPsRes.json()
+      const sitesData = await sitesRes.json()
+      const bandwidthsData = await bandwidthsRes.json()
 
-      setHargaPakets(hargaPaketsData)
-      setProfilePPPs(profilePPPsData)
+      setHargaPakets(hargaPaketsData.data || hargaPaketsData)
+      setProfilePPPs(profilePPPsData.data || profilePPPsData)
+      setSites(sitesData.data || sitesData)
+      setBandwidths(bandwidthsData.data || bandwidthsData)
       setError(null)
     } catch (error: unknown) {
       console.error('Error loading data:', error)
@@ -177,6 +202,8 @@ export default function HargaPaketPage() {
     setFormData({
       name: paket.name,
       profilePPPId: paket.profilePPPId,
+      bandwidthId: paket.bandwidthId || null,
+      siteId: paket.siteId || null,
       harga: paket.harga,
       durasi: paket.durasi,
       durasiUnit: paket.durasiUnit || 'HARI',
@@ -200,6 +227,8 @@ export default function HargaPaketPage() {
     setFormData({
       name: '',
       profilePPPId: '',
+      bandwidthId: null,
+      siteId: null,
       harga: 0,
       durasi: 30,
       durasiUnit: 'HARI',
@@ -306,8 +335,25 @@ export default function HargaPaketPage() {
             header: 'Profile PPP',
             priority: 'secondary',
             render: (item) => (
+              <div>
+                <div className="text-sm text-gray-900 dark:text-white">
+                  {item.profilePPP.name}
+                </div>
+                {item.bandwidth && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    BW: {item.bandwidth.name}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'site',
+            header: 'Site',
+            priority: 'secondary',
+            render: (item) => (
               <span className="text-sm text-gray-900 dark:text-white">
-                {item.profilePPP.name}
+                {item.site?.name || '-'}
               </span>
             ),
           },
@@ -438,6 +484,45 @@ export default function HargaPaketPage() {
                     {profile.name}
                   </option>
                 ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Bandwidth
+            </label>
+            <select
+              value={formData.bandwidthId || ''}
+              onChange={(e) => setFormData({ ...formData, bandwidthId: e.target.value || null })}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+            >
+              <option value="">-- Pilih Bandwidth (Opsional) --</option>
+              {bandwidths.map((bw) => (
+                <option key={bw.id} value={bw.id}>
+                  {bw.name} ({bw.maxLimitDownload}/{bw.maxLimitUpload})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Jika dipilih, rate limit akan mengikuti bandwidth ini. Jika kosong, akan menggunakan setting di Profile PPP.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Site
+            </label>
+            <select
+              value={formData.siteId || ''}
+              onChange={(e) => setFormData({ ...formData, siteId: e.target.value || null })}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+            >
+              <option value="">-- Pilih Site (Opsional) --</option>
+              {sites.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.name} ({site.code})
+                </option>
+              ))}
             </select>
           </div>
 
