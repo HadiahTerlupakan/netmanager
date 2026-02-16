@@ -59,8 +59,9 @@ export async function PUT(
         // Build where clause to prevent IDOR
         const where: Prisma.ExpenseWhereUniqueInput = { id };
 
-        // Restrict by default if not super admin
-        if (!isSuperAdmin) {
+        // Only restrict by site if user has expense:site_only permission
+        const isSiteRestricted = !isSuperAdmin && (await hasPermission("expense:site_only"));
+        if (isSiteRestricted) {
              const userSiteId = (session.user as { siteId?: string }).siteId;
              if (userSiteId) {
                  where.siteId = userSiteId;
@@ -84,12 +85,12 @@ export async function PUT(
             ...(mixRadiusGroupId !== undefined ? { mixRadiusGroup: mixRadiusGroupId ? { connect: { id: mixRadiusGroupId } } : { disconnect: true } } : {}),
         };
 
-        if (!isSuperAdmin) {
+        if (isSiteRestricted) {
             const userSiteId = (session.user as { siteId?: string }).siteId;
             // Force siteId to be user's siteId
             updateData.site = userSiteId ? { connect: { id: userSiteId } } : undefined;
         } else if (siteId !== undefined) {
-            // Admin can change siteId freely
+            // Admin or user with permission can change siteId freely
             updateData.site = siteId ? { connect: { id: siteId } } : { disconnect: true };
         }
 
@@ -156,13 +157,21 @@ export async function DELETE(
         // Build where clause to prevent IDOR
         const where: Prisma.ExpenseWhereUniqueInput = { id };
 
-        if (!isSuperAdmin) {
+        // Only restrict by site if user has expense:site_only permission
+        const isSiteRestricted = !isSuperAdmin && (await hasPermission("expense:site_only"));
+        if (isSiteRestricted) {
              const userSiteId = (session.user as { siteId?: string }).siteId;
              if (userSiteId) {
                  where.siteId = userSiteId;
              } else {
                  return ApiErrors.forbidden('Akses terbatas: Site tidak ditemukan di profil anda');
              }
+        }
+
+        // Check if expense exists first
+        const existingExpense = await prisma.expense.findUnique({ where });
+        if (!existingExpense) {
+            return apiError('Pengeluaran tidak ditemukan atau anda tidak memiliki akses', ErrorCodes.NOT_FOUND, { status: 404 });
         }
 
         const expense = await prisma.expense.delete({
