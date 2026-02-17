@@ -1,7 +1,16 @@
-
 import { prisma } from "../lib/prisma";
+import { COAType, COASubType, COABalance } from "@prisma/client";
 
-const coaData = [
+interface COASeedData {
+  code: string;
+  name: string;
+  type: COAType;
+  subType?: COASubType;
+  normalBalance: COABalance;
+  children?: COASeedData[];
+}
+
+const coaData: COASeedData[] = [
   // ASSETS
   // Current Assets
   { code: "1000", name: "ASSETS", type: "ASSET", normalBalance: "DEBIT", children: [
@@ -87,7 +96,7 @@ async function seedCOA() {
   console.log("Seeding Chart of Accounts...");
 
   // Recursive function to create accounts and their children
-  async function createAccountRecursive(accountData: any, parentId: string | null = null) {
+  async function createAccountRecursive(accountData: COASeedData, parentId: string | null = null) {
     const { children, ...data } = accountData;
 
     // Check if exists
