@@ -52,7 +52,7 @@ export function generatePelangganAccessToken(pelanggan: {
     status: pelanggan.status,
   }
 
-  return jwt.sign(payload as any, JWT_SECRET, {
+  return jwt.sign(payload, JWT_SECRET, {
     expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
     issuer: 'netmanager',
     audience: 'pelanggan-portal',
