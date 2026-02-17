@@ -38,6 +38,9 @@ interface ProfitLossData {
         totalIncome: number
         totalExpense: number
         netProfit: number
+        totalTransactions: number
+        totalFees: number
+        totalTax: number
     }
     trend: {
         date: string
@@ -53,6 +56,9 @@ interface ProfitLossData {
         income: number
         expense: number
         net: number
+        transactions: number
+        fees: number
+        tax: number
     }[]
 }
 
@@ -60,13 +66,21 @@ export default function ProfitLossPage() {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<ProfitLossData | null>(null)
 
-    // Default: Current Month
+    // Default: Current Month (Local Time safe)
     const [startDate, setStartDate] = useState(() => {
         const now = new Date()
-        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+        // Format YYYY-MM-01 manually to avoid timezone shifts
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        return `${year}-${month}-01`
     })
     const [endDate, setEndDate] = useState(() => {
-        return new Date().toISOString().split('T')[0]
+        const now = new Date()
+        // Format YYYY-MM-DD manually
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
     })
 
     useEffect(() => {
@@ -127,10 +141,10 @@ export default function ProfitLossPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <HiOutlineChartBar className="w-8 h-8 text-blue-600" />
-                        Laporan Laba Rugi
+                        Dashboard Keuangan Terpadu
                     </h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Analisa Pendapatan vs Pengeluaran (MixRadius)
+                        Analisa Laba Rugi, Arus Kas, dan Performa Bisnis
                     </p>
                 </div>
 
@@ -161,22 +175,27 @@ export default function ProfitLossPage() {
                         <HiOutlineArrowTrendingUp className="w-20 h-20 text-emerald-500" />
                     </div>
                     <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Total Pendapatan</p>
-                    <h3 className="text-3xl font-black text-gray-900 dark:text-white">
+                    <h3 className="text-2xl font-black text-gray-900 dark:text-white">
                         {loading ? '...' : formatCurrency(data?.summary?.totalIncome || 0)}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-2">Dari Invoice Lunas</p>
+                    <div className="flex items-center gap-2 mt-2">
+                         <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                            {data?.summary?.totalTransactions || 0} Trx
+                         </span>
+                         <span className="text-xs text-gray-500">Invoice Lunas</span>
+                    </div>
                 </div>
 
-                {/* Expense */}
+                {/* Expense (Local Only) */}
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-red-100 dark:border-red-900/30 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <HiOutlineArrowTrendingDown className="w-20 h-20 text-red-500" />
                     </div>
                     <p className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Total Pengeluaran</p>
-                    <h3 className="text-3xl font-black text-gray-900 dark:text-white">
+                    <h3 className="text-2xl font-black text-gray-900 dark:text-white">
                         {loading ? '...' : formatCurrency(data?.summary?.totalExpense || 0)}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-2">OPEX & CAPEX</p>
+                    <p className="text-xs text-gray-500 mt-2">Pengeluaran Operasional (OPEX/CAPEX)</p>
                 </div>
 
                 {/* Net Profit */}
@@ -191,11 +210,11 @@ export default function ProfitLossPage() {
                     <p className={`text-sm font-bold uppercase tracking-wider mb-1 ${(data?.summary?.netProfit || 0) >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
                         Laba / Rugi Bersih
                     </p>
-                    <h3 className={`text-3xl font-black ${(data?.summary?.netProfit || 0) >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                    <h3 className={`text-2xl font-black ${(data?.summary?.netProfit || 0) >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
                         {loading ? '...' : formatCurrency(data?.summary?.netProfit || 0)}
                     </h3>
                     <p className="text-xs text-gray-500 mt-2">
-                        {(data?.summary?.netProfit || 0) >= 0 ? 'Keuntungan (Profit)' : 'Kerugian (Loss)'}
+                        {(data?.summary?.netProfit || 0) >= 0 ? 'Keuntungan Bersih' : 'Kerugian'}
                     </p>
                 </div>
             </div>
@@ -221,11 +240,13 @@ export default function ProfitLossPage() {
                                         <span className="w-6 h-6 flex items-center justify-center bg-red-100 dark:bg-red-900/50 text-red-600 text-xs font-bold rounded-full">
                                             {idx + 1}
                                         </span>
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {item.name === 'OPEX' || item.name === 'CAPEX' ? item.name : item.name}
-                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 line-clamp-1" title={item.name}>
+                                                {item.name}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                    <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
                                         {formatCurrency(item.amount)}
                                     </span>
                                 </div>
@@ -247,8 +268,9 @@ export default function ProfitLossPage() {
                         <thead className="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase font-bold text-gray-500">
                             <tr>
                                 <th className="px-6 py-4">Bulan</th>
+                                <th className="px-6 py-4 text-center text-gray-600">Transaksi</th>
                                 <th className="px-6 py-4 text-right text-emerald-600">Pendapatan</th>
-                                <th className="px-6 py-4 text-right text-red-600">Pengeluaran</th>
+                                <th className="px-6 py-4 text-right text-red-600">Pengeluaran Lain</th>
                                 <th className="px-6 py-4 text-right text-blue-600">Laba Bersih</th>
                             </tr>
                         </thead>
@@ -257,6 +279,9 @@ export default function ProfitLossPage() {
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                                         {new Date(item.month + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                                    </td>
+                                    <td className="px-6 py-4 text-center font-mono text-gray-600 dark:text-gray-300">
+                                        {item.transactions ? item.transactions.toLocaleString('id-ID') : 0}
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-gray-600 dark:text-gray-300">
                                         {formatCurrency(item.income)}
@@ -271,7 +296,7 @@ export default function ProfitLossPage() {
                             ))}
                             {(!data?.monthlyBreakdown || data.monthlyBreakdown.length === 0) && (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                                         Tidak ada data untuk periode ini
                                     </td>
                                 </tr>

@@ -24,7 +24,7 @@ import {
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import FeeConfigurationModal, { type FeeConfig } from './FeeConfigurationModal'
-import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from './DuitkuDefaults'
+import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from '@/modules/integrations/constants/DuitkuDefaults'
 import { NPLSummary } from "@/components/mixradius/NPLSummary"
 
 interface IncomePeriodRecord {

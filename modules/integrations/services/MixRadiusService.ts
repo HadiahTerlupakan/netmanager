@@ -5,6 +5,7 @@ import { wrapper } from 'axios-cookiejar-support'
 import { CookieJar } from 'tough-cookie'
 import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
 import { LRUCache } from '@/lib/utils/lru-cache'
+import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from '@/modules/integrations/constants/DuitkuDefaults'
 
 // Types
 export interface MixRadiusCredentials {
@@ -799,99 +800,131 @@ export class MixRadiusService {
       // Add delay
       await this.randomDelay(300, 800)
 
-      const formData = new URLSearchParams()
-      formData.append('draw', '1')
-      formData.append('start', '0') // Always fetch from 0
-      formData.append('length', '10000') // Always fetch max
+      // LOOPING STRATEGY:
+      // Fetch in batches to ensure we get ALL data, even if upstream limits response size (e.g. to 2000).
+      let allFetchedData: MixRadiusIncomePeriodRecord[] = []
+      let currentStart = 0
+      const batchSize = 2500 // Safe batch size
+      let hasMore = true
+      let loopCount = 0
+      const MAX_LOOPS = 20 // Safety break (max 50k records)
 
-      // Filter Params
-      if (startDate) {
-        const fdate = startDate.includes(' ') ? startDate : `${startDate} 00:00:01`
-        formData.append('fdate', fdate)
+      let upstreamRecordsTotal = 0
+      let upstreamRecordsFiltered = 0
+
+      console.log(`[MixRadius] Starting fetch loop. Batch size: ${batchSize}`)
+
+      while (hasMore && loopCount < MAX_LOOPS) {
+          loopCount++
+          const formData = new URLSearchParams()
+          formData.append('draw', loopCount.toString())
+          formData.append('start', currentStart.toString())
+          formData.append('length', batchSize.toString())
+
+          // Filter Params
+          if (startDate) {
+            const fdate = startDate.includes(' ') ? startDate : `${startDate} 00:00:01`
+            formData.append('fdate', fdate)
+          }
+          if (endDate) {
+            const tdate = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
+            formData.append('tdate', tdate)
+          }
+
+          // Ensure all filters are present, use empty string for 'all'
+          formData.append('stype', '')
+          formData.append('payment_method', '')
+          formData.append('owner_id', '')
+          formData.append('usertype', '0') // Default to "SEMUA TIPE"
+
+          const columns = [
+            { data: 'id', searchable: false, orderable: false },
+            { data: 'id', searchable: false, orderable: true },
+            { data: 'invoice', searchable: true, orderable: true },
+            { data: 'member_id', searchable: true, orderable: true },
+            { data: 'username', searchable: true, orderable: true },
+            { data: 'fullname', searchable: true, orderable: true },
+            { data: 'nasporttype', searchable: false, orderable: true },
+            { data: 'plan_name', searchable: true, orderable: true },
+            { data: 'total', searchable: false, orderable: true },
+            { data: 'seller_fee', searchable: false, orderable: true },
+            { data: 'renewed_on', searchable: true, orderable: true },
+            { data: 'owner_name', searchable: true, orderable: true },
+            { data: 'price', searchable: false, orderable: false },
+            { data: 'tax', searchable: false, orderable: false },
+            { data: 'payment_method', searchable: true, orderable: true },
+            { data: 'payment_type', searchable: true, orderable: true },
+            { data: 'type', searchable: true, orderable: true },
+            { data: 'method', searchable: true, orderable: true },
+            { data: 'id', searchable: false, orderable: true }
+          ]
+
+          columns.forEach((col, idx) => {
+            formData.append(`columns[${idx}][data]`, col.data)
+            formData.append(`columns[${idx}][name]`, '')
+            formData.append(`columns[${idx}][searchable]`, col.searchable ? 'true' : 'false')
+            formData.append(`columns[${idx}][orderable]`, col.orderable ? 'true' : 'false')
+            formData.append(`columns[${idx}][search][value]`, '')
+            formData.append(`columns[${idx}][search][regex]`, 'false')
+          })
+
+          // Order (Default renewed_on desc)
+          formData.append('order[0][column]', '10')
+          formData.append('order[0][dir]', 'desc')
+          formData.append('search[value]', '') // Empty search to get everything first
+          formData.append('search[regex]', 'false')
+
+          // EXECUTE REQUEST
+          const response = await this.client.post(
+            `${this.credentials.baseUrl}/rad-get-data/reports-period`,
+            formData.toString(),
+            {
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`,
+                'Origin': this.credentials.baseUrl,
+              },
+            }
+          )
+
+          if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+            console.log('[MixRadius] Session expired during Income Period fetch, retrying...')
+            this.isLoggedIn = false
+            return this.fetchIncomeByPeriod(params)
+          }
+
+          const responseData = response.data as MixRadiusIncomePeriodResponse
+          const pageData = responseData.data || []
+
+          if (loopCount === 1) {
+              upstreamRecordsTotal = responseData.recordsTotal
+              upstreamRecordsFiltered = responseData.recordsFiltered
+          }
+
+          if (pageData.length > 0) {
+              allFetchedData = allFetchedData.concat(pageData)
+              currentStart += batchSize
+              console.log(`[MixRadius] Fetched batch ${loopCount}. Received: ${pageData.length}. Total so far: ${allFetchedData.length}/${upstreamRecordsFiltered}`)
+          } else {
+              console.log(`[MixRadius] Batch ${loopCount} returned 0 records. Stopping loop.`)
+              hasMore = false
+          }
+
+          // Stop if we have fetched all available records
+          if (allFetchedData.length >= upstreamRecordsFiltered && upstreamRecordsFiltered > 0) {
+              console.log(`[MixRadius] All records fetched (${allFetchedData.length}). Stopping loop.`)
+              hasMore = false
+          }
       }
-      if (endDate) {
-        const tdate = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
-        formData.append('tdate', tdate)
+
+      const responseData: MixRadiusIncomePeriodResponse = {
+          draw: 1,
+          recordsTotal: upstreamRecordsTotal,
+          recordsFiltered: upstreamRecordsFiltered,
+          data: allFetchedData
       }
-
-      // Ensure all filters are present, use empty string for 'all'
-      // NOTE: We deliberately send EMPTY filters to upstream to fetch ALL data
-      // and perform robust filtering in-memory below.
-      formData.append('stype', '')
-      formData.append('payment_method', '')
-
-      // Always fetch ALL owners from upstream to allow accurate in-memory filtering
-      formData.append('owner_id', '')
-      formData.append('usertype', '0') // Default to "SEMUA TIPE" (Member & Voucher)
-
-      const columns = [
-        { data: 'id', searchable: false, orderable: false },
-        { data: 'id', searchable: false, orderable: true },
-        { data: 'invoice', searchable: true, orderable: true },
-        { data: 'member_id', searchable: true, orderable: true },
-        { data: 'username', searchable: true, orderable: true },
-        { data: 'fullname', searchable: true, orderable: true },
-        { data: 'nasporttype', searchable: false, orderable: true },
-        { data: 'plan_name', searchable: true, orderable: true },
-        { data: 'total', searchable: false, orderable: true },
-        { data: 'seller_fee', searchable: false, orderable: true },
-        { data: 'renewed_on', searchable: true, orderable: true },
-        { data: 'owner_name', searchable: true, orderable: true },
-        { data: 'price', searchable: false, orderable: false },
-        { data: 'tax', searchable: false, orderable: false },
-        { data: 'payment_method', searchable: true, orderable: true },
-        { data: 'payment_type', searchable: true, orderable: true },
-        { data: 'type', searchable: true, orderable: true },
-        { data: 'method', searchable: true, orderable: true },
-        { data: 'id', searchable: false, orderable: true }
-      ]
-
-      columns.forEach((col, idx) => {
-        formData.append(`columns[${idx}][data]`, col.data)
-        formData.append(`columns[${idx}][name]`, '')
-        formData.append(`columns[${idx}][searchable]`, col.searchable ? 'true' : 'false')
-        formData.append(`columns[${idx}][orderable]`, col.orderable ? 'true' : 'false')
-        formData.append(`columns[${idx}][search][value]`, '')
-        formData.append(`columns[${idx}][search][regex]`, 'false')
-      })
-
-      // Order
-      let orderColumnIndex = 10 // Default to renewed_on (index 10)
-      if (sortBy) {
-        const foundIndex = columns.findIndex(c => c.data === sortBy)
-        if (foundIndex !== -1) {
-            orderColumnIndex = foundIndex
-        }
-      }
-
-      formData.append('order[0][column]', orderColumnIndex.toString())
-      formData.append('order[0][dir]', sortDir || 'desc')
-
-      // Global Search (only if not doing in-memory filtering, or we'll filter it later)
-      formData.append('search[value]', useInMemoryFilter ? '' : search)
-      formData.append('search[regex]', 'false')
-
-      const response = await this.client.post(
-        `${this.credentials.baseUrl}/rad-get-data/reports-period`,
-        formData.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`,
-            'Origin': this.credentials.baseUrl,
-          },
-        }
-      )
-
-      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
-        console.log('[MixRadius] Session expired during Income Period fetch, retrying...')
-        this.isLoggedIn = false
-        return this.fetchIncomeByPeriod(params)
-      }
-
-      const responseData = response.data as MixRadiusIncomePeriodResponse
 
       if (!useInMemoryFilter) {
           return responseData
@@ -1258,24 +1291,38 @@ export class MixRadiusService {
           }
 
           const total = parseValue(item.total)
-          const fee = parseValue(item.seller_fee)
+          // const fee = parseValue(item.seller_fee) // OLD: Use MixRadius Seller Fee
           const price = parseValue(item.price)
           const tax = parseValue(item.tax)
 
+          // NEW: Calculate Estimated Gateway Fee based on Payment Method
+          let estimatedFee = 0
+          const methodCode = normalizePaymentMethod(item.payment_method || '')
+          if (methodCode && DUITKU_DEFAULT_FEES[methodCode]) {
+              const feeConfig = DUITKU_DEFAULT_FEES[methodCode]
+              if (feeConfig.type === 'FIXED') {
+                  estimatedFee = feeConfig.value
+              } else if (feeConfig.type === 'PERCENT') {
+                  estimatedFee = Math.ceil(total * (feeConfig.value / 100))
+              }
+          }
+          // REMOVED: PPN 11% to match Dashboard logic exactly
+          // if (estimatedFee > 0) {
+          //    estimatedFee = Math.ceil(estimatedFee * 1.11)
+          // }
+
           totalPlusPpn += total
-          totalFee += fee
+          totalFee += estimatedFee // Use estimated fee instead
 
           // Profit calculation:
-          // Based on data analysis: Total = Price + Tax + SellerFee (or similar)
-          // Actually looking at data: Total (175000) = Price (157657.66) + Tax (17342.34).
-          // Seller Fee is separate column, usually 0 or 5000.
-          // Profit is usually Price (Net Revenue) - Seller Fee.
-
+          // Profit = Total (Gross) - Tax - Estimated Fee
           if (price > 0) {
-              totalProfit += (price - fee)
+              // If price is available (Net Revenue), use it
+              // But we still subtract the gateway fee because "Price" in MixRadius often doesn't deduct gateway fees yet
+              totalProfit += (price - estimatedFee)
           } else {
-              // Fallback if price is missing/zero: Total - Tax - Fee
-              totalProfit += (total - tax - fee)
+              // Fallback
+              totalProfit += (total - tax - estimatedFee)
           }
       })
 
@@ -2413,37 +2460,70 @@ export class MixRadiusService {
 
   /**
    * Fetch profit report directly from MixRadius HTML (Scraping)
-   * Mengambil data pendapatan bulanan dari variabel javascript 'var income' di halaman laporan
+   * Mengambil data pendapatan, transaksi, fee, dan pajak
    */
-  async fetchProfitReport(_groupId?: string): Promise<number[]> {
+  async fetchProfitReport(_groupId?: string): Promise<{ income: number[], transactions: number[], sellerFees: number[], taxes: number[] }> {
     try {
       // Pastikan login terlebih dahulu untuk mendapatkan session cookie
       await this.login()
 
       // Request ke halaman profit load
-      // Gunakan URL lengkap untuk menghindari error Invalid URL jika baseURL axios belum ke-set dengan benar
       const url = `${this.credentials.baseUrl}/rad-reports/profit-load`
       const response = await this.client.get(url)
       const html = response.data
 
-      // Regex untuk menangkap: var income = ["123","456",...];
-      const incomeMatch = html.match(/var\s+income\s*=\s*\[(.*?)\];/)
+      // Helper for parsing arrays
+      const parseArray = (regex: RegExp) => {
+        const match = html.match(regex)
+        if (!match || !match[1]) return Array(12).fill(0)
 
-      if (!incomeMatch || !incomeMatch[1]) {
-        console.warn('[MixRadius] Could not find income data in profit report')
-        return Array(12).fill(0)
+        return match[1].split(',').map((val: string) => {
+          const cleanVal = val.replace(/['"]/g, '')
+          return parseFloat(cleanVal) || 0
+        })
       }
 
-      // Parse array string
-      const incomeArray = incomeMatch[1].split(',').map((val: string) => {
-        const cleanVal = val.replace(/['"]/g, '')
-        return parseFloat(cleanVal) || 0
-      })
+      // 1. Income
+      const incomeArray = parseArray(/var\s+income\s*=\s*\[(.*?)\];/)
 
-      return incomeArray
+      // 2. Transactions
+      let transactionArray = parseArray(/var\s+trx\s*=\s*\[(.*?)\];/)
+      if (transactionArray.every((v: number) => v === 0)) transactionArray = parseArray(/var\s+transaction\s*=\s*\[(.*?)\];/)
+      if (transactionArray.every((v: number) => v === 0)) transactionArray = parseArray(/var\s+count\s*=\s*\[(.*?)\];/)
+
+      // 3. Seller Fees (Biaya Layanan/Payment Gateway)
+      const sellerFeeArray = parseArray(/var\s+sellerfee\s*=\s*\[(.*?)\];/)
+
+      // DEBUG: Cari variabel untuk FEE GATEWAY (EST)
+      try {
+        const allArrayVars = [...html.matchAll(/var\s+([a-zA-Z0-9_]+)\s*=\s*\[(.*?)\];/g)];
+        if (allArrayVars.length > 0) {
+            console.log('\n=== [MixRadius Debug] All Variables for Fee Gateway Check ===');
+            allArrayVars.forEach(match => {
+                const content = match[2].length > 50 ? match[2].substring(0, 50) + '...' : match[2];
+                console.log(`Variable: ${match[1]} = [${content}]`);
+            });
+            console.log('=============================================================\n');
+        }
+      } catch (e) { console.error(e); }
+
+      // 4. Taxes (Pajak)
+      const taxArray = parseArray(/var\s+tax\s*=\s*\[(.*?)\];/)
+
+      return {
+        income: incomeArray,
+        transactions: transactionArray,
+        sellerFees: sellerFeeArray,
+        taxes: taxArray
+      }
     } catch (error) {
       console.error('[MixRadius] Error fetching profit report:', error)
-      return Array(12).fill(0)
+      return {
+        income: Array(12).fill(0),
+        transactions: Array(12).fill(0),
+        sellerFees: Array(12).fill(0),
+        taxes: Array(12).fill(0)
+      }
     }
   }
 }

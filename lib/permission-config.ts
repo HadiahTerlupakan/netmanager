@@ -10,7 +10,7 @@ export const PERMISSION_GROUPS = {
     FINANCE: ['finance', 'debts_receivables', 'treasury', 'transactions', 'categories', 'reports', 'daily_income', 'period_income', 'expense', 'profit_loss'],
     PENGATURAN: ['pengaturan', 'umum', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api', 'nada_dering', 'app_version'],
     SYSTEM_LOG: ['system_log'],
-    INTEGRATION: ['mixradius', 'mixradius_isolir', 'mixradius_sites', 'mixradius_accounts', 'mixradius_income', 'mixradius_expenses'],
+    INTEGRATION: ['mixradius', 'mixradius_isolir', 'mixradius_sites', 'mixradius_accounts', 'mixradius_income', 'mixradius_expenses', 'mixradius_profit_loss'],
     SUPPORT: ['support'],
     ANNOUNCEMENT: ['announcement'],
     MARKETING: ['marketing', 'coupon', 'sales_dashboard', 'sales', 'canvasing'],

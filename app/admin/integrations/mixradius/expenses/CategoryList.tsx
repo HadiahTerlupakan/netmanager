@@ -291,7 +291,7 @@ export default function CategoryList() {
                         <div className="absolute left-6 top-0 bottom-4 w-px bg-gray-200 dark:bg-gray-700" />
 
                         <div className="space-y-1 pt-1">
-                            {item.children.map((child: CategoryWithTotal, idx: number) => (
+                            {item.children.map((child: CategoryWithTotal) => (
                                 <CategoryItem
                                     key={child.id}
                                     item={child}
