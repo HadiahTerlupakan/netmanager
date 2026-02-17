@@ -227,22 +227,6 @@ export interface FinancialAccount extends Timestamps {
   description?: string;
 }
 
-// Chart of Account
-export interface ChartOfAccount extends Timestamps {
-  id: string;
-  code: string;
-  name: string;
-  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
-  subType?: string | null;
-  normalBalance: 'DEBIT' | 'CREDIT';
-  parentId?: string | null;
-  description?: string | null;
-  isActive: boolean;
-  isHeader: boolean;
-  allowPosting: boolean;
-  level: number;
-}
-
 // Summary types for dashboards
 export interface FinancialSummary {
   totalRevenue: number;

@@ -63,7 +63,7 @@ const CurrencyInput = ({
                 value={value || ''}
                 onChange={(e) => onChange && onChange(Number(e.target.value))}
                 readOnly={readOnly}
-                className={`block w-full pl-10 pr-12 py-2.5 sm:text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 transition-shadow group-hover:shadow-sm ${readOnly ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-500' : ''}`}
+                className={`block w-full pl-10 pr-12 py-2.5 sm:text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-shadow group-hover:shadow-sm ${readOnly ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-500 dark:text-gray-400' : 'text-gray-900'}`}
                 placeholder={placeholder || "0"}
             />
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -539,8 +539,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                             required
                                             value={formData.name}
                                             onChange={e => setFormData({...formData, name: e.target.value})}
-                                            className="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500 py-2.5"
-                                            placeholder="Contoh: Ekspansi Cluster A - 2024"
+                                             className="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500 py-2.5 dark:text-white dark:placeholder-gray-400"
+                                             placeholder="Contoh: Ekspansi Cluster A - 2024"
                                         />
                                     </div>
 
@@ -552,10 +552,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                             </div>
                                             <select
                                                 value={formData.mixRadiusGroupId}
-                                                onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
-                                                className="block w-full pl-9 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-2.5 focus:ring-blue-500 focus:border-blue-500"
+                                                 onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
+                                                 className="block w-full pl-9 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-2.5 focus:ring-blue-500 focus:border-blue-500 dark:text-white"
                                             >
-                                                <option value="">-- Pilih Lokasi --</option>
+                                                 <option value="" className="dark:text-gray-400">-- Pilih Lokasi --</option>
                                                 {sites.map(s => (
                                                     <option key={s.id} value={s.id}>{s.name}</option>
                                                 ))}
@@ -569,9 +569,9 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                             <HiOutlineCalendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                                             <input
                                                 type="date"
-                                                value={formData.startDate}
-                                                onChange={e => setFormData({...formData, startDate: e.target.value})}
-                                                className="block w-full pl-9 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-2.5 focus:ring-blue-500 focus:border-blue-500"
+                                                 value={formData.startDate}
+                                                 onChange={e => setFormData({...formData, startDate: e.target.value})}
+                                                 className="block w-full pl-9 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-2.5 focus:ring-blue-500 focus:border-blue-500 dark:text-white"
                                             />
                                         </div>
                                     </div>
@@ -581,9 +581,9 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                         <textarea
                                             value={formData.description}
                                             onChange={e => setFormData({...formData, description: e.target.value})}
-                                            className="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500"
-                                            rows={3}
-                                            placeholder="Deskripsi singkat mengenai proyek ini..."
+                                             className="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white dark:placeholder-gray-400"
+                                             rows={3}
+                                             placeholder="Deskripsi singkat mengenai proyek ini..."
                                         />
                                     </div>
                                 </div>

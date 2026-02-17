@@ -7,44 +7,7 @@ datasource db {
   provider = "postgresql"
 }
 
-model ChartOfAccount {
-  id            String      @id @default(cuid())
-  code          String      @unique
-  name          String
-  type          String      // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-  subType       COASubType? // Standardized subtype using enum
-  normalBalance String      // DEBIT, CREDIT
-  
-  // Hierarchy fields
-  parentId      String?
-  parent        ChartOfAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children      ChartOfAccount[] @relation("AccountHierarchy")
-  
-  // New fields for better COA management
-  level         Int     @default(1)     // Hierarchy level (1-4): 1=X000, 2=XX00, 3=XXX0, 4=XXXX
-  isHeader      Boolean @default(false) // True if this is a header/parent account (group only)
-  allowPosting  Boolean @default(true)  // False for header accounts, true for leaf accounts
-  isSystem      Boolean @default(false) // System account, cannot be deleted
-  
-  description   String?
-  isActive      Boolean @default(true)
 
-  // Relations
-  transactions      Transaction[]
-  expenses          Expense[]
-  rabItems          RabItem[]
-  financialAccounts FinancialAccount[]
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([code])
-  @@index([type])
-  @@index([level])
-  @@index([parentId])
-  @@index([isActive])
-  @@index([allowPosting])
-}
 
 model ARAgingSnapshot {
   id               String   @id
@@ -267,8 +230,7 @@ model Expense {
   category         String
   expenseCategoryId String?
   expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id])
-  coaId           String?
-  coa             ChartOfAccount?  @relation(fields: [coaId], references: [id])
+
   description      String?
   userId      String?
   createdAt   DateTime @default(now())
@@ -284,7 +246,6 @@ model Expense {
   @@index([userId])
   @@index([siteId])
   @@index([mixRadiusGroupId])
-  @@index([coaId])
 }
 
 model HargaPaket {
@@ -2751,10 +2712,8 @@ model FinancialAccount {
   payments       Payment[]
   purchaseOrders PurchaseOrder[] @relation("POPaidFrom") // For payments made TO suppliers
 
-  coaId         String?
-  coa           ChartOfAccount? @relation(fields: [coaId], references: [id])
 
-  @@index([coaId])
+
   @@map("financial_accounts")
 }
 
@@ -2787,8 +2746,7 @@ model Transaction {
   accountId String? // Make optional initially for migration
   account   FinancialAccount? @relation(fields: [accountId], references: [id])
 
-  coaId     String?
-  coa       ChartOfAccount? @relation(fields: [coaId], references: [id])
+
 
   purchaseOrderId String?
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
@@ -2806,7 +2764,6 @@ model Transaction {
   @@index([categoryId])
   @@index([accountId])
   @@index([purchaseOrderId])
-  @@index([coaId])
   @@map("transactions")
 }
 
@@ -3205,13 +3162,10 @@ model RabItem {
   category     RabItemCategory @default(HARDWARE)
   expenseType  RabExpenseType  @default(CAPEX)
 
-  coaId        String?
-  coa          ChartOfAccount? @relation(fields: [coaId], references: [id])
+
 
   rabProject   RabProject      @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
 
-  @@index([rabProjectId])
-  @@index([coaId])
   @@map("rab_items")
 }
 
@@ -3248,30 +3202,4 @@ enum RabGrowthType {
   CUSTOM
 }
 
-// Chart of Account SubType Enum - Standardized subtypes for COA
-enum COASubType {
-  // ASSET Subtypes
-  CURRENT_ASSET
-  FIXED_ASSET
-  INTANGIBLE_ASSET
-  
-  // LIABILITY Subtypes
-  CURRENT_LIABILITY
-  LONG_TERM_LIABILITY
-  
-  // EQUITY Subtypes
-  OWNER_EQUITY
-  RETAINED_EARNINGS
-  
-  // REVENUE Subtypes
-  SALES_REVENUE
-  SERVICE_REVENUE
-  OTHER_REVENUE
-  
-  // EXPENSE Subtypes
-  COGS           // Cost of Goods Sold
-  OPEX           // Operating Expenses
-  CAPEX          // Capital Expenditure
-  FINANCE_COST   // Finance/Interest Cost
-  TAX_EXPENSE    // Tax Expense
-}
+
