@@ -140,3 +140,6 @@ typescript-errors.log
 /plans/
 MEMORY.md
 
+
+# Worktrees
+.worktrees/
