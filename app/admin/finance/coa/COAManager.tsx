@@ -137,6 +137,46 @@ export default function COAManager({ initialData }: COAManagerProps) {
 
   const accountTree = useMemo(() => buildTree(filteredAccounts), [filteredAccounts]);
 
+  const suggestNextCode = (parentId: string | null, type: string): string => {
+    // Find siblings
+    const siblings = accounts.filter(acc => acc.parentId === parentId && acc.type === type);
+
+    if (siblings.length === 0) {
+      if (parentId) {
+        // Find parent code
+        const parent = accounts.find(acc => acc.id === parentId);
+        return parent ? `${parent.code}.01` : '';
+      }
+      // For root level, suggest based on type if possible, or just empty
+      const typePrefixMap: Record<string, string> = {
+        ASSET: '1',
+        LIABILITY: '2',
+        EQUITY: '3',
+        REVENUE: '4',
+        EXPENSE: '5'
+      };
+      const prefix = typePrefixMap[type] || '';
+      return prefix ? `${prefix}000` : '';
+    }
+
+    // Sort siblings by code
+    const sortedSiblings = [...siblings].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+    const lastCode = sortedSiblings[sortedSiblings.length - 1].code;
+
+    // Try to increment the last part of the code
+    const parts = lastCode.split('.');
+    const lastPart = parts[parts.length - 1];
+
+    if (/^\d+$/.test(lastPart)) {
+      const nextNum = parseInt(lastPart, 10) + 1;
+      const paddedNextNum = nextNum.toString().padStart(lastPart.length, '0');
+      parts[parts.length - 1] = paddedNextNum;
+      return parts.join('.');
+    }
+
+    return lastCode; // Fallback to last code if we can't increment
+  };
+
   const toggleExpand = (code: string) => {
     setExpandedCodes(prev => {
       const newSet = new Set(prev);
@@ -151,13 +191,17 @@ export default function COAManager({ initialData }: COAManagerProps) {
 
   const openCreateModal = (parentAccount?: ChartOfAccount) => {
     setEditingAccount(null);
+    const parentId = parentAccount?.id || null;
+    const type = (parentAccount?.type as any) || activeTab;
+    const suggestedCode = suggestNextCode(parentId, type);
+
     setFormData({
-      code: parentAccount ? `${parentAccount.code}.` : '',
+      code: suggestedCode,
       name: '',
-      type: (parentAccount?.type as any) || activeTab,
+      type,
       subType: parentAccount?.subType || '',
-      normalBalance: parentAccount?.normalBalance || (activeTab === 'ASSET' || activeTab === 'EXPENSE' ? 'DEBIT' : 'CREDIT'),
-      parentId: parentAccount?.id || null,
+      normalBalance: parentAccount?.normalBalance || (type === 'ASSET' || type === 'EXPENSE' ? 'DEBIT' : 'CREDIT'),
+      parentId,
       description: '',
       isHeader: false,
       allowPosting: true,
