@@ -70,12 +70,6 @@ interface Expense {
   }
 }
 
-interface AccountOption {
-    id: string
-    name: string
-    balance: number
-}
-
 interface SiteOption {
     id: string
     name: string
@@ -243,7 +237,6 @@ export default function ExpensesClient() {
       }
   }, [fetchCategories, isModalOpen])
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _handleAddCategory = async () => {
       if (!newCategoryName.trim()) return
 
@@ -273,7 +266,6 @@ export default function ExpensesClient() {
       }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _handleDeleteCategory = async (id: string) => {
       if (!confirm('Hapus kategori ini?')) return
 

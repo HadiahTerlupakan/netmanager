@@ -33,9 +33,32 @@ ChartJS.register(
     Filler
 )
 
+interface ProfitLossData {
+    summary: {
+        totalIncome: number
+        totalExpense: number
+        netProfit: number
+    }
+    trend: {
+        date: string
+        income: number
+        expense: number
+    }[]
+    topExpenses: {
+        name: string
+        amount: number
+    }[]
+    monthlyBreakdown: {
+        month: string
+        income: number
+        expense: number
+        net: number
+    }[]
+}
+
 export default function ProfitLossPage() {
     const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<any>(null)
+    const [data, setData] = useState<ProfitLossData | null>(null)
 
     // Default: Current Month
     const [startDate, setStartDate] = useState(() => {
@@ -69,11 +92,11 @@ export default function ProfitLossPage() {
 
     // Chart Data Configuration
     const chartData = {
-        labels: data?.trend?.map((d: any) => new Date(d.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })) || [],
+        labels: data?.trend?.map((d) => new Date(d.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })) || [],
         datasets: [
             {
                 label: 'Pendapatan',
-                data: data?.trend?.map((d: any) => d.income) || [],
+                data: data?.trend?.map((d) => d.income) || [],
                 borderColor: '#10b981', // Emerald 500
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 tension: 0.4,
@@ -81,7 +104,7 @@ export default function ProfitLossPage() {
             },
             {
                 label: 'Pengeluaran',
-                data: data?.trend?.map((d: any) => d.expense) || [],
+                data: data?.trend?.map((d) => d.expense) || [],
                 borderColor: '#ef4444', // Red 500
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                 tension: 0.4,
@@ -192,7 +215,7 @@ export default function ProfitLossPage() {
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Top 5 Pengeluaran</h3>
                     <div className="space-y-4">
                         {data?.topExpenses?.length > 0 ? (
-                            data.topExpenses.map((item: any, idx: number) => (
+                            data.topExpenses.map((item, idx) => (
                                 <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <span className="w-6 h-6 flex items-center justify-center bg-red-100 dark:bg-red-900/50 text-red-600 text-xs font-bold rounded-full">
@@ -230,7 +253,7 @@ export default function ProfitLossPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {data?.monthlyBreakdown?.map((item: any, idx: number) => (
+                            {data?.monthlyBreakdown?.map((item, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                                         {new Date(item.month + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}

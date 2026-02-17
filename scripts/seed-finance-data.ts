@@ -35,6 +35,7 @@ async function main() {
             name: cat.name,
             type: 'EXPENSE', // Type casting handled by Prisma based on schema enum
             description: cat.description
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any // Bypass strict typing for the enum string literal mismatch if any
       })
       console.log(`Created category: ${cat.name}`)
@@ -59,6 +60,7 @@ async function main() {
       await prisma.financialAccount.create({
         data: {
             name: acc.name,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             type: acc.type as any,
             balance: acc.balance,
             description: acc.description,

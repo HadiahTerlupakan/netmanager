@@ -80,7 +80,7 @@ export interface ResponsiveTableProps<T> {
 /**
  * Safely render a value that might be an object
  */
-function safeRender(value: any): React.ReactNode {
+function safeRender(value: unknown): React.ReactNode {
   if (value === null || value === undefined) {
     return '-'
   }
@@ -90,7 +90,7 @@ function safeRender(value: any): React.ReactNode {
   if (typeof value === 'object') {
     // If it has a 'name' property, use it (common pattern)
     if ('name' in value) {
-      return String((value as any).name)
+      return String((value as { name: unknown }).name)
     }
     // Otherwise stringify
     return JSON.stringify(value)

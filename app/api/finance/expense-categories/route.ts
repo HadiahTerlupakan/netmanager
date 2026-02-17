@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Build expense filter
-        const expenseWhere: any = {};
+        const expenseWhere: { date?: { gte: Date; lte: Date } } = {};
         if (startDate && endDate) {
             const start = new Date(startDate);
             const end = new Date(endDate);
@@ -58,7 +58,6 @@ export async function GET(req: NextRequest) {
 
         // Calculate direct total per category
         const categoriesWithTotal = categories.map(cat => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { expenses, ...rest } = cat;
             return {
                 ...rest,

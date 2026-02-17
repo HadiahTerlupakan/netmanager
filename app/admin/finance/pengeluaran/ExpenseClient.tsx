@@ -192,7 +192,7 @@ export function ClientComponent() {
             if (!res.ok) throw new Error("Gagal menghapus pengeluaran");
             toast.success("Pengeluaran berhasil dihapus");
             fetchExpenses();
-        } catch (error) {
+        } catch (_error) {
             toast.error("Gagal menghapus pengeluaran");
         }
     }

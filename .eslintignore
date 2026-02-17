@@ -1,0 +1,10 @@
+.agent/
+.claude/
+.cursor/
+.kilocode/
+.gemini/
+.opencode/
+node_modules/
+.next/
+out/
+build/

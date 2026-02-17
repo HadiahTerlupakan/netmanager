@@ -162,9 +162,9 @@ export default function CategoryList() {
             toast.success(editingItem ? 'Kategori diperbarui' : 'Kategori dibuat')
             setIsModalOpen(false)
             fetchCategories()
-        } catch (error: any) {
+        } catch (error) {
             console.error(error)
-            toast.error(error.message || 'Gagal menyimpan kategori')
+            toast.error(error instanceof Error ? error.message : 'Gagal menyimpan kategori')
         }
     }
 
@@ -181,15 +181,13 @@ export default function CategoryList() {
 
             toast.success('Kategori dihapus')
             fetchCategories()
-        } catch (error: any) {
-            toast.error(error.message)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Gagal menghapus kategori')
         }
     }
 
     // Recursive Tree Item Component
-    const CategoryItem = ({ item, level = 0, isLast = false }: { item: CategoryWithTotal, level?: number, isLast?: boolean }) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _unused = isLast
+    const CategoryItem = ({ item, level = 0 }: { item: CategoryWithTotal, level?: number }) => {
         const hasChildren = item.children && item.children.length > 0
         const isExpanded = expandedIds.has(item.id)
         const hasAmount = item.totalRecursive > 0
@@ -298,7 +296,6 @@ export default function CategoryList() {
                                     key={child.id}
                                     item={child}
                                     level={level + 1}
-                                    isLast={idx === item.children.length - 1}
                                 />
                             ))}
                         </div>

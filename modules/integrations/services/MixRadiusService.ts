@@ -2415,7 +2415,7 @@ export class MixRadiusService {
    * Fetch profit report directly from MixRadius HTML (Scraping)
    * Mengambil data pendapatan bulanan dari variabel javascript 'var income' di halaman laporan
    */
-  async fetchProfitReport(groupId?: string): Promise<number[]> {
+  async fetchProfitReport(_groupId?: string): Promise<number[]> {
     try {
       // Pastikan login terlebih dahulu untuk mendapatkan session cookie
       await this.login()
