@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const createCoaSchema = z.object({
+const baseCoaSchema = z.object({
   code: z.string().min(1, "Kode akun wajib diisi"),
   name: z.string().min(1, "Nama akun wajib diisi"),
   type: z.enum(["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"]),
@@ -13,7 +13,9 @@ export const createCoaSchema = z.object({
   level: z.number().int().min(1).max(4).default(1),
   isHeader: z.boolean().default(false),
   allowPosting: z.boolean().default(true),
-}).refine((data) => {
+});
+
+export const createCoaSchema = baseCoaSchema.refine((data) => {
   // If it's a header, it cannot allow posting
   if (data.isHeader && data.allowPosting) {
     return false;
@@ -24,6 +26,6 @@ export const createCoaSchema = z.object({
   path: ["allowPosting"],
 });
 
-export const updateCoaSchema = createCoaSchema.partial();
+export const updateCoaSchema = baseCoaSchema.partial();
 export type CreateCoaInput = z.infer<typeof createCoaSchema>;
 export type UpdateCoaInput = z.infer<typeof updateCoaSchema>;
