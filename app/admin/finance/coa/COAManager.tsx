@@ -51,6 +51,14 @@ const ACCOUNT_TYPES = [
   { value: 'EXPENSE', label: 'Beban', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
 ];
 
+const TAB_THEMES: Record<string, string> = {
+  ASSET: 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
+  LIABILITY: 'border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',
+  EQUITY: 'border-purple-500 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+  REVENUE: 'border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+  EXPENSE: 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',
+};
+
 const SUB_TYPES: Record<string, { value: string; label: string }[]> = {
   ASSET: [
     { value: 'CURRENT_ASSET', label: 'Aset Lancar' },
@@ -322,7 +330,7 @@ export default function COAManager({ initialData }: COAManagerProps) {
           <div
             className={`flex items-center justify-between p-3 transition-colors ${
               isHeader
-                ? 'bg-gray-50/80 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
+                ? 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700/50'
                 : 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/30'
             } border-b border-gray-100 dark:border-gray-800 ${paddingClass}`}
           >
@@ -344,9 +352,9 @@ export default function COAManager({ initialData }: COAManagerProps) {
 
               {isHeader ? (
                 isExpanded ? (
-                  <HiOutlineFolderOpen className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                  <HiOutlineFolderOpen className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 ) : (
-                  <HiOutlineFolder className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                  <HiOutlineFolder className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 )
               ) : (
                 <HiOutlineDocumentText className="w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -354,12 +362,12 @@ export default function COAManager({ initialData }: COAManagerProps) {
 
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-gray-400 dark:text-gray-500 w-16">{node.code}</span>
-                  <span className={`text-gray-900 dark:text-gray-100 ${isHeader ? 'font-bold' : 'font-medium'}`}>
+                  <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500 w-16">{node.code}</span>
+                  <span className={`text-gray-900 dark:text-gray-100 ${isHeader ? 'font-bold' : 'font-normal'}`}>
                     {node.name}
                   </span>
                   {node.isHeader && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-bold uppercase tracking-wider">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 font-bold uppercase tracking-wider">
                       Header
                     </span>
                   )}
@@ -438,24 +446,13 @@ export default function COAManager({ initialData }: COAManagerProps) {
           const isActive = activeTab === tab.id;
           const count = accounts.filter(a => a.type === tab.id).length;
 
-          let activeClasses = '';
-          if (isActive) {
-            if (tab.id === 'ASSET') activeClasses = 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
-            if (tab.id === 'LIABILITY') activeClasses = 'border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
-            if (tab.id === 'EQUITY') activeClasses = 'border-purple-500 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20';
-            if (tab.id === 'REVENUE') activeClasses = 'border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
-            if (tab.id === 'EXPENSE') activeClasses = 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
-          }
+          const activeClasses = isActive ? TAB_THEMES[tab.id] : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200';
 
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                isActive
-                  ? activeClasses
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all hover:bg-gray-50 dark:hover:bg-gray-800 ${activeClasses}`}
             >
               <span className="text-lg">{tab.icon}</span>
               <span>{tab.label}</span>
