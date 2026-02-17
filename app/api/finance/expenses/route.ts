@@ -150,14 +150,18 @@ const expenseSchema = z.object({
     description: z.string().optional(),
     siteId: z.string().optional(),
     mixRadiusGroupId: z.string().optional(),
+    categoryId: z.string().optional(), // COA Beban (untuk tabel Transaction)
+    accountId: z.string().optional(),  // Sumber Dana (untuk tabel Transaction & Saldo)
 });
 
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || !session.user?.email) {
+        if (!session || !session.user?.email || !session.user?.id) {
             return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
         }
+
+        const userId = session.user.id;
 
         // Allow SUPER_ADMIN to bypass permission check
         const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean });
@@ -182,7 +186,19 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Input tidak valid", details: validation.error.format() }, { status: 400 });
         }
 
-        const { amount, depreciation, usefulLife, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId } = validation.data;
+        const {
+            amount,
+            depreciation,
+            usefulLife,
+            date,
+            category,
+            expenseCategoryId,
+            description,
+            siteId,
+            mixRadiusGroupId,
+            categoryId,
+            accountId
+        } = validation.data;
 
         let finalSiteId = siteId;
         if ((await hasPermission("expense:site_only")) && !isSuper) {
@@ -193,29 +209,63 @@ export async function POST(req: Request) {
              finalSiteId = userSiteId;
         }
 
+        // Jalankan logic simpan expense dan auto-journaling dalam satu transaction
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Simpan record Expense
+            const expense = await tx.expense.create({
+                data: {
+                    id: randomUUID(),
+                    amount,
+                    depreciation,
+                    usefulLife,
+                    date,
+                    category,
+                    ...(expenseCategoryId ? { expenseCategoryId } : {}),
+                    ...(description !== undefined ? { description } : {}),
+                    userId,
+                    updatedAt: new Date(),
+                    ...(finalSiteId ? { siteId: finalSiteId } : {}),
+                    ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
+                },
+            });
 
-        const expense = await prisma.expense.create({
-            data: {
-                id: randomUUID(),
-                amount,
-                depreciation,
-                usefulLife,
-                date,
-                category,
-                ...(expenseCategoryId ? { expenseCategoryId } : {}),
-                ...(description !== undefined ? { description } : {}),
-                ...(session.user.id ? { userId: session.user.id } : {}),
-                updatedAt: new Date(),
-                ...(finalSiteId ? { siteId: finalSiteId } : {}),
-                ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
-            },
+            // 2. Logic Auto-Journaling (Double Entry) jika categoryId dan accountId tersedia
+            if (categoryId && accountId) {
+                const amountFloat = Number(amount);
+
+                // Buat record Transaction
+                await tx.transaction.create({
+                    data: {
+                        date,
+                        amount: amountFloat,
+                        type: 'EXPENSE',
+                        categoryId,
+                        accountId,
+                        description: description || category,
+                        referenceId: expense.id,
+                        createdById: userId,
+                    }
+                });
+
+                // Update Saldo FinancialAccount (Kurangi saldo sumber dana)
+                await tx.financialAccount.update({
+                    where: { id: accountId },
+                    data: {
+                        balance: {
+                            decrement: amountFloat
+                        }
+                    }
+                });
+            }
+
+            return expense;
         });
 
         return NextResponse.json({
-            ...expense,
-            amount: expense.amount.toString(),
-            depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
-            usefulLife: expense.usefulLife || 0,
+            ...result,
+            amount: result.amount.toString(),
+            depreciation: result.depreciation ? result.depreciation.toString() : '0',
+            usefulLife: result.usefulLife || 0,
         });
     } catch (error) {
         console.error("[EXPENSES_POST]", error);
