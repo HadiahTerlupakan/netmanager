@@ -2,6 +2,7 @@
 
 import { SessionProvider } from 'next-auth/react'
 import { Toaster } from 'react-hot-toast'
+import { ThemeProvider } from '../../app/contexts/ThemeContext'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -14,8 +15,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       // Refetch when tab becomes visible again
       refetchWhenOffline={false}
     >
-      {children}
-      <Toaster position="top-right" />
+      <ThemeProvider>
+        {children}
+        <Toaster position="top-right" />
+      </ThemeProvider>
     </SessionProvider>
   )
 }
