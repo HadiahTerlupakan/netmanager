@@ -2410,6 +2410,42 @@ export class MixRadiusService {
       throw new Error(`Failed to fetch topology data: ${message}`)
     }
   }
+
+  /**
+   * Fetch profit report directly from MixRadius HTML (Scraping)
+   * Mengambil data pendapatan bulanan dari variabel javascript 'var income' di halaman laporan
+   */
+  async fetchProfitReport(groupId?: string): Promise<number[]> {
+    try {
+      // Pastikan login terlebih dahulu untuk mendapatkan session cookie
+      await this.login()
+
+      // Request ke halaman profit load
+      // Gunakan URL lengkap untuk menghindari error Invalid URL jika baseURL axios belum ke-set dengan benar
+      const url = `${this.credentials.baseUrl}/rad-reports/profit-load`
+      const response = await this.client.get(url)
+      const html = response.data
+
+      // Regex untuk menangkap: var income = ["123","456",...];
+      const incomeMatch = html.match(/var\s+income\s*=\s*\[(.*?)\];/)
+
+      if (!incomeMatch || !incomeMatch[1]) {
+        console.warn('[MixRadius] Could not find income data in profit report')
+        return Array(12).fill(0)
+      }
+
+      // Parse array string
+      const incomeArray = incomeMatch[1].split(',').map((val: string) => {
+        const cleanVal = val.replace(/['"]/g, '')
+        return parseFloat(cleanVal) || 0
+      })
+
+      return incomeArray
+    } catch (error) {
+      console.error('[MixRadius] Error fetching profit report:', error)
+      return Array(12).fill(0)
+    }
+  }
 }
 
 // Singleton instance

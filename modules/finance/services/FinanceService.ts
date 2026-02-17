@@ -384,5 +384,12 @@ export class FinanceService {
       }
     })
   }
+
+  async getAccounts() {
+    return prisma.financialAccount.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' }
+    })
+  }
 }
 

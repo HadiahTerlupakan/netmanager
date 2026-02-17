@@ -17,6 +17,8 @@ const expenseSchema = z.object({
     description: z.string().optional(),
     siteId: z.string().optional(),
     mixRadiusGroupId: z.string().optional(),
+    categoryId: z.string().optional(),
+    accountId: z.string().optional(),
 });
 
 export async function PUT(
@@ -54,7 +56,7 @@ export async function PUT(
             })
         }
 
-        const { amount, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId } = validation.data;
+        const { amount, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId, categoryId, accountId } = validation.data;
 
         // Build where clause to prevent IDOR
         const where: Prisma.ExpenseWhereUniqueInput = { id };
@@ -83,6 +85,8 @@ export async function PUT(
             ...(expenseCategoryId !== undefined ? { expenseCategory: expenseCategoryId ? { connect: { id: expenseCategoryId } } : { disconnect: true } } : {}),
             ...(description !== undefined ? { description } : {}),
             ...(mixRadiusGroupId !== undefined ? { mixRadiusGroup: mixRadiusGroupId ? { connect: { id: mixRadiusGroupId } } : { disconnect: true } } : {}),
+            ...(categoryId !== undefined ? { transactionCategory: categoryId ? { connect: { id: categoryId } } : { disconnect: true } } : {}),
+            ...(accountId !== undefined ? { financialAccount: accountId ? { connect: { id: accountId } } : { disconnect: true } } : {}),
         };
 
         if (isSiteRestricted) {

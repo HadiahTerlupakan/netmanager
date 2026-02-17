@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   HiOutlinePlus,
   HiOutlinePencilSquare,
@@ -11,26 +11,46 @@ import {
   HiOutlineBuildingOffice,
   HiOutlineTag,
   HiOutlineDocumentArrowDown,
-  HiOutlineClipboardDocumentList
+  HiOutlineClipboardDocumentList,
+  HiOutlineArrowRight,
+  HiOutlineArrowLeft,
+  HiOutlineCheckCircle,
+  HiOutlineInformationCircle,
+  // HiOutlineBanknotes,
+  HiOutlineDocumentText,
+  HiOutlinePhoto
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
-import { Modal } from '@/components/ui/Modal'
+// import { Modal } from '@/components/ui/Modal'
+import { Combobox } from '@/components/ui/Combobox'
 import { formatCurrency } from '@/lib/utils'
 import { usePermission } from '@/hooks/use-permission'
 import RABList, { type RABProject } from './RABList'
 import RABForm from './RABForm'
+import CategoryList from './CategoryList'
 
 interface Expense {
   id: string
   date: string
   amount: string
-  category: string
+  category: string // CAPEX/OPEX
   expenseCategoryId?: string
   expenseCategory?: {
     id: string
     name: string
     type: string
+  }
+  categoryId?: string // COA Category
+  transactionCategory?: {
+    id: string
+    name: string
+  }
+  accountId?: string // Financial Account
+  financialAccount?: {
+    id: string
+    name: string
+    balance: number
   }
   depreciation?: string
   usefulLife?: number
@@ -50,6 +70,12 @@ interface Expense {
   }
 }
 
+interface AccountOption {
+    id: string
+    name: string
+    balance: number
+}
+
 interface SiteOption {
     id: string
     name: string
@@ -64,6 +90,7 @@ interface CategoryOption {
 
 export default function ExpensesClient() {
   const { hasPermission } = usePermission()
+  console.log("DEBUG: Menggunakan ExpensesClient dari MixRadius (Wizard Stepper)");
 
   // Permission checks (support both specific mixradius permission AND generic expense permission)
   const canCreate = hasPermission('mixradius_expenses:create') || hasPermission('expense:create')
@@ -95,11 +122,14 @@ export default function ExpensesClient() {
   // Options
   const [sites, setSites] = useState<SiteOption[]>([])
   const [categories, setCategories] = useState<CategoryOption[]>([])
+  // const [coaCategories, setCoaCategories] = useState<CategoryOption[]>([]) // Deprecated
+  // const [accounts, setAccounts] = useState<AccountOption[]>([]) // Deprecated
   const [filterCategories, setFilterCategories] = useState<CategoryOption[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(false)
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [step, setStep] = useState(1)
   const [editingItem, setEditingItem] = useState<Expense | null>(null)
   const [formData, setFormData] = useState({
       date: new Date().toISOString().split('T')[0],
@@ -108,26 +138,32 @@ export default function ExpensesClient() {
       usefulLife: 0,
       category: 'OPEX',
       expenseCategoryId: '',
+      categoryId: '', // COA Category ID
+      accountId: '', // Source Account ID
       description: '',
       siteId: '',
       mixRadiusGroupId: ''
   })
 
   // New Category State
-  const [isAddingCategory, setIsAddingCategory] = useState(false)
-  const [isManagingCategories, setIsManagingCategories] = useState(false)
+  // const [isAddingCategory, setIsAddingCategory] = useState(false)
+  // const [isManagingCategories, setIsManagingCategories] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // RAB State
-  const [activeTab, setActiveTab] = useState<'daily' | 'rab'>('daily')
+  const [activeTab, setActiveTab] = useState<'daily' | 'rab' | 'coa'>('daily')
   const [isRABModalOpen, setIsRABModalOpen] = useState(false)
   const [editingRAB, setEditingRAB] = useState<RABProject | null>(null)
   const [rabRefreshKey, setRabRefreshKey] = useState(0)
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Selected Options for Summary
+  const selectedCategoryDetail = useMemo(() => categories.find(c => c.id === formData.expenseCategoryId), [categories, formData.expenseCategoryId])
+  // const selectedAccount = useMemo(() => accounts.find(a => a.id === formData.accountId), [accounts, formData.accountId])
 
   // Debounce search
   useEffect(() => {
@@ -144,8 +180,6 @@ export default function ExpensesClient() {
               const res = await fetch('/api/integrations/mixradius/groups')
               const json = await res.json()
               if (json.success && Array.isArray(json.data)) {
-                   // Map groups to options. ID = Group ID. We also store siteId if available.
-                   // No deduplication needed on ID since Group IDs are unique.
                    setSites(json.data.map((g: { id: string; name: string; siteId?: string }) => ({
                        id: g.id,
                        name: g.name,
@@ -158,6 +192,11 @@ export default function ExpensesClient() {
       }
       fetchSites()
   }, [])
+
+  // Fetch Metadata (None needed initially for now, categories fetched on demand)
+  useEffect(() => {
+      // Cleanup unused fetches
+  }, []);
 
   // Fetch Filter Categories when type changes
   useEffect(() => {
@@ -204,7 +243,8 @@ export default function ExpensesClient() {
       }
   }, [fetchCategories, isModalOpen])
 
-  const handleAddCategory = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleAddCategory = async () => {
       if (!newCategoryName.trim()) return
 
       try {
@@ -225,7 +265,7 @@ export default function ExpensesClient() {
           const newCategory = await res.json()
           setCategories(prev => [...prev, newCategory].sort((a, b) => a.name.localeCompare(b.name)))
           setFormData(prev => ({ ...prev, expenseCategoryId: newCategory.id }))
-          setIsAddingCategory(false)
+          // setIsAddingCategory(false)
           setNewCategoryName('')
           toast.success('Kategori baru ditambahkan')
       } catch (_e) {
@@ -233,7 +273,8 @@ export default function ExpensesClient() {
       }
   }
 
-  const handleDeleteCategory = async (id: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleDeleteCategory = async (id: string) => {
       if (!confirm('Hapus kategori ini?')) return
 
       try {
@@ -307,7 +348,7 @@ export default function ExpensesClient() {
         }
       }, [formData.amount, formData.usefulLife, formData.category])
 
-      const filteredData = data.filter(item => {
+  const filteredData = data.filter(item => {
       if (!debouncedSearch) return true
       const lowerSearch = debouncedSearch.toLowerCase()
       return (
@@ -323,13 +364,9 @@ export default function ExpensesClient() {
   const totalOpex = filteredData.filter(i => i.category === 'OPEX').reduce((sum, item) => sum + Number(item.amount), 0)
 
   const handleOpenModal = (item?: Expense) => {
+      setStep(1)
       if (item) {
           setEditingItem(item)
-          // Determine dropdown value: use mixRadiusGroupId if available, else try to find matching siteId
-          // But our dropdown options are Groups (mixRadiusGroupId).
-          // If item has mixRadiusGroupId, use it.
-          // If item only has siteId (legacy), we might not find it in dropdown unless a group matches that siteId.
-          // For now, prefer mixRadiusGroupId.
           setFormData({
               date: new Date(item.date).toISOString().split('T')[0],
               amount: item.amount.toString(),
@@ -337,6 +374,8 @@ export default function ExpensesClient() {
               usefulLife: item.usefulLife || 0,
               category: item.category,
               expenseCategoryId: item.expenseCategoryId || '',
+              categoryId: item.categoryId || '',
+              accountId: item.accountId || '',
               description: item.description || '',
               siteId: item.siteId || '',
               mixRadiusGroupId: item.mixRadiusGroupId || ''
@@ -350,6 +389,8 @@ export default function ExpensesClient() {
               usefulLife: 0,
               category: 'OPEX',
               expenseCategoryId: '',
+              categoryId: '',
+              accountId: '',
               description: '',
               siteId: '',
               mixRadiusGroupId: ''
@@ -358,26 +399,34 @@ export default function ExpensesClient() {
       setIsModalOpen(true)
   }
 
+  const nextStep = () => {
+    if (step === 1) {
+        if (!formData.amount || parseFloat(formData.amount) <= 0) {
+            toast.error('Nominal pengeluaran harus lebih besar dari 0')
+            return
+        }
+        if (!formData.date) {
+            toast.error('Tanggal transaksi wajib diisi')
+            return
+        }
+    } else if (step === 2) {
+        if (!formData.expenseCategoryId) {
+            toast.error('Kategori Pengeluaran wajib dipilih')
+            return
+        }
+        if (formData.category === 'CAPEX' && (!formData.usefulLife || formData.usefulLife < 1)) {
+            toast.error('Masa manfaat CAPEX minimal 1 bulan')
+            return
+        }
+    }
+    setStep(step + 1)
+  }
+
+  const prevStep = () => setStep(step - 1)
+
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault()
       
-      // Validasi tambahan
-      const validationErrors: string[] = []
-      if (!formData.amount || parseFloat(formData.amount) <= 0) {
-          validationErrors.push('Nominal harus lebih besar dari 0')
-      }
-      if (!formData.date) {
-          validationErrors.push('Tanggal transaksi wajib diisi')
-      }
-      if (formData.category === 'CAPEX' && (!formData.usefulLife || formData.usefulLife < 1)) {
-          validationErrors.push('Masa manfaat CAPEX minimal 1 bulan')
-      }
-
-      if (validationErrors.length > 0) {
-          toast.error(validationErrors.join('\n'), { duration: 5000 })
-          return
-      }
-
       setIsSubmitting(true)
 
       try {
@@ -389,11 +438,6 @@ export default function ExpensesClient() {
 
           // Find the selected group to get the linked physical siteId
           let finalSiteId = formData.siteId
-          // If user selected a group (mixRadiusGroupId stored in formData.mixRadiusGroupId in dropdown?),
-          // Wait, the dropdown `value={formData.siteId}` needs to change.
-          // We should bind the dropdown to `mixRadiusGroupId` (the Option ID).
-          // Then look up the Option to get the real `siteId`.
-
           const selectedOption = sites.find(s => s.id === formData.mixRadiusGroupId)
           if (selectedOption && selectedOption.siteId) {
               finalSiteId = selectedOption.siteId
@@ -402,10 +446,10 @@ export default function ExpensesClient() {
           // Clean up payload based on category
           const payload = {
               ...formData,
-              // If OPEX, reset CAPEX specific fields to 0/null
+              amount: Number(formData.amount),
               usefulLife: formData.category === 'OPEX' ? 0 : formData.usefulLife,
               depreciation: formData.category === 'OPEX' ? '0' : formData.depreciation,
-              siteId: finalSiteId // Ensure we send the physical site ID if available
+              siteId: finalSiteId
           }
 
           const res = await fetch(url, {
@@ -512,7 +556,7 @@ export default function ExpensesClient() {
             Keuangan & Pengeluaran
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manajemen biaya operasional, modal, dan rencana anggaran
+            Manajemen biaya operasional, modal, dan rencana anggaran (MixRadius)
           </p>
         </div>
 
@@ -526,7 +570,7 @@ export default function ExpensesClient() {
                     <span className="hidden sm:inline">Export CSV</span>
                 </button>
             )}
-            {canCreate && (
+            {canCreate && activeTab !== 'coa' && (
                 <button
                     onClick={() => activeTab === 'daily' ? handleOpenModal() : handleOpenRABModal()}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -569,6 +613,19 @@ export default function ExpensesClient() {
               >
                   <HiOutlineClipboardDocumentList className="w-5 h-5" />
                   RAB (Proyek)
+              </button>
+              <button
+                  onClick={() => setActiveTab('coa')}
+                  className={`
+                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
+                      ${activeTab === 'coa'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }
+                  `}
+              >
+                  <HiOutlineTag className="w-5 h-5" />
+                  COA
               </button>
           </nav>
       </div>
@@ -736,10 +793,11 @@ export default function ExpensesClient() {
                     header: 'Kategori',
                     render: (item) => (
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {item.expenseCategory ? item.expenseCategory.name : '-'}
+                            {item.expenseCategory?.name || '-'}
                         </span>
                     )
                 },
+                // Removed COA & Account Columns
                 {
                     key: 'description',
                     header: 'Keterangan',
@@ -800,339 +858,285 @@ export default function ExpensesClient() {
           />
       </div>
 
-      {/* Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingItem ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}
-        size="lg"
-      >
-          <form onSubmit={handleSubmit} className="space-y-6">
-              {/* 1. Amount - Prominent */}
-              <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">
-                      Nominal Pengeluaran
-                  </label>
-                  <div className="relative max-w-xs mx-auto">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <span className="text-gray-400 text-2xl font-bold">Rp</span>
-                      </div>
-                      <input
-                          type="text"
-                          inputMode="numeric"
-                          required
-                          autoFocus
-                          value={formData.amount ? formData.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}
-                          onChange={e => {
-                              // Hanya ambil angka
-                              const rawValue = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '')
-                              setFormData({...formData, amount: rawValue})
-                          }}
-                          className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-0 focus:border-blue-500 text-3xl font-bold text-center transition-all shadow-sm placeholder:text-gray-300 dark:placeholder:text-gray-600 hover:border-gray-500 dark:hover:border-gray-400"
-                          placeholder="0"
-                      />
-                  </div>
-              </div>
+      {/* Wizard Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-[#1e293b] rounded-[2.5rem] w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative">
+                {/* Stepper Indicator */}
+                <div className="bg-gray-50 dark:bg-[#161e2e] p-8 pb-4 rounded-t-[2.5rem]">
+                    <div className="flex items-center justify-between max-w-xs mx-auto relative">
+                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 -z-0"></div>
+                        {[1, 2, 3].map((s) => (
+                            <div
+                                key={s}
+                                className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-500 ${
+                                    step >= s 
+                                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 scale-110" 
+                                        : "bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-gray-400"
+                                }`}
+                            >
+                                {step > s ? <HiOutlineCheckCircle className="w-6 h-6" /> : s}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex justify-between mt-2 text-[10px] font-black uppercase tracking-widest text-gray-400 px-4">
+                        <span className={step === 1 ? "text-blue-600 dark:text-blue-400" : ""}>Detail</span>
+                        <span className={step === 2 ? "text-blue-600 dark:text-blue-400" : ""}>Klasifikasi</span>
+                        <span className={step === 3 ? "text-blue-600 dark:text-blue-400" : ""}>Konfirmasi</span>
+                    </div>
+                </div>
 
-              <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
+                <div className="p-8">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Step 1: Detail Pengeluaran */}
+                        {step === 1 && (
+                            <div className="space-y-5 animate-in slide-in-from-right-4 fade-in duration-300">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <HiOutlineInformationCircle className="text-blue-500 w-5 h-5" />
+                                    <h2 className="text-xl font-black text-gray-900 dark:text-white">Detail Pengeluaran</h2>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    {/* Nominal */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5 text-center">Nominal</label>
+                                        <div className="relative max-w-xs mx-auto">
+                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                                <span className="text-gray-400 text-xl font-bold">Rp</span>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                required
+                                                autoFocus
+                                                value={formData.amount ? formData.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}
+                                                onChange={e => {
+                                                    const rawValue = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '')
+                                                    setFormData({...formData, amount: rawValue})
+                                                }}
+                                                className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-2xl font-bold text-center transition-all shadow-sm"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
 
-              {/* 2. Category Selection - Cards */}
-              <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Jenis Pengeluaran (Tipe)
-                  </label>
-                  <div className="grid grid-cols-2 gap-4">
-                      <button
-                          type="button"
-                          onClick={() => setFormData({...formData, category: 'OPEX', expenseCategoryId: ''})}
-                          className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 group ${
-                              formData.category === 'OPEX'
-                                  ? 'bg-orange-50/50 border-orange-500 shadow-md ring-1 ring-orange-200 dark:bg-orange-900/20 dark:border-orange-500 dark:ring-orange-800'
-                                  : 'bg-white border-gray-400 hover:border-orange-400 hover:bg-orange-50/30 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-750'
-                          }`}
-                      >
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${
-                              formData.category === 'OPEX' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500 group-hover:bg-orange-100 group-hover:text-orange-600'
-                          }`}>
-                              <HiOutlineTag className="w-6 h-6" />
-                          </div>
-                          <div className="font-bold text-gray-900 dark:text-white">OPEX</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Operasional (Gaji, Listrik, ATK)</div>
-                          {formData.category === 'OPEX' && (
-                              <div className="absolute top-3 right-3 w-3 h-3 bg-orange-500 rounded-full ring-2 ring-white dark:ring-gray-900"></div>
-                          )}
-                      </button>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Tanggal</label>
+                                            <div className="relative">
+                                                <HiOutlineCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                                <input 
+                                                    type="date" 
+                                                    required
+                                                    value={formData.date}
+                                                    onChange={e => setFormData({...formData, date: e.target.value})}
+                                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Site (MixRadius)</label>
+                                            <select
+                                                value={formData.mixRadiusGroupId}
+                                                onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
+                                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                                            >
+                                                <option value="">-- Umum / Kantor Pusat --</option>
+                                                {sites.map(site => (
+                                                    <option key={site.id} value={site.id}>{site.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
 
-                      <button
-                          type="button"
-                          onClick={() => setFormData({...formData, category: 'CAPEX', expenseCategoryId: ''})}
-                          className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 group ${
-                              formData.category === 'CAPEX'
-                                  ? 'bg-purple-50/50 border-purple-500 shadow-md ring-1 ring-purple-200 dark:bg-purple-900/20 dark:border-purple-500 dark:ring-purple-800'
-                                  : 'bg-white border-gray-400 hover:border-purple-400 hover:bg-purple-50/30 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-750'
-                          }`}
-                      >
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${
-                              formData.category === 'CAPEX' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500 group-hover:bg-purple-100 group-hover:text-purple-600'
-                          }`}>
-                              <HiOutlineBuildingOffice className="w-6 h-6" />
-                          </div>
-                          <div className="font-bold text-gray-900 dark:text-white">CAPEX</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Modal (Aset, Perangkat, Infrastruktur)</div>
-                          {formData.category === 'CAPEX' && (
-                              <div className="absolute top-3 right-3 w-3 h-3 bg-purple-500 rounded-full ring-2 ring-white dark:ring-gray-900"></div>
-                          )}
-                      </button>
-                  </div>
-              </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Keterangan</label>
+                                        <div className="relative">
+                                            <HiOutlineDocumentText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                                            <textarea 
+                                                value={formData.description}
+                                                onChange={e => setFormData({...formData, description: e.target.value})}
+                                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+                                                rows={3} 
+                                                placeholder="Misal: Pembayaran Token Listrik Gudang..."
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-              {/* 2.5 Sub Category Selection */}
-              <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Kategori {formData.category}
-                      </label>
-                      {!isAddingCategory && !isManagingCategories && categories.length > 0 && canCreate && (
-                          <button
-                              type="button"
-                              onClick={() => setIsManagingCategories(true)}
-                              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline flex items-center gap-1"
-                          >
-                              <HiOutlinePencilSquare className="w-3 h-3" />
-                              Kelola
-                          </button>
-                      )}
-                  </div>
+                        {/* Step 2: Klasifikasi Akun */}
+                        {step === 2 && (
+                            <div className="space-y-5 animate-in slide-in-from-right-4 fade-in duration-300">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <HiOutlineTag className="text-blue-500 w-5 h-5" />
+                                    <h2 className="text-xl font-black text-gray-900 dark:text-white">Klasifikasi & Tipe</h2>
+                                </div>
 
-                  {isManagingCategories ? (
-                      <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in-95 duration-200">
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Hapus kategori yang tidak digunakan:</p>
-                          <div className="flex flex-wrap gap-2 mb-3 max-h-32 overflow-y-auto custom-scrollbar">
-                              {categories.map(cat => (
-                                  <div key={cat.id} className="flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 rounded-full text-sm shadow-sm group">
-                                      <span className="text-gray-700 dark:text-gray-300">{cat.name}</span>
-                                      {canDelete && (
-                                          <button
-                                              type="button"
-                                              onClick={() => handleDeleteCategory(cat.id)}
-                                              className="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
-                                              title="Hapus Kategori"
-                                          >
-                                              <HiOutlineTrash className="w-3.5 h-3.5" />
-                                          </button>
-                                      )}
-                                  </div>
-                              ))}
-                              {categories.length === 0 && <span className="text-sm text-gray-400 italic">Tidak ada kategori</span>}
-                          </div>
-                          <button
-                              type="button"
-                              onClick={() => setIsManagingCategories(false)}
-                              className="w-full py-1.5 text-xs font-medium bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-300"
-                          >
-                              Selesai Mengelola
-                          </button>
-                      </div>
-                  ) : !isAddingCategory ? (
-                      <div className="flex gap-2">
-                          <select
-                              value={formData.expenseCategoryId}
-                              onChange={(e) => setFormData({...formData, expenseCategoryId: e.target.value})}
-                              disabled={isLoadingCategories}
-                              className="flex-1 rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow disabled:opacity-50 hover:border-gray-500 dark:hover:border-gray-400"
-                          >
-                              <option value="">-- Pilih Kategori --</option>
-                              {categories.map(cat => (
-                                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                              ))}
-                          </select>
-                          {canCreate && (
-                              <button
-                                  type="button"
-                                  onClick={() => {
-                                      setIsAddingCategory(true)
-                                      setNewCategoryName('')
-                                  }}
-                                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap text-sm font-medium border border-gray-300 dark:border-gray-600"
-                              >
-                                  + Baru
-                              </button>
-                          )}
-                      </div>
-                  ) : (
-                      <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                          <input
-                              type="text"
-                              value={newCategoryName}
-                              onChange={(e) => setNewCategoryName(e.target.value)}
-                              placeholder="Nama kategori baru..."
-                              autoFocus
-                              className="flex-1 rounded-lg border-blue-300 ring-2 ring-blue-100 dark:border-blue-700 dark:ring-blue-900/30 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                      e.preventDefault()
-                                      handleAddCategory()
-                                  }
-                              }}
-                          />
-                          <button
-                              type="button"
-                              onClick={handleAddCategory}
-                              disabled={!newCategoryName.trim()}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
-                          >
-                              Simpan
-                          </button>
-                          <button
-                              type="button"
-                              onClick={() => setIsAddingCategory(false)}
-                              className="px-3 py-2 bg-white border border-gray-300 dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                          >
-                              Batal
-                          </button>
-                      </div>
-                  )}
-              </div>
+                                {/* Tipe: OPEX/CAPEX Cards */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({...formData, category: 'OPEX', expenseCategoryId: ''})}
+                                        className={`relative p-3 rounded-xl border-2 text-left transition-all group ${
+                                            formData.category === 'OPEX'
+                                                ? 'bg-orange-50/50 border-orange-500 shadow-sm dark:bg-orange-900/20 dark:border-orange-500'
+                                                : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                        }`}
+                                    >
+                                        <div className="font-bold text-gray-900 dark:text-white text-sm">OPEX</div>
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400">Operasional</div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({...formData, category: 'CAPEX', expenseCategoryId: ''})}
+                                        className={`relative p-3 rounded-xl border-2 text-left transition-all group ${
+                                            formData.category === 'CAPEX'
+                                                ? 'bg-purple-50/50 border-purple-500 shadow-sm dark:bg-purple-900/20 dark:border-purple-500'
+                                                : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                        }`}
+                                    >
+                                        <div className="font-bold text-gray-900 dark:text-white text-sm">CAPEX</div>
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400">Modal</div>
+                                    </button>
+                                </div>
 
-              {/* 3. CAPEX Details - Animated/Conditional */}
-              {formData.category === 'CAPEX' && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-2xl border border-purple-100 dark:border-purple-800/50 space-y-4">
-                          <h3 className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wide flex items-center gap-2 mb-2">
-                              <HiOutlineCurrencyDollar className="w-4 h-4" />
-                              Estimasi Penyusutan Aset
-                          </h3>
+                                <div className="space-y-4">
+                                    {/* Expense Category (Mandiri) */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1.5">
+                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Kategori Pengeluaran</label>
+                                        </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                  <label className="block text-xs font-medium text-purple-700 dark:text-purple-300 mb-1.5">
-                                      Masa Manfaat (Bulan)
-                                  </label>
-                                  <input
-                                      type="number"
-                                      min="1"
-                                      value={formData.usefulLife || ''}
-                                      onChange={e => setFormData({...formData, usefulLife: parseInt(e.target.value) || 0})}
-                                      onWheel={(e) => e.currentTarget.blur()}
-                                      className="w-full rounded-lg border border-purple-300 dark:border-purple-600 bg-white dark:bg-purple-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow"
-                                      placeholder="Contoh: 12"
-                                  />
-                                  <div className="flex gap-2 mt-2">
-                                      {[12, 24, 36, 48, 60].map((months) => (
-                                          <button
-                                              key={months}
-                                              type="button"
-                                              onClick={() => setFormData({ ...formData, usefulLife: months })}
-                                              className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
-                                                  formData.usefulLife === months
-                                                      ? 'bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/40 dark:border-purple-500 dark:text-purple-300'
-                                                      : 'bg-white border-purple-100 text-purple-600 hover:bg-purple-50 dark:bg-transparent dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/20'
-                                              }`}
-                                          >
-                                              {months / 12} Thn
-                                          </button>
-                                      ))}
-                                  </div>
-                              </div>
+                                        <div className="relative">
+                                            <Combobox
+                                                options={categories.map(c => ({ value: c.id, label: c.name }))}
+                                                value={formData.expenseCategoryId}
+                                                onChange={val => setFormData({...formData, expenseCategoryId: val})}
+                                                placeholder="Pilih kategori pengeluaran..."
+                                                loading={isLoadingCategories}
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                            Kelola kategori di tab COA
+                                        </p>
+                                    </div>
 
-                              <div>
-                                  <label className="block text-xs font-medium text-purple-700 dark:text-purple-300 mb-1.5">
-                                      Penyusutan per Bulan
-                                  </label>
-                                  <div className="relative">
-                                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                          <span className="text-purple-500 font-bold text-xs">Rp</span>
-                                      </div>
-                                      <input
-                                          type="text"
-                                          readOnly
-                                          value={formData.depreciation ? formatCurrency(Number(formData.depreciation)) : '0'}
-                                          className="w-full pl-8 rounded-lg border-purple-200 dark:border-purple-700/50 bg-purple-100/50 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 font-bold cursor-not-allowed"
-                                      />
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              )}
+                                    {/* CAPEX Details */}
+                                    {formData.category === 'CAPEX' && (
+                                        <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-800/30 grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Masa Manfaat (Bulan)</label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.usefulLife || ''}
+                                                    onChange={e => setFormData({...formData, usefulLife: parseInt(e.target.value) || 0})}
+                                                    className="w-full rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800 text-sm py-1.5"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Penyusutan</label>
+                                                <div className="text-sm font-black text-purple-600 dark:text-purple-400 pt-1.5">
+                                                    {formatCurrency(Number(formData.depreciation))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
-              {/* 4. Details Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                          Tanggal Transaksi
-                      </label>
-                      <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <HiOutlineCalendar className="text-gray-400 w-5 h-5" />
-                          </div>
-                          <input
-                              type="date"
-                              required
-                              value={formData.date}
-                              onChange={e => setFormData({...formData, date: e.target.value})}
-                              className="w-full pl-10 rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow hover:border-gray-500 dark:hover:border-gray-400"
-                          />
-                      </div>
-                  </div>
+                        {/* Step 3: Konfirmasi */}
+                        {step === 3 && (
+                            <div className="space-y-5 animate-in slide-in-from-right-4 fade-in duration-300">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <HiOutlineCheckCircle className="text-blue-500 w-5 h-5" />
+                                    <h2 className="text-xl font-black text-gray-900 dark:text-white">Konfirmasi Data</h2>
+                                </div>
 
-                  <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                          Lokasi / Site (Group)
-                      </label>
-                      <select
-                          value={formData.mixRadiusGroupId}
-                          onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
-                          className="w-full rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow hover:border-gray-500 dark:hover:border-gray-400"
-                      >
-                          <option value="">-- Umum / Kantor Pusat --</option>
-                          {sites.map(site => (
-                              <option key={site.id} value={site.id}>{site.name}</option>
-                          ))}
-                      </select>
-                  </div>
-              </div>
+                                <div className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-3xl border border-blue-100 dark:border-blue-900/30 space-y-3">
+                                    <div className="flex justify-between items-center pb-3 border-b border-blue-200/30">
+                                        <span className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase">Total Nominal</span>
+                                        <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">{formatCurrency(Number(formData.amount))}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 text-xs pt-2">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase">Kategori</p>
+                                            <p className="font-bold text-gray-700 dark:text-gray-200">{selectedCategoryDetail?.name || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase">Tipe</p>
+                                            <p className="font-bold text-gray-700 dark:text-gray-200">{formData.category}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase">Tanggal</p>
+                                            <p className="font-bold text-gray-700 dark:text-gray-200">{formData.date}</p>
+                                        </div>
+                                        <div className="col-span-2 space-y-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase">Keterangan</p>
+                                            <p className="text-gray-600 dark:text-gray-400 italic">"{formData.description || "Tidak ada keterangan"}"</p>
+                                        </div>
+                                    </div>
+                                </div>
 
-              {/* 5. Description */}
-              <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Keterangan / Catatan
-                  </label>
-                  <textarea
-                      value={formData.description}
-                      onChange={e => setFormData({...formData, description: e.target.value})}
-                      maxLength={500}
-                      className="w-full rounded-lg border border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow hover:border-gray-500 dark:hover:border-gray-400"
-                      rows={3}
-                      placeholder="Contoh: Pembelian kabel FO 2 roll, Bayar listrik, dll..."
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
-                      {formData.description.length}/500 karakter
-                  </p>
-              </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Bukti Transaksi (Opsional)</label>
+                                    <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl p-6 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 transition-all cursor-pointer bg-gray-50/50 dark:bg-[#161e2e]/50">
+                                        <HiOutlinePhoto className="w-8 h-8 mb-2" />
+                                        <p className="text-[10px] font-bold uppercase tracking-widest">Klik untuk Upload</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-              {/* Footer */}
-              <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700">
-                  <button
-                      type="button"
-                      onClick={() => setIsModalOpen(false)}
-                      className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
-                  >
-                      Batal
-                  </button>
-                  <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 transition-all hover:shadow-blue-500/50 hover:-translate-y-0.5 flex items-center gap-2"
-                  >
-                      {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                      {isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
-                  </button>
-              </div>
-          </form>
-      </Modal>
+                        {/* Navigation Buttons */}
+                        <div className="flex justify-between gap-4 pt-6 mt-4 border-t border-gray-100 dark:border-gray-800">
+                            {step > 1 ? (
+                                <button 
+                                    type="button" 
+                                    onClick={prevStep} 
+                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-all"
+                                >
+                                    <HiOutlineArrowLeft className="w-5 h-5" />
+                                    Kembali
+                                </button>
+                            ) : (
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsModalOpen(false)} 
+                                    className="px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-all"
+                                >
+                                    Batal
+                                </button>
+                            )}
+
+                            {step < 3 ? (
+                                <button 
+                                    type="button" 
+                                    onClick={nextStep} 
+                                    className="flex items-center gap-2 px-8 py-2.5 bg-gray-900 dark:bg-blue-600 text-white font-bold rounded-xl hover:bg-black dark:hover:bg-blue-700 transition-all shadow-lg active:scale-95"
+                                >
+                                    Lanjut
+                                    <HiOutlineArrowRight className="w-5 h-5" />
+                                </button>
+                            ) : (
+                                <button 
+                                    type="submit" 
+                                    disabled={isSubmitting}
+                                    className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}
+                                </button>
+                            )}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+      )}
       </>
-      ) : (
+      ) : activeTab === 'rab' ? (
           /* RAB View */
           <div className="space-y-6">
               <RABList
@@ -1148,6 +1152,9 @@ export default function ExpensesClient() {
                   sites={sites} // Pass existing sites/groups data
               />
           </div>
+      ) : (
+          /* COA View */
+          <CategoryList />
       )}
     </div>
   )

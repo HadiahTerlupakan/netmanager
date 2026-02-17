@@ -237,6 +237,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'INTEGRATION.MIXRADIUS_ACCOUNTS', name: 'Akun', path: '/admin/integrations/mixradius/accounts', icon: 'HiOutlineServer' },
             { code: 'INTEGRATION.MIXRADIUS_INCOME', name: 'Pendapatan', path: '/admin/integrations/mixradius/income-period', icon: 'HiOutlineCurrencyDollar' },
             { code: 'INTEGRATION.MIXRADIUS_EXPENSES', name: 'Pengeluaran', path: '/admin/integrations/mixradius/expenses', icon: 'HiOutlineCreditCard' },
+            { code: 'INTEGRATION.MIXRADIUS_PROFIT_LOSS', name: 'Laba Rugi', path: '/admin/integrations/mixradius/profit-loss', icon: 'HiOutlineChartBar' },
         ],
     },
     {

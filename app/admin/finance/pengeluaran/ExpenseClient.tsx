@@ -98,7 +98,7 @@ export function ClientComponent() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
 
-    const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm({
+    const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm({
         defaultValues: {
             date: format(new Date(), 'yyyy-MM-dd'),
             amount: 0,
@@ -112,7 +112,7 @@ export function ClientComponent() {
     const watchedAmount = watch("amount");
     const watchedCategoryId = watch("categoryId");
     const watchedAccountId = watch("accountId");
-    const watchedDate = watch("date");
+    // const watchedDate = watch("date");
     const watchedDescription = watch("description");
 
     const selectedAccount = useMemo(() => 
@@ -140,8 +140,8 @@ export function ClientComponent() {
 
             setCategories(Array.isArray(catData) ? catData.filter((c: Category) => c.type === 'EXPENSE') : []);
             setAccounts(Array.isArray(accData.data) ? accData.data : (Array.isArray(accData) ? accData : []));
-        } catch (error) {
-            console.error("Error fetching metadata:", error);
+        } catch (_error) {
+            console.error("Error fetching metadata:", _error);
         }
     };
 
@@ -275,26 +275,26 @@ export function ClientComponent() {
                             )
                         },
                         {
-                            key: 'category',
+                            key: 'category_display',
                             header: 'Kategori / COA',
                             priority: 'primary',
                             render: (item) => (
                                 <div className="space-y-1">
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
-                                        {item.category?.name || "Beban Lainnya"}
+                                        {(item.category && typeof item.category === 'object' ? item.category.name : String(item.category || "Beban Lainnya"))}
                                     </span>
                                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-tighter">BEBAN OPERASIONAL</p>
                                 </div>
                             )
                         },
                         {
-                            key: 'account',
+                            key: 'account_display',
                             header: 'Sumber Dana',
                             priority: 'secondary',
                             render: (item) => (
                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
                                     <HiOutlineBanknotes className="w-4 h-4 text-emerald-500" />
-                                    {item.account?.name || "-"}
+                                    {(item.account && typeof item.account === 'object' ? item.account.name : "-")}
                                 </div>
                             )
                         },

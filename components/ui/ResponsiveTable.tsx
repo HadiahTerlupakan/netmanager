@@ -78,6 +78,27 @@ export interface ResponsiveTableProps<T> {
 // ============================================================================
 
 /**
+ * Safely render a value that might be an object
+ */
+function safeRender(value: any): React.ReactNode {
+  if (value === null || value === undefined) {
+    return '-'
+  }
+  if (React.isValidElement(value)) {
+    return value
+  }
+  if (typeof value === 'object') {
+    // If it has a 'name' property, use it (common pattern)
+    if ('name' in value) {
+      return String((value as any).name)
+    }
+    // Otherwise stringify
+    return JSON.stringify(value)
+  }
+  return value as React.ReactNode
+}
+
+/**
  * Get nested value from object using dot notation
  * e.g. getNestedValue(obj, 'user.name') returns obj.user.name
  */
@@ -157,7 +178,7 @@ function DefaultMobileCard<T>({
 
             return (
               <div key={String(column.key)} className={colIndex === 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-sm text-gray-600 dark:text-gray-400'}>
-                {value as React.ReactNode}
+                {safeRender(value)}
               </div>
             )
           })}
@@ -177,7 +198,7 @@ function DefaultMobileCard<T>({
                   {column.mobileLabel || column.header}
                 </span>
                 <span className="text-gray-900 dark:text-white font-medium">
-                  {(value as React.ReactNode) ?? '-'}
+                  {safeRender(value)}
                 </span>
               </div>
             )
@@ -398,7 +419,7 @@ export function ResponsiveTable<T>({
                       key={String(column.key)}
                       className={`px-4 py-3 text-sm text-gray-900 dark:text-white ${getAlignmentClass(column.align)} ${getPriorityClasses(column.priority)} ${column.className || ''}`}
                     >
-                      {(value as React.ReactNode) ?? '-'}
+                      {safeRender(value)}
                     </td>
                   )
                 })}

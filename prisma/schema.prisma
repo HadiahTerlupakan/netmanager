@@ -214,11 +214,15 @@ model ExpenseCategory {
   id        String   @id @default(cuid())
   name      String
   type      String   // "CAPEX" or "OPEX"
+  parentId  String?
+  parent    ExpenseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  ExpenseCategory[] @relation("CategoryHierarchy")
   expenses  Expense[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([name, type])
+  @@index([type])
+  @@index([parentId])
 }
 
 model Expense {
@@ -230,6 +234,11 @@ model Expense {
   category         String
   expenseCategoryId String?
   expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id])
+  
+  categoryId        String?
+  accountId         String?
+  transactionCategory TransactionCategory? @relation(fields: [categoryId], references: [id])
+  financialAccount    FinancialAccount?    @relation(fields: [accountId], references: [id])
 
   description      String?
   userId      String?
@@ -2706,9 +2715,10 @@ model FinancialAccount {
   description   String?
   isActive      Boolean     @default(true)
   createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  updatedAt   DateTime        @updatedAt
 
-  transactions   Transaction[]
+  transactions Transaction[]
+  expenses     Expense[]
   payments       Payment[]
   purchaseOrders PurchaseOrder[] @relation("POPaidFrom") // For payments made TO suppliers
 
@@ -2728,6 +2738,7 @@ model TransactionCategory {
   updatedAt   DateTime        @updatedAt
 
   transactions Transaction[]
+  expenses     Expense[]
 
   @@map("transaction_categories")
 }

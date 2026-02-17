@@ -14,20 +14,59 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url);
         const type = searchParams.get("type"); // CAPEX or OPEX
+        const startDate = searchParams.get("startDate");
+        const endDate = searchParams.get("endDate");
 
         const where: { type?: string } = {};
         if (type) {
             where.type = type;
         }
 
+        // Build expense filter
+        const expenseWhere: any = {};
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                // Set end date to end of day
+                end.setHours(23, 59, 59, 999);
+                expenseWhere.date = {
+                    gte: start,
+                    lte: end
+                };
+            }
+        }
+
         const categories = await prisma.expenseCategory.findMany({
             where,
+            include: {
+                parent: {
+                    select: { name: true }
+                },
+                _count: {
+                    select: { children: true }
+                },
+                expenses: {
+                    where: expenseWhere,
+                    select: { amount: true }
+                }
+            },
             orderBy: {
                 name: 'asc'
             }
         });
 
-        return NextResponse.json(categories);
+        // Calculate direct total per category
+        const categoriesWithTotal = categories.map(cat => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { expenses, ...rest } = cat;
+            return {
+                ...rest,
+                totalDirect: expenses.reduce((sum, e) => sum + Number(e.amount), 0)
+            };
+        });
+
+        return NextResponse.json(categoriesWithTotal);
     } catch (error) {
         console.error("[EXPENSE_CATEGORIES_GET]", error);
         return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
@@ -37,6 +76,7 @@ export async function GET(req: NextRequest) {
 const createCategorySchema = z.object({
     name: z.string().min(1, "Nama kategori wajib diisi"),
     type: z.string().refine(val => ['CAPEX', 'OPEX'].includes(val), "Tipe kategori tidak valid (harus CAPEX atau OPEX)"),
+    parentId: z.string().optional().nullable(),
 });
 
 export async function POST(req: NextRequest) {
@@ -65,7 +105,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Input tidak valid", details: validation.error.format() }, { status: 400 });
         }
 
-        const { name, type } = validation.data;
+        const { name, type, parentId } = validation.data;
 
         // Check if exists
         const existing = await prisma.expenseCategory.findFirst({
@@ -74,18 +114,22 @@ export async function POST(req: NextRequest) {
                     equals: name,
                     mode: 'insensitive'
                 },
-                type
+                type,
+                parentId: parentId || null
             }
         });
 
         if (existing) {
-            return NextResponse.json(existing);
+            return NextResponse.json({
+                error: `Kategori "${name}" sudah ada di level ini.`
+            }, { status: 400 });
         }
 
         const category = await prisma.expenseCategory.create({
             data: {
                 name,
-                type
+                type,
+                ...(parentId ? { parentId } : {})
             }
         });
 

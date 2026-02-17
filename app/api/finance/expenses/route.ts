@@ -116,6 +116,10 @@ export async function GET(req: NextRequest) {
         });
 
         console.log(`[EXPENSES_GET] Found ${expenses.length} expenses.`);
+        if (expenses.length > 0) {
+            console.log("[DEBUG_GET] First expense structure:", JSON.stringify(expenses[0], (key, value) =>
+                typeof value === 'bigint' ? value.toString() : value, 2));
+        }
 
         // Convert BigInt to string for JSON serialization
         const serializedExpenses = expenses.map(expense => ({
@@ -128,7 +132,14 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(serializedExpenses);
     } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
-        console.error("[EXPENSES_GET] Error:", err);
+        console.error("[EXPENSES_GET] Prisma Error Details:", JSON.stringify(error, null, 2));
+        console.error("[EXPENSES_GET] Error Message:", err.message);
+        
+        // Check if it's a validation error specifically
+        if (err.message.includes("Unknown field")) {
+            console.log("[DEBUG] Diagnosis: Prisma Client out of sync with schema.prisma");
+        }
+
         // Important: Return empty array on error to prevent frontend breakage, OR explicit error structure
         // But since we want to debug, let's return error object with details
         return NextResponse.json({
@@ -150,8 +161,6 @@ const expenseSchema = z.object({
     description: z.string().optional(),
     siteId: z.string().optional(),
     mixRadiusGroupId: z.string().optional(),
-    categoryId: z.string().optional(), // COA Beban (untuk tabel Transaction)
-    accountId: z.string().optional(),  // Sumber Dana (untuk tabel Transaction & Saldo)
 });
 
 export async function POST(req: Request) {
@@ -195,9 +204,7 @@ export async function POST(req: Request) {
             expenseCategoryId,
             description,
             siteId,
-            mixRadiusGroupId,
-            categoryId,
-            accountId
+            mixRadiusGroupId
         } = validation.data;
 
         let finalSiteId = siteId;
@@ -209,63 +216,29 @@ export async function POST(req: Request) {
              finalSiteId = userSiteId;
         }
 
-        // Jalankan logic simpan expense dan auto-journaling dalam satu transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Simpan record Expense
-            const expense = await tx.expense.create({
-                data: {
-                    id: randomUUID(),
-                    amount,
-                    depreciation,
-                    usefulLife,
-                    date,
-                    category,
-                    ...(expenseCategoryId ? { expenseCategoryId } : {}),
-                    ...(description !== undefined ? { description } : {}),
-                    userId,
-                    updatedAt: new Date(),
-                    ...(finalSiteId ? { siteId: finalSiteId } : {}),
-                    ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
-                },
-            });
-
-            // 2. Logic Auto-Journaling (Double Entry) jika categoryId dan accountId tersedia
-            if (categoryId && accountId) {
-                const amountFloat = Number(amount);
-
-                // Buat record Transaction
-                await tx.transaction.create({
-                    data: {
-                        date,
-                        amount: amountFloat,
-                        type: 'EXPENSE',
-                        categoryId,
-                        accountId,
-                        description: description || category,
-                        referenceId: expense.id,
-                        createdById: userId,
-                    }
-                });
-
-                // Update Saldo FinancialAccount (Kurangi saldo sumber dana)
-                await tx.financialAccount.update({
-                    where: { id: accountId },
-                    data: {
-                        balance: {
-                            decrement: amountFloat
-                        }
-                    }
-                });
-            }
-
-            return expense;
+        // Simpan record Expense (Stand-alone mode)
+        const expense = await prisma.expense.create({
+            data: {
+                id: randomUUID(),
+                amount,
+                depreciation,
+                usefulLife,
+                date,
+                category,
+                ...(expenseCategoryId ? { expenseCategoryId } : {}),
+                ...(description !== undefined ? { description } : {}),
+                userId,
+                updatedAt: new Date(),
+                ...(finalSiteId ? { siteId: finalSiteId } : {}),
+                ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
+            },
         });
 
         return NextResponse.json({
-            ...result,
-            amount: result.amount.toString(),
-            depreciation: result.depreciation ? result.depreciation.toString() : '0',
-            usefulLife: result.usefulLife || 0,
+            ...expense,
+            amount: expense.amount.toString(),
+            depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
+            usefulLife: expense.usefulLife || 0,
         });
     } catch (error) {
         console.error("[EXPENSES_POST]", error);

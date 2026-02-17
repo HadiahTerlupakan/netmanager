@@ -13,6 +13,139 @@ interface CategoriesClientProps {
   initialData: Category[]
 }
 
+interface ModalFormProps {
+    name: string
+    setName: (val: string) => void
+    type: string
+    setType: (val: string) => void
+    expenseType: string
+    setExpenseType: (val: string) => void
+    description: string
+    setDescription: (val: string) => void
+    loading: boolean
+    isEdit?: boolean
+    onClose: () => void
+    onSubmit: () => void
+}
+
+const ModalForm = ({
+    name,
+    setName,
+    type,
+    setType,
+    expenseType,
+    setExpenseType,
+    description,
+    setDescription,
+    loading,
+    isEdit = false,
+    onClose,
+    onSubmit
+}: ModalFormProps) => (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-2">
+          <label className="font-medium text-sm text-gray-700 dark:text-gray-300">Nama Kategori</label>
+          <input 
+              type="text" 
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+              placeholder="Contoh: Sewa Kantor" 
+          />
+      </div>
+
+      <div className="flex flex-col gap-2">
+          <label className="font-medium text-sm text-gray-700 dark:text-gray-300">Tipe Kategori</label>
+          <div className="grid grid-cols-2 gap-4">
+              <div 
+                  onClick={() => setType('INCOME')}
+                  className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
+                      type === 'INCOME' 
+                          ? 'bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-400 dark:text-green-300 shadow-sm' 
+                          : 'bg-white border-gray-200 hover:border-green-300 hover:bg-gray-50 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700'
+                  }`}
+              >
+                  <div className={`p-2 rounded-full ${type === 'INCOME' ? 'bg-green-200 dark:bg-green-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                      </svg>
+                  </div>
+                  <span className="font-semibold text-sm">Pemasukan</span>
+              </div>
+
+              <div 
+                  onClick={() => setType('EXPENSE')}
+                  className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
+                      type === 'EXPENSE' 
+                          ? 'bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-400 dark:text-red-300 shadow-sm' 
+                          : 'bg-white border-gray-200 hover:border-red-300 hover:bg-gray-50 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700'
+                  }`}
+              >
+                  <div className={`p-2 rounded-full ${type === 'EXPENSE' ? 'bg-red-200 dark:bg-red-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                      </svg>
+                  </div>
+                  <span className="font-semibold text-sm">Pengeluaran</span>
+              </div>
+          </div>
+      </div>
+
+      {type === 'EXPENSE' && (
+           <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-200 dark:border-gray-700 animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block font-medium text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Klasifikasi Biaya</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                      { id: 'OPERATIONAL', label: 'Operasional', desc: 'Rutin (Gaji, Listrik)' },
+                      { id: 'CAPITAL', label: 'Belanja Modal', desc: 'Aset (Laptop, Server)' },
+                      { id: 'OTHER', label: 'Lainnya', desc: 'Tidak Terduga' }
+                  ].map((opt) => (
+                      <div 
+                          key={opt.id}
+                          onClick={() => setExpenseType(opt.id)}
+                          className={`cursor-pointer border rounded-lg p-3 text-center transition-all duration-200 ${
+                              expenseType === opt.id
+                                  ? 'bg-white shadow-md border-blue-500 text-blue-700 dark:bg-gray-800 dark:border-blue-400 dark:text-blue-300 transform scale-[1.02]'
+                                  : 'bg-transparent border-transparent hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-400'
+                          }`}
+                      >
+                          <div className="font-semibold text-sm">{opt.label}</div>
+                          <div className="text-[10px] opacity-75 mt-0.5">{opt.desc}</div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+          <label className="font-medium text-sm text-gray-700 dark:text-gray-300">Keterangan (Opsional)</label>
+          <textarea 
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all h-24 resize-none" 
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Tambahkan catatan detail jika diperlukan..."
+          ></textarea>
+      </div>
+
+      <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700 mt-2">
+          <button 
+              className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors font-medium" 
+              onClick={onClose}
+          >
+              Batal
+          </button>
+          <button 
+              className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" 
+              onClick={onSubmit} 
+              disabled={loading}
+          >
+              {loading && <span className="loading loading-spinner loading-sm"></span>}
+              {isEdit ? 'Simpan Perubahan' : 'Simpan Kategori'}
+          </button>
+      </div>
+  </div>
+)
+
 export default function CategoriesClient({ initialData }: CategoriesClientProps) {
   const router = useRouter()
   const { hasPermission } = usePermission()
@@ -161,112 +294,6 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
       return item.type === activeTab
   })
 
-  // Reusable Form Content
-  const ModalForm = ({ isEdit = false }) => (
-      <div className="space-y-5">
-        <div className="flex flex-col gap-2">
-            <label className="font-medium text-sm text-gray-700 dark:text-gray-300">Nama Kategori</label>
-            <input 
-                type="text" 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                placeholder="Contoh: Sewa Kantor" 
-            />
-        </div>
-
-        <div className="flex flex-col gap-2">
-            <label className="font-medium text-sm text-gray-700 dark:text-gray-300">Tipe Kategori</label>
-            <div className="grid grid-cols-2 gap-4">
-                <div 
-                    onClick={() => setType('INCOME')}
-                    className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
-                        type === 'INCOME' 
-                            ? 'bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-400 dark:text-green-300 shadow-sm' 
-                            : 'bg-white border-gray-200 hover:border-green-300 hover:bg-gray-50 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700'
-                    }`}
-                >
-                    <div className={`p-2 rounded-full ${type === 'INCOME' ? 'bg-green-200 dark:bg-green-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                        </svg>
-                    </div>
-                    <span className="font-semibold text-sm">Pemasukan</span>
-                </div>
-
-                <div 
-                    onClick={() => setType('EXPENSE')}
-                    className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
-                        type === 'EXPENSE' 
-                            ? 'bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-400 dark:text-red-300 shadow-sm' 
-                            : 'bg-white border-gray-200 hover:border-red-300 hover:bg-gray-50 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700'
-                    }`}
-                >
-                    <div className={`p-2 rounded-full ${type === 'EXPENSE' ? 'bg-red-200 dark:bg-red-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
-                        </svg>
-                    </div>
-                    <span className="font-semibold text-sm">Pengeluaran</span>
-                </div>
-            </div>
-        </div>
-
-        {type === 'EXPENSE' && (
-             <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-200 dark:border-gray-700 animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block font-medium text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Klasifikasi Biaya</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                        { id: 'OPERATIONAL', label: 'Operasional', desc: 'Rutin (Gaji, Listrik)' },
-                        { id: 'CAPITAL', label: 'Belanja Modal', desc: 'Aset (Laptop, Server)' },
-                        { id: 'OTHER', label: 'Lainnya', desc: 'Tidak Terduga' }
-                    ].map((opt) => (
-                        <div 
-                            key={opt.id}
-                            onClick={() => setExpenseType(opt.id)}
-                            className={`cursor-pointer border rounded-lg p-3 text-center transition-all duration-200 ${
-                                expenseType === opt.id
-                                    ? 'bg-white shadow-md border-blue-500 text-blue-700 dark:bg-gray-800 dark:border-blue-400 dark:text-blue-300 transform scale-[1.02]'
-                                    : 'bg-transparent border-transparent hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-400'
-                            }`}
-                        >
-                            <div className="font-semibold text-sm">{opt.label}</div>
-                            <div className="text-[10px] opacity-75 mt-0.5">{opt.desc}</div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-            <label className="font-medium text-sm text-gray-700 dark:text-gray-300">Keterangan (Opsional)</label>
-            <textarea 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all h-24 resize-none" 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Tambahkan catatan detail jika diperlukan..."
-            ></textarea>
-        </div>
-
-        <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700 mt-2">
-            <button 
-                className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors font-medium" 
-                onClick={() => isEdit ? setEditModalOpen(false) : setModalOpen(false)}
-            >
-                Batal
-            </button>
-            <button 
-                className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" 
-                onClick={isEdit ? handleUpdate : handleCreate} 
-                disabled={loading}
-            >
-                {loading && <span className="loading loading-spinner loading-sm"></span>}
-                {isEdit ? 'Simpan Perubahan' : 'Simpan Kategori'}
-            </button>
-        </div>
-    </div>
-  )
-
   return (
     <div className="max-w-7xl mx-auto">
        {/* Page Header */}
@@ -389,7 +416,15 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
             title="Tambah Kategori Baru"
             size="lg"
        >
-            <ModalForm />
+            <ModalForm 
+                name={name} setName={setName}
+                type={type} setType={setType}
+                expenseType={expenseType} setExpenseType={setExpenseType}
+                description={description} setDescription={setDescription}
+                loading={loading}
+                onClose={() => setModalOpen(false)}
+                onSubmit={handleCreate}
+            />
        </Modal>
 
        {/* Edit Modal */}
@@ -399,7 +434,16 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
             title="Edit Kategori"
             size="lg"
        >
-            <ModalForm isEdit />
+            <ModalForm 
+                isEdit
+                name={name} setName={setName}
+                type={type} setType={setType}
+                expenseType={expenseType} setExpenseType={setExpenseType}
+                description={description} setDescription={setDescription}
+                loading={loading}
+                onClose={() => setEditModalOpen(false)}
+                onSubmit={handleUpdate}
+            />
        </Modal>
 
        {/* Delete Confirmation Modal */}

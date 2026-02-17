@@ -860,8 +860,9 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                             {previewSubscribers.map((subs, idx) => {
                                                 const height = targetSubscribers > 0 ? (subs / targetSubscribers) * 100 : 0
                                                 const isBepMonth = idx + 1 === realisticBepMonths
+                                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                                 const isFuture = idx + 1 > realisticBepMonths
-                                                
+
                                                 return (
                                                     <div
                                                         key={idx}

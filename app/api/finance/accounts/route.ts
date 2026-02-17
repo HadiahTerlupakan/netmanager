@@ -12,6 +12,24 @@ const accountSchema = z.object({
   initialBalance: z.number().optional().default(0)
 })
 
+export async function GET(req: NextRequest) {
+  try {
+    const session = await verifyAuth(req)
+    if (!session) {
+      return ApiErrors.unauthorized()
+    }
+
+    const financeService = new FinanceService()
+    const accounts = await financeService.getAccounts()
+
+    return apiSuccess(accounts)
+  } catch (error: unknown) {
+    console.error('Get Accounts Error:', error)
+    const message = error instanceof Error ? error.message : 'Gagal mengambil data akun keuangan'
+    return ApiErrors.internalError(message)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
