@@ -53,7 +53,7 @@ export function generatePelangganAccessToken(pelanggan: {
   }
 
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: expiresIn,
+    expiresIn: expiresIn as any,
     issuer: 'netmanager',
     audience: 'pelanggan-portal',
   })

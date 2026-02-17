@@ -44,10 +44,14 @@ export async function POST(req: Request) {
              // If not found -> try customer
         }
         
-        // REFACTORING LOGIC TO BE CLEANER:
-        
+        // Helper Types
+        type LoginResult =
+            | { found: false }
+            | { found: true; success: false; error: string; status?: number }
+            | { found: true; success: true; data: any }
+
         // Helper: Try Login as Customer
-        const tryCustomerLogin = async () => {
+        const tryCustomerLogin = async (): Promise<LoginResult> => {
             const customer = await prisma.pelanggan.findFirst({
                 where: {
                     OR: [
@@ -102,7 +106,7 @@ export async function POST(req: Request) {
         }
 
         // Helper: Try Login as Employee
-        const tryEmployeeLogin = async () => {
+        const tryEmployeeLogin = async (): Promise<LoginResult> => {
             const user = await prisma.user.findUnique({
                 where: { email },
                 include: { role: { include: { permission: true } } }
@@ -160,7 +164,7 @@ export async function POST(req: Request) {
         }
 
         // EXECUTION FLOW
-        let result
+        let result: LoginResult
         console.log(`[MobileLogin] Strategy: ${loginType === 'CUSTOMER' ? 'Customer First' : 'Employee First'}`)
 
         if (loginType === 'CUSTOMER') {
@@ -185,7 +189,7 @@ export async function POST(req: Request) {
         }
 
         if (!result.success) {
-            return NextResponse.json({ success: false, error: result.error }, { status: result.status || 401 })
+            return NextResponse.json({ success: false, error: (result as any).error }, { status: (result as any).status || 401 })
         }
 
         return NextResponse.json({
