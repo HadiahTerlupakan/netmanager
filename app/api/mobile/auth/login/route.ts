@@ -24,11 +24,10 @@ export async function POST(req: Request) {
         // SMART LOGIN - AUTO DETECT
         // If loginType is provided, try that first.
         // If not found in that table, fallback to the other table SILENTLY.
-        
-        let targetType = loginType || 'EMPLOYEE' // Default to EMPLOYEE if undefined
-        let userFound = false
-        
-        // Strategy: 
+
+        const targetType = loginType || 'EMPLOYEE' // Default to EMPLOYEE if undefined
+
+        // Strategy:
         // 1. Try Primary Target (based on tab)
         // 2. If user NOT FOUND, try Secondary Target
         // 3. If user FOUND but password wrong, FAIL (don't try other to prevent ambiguity)
@@ -44,10 +43,14 @@ export async function POST(req: Request) {
              // If not found -> try customer
         }
         
-        // REFACTORING LOGIC TO BE CLEANER:
-        
+        // Helper Types
+        type LoginResult =
+            | { found: false }
+            | { found: true; success: false; error: string; status?: number }
+            | { found: true; success: true; data: Record<string, unknown> }
+
         // Helper: Try Login as Customer
-        const tryCustomerLogin = async () => {
+        const tryCustomerLogin = async (): Promise<LoginResult> => {
             const customer = await prisma.pelanggan.findFirst({
                 where: {
                     OR: [
@@ -102,7 +105,7 @@ export async function POST(req: Request) {
         }
 
         // Helper: Try Login as Employee
-        const tryEmployeeLogin = async () => {
+        const tryEmployeeLogin = async (): Promise<LoginResult> => {
             const user = await prisma.user.findUnique({
                 where: { email },
                 include: { role: { include: { permission: true } } }
@@ -160,7 +163,7 @@ export async function POST(req: Request) {
         }
 
         // EXECUTION FLOW
-        let result
+        let result: LoginResult
         console.log(`[MobileLogin] Strategy: ${loginType === 'CUSTOMER' ? 'Customer First' : 'Employee First'}`)
 
         if (loginType === 'CUSTOMER') {
@@ -185,7 +188,8 @@ export async function POST(req: Request) {
         }
 
         if (!result.success) {
-            return NextResponse.json({ success: false, error: result.error }, { status: result.status || 401 })
+            const errorResult = result as { error: string; status?: number }
+            return NextResponse.json({ success: false, error: errorResult.error }, { status: errorResult.status || 401 })
         }
 
         return NextResponse.json({
