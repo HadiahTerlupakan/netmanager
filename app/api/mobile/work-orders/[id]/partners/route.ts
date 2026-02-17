@@ -1,230 +1,237 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMobileToken } from '@/lib/mobile-auth';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { socketEmitter } from '@/lib/websocket/emitter';
-import { randomUUID } from 'crypto';
-import { notifyAdminsAboutMobileAction } from '@/modules/notification';
+import { verifyAuth } from '@/lib/auth';
 
-// POST: Add Partner
+/**
+ * POST /api/mobile/work-orders/[id]/partners
+ * Menambahkan partner ke work order
+ */
 export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-    try {
-        const { id } = await params;
-
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
-        }
-
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
-        }
-
-        const payload = await verifyMobileToken(token);
-
-        if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
-        }
-
-        const body = await request.json();
-        const { userId, role } = body;
-
-        if (!userId) {
-            return NextResponse.json({ error: 'User ID wajib diisi' }, { status: 400 });
-        }
-
-        const assignment = await prisma.workOrderAssignments.create({
-            data: {
-                id: randomUUID(),
-                workOrderId: id,
-                userId: userId,
-                role: role || 'PARTNER',
-                status: 'PENDING', // Require approval
-                assignedById: payload.id as string
-            }
-        });
-
-        // Create Notification
-        await prisma.notifications.create({
-            data: {
-                id: randomUUID(),
-                userId: userId,
-                type: 'PARTNER_REQUEST',
-                title: 'Permintaan Partner Kerja',
-                message: `Anda diminta menjadi partner kerja di Work Order. Silakan berikan tanggapan.`,
-                link: `/work-order-detail/${id}`, // Mobile deep link path
-                sourceType: 'WORK_ORDER',
-                sourceId: id
-            }
-        });
-
-        // Add log update
-        await prisma.workOrderUpdates.create({
-            data: {
-                id: randomUUID(),
-                workOrderId: id,
-                updateType: 'ASSIGNMENT',
-                message: `Partner ditambahkan (Menunggu Persetujuan)`,
-                createdById: payload.id as string
-            }
-        });
-
-        // Get work order for notification
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id },
-            select: { workOrderNumber: true, title: true, departmentId: true, siteId: true }
-        });
-
-        // Get partner user name for notification
-        const partnerUser = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { name: true }
-        });
-
-        // Emit WebSocket to notify partner user in real-time
-        if (workOrder) {
-            socketEmitter.updateWorkOrder({
-                id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: 'PARTNER_INVITATION',
-                status: 'PENDING',
-                priority: 'NORMAL'
-            });
-        }
-
-        // Also notify the partner user directly
-        socketEmitter.workOrderAssigned({
-            id,
-            workOrderNumber: workOrder?.workOrderNumber || '',
-            title: workOrder?.title || '',
-            type: 'PARTNER_INVITATION',
-            status: 'PENDING',
-            priority: 'NORMAL'
-        }, userId);
-
-        // Notify Admin Portal about partner invite
-        if (workOrder) {
-            await notifyAdminsAboutMobileAction({
-                workOrderId: id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                actionType: 'PARTNER_INVITE',
-                actionMessage: `Mengundang ${partnerUser?.name || 'rekan'} sebagai partner kerja`,
-                triggeredByUserId: payload.id as string,
-                triggeredByName: (payload.name as string) || 'Unknown',
-                ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
-                ...(workOrder.siteId && { siteId: workOrder.siteId }),
-            });
-        }
-
-        return NextResponse.json({
-            success: true,
-            data: assignment
-        });
-
-    } catch (error) {
-        console.error('Add Partner Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+  try {
+    // Autentikasi user
+    const user = await verifyAuth(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Autentikasi diperlukan' },
+        { status: 401 }
+      );
     }
+
+    const { id: workOrderId } = await params;
+
+    // Parse dan validasi request body
+    const bodySchema = z.object({
+      userId: z.string().min(1, 'User ID wajib diisi'),
+      role: z.literal('PARTNER'),
+    });
+
+    const body = await request.json();
+    const validatedData = bodySchema.parse(body);
+
+    // Validasi: Work order exists
+    const workOrder = await prisma.workOrders.findUnique({
+      where: { id: workOrderId },
+      select: { id: true, workOrderNumber: true, status: true },
+    });
+
+    if (!workOrder) {
+      return NextResponse.json(
+        { error: 'Work order tidak ditemukan' },
+        { status: 404 }
+      );
+    }
+
+    // Validasi: User yang akan diassign exists
+    const targetUser = await prisma.user.findUnique({
+      where: { id: validatedData.userId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json(
+        { error: 'User tidak ditemukan' },
+        { status: 404 }
+      );
+    }
+
+    // Validasi: User belum assigned sebagai partner di WO ini
+    const existingAssignment = await prisma.workOrderAssignments.findFirst({
+      where: {
+        workOrderId: workOrderId,
+        userId: validatedData.userId,
+        role: 'PARTNER',
+      },
+    });
+
+    if (existingAssignment) {
+      return NextResponse.json(
+        { error: 'User sudah ditambahkan sebagai partner di work order ini' },
+        { status: 400 }
+      );
+    }
+
+    // Buat assignment baru
+    const assignment = await prisma.workOrderAssignments.create({
+      data: {
+        id: crypto.randomUUID(),
+        workOrderId: workOrderId,
+        userId: validatedData.userId,
+        role: validatedData.role,
+        status: 'PENDING',
+        assignedAt: new Date(),
+        assignedById: user.id,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    });
+
+    // TODO: Kirim notifikasi ke partner yang diundang (opsional)
+    // Implementasi notifikasi bisa ditambahkan di sini jika diperlukan
+
+    return NextResponse.json(
+      {
+        success: true,
+        assignment: {
+          id: assignment.id,
+          workOrderId: assignment.workOrderId,
+          userId: assignment.userId,
+          role: assignment.role,
+          status: assignment.status,
+          assignedAt: assignment.assignedAt,
+          assignedById: assignment.assignedById,
+          user: assignment.user,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('[API] Error adding partner to work order:', error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validasi gagal', details: error.issues },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan server' },
+      { status: 500 }
+    );
+  }
 }
 
-// DELETE: Remove Partner
+/**
+ * DELETE /api/mobile/work-orders/[id]/partners?assignmentId=xxx
+ * Menghapus partner dari work order
+ */
 export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-    try {
-        const { id } = await params;
-
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
-        }
-
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
-        }
-
-        const payload = await verifyMobileToken(token);
-
-        if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
-        }
-
-        const searchParams = request.nextUrl.searchParams;
-        const assignmentId = searchParams.get('assignmentId');
-        const userId = searchParams.get('userId');
-
-        if (!assignmentId && !userId) {
-            return NextResponse.json({ error: 'Assignment ID atau User ID wajib diisi' }, { status: 400 });
-        }
-
-        // Find the assignment first to get the userId before deleting
-        const whereClause = assignmentId
-            ? { id: assignmentId }
-            : { workOrderId: id, userId: userId! };
-
-        const assignmentToDelete = await prisma.workOrderAssignments.findFirst({
-            where: whereClause,
-            select: { userId: true }
-        });
-
-        const partnerUserId = assignmentToDelete?.userId || userId;
-
-        await prisma.workOrderAssignments.deleteMany({
-            where: whereClause
-        });
-
-        // Add log update
-        await prisma.workOrderUpdates.create({
-            data: {
-                id: randomUUID(),
-                workOrderId: id,
-                updateType: 'ASSIGNMENT',
-                message: `Partner dihapus`,
-                createdById: payload.id as string
-            }
-        });
-
-        // Get work order for WebSocket emit
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id },
-            select: { workOrderNumber: true, title: true }
-        });
-
-        // Emit WebSocket to notify the removed partner user in real-time
-        if (workOrder && partnerUserId) {
-            socketEmitter.workOrderAssigned({
-                id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: 'PARTNER_REMOVED',
-                status: 'REMOVED',
-                priority: 'NORMAL'
-            }, partnerUserId);
-
-            // Also emit general update for WO room
-            socketEmitter.updateWorkOrder({
-                id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: 'PARTNER_REMOVED',
-                status: 'UPDATED',
-                priority: 'NORMAL'
-            });
-        }
-
-        return NextResponse.json({
-            success: true
-        });
-
-    } catch (error) {
-        console.error('Remove Partner Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+  try {
+    // Autentikasi user
+    const user = await verifyAuth(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Autentikasi diperlukan' },
+        { status: 401 }
+      );
     }
+
+    const { id: workOrderId } = await params;
+    const { searchParams } = new URL(request.url);
+    const assignmentId = searchParams.get('assignmentId');
+
+    if (!assignmentId) {
+      return NextResponse.json(
+        { error: 'Assignment ID wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    // Validasi: Assignment exists
+    const assignment = await prisma.workOrderAssignments.findUnique({
+      where: { id: assignmentId },
+      include: {
+        workOrders: {
+          select: {
+            id: true,
+            createdById: true,
+            assignedToId: true,
+          },
+        },
+      },
+    });
+
+    if (!assignment) {
+      return NextResponse.json(
+        { error: 'Assignment tidak ditemukan' },
+        { status: 404 }
+      );
+    }
+
+    if (assignment.workOrderId !== workOrderId) {
+      return NextResponse.json(
+        { error: 'Assignment tidak sesuai dengan work order' },
+        { status: 400 }
+      );
+    }
+
+    // Validasi: User authorized (yang assign, lead technician, atau admin)
+    const isAssigner = assignment.assignedById === user.id;
+    const isCreator = assignment.workOrders.createdById === user.id;
+    const isLeadTech = assignment.workOrders.assignedToId === user.id;
+    
+    // Check if user is admin (has accessAdminPanel)
+    const userWithRole = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        role: {
+          select: {
+            accessAdminPanel: true,
+            isSuperAdmin: true,
+          },
+        },
+      },
+    });
+    
+    const isAdmin = userWithRole?.role?.accessAdminPanel || userWithRole?.role?.isSuperAdmin || false;
+
+    if (!isAssigner && !isCreator && !isLeadTech && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Anda tidak memiliki akses untuk menghapus partner ini' },
+        { status: 403 }
+      );
+    }
+
+    // Hapus assignment
+    await prisma.workOrderAssignments.delete({
+      where: { id: assignmentId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Partner berhasil dihapus dari work order',
+    });
+  } catch (error) {
+    console.error('[API] Error removing partner from work order:', error);
+
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan server' },
+      { status: 500 }
+    );
+  }
 }
