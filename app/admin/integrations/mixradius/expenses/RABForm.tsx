@@ -52,10 +52,10 @@ const CurrencyInput = ({
     helperText?: string
 }) => (
     <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">{label}</label>
         <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm font-medium">Rp</span>
+                <span className="text-gray-500 dark:text-gray-400 sm:text-sm font-medium">Rp</span>
             </div>
             <input
                 type="number"
@@ -63,7 +63,7 @@ const CurrencyInput = ({
                 value={value || ''}
                 onChange={(e) => onChange && onChange(Number(e.target.value))}
                 readOnly={readOnly}
-                className={`block w-full pl-10 pr-12 py-2.5 sm:text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-shadow group-hover:shadow-sm ${readOnly ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-500 dark:text-gray-400' : 'text-gray-900'}`}
+                className={`block w-full pl-10 pr-12 py-2.5 sm:text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 transition-shadow group-hover:shadow-sm dark:placeholder-gray-500 ${readOnly ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-500 dark:text-gray-400' : 'bg-white text-gray-900 dark:text-white'}`}
                 placeholder={placeholder || "0"}
             />
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -74,7 +74,7 @@ const CurrencyInput = ({
             <div className="flex justify-between mt-1">
                 {helperText && <span className="text-xs text-gray-500 italic">{helperText}</span>}
                 {value > 0 && (
-                    <p className="text-xs text-gray-500 font-mono text-right ml-auto">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono text-right ml-auto">
                         {formatCurrency(value)}
                     </p>
                 )}
@@ -494,134 +494,176 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
             size="4xl"
         >
             <form onSubmit={handleSubmit} className="animate-in fade-in duration-300">
-                {/* Main Tab Headers */}
-                <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6 -mt-2">
-                    {mainTabs.map((tab) => (
+                {/* Wizard Stepper Headers */}
+                <div className="flex items-center justify-between mb-8 px-4 relative">
+                    {/* Background Line */}
+                    <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 z-0 hidden sm:block"></div>
+                    
+                    {mainTabs.map((tab, idx) => (
                         <button
                             key={tab.id}
                             type="button"
                             onClick={() => setMainTab(tab.id)}
-                            className={`flex-1 py-3 px-4 text-sm font-bold text-center border-b-2 transition-colors flex items-center justify-center gap-2 ${
-                                mainTab === tab.id
-                                    ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
+                            className="relative z-10 flex flex-col items-center group"
                         >
-                            <tab.icon className="w-4 h-4" />
-                            <span className="hidden sm:inline">{tab.label}</span>
-                            <span className="sm:hidden">
-                                {tab.id === 'info' && 'Info'}
-                                {tab.id === 'growth' && 'Growth'}
-                                {tab.id === 'items' && 'Item'}
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                                mainTab === tab.id
+                                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-110'
+                                    : mainTabs.findIndex(t => t.id === mainTab) > idx
+                                        ? 'bg-green-500 border-green-500 text-white'
+                                        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 group-hover:border-blue-400'
+                            }`}>
+                                {mainTabs.findIndex(t => t.id === mainTab) > idx ? (
+                                    <HiOutlineCheck className="w-6 h-6" />
+                                ) : (
+                                    <tab.icon className="w-5 h-5" />
+                                )}
+                            </div>
+                            <span className={`mt-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
+                                mainTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'
+                            }`}>
+                                {tab.label.split(' ')[0]}
                             </span>
                         </button>
                     ))}
                 </div>
 
-                {/* Tab Content */}
-                <div className="min-h-[400px]">
+                {/* Tab Content Wrapper */}
+                <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-800 p-1 sm:p-2 min-h-[450px]">
                     {/* Tab 1: Informasi Proyek */}
                     {mainTab === 'info' && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-200">
-                            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <HiOutlineDocumentText className="w-5 h-5 text-blue-500" />
-                                    <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Data Proyek</h3>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                            Nama Proyek <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={formData.name}
-                                            onChange={e => setFormData({...formData, name: e.target.value})}
-                                             className="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500 py-2.5 dark:text-white dark:placeholder-gray-400"
-                                             placeholder="Contoh: Ekspansi Cluster A - 2024"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Lokasi / Site (Group)</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <HiOutlineBuildingOffice className="text-gray-400 w-4 h-4" />
+                        <div className="space-y-6 p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Left Column: Basic Info */}
+                                <div className="md:col-span-2 space-y-5">
+                                    <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                                <HiOutlineDocumentText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                             </div>
-                                            <select
-                                                value={formData.mixRadiusGroupId}
-                                                 onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
-                                                 className="block w-full pl-9 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-2.5 focus:ring-blue-500 focus:border-blue-500 dark:text-white"
-                                            >
-                                                 <option value="" className="dark:text-gray-400">-- Pilih Lokasi --</option>
-                                                {sites.map(s => (
-                                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                                ))}
-                                            </select>
+                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Identitas Proyek</h3>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                                    Nama Proyek <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    value={formData.name}
+                                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                                    className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-3 dark:text-white transition-all"
+                                                    placeholder="e.g., Ekspansi Jaringan Cluster Wijaya - Tahap 1"
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Lokasi / Site</label>
+                                                    <div className="relative">
+                                                        <HiOutlineBuildingOffice className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                                        <select
+                                                            value={formData.mixRadiusGroupId}
+                                                            onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
+                                                            className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white appearance-none"
+                                                        >
+                                                            <option value="">-- Pilih Lokasi --</option>
+                                                            {sites.map(s => (
+                                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Estimasi Mulai</label>
+                                                    <div className="relative">
+                                                        <HiOutlineCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                                        <input
+                                                            type="date"
+                                                            value={formData.startDate}
+                                                            onChange={e => setFormData({...formData, startDate: e.target.value})}
+                                                            className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Deskripsi Proyek</label>
+                                                <textarea
+                                                    value={formData.description}
+                                                    onChange={e => setFormData({...formData, description: e.target.value})}
+                                                    className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white py-3"
+                                                    rows={3}
+                                                    placeholder="Jelaskan cakupan atau tujuan proyek..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Column: Summary & Status */}
+                                <div className="space-y-5">
+                                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
+                                        <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
+                                            <HiOutlineCalculator className="w-32 h-32" />
+                                        </div>
+                                        
+                                        <h4 className="text-xs font-bold uppercase tracking-widest text-blue-100 mb-4">Financial Overview</h4>
+                                        <div className="space-y-4 relative z-10">
+                                            <div>
+                                                <div className="text-[10px] text-blue-100 uppercase font-medium">Total Investasi (CAPEX)</div>
+                                                <div className="text-2xl font-black">{formatCurrency(totalCapex)}</div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <div className="text-[10px] text-blue-100 uppercase font-medium">OPEX/Bulan</div>
+                                                    <div className="text-sm font-bold">{formatCurrency(totalOpex)}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] text-blue-100 uppercase font-medium">Est. BEP</div>
+                                                    <div className="text-sm font-bold">
+                                                        {realisticBepMonths === Infinity ? '∞' : `${realisticBepMonths} Bln`}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Tanggal Mulai</label>
-                                        <div className="relative">
-                                            <HiOutlineCalendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                            <input
-                                                type="date"
-                                                 value={formData.startDate}
-                                                 onChange={e => setFormData({...formData, startDate: e.target.value})}
-                                                 className="block w-full pl-9 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-2.5 focus:ring-blue-500 focus:border-blue-500 dark:text-white"
-                                            />
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                        <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Status Dokumen</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['DRAFT', 'PENDING', 'APPROVED'].map(status => (
+                                                <button
+                                                    key={status}
+                                                    type="button"
+                                                    onClick={() => setFormData({...formData, status})}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                        formData.status === status
+                                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                                            : 'bg-gray-50 text-gray-400 dark:bg-gray-700/50 border border-transparent hover:bg-gray-100'
+                                                    }`}
+                                                >
+                                                    {status}
+                                                </button>
+                                            ))}
                                         </div>
-                                    </div>
-
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Deskripsi / Catatan</label>
-                                        <textarea
-                                            value={formData.description}
-                                            onChange={e => setFormData({...formData, description: e.target.value})}
-                                             className="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white dark:placeholder-gray-400"
-                                             rows={3}
-                                             placeholder="Deskripsi singkat mengenai proyek ini..."
-                                        />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Quick Summary */}
-                            <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                                    <div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">Target</div>
-                                        <div className="text-lg font-bold text-gray-900 dark:text-white">{targetSubscribers || '-'}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">CAPEX</div>
-                                        <div className="text-lg font-bold text-purple-600">{formatCurrency(totalCapex)}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">OPEX/bln</div>
-                                        <div className="text-lg font-bold text-orange-600">{formatCurrency(totalOpex)}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">Est. BEP</div>
-                                        <div className={`text-lg font-bold ${realisticBepMonths <= 24 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {realisticBepMonths === Infinity ? '∞' : `${realisticBepMonths} bln`}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Next Button */}
-                            <div className="flex justify-end">
+                            {/* Navigation */}
+                            <div className="flex justify-end pt-4">
                                 <button
                                     type="button"
                                     onClick={() => setMainTab('growth')}
-                                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/25 active:scale-95"
                                 >
-                                    Lanjut ke Periode Pertumbuhan
-                                    <HiOutlineArrowTrendingUp className="w-4 h-4" />
+                                    Selanjutnya: Model Pertumbuhan
+                                    <HiOutlineArrowTrendingUp className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
@@ -629,34 +671,34 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
 
                     {/* Tab 2: Periode Pertumbuhan */}
                     {mainTab === 'growth' && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-200">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Left: Inputs */}
-                                <div className="space-y-5">
-                                    {/* Target & ARPU */}
-                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <HiOutlineUsers className="w-5 h-5 text-indigo-500" />
-                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Target & Revenue</h3>
+                        <div className="space-y-6 p-4 animate-in fade-in slide-in-from-right-4 duration-500">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Left: Configuration */}
+                                <div className="space-y-6">
+                                    <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-5">
+                                            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                                                <HiOutlineUsers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                            </div>
+                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Target & Pendapatan</h3>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Target Pelanggan</label>
+                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Target Pelanggan</label>
                                                 <div className="relative">
-                                                    <HiOutlineUsers className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                                    <HiOutlineUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                                     <input
                                                         type="number"
-                                                        min="0"
                                                         value={targetSubscribers || ''}
                                                         onChange={e => setTargetSubscribers(Number(e.target.value))}
-                                                        className="block w-full pl-9 pr-4 py-2.5 text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-800"
-                                                        placeholder="100"
+                                                        className="block w-full pl-10 pr-4 py-3 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
+                                                        placeholder="e.g., 200"
                                                     />
                                                 </div>
                                             </div>
                                             <CurrencyInput
-                                                label="ARPU (Harga/bln)"
+                                                label="ARPU (Harga Rata-rata/Bln)"
                                                 value={arpu}
                                                 onChange={setArpu}
                                                 placeholder="150000"
@@ -664,145 +706,134 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                         </div>
 
                                         {projectedRevenue > 0 && (
-                                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                                                <span className="text-sm text-gray-600 dark:text-gray-400">Est. Pendapatan (Full Capacity):</span>
-                                                <span className="font-bold text-green-600 font-mono">{formatCurrency(projectedRevenue)}/bln</span>
+                                            <div className="mt-5 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-900/30 flex justify-between items-center">
+                                                <div className="text-xs font-bold text-green-700 dark:text-green-400 uppercase">Potensi Revenue (Full Capacity)</div>
+                                                <div className="text-lg font-black text-green-700 dark:text-green-400">{formatCurrency(projectedRevenue)}/Bln</div>
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Growth Type */}
-                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <HiOutlineArrowTrendingUp className="w-5 h-5 text-indigo-500" />
+                                    <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-5">
+                                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                                                <HiOutlineArrowTrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                            </div>
                                             <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Model Pertumbuhan</h3>
                                         </div>
 
-                                        <div className="grid grid-cols-3 gap-2 mb-4">
+                                        <div className="grid grid-cols-3 gap-2 mb-5">
                                             {(['LINEAR', 'PERCENTAGE', 'CUSTOM'] as GrowthType[]).map(type => (
                                                 <button
                                                     key={type}
                                                     type="button"
                                                     onClick={() => setGrowthType(type)}
-                                                    className={`py-2.5 px-3 text-xs font-bold rounded-lg border transition-all ${
+                                                    className={`py-3 px-2 text-[10px] sm:text-xs font-black rounded-xl border transition-all duration-300 ${
                                                         growthType === type
-                                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                                                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-indigo-400'
+                                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20'
+                                                            : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-indigo-300'
                                                     }`}
                                                 >
-                                                    {type === 'LINEAR' && 'Linear'}
-                                                    {type === 'PERCENTAGE' && 'Persentase'}
-                                                    {type === 'CUSTOM' && 'Kustom'}
+                                                    {type === 'LINEAR' ? 'LINEAR' : type === 'PERCENTAGE' ? 'PERSENTASE' : 'KUSTOM'}
                                                 </button>
                                             ))}
                                         </div>
 
-                                        {/* Growth Settings */}
-                                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                                        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-inner min-h-[140px]">
                                             {growthType === 'LINEAR' && (
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                                                        Pelanggan Baru per Bulan
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={linearSettings.subscribersPerMonth}
-                                                        onChange={e => setLinearSettings({ subscribersPerMonth: Number(e.target.value) })}
-                                                        className="block w-full py-2.5 px-3 text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700"
-                                                    />
-                                                    <p className="text-xs text-gray-500 mt-2">
-                                                        Target {targetSubscribers} pelanggan tercapai dalam ±{linearSettings.subscribersPerMonth > 0 ? Math.ceil(targetSubscribers / linearSettings.subscribersPerMonth) : '∞'} bulan
-                                                    </p>
+                                                <div className="animate-in fade-in zoom-in-95 duration-300">
+                                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Penambahan Pelanggan / Bulan</label>
+                                                    <div className="flex items-center gap-3">
+                                                        <input
+                                                            type="number"
+                                                            value={linearSettings.subscribersPerMonth}
+                                                            onChange={e => setLinearSettings({ subscribersPerMonth: Number(e.target.value) })}
+                                                            className="block w-full py-3 px-4 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-700"
+                                                        />
+                                                        <span className="text-sm font-bold text-gray-400">PLG</span>
+                                                    </div>
+                                                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs text-blue-700 dark:text-blue-300 leading-relaxed italic">
+                                                        Target {targetSubscribers} pelanggan akan tercapai dalam ±{linearSettings.subscribersPerMonth > 0 ? Math.ceil(targetSubscribers / linearSettings.subscribersPerMonth) : '∞'} bulan secara konstan.
+                                                    </div>
                                                 </div>
                                             )}
 
                                             {growthType === 'PERCENTAGE' && (
-                                                <div className="space-y-4">
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                                                            % Awal (Bulan 1)
-                                                        </label>
-                                                        <div className="flex items-center gap-2">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max="100"
-                                                                value={percentageSettings.initialPercent}
-                                                                onChange={e => setPercentageSettings({...percentageSettings, initialPercent: Number(e.target.value)})}
-                                                                className="block w-24 py-2 px-3 text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700"
-                                                            />
-                                                            <span className="text-sm text-gray-500">%</span>
-                                                            <span className="text-xs text-gray-400">
-                                                                = {Math.round((percentageSettings.initialPercent / 100) * targetSubscribers)} pelanggan
-                                                            </span>
+                                                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">% Awal (Bln 1)</label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number"
+                                                                    value={percentageSettings.initialPercent}
+                                                                    onChange={e => setPercentageSettings({...percentageSettings, initialPercent: Number(e.target.value)})}
+                                                                    className="block w-full py-3 px-4 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-700"
+                                                                />
+                                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Laju Pertumbuhan</label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number"
+                                                                    value={percentageSettings.monthlyGrowthPercent}
+                                                                    onChange={e => setPercentageSettings({...percentageSettings, monthlyGrowthPercent: Number(e.target.value)})}
+                                                                    className="block w-full py-3 px-4 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-700"
+                                                                />
+                                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                                                            Pertumbuhan per Bulan
-                                                        </label>
-                                                        <div className="flex items-center gap-2">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max="100"
-                                                                value={percentageSettings.monthlyGrowthPercent}
-                                                                onChange={e => setPercentageSettings({...percentageSettings, monthlyGrowthPercent: Number(e.target.value)})}
-                                                                className="block w-24 py-2 px-3 text-sm border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700"
-                                                            />
-                                                            <span className="text-sm text-gray-500">% dari target/bulan</span>
-                                                        </div>
-                                                    </div>
+                                                    <p className="text-[10px] text-gray-400 text-center italic">Pelanggan akan bertambah {percentageSettings.monthlyGrowthPercent}% dari target setiap bulannya.</p>
                                                 </div>
                                             )}
 
                                             {growthType === 'CUSTOM' && (
-                                                <div className="space-y-3">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Milestone</span>
+                                                <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs font-bold text-gray-500 uppercase">Target Bertahap (Milestone)</span>
                                                         <button
                                                             type="button"
                                                             onClick={handleAddMilestone}
-                                                            className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                                            className="flex items-center gap-1 text-xs px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 transition-colors font-black"
                                                         >
-                                                            <HiOutlinePlus className="w-3 h-3" />
-                                                            Tambah
+                                                            <HiOutlinePlus className="w-3 h-3" /> TAMBAH
                                                         </button>
                                                     </div>
-                                                    <div className="max-h-[140px] overflow-y-auto space-y-2">
+                                                    <div className="max-h-[160px] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
                                                         {customMilestones.map((m, idx) => (
-                                                            <div key={idx} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
-                                                                <span className="text-xs text-gray-500 w-12">Bulan</span>
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    value={m.month}
-                                                                    onChange={e => updateMilestone(idx, 'month', Number(e.target.value))}
-                                                                    className="block w-14 py-1.5 px-2 text-sm border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700"
-                                                                />
-                                                                <span className="text-xs text-gray-400">=</span>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={m.percent}
-                                                                    onChange={e => updateMilestone(idx, 'percent', Number(e.target.value))}
-                                                                    className="block w-14 py-1.5 px-2 text-sm border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700"
-                                                                />
-                                                                <span className="text-xs text-gray-500">%</span>
-                                                                <span className="flex-1 text-xs text-gray-400 text-right">
+                                                            <div key={idx} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/30 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700 group">
+                                                                <div className="flex-1 grid grid-cols-2 gap-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[10px] font-bold text-gray-400 uppercase">Bln</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={m.month}
+                                                                            onChange={e => updateMilestone(idx, 'month', Number(e.target.value))}
+                                                                            className="w-full py-1.5 px-2 text-sm border-gray-200 dark:border-gray-600 rounded-lg focus:ring-indigo-500 dark:bg-gray-700 font-bold"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[10px] font-bold text-gray-400 uppercase">%</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={m.percent}
+                                                                            onChange={e => updateMilestone(idx, 'percent', Number(e.target.value))}
+                                                                            className="w-full py-1.5 px-2 text-sm border-gray-200 dark:border-gray-600 rounded-lg focus:ring-indigo-500 dark:bg-gray-700 font-bold"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-[10px] font-mono text-indigo-500 font-bold w-12 text-center">
                                                                     {Math.round((m.percent / 100) * targetSubscribers)} plg
-                                                                </span>
-                                                                {customMilestones.length > 1 && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveMilestone(idx)}
-                                                                        className="text-red-400 hover:text-red-600 p-1"
-                                                                    >
-                                                                        <HiOutlineTrash className="w-4 h-4" />
-                                                                    </button>
-                                                                )}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveMilestone(idx)}
+                                                                    className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                                                >
+                                                                    <HiOutlineTrash className="w-4 h-4" />
+                                                                </button>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -812,88 +843,99 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                     </div>
                                 </div>
 
-                                {/* Right: Preview Chart & Analysis */}
-                                <div className="space-y-5">
-                                    {/* Chart */}
-                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <HiOutlineChartBar className="w-5 h-5 text-indigo-500" />
-                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Proyeksi 24 Bulan</h3>
+                                {/* Right: Analytics */}
+                                <div className="space-y-6">
+                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm relative">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                                                    <HiOutlineChartBar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                </div>
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Proyeksi Pertumbuhan</h3>
+                                            </div>
+                                            <div className="text-[10px] font-black bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">24 BULAN</div>
                                         </div>
 
-                                        <div className="h-32 flex items-end gap-0.5">
+                                        <div className="h-40 flex items-end gap-1.5 group/chart">
                                             {previewSubscribers.map((subs, idx) => {
                                                 const height = targetSubscribers > 0 ? (subs / targetSubscribers) * 100 : 0
                                                 const isBepMonth = idx + 1 === realisticBepMonths
+                                                const isFuture = idx + 1 > realisticBepMonths
+                                                
                                                 return (
                                                     <div
                                                         key={idx}
-                                                        className={`flex-1 rounded-t transition-all ${
+                                                        className={`flex-1 rounded-t-md transition-all duration-500 ease-out hover:brightness-110 relative ${
                                                             isBepMonth
-                                                                ? 'bg-green-500'
-                                                                : realisticBepMonths !== Infinity && idx + 1 < realisticBepMonths
-                                                                    ? 'bg-red-400'
-                                                                    : 'bg-indigo-400'
+                                                                ? 'bg-green-500 shadow-lg shadow-green-500/20 z-10 scale-y-105'
+                                                                : idx + 1 < realisticBepMonths
+                                                                    ? 'bg-red-400/80'
+                                                                    : 'bg-indigo-500/90'
                                                         }`}
-                                                        style={{ height: `${Math.max(height, 2)}%` }}
-                                                        title={`Bulan ${idx + 1}: ${subs} pelanggan`}
-                                                    />
+                                                        style={{ height: `${Math.max(height, 4)}%` }}
+                                                    >
+                                                        {/* Tooltip on hover */}
+                                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[8px] py-1 px-1.5 rounded opacity-0 group-hover/chart:opacity-100 pointer-events-none transition-opacity z-20 whitespace-nowrap">
+                                                            Bln {idx + 1}: {subs}
+                                                        </div>
+                                                    </div>
                                                 )
                                             })}
                                         </div>
-                                        <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                                            <span>Bln 1</span>
-                                            <span>Bln 12</span>
-                                            <span>Bln 24</span>
+                                        <div className="flex justify-between text-[10px] text-gray-400 font-bold mt-3 border-t border-gray-100 dark:border-gray-700 pt-2">
+                                            <span>AWAL</span>
+                                            <span>TAHUN 1</span>
+                                            <span>TAHUN 2</span>
                                         </div>
 
-                                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex gap-4 text-xs">
-                                            <div className="flex items-center gap-1">
-                                                <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                                                <span className="text-gray-500">Sebelum BEP</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                                <span className="text-gray-500">Titik BEP</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <div className="w-2 h-2 bg-indigo-400 rounded-full"></div>
-                                                <span className="text-gray-500">Setelah BEP</span>
-                                            </div>
+                                        <div className="mt-5 grid grid-cols-3 gap-2">
+                                            {[
+                                                { label: 'Pra-BEP', color: 'bg-red-400/80' },
+                                                { label: 'Titik BEP', color: 'bg-green-500' },
+                                                { label: 'Profitabel', color: 'bg-indigo-500/90' }
+                                            ].map(item => (
+                                                <div key={item.label} className="flex items-center gap-1.5">
+                                                    <div className={`w-2.5 h-2.5 ${item.color} rounded-full`}></div>
+                                                    <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">{item.label}</span>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
 
-                                    {/* Analysis Card */}
-                                    <div className={`rounded-xl p-5 border ${
-                                        profitPerMonth > 0
-                                            ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800'
-                                            : 'bg-orange-50 border-orange-100 dark:bg-orange-900/20 dark:border-orange-800'
+                                    <div className={`rounded-2xl p-6 border transition-colors duration-500 ${
+                                        margin > 20
+                                            ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
+                                            : margin > 0
+                                                ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800'
+                                                : 'bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
                                     }`}>
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <HiOutlineCalculator className={`w-5 h-5 ${profitPerMonth > 0 ? 'text-blue-500' : 'text-orange-500'}`} />
-                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Analisis BEP</h3>
+                                        <div className="flex items-center gap-2 mb-6">
+                                            <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                                                <HiOutlineCalculator className={`w-5 h-5 ${margin > 0 ? 'text-blue-500' : 'text-red-500'}`} />
+                                            </div>
+                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Kesimpulan BEP</h3>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">Target Tercapai</div>
-                                                <div className="text-lg font-bold text-indigo-600">Bulan {monthsToFullCapacity}</div>
+                                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                                            <div className="space-y-1">
+                                                <div className="text-[10px] text-gray-400 uppercase font-black">Full Capacity</div>
+                                                <div className="text-xl font-black text-gray-900 dark:text-white">Bulan {monthsToFullCapacity}</div>
                                             </div>
-                                            <div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">BEP Realistis</div>
-                                                <div className={`text-lg font-bold ${realisticBepMonths <= 24 ? 'text-green-600' : 'text-orange-600'}`}>
+                                            <div className="space-y-1 text-right">
+                                                <div className="text-[10px] text-gray-400 uppercase font-black">BEP Realistis</div>
+                                                <div className={`text-xl font-black ${realisticBepMonths <= 18 ? 'text-green-600' : realisticBepMonths <= 36 ? 'text-blue-600' : 'text-red-600'}`}>
                                                     {realisticBepMonths === Infinity ? '∞' : `Bulan ${realisticBepMonths}`}
                                                 </div>
                                             </div>
-                                            <div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">BEP Sederhana</div>
+                                            <div className="space-y-1">
+                                                <div className="text-[10px] text-gray-400 uppercase font-black">BEP Sederhana</div>
                                                 <div className="text-lg font-bold text-gray-600 dark:text-gray-300">
-                                                    {simpleBepMonths === Infinity ? '∞' : `${simpleBepMonths.toFixed(1)} bln`}
+                                                    {simpleBepMonths === Infinity ? '∞' : `${simpleBepMonths.toFixed(1)} Bln`}
                                                 </div>
                                             </div>
-                                            <div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">Margin Profit</div>
-                                                <div className={`text-lg font-bold ${margin > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                            <div className="space-y-1 text-right">
+                                                <div className="text-[10px] text-gray-400 uppercase font-black">Gross Margin</div>
+                                                <div className={`text-lg font-black ${margin > 25 ? 'text-green-600' : margin > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                                                     {margin.toFixed(1)}%
                                                 </div>
                                             </div>
@@ -903,22 +945,24 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                             </div>
 
                             {/* Navigation */}
-                            <div className="flex justify-between">
+                            <div className="flex justify-between items-center pt-6 border-t border-gray-100 dark:border-gray-800">
                                 <button
                                     type="button"
                                     onClick={() => setMainTab('info')}
-                                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors group"
                                 >
-                                    <HiOutlineDocumentText className="w-4 h-4" />
-                                    Kembali
+                                    <div className="p-1.5 rounded-lg group-hover:bg-gray-100 dark:group-hover:bg-gray-800 transition-colors">
+                                        <HiOutlineDocumentText className="w-5 h-5" />
+                                    </div>
+                                    Kembali ke Informasi
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setMainTab('items')}
-                                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/25 active:scale-95"
                                 >
-                                    Lanjut ke Item & Biaya
-                                    <HiOutlineCube className="w-4 h-4" />
+                                    Lanjut: Detail Item & Biaya
+                                    <HiOutlineCube className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
@@ -926,207 +970,196 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
 
                     {/* Tab 3: Item & Biaya */}
                     {mainTab === 'items' && (
-                        <div className="space-y-5 animate-in fade-in slide-in-from-left-2 duration-200">
-                            {/* Summary Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-100 dark:border-green-800">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <HiOutlineCurrencyDollar className="w-4 h-4 text-green-500" />
-                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Est. Pendapatan</span>
+                        <div className="space-y-6 p-4 animate-in fade-in slide-in-from-left-4 duration-500">
+                            {/* Summary Metris */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 p-4 rounded-2xl border border-green-100 dark:border-green-900/30 group">
+                                    <div className="flex items-center gap-2 mb-2 text-green-600 dark:text-green-400">
+                                        <HiOutlineCurrencyDollar className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Est. Pendapatan</span>
                                     </div>
-                                    <div className="text-xl font-bold text-green-700 dark:text-green-400 font-mono">{formatCurrency(projectedRevenue)}</div>
-                                    <div className="text-xs text-gray-500">/bulan (full capacity)</div>
+                                    <div className="text-xl font-black text-green-800 dark:text-green-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left">{formatCurrency(projectedRevenue)}</div>
+                                    <div className="text-[10px] text-green-600/60 font-bold uppercase mt-1">/Bulan (Kapasitas Penuh)</div>
                                 </div>
-                                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <HiOutlineCube className="w-4 h-4 text-purple-500" />
-                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Total CAPEX</span>
+                                <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/10 dark:to-fuchsia-900/10 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/30 group">
+                                    <div className="flex items-center gap-2 mb-2 text-purple-600 dark:text-purple-400">
+                                        <HiOutlineCube className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Total Capex</span>
                                     </div>
-                                    <div className="text-xl font-bold text-purple-700 dark:text-purple-400 font-mono">{formatCurrency(totalCapex)}</div>
-                                    <div className="text-xs text-gray-500">{capexItems.length} item</div>
+                                    <div className="text-xl font-black text-purple-800 dark:text-purple-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left">{formatCurrency(totalCapex)}</div>
+                                    <div className="text-[10px] text-purple-600/60 font-bold uppercase mt-1">{capexItems.length} Komponen Investasi</div>
                                 </div>
-                                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-100 dark:border-orange-800">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <HiOutlineBanknotes className="w-4 h-4 text-orange-500" />
-                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Total OPEX</span>
+                                <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 group">
+                                    <div className="flex items-center gap-2 mb-2 text-orange-600 dark:text-orange-400">
+                                        <HiOutlineBanknotes className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Total Opex</span>
                                     </div>
-                                    <div className="text-xl font-bold text-orange-700 dark:text-orange-400 font-mono">{formatCurrency(totalOpex)}</div>
-                                    <div className="text-xs text-gray-500">/bulan ({opexItems.length} item)</div>
+                                    <div className="text-xl font-black text-orange-800 dark:text-orange-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left">{formatCurrency(totalOpex)}</div>
+                                    <div className="text-[10px] text-orange-600/60 font-bold uppercase mt-1">{opexItems.length} Biaya Operasional/Bln</div>
                                 </div>
                             </div>
 
-                            {/* CAPEX/OPEX Tabs */}
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-                                {/* Tab Headers */}
-                                <div className="flex border-b border-gray-200 dark:border-gray-700">
+                            {/* Multi-Step Cost Configuration */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm flex flex-col">
+                                {/* Type Switcher */}
+                                <div className="flex p-2 bg-gray-50/80 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
                                     <button
                                         type="button"
                                         onClick={() => setExpenseTab('CAPEX')}
-                                        className={`flex-1 py-3 px-4 text-sm font-bold text-center border-b-2 transition-colors flex items-center justify-center gap-2 ${
+                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 ${
                                             expenseTab === 'CAPEX'
-                                                ? 'border-purple-500 text-purple-600 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-900/10'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                ? 'bg-white dark:bg-gray-800 text-purple-600 shadow-sm border border-purple-100 dark:border-purple-900/50'
+                                                : 'text-gray-400 hover:text-gray-600'
                                         }`}
                                     >
                                         <HiOutlineCube className="w-4 h-4" />
-                                        Modal Awal (CAPEX)
-                                        <span className="ml-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-0.5 px-2 rounded-full text-xs">
-                                            {formatCurrency(totalCapex)}
-                                        </span>
+                                        INVESTASI AWAL (CAPEX)
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setExpenseTab('OPEX')}
-                                        className={`flex-1 py-3 px-4 text-sm font-bold text-center border-b-2 transition-colors flex items-center justify-center gap-2 ${
+                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 ${
                                             expenseTab === 'OPEX'
-                                                ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-50/50 dark:bg-orange-900/10'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm border border-orange-100 dark:border-orange-900/50'
+                                                : 'text-gray-400 hover:text-gray-600'
                                         }`}
                                     >
                                         <HiOutlineBanknotes className="w-4 h-4" />
-                                        Operasional (OPEX)
-                                        <span className="ml-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-0.5 px-2 rounded-full text-xs">
-                                            {formatCurrency(totalOpex)}
-                                        </span>
+                                        OPERASIONAL (OPEX)
                                     </button>
                                 </div>
 
-                                {/* Toolbar */}
-                                <div className="p-3 bg-gray-50 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                                    <div className="text-xs text-gray-500">
-                                        {expenseTab === 'CAPEX'
-                                            ? 'Biaya instalasi & perangkat awal (One-time cost)'
-                                            : 'Biaya rutin bulanan (Recurring cost)'}
+                                {/* Header Table Tool */}
+                                <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-700">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-black text-gray-800 dark:text-gray-200">
+                                            {expenseTab === 'CAPEX' ? 'Komponen Modal & Aset' : 'Estimasi Biaya Bulanan'}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">
+                                            Total {expenseTab}: {formatCurrency(expenseTab === 'CAPEX' ? totalCapex : totalOpex)}
+                                        </span>
                                     </div>
                                     <button
                                         type="button"
                                         onClick={handleAddItem}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm text-white ${
+                                        className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black text-white transition-all shadow-lg active:scale-95 ${
                                             expenseTab === 'CAPEX'
-                                                ? 'bg-purple-600 hover:bg-purple-700'
-                                                : 'bg-orange-600 hover:bg-orange-700'
+                                                ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
+                                                : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
                                         }`}
                                     >
-                                        <HiOutlinePlus className="w-4 h-4" /> Tambah Item
+                                        <HiOutlinePlus className="w-4 h-4" /> TAMBAH ITEM
                                     </button>
                                 </div>
 
-                                {/* Item List */}
-                                <div className="max-h-[280px] overflow-auto">
+                                {/* Items Interactive List */}
+                                <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
                                     {currentTabItems.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                                            {expenseTab === 'CAPEX' ? (
-                                                <HiOutlineCube className="w-10 h-10 mb-2 opacity-20" />
-                                            ) : (
-                                                <HiOutlineBanknotes className="w-10 h-10 mb-2 opacity-20" />
-                                            )}
-                                            <p className="text-sm">Belum ada item {expenseTab}</p>
-                                            <button
-                                                type="button"
-                                                onClick={handleAddItem}
-                                                className="mt-2 text-blue-500 hover:underline text-xs"
-                                            >
-                                                + Tambah Item
-                                            </button>
+                                        <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500">
+                                            <div className={`p-6 rounded-full mb-4 ${expenseTab === 'CAPEX' ? 'bg-purple-50 text-purple-200' : 'bg-orange-50 text-orange-200'}`}>
+                                                {expenseTab === 'CAPEX' ? <HiOutlineCube className="w-12 h-12" /> : <HiOutlineBanknotes className="w-12 h-12" />}
+                                            </div>
+                                            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Belum ada item {expenseTab} ditambahkan</p>
+                                            <button onClick={handleAddItem} className="mt-4 text-xs font-black text-blue-500 hover:underline">MULAI TAMBAH ITEM SEKARANG</button>
                                         </div>
                                     ) : (
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium border-b dark:border-gray-600 sticky top-0 z-10">
-                                                <tr>
-                                                    <th className="px-4 py-2.5 w-[40%]">Nama Item</th>
-                                                    <th className="px-4 py-2.5 w-[20%]">Kategori</th>
-                                                    <th className="px-4 py-2.5 w-[12%] text-center">Qty</th>
-                                                    <th className="px-4 py-2.5 w-[23%] text-right">Harga Satuan</th>
-                                                    <th className="px-4 py-2.5 w-[5%]"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                                {currentTabItems.map((item) => (
-                                                    <tr key={item.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                        <td className="px-4 py-2">
-                                                            <input
-                                                                type="text"
-                                                                value={item.name}
-                                                                onChange={e => updateItem(item.id, 'name', e.target.value)}
-                                                                className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm placeholder-gray-400"
-                                                                placeholder="Nama item..."
-                                                            />
-                                                        </td>
-                                                        <td className="px-4 py-2">
-                                                            <select
-                                                                value={item.category}
-                                                                onChange={e => updateItem(item.id, 'category', e.target.value)}
-                                                                className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-gray-600 dark:text-gray-300"
-                                                            >
-                                                                <option value="DEVICE">Perangkat</option>
-                                                                <option value="CABLE">Kabel</option>
-                                                                <option value="ACCESSORIES">Aksesoris</option>
-                                                                <option value="SERVICE">Jasa/Instalasi</option>
-                                                                <option value="OPERATIONAL">Operasional</option>
-                                                                <option value="OTHER">Lainnya</option>
-                                                            </select>
-                                                        </td>
-                                                        <td className="px-4 py-2">
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={item.quantity}
-                                                                onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
-                                                                className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-center"
-                                                            />
-                                                        </td>
-                                                        <td className="px-4 py-2 text-right font-mono">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                value={item.unitPrice}
-                                                                onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))}
-                                                                className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-right"
-                                                            />
-                                                            <div className="text-[10px] text-gray-400 mt-0.5">
-                                                                = {formatCurrency(item.quantity * item.unitPrice)}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-2 text-center">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemoveItem(item.id)}
-                                                                className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                                            >
-                                                                <HiOutlineTrash className="w-4 h-4" />
-                                                            </button>
-                                                        </td>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm text-left border-collapse">
+                                                <thead className="bg-gray-50/80 dark:bg-gray-900/50 text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest border-b dark:border-gray-700 sticky top-0 z-10 backdrop-blur-sm">
+                                                    <tr>
+                                                        <th className="px-6 py-4 w-[45%]">Nama Deskripsi</th>
+                                                        <th className="px-4 py-4 w-[15%]">Kategori</th>
+                                                        <th className="px-4 py-4 w-[10%] text-center">QTY</th>
+                                                        <th className="px-4 py-4 w-[25%] text-right">Harga Satuan (IDR)</th>
+                                                        <th className="px-6 py-4 w-[5%]"></th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                            <tfoot className="bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 font-bold text-sm">
-                                                <tr>
-                                                    <td colSpan={3} className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-400">Total {expenseTab}:</td>
-                                                    <td className="px-4 py-2.5 text-right font-mono text-gray-900 dark:text-white">
-                                                        {formatCurrency(expenseTab === 'CAPEX' ? totalCapex : totalOpex)}
-                                                    </td>
-                                                    <td></td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                    {currentTabItems.map((item) => (
+                                                        <tr key={item.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-all">
+                                                            <td className="px-6 py-4">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.name}
+                                                                    onChange={e => updateItem(item.id, 'name', e.target.value)}
+                                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-semibold placeholder-gray-300 dark:text-white"
+                                                                    placeholder="e.g., Mikrotik RB4011..."
+                                                                />
+                                                            </td>
+                                                            <td className="px-4 py-4">
+                                                                <select
+                                                                    value={item.category}
+                                                                    onChange={e => updateItem(item.id, 'category', e.target.value)}
+                                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-xs font-bold text-gray-500 dark:text-gray-400 appearance-none cursor-pointer hover:text-blue-500"
+                                                                >
+                                                                    <option value="DEVICE">Perangkat</option>
+                                                                    <option value="CABLE">Kabel/FO</option>
+                                                                    <option value="ACCESSORIES">Aksesoris</option>
+                                                                    <option value="SERVICE">Jasa/Skill</option>
+                                                                    <option value="OPERATIONAL">Operasional</option>
+                                                                    <option value="OTHER">Lainnya</option>
+                                                                </select>
+                                                            </td>
+                                                            <td className="px-4 py-4">
+                                                                <input
+                                                                    type="number"
+                                                                    value={item.quantity}
+                                                                    onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
+                                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-center font-bold dark:text-white"
+                                                                />
+                                                            </td>
+                                                            <td className="px-4 py-4 text-right">
+                                                                <div className="flex flex-col items-end">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={item.unitPrice}
+                                                                        onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))}
+                                                                        className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-right font-black dark:text-white"
+                                                                        placeholder="0"
+                                                                    />
+                                                                    <span className="text-[10px] font-mono font-bold text-gray-400 mt-1">
+                                                                        {formatCurrency(item.quantity * item.unitPrice)}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveItem(item.id)}
+                                                                    className="text-gray-300 hover:text-red-500 p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                                                                >
+                                                                    <HiOutlineTrash className="w-5 h-5" />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Navigation */}
-                            <div className="flex justify-between">
+                            <div className="flex justify-between items-center pt-6 border-t border-gray-100 dark:border-gray-800">
                                 <button
                                     type="button"
                                     onClick={() => setMainTab('growth')}
-                                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors group"
                                 >
-                                    <HiOutlineArrowTrendingUp className="w-4 h-4" />
-                                    Kembali
+                                    <div className="p-1.5 rounded-lg group-hover:bg-gray-100 dark:group-hover:bg-gray-800 transition-colors">
+                                        <HiOutlineArrowTrendingUp className="w-5 h-5" />
+                                    </div>
+                                    Kembali ke Pertumbuhan
                                 </button>
+                                <div className="text-xs font-black text-gray-400 italic">
+                                    Semua perubahan tersimpan secara lokal saat Anda berpindah tab.
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
+
 
                 {/* Footer Actions */}
                 <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
