@@ -200,7 +200,7 @@ export default function COAManager({ initialData }: COAManagerProps) {
   const openCreateModal = (parentAccount?: ChartOfAccount) => {
     setEditingAccount(null);
     const parentId = parentAccount?.id || null;
-    const type = parentAccount?.type || activeTab;
+    const type = (parentAccount?.type || activeTab) as COAFormData['type'];
     const suggestedCode = suggestNextCode(parentId, type);
 
     setFormData({

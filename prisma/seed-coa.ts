@@ -1,12 +1,12 @@
 import { prisma } from "../lib/prisma";
-import { COAType, COASubType, COABalance } from "@prisma/client";
+import { COASubType } from "@prisma/client";
 
 interface COASeedData {
   code: string;
   name: string;
-  type: COAType;
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
   subType?: COASubType;
-  normalBalance: COABalance;
+  normalBalance: 'DEBIT' | 'CREDIT';
   children?: COASeedData[];
 }
 
@@ -48,17 +48,17 @@ const coaData: COASeedData[] = [
 
   // EQUITY
   { code: "3000", name: "EQUITY", type: "EQUITY", normalBalance: "CREDIT", children: [
-      { code: "3100", name: "Owner's Capital", type: "EQUITY", subType: "EQUITY", normalBalance: "CREDIT" },
-      { code: "3200", name: "Retained Earnings", type: "EQUITY", subType: "EQUITY", normalBalance: "CREDIT" },
-      { code: "3300", name: "Opening Balance Equity", type: "EQUITY", subType: "EQUITY", normalBalance: "CREDIT" },
+      { code: "3100", name: "Owner's Capital", type: "EQUITY", subType: "OWNER_EQUITY", normalBalance: "CREDIT" },
+      { code: "3200", name: "Retained Earnings", type: "EQUITY", subType: "RETAINED_EARNINGS", normalBalance: "CREDIT" },
+      { code: "3300", name: "Opening Balance Equity", type: "EQUITY", subType: "OWNER_EQUITY", normalBalance: "CREDIT" },
   ]},
 
   // REVENUE
   { code: "4000", name: "REVENUE", type: "REVENUE", normalBalance: "CREDIT", children: [
-      { code: "4100", name: "Operating Revenue", type: "REVENUE", subType: "OPERATING_REVENUE", normalBalance: "CREDIT", children: [
-          { code: "4101", name: "Internet Service Revenue", type: "REVENUE", subType: "OPERATING_REVENUE", normalBalance: "CREDIT" },
-          { code: "4102", name: "Installation Fees", type: "REVENUE", subType: "OPERATING_REVENUE", normalBalance: "CREDIT" },
-          { code: "4103", name: "Device Sales/Rental", type: "REVENUE", subType: "OPERATING_REVENUE", normalBalance: "CREDIT" },
+      { code: "4100", name: "Operating Revenue", type: "REVENUE", subType: "SERVICE_REVENUE", normalBalance: "CREDIT", children: [
+          { code: "4101", name: "Internet Service Revenue", type: "REVENUE", subType: "SERVICE_REVENUE", normalBalance: "CREDIT" },
+          { code: "4102", name: "Installation Fees", type: "REVENUE", subType: "SERVICE_REVENUE", normalBalance: "CREDIT" },
+          { code: "4103", name: "Device Sales/Rental", type: "REVENUE", subType: "SERVICE_REVENUE", normalBalance: "CREDIT" },
       ]},
       { code: "4200", name: "Other Revenue", type: "REVENUE", subType: "OTHER_REVENUE", normalBalance: "CREDIT", children: [
           { code: "4201", name: "Interest Income", type: "REVENUE", subType: "OTHER_REVENUE", normalBalance: "CREDIT" },
@@ -81,13 +81,13 @@ const coaData: COASeedData[] = [
           { code: "5206", name: "Software Licenses", type: "EXPENSE", subType: "OPEX", normalBalance: "DEBIT" },
           { code: "5207", name: "Travel & Transport", type: "EXPENSE", subType: "OPEX", normalBalance: "DEBIT" },
       ]},
-      { code: "5300", name: "Capital Expenditures (CAPEX) - Tracking", type: "EXPENSE", subType: "CAPEX_TRACKING", normalBalance: "DEBIT", children: [
-          { code: "5301", name: "Network Expansion Projects", type: "EXPENSE", subType: "CAPEX_TRACKING", normalBalance: "DEBIT" },
-          { code: "5302", name: "New Equipment Purchase", type: "EXPENSE", subType: "CAPEX_TRACKING", normalBalance: "DEBIT" },
+      { code: "5300", name: "Capital Expenditures (CAPEX) - Tracking", type: "EXPENSE", subType: "CAPEX", normalBalance: "DEBIT", children: [
+          { code: "5301", name: "Network Expansion Projects", type: "EXPENSE", subType: "CAPEX", normalBalance: "DEBIT" },
+          { code: "5302", name: "New Equipment Purchase", type: "EXPENSE", subType: "CAPEX", normalBalance: "DEBIT" },
       ]},
-      { code: "5900", name: "Tax Expenses", type: "EXPENSE", subType: "TAX", normalBalance: "DEBIT", children: [
-          { code: "5901", name: "Corporate Income Tax", type: "EXPENSE", subType: "TAX", normalBalance: "DEBIT" },
-          { code: "5902", name: "VAT Expenses", type: "EXPENSE", subType: "TAX", normalBalance: "DEBIT" },
+      { code: "5900", name: "Tax Expenses", type: "EXPENSE", subType: "TAX_EXPENSE", normalBalance: "DEBIT", children: [
+          { code: "5901", name: "Corporate Income Tax", type: "EXPENSE", subType: "TAX_EXPENSE", normalBalance: "DEBIT" },
+          { code: "5902", name: "VAT Expenses", type: "EXPENSE", subType: "TAX_EXPENSE", normalBalance: "DEBIT" },
       ]}
   ]}
 ];
