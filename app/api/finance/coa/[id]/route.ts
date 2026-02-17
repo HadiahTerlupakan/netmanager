@@ -26,7 +26,7 @@ export async function PUT(
         }
 
         // Map data to ensure types match Prisma expectations
-        const updateData: any = { ...validation.data };
+        const updateData: Record<string, unknown> = { ...validation.data };
 
         if (updateData.subType) {
             updateData.subType = updateData.subType as COASubType;

@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { HiXMark, HiSignal, HiServer, HiCurrencyDollar } from 'react-icons/hi2'
-import { FiMonitor } from 'react-icons/fi'
+import { HiXMark, HiSignal, HiCurrencyDollar } from 'react-icons/hi2'
 
 type BandwidthDetailModalProps = {
   open: boolean

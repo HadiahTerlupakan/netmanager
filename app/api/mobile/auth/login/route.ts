@@ -24,11 +24,10 @@ export async function POST(req: Request) {
         // SMART LOGIN - AUTO DETECT
         // If loginType is provided, try that first.
         // If not found in that table, fallback to the other table SILENTLY.
-        
-        let targetType = loginType || 'EMPLOYEE' // Default to EMPLOYEE if undefined
-        let userFound = false
-        
-        // Strategy: 
+
+        const targetType = loginType || 'EMPLOYEE' // Default to EMPLOYEE if undefined
+
+        // Strategy:
         // 1. Try Primary Target (based on tab)
         // 2. If user NOT FOUND, try Secondary Target
         // 3. If user FOUND but password wrong, FAIL (don't try other to prevent ambiguity)
@@ -48,7 +47,7 @@ export async function POST(req: Request) {
         type LoginResult =
             | { found: false }
             | { found: true; success: false; error: string; status?: number }
-            | { found: true; success: true; data: any }
+            | { found: true; success: true; data: Record<string, unknown> }
 
         // Helper: Try Login as Customer
         const tryCustomerLogin = async (): Promise<LoginResult> => {
@@ -189,7 +188,8 @@ export async function POST(req: Request) {
         }
 
         if (!result.success) {
-            return NextResponse.json({ success: false, error: (result as any).error }, { status: (result as any).status || 401 })
+            const errorResult = result as { error: string; status?: number }
+            return NextResponse.json({ success: false, error: errorResult.error }, { status: errorResult.status || 401 })
         }
 
         return NextResponse.json({

@@ -31,7 +31,6 @@ export function COASelect({
     disabled = false,
     className = ""
 }: COASelectProps) {
-    const [accounts, setAccounts] = useState<ChartOfAccount[]>([])
     const [loading, setLoading] = useState(false)
     const [options, setOptions] = useState<ComboboxOption[]>([])
 
@@ -46,7 +45,6 @@ export function COASelect({
                 if (!res.ok) throw new Error('Failed to fetch COA')
 
                 const data: ChartOfAccount[] = await res.json()
-                setAccounts(data)
 
                 const formattedOptions: ComboboxOption[] = data.map(acc => ({
                     value: acc.id,
