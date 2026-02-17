@@ -598,9 +598,12 @@ export default function COAManager({ initialData }: COAManagerProps) {
                       value={formData.type}
                       onChange={(e) => {
                         const newType = e.target.value as COAFormData['type'];
+                        const suggestedCode = !editingAccount ? suggestNextCode(formData.parentId, newType) : formData.code;
+
                         setFormData({
                           ...formData,
                           type: newType,
+                          code: suggestedCode,
                           subType: '',
                           normalBalance: newType === 'ASSET' || newType === 'EXPENSE' ? 'DEBIT' : 'CREDIT'
                         });
@@ -656,7 +659,19 @@ export default function COAManager({ initialData }: COAManagerProps) {
                   </label>
                   <select
                     value={formData.parentId || ''}
-                    onChange={(e) => setFormData({ ...formData, parentId: e.target.value || null })}
+                    onChange={(e) => {
+                      const newParentId = e.target.value || null;
+                      const parent = accounts.find(a => a.id === newParentId);
+                      const suggestedCode = !editingAccount ? suggestNextCode(newParentId, formData.type) : formData.code;
+
+                      setFormData({
+                        ...formData,
+                        parentId: newParentId,
+                        code: suggestedCode,
+                        subType: parent?.subType || formData.subType,
+                        normalBalance: parent?.normalBalance || formData.normalBalance
+                      });
+                    }}
                     className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   >
                     <option value="">- Tidak ada (Akun Utama) -</option>
