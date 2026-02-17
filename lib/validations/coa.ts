@@ -10,6 +10,7 @@ export const createCoaSchema = z.object({
   description: z.string().optional(),
   isActive: z.boolean().default(true),
   // New fields
+  level: z.number().int().min(1).max(4).default(1),
   isHeader: z.boolean().default(false),
   allowPosting: z.boolean().default(true),
 }).refine((data) => {
