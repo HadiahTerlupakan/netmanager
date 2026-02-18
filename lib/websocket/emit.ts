@@ -14,7 +14,7 @@ export async function emitSocketEvent(room: string, event: string, payload: unkn
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                secret: process.env.INTERNAL_WS_SECRET || 'netmanager-ws-internal-2024',
+                secret: process.env.INTERNAL_WS_SECRET || '',
                 room,
                 event,
                 payload

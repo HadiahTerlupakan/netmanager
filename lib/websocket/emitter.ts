@@ -7,7 +7,7 @@ import {
     type CountPayload,
 } from './types'
 
-const INTERNAL_WS_SECRET = process.env.INTERNAL_WS_SECRET || 'netmanager-ws-internal-2024'
+const INTERNAL_WS_SECRET = process.env.INTERNAL_WS_SECRET || ''
 const WS_SERVER_URL = process.env.WS_SERVER_URL || 'http://localhost:3000'
 
 /**

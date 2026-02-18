@@ -1,13 +1,29 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { createNotification } from '@/modules/notification';
 import { logger } from '@/lib/logger';
+
+// Type for the raw query result
+interface EligibleCustomerRow {
+    id: string;
+    nama: string;
+    jatuhTempo: Date;
+    userId: string | null;
+    usePPN: boolean;
+    hargaPaketId: string;
+    paketName: string;
+    paketHarga: number;
+    paketUsePPN: boolean;
+    paketPpnPercentage: number | null;
+}
 
 export class AutomaticBillingService {
     /**
      * Generate invoices for customers who are due for billing
      * run daily via cron
-     * OPTIMIZED: Uses cursor-based pagination to avoid loading all customers into memory
+     * OPTIMIZED: Filter by day-of-month at database level using raw query
+     * instead of fetching all customers and filtering in JavaScript
      */
     static async generateDailyInvoices() {
         try {
@@ -29,61 +45,41 @@ export class AutomaticBillingService {
             const targetMonth = targetDate.getMonth() + 1;
             const targetYear = targetDate.getFullYear();
 
-            // OPTIMIZATION: Use cursor-based pagination to process in batches
+            // OPTIMIZATION: Use raw query to filter by day-of-month at database level
+            // This avoids fetching all active customers and filtering in JavaScript
+            // With >5000 customers, this reduces data transfer from ~5000 rows to ~160 rows
             const BATCH_SIZE = 100;
-            let skip = 0;
+            let offset = 0;
             let generatedCount = 0;
             let processedCount = 0;
             let hasMore = true;
 
             while (hasMore) {
-                // Fetch batch with minimal fields using select instead of include
-                const customers = await prisma.pelanggan.findMany({
-                    where: {
-                        status: 'AKTIF',
-                        hargaPaketId: { not: '' }
-                    },
-                    select: {
-                        id: true,
-                        nama: true,
-                        jatuhTempo: true,
-                        userId: true,
-                        usePPN: true,
-                        hargaPaket: {
-                            select: {
-                                id: true,
-                                name: true,
-                                harga: true,
-                                usePPN: true,
-                                ppnPercentage: true
-                            }
-                        }
-                    },
-                    skip,
-                    take: BATCH_SIZE,
-                    orderBy: { id: 'asc' }
-                });
+                const customers = await prisma.$queryRaw<EligibleCustomerRow[]>(
+                    Prisma.sql`
+                        SELECT
+                            p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId",
+                            h.name AS "paketName", h.harga AS "paketHarga",
+                            h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
+                        FROM "Pelanggan" p
+                        INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
+                        WHERE p.status = 'AKTIF'
+                          AND p."hargaPaketId" != ''
+                          AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
+                        ORDER BY p.id ASC
+                        LIMIT ${BATCH_SIZE} OFFSET ${offset}
+                    `
+                );
 
                 if (customers.length === 0) {
                     hasMore = false;
                     break;
                 }
 
-                console.log(`[Billing] Processing batch ${Math.floor(skip / BATCH_SIZE) + 1} (${customers.length} customers)`);
-
-                // OPTIMIZATION: Filter customers by due date first
-                const eligibleCustomers = customers.filter(c => {
-                    const dueDate = new Date(c.jatuhTempo);
-                    return dueDate.getDate() === targetDay;
-                });
-
-                if (eligibleCustomers.length === 0) {
-                    skip += BATCH_SIZE;
-                    continue;
-                }
+                console.log(`[Billing] Processing batch ${Math.floor(offset / BATCH_SIZE) + 1} (${customers.length} eligible customers)`);
 
                 // OPTIMIZATION: Batch check existing invoices (instead of N queries)
-                const eligibleIds = eligibleCustomers.map(c => c.id);
+                const eligibleIds = customers.map(c => c.id);
                 const existingInvoices = await prisma.invoice.findMany({
                     where: {
                         pelangganId: { in: eligibleIds },
@@ -98,25 +94,41 @@ export class AutomaticBillingService {
 
                 const invoiceDueDate = new Date(targetYear, targetMonth - 1, targetDay);
 
-                for (const customer of eligibleCustomers) {
+                for (const row of customers) {
                     try {
                         processedCount++;
 
                         // Skip if invoice already exists (O(1) lookup)
-                        if (existingInvoiceSet.has(customer.id)) {
+                        if (existingInvoiceSet.has(row.id)) {
                             continue;
                         }
+
+                        // Map raw query row to customer object
+                        const customer = {
+                            id: row.id,
+                            nama: row.nama,
+                            jatuhTempo: row.jatuhTempo,
+                            userId: row.userId,
+                            usePPN: row.usePPN,
+                            hargaPaket: {
+                                id: row.hargaPaketId,
+                                name: row.paketName,
+                                harga: row.paketHarga,
+                                usePPN: row.paketUsePPN,
+                                ppnPercentage: row.paketPpnPercentage,
+                            },
+                        };
 
                         // Generate Invoice
                         await this.createInvoiceForCustomer(customer, invoiceDueDate);
                         generatedCount++;
 
                     } catch (err) {
-                        console.error(`[Billing] Error processing customer ${customer.nama}:`, err);
+                        console.error(`[Billing] Error processing customer ${row.nama}:`, err);
                     }
                 }
 
-                skip += BATCH_SIZE;
+                offset += BATCH_SIZE;
 
                 // Force garbage collection between batches if available
                 if (global.gc) {

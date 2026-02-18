@@ -347,31 +347,74 @@ export const authConfig: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user && token.id) {
         // Validate tokenVersion against database (Force Logout feature)
+        // OPTIMIZED: Cache session data in Redis to avoid DB query on every request
         try {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: {
-              tokenVersion: true,
-              isActive: true,
-              role: {
-                select: {
-                  name: true,
-                  accessAdminPanel: true,
-                  accessEmployeePanel: true,
-                  isSuperAdmin: true,
-                  permission: { select: { id: true } } // Just count
+          const userId = token.id as string;
+          const sessionCacheKey = `session:${userId}`;
+          const SESSION_CACHE_TTL = 30; // 30 seconds - balance between freshness and performance
+
+          // Try Redis cache first
+          let dbUser: {
+            tokenVersion: number;
+            isActive: boolean;
+            role: {
+              name: string;
+              accessAdminPanel: boolean;
+              accessEmployeePanel: boolean;
+              isSuperAdmin: boolean;
+              permission: { id: string }[];
+            } | null;
+            departments: { name: string } | null;
+            isSales: boolean;
+            siteId: string | null;
+            userSites: { siteId: string }[];
+          } | null = null;
+
+          try {
+            const cached = await redis.get(sessionCacheKey);
+            if (cached) {
+              dbUser = JSON.parse(cached);
+            }
+          } catch {
+            // Cache read failed - continue to database (fail-open for performance)
+          }
+
+          // Cache miss - fetch from database
+          if (!dbUser) {
+            dbUser = await prisma.user.findUnique({
+              where: { id: userId },
+              select: {
+                tokenVersion: true,
+                isActive: true,
+                role: {
+                  select: {
+                    name: true,
+                    accessAdminPanel: true,
+                    accessEmployeePanel: true,
+                    isSuperAdmin: true,
+                    permission: { select: { id: true } } // Just count
+                  }
+                },
+                departments: { select: { name: true } },
+                isSales: true,
+                siteId: true,
+                userSites: {
+                  where: { isPrimary: true },
+                  select: { siteId: true },
+                  take: 1
                 }
-              },
-              departments: { select: { name: true } },
-              isSales: true,
-              siteId: true,
-              userSites: {
-                where: { isPrimary: true },
-                select: { siteId: true },
-                take: 1
+              }
+            });
+
+            // Cache the result in Redis (non-blocking)
+            if (dbUser) {
+              try {
+                await redis.setex(sessionCacheKey, SESSION_CACHE_TTL, JSON.stringify(dbUser));
+              } catch {
+                // Cache write failed - continue without caching
               }
             }
-          });
+          }
 
           // If user doesn't exist, is inactive, or token version mismatch - invalidate session
           if (!dbUser || !dbUser.isActive) {
@@ -382,16 +425,17 @@ export const authConfig: NextAuthOptions = {
           const tokenVersion = (token.tokenVersion as number) ?? 0;
           if (dbUser.tokenVersion > tokenVersion) {
             console.log(`[AUTH SESSION] Token version mismatch for user ${token.id}. DB: ${dbUser.tokenVersion}, Token: ${tokenVersion}. Forcing logout.`);
+            // Invalidate cache to ensure next check hits DB
+            try { await redis.del(sessionCacheKey); } catch { /* ignore */ }
             return { ...session, user: undefined as unknown as Session['user'], expires: new Date(0).toISOString() };
           }
 
-          // REFRESH SESSION DATA FROM DB
-          // This ensures that role changes (like toggling isSuperAdmin) take effect immediately
-          // without requiring the user to logout/login
+          // REFRESH SESSION DATA FROM DB (or cache)
+          // This ensures that role changes take effect within SESSION_CACHE_TTL seconds
           const sessionUser = session.user as Record<string, unknown>;
           sessionUser.id = token.id;
 
-          // Use fresh data from DB
+          // Use fresh data from DB/cache
           const roleName = dbUser.role?.name || 'USER';
           const isSuperAdmin = dbUser.role?.isSuperAdmin || roleName === 'SUPER_ADMIN' || roleName === 'Super Admin';
 
@@ -409,14 +453,14 @@ export const authConfig: NextAuthOptions = {
 
           // Don't include permissions in session - they will be loaded at runtime
           sessionUser.permissionsCount = dbUser.role?.permission.length || 0;
-          sessionUser.departmentId = token.departmentId; // Keep from token or fetch? Token is fine for now
+          sessionUser.departmentId = token.departmentId; // Keep from token
           sessionUser.departmentName = dbUser.departments?.name;
 
           // Handle Site ID
           const primarySiteId = dbUser.userSites?.[0]?.siteId || dbUser.siteId;
           sessionUser.siteId = primarySiteId;
           sessionUser.primarySiteId = primarySiteId;
-          sessionUser.siteIds = token.siteIds; // Keep array from token for now to avoid heavy query, or could fetch
+          sessionUser.siteIds = token.siteIds; // Keep array from token
 
           sessionUser.isSales = dbUser.isSales;
 
@@ -650,12 +694,13 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
  * - User is deactivated
  */
 export async function invalidatePermissionCache(userId: string): Promise<void> {
-  const cacheKey = `${PERMISSION_CACHE_PREFIX}${userId}`
+  const permCacheKey = `${PERMISSION_CACHE_PREFIX}${userId}`
+  const sessionCacheKey = `session:${userId}`
   try {
-    await redis.del(cacheKey)
-    console.debug('[AUTH] Permission cache invalidated', { userId })
+    await redis.del(permCacheKey, sessionCacheKey)
+    console.debug('[AUTH] Permission + session cache invalidated', { userId })
   } catch (e) {
-    console.warn('[AUTH] Failed to invalidate permission cache:', e)
+    console.warn('[AUTH] Failed to invalidate caches:', e)
   }
 }
 

@@ -238,8 +238,8 @@ app.prepare().then(() => {
                     const data = JSON.parse(body)
                     const { event, room, payload, secret } = data
 
-                    // Simple secret check (in production, use proper authentication)
-                    if (secret !== process.env.INTERNAL_WS_SECRET && secret !== 'netmanager-ws-internal-2024') {
+                    // Validate secret from environment variable
+                    if (!process.env.INTERNAL_WS_SECRET || secret !== process.env.INTERNAL_WS_SECRET) {
                         res.writeHead(401, { 'Content-Type': 'application/json' })
                         res.end(JSON.stringify({ error: 'Tidak terautentikasi' }))
                         return
@@ -280,20 +280,34 @@ app.prepare().then(() => {
             const fs = await import('fs')
             const path = await import('path')
 
-            // Construct absolute path to the file in public/uploads
-            const safePath = parsedUrl.pathname || ''
-            const filePath = path.join(process.cwd(), 'public', safePath)
+            // Security: Resolve and validate path to prevent path traversal attacks
+            const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads')
 
-            // Check if file exists
-            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-                const stat = fs.statSync(filePath)
-                res.writeHead(200, {
-                    'Content-Type': getMimeType(filePath),
-                    'Content-Length': stat.size
-                })
-                const readStream = fs.createReadStream(filePath)
-                readStream.pipe(res)
+            // Remove leading slashes to prevent path.resolve treating it as absolute root path
+            const cleanPath = (parsedUrl.pathname || '').replace(/^\/+/, '')
+            const requestedPath = path.resolve(process.cwd(), 'public', cleanPath)
+
+            // Ensure the resolved path is within the uploads directory
+            if (!requestedPath.startsWith(uploadsDir + path.sep) && requestedPath !== uploadsDir) {
+                res.writeHead(403, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ error: 'Akses ditolak' }))
                 return
+            }
+
+            // Check if file exists (single statSync call instead of double)
+            try {
+                const stat = fs.statSync(requestedPath)
+                if (stat.isFile()) {
+                    res.writeHead(200, {
+                        'Content-Type': getMimeType(requestedPath),
+                        'Content-Length': stat.size
+                    })
+                    const readStream = fs.createReadStream(requestedPath)
+                    readStream.pipe(res)
+                    return
+                }
+            } catch {
+                // File not found - fall through to Next.js handler
             }
             // If file not found, let Next.js handle it (maybe 404 or other route)
         }
