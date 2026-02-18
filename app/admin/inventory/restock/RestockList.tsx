@@ -107,9 +107,11 @@ export default function RestockPage() {
   const fetchGudangs = useCallback(async () => {
     try {
       const response = await fetch('/api/inventory/gudang')
-      const data = await response.json()
-      if (response.ok && data.success) {
-        setGudangs(data.data?.gudangs || data.data || [])
+      const jsonResponse = await response.json()
+      if (response.ok) {
+        // Try to extract gudangs array from various possible structures
+        const result = jsonResponse.data?.gudangs || jsonResponse.data || jsonResponse.gudangs || jsonResponse
+        setGudangs(Array.isArray(result) ? result : result.gudangs || [])
       }
     } catch (error) {
       console.error('Error fetching gudangs:', error)

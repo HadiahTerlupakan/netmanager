@@ -46,7 +46,7 @@ export function ClientComponent() {
       if (response.ok) {
         const result = await response.json()
         if (result.success) {
-          setDashboardData(result.data)
+          setDashboardData(result.data || result)
         }
       }
     } catch (error: unknown) {

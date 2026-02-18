@@ -29,8 +29,8 @@ export function ClientComponent() {
           throw new Error('Barang tidak ditemukan')
         }
 
-        const data = await response.json()
-        setInitialData(data.barang || data)
+        const jsonResponse = await response.json()
+        setInitialData(jsonResponse.data?.barang || jsonResponse.barang || jsonResponse)
       } catch (error: unknown) {
         console.error('Error fetching barang:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data barang')

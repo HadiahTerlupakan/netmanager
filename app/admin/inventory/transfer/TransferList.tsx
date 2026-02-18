@@ -73,18 +73,22 @@ export default function TransferPage() {
       setLoading(true)
       setError('')
       const response = await getWithAuth(`/api/inventory/transfer?page=${page}&limit=${pagination.limit}`)
-      const data = await response.json()
+      const jsonResponse = await response.json()
 
-      if (!data.success) {
-        throw new Error(data.error || 'Gagal memuat data transfer')
+      if (!jsonResponse.success) {
+        throw new Error(jsonResponse.error || 'Gagal memuat data transfer')
       }
 
-      setTransfers(data.data.transferList || [])
+      // Handle various response structures
+      const result = jsonResponse.data || jsonResponse
+      const transferList = result.transferList || result.transfers || (Array.isArray(result) ? result : [])
+
+      setTransfers(transferList)
       setPagination(prev => ({
         ...prev,
         page,
-        total: data.data.pagination?.total || 0,
-        totalPages: data.data.pagination?.totalPages || 0
+        total: result.pagination?.total || result.meta?.total || 0,
+        totalPages: result.pagination?.totalPages || result.meta?.totalPages || 0
       }))
     } catch (error: unknown) {
       console.error('Error fetching transfers:', error)

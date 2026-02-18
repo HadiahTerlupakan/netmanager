@@ -43,7 +43,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
 
         // Handle both wrapped (apiSuccess) and unwrapped response formats
         const result = data.data || data
-        setGudang(result.gudang)
+        setGudang(result.gudang || result)
       } catch (error: unknown) {
         console.error('Failed to fetch gudang:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data')

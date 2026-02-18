@@ -65,17 +65,18 @@ export function ClientComponent() {
           throw new Error('Barang tidak ditemukan')
         }
 
-        const data = await response.json()
-        const barangData = data.barang || data
+        const jsonResponse = await response.json()
+        // Handle standard apiSuccess format { success: true, data: { barang: ... } }
+        const barangData = jsonResponse.data?.barang || jsonResponse.barang || jsonResponse
 
-        // Map stok/barangGudang to stockPerGudang if needed
-        const rawStock = barangData.barangGudang || barangData.stok
-        if (rawStock && !barangData.stockPerGudang) {
+        // Map barangGudang to stockPerGudang if needed
+        const rawStock = barangData.barangGudang || barangData.stok || []
+        if (!barangData.stockPerGudang) {
           barangData.stockPerGudang = rawStock.map((s: RawBarangGudang) => ({
             gudangId: s.gudangId,
-            gudangKode: s.gudang?.kode || '',
-            gudangNama: s.gudang?.nama || '',
-            stok: s.stok
+            gudangKode: s.gudang?.kode || '-',
+            gudangNama: s.gudang?.nama || '-',
+            stok: s.stok || 0
           }))
         }
 
@@ -197,8 +198,8 @@ export function ClientComponent() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="shrink-0">
-                <div className="h-6 w-6 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 text-xs font-bold">{barang.kode.slice(-1)}</span>
+                <div className="h-6 w-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">{barang.kode?.slice(-1) || '-'}</span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -208,7 +209,7 @@ export function ClientComponent() {
                   </dt>
                   <dd>
                     <div className="text-lg font-medium text-gray-900 dark:text-white">
-                      {barang.kode}
+                      {barang.kode || '-'}
                     </div>
                   </dd>
                 </dl>
@@ -221,8 +222,8 @@ export function ClientComponent() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="shrink-0">
-                <div className="h-6 w-6 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-green-600 text-xs font-bold">S</span>
+                <div className="h-6 w-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <span className="text-green-600 dark:text-green-400 text-xs font-bold">S</span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -232,7 +233,7 @@ export function ClientComponent() {
                   </dt>
                   <dd>
                     <div className="text-lg font-medium text-gray-900 dark:text-white">
-                      {barang.satuan}
+                      {barang.satuan || '-'}
                     </div>
                   </dd>
                 </dl>
@@ -245,8 +246,8 @@ export function ClientComponent() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="shrink-0">
-                <div className="h-6 w-6 bg-purple-100 rounded-full flex items-center justify-center">
-                  <span className="text-purple-600 text-xs font-bold">G</span>
+                <div className="h-6 w-6 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <span className="text-purple-600 dark:text-purple-400 text-xs font-bold">G</span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -273,7 +274,7 @@ export function ClientComponent() {
             Stok per Gudang
           </h3>
 
-          {barang.stockPerGudang?.length === 0 ? (
+          {!barang.stockPerGudang || barang.stockPerGudang.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 dark:text-gray-400">
                 Barang ini belum memiliki stok di gudang manapun
