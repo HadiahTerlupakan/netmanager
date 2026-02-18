@@ -1,7 +1,17 @@
 /**
  * Datetime Utilities
  * Timezone-safe date formatting for forms and API communication
+ * Now using date-fns for consistent date handling
  */
+
+import {
+  startOfDay as dateFnsStartOfDay,
+  endOfDay as dateFnsEndOfDay,
+  format as dateFnsFormat,
+  isValid,
+  parseISO,
+} from 'date-fns'
+import { id as localeId } from 'date-fns/locale'
 
 /**
  * Format a date string or Date object for datetime-local input
@@ -12,18 +22,11 @@
 export function formatForDateTimeInput(dateStr?: string | Date | null): string {
   if (!dateStr) return ''
   
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
   
-  if (isNaN(date.getTime())) return ''
+  if (!isValid(date)) return ''
   
-  // Get local date components
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  
-  return `${year}-${month}-${day}T${hours}:${minutes}`
+  return dateFnsFormat(date, "yyyy-MM-dd'T'HH:mm")
 }
 
 /**
@@ -34,15 +37,11 @@ export function formatForDateTimeInput(dateStr?: string | Date | null): string {
 export function formatForDateInput(dateStr?: string | Date | null): string {
   if (!dateStr) return ''
   
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
   
-  if (isNaN(date.getTime())) return ''
+  if (!isValid(date)) return ''
   
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  
-  return `${year}-${month}-${day}`
+  return dateFnsFormat(date, 'yyyy-MM-dd')
 }
 
 /**
@@ -53,9 +52,9 @@ export function formatForDateInput(dateStr?: string | Date | null): string {
 export function toISOString(datetimeLocalValue?: string | null): string | null {
   if (!datetimeLocalValue) return null
   
-  const date = new Date(datetimeLocalValue)
+  const date = parseISO(datetimeLocalValue)
   
-  if (isNaN(date.getTime())) return null
+  if (!isValid(date)) return null
   
   return date.toISOString()
 }
@@ -66,9 +65,8 @@ export function toISOString(datetimeLocalValue?: string | null): string | null {
  * @returns ISO string for start of day
  */
 export function getStartOfDay(dateStr: string): string {
-  const date = new Date(dateStr)
-  date.setHours(0, 0, 0, 0)
-  return date.toISOString()
+  const date = parseISO(dateStr)
+  return dateFnsStartOfDay(date).toISOString()
 }
 
 /**
@@ -77,32 +75,27 @@ export function getStartOfDay(dateStr: string): string {
  * @returns ISO string for end of day
  */
 export function getEndOfDay(dateStr: string): string {
-  const date = new Date(dateStr)
-  date.setHours(23, 59, 59, 999)
-  return date.toISOString()
+  const date = parseISO(dateStr)
+  return dateFnsEndOfDay(date).toISOString()
 }
 
 /**
  * Format date for display in Indonesian locale
  * @param dateStr - ISO date string
- * @param options - Intl.DateTimeFormat options
+ * @param formatStr - date-fns format string (default: 'd MMM yyyy')
  * @returns Formatted date string
  */
 export function formatDateDisplay(
   dateStr?: string | Date | null,
-  options: Intl.DateTimeFormatOptions = {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }
+  formatStr: string = 'd MMM yyyy'
 ): string {
   if (!dateStr) return '-'
   
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
   
-  if (isNaN(date.getTime())) return '-'
+  if (!isValid(date)) return '-'
   
-  return date.toLocaleDateString('id-ID', options)
+  return dateFnsFormat(date, formatStr, { locale: localeId })
 }
 
 /**
@@ -113,14 +106,11 @@ export function formatDateDisplay(
 export function formatTimeDisplay(dateStr?: string | Date | null): string {
   if (!dateStr) return '-'
   
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
   
-  if (isNaN(date.getTime())) return '-'
+  if (!isValid(date)) return '-'
   
-  return date.toLocaleTimeString('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return dateFnsFormat(date, 'HH:mm', { locale: localeId })
 }
 
 /**
@@ -131,17 +121,11 @@ export function formatTimeDisplay(dateStr?: string | Date | null): string {
 export function formatDateTimeDisplay(dateStr?: string | Date | null): string {
   if (!dateStr) return '-'
   
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
   
-  if (isNaN(date.getTime())) return '-'
+  if (!isValid(date)) return '-'
   
-  return date.toLocaleString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return dateFnsFormat(date, 'd MMM yyyy HH:mm', { locale: localeId })
 }
 
 /**
@@ -152,9 +136,48 @@ export function formatDateTimeDisplay(dateStr?: string | Date | null): string {
 export function getDayName(dateStr?: string | Date | null): string {
   if (!dateStr) return '-'
   
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
   
-  if (isNaN(date.getTime())) return '-'
+  if (!isValid(date)) return '-'
   
-  return date.toLocaleDateString('id-ID', { weekday: 'long' })
+  return dateFnsFormat(date, 'EEEE', { locale: localeId })
+}
+
+/**
+ * Format date with custom format string
+ * @param dateStr - ISO date string or Date object
+ * @param formatStr - date-fns format string
+ * @returns Formatted date string
+ */
+export function formatDate(
+  dateStr: string | Date,
+  formatStr: string
+): string {
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
+  
+  if (!isValid(date)) return '-'
+  
+  return dateFnsFormat(date, formatStr, { locale: localeId })
+}
+
+/**
+ * Parse a date string to Date object
+ * @param dateStr - ISO date string
+ * @returns Date object or null if invalid
+ */
+export function parseDate(dateStr: string): Date | null {
+  const date = parseISO(dateStr)
+  return isValid(date) ? date : null
+}
+
+/**
+ * Check if a date is valid
+ * @param dateStr - ISO date string or Date object
+ * @returns boolean
+ */
+export function isValidDate(dateStr: string | Date | null | undefined): boolean {
+  if (!dateStr) return false
+  
+  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
+  return isValid(date)
 }

@@ -1,6 +1,7 @@
 /**
  * Common Validation Schemas
  * Reusable Zod schemas for API validation
+ * Updated for Zod 4 best practices
  */
 
 import { z } from 'zod'
@@ -31,18 +32,15 @@ export const dateRangeSchema = z.object({
     }
     return true
   },
-  { message: 'Start date must be before or equal to end date' }
+  { error: 'Start date must be before or equal to end date' }
 )
 
 /**
  * UUID/CUID validation schema
  * Allows both UUID and CUID formats to support mixed ID types in the database
+ * Simplified for Zod 4 - uses string with min length as primary validation
  */
-export const idSchema = z.union([
-  z.string().uuid(),
-  z.string().cuid(),
-  z.string().min(1) // Fallback for other valid ID formats
-], { message: 'Format ID tidak valid' })
+export const idSchema = z.string().min(1, { error: 'Format ID tidak valid' })
 
 /**
  * Optional UUID/CUID validation schema
@@ -50,11 +48,7 @@ export const idSchema = z.union([
  */
 export const optionalIdSchema = z.preprocess(
   (val) => (val === '' || val === null ? undefined : val),
-  z.union([
-    z.string().uuid(),
-    z.string().cuid(),
-    z.string().min(1)
-  ]).optional()
+  z.string().min(1).optional()
 )
 
 /**
@@ -116,13 +110,13 @@ export const exportSchema = z.object({
 /**
  * Common email validation
  */
-export const emailSchema = z.string().email({ message: 'Format email tidak valid' })
+export const emailSchema = z.string().email({ error: 'Format email tidak valid' })
 
 /**
  * Common phone number validation (Indonesian format)
  */
 export const phoneSchema = z.string()
-  .regex(/^(\+62|62|0)[0-9]{9,12}$/, 'Invalid phone number format')
+  .regex(/^(\+62|62|0)[0-9]{9,12}$/, { error: 'Invalid phone number format' })
   .optional()
 
 /**
