@@ -21,6 +21,29 @@ export async function GET(req: NextRequest) {
         }
 
         const userId = payload.id as string
+        
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { 
+                siteId: true, 
+                departmentId: true,
+                userSites: {
+                    select: { siteId: true }
+                }
+            }
+        })
+        
+        if (!user) {
+            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
+        }
+        
+        const userSiteIds: string[] = [];
+        if (user.userSites && user.userSites.length > 0) {
+            userSiteIds.push(...user.userSites.map(us => us.siteId));
+        } else if (user.siteId) {
+            userSiteIds.push(user.siteId);
+        }
+        
         const now = new Date()
 
         // Today start
@@ -47,10 +70,19 @@ export async function GET(req: NextRequest) {
         })
 
         // Get pending work orders (available to take)
+        // Same logic as /api/mobile/work-orders/available
         const workOrdersPending = await prisma.workOrders.count({
             where: {
                 status: 'PENDING',
-                assignedToId: null
+                assignedToId: null,
+                AND: [
+                    user.departmentId 
+                        ? { OR: [{ departmentId: null }, { departmentId: user.departmentId }] }
+                        : { departmentId: null },
+                    userSiteIds.length > 0
+                        ? { OR: [{ siteId: null }, { siteId: { in: userSiteIds } }] }
+                        : { siteId: null }
+                ]
             }
         })
 
