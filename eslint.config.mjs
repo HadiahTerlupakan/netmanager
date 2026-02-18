@@ -20,7 +20,13 @@ const eslintConfig = [
       "public/sw.js",
       "public/workbox-*.js",
       "public/worker-*.js",
-      "coverage/**"
+      "coverage/**",
+      ".agent/**",
+      ".claude/**",
+      ".cursor/**",
+      ".kilocode/**",
+      ".gemini/**",
+      ".opencode/**"
     ]
   },
   {
