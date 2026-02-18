@@ -300,10 +300,10 @@ export default function PelangganPPPPage() {
         <div className="flex gap-2 w-full sm:w-auto">
           <Link
             href="/admin/pelanggan/ppp/create"
-            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-md bg-indigo-600 dark:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
           >
-            <HiOutlinePlus className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
-            Tambah Pelanggan
+            <HiOutlinePlus className="-ml-0.5 mr-1.5 h-5 w-5 text-white" aria-hidden="true" />
+            <span className="text-white">Tambah Pelanggan</span>
           </Link>
           <button
             onClick={loadData}

@@ -82,9 +82,9 @@ export function ClientComponent() {
                 {hasPermission('roles:create') && (
                     <Link
                         href="/admin/settings/roles/new"
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                        className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 text-white px-4 py-2 rounded-lg flex items-center gap-2"
                     >
-                        <FiPlus /> Tambah Role
+                        <FiPlus className="text-white" /> <span className="text-white">Tambah Role</span>
                     </Link>
                 )}
             </div>

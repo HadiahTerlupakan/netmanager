@@ -89,10 +89,10 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
           <div className="flex gap-3">
             <Link
               href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors shadow-sm"
             >
-              <HiPencil className="w-4 h-4" />
-              Edit Data
+              <HiPencil className="w-4 h-4 text-white" />
+              <span className="text-white">Edit Data</span>
             </Link>
           </div>
         </div>

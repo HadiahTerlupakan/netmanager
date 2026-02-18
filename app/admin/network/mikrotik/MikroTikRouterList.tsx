@@ -196,17 +196,17 @@ export default function MikroTikRouterList() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowReconfigureModal(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors shadow-sm"
           >
-            <HiCog6Tooth className="w-4 h-4" />
-            Reconfigurasi Mikrotik
+            <HiCog6Tooth className="w-4 h-4 text-white" />
+            <span className="text-white">Reconfigurasi Mikrotik</span>
           </button>
           <Link
             href="/admin/network/mikrotik/new"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-400 transition-colors shadow-sm"
           >
-            <span>+</span>
-            Tambah Router
+            <span className="text-white">+</span>
+            <span className="text-white">Tambah Router</span>
           </Link>
         </div>
       </div>

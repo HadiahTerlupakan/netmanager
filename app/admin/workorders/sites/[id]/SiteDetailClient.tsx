@@ -129,10 +129,10 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
                 {hasPermission('site:update') && (
                     <Link
                         href={`/admin/workorders/sites/${siteId}/edit`}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 text-white rounded-lg transition-colors font-medium"
                     >
-                        <HiOutlinePencil className="w-4 h-4" />
-                        Edit Site
+                        <HiOutlinePencil className="w-4 h-4 text-white" />
+                        <span className="text-white">Edit Site</span>
                     </Link>
                 )}
             </div>

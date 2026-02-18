@@ -635,7 +635,7 @@ export function ClientComponent() {
                     <button
                         onClick={() => setShowCancelModal(true)}
                         disabled={processingApproval}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
                     >
                         <HiXMark className="w-5 h-5" />
                         Batalkan
@@ -645,7 +645,7 @@ export function ClientComponent() {
                     <button
                         onClick={() => setShowDeleteModal(true)}
                         disabled={processingApproval}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-red-600 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-red-600 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
                     >
                         <HiXMark className="w-5 h-5" />
                         Hapus
@@ -656,7 +656,7 @@ export function ClientComponent() {
                         <button
                             onClick={() => setShowRejectModal(true)}
                             disabled={processingApproval}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
                         >
                             <HiXMark className="w-5 h-5" />
                             Tolak

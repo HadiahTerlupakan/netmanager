@@ -432,10 +432,10 @@ export default function UserList() {
                 {canCreate && (
                     <Link
                         href="/admin/users/new"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors shadow-sm"
                     >
-                        <HiOutlinePlus className="w-5 h-5" />
-                        Tambah Pengguna
+                        <HiOutlinePlus className="w-5 h-5 text-white" />
+                        <span className="text-white">Tambah Pengguna</span>
                     </Link>
                 )}
             </div>
@@ -528,10 +528,10 @@ export default function UserList() {
                         {canCreate && (
                             <Link
                                 href="/admin/users/new"
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors"
                             >
-                                <HiOutlinePlus className="w-5 h-5" />
-                                Tambah Pengguna
+                                <HiOutlinePlus className="w-5 h-5 text-white" />
+                                <span className="text-white">Tambah Pengguna</span>
                             </Link>
                         )}
                     </div>

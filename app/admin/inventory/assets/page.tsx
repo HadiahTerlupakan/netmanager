@@ -19,10 +19,10 @@ export default async function AssetsPage() {
         </div>
         <Link
           href="/admin/inventory/assets/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          <FiPlus className="mr-2 -ml-1 h-5 w-5" />
-          Tambah Aset
+          <FiPlus className="mr-2 -ml-1 h-5 w-5 text-white" />
+          <span className="text-white">Tambah Aset</span>
         </Link>
       </div>
 

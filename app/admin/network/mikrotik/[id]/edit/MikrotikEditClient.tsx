@@ -165,16 +165,16 @@ export function ClientComponent() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Router [NAS]</h1>
         <div className="flex items-center gap-2">
-          <button className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
-            Panduan Dasar
+          <button className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-700 dark:hover:bg-green-400 transition-colors">
+            <span className="text-white">Panduan Dasar</span>
           </button>
           <button 
             type="button"
             onClick={() => setShowScriptModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-400 transition-colors"
           >
-            <span>&lt;/&gt;</span>
-            SCRIPT GENERATOR
+            <span className="text-white">&lt;/&gt;</span>
+            <span className="text-white">SCRIPT GENERATOR</span>
           </button>
         </div>
       </div>
@@ -388,9 +388,9 @@ export function ClientComponent() {
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-blue-600 dark:bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Menyimpan...' : 'Update Router'}
+            <span className="text-white">{saving ? 'Menyimpan...' : 'Update Router'}</span>
           </button>
           <button
             type="button"

@@ -113,9 +113,9 @@ export function ClientComponent() {
             <p className="mt-2 text-red-600">{error}</p>
             <Link
               href="/admin/inventory"
-              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-400"
             >
-              Kembali ke Inventory
+              <span className="text-white">Kembali ke Inventory</span>
             </Link>
           </div>
         </div>
@@ -282,19 +282,19 @@ export function ClientComponent() {
                 {canCreateMasuk && (
                   <Link
                     href="/admin/inventory/masuk"
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-400"
                   >
-                    <FiDownload className="h-4 w-4 mr-2" />
-                    Barang Masuk
+                    <FiDownload className="h-4 w-4 mr-2 text-white" />
+                    <span className="text-white">Barang Masuk</span>
                   </Link>
                 )}
                 {canCreateOpname && (
                   <Link
                     href="/admin/inventory/opname"
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-400"
                   >
-                    <FiClipboard className="h-4 w-4 mr-2" />
-                    Stock Opname
+                    <FiClipboard className="h-4 w-4 mr-2 text-white" />
+                    <span className="text-white">Stock Opname</span>
                   </Link>
                 )}
               </div>

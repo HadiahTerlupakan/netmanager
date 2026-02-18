@@ -245,9 +245,9 @@ export function ClientComponent() {
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           <Link
             href="/admin/pelanggan/ppp"
-            className="mt-4 inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="mt-4 inline-block px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400"
           >
-            Kembali
+            <span className="text-white">Kembali</span>
           </Link>
         </div>
       </div>
@@ -263,9 +263,9 @@ export function ClientComponent() {
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{warningMessage}</p>
           <Link
             href="/admin/pelanggan/ppp"
-            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="px-6 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors"
           >
-            Kembali ke Daftar Pelanggan
+            <span className="text-white">Kembali ke Daftar Pelanggan</span>
           </Link>
         </div>
       </div>
@@ -526,9 +526,9 @@ export function ClientComponent() {
           <button
             type="submit"
             disabled={submitting}
-            className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-3 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {submitting ? 'Memproses...' : 'Perpanjang Langganan'}
+            <span className="text-white">{submitting ? 'Memproses...' : 'Perpanjang Langganan'}</span>
           </button>
         </div>
       </form>

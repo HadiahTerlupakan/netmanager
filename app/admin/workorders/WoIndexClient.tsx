@@ -180,7 +180,7 @@ export function ClientComponent() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-gray-900 dark:text-white">Work Order Dashboard</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Overview of all work orders</p></div><Link href="/admin/workorders/list" className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700">View All Work Orders</Link></div>
+            <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-gray-900 dark:text-white">Work Order Dashboard</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Overview of all work orders</p></div><Link href="/admin/workorders/list" className="px-4 py-2 bg-sky-600 dark:bg-sky-500 text-white rounded-lg hover:bg-sky-700 dark:hover:bg-sky-400 font-semibold inline-block"><span className="text-white">View All Work Orders</span></Link></div>
             {stats && (<>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Link href="/admin/workorders/list?status=PENDING&priority=HIGH,URGENT,CRITICAL" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-red-500 hover:shadow-md transition-shadow">

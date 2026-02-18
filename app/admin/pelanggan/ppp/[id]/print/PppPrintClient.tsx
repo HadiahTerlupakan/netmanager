@@ -297,9 +297,9 @@ export default function PppPrintClient() {
           </p>
           <button
             onClick={() => router.back()}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="mt-4 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400"
           >
-            Kembali
+            <span className="text-white">Kembali</span>
           </button>
         </div>
       </div>
@@ -391,10 +391,10 @@ export default function PppPrintClient() {
             </button>
             <button
             onClick={() => window.print()}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 dark:bg-indigo-500 rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 shadow-sm flex items-center gap-2"
             >
-            <HiPrinter className="w-4 h-4" />
-            Print Invoice
+            <HiPrinter className="w-4 h-4 text-white" />
+            <span className="text-white">Print Invoice</span>
             </button>
         </div>
       </div>

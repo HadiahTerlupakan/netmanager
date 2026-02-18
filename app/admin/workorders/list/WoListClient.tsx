@@ -654,14 +654,14 @@ export function ClientComponent() {
                         <>
                             <button
                                 onClick={(e) => openRejectModal(wo.id, e)}
-                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 rounded"
                                 title="Tolak"
                             >
                                 <HiXMark className="w-5 h-5" />
                             </button>
                             <button
                                 onClick={(e) => handleVerify(wo.id, e)}
-                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                                className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 rounded"
                                 title="Verifikasi"
                             >
                                 <HiCheckCircle className="w-5 h-5" />
@@ -692,14 +692,14 @@ export function ClientComponent() {
                 <>
                     <button
                         onClick={(e) => { e.stopPropagation(); setSelectedWorkOrderId(wo.id); setShowRejectRequestModal(true); }}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 rounded"
                         title="Tolak Request"
                     >
                         <HiXCircle className="w-5 h-5" />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setSelectedWorkOrderId(wo.id); setShowApproveRequestModal(true); }}
-                        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                        className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 rounded"
                         title="Setujui Request"
                     >
                         <HiCheckCircle className="w-5 h-5" />
@@ -737,10 +737,10 @@ export function ClientComponent() {
                     {canCreate && (
                         <Link
                             href="/admin/workorders/new"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-400 font-semibold"
                         >
-                            <HiPlus className="w-5 h-5" />
-                            <span>New Work Order</span>
+                            <HiPlus className="w-5 h-5 text-white" />
+                            <span className="text-white">New Work Order</span>
                         </Link>
                     )}
                 </div>

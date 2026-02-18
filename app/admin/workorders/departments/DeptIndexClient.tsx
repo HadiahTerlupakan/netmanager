@@ -168,10 +168,10 @@ export function ClientComponent() {
                 {canCreate && (
                     <Link
                         href="/admin/workorders/departments/new"
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                     >
-                        <HiOutlinePlus className="h-4 w-4 mr-2" />
-                        Tambah Department
+                        <HiOutlinePlus className="h-4 w-4 mr-2 text-white" />
+                        <span className="text-white">Tambah Department</span>
                     </Link>
                 )}
             </div>

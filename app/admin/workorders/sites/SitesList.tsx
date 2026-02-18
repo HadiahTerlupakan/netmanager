@@ -243,10 +243,10 @@ export default function SitesList() {
                 {canCreate && (
                     <Link
                         href="/admin/workorders/sites/new"
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-shadow shadow-sm"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-shadow shadow-sm"
                     >
-                        <HiOutlinePlus className="h-5 w-5 mr-2" />
-                        Tambah Site
+                        <HiOutlinePlus className="h-5 w-5 mr-2 text-white" />
+                        <span className="text-white">Tambah Site</span>
                     </Link>
                 )}
             </div>
