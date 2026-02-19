@@ -49,8 +49,7 @@ export function AdminNotificationBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
-            <Button
-                onClick={() => setIsOpen(!isOpen)}
+            <Button onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-full transition-all duration-200 group"
                 aria-label="Notifications"
             >
@@ -80,8 +79,7 @@ export function AdminNotificationBell() {
                             )}
                         </div>
                         {unreadCount > 0 && (
-                            <Button
-                                onClick={markAllAsRead}
+                            <Button onClick={markAllAsRead}
                                 
                             >
                                 <HiCheck className="w-3.5 h-3.5" />
@@ -115,8 +113,7 @@ export function AdminNotificationBell() {
                                                         {notification.title}
                                                     </p>
                                                     {!notification.isRead && (
-                                                        <Button
-                                                            onClick={() => markAsRead(notification.id)}
+                                                        <Button onClick={() => markAsRead(notification.id)}
                                                             className="shrink-0 p-1 text-gray-400 hover:text-indigo-600 rounded"
                                                             title="Tandai dibaca"
                                                         >

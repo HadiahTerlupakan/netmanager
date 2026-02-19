@@ -488,16 +488,14 @@ export function ClientComponent() {
         <>
             {item.status === 'PENDING' && canVerify && (
                 <>
-                    <Button
-                        onClick={() => handleAction(item.id, 'approve')}
+                    <Button onClick={() => handleAction(item.id, 'approve')}
                         disabled={processingId === item.id}
                         className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Setujui (Verify)"
                     >
                         <MdCheckCircle className="text-lg" />
                     </Button>
-                    <Button
-                        onClick={() => setRejectId(item.id)}
+                    <Button onClick={() => setRejectId(item.id)}
                         disabled={processingId === item.id}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Tolak (Verify)"
@@ -507,8 +505,7 @@ export function ClientComponent() {
                 </>
             )}
             {canUpdate && (
-                <Button
-                    onClick={() => openEditModal(item)}
+                <Button onClick={() => openEditModal(item)}
                     disabled={processingId === item.id}
                     className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
                     title="Edit Data"
@@ -517,8 +514,7 @@ export function ClientComponent() {
                 </Button>
             )}
             {canDelete && (
-                <Button
-                    onClick={() => handleDelete(item.id)}
+                <Button onClick={() => handleDelete(item.id)}
                     disabled={processingId === item.id}
                     className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                     title="Hapus"
@@ -632,8 +628,7 @@ export function ClientComponent() {
                         <option value="OFFDAY">📅 Hari Libur Karyawan</option>
                     </select>
                 </div>
-                <Button
-                    onClick={() => fetchRequests()}
+                <Button onClick={() => fetchRequests()}
                     disabled={retryCountdown !== null}
                     className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -655,16 +650,14 @@ export function ClientComponent() {
 
                 {/* Pagination Controls */}
                 <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
-                    <Button
-                        disabled={page === 1}
+                    <Button disabled={page === 1}
                         onClick={() => setPage(p => p - 1)}
                         className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                         Sebelumnya
                     </Button>
                     <span className="text-sm text-gray-500 dark:text-gray-400">Halaman {page} dari {totalPages} ({totalItems} Data)</span>
-                    <Button
-                        disabled={page === totalPages}
+                    <Button disabled={page === totalPages}
                         onClick={() => setPage(p => p + 1)}
                         className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
@@ -697,14 +690,12 @@ export function ClientComponent() {
                         <p className="text-xs text-gray-500 mb-3">{rejectReason.length}/500 karakter</p>
                 </div>
                 <ModalFooter>
-                            <Button
-                                onClick={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
+                            <Button onClick={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
                                 className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal
                             </Button>
-                            <Button
-                                onClick={() => handleAction(rejectId!, 'reject', rejectReason)}
+                            <Button onClick={() => handleAction(rejectId!, 'reject', rejectReason)}
                                 disabled={!rejectReason.trim() || processingId === rejectId}
                                 className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                             >
@@ -765,14 +756,12 @@ export function ClientComponent() {
                             )}
                 </div>
                 <ModalFooter>
-                            <Button
-                                onClick={() => { setEditId(null); setEditErrors({}); }}
+                            <Button onClick={() => { setEditId(null); setEditErrors({}); }}
                                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal
                             </Button>
-                            <Button
-                                onClick={handleEditSubmit}
+                            <Button onClick={handleEditSubmit}
                                 disabled={processingId === editId}
                                 
                             >
@@ -801,8 +790,7 @@ export function ClientComponent() {
                     )}
                 </div>
                 <ModalFooter className="bg-black/90 border-t border-white/10">
-                    <Button 
-                        onClick={() => setSelectedPhoto(null)}
+                    <Button onClick={() => setSelectedPhoto(null)}
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
                     >
                         Tutup

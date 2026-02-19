@@ -120,8 +120,7 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
         <div className="space-y-4">
             <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500">Pilih router yang ingin dikonfigurasi ulang:</p>
-                <Button 
-                    onClick={handleSelectAll}
+                <Button onClick={handleSelectAll}
                     
                 >
                     {selectedIds.size === routers.length ? 'Unselect All' : 'Select All'}
@@ -243,8 +242,7 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
                         >
                             Batal
                         </Button>
-                        <Button
-                            onClick={handleReconfigure}
+                        <Button onClick={handleReconfigure}
                             disabled={selectedIds.size === 0 || loading}
                             
                         >
@@ -258,8 +256,7 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
                     </Button>
                 )}
                 {step === 'result' && (
-                    <Button
-                        onClick={onClose}
+                    <Button onClick={onClose}
                         
                     >
                         Tutup

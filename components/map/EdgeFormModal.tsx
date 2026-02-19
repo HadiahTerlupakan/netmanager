@@ -131,8 +131,7 @@ export function EdgeFormModal({ edge, nodes, isOpen, onClose, onSave }: EdgeForm
           >
             Batal
           </Button>
-          <Button
-            type="submit"
+          <Button type="submit"
             
           >
             {isEditing ? "Simpan Perubahan" : "Tambah Koneksi"}

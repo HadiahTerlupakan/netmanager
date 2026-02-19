@@ -202,8 +202,7 @@ export default function SupportContext() {
                         Kelola tiket dukungan dari pelanggan
                     </p>
                 </div>
-                <Button
-                    onClick={loadTickets}
+                <Button onClick={loadTickets}
                     
                 >
                     <HiOutlineArrowPath className="w-4 h-4" />
@@ -440,15 +439,13 @@ export default function SupportContext() {
                             Halaman {page} dari {totalPages}
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button
-                                onClick={() => setPage(Math.max(1, page - 1))}
+                            <Button onClick={() => setPage(Math.max(1, page - 1))}
                                 disabled={page === 1}
                                 className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <HiChevronLeft className="w-4 h-4" />
                             </Button>
-                            <Button
-                                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                            <Button onClick={() => setPage(Math.min(totalPages, page + 1))}
                                 disabled={page === totalPages}
                                 className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                             >

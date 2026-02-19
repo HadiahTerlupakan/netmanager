@@ -298,8 +298,7 @@ export default function CustomerSupportPage() {
                             <MdChevronRight className="text-slate-400 text-2xl pr-2" />
                         </a>
                         {/* Create Ticket Button */}
-                        <Button
-                            onClick={() => setShowCreateModal(true)}
+                        <Button onClick={() => setShowCreateModal(true)}
                             className="col-span-2 mt-2"
                         >
                             <MdEditSquare className="text-xl" />
@@ -370,8 +369,7 @@ export default function CustomerSupportPage() {
                                             ></textarea>
                                         </div>
 
-                                        <Button
-                                            onClick={handleSubmit}
+                                        <Button onClick={handleSubmit}
                                             disabled={submitting}
                                             loading={submitting}
                                             className="w-full"

@@ -376,8 +376,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           {hasAccess ? 'Batal' : 'Kembali'}
         </Button>
         {hasAccess && (
-          <Button
-            type="submit"
+          <Button type="submit"
             disabled={loading}
             
           >

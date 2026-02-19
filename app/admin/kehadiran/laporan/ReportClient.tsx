@@ -399,8 +399,7 @@ export function ClientComponent() {
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
-                <Button
-                    onClick={() => fetchReport()}
+                <Button onClick={() => fetchReport()}
                     disabled={loading || retryCountdown !== null}
                     className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 flex items-center gap-2 h-[38px] disabled:opacity-50"
                 >
@@ -410,16 +409,14 @@ export function ClientComponent() {
 
             {/* Tab Navigation */}
             <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
-                <Button
-                    onClick={() => setActiveTab('dashboard')}
+                <Button onClick={() => setActiveTab('dashboard')}
                     className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'dashboard'
                         ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                     📊 Dashboard
                 </Button>
-                <Button
-                    onClick={() => setActiveTab('rekap')}
+                <Button onClick={() => setActiveTab('rekap')}
                     className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'rekap'
                         ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}

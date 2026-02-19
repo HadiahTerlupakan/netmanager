@@ -92,8 +92,7 @@ export function CustomerSupportBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Chat Bubble Button */}
-            <Button
-                onClick={() => setIsOpen(!isOpen)}
+            <Button onClick={() => setIsOpen(!isOpen)}
                 className={`relative p-2 rounded-full transition-all duration-200 group ${unreadCount > 0
                     ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
                     : 'text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10'
@@ -133,8 +132,7 @@ export function CustomerSupportBell() {
                                     {unreadCount} perlu respon
                                 </span>
                             )}
-                            <Button
-                                onClick={(e) => {
+                            <Button onClick={(e) => {
                                     e.stopPropagation()
                                     refresh()
                                 }}

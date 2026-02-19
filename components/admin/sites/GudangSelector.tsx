@@ -103,8 +103,7 @@ export default function GudangSelector({ selectedIds, onChange, currentSiteId }:
                         className="block w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     />
                 </div>
-                <Button
-                    type="button"
+                <Button type="button"
                     onClick={() => setShowSelectedOnly(!showSelectedOnly)}
                     className={`inline-flex items-center px-3 py-2 border text-sm leading-4 font-medium rounded-md transition-colors ${showSelectedOnly
                         ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-700'
@@ -181,16 +180,14 @@ export default function GudangSelector({ selectedIds, onChange, currentSiteId }:
                             Hal. {page} dari {totalPages}
                         </div>
                         <div className="flex gap-2">
-                            <Button
-                                type="button"
+                            <Button type="button"
                                 disabled={page === 1}
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
                                 className="px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-500"
                             >
                                 Prev
                             </Button>
-                            <Button
-                                type="button"
+                            <Button type="button"
                                 disabled={page === totalPages}
                                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                 className="px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-500"

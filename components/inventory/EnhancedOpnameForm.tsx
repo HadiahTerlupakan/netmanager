@@ -581,8 +581,7 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
                 Batal
               </Button>
             )}
-            <Button
-              type="submit"
+            <Button type="submit"
               disabled={loading || !hasChanges}
               
             >

@@ -199,8 +199,7 @@ export function PhotoGallery({
       {/* Show more indicator */}
       {maxThumbnails && photos.length > maxThumbnails && (
         <div className="mt-4 text-center">
-          <Button
-            onClick={() => setSelectedPhoto(photos[0] ?? null)}
+          <Button onClick={() => setSelectedPhoto(photos[0] ?? null)}
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             Lihat {photos.length - maxThumbnails} foto lagi
@@ -235,8 +234,7 @@ export function PhotoGallery({
               <div className="flex items-center gap-2">
                 {/* Zoom Controls */}
                 <div className="flex items-center bg-gray-800 rounded-lg">
-                  <Button
-                    onClick={handleZoomOut}
+                  <Button onClick={handleZoomOut}
                     
                     title="Zoom out (-)"
                   >
@@ -245,8 +243,7 @@ export function PhotoGallery({
                   <span className="px-3 text-sm">
                     {Math.round(zoomLevel * 100)}%
                   </span>
-                  <Button
-                    onClick={handleZoomIn}
+                  <Button onClick={handleZoomIn}
                     
                     title="Zoom in (+)"
                   >
@@ -255,8 +252,7 @@ export function PhotoGallery({
                 </div>
 
                 {/* Download Button */}
-                <Button
-                  onClick={handleDownload}
+                <Button onClick={handleDownload}
                   
                   title="Download foto"
                 >
@@ -275,8 +271,7 @@ export function PhotoGallery({
                 )}
 
                 {/* Close Button */}
-                <Button
-                  onClick={handleClose}
+                <Button onClick={handleClose}
                   
                   title="Tutup (Esc)"
                 >
@@ -289,8 +284,7 @@ export function PhotoGallery({
             <div className="flex-1 relative overflow-hidden flex items-center justify-center">
               {/* Previous Button */}
               {currentIndex > 0 && (
-                <Button
-                  onClick={handlePrevious}
+                <Button onClick={handlePrevious}
                    className="absolute left-4 z-10"
                   title="Previous (←)"
                 >
@@ -317,8 +311,7 @@ export function PhotoGallery({
 
               {/* Next Button */}
               {currentIndex < photos.length - 1 && (
-                <Button
-                  onClick={handleNext}
+                <Button onClick={handleNext}
                    className="absolute right-4 z-10"
                   title="Next (→)"
                 >
@@ -337,8 +330,7 @@ export function PhotoGallery({
                 {/* Thumbnail Navigation */}
                 <div className="flex gap-1 max-w-md overflow-x-auto">
                   {photos.map((photo, index) => (
-                    <Button
-                      key={photo.id}
+                    <Button key={photo.id}
                       onClick={() => {
                         setCurrentIndex(index)
                         setSelectedPhoto(photo)

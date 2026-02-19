@@ -74,8 +74,7 @@ export default function SlipPrintClient({ salary }: SlipPrintClientProps) {
             <div className="bg-white p-8 w-[80mm] min-h-[100mm] shadow-lg font-mono text-sm print:shadow-none print:w-full">
                 {/* Actions */}
                 <div className="mb-6 flex justify-center no-print">
-                    <Button
-                        onClick={() => window.print()}
+                    <Button onClick={() => window.print()}
                         className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
                     >
                         <HiOutlinePrinter className="w-4 h-4" />

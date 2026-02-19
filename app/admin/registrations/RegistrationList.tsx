@@ -254,8 +254,7 @@ export default function AdminRegistrationsPage() {
                         Verified: {statusCounts['VERIFIED'] || 0}
                     </p>
                 </div>
-                <Button
-                    onClick={fetchRegistrations}
+                <Button onClick={fetchRegistrations}
                     
                 >
                     <MdRefresh /> Refresh

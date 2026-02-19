@@ -189,8 +189,7 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
           {/* Preset Buttons */}
           <div className="hidden sm:flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             {presetOptions.map((option) => (
-              <Button
-                key={option.value}
+              <Button key={option.value}
                 onClick={() => handlePresetChange(option.value)}
                 className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                   selectedPreset === option.value
@@ -205,8 +204,7 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
           
           {/* Mobile Dropdown */}
           <div className="sm:hidden relative">
-            <Button
-              onClick={() => setShowDatePicker(!showDatePicker)}
+            <Button onClick={() => setShowDatePicker(!showDatePicker)}
               className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm"
             >
               <HiOutlineAdjustmentsHorizontal className="w-4 h-4" />
@@ -243,8 +241,7 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
               />
             </div>
             <div className="flex items-end">
-              <Button
-                onClick={handleCustomDateApply}
+              <Button onClick={handleCustomDateApply}
                 disabled={!customStartDate || !customEndDate}
                  className="w-full"
               >

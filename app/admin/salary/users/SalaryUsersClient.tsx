@@ -399,8 +399,7 @@ export default function SalaryUsersClient() {
                         Kelola daftar karyawan dan komponen gaji mereka
                     </p>
                 </div>
-                <Button
-                    onClick={() => setShowAddModal(true)}
+                <Button onClick={() => setShowAddModal(true)}
                     className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
                 >
                     <HiOutlinePlus className="w-4 h-4 mr-2" />
@@ -463,8 +462,7 @@ export default function SalaryUsersClient() {
                             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto mb-6">
                                 Belum ada karyawan yang ditambahkan ke daftar gaji.
                             </p>
-                            <Button
-                                onClick={() => setShowAddModal(true)}
+                            <Button onClick={() => setShowAddModal(true)}
                                 className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline"
                             >
                                 + Tambah Karyawan Sekarang
@@ -556,16 +554,14 @@ export default function SalaryUsersClient() {
                                                             <HiOutlineEye className="w-4 h-4" />
                                                         </Link>
                                                         <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-                                                        <Button
-                                                            onClick={() => openEditModal(user)}
+                                                        <Button onClick={() => openEditModal(user)}
                                                             className="p-1.5 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 rounded-lg transition-colors"
                                                             title="Edit Konfigurasi"
                                                         >
                                                             <HiOutlinePencil className="w-4 h-4" />
                                                         </Button>
                                                         <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-                                                        <Button
-                                                            onClick={() => handleDeleteUser(user.id)}
+                                                        <Button onClick={() => handleDeleteUser(user.id)}
                                                             className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
                                                             title="Hapus dari Daftar"
                                                         >
@@ -836,8 +832,7 @@ export default function SalaryUsersClient() {
                                                     : `Rp ${pc.amount.toLocaleString('id-ID')}`
                                                 }
                                             </span>
-                                            <Button
-                                                type="button"
+                                            <Button type="button"
                                                 onClick={() => setPendingComponents(prev => prev.filter((_, i) => i !== idx))}
                                                 className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-400 hover:text-red-600 transition-colors"
                                             >
@@ -882,8 +877,7 @@ export default function SalaryUsersClient() {
                                     placeholder={newComponentRateType === 'PERCENTAGE' ? '5 (5%)' : '500000'}
                                     className="col-span-3 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                 />
-                                <Button
-                                    type="button"
+                                <Button type="button"
                                     onClick={() => {
                                         if (newComponentName && newComponentAmount) {
                                             setPendingComponents(prev => [...prev, {
@@ -914,14 +908,12 @@ export default function SalaryUsersClient() {
                     </p>
 
                     <div className="flex gap-3 pt-2">
-                        <Button
-                            type="submit"
+                        <Button type="submit"
                              className="flex-1"
                         >
                             Tambah
                         </Button>
-                        <Button
-                            type="button"
+                        <Button type="button"
                             onClick={() => setShowAddModal(false)}
                             className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
@@ -1174,8 +1166,7 @@ export default function SalaryUsersClient() {
                                                             : formatCurrency(uc.amount)
                                                         }
                                                     </span>
-                                                    <Button
-                                                        onClick={() => handleRemoveComponent(uc.id)}
+                                                    <Button onClick={() => handleRemoveComponent(uc.id)}
                                                         className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-400 hover:text-red-600 transition-colors"
                                                     >
                                                         <HiOutlineTrash className="w-3.5 h-3.5" />
@@ -1234,8 +1225,7 @@ export default function SalaryUsersClient() {
                                                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                             />
                                         </div>
-                                        <Button
-                                            type="button"
+                                        <Button type="button"
                                             onClick={handleCreateAndAssignComponent}
                                              className="col-span-1"
                                             title="Tambah Komponen"
@@ -1252,16 +1242,14 @@ export default function SalaryUsersClient() {
 
                         {/* Footer Actions - Matching Add Modal */}
                         <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                            <Button
-                                type="button"
+                            <Button type="button"
                                 onClick={handleUpdateUser}
                                  className="flex-1"
                             >
                                 <HiOutlineCheckCircle className="w-5 h-5" />
                                 Simpan Perubahan
                             </Button>
-                            <Button
-                                type="button"
+                            <Button type="button"
                                 onClick={() => setShowEditModal(false)}
                                 className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200"
                             >

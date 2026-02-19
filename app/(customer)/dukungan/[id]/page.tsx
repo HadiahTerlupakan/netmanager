@@ -479,8 +479,7 @@ export default function TicketDetailPage() {
                                     }}
                                 />
                             </div>
-                            <Button
-                                size="icon"
+                            <Button size="icon"
                                 onClick={handleSendReply}
                                 disabled={(!message.trim() && attachments.length === 0) || sending || uploading}
                                 loading={sending || uploading}
@@ -558,8 +557,7 @@ export default function TicketDetailPage() {
                                 >
                                     Batal
                                 </Button>
-                                <Button
-                                    onClick={handleCloseTicket}
+                                <Button onClick={handleCloseTicket}
                                     disabled={closing}
                                     loading={closing}
                                     className="flex-1"

@@ -178,8 +178,7 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
           {hasAccess ? 'Batal' : 'Kembali'}
         </Button>
         {hasAccess && (
-          <Button
-            type="submit"
+          <Button type="submit"
             disabled={loading}
             
           >

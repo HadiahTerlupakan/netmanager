@@ -92,8 +92,7 @@ export function KaryawanNotificationBell() {
 
     if (!canViewNotifications) {
         return (
-            <Button
-                disabled
+            <Button disabled
                  className="relative"
                 title="Anda tidak memiliki akses notifikasi"
             >
@@ -104,8 +103,7 @@ export function KaryawanNotificationBell() {
 
     return (
         <div className="relative" ref={dropdownRef}>
-            <Button
-                onClick={() => setIsOpen(!isOpen)}
+            <Button onClick={() => setIsOpen(!isOpen)}
                 className="flex items-center justify-center rounded-full size-10 hover:bg-black/5 dark:hover:bg-white/10 transition-colors relative"
             >
                 <MdNotifications className="text-2xl text-blue-600 dark:text-white" />
@@ -133,8 +131,7 @@ export function KaryawanNotificationBell() {
                             )}
                         </div>
                         {unreadCount > 0 && (
-                            <Button
-                                onClick={handleMarkAllAsRead}
+                            <Button onClick={handleMarkAllAsRead}
                                 disabled={isLoading}
                                 
                             >

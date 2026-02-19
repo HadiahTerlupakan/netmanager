@@ -252,8 +252,7 @@ export default function AttendanceCard() {
                         {photo && !showCamera && (
                             <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
                                 <Image src={photo} alt="Selfie Preview" fill className="object-cover" />
-                                <Button
-                                    onClick={() => setPhoto(null)}
+                                <Button onClick={() => setPhoto(null)}
                                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full text-xs"
                                 >
                                     Ulang
@@ -263,8 +262,7 @@ export default function AttendanceCard() {
 
                         {/* Controls */}
                         {!showCamera && !photo && (
-                            <Button
-                                onClick={startCamera}
+                            <Button onClick={startCamera}
                                  className="w-full"
                             >
                                 <FaCamera /> Ambil Foto Selfie

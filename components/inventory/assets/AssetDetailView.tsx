@@ -83,8 +83,7 @@ export function AssetDetailView({ asset: initialAsset }: AssetDetailProps) {
                         </h1>
                     </div>
                     <div className="flex gap-2">
-                        <Button 
-                            onClick={handleDepreciate}
+                        <Button onClick={handleDepreciate}
                             disabled={loading || asset.status !== 'ACTIVE' || Number(asset.currentValue) <= Number(asset.residualValue)}
                             
                         >

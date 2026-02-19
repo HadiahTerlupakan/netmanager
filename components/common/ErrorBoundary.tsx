@@ -110,8 +110,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <Button
-                  onClick={this.handleReset}
+                <Button onClick={this.handleReset}
                   className="flex-1"
                 >
                   <HiArrowPath className="w-5 h-5" />

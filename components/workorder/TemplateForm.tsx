@@ -181,8 +181,7 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
                                     placeholder="Keterangan tambahan (opsional)"
                                 />
                             </div>
-                            <Button
-                                type="button"
+                            <Button type="button"
                                 onClick={() => handleRemoveItem(index)}
                                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors h-fit"
                             >
@@ -200,16 +199,14 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
             </div>
 
             <div className="flex justify-end gap-3">
-                <Button
-                    type="button"
+                <Button type="button"
                     onClick={() => router.back()}
                     className="px-6 py-2.5 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium"
                     disabled={loading}
                 >
                     Batal
                 </Button>
-                <Button
-                    type="submit"
+                <Button type="submit"
                     
                     disabled={loading}
                 >

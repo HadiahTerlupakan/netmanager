@@ -149,8 +149,7 @@ export default function TestConnectionModal({ open, onClose, result, isLoading }
         )}
 
         <ModalFooter>
-          <Button
-            onClick={onClose}
+          <Button onClick={onClose}
             
           >
             Tutup

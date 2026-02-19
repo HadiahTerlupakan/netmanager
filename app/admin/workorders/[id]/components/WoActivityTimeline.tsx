@@ -56,7 +56,7 @@ export function WoActivityTimeline({
                                 </div>
                                 <div className="flex-1">
                                     {item.type === 'update' ? (
-                                        <div className="">
+                                        <div>
                                             {updateData.updateType === 'MATERIAL_PICKUP' && (
                                                 <button
                                                     type="button"

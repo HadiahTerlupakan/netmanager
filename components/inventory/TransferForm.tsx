@@ -547,8 +547,7 @@ export function TransferForm({ initialData: _initialData, onClose, onSuccess }: 
         >
           Batal
         </Button>
-        <Button
-          type="submit"
+        <Button type="submit"
           disabled={loading || stockSumber === 0 || !formData.keGudangId || (stockPerKondisi[formData.kondisi] || 0) === 0}
           
         >

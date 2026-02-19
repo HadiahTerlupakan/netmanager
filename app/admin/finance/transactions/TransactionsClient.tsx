@@ -223,8 +223,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
             </p>
           </div>
           {canCreate && (
-              <Button
-                  onClick={() => setModalOpen(true)}
+              <Button onClick={() => setModalOpen(true)}
               >
                   <HiPlus className="w-5 h-5 mr-2" />
                   Catat Transaksi

@@ -323,8 +323,7 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
             {/* Toolbar Action Bar - Outside the Document */}
             <div className="max-w-5xl mx-auto mb-6 flex justify-between items-center sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur py-2">
                 <div className="flex items-center gap-4">
-                    <Button 
-                        onClick={() => router.back()}
+                    <Button onClick={() => router.back()}
                         className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
                         title="Kembali"
                     >
@@ -341,8 +340,7 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                 </div>
                 <div className="flex gap-3">
                     {!isReadOnly && (
-                        <Button
-                            onClick={handleSubmit}
+                        <Button onClick={handleSubmit}
                             disabled={loading || disabled}
                             
                         >
@@ -491,8 +489,7 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                                                             className="w-full text-right pl-2 pr-8 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
                                                         />
                                                         {item.barangId && (
-                                                            <Button 
-                                                                onClick={() => openMarketPriceModal(index)}
+                                                            <Button onClick={() => openMarketPriceModal(index)}
                                                                 className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                                                                 title="Cek Harga Pasar"
                                                             >
@@ -511,8 +508,7 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                                             </td>
                                             <td className="px-2 py-2 text-center align-middle">
                                                 {!isReadOnly && (
-                                                    <Button
-                                                        onClick={() => handleRemoveItem(index)}
+                                                    <Button onClick={() => handleRemoveItem(index)}
                                                         className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-all"
                                                     >
                                                         <HiTrash className="w-4 h-4" />

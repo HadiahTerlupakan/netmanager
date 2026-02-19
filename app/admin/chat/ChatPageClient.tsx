@@ -465,8 +465,7 @@ export default function ChatPageClient() {
                             )}
                             {/* New chat button - only show if can send message */}
                             {canSendMessage && (
-                                <Button
-                                    size="icon"
+                                <Button size="icon"
                                     onClick={() => setShowNewChatModal(true)}
                                     title="New Chat"
                                 >
@@ -635,8 +634,7 @@ export default function ChatPageClient() {
                                             </Button>
                                             
                                             {hasPermission('broadcast:create') && (
-                                                <Button
-                                                    onClick={() => setShowBroadcastModal(true)}
+                                                <Button onClick={() => setShowBroadcastModal(true)}
                                                     size="sm"
                                                 >
                                                     Broadcast
@@ -705,12 +703,11 @@ export default function ChatPageClient() {
                                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                                         className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
-                                    <Button
-                                        size="icon"
+                                    <Button size="icon"
                                         onClick={sendMessage}
                                         disabled={!messageInput.trim() || sendingMessage}
                                         loading={sendingMessage}
-                                        className="rounded-full"
+                                        
                                     >
                                         <HiOutlinePaperAirplane className="w-5 h-5" />
                                     </Button>
@@ -789,8 +786,7 @@ export default function ChatPageClient() {
                             </div>
                 </div>
                 <ModalFooter>
-                            <Button
-                                onClick={createConversation}
+                            <Button onClick={createConversation}
                                 disabled={selectedUsers.length === 0}
                                 className="w-full"
                             >

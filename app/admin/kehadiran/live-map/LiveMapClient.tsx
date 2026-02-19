@@ -142,8 +142,7 @@ export default function LiveMapClient() {
                     <div className="flex items-center gap-4 flex-wrap">
                         {/* View Toggle */}
                         <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                            <Button
-                                onClick={() => setViewMode('map')}
+                            <Button onClick={() => setViewMode('map')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
                                     viewMode === 'map' 
                                         ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
@@ -153,8 +152,7 @@ export default function LiveMapClient() {
                                 <HiOutlineMap className="w-4 h-4" />
                                 Map
                             </Button>
-                            <Button
-                                onClick={() => setViewMode('cards')}
+                            <Button onClick={() => setViewMode('cards')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
                                     viewMode === 'cards' 
                                         ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
@@ -172,8 +170,7 @@ export default function LiveMapClient() {
                         </div>
 
                         {/* Manual Refresh */}
-                        <Button
-                            onClick={fetchLocations}
+                        <Button onClick={fetchLocations}
                             disabled={loading}
                             
                         >

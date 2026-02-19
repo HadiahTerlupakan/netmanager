@@ -467,8 +467,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     {/* Header */}
                     <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-linear-to-b from-black/50 to-transparent">
                         <h3 className="text-white font-medium">Ambil Foto Selfie</h3>
-                        <Button
-                            onClick={() => {
+                        <Button onClick={() => {
                                 setShowCamera(false)
                                 stopCamera()
                             }}
@@ -497,8 +496,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     {/* Controls */}
                     <div className="absolute bottom-0 left-0 right-0 p-8 pb-12 bg-linear-to-t from-black/80 to-transparent flex flex-col items-center gap-6">
                         {/* Capture Button */}
-                        <Button
-                            onClick={capturePhoto}
+                        <Button onClick={capturePhoto}
                             
                         >
                             <div className="size-16 rounded-full bg-white border-4 border-black" />
@@ -533,8 +531,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     </div>
 
                     <div className="p-6 flex justify-center gap-4 bg-white dark:bg-gray-800">
-                        <Button
-                            onClick={() => {
+                        <Button onClick={() => {
                                 setPhoto(null)
                                 startCamera()
                             }}
@@ -542,8 +539,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         >
                             <MdRefresh className="text-xl" /> Ulang
                         </Button>
-                        <Button
-                            onClick={() => {
+                        <Button onClick={() => {
                                 handleAttendance();
                             }}
                             disabled={loading}
@@ -699,8 +695,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
 
                         {/* Action Buttons */}
                         <div className="grid grid-cols-2 gap-3">
-                            <Button
-                                onClick={status === 'idle' && !holidayInfo?.isNational ? startCamera : undefined}
+                            <Button onClick={status === 'idle' && !holidayInfo?.isNational ? startCamera : undefined}
                                 disabled={status !== 'idle' || !!holidayInfo?.isNational}
                                  className={`h-12 flex items-center justify-center border ${status === 'idle' && !holidayInfo?.isNational ? ' active:scale-95 ' : ' cursor-not-allowed ' }`}
                             >
@@ -728,8 +723,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             {showAnalytics ? 'Analisis Kehadiran' : 'Riwayat Absensi'}
                         </h3>
                         <div className="flex gap-2">
-                            <Button
-                                onClick={() => setShowAnalytics(!showAnalytics)}
+                            <Button onClick={() => setShowAnalytics(!showAnalytics)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
                                     showAnalytics
                                         ? 'bg-blue-600 text-white border-blue-600'

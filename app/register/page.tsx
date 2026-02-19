@@ -285,7 +285,7 @@ export default function RegistrationPage() {
                                         onChange={(val) => setFormData({ ...formData, location: val })}
                                         options={existingLocations}
                                         placeholder="Pilih atau ketik area..."
-                                        className=""
+                                       
                                     />
                                 </div>
                             </div>
@@ -353,8 +353,7 @@ export default function RegistrationPage() {
                             </div>
                         )}
 
-                        <Button
-                            type="submit"
+                        <Button type="submit"
                             disabled={isLoading}
                             loading={isLoading}
                             size="lg"

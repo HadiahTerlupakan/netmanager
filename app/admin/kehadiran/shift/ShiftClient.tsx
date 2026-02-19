@@ -239,15 +239,13 @@ export default function ShiftClient() {
         <div className="flex gap-2">
             {canUpdate && (
                 <>
-                    <Button
-                        onClick={() => openEditModal(shift)}
+                    <Button onClick={() => openEditModal(shift)}
                         className="p-1 text-blue-600 hover:bg-blue-50 rounded dark:hover:bg-blue-900/20"
                         title="Edit"
                     >
                         <HiOutlinePencil className="w-4 h-4" />
                     </Button>
-                    <Button
-                        onClick={() => toggleActive(shift)}
+                    <Button onClick={() => toggleActive(shift)}
                         className="p-1 text-gray-600 hover:bg-gray-50 rounded dark:hover:bg-gray-700"
                         title={shift.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                     >
@@ -256,8 +254,7 @@ export default function ShiftClient() {
                 </>
             )}
             {canDelete && (
-                <Button
-                    onClick={() => handleDelete(shift)}
+                <Button onClick={() => handleDelete(shift)}
                     className="p-1 text-red-600 hover:bg-red-50 rounded dark:hover:bg-red-900/20"
                     title="Hapus"
                 >
@@ -278,8 +275,7 @@ export default function ShiftClient() {
                     </p>
                 </div>
                 {canCreate && (
-                    <Button
-                        onClick={openCreateModal}
+                    <Button onClick={openCreateModal}
                         
                     >
                         <HiOutlinePlus className="w-5 h-5" />
@@ -386,15 +382,13 @@ export default function ShiftClient() {
                     </div>
 
                     <ModalFooter>
-                        <Button
-                            type="button"
+                        <Button type="button"
                             onClick={() => setShowModal(false)}
                             className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             Batal
                         </Button>
-                        <Button
-                            type="submit"
+                        <Button type="submit"
                             disabled={saving}
                             
                         >

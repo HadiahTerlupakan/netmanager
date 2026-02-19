@@ -219,16 +219,14 @@ export default function PurchaseOrderListPage() {
             className: 'text-center w-40', // Increase width for buttons
             render: (row) => (
                 <div className="flex justify-center gap-2">
-                    <Button
-                        onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}?mode=view`)}
+                    <Button onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}?mode=view`)}
                         className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                         title="Detail"
                     >
                         <HiEye className="w-5 h-5" />
                     </Button>
                     {canUpdate && (
-                         <Button
-                            onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}`)}
+                         <Button onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}`)}
                             className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Edit"
                         >
@@ -237,8 +235,7 @@ export default function PurchaseOrderListPage() {
                     )}
 
                     {canUpdate && row.status === 'DRAFT' && (
-                        <Button
-                            onClick={(e) => handleStartShopping(row.id, e)}
+                        <Button onClick={(e) => handleStartShopping(row.id, e)}
                             disabled={processingId === row.id}
                             className={`p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${processingId === row.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title="Mulai Belanja"
@@ -248,8 +245,7 @@ export default function PurchaseOrderListPage() {
                     )}
 
                     {canUpdate && row.status === 'ORDERED' && (
-                        <Button
-                            onClick={(e) => handleReceiveGoods(row.id, e)}
+                        <Button onClick={(e) => handleReceiveGoods(row.id, e)}
                             className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Terima Barang"
                         >
@@ -258,8 +254,7 @@ export default function PurchaseOrderListPage() {
                     )}
 
                     {canDelete && ['DRAFT', 'ORDERED', 'CANCELLED'].includes(row.status) && (
-                        <Button
-                            onClick={(e) => {
+                        <Button onClick={(e) => {
                                 e.stopPropagation()
                                 handleDelete(row.id)
                             }}
@@ -294,8 +289,7 @@ export default function PurchaseOrderListPage() {
                     {canCreate && activeTab === 'po' && (
                         <>
                              <div className="relative group">
-                                <Button
-                                    onClick={() => router.push('/admin/procurement/purchase-orders/create')}
+                                <Button onClick={() => router.push('/admin/procurement/purchase-orders/create')}
                                     className="flex items-center gap-2 px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                                 >
                                     <HiPlus className="w-5 h-5" />
@@ -310,8 +304,7 @@ export default function PurchaseOrderListPage() {
             {/* Tabs */}
             <div className="border-b border-gray-200 dark:border-gray-700">
                 <nav className="-mb-px flex space-x-8">
-                    <Button
-                        onClick={() => setActiveTab('pr')}
+                    <Button onClick={() => setActiveTab('pr')}
                         className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                             activeTab === 'pr'
                                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -321,8 +314,7 @@ export default function PurchaseOrderListPage() {
                         <HiClipboardList className="w-5 h-5" />
                         Purchase Requests
                     </Button>
-                    <Button
-                        onClick={() => setActiveTab('po')}
+                    <Button onClick={() => setActiveTab('po')}
                         className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                             activeTab === 'po'
                                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -375,15 +367,13 @@ export default function PurchaseOrderListPage() {
                                 Halaman {page} dari {totalPages} ({total} Data)
                             </span>
                             <div className="flex gap-2">
-                                <Button
-                                    disabled={page === 1}
+                                <Button disabled={page === 1}
                                     onClick={() => setPage(p => p - 1)}
                                     className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
                                 >
                                     <HiChevronLeft /> Prev
                                 </Button>
-                                <Button
-                                    disabled={page >= totalPages}
+                                <Button disabled={page >= totalPages}
                                     onClick={() => setPage(p => p + 1)}
                                     className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
                                 >

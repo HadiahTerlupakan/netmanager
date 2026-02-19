@@ -302,8 +302,7 @@ export default function EmployeeSidebar() {
                 </h2>
                 <span className="text-[10px] font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">Karyawan Portal</span>
               </div>
-              <Button
-                onClick={() => setIsOpen(false)}
+              <Button onClick={() => setIsOpen(false)}
                 className="ml-auto p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 md:hidden text-gray-400 hover:text-gray-600 transition-colors"
                 aria-label="Close menu"
               >
@@ -333,8 +332,7 @@ export default function EmployeeSidebar() {
                 if (hasChildren) {
                   return (
                     <div key={item.code} className="space-y-1 mb-1">
-                      <Button
-                        onClick={() => toggleMenu(item.code)}
+                      <Button onClick={() => toggleMenu(item.code)}
                         className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
                           ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10'
                           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
@@ -436,8 +434,7 @@ export default function EmployeeSidebar() {
                   {session?.user?.email || 'karyawan@example.com'}
                 </p>
               </div>
-              <Button
-                onClick={() => signOut()}
+              <Button onClick={() => signOut()}
                 className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
                 title="Sign Out"
               >

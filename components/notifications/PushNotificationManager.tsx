@@ -164,23 +164,20 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
                         Dapatkan pemberitahuan langsung saat ada Work Order baru atau update penting.
                     </p>
                     <div className="flex items-center gap-3 mt-3">
-                        <Button
-                            onClick={subscribe}
+                        <Button onClick={subscribe}
                             disabled={loading}
                             
                         >
                             {loading ? 'Mengaktifkan...' : 'Aktifkan Notifikasi'}
                         </Button>
-                        <Button
-                            onClick={dismissBanner}
+                        <Button onClick={dismissBanner}
                             
                         >
                             Nanti saja
                         </Button>
                     </div>
                 </div>
-                <Button
-                    onClick={dismissBanner}
+                <Button onClick={dismissBanner}
                     
                 >
                     <HiXMark className="w-5 h-5 text-gray-500" />

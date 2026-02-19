@@ -1154,16 +1154,14 @@ export default function ExpensesClient() {
                             )}
 
                             {step < 3 ? (
-                                <Button 
-                                    type="button" 
+                                <Button type="button" 
                                     onClick={nextStep} 
                                 >
                                     Lanjut
                                     <HiOutlineArrowRight className="w-5 h-5" />
                                 </Button>
                             ) : (
-                                <Button 
-                                    type="submit" 
+                                <Button type="submit" 
                                     loading={isSubmitting}
                                 >
                                     Simpan Transaksi

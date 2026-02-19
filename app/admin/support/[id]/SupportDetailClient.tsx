@@ -316,8 +316,7 @@ export function ClientComponent() {
                 {/* Header */}
                 <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
                     <div className="flex items-center gap-4">
-                        <Button
-                            onClick={() => router.push('/admin/support')}
+                        <Button onClick={() => router.push('/admin/support')}
                             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                         >
                             <HiArrowLeft className="w-5 h-5" />
@@ -347,8 +346,7 @@ export function ClientComponent() {
                             <option value="CLOSED">Ditutup</option>
                         </select>
                         {status !== 'CLOSED' && (
-                            <Button
-                                onClick={() => setShowCloseModal(true)}
+                            <Button onClick={() => setShowCloseModal(true)}
                                 className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 title="Tutup Tiket"
                             >
@@ -435,8 +433,7 @@ export function ClientComponent() {
                                             fill
                                             className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                                         />
-                                        <Button
-                                            onClick={() => removeAttachment(idx)}
+                                        <Button onClick={() => removeAttachment(idx)}
                                             className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
                                         >
                                             <HiXMark className="w-3 h-3" />
@@ -454,8 +451,7 @@ export function ClientComponent() {
                                 accept="image/*"
                                 onChange={handleFileSelect}
                             />
-                            <Button
-                                onClick={() => fileInputRef.current?.click()}
+                            <Button onClick={() => fileInputRef.current?.click()}
                                 disabled={uploading || sending}
                                 className="p-3 text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors shrink-0"
                                 title="Lampirkan Gambar"
@@ -580,8 +576,7 @@ export function ClientComponent() {
                             >
                                 Lihat Profil Pelanggan
                             </Link>
-                            <Button
-                                onClick={() => {
+                            <Button onClick={() => {
                                     const params = new URLSearchParams({
                                         ticketId: ticket.id,
                                         pelangganId: ticket.pelanggan.id,
@@ -598,8 +593,7 @@ export function ClientComponent() {
                             </Button>
                             {/* Send Closing Message Button */}
                             {status !== 'CLOSED' && (
-                                <Button
-                                    onClick={async () => {
+                                <Button onClick={async () => {
                                         setSendingClosingMsg(true)
                                         try {
                                             const closingMessage = `Hai ${ticket.pelanggan.nama} 👋\n\nTerima kasih telah menghubungi kami. Jika masalah Anda sudah teratasi dan tidak ada kendala lagi, silakan tutup tiket ini dengan menekan tombol "Tutup Tiket" di halaman detail tiket.\n\nJika masih ada kendala, silakan balas pesan ini. Kami siap membantu! 🙏`
@@ -650,8 +644,7 @@ export function ClientComponent() {
                             className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 mb-4"
                         />
                 <ModalFooter>
-                            <Button
-                                onClick={() => setShowCloseModal(false)}
+                            <Button onClick={() => setShowCloseModal(false)}
                                 className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                             >
                                 Batal

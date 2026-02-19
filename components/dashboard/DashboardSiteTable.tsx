@@ -70,7 +70,7 @@ export default function DashboardSiteTable({ data, color, emptyMessage = 'No Dat
       keyField="siteId"
       columns={columns}
       emptyMessage={emptyMessage}
-      className="" // Remove default shadow/border if needed, but ResponsiveTable has it. AdminDashboardClient wraps it in a card too.
+      // Remove default shadow/border if needed, but ResponsiveTable has it. AdminDashboardClient wraps it in a card too.
       // We might need to adjust styling because AdminDashboardClient ALREADY wraps it in a styled div.
       // ResponsiveTable adds its own container with shadow/border.
       // We should probably pass className to override or remove wrapper styles if ResponsiveTable allows.

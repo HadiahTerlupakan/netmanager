@@ -252,8 +252,7 @@ export default function CustomerInvoicesPage() {
                                         <span>Pembayaran aman & terenkripsi</span>
                                     </div>
                                     {totalPending > 0 && (
-                                        <Button
-                                            onClick={() => setShowPaymentModal(true)}
+                                        <Button onClick={() => setShowPaymentModal(true)}
                                             variant="outline"
                                             className="w-full h-12"
                                         >
@@ -428,8 +427,7 @@ export default function CustomerInvoicesPage() {
                                             Hapus
                                         </Button>
                                     ) : (
-                                        <Button
-                                            size="sm"
+                                        <Button size="sm"
                                             onClick={handleCheckCoupon}
                                             disabled={couponLoading || !couponCode}
                                             loading={couponLoading}
@@ -456,8 +454,7 @@ export default function CustomerInvoicesPage() {
                                 </span>
                             </div>
 
-                            <Button
-                                onClick={handlePayment}
+                            <Button onClick={handlePayment}
                                 disabled={paymentLoading}
                                 loading={paymentLoading}
                                 className="w-full"

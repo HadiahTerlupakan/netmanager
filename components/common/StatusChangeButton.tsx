@@ -121,8 +121,7 @@ export function StatusChangeButton({ currentStatus, apiEndpoint, entityName }: S
           </button>
         </div>
         <ModalFooter>
-          <Button
-            onClick={() => setOpen(false)}
+          <Button onClick={() => setOpen(false)}
             variant="ghost"
             size="sm"
           >

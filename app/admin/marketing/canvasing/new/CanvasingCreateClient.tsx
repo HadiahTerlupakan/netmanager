@@ -160,8 +160,7 @@ export default function CanvasingCreateClient() {
                     >
                         Batal
                     </Button>
-                    <Button
-                        type="submit"
+                    <Button type="submit"
                         loading={isProcessing}
                     >
                         <HiOutlineCheck className="w-5 h-5" />

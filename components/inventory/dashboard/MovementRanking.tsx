@@ -48,8 +48,7 @@ export function MovementRanking({ fastMoving, slowMoving, loading }: Props) {
           🏆 Ranking Pemakaian
         </h3>
         <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-          <Button
-            onClick={() => setActiveTab('fast')}
+          <Button onClick={() => setActiveTab('fast')}
             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'fast'
                 ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm'
@@ -59,8 +58,7 @@ export function MovementRanking({ fastMoving, slowMoving, loading }: Props) {
             <HiOutlineArrowTrendingUp className="inline w-4 h-4 mr-1" />
             Fast Moving
           </Button>
-          <Button
-            onClick={() => setActiveTab('slow')}
+          <Button onClick={() => setActiveTab('slow')}
             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'slow'
                 ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'

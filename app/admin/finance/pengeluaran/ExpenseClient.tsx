@@ -557,8 +557,7 @@ export function ClientComponent() {
                                     )}
 
                                     {step < 3 ? (
-                                        <Button 
-                                            type="button" 
+                                        <Button type="button" 
                                             onClick={nextStep} 
                                         >
                                             Lanjut

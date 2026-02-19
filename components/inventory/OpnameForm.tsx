@@ -519,8 +519,7 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
         >
           Batal
         </Button>
-        <Button
-          type="submit"
+        <Button type="submit"
           disabled={loading}
           
         >

@@ -326,18 +326,16 @@ export function IzinClient() {
     // Render actions for each row
     const renderActions = (req: LeaveRequest) => (
         <>
-            <Button
-                onClick={() => openActionModal(req)}
-                className="text-blue-600 hover:text-blue-800 font-bold text-xs"
+            <Button onClick={() => openActionModal(req)}
+                variant="link" className="font-bold text-xs p-0 h-auto"
             >
                 Detail
             </Button>
             {canDelete && (
                 <>
                     <span className="text-gray-300">|</span>
-                    <Button
-                        onClick={() => handleDelete(req.id)}
-                        className="text-red-500 hover:text-red-700"
+                    <Button onClick={() => handleDelete(req.id)}
+                        variant="ghost" size="icon-sm" className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50"
                     >
                         <MdDelete className="text-lg" />
                     </Button>
@@ -356,9 +354,9 @@ export function IzinClient() {
                 {canCreate && (
                     <Button
                         onClick={handleOpenManualModal}
-                        
+                        variant="default"
                     >
-                        <MdAdd className="size-5" /> Input Manual
+                        <MdAdd className="size-5 mr-2" /> Input Manual
                     </Button>
                 )}
             </div>
@@ -368,10 +366,8 @@ export function IzinClient() {
                     <Button
                         key={status}
                         onClick={() => setFilterStatus(status)}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${filterStatus === status
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
+                        variant={filterStatus === status ? "default" : "secondary"}
+                        className="rounded-lg whitespace-nowrap"
                     >
                         {status === 'ALL' ? 'Semua' : status === 'PENDING' ? 'Menunggu Konfirmasi' : status === 'APPROVED' ? 'Disetujui' : 'Ditolak'}
                     </Button>
@@ -476,17 +472,15 @@ export function IzinClient() {
                         <ModalFooter>
                             {selectedRequest.status === 'PENDING' && canVerify ? (
                                 <>
-                                    <Button
-                                        onClick={() => handleAction('REJECTED')}
+                                    <Button onClick={() => handleAction('REJECTED')}
                                         disabled={actionLoading || !rejectionReason.trim()}
-                                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium disabled:opacity-50 flex items-center gap-2 border border-red-100 transition-colors"
+                                        variant="destructive"
                                     >
                                         <MdCancel className="text-lg" /> Tolak
                                     </Button>
-                                    <Button
-                                        onClick={() => handleAction('APPROVED')}
+                                    <Button onClick={() => handleAction('APPROVED')}
                                         disabled={actionLoading}
-                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-green-200 transition-colors"
+                                        variant="success"
                                     >
                                         <MdCheckCircle className="text-lg" /> Setujui
                                     </Button>
@@ -494,17 +488,15 @@ export function IzinClient() {
                             ) : (
                                 <div className="flex gap-2 w-full justify-end">
                                     {canDelete && (
-                                        <Button
-                                            onClick={() => handleDelete(selectedRequest.id)}
+                                        <Button onClick={() => handleDelete(selectedRequest.id)}
                                             disabled={actionLoading}
-                                            className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium flex items-center gap-2 transition-colors mr-auto"
+                                            variant="ghost" className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 mr-auto"
                                         >
                                             <MdDelete className="text-lg" /> Hapus
                                         </Button>
                                     )}
-                                    <Button
-                                        onClick={() => setIsActionModalOpen(false)}
-                                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium dark:bg-gray-700 dark:text-gray-300 transition-colors"
+                                    <Button onClick={() => setIsActionModalOpen(false)}
+                                        variant="secondary"
                                     >
                                         Tutup
                                     </Button>
@@ -643,15 +635,13 @@ export function IzinClient() {
                     </div>
 
                     <ModalFooter>
-                        <Button
-                            type="button"
+                        <Button type="button"
                             onClick={() => setIsManualModalOpen(false)}
-                            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700 font-medium transition-colors"
+                            variant="ghost"
                         >
                             Batal
                         </Button>
-                        <Button
-                            type="submit"
+                        <Button type="submit"
                             disabled={actionLoading || uploading}
                             
                         >

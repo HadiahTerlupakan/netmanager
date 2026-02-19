@@ -100,8 +100,7 @@ export function ClientComponent() {
                     <div className="w-full md:w-48">
                         <SiteFilter onSiteChange={setSiteId} />
                     </div>
-                    <Button
-                        onClick={() => fetchLogs(pagination.page)}
+                    <Button onClick={() => fetchLogs(pagination.page)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <HiOutlineRefresh className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -177,8 +176,7 @@ export function ClientComponent() {
                                     header: 'Detail',
                                     priority: 'secondary',
                                     render: (item) => (
-                                        <Button
-                                            onClick={() => setSelectedLog(item)}
+                                        <Button onClick={() => setSelectedLog(item)}
                                             className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm"
                                         >
                                             Lihat Detail
@@ -196,15 +194,13 @@ export function ClientComponent() {
                                     Hal {pagination.page} dari {pagination.totalPages} ({pagination.total} Log)
                                 </p>
                                 <div className="flex items-center gap-2">
-                                    <Button
-                                        onClick={() => handlePageChange(pagination.page - 1)}
+                                    <Button onClick={() => handlePageChange(pagination.page - 1)}
                                         disabled={pagination.page === 1}
                                         className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Sebelumnya
                                     </Button>
-                                    <Button
-                                        onClick={() => handlePageChange(pagination.page + 1)}
+                                    <Button onClick={() => handlePageChange(pagination.page + 1)}
                                         disabled={pagination.page === pagination.totalPages}
                                         className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -262,8 +258,7 @@ export function ClientComponent() {
                     </div>
                 )}
                 <ModalFooter>
-                    <Button
-                        onClick={() => setSelectedLog(null)}
+                    <Button onClick={() => setSelectedLog(null)}
                         className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     >
                         Tutup

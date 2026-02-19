@@ -428,8 +428,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(({
 
                     {/* Remove button */}
                     {!disabled && (
-                      <Button
-                        onClick={() => removePhoto(index)}
+                      <Button onClick={() => removePhoto(index)}
                         disabled={isUploading}
                         className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >

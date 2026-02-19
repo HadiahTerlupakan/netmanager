@@ -135,10 +135,9 @@ const ModalForm = ({
           >
               Batal
           </Button>
-          <Button 
-              loading={loading}
+          <Button loading={loading}
               onClick={onSubmit} 
-              className="flex items-center gap-2"
+              className="gap-2"
           >
               {isEdit ? 'Simpan Perubahan' : 'Simpan Kategori'}
           </Button>

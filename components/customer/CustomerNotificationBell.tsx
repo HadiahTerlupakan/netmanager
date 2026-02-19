@@ -63,8 +63,7 @@ export function CustomerNotificationBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
-            <Button
-                onClick={() => setIsOpen(!isOpen)}
+            <Button onClick={() => setIsOpen(!isOpen)}
                 className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${totalCount > 0
                     ? 'text-[#0d9488] bg-teal-50 dark:bg-teal-900/20'
                     : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'

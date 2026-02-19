@@ -260,22 +260,19 @@ export function MasukTable({
   // Render actions for each row
   const renderActions = (item: BarangMasuk) => (
     <>
-      <Button
-        onClick={() => onView?.(item)}
+      <Button onClick={() => onView?.(item)}
         className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
         title="Lihat Detail"
       >
         <FiEye className="h-4 w-4" />
       </Button>
-      <Button
-        onClick={() => onEdit?.(item)}
+      <Button onClick={() => onEdit?.(item)}
         className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
         title="Edit"
       >
         <FiEdit className="h-4 w-4" />
       </Button>
-      <Button
-        onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
+      <Button onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
         title="Hapus"
       >
@@ -312,8 +309,7 @@ export function MasukTable({
             {pagination.total} data
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              onClick={() => setPage(page - 1)}
+            <Button onClick={() => setPage(page - 1)}
               disabled={page === 1}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
@@ -322,8 +318,7 @@ export function MasukTable({
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Page {page} of {pagination.totalPages}
             </span>
-            <Button
-              onClick={() => setPage(page + 1)}
+            <Button onClick={() => setPage(page + 1)}
               disabled={page === pagination.totalPages}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >

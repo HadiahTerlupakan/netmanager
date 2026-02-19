@@ -97,8 +97,7 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
                                 alt={`Preview ${index + 1}`}
                                 className="w-full h-full object-cover"
                             />
-                            <Button
-                                type="button"
+                            <Button type="button"
                                 onClick={() => removeImage(index)}
                                 className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg"
                             >

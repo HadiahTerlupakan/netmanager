@@ -555,8 +555,7 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                 Batal
               </Button>
             )}
-            <Button
-              type="submit"
+            <Button type="submit"
               disabled={loading || itemsWithDiscrepancies.length === 0}
               
             >

@@ -255,8 +255,7 @@ export function DetailMasukModal({ masuk, isOpen, onClose, onEdit }: DetailMasuk
           Tutup
         </Button>
         {onEdit && (
-          <Button
-            onClick={() => {
+          <Button onClick={() => {
               onEdit(masuk)
               onClose()
             }}

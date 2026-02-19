@@ -241,8 +241,7 @@ export default function MyProfileClient() {
                                     </span>
                                 )}
                             </div>
-                            <Button
-                                onClick={() => fileInputRef.current?.click()}
+                            <Button onClick={() => fileInputRef.current?.click()}
                                 disabled={uploadingPhoto}
                                 className="absolute bottom-0 right-0 bg-white dark:bg-gray-600 rounded-full p-2 shadow-lg hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors ring-2 ring-blue-600"
                                 title="Ganti Foto"
@@ -301,16 +300,14 @@ export default function MyProfileClient() {
                                 />
                             </div>
                             <div className="flex gap-3 pt-4 border-t dark:border-gray-700">
-                                <Button
-                                    onClick={handleSave}
+                                <Button onClick={handleSave}
                                     disabled={saving || retryCountdown !== null}
                                     
                                 >
                                     <HiSave className="w-4 h-4" />
                                     {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
                                 </Button>
-                                <Button
-                                    onClick={() => {
+                                <Button onClick={() => {
                                         setEditMode(false)
                                         setEditErrors({})
                                         setName(profile?.name || '')
@@ -363,15 +360,13 @@ export default function MyProfileClient() {
                 {/* Action Buttons */}
                 {!editMode && (
                     <div className="px-6 pb-6 pt-4 border-t dark:border-gray-700 flex flex-col sm:flex-row gap-3">
-                        <Button
-                            onClick={() => setEditMode(true)}
+                        <Button onClick={() => setEditMode(true)}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors font-semibold"
                         >
                             <HiOutlineUser className="w-5 h-5" />
                             Lengkapi Profil
                         </Button>
-                        <Button
-                            onClick={() => setShowPasswordModal(true)}
+                        <Button onClick={() => setShowPasswordModal(true)}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors font-semibold border border-gray-200 dark:border-gray-600"
                         >
                             <HiOutlineLockClosed className="w-5 h-5" />
@@ -437,8 +432,7 @@ export default function MyProfileClient() {
                             </div>
                 </div>
                 <ModalFooter>
-                            <Button
-                                onClick={() => {
+                            <Button onClick={() => {
                                     setShowPasswordModal(false)
                                     setCurrentPassword('')
                                     setNewPassword('')
@@ -449,8 +443,7 @@ export default function MyProfileClient() {
                             >
                                 Batal
                             </Button>
-                            <Button
-                                onClick={handleChangePassword}
+                            <Button onClick={handleChangePassword}
                                 disabled={changingPassword || retryCountdown !== null}
                                  className="flex-1"
                             >

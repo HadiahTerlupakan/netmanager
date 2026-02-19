@@ -255,8 +255,7 @@ export function BarangTable() {
         </Link>
       )}
       {canDelete && (
-        <Button
-          onClick={() => handleDelete(item.id, item.kode)}
+        <Button onClick={() => handleDelete(item.id, item.kode)}
           className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors"
           title="Hapus"
         >
@@ -331,8 +330,7 @@ export function BarangTable() {
             {pagination.total} data
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              onClick={() => setPage(page - 1)}
+            <Button onClick={() => setPage(page - 1)}
               disabled={page === 1}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
@@ -341,8 +339,7 @@ export function BarangTable() {
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Page {page} of {pagination.totalPages}
             </span>
-            <Button
-              onClick={() => setPage(page + 1)}
+            <Button onClick={() => setPage(page + 1)}
               disabled={page === pagination.totalPages}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >

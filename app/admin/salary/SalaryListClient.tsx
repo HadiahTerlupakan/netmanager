@@ -251,8 +251,7 @@ export default function SalaryListClient() {
                         Kelola data gaji karyawan
                     </p>
                 </div>
-                <Button
-                    onClick={handleCalculateBulk}
+                <Button onClick={handleCalculateBulk}
                     disabled={calculating}
                     
                 >
@@ -372,8 +371,7 @@ export default function SalaryListClient() {
                                 <HiOutlineBanknotes className="w-16 h-16 mx-auto mb-4 text-gray-200 dark:text-gray-600" />
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">Pencatatan Gaji Kosong</h3>
                                 <p className="text-gray-500 dark:text-gray-400 mt-1">Belum ada data gaji untuk periode {MONTHS[selectedMonth - 1]} {selectedYear}.</p>
-                                <Button
-                                    onClick={handleCalculateBulk}
+                                <Button onClick={handleCalculateBulk}
                                      className="mt-6"
                                 >
                                     Generate Sekarang &rarr;

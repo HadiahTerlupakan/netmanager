@@ -279,8 +279,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                 onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCheck()}
             />
-            <Button 
-                 className="absolute right-2 top-2 bottom-2"
+            <Button className="absolute right-2 top-2 bottom-2"
                 onClick={handleCheck}
                 disabled={loading || !keyword}
             >
@@ -386,8 +385,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                             </h4>
                             <div className="flex flex-wrap gap-2">
                                 {analytics.topBrands.map((b: { name: string; count: number }) => (
-                                    <Button
-                                        key={b.name}
+                                    <Button key={b.name}
                                         onClick={() => setSelectedBrand(selectedBrand === b.name ? '' : b.name)}
                                         className={`px-3 py-1 text-xs rounded-full border transition-all ${
                                             selectedBrand === b.name 
@@ -540,8 +538,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                                        </a>
    
                                        {onSelectPrice && (
-                                           <Button 
-                                               onClick={() => onSelectPrice(item.price)}
+                                           <Button onClick={() => onSelectPrice(item.price)}
                                                className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm shadow-indigo-200 dark:shadow-none transition-all hover:-translate-y-0.5"
                                            >
                                                Pilih

@@ -153,8 +153,7 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
                             ) : items.length > 0 ? (
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {items.map((item) => (
-                                        <Button
-                                            key={item.id}
+                                        <Button key={item.id}
                                             onClick={() => handleSelect(item)}
                                             disabled={item.totalStock <= 0}
                                             className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between group transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -244,15 +243,13 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
             <ModalFooter>
                 {step === 2 ? (
                     <>
-                        <Button
-                            onClick={() => setStep(1)}
+                        <Button onClick={() => setStep(1)}
                             className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                             disabled={loading}
                         >
                             Kembali
                         </Button>
-                        <Button
-                            onClick={handleSubmit}
+                        <Button onClick={handleSubmit}
                             disabled={loading}
                             
                         >

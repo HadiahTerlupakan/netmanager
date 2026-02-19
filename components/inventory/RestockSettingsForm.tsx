@@ -428,8 +428,7 @@ export function RestockSettingsForm({ initialData, onClose, onSuccess }: Restock
         >
           Batal
         </Button>
-        <Button
-          type="submit"
+        <Button type="submit"
           disabled={loading}
           
         >

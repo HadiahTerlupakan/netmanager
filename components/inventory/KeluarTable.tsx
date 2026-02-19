@@ -289,22 +289,25 @@ export function KeluarTable({
   const renderActions = (item: BarangKeluar) => (
     <>
       <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => onView?.(item)}
-        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
         title="Lihat Detail"
       >
         <FiEye className="h-4 w-4" />
       </Button>
       <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => onEdit?.(item)}
-        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
         title="Edit"
       >
         <FiEdit className="h-4 w-4" />
       </Button>
       <Button
+        variant="destructive"
+        size="icon-sm"
         onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
-        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
         title="Hapus"
       >
         <FiTrash2 className="h-4 w-4" />
@@ -341,9 +344,10 @@ export function KeluarTable({
           </div>
           <div className="flex items-center space-x-2">
             <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage(page - 1)}
               disabled={page === 1}
-              className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
               Previous
             </Button>
@@ -351,9 +355,10 @@ export function KeluarTable({
               Page {page} of {pagination.totalPages}
             </span>
             <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage(page + 1)}
               disabled={page === pagination.totalPages}
-              className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
               Next
             </Button>

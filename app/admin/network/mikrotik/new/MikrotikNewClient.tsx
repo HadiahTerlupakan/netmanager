@@ -133,8 +133,7 @@ export function ClientComponent() {
           <Button variant="success">
             Panduan Dasar
           </Button>
-          <Button 
-            type="button"
+          <Button type="button"
             onClick={() => setShowScriptModal(true)}
           >
             &lt;/&gt; SCRIPT GENERATOR

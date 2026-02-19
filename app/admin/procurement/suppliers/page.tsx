@@ -136,15 +136,13 @@ export default function SupplierListPage() {
                Total {total} data
              </div>
              <div className="flex gap-2">
-               <Button 
-                 disabled={page === 1}
+               <Button disabled={page === 1}
                  onClick={() => setPage(p => p - 1)}
                  className="px-3 py-1 border rounded disabled:opacity-50"
                >
                  Prev
                </Button>
-               <Button
-                 disabled={page * limit >= total}
+               <Button disabled={page * limit >= total}
                  onClick={() => setPage(p => p + 1)}
                  className="px-3 py-1 border rounded disabled:opacity-50"
                >

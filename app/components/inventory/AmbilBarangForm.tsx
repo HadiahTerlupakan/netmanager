@@ -518,8 +518,7 @@ export default function AmbilBarangForm() {
           </div>
 
           {/* Submit Button */}
-          <Button
-            type="submit"
+          <Button type="submit"
             disabled={loading || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
             loading={loading}
             size="lg"

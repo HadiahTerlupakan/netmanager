@@ -84,8 +84,7 @@ export default function KaryawanBottomNav() {
 
                     if (!isAllowed) {
                         return (
-                            <Button
-                                key={item.name}
+                            <Button key={item.name}
                                 onClick={() => toast.error('Anda tidak memiliki akses ke menu ini.')}
                                 className="relative flex flex-col items-center justify-center flex-1 py-3 opacity-40 cursor-not-allowed group"
                             >

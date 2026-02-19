@@ -248,16 +248,14 @@ export function CreateAssetForm() {
                 </div>
 
                 <div className="mt-8 flex justify-end gap-4">
-                    <Button
-                        type="button"
+                    <Button type="button"
                         onClick={() => router.back()}
                         className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 flex items-center"
                         disabled={loading}
                     >
                         <FiArrowLeft className="mr-2" /> Batal
                     </Button>
-                    <Button
-                        type="submit"
+                    <Button type="submit"
                         
                         disabled={loading}
                     >

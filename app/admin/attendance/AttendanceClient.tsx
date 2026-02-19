@@ -540,8 +540,7 @@ export function ClientComponent() {
                     </select>
                 </div>
                 <div className="flex gap-2">
-                    <Button
-                        onClick={() => fetchAttendances()}
+                    <Button onClick={() => fetchAttendances()}
                         disabled={retryCountdown !== null}
                     >
                         <FaSearch /> Cari
@@ -669,8 +668,7 @@ export function ClientComponent() {
                     >
                         Batal
                     </Button>
-                    <Button
-                        onClick={handleUpdate}
+                    <Button onClick={handleUpdate}
                     >
                         <MdSave /> Simpan Perubahan
                     </Button>

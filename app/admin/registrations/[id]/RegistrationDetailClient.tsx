@@ -306,8 +306,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                                 {actions.map((action) => {
                                     const ActionIcon = action.icon
                                     return (
-                                        <Button
-                                            key={action.status}
+                                        <Button key={action.status}
                                             onClick={() => {
                                                 if (action.needsReason) {
                                                     setShowRejectModal(true)
@@ -382,8 +381,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                         />
                 </div>
                 <ModalFooter>
-                            <Button
-                                onClick={() => {
+                            <Button onClick={() => {
                                     setShowRejectModal(false)
                                     setRejectionReason('')
                                 }}
@@ -391,8 +389,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                             >
                                 Batal
                             </Button>
-                            <Button
-                                onClick={() => updateStatus('REJECTED', rejectionReason)}
+                            <Button onClick={() => updateStatus('REJECTED', rejectionReason)}
                                 disabled={isSaving || !rejectionReason.trim()}
                                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
                             >

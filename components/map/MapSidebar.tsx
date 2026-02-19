@@ -107,8 +107,7 @@ export function MapSidebar({
                 </h3>
                 <div className="space-y-1">
                   {typeNodes.map((node) => (
-                    <Button
-                      key={node.nodeId}
+                    <Button key={node.nodeId}
                       onClick={() => onNodeSelect(node)}
                       className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-left transition-colors"
                     >
@@ -136,8 +135,7 @@ export function MapSidebar({
                     const sourceNode = nodes.find((n) => n.nodeId === edge.source);
                     const targetNode = nodes.find((n) => n.nodeId === edge.target);
                     return (
-                      <Button
-                        key={edge.edgeId}
+                      <Button key={edge.edgeId}
                         onClick={() => onEdgeSelect(edge)}
                         className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-left transition-colors"
                       >

@@ -139,8 +139,7 @@ export function KaryawanPushNotification() {
 
     if (!showBanner) {
         return (
-            <Button
-                onClick={subscribe}
+            <Button onClick={subscribe}
                 disabled={loading}
                 
             >
@@ -164,23 +163,20 @@ export function KaryawanPushNotification() {
                         Dapatkan notifikasi saat ada Work Order baru!
                     </p>
                     <div className="flex items-center gap-3 mt-3">
-                        <Button
-                            onClick={subscribe}
+                        <Button onClick={subscribe}
                             disabled={loading}
                             
                         >
                             {loading ? 'Mengaktifkan...' : 'Aktifkan'}
                         </Button>
-                        <Button
-                            onClick={dismissBanner}
+                        <Button onClick={dismissBanner}
                             
                         >
                             Nanti
                         </Button>
                     </div>
                 </div>
-                <Button
-                    onClick={dismissBanner}
+                <Button onClick={dismissBanner}
                     
                 >
                     <MdClose className="text-xl text-gray-400" />

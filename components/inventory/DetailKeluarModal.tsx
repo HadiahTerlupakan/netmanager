@@ -276,8 +276,7 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
           Tutup
         </Button>
         {onEdit && (
-          <Button
-            onClick={() => {
+          <Button onClick={() => {
               onEdit(keluar)
               onClose()
             }}

@@ -185,8 +185,7 @@ export default function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccou
                     >
                         Batal
                     </Button>
-                    <Button 
-                        type="submit" 
+                    <Button type="submit" 
                         loading={loading}
                     >
                         Simpan Akun

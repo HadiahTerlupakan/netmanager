@@ -38,8 +38,7 @@ export default function Navbar() {
 
         {/* Left: Mobile Toggle */}
         <div className="flex items-center shrink-0 md:hidden">
-          <Button
-            onClick={() => {
+          <Button onClick={() => {
               const win = window as Window & {
                 toggleAdminSidebar?: () => void;
                 toggleEmployeeSidebar?: () => void;
@@ -96,8 +95,7 @@ export default function Navbar() {
           {/* User Profile Card */}
           {session?.user && (
             <div className="relative" ref={profileRef}>
-              <Button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
+              <Button onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="hidden sm:flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
                 {/* Avatar */}
@@ -150,8 +148,7 @@ export default function Navbar() {
 
                   <div className="my-1 border-t border-gray-100 dark:border-gray-700"></div>
 
-                  <Button
-                    onClick={() => signOut()}
+                  <Button onClick={() => signOut()}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left"
                   >
                     <HiArrowRightOnRectangle className="w-4 h-4" />

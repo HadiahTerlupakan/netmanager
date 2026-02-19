@@ -172,8 +172,7 @@ export function ClientComponent() {
             {/* Filters */}
             <div className="flex overflow-x-auto pb-2 gap-2 border-b border-gray-200 dark:border-gray-800 scrollbar-thin">
                 {(['ALL', 'TICKET', 'WORK_ORDER', 'SYSTEM', 'ALERT'] as FilterType[]).map((filter) => (
-                    <Button
-                        key={filter}
+                    <Button key={filter}
                         onClick={() => setActiveFilter(filter)}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeFilter === filter
                                 ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400'
@@ -231,8 +230,7 @@ export function ClientComponent() {
                                                     {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: id })}
                                                 </span>
                                                 {!notification.isRead && (
-                                                    <Button
-                                                        onClick={() => markAsRead(notification.id)}
+                                                    <Button onClick={() => markAsRead(notification.id)}
                                                         className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded-full transition-colors"
                                                     >
                                                         <HiCheck className="w-3 h-3" />
@@ -268,15 +266,13 @@ export function ClientComponent() {
                             Menampilkan <span className="font-medium">{(page - 1) * limit + 1}</span> sampai <span className="font-medium">{Math.min(page * limit, total)}</span> dari <span className="font-medium">{total}</span> notifikasi
                         </p>
                         <div className="flex gap-2">
-                            <Button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                            <Button onClick={() => setPage(p => Math.max(1, p - 1))}
                                 disabled={page === 1 || loading}
                                 className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 Sebelumnya
                             </Button>
-                            <Button
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            <Button onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                 disabled={page === totalPages || loading}
                                 className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >

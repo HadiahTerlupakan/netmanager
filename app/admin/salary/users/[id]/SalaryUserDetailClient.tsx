@@ -131,8 +131,7 @@ export default function SalaryUserDetailClient() {
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <Button 
-                    onClick={() => router.back()}
+                <Button onClick={() => router.back()}
                     className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors"
                 >
                     <HiOutlineArrowLeft className="w-5 h-5" />

@@ -70,8 +70,7 @@ export default function ScriptGeneratorModal({ open, onClose, secret }: ScriptGe
             <pre className="w-full p-4 bg-gray-900 text-green-400 font-mono text-sm rounded-lg overflow-x-auto whitespace-pre-wrap">
               {fullScript}
             </pre>
-            <Button
-              onClick={handleCopy}
+            <Button onClick={handleCopy}
                className="absolute top-2 right-2"
               title="Copy to Clipboard"
             >

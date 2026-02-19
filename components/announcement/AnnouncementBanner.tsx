@@ -79,23 +79,20 @@ export default function AnnouncementBanner({ portal }: AnnouncementBannerProps) 
                 <div className="shrink-0 sm:ml-3 flex items-center">
                     {announcements.length > 1 && (
                         <div className="flex space-x-2 mr-4 text-sm">
-                            <Button
-                                onClick={() => setCurrentIndex((prev) => (prev - 1 + announcements.length) % announcements.length)}
+                            <Button onClick={() => setCurrentIndex((prev) => (prev - 1 + announcements.length) % announcements.length)}
                                 className="hover:bg-indigo-700 rounded px-1"
                             >
                                 &lt;
                             </Button>
                             <span>{currentIndex + 1}/{announcements.length}</span>
-                            <Button
-                                onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
+                            <Button onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
                                 className="hover:bg-indigo-700 rounded px-1"
                             >
                                 &gt;
                             </Button>
                         </div>
                     )}
-                    <Button
-                        type="button"
+                    <Button type="button"
                          className="-mr-1"
                         onClick={handleDismiss}
                     >

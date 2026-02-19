@@ -350,10 +350,9 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                 >
                     Batal
                 </Button>
-                 <Button 
-                    loading={loading}
+                 <Button loading={loading}
                     onClick={handlePay}
-                    className="flex items-center gap-2"
+                    className="gap-2"
                 >
                     Konfirmasi Pembayaran
                 </Button>

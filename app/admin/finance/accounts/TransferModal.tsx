@@ -232,10 +232,9 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
                     >
                         Batal
                     </Button>
-                    <Button 
-                        type="submit" 
+                    <Button type="submit" 
                         loading={loading}
-                        className="flex items-center gap-2"
+                        className="gap-2"
                     >
                         <HiOutlineArrowRight className="w-4 h-4" />
                         Transfer Sekarang

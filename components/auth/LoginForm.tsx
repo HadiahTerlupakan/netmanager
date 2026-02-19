@@ -193,8 +193,7 @@ export default function LoginForm() {
             <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">{errors.password.message}</p>
           )}
         </div>
-        <Button
-          type="submit"
+        <Button type="submit"
           disabled={isSubmitting}
           loading={isSubmitting}
           size="lg"

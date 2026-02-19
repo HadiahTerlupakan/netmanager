@@ -103,8 +103,7 @@ export default function ImageUpload({ value = [], onChange, folder = 'uploads', 
                 sizes="(max-width: 768px) 50vw, 33vw"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Button
-                  type="button"
+                <Button type="button"
                   onClick={() => handleRemove(index)}
                   variant="destructive"
                   size="icon-sm"

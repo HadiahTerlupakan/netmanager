@@ -301,8 +301,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
   const renderActions = (opname: StockOpnameRecord) => (
     <div className="flex items-center justify-center gap-2">
         {onView && (
-        <Button
-            onClick={() => onView(opname)}
+        <Button onClick={() => onView(opname)}
             className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 rounded transition-colors"
             title="View Detail"
         >
@@ -310,16 +309,14 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
         </Button>
         )}
         {onEdit && (
-        <Button
-            onClick={() => onEdit(opname)}
+        <Button onClick={() => onEdit(opname)}
             className="p-2 text-yellow-600 hover:text-yellow-900 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:text-yellow-300 dark:hover:bg-yellow-900/20 rounded transition-colors"
             title="Edit"
         >
             <FiEdit2 className="h-4 w-4" />
         </Button>
         )}
-        <Button
-        onClick={() => handleDelete(opname.id)}
+        <Button onClick={() => handleDelete(opname.id)}
         disabled={deletingId === opname.id}
         className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
         title="Delete"
@@ -371,8 +368,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
           </div>
 
           <div className="md:col-span-2 flex items-end">
-            <Button
-              onClick={() => setFilters({ barangId: '', gudangId: '', search: '' })}
+            <Button onClick={() => setFilters({ barangId: '', gudangId: '', search: '' })}
               className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Reset Filter
@@ -395,8 +391,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
         {error ? (
           <div className="text-center py-8">
             <p className="text-red-600">{error}</p>
-            <Button
-              onClick={fetchOpnameList}
+            <Button onClick={fetchOpnameList}
                className="mt-2"
             >
               Retry
@@ -419,15 +414,13 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
             <div className="bg-white dark:bg-gray-800 px-4 py-3 border-t border-gray-200 dark:border-gray-700 sm:px-6">
             <div className="flex items-center justify-between">
                 <div className="flex-1 flex justify-between sm:hidden">
-                <Button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                <Button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                 >
                     Previous
                 </Button>
-                <Button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                <Button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                 >
@@ -444,16 +437,14 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
                 </div>
                 <div>
                     <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <Button
-                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    <Button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                         disabled={currentPage === 1}
                         className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                     >
                         Previous
                     </Button>
                     {[...Array(totalPages)].map((_, i) => i + 1).map((page) => (
-                        <Button
-                        key={page}
+                        <Button key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page
                             ? 'z-10 bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/20'
@@ -463,8 +454,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
                         {page}
                         </Button>
                     ))}
-                    <Button
-                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    <Button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                         disabled={currentPage === totalPages}
                         className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                     >

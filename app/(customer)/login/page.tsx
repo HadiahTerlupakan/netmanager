@@ -136,8 +136,7 @@ export default function CustomerLoginPage() {
                             </div>
                         )}
 
-                        <Button
-                            type="submit"
+                        <Button type="submit"
                             disabled={isLoading}
                             loading={isLoading}
                             className="w-full mt-4"

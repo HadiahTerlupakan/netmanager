@@ -194,8 +194,7 @@ export default function CanvasingEditClient({ id }: { id: string }) {
                     >
                         Batal
                     </Button>
-                    <Button
-                        type="submit"
+                    <Button type="submit"
                         loading={isProcessing}
                     >
                         <HiOutlineCheck className="w-5 h-5" />

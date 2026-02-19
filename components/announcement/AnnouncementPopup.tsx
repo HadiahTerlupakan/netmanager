@@ -227,14 +227,12 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
                 {/* Footer */}
                 <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between">
-                        <Button
-                            onClick={handleDismissAll}
+                        <Button onClick={handleDismissAll}
                             
                         >
                             Tutup Semua
                         </Button>
-                        <Button
-                            onClick={handleDismiss}
+                        <Button onClick={handleDismiss}
                             
                         >
                             {currentIndex < announcements.length - 1 ? 'Berikutnya' : 'Mengerti'}
