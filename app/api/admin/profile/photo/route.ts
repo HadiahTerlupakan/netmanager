@@ -1,45 +1,38 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 
-export async function POST(request: Request) {
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    const formData = await req.formData()
+    const photo = formData.get('photo') as File
+
+    if (!photo) {
+        return apiError('Foto wajib diupload', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+
+    if (!photo.type.startsWith('image/')) {
+        return apiError('File harus berupa gambar', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+
+    const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+    if (photo.size > MAX_SIZE) {
+        return apiError('Ukuran foto maksimal 5MB', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+
+    const uploadDir = 'public/uploads/profiles'
+    const fileName = `${ctx.session!.user.id}_${Date.now()}`
+
     try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user?.id) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
-        const formData = await request.formData()
-        const photo = formData.get('photo') as File
-
-        if (!photo) {
-            return apiError('Foto wajib diupload', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        if (!photo.type.startsWith('image/')) {
-            return apiError('File harus berupa gambar', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-        if (photo.size > MAX_SIZE) {
-            return apiError('Ukuran foto maksimal 5MB', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        const uploadDir = 'public/uploads/profiles'
-        const fileName = `${session.user.id}_${Date.now()}`
-
         const imageUrl = await convertAndSaveImage(
             photo,
             uploadDir,
             fileName,
             'user-profile',
-            session.user.id
+            ctx.session!.user.id
         )
 
         const updated = await prisma.user.update({
-            where: { id: session.user.id },
+            where: { id: ctx.session!.user.id },
             data: { image: imageUrl },
             select: {
                 id: true,
@@ -53,4 +46,4 @@ export async function POST(request: Request) {
         console.error('Profile photo upload error:', error instanceof Error ? error.message : error)
         return ApiErrors.internalError('Gagal upload foto profil')
     }
-}
+})

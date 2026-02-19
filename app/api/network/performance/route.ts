@@ -1,18 +1,13 @@
-import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { networkPerformanceQuerySchema } from '@/lib/validations/network-performance'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
-async function requireAdmin() {
-  const session = await getServerSession(authConfig)
-  if (!session) {
-    return null
-  }
-  return session
-}
+// Import dynamically in POST handler or define static if needed.
+// To use with createHandler schema option, we should import it.
+// Assuming it's safe to import.
+import { networkPerformanceCreateSchema } from '@/lib/validations/network-performance'
 
 /**
  * @swagger
@@ -88,17 +83,13 @@ async function requireAdmin() {
  *       500:
  *         description: Server error
  */
-export async function GET(req: Request) {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { searchParams } = new URL(req.url)
+export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+    const { searchParams } = req.nextUrl
     const queryParams = Object.fromEntries(searchParams.entries())
 
     const parsed = networkPerformanceQuerySchema.safeParse(queryParams)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      return ApiErrors.badRequest('Invalid query parameters', { errors: parsed.error.flatten() })
     }
 
     const filters = parsed.data
@@ -138,7 +129,7 @@ export async function GET(req: Request) {
         prisma.networkPerformance.count({ where: where as Prisma.NetworkPerformanceWhereInput }),
       ])
 
-      return NextResponse.json({
+      return apiSuccess({
         data,
         pagination: {
           page,
@@ -150,7 +141,7 @@ export async function GET(req: Request) {
     } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
       if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return NextResponse.json({
+        return apiSuccess({
           data: [],
           pagination: {
             page,
@@ -163,14 +154,7 @@ export async function GET(req: Request) {
       }
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error fetching network performance data:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal memuat data performa jaringan' },
-      { status: 500 }
-    )
-  }
-}
+})
 
 /**
  * @swagger
@@ -276,20 +260,11 @@ export async function GET(req: Request) {
  *       500:
  *         description: Server error
  */
-export async function POST(req: Request) {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const json = await req.json()
-    const { networkPerformanceCreateSchema } = await import('@/lib/validations/network-performance')
-    const parsed = networkPerformanceCreateSchema.safeParse(json)
-
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-    }
-
-    const data = parsed.data
+export const POST = createHandler({ 
+    auth: true,
+    schema: networkPerformanceCreateSchema
+}, async (req, ctx) => {
+    const data = ctx.validated
 
     try {
       const result = await prisma.networkPerformance.create({
@@ -319,15 +294,8 @@ export async function POST(req: Request) {
         },
       })
 
-      return NextResponse.json({ id: result.id }, { status: 201 })
+      return apiSuccess({ id: result.id }, { status: 201 })
     } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error creating network performance data:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal membuat data performa jaringan' },
-      { status: 500 }
-    )
-  }
-}
+})

@@ -1,202 +1,218 @@
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
+import { apiPaginatedWithSummary, ApiErrors } from '@/lib/api-response'
+import { attendanceFilterSchema } from '@/lib/validations/attendance'
+import { createHandler } from '@/lib/api'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
+
 /**
  * Admin Attendance Routes
  * Migrated to use standardized middleware and validation
  */
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
 
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
-import { withAuth, withPermission, withErrorHandler, applyRBACRestrictions, withRateLimit, RateLimits } from '@/lib/middleware'
-import { apiPaginatedWithSummary } from '@/lib/api-response'
-import { attendanceFilterSchema } from '@/lib/validations/attendance'
-import { ValidationError } from '@/lib/middleware/error-handler'
+    // 1. Permission Check
+    if (!(await hasPermission("attendance:read"))) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
 
-export const GET = withErrorHandler(
-  withAuth(
-    withPermission('attendance:read',
-      applyRBACRestrictions(
-        {
-          sitePermission: 'attendance:site_only',
-          departmentPermission: 'attendance:department_only'
-        },
-        withRateLimit(RateLimits.STANDARD,
-          async ({ user: _user, request: _request, filters }) => {
-            // filters is already sanitized by applyRBACRestrictions using parseQuery
+    // 2. Validate Query Params
+    const { searchParams } = req.nextUrl
+    const queryParams = Object.fromEntries(searchParams.entries())
+    
+    const parseResult = attendanceFilterSchema.safeParse(queryParams)
+    if (!parseResult.success) {
+        return ApiErrors.badRequest('Parameter tidak valid', { errors: parseResult.error.flatten().fieldErrors })
+    }
 
-            // Validate query params with Zod
-            const parseResult = attendanceFilterSchema.safeParse(filters)
+    const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, export: isExportStr } = parseResult.data
+    const skip = (page - 1) * limit
 
-            if (!parseResult.success) {
-              throw new ValidationError('Parameter tidak valid', parseResult.error.flatten().fieldErrors)
-            }
+    const where: Prisma.AttendanceWhereInput = {}
 
-            const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, export: isExportStr } = parseResult.data
+    // 3. Apply RBAC Restrictions
+    const permissions = await getUserPermissions(user.id);
+    const isSuper = isSuperAdmin(user);
+    
+    // Fetch user siteId/deptId if needed
+    let restrictedSiteId: string | undefined
+    let restrictedDeptId: string | undefined
 
-            const skip = (page - 1) * limit
+    if (!isSuper) {
+        if (permissions.includes('attendance:site_only')) {
+             const { prisma: db } = await import('@/lib/prisma');
+             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+             restrictedSiteId = dbUser?.siteId || undefined
+             // Also restrict department if needed? usually site restriction implies viewing all depts in site, unless dept restriction also exists
+        }
+        if (permissions.includes('attendance:department_only')) {
+             const { prisma: db } = await import('@/lib/prisma');
+             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { departmentId: true } });
+             restrictedDeptId = dbUser?.departmentId || undefined
+        }
+    }
 
-            const where: Prisma.AttendanceWhereInput = {}
+    // Apply date range filter
+    if (startDateStr && endDateStr) {
+        const start = new Date(startDateStr)
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(endDateStr)
+        end.setHours(23, 59, 59, 999)
+        where.checkIn = { gte: start, lte: end }
+    } else if (startDateStr) {
+        const start = new Date(startDateStr)
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(startDateStr)
+        end.setHours(23, 59, 59, 999)
+        where.checkIn = { gte: start, lte: end }
+    }
 
-            console.log('[DEBUG ATTENDANCE] Filters Raw:', filters)
-            console.log('[DEBUG ATTENDANCE] Parsed Data:', parseResult.data)
+    // Apply filters to User relation (combining explicit filters + RBAC)
+    const userWhere: Prisma.UserWhereInput = {}
+    
+    if (userId) userWhere.id = userId
+    
+    // Site Logic: Explicit filter OR Restricted filter
+    if (siteId) {
+        userWhere.siteId = siteId
+    } else if (restrictedSiteId) {
+        userWhere.siteId = restrictedSiteId
+    }
 
-            // Apply date range filter
-            if (startDateStr && endDateStr) {
-              const start = new Date(startDateStr)
-              start.setHours(0, 0, 0, 0)
-              const end = new Date(endDateStr)
-              end.setHours(23, 59, 59, 999)
+    // Department Logic: Explicit filter OR Restricted filter
+    if (departmentId) {
+        userWhere.departmentId = departmentId
+    } else if (restrictedDeptId) {
+        userWhere.departmentId = restrictedDeptId
+    }
 
-              where.checkIn = { gte: start, lte: end }
-            } else if (startDateStr) {
-              const start = new Date(startDateStr)
-              start.setHours(0, 0, 0, 0)
-              const end = new Date(startDateStr)
-              end.setHours(23, 59, 59, 999)
+    // Only add 'user' to where clause if we have user filters
+    if (Object.keys(userWhere).length > 0) {
+        where.user = userWhere
+    }
 
-              where.checkIn = { gte: start, lte: end }
-            }
+    // Apply status filter if provided
+    if (status) {
+        where.status = status
+    }
 
-            // Apply filters to User relation (includes RBAC restrictions from middleware)
-            if (userId || siteId || departmentId) {
-              where.user = {
-                ...(userId && { id: userId }),
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-              }
-            }
+    // Check for export flag
+    const isExport = isExportStr === 'true'
 
-            console.log('[DEBUG ATTENDANCE] Generated Where:', JSON.stringify(where, null, 2))
+    if (isExport) {
+        // Fetch Timezone Setting
+        const timezoneSetting = await prisma.settings.findFirst({
+            where: { key: 'GENERAL_TIMEZONE' }
+        })
+        const timezone = timezoneSetting?.value || 'Asia/Jakarta'
 
-            // Apply status filter if provided
-            if (status) {
-              where.status = status
-            }
-
-            // Check for export flag
-            const isExport = isExportStr === 'true'
-
-            if (isExport) {
-              // Fetch Timezone Setting
-              const timezoneSetting = await prisma.settings.findFirst({
-                where: { key: 'GENERAL_TIMEZONE' }
-              })
-              const timezone = timezoneSetting?.value || 'Asia/Jakarta'
-
-              const attendances = await prisma.attendance.findMany({
-                where,
-                include: {
-                  user: {
+        const attendances = await prisma.attendance.findMany({
+            where,
+            include: {
+                user: {
                     select: {
-                      name: true,
-                      departments: { select: { name: true } },
-                      sites: { select: { name: true } }
+                        name: true,
+                        departments: { select: { name: true } },
+                        sites: { select: { name: true } }
                     }
-                  }
-                },
-                orderBy: { checkIn: 'desc' }
-              })
-
-              // Generate CSV
-              const csvRows = [
-                ['No', 'Karyawan', 'Site', 'Departemen', 'Tanggal', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterangan']
-              ]
-
-              attendances.forEach((item, index) => {
-                const checkInDate = new Date(item.checkIn)
-                const checkOutDate = item.checkOut ? new Date(item.checkOut) : null
-
-                // Formatter options
-                const dateOptions: Intl.DateTimeFormatOptions = {
-                  timeZone: timezone,
-                  day: '2-digit', month: '2-digit', year: 'numeric'
                 }
-                const timeOptions: Intl.DateTimeFormatOptions = {
-                  timeZone: timezone,
-                  hour: '2-digit', minute: '2-digit', second: '2-digit',
-                  hour12: false
-                }
+            },
+            orderBy: { checkIn: 'desc' }
+        })
 
-                csvRows.push([
-                  (index + 1).toString(),
-                  item.user.name || '-',
-                  item.user.sites?.name || '-',
-                  item.user.departments?.name || '-',
-                  checkInDate.toLocaleDateString('id-ID', dateOptions),
-                  checkInDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':'),
-                  checkOutDate ? checkOutDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':') : '-',
-                  item.status,
-                  item.notes || '-'
-                ])
-              })
+        // Generate CSV
+        const csvRows = [
+            ['No', 'Karyawan', 'Site', 'Departemen', 'Tanggal', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterangan']
+        ]
 
-              const sanitizeCSV = (value: string) => {
-                if (typeof value === 'string' && /^[=+\-@]/.test(value)) {
-                  return `'${value}`
-                }
-                return value
-              }
+        attendances.forEach((item, index) => {
+            const checkInDate = new Date(item.checkIn)
+            const checkOutDate = item.checkOut ? new Date(item.checkOut) : null
 
-              const csvContent = csvRows.map(row => row.map(cell => `"${sanitizeCSV(cell)}"`).join(',')).join('\n')
-
-              return new NextResponse(csvContent, {
-                headers: {
-                  'Content-Type': 'text/csv',
-                  'Content-Disposition': `attachment; filename="absensi-${startDateStr || 'all'}-${endDateStr || 'all'}.csv"`
-                }
-              })
+            // Formatter options
+            const dateOptions: Intl.DateTimeFormatOptions = {
+                timeZone: timezone,
+                day: '2-digit', month: '2-digit', year: 'numeric'
+            }
+            const timeOptions: Intl.DateTimeFormatOptions = {
+                timeZone: timezone,
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false
             }
 
-            // Regular pagination response
-            const [attendances, total, statusSummary] = await Promise.all([
-              prisma.attendance.findMany({
-                where,
-                include: {
-                  user: {
-                    select: {
-                      name: true,
-                      email: true,
-                      image: true,
-                      departments: { select: { name: true } },
-                      sites: { select: { name: true } }
-                    }
-                  }
-                },
-                orderBy: { checkIn: 'desc' },
-                take: limit,
-                skip
-              }),
-              prisma.attendance.count({ where }),
-              prisma.attendance.groupBy({
-                by: ['status'],
-                where,
-                _count: {
-                  _all: true
-                }
-              })
+            csvRows.push([
+                (index + 1).toString(),
+                item.user.name || '-',
+                item.user.sites?.name || '-',
+                item.user.departments?.name || '-',
+                checkInDate.toLocaleDateString('id-ID', dateOptions),
+                checkInDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':'),
+                checkOutDate ? checkOutDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':') : '-',
+                item.status,
+                item.notes || '-'
             ])
+        })
 
-            console.log('[DEBUG ATTENDANCE] Query Result:', {
-              attendancesCount: attendances.length,
-              total,
-              statusSummary
-            })
+        const sanitizeCSV = (value: string) => {
+            if (typeof value === 'string' && /^[=+\-@]/.test(value)) {
+                return `'${value}`
+            }
+            return value
+        }
 
-            // Format summary
-            const summary = statusSummary.reduce((acc, curr) => {
-              acc[curr.status] = curr._count._all
-              return acc
-            }, {} as Record<string, number>)
+        const csvContent = csvRows.map(row => row.map(cell => `"${sanitizeCSV(cell)}"`).join(',')).join('\n')
 
-            // Use standardized paginated response with summary
-            return apiPaginatedWithSummary(attendances, {
-              page,
-              limit,
-              total,
-              summary
-            })
-          }
-        )
-      )
-    )
-  )
-)
+        return new NextResponse(csvContent, {
+            headers: {
+                'Content-Type': 'text/csv',
+                'Content-Disposition': `attachment; filename="absensi-${startDateStr || 'all'}-${endDateStr || 'all'}.csv"`
+            }
+        })
+    }
+
+    // Regular pagination response
+    const [attendances, total, statusSummary] = await Promise.all([
+        prisma.attendance.findMany({
+            where,
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        email: true,
+                        image: true,
+                        departments: { select: { name: true } },
+                        sites: { select: { name: true } }
+                    }
+                }
+            },
+            orderBy: { checkIn: 'desc' },
+            take: limit,
+            skip
+        }),
+        prisma.attendance.count({ where }),
+        prisma.attendance.groupBy({
+            by: ['status'],
+            where,
+            _count: {
+                _all: true
+            }
+        })
+    ])
+
+    // Format summary
+    const summary = statusSummary.reduce((acc, curr) => {
+        acc[curr.status] = curr._count._all
+        return acc
+    }, {} as Record<string, number>)
+
+    // Use standardized paginated response with summary
+    return apiPaginatedWithSummary(attendances, {
+        page,
+        limit,
+        total,
+        summary
+    })
+})

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
 import { getRoleService } from '@/modules/roles'
 import { z } from 'zod'
+import { logActivitySafe } from '@/lib/logger'
 
 const roleSchema = z.object({
     name: z.string().min(2),
@@ -111,19 +112,14 @@ export async function POST(req: Request) {
         })
 
         // System Log
-        try {
-            const session = await getServerSession(authConfig)
-            if (session?.user?.id) {
-                const { logger } = await import('@/lib/logger')
-                await logger.logActivity({
-                    action: 'CREATE',
-                    subject: 'Role',
-                    userId: session.user.id,
-                    details: { id: newRole.id, name: newRole.name }
-                })
-            }
-        } catch (e) {
-            console.error('Logging failed', e)
+        const session = await getServerSession(authConfig)
+        if (session?.user?.id) {
+            logActivitySafe({
+                action: 'CREATE',
+                subject: 'Role',
+                userId: session.user.id,
+                details: { id: newRole.id, name: newRole.name }
+            })
         }
 
         return NextResponse.json(newRole)

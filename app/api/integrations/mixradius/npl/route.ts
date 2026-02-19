@@ -1,17 +1,10 @@
-import { NextRequest } from "next/server";
-import { verifyAuth, getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { syncService } from "@/modules/integrations/services/MixRadiusSyncService";
-import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-export async function GET(request: NextRequest) {
-  const user = await verifyAuth(request);
-
-  if (!user) {
-    return ApiErrors.unauthorized();
-  }
-
-  const userWithRole = user as { id: string; role?: string; isSuperAdmin?: boolean }
-  const isSuper = isSuperAdmin(userWithRole)
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+  const user = ctx.session!.user
+  const isSuper = isSuperAdmin(user)
 
   if (!isSuper) {
     const permissions = await getUserPermissions(user.id);
@@ -21,14 +14,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  try {
-    const { searchParams } = new URL(request.url);
-    const groupId = searchParams.get('groupId') || undefined;
-    
-    const stats = await syncService.getNPLStatistics(groupId);
-    return apiSuccess(stats);
-  } catch (error) {
-    console.error("[MixRadius NPL API] Error:", error);
-    return ApiErrors.internalError("Gagal mengambil statistik NPL");
-  }
-}
+  const { searchParams } = req.nextUrl;
+  const groupId = searchParams.get('groupId') || undefined;
+  
+  const stats = await syncService.getNPLStatistics(groupId);
+  return apiSuccess(stats);
+})

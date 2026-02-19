@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth, isSuperAdmin } from '@/lib/auth'
+import { isSuperAdmin } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { prisma } from '@/lib/prisma'
+import { createHandler, apiSuccess } from '@/lib/api'
 
 const financeService = new FinanceService()
 
@@ -16,28 +16,32 @@ const transactionSchema = z.object({
   accountId: z.string().optional(),
 })
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized()
-
-    const { searchParams } = new URL(req.url)
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
+    const { searchParams } = req.nextUrl
     const startDate = searchParams.get('startDate') || undefined
     const endDate = searchParams.get('endDate') || undefined
     const categoryId = searchParams.get('categoryId') || undefined
     const accountId = searchParams.get('accountId') || undefined
     const siteIdParam = searchParams.get('siteId') || undefined
 
-    const userPermissions = session.permissions || []
-    const isSuper = isSuperAdmin(session)
+    const userPermissions = ctx.permissions || []
+    const isSuper = isSuperAdmin(user)
     const isSiteRestricted = userPermissions.includes('finance_transaction:site_only') && !isSuper
 
     let filterSiteId: string | undefined = siteIdParam
     if (isSiteRestricted) {
-        if (!session.siteId) {
-             return NextResponse.json([])
+        // Fetch user siteId
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { siteId: true }
+        });
+        const userSiteId = dbUser?.siteId;
+
+        if (!userSiteId) {
+             return apiSuccess([])
         }
-        filterSiteId = session.siteId
+        filterSiteId = userSiteId
     }
 
     const transactions = await financeService.getTransactions({
@@ -48,41 +52,23 @@ export async function GET(req: NextRequest) {
       ...(filterSiteId ? { siteId: filterSiteId } : {})
     })
 
-    return NextResponse.json(transactions)
-  } catch (error) {
-    console.error('Error fetching transactions:', error)
-    const message = error instanceof Error ? error.message : 'Gagal mengambil data transaksi'
-    return ApiErrors.internalError(message)
-  }
-}
+    return apiSuccess(transactions)
+})
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized()
-
-    const json = await req.json()
-    const result = transactionSchema.safeParse(json)
-
-    if (!result.success) {
-        return ApiErrors.badRequest(result.error.issues[0]?.message || 'Validasi gagal')
-    }
-
-    const { date, description, referenceId, accountId, ...rest } = result.data
+export const POST = createHandler({
+    auth: true,
+    schema: transactionSchema
+}, async (req, ctx) => {
+    const { date, description, referenceId, accountId, ...rest } = ctx.validated
 
     const transaction = await financeService.createTransaction({
       ...rest,
       date: date || new Date(),
-      createdById: session.id,
+      createdById: ctx.session!.user.id,
       ...(description ? { description } : {}),
       ...(referenceId ? { referenceId } : {}),
       ...(accountId ? { accountId } : {})
     })
 
     return apiSuccess(transaction, { status: 201, message: 'Transaksi berhasil dicatat' })
-  } catch (error) {
-    console.error('Error creating transaction:', error)
-    const message = error instanceof Error ? error.message : 'Gagal mencatat transaksi'
-    return ApiErrors.internalError(message)
-  }
-}
+})

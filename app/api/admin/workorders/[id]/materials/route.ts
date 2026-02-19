@@ -1,10 +1,7 @@
-import { NextRequest } from 'next/server';
-import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { z } from 'zod';
-
 import { prisma } from '@/lib/prisma';
 
 const addMaterialSchema = z.object({
@@ -15,76 +12,72 @@ const addMaterialSchema = z.object({
 });
 
 /**
- * @swagger
- * /api/admin/workorders/{id}/materials:
- *   post:
- *     summary: Add material to work order
- *     tags: [Work Orders]
+ * POST /api/admin/workorders/{id}/materials:
+ * Add material to work order
  */
-export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return ApiErrors.unauthorized('Session tidak valid');
-        }
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user;
+    const { id } = ctx.params;
 
-        // Check permission (adjust as needed based on your RBAC system)
-        if (!await hasPermission('list:update')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah work order');
-        }
-
-        const { id } = await params;
-        const body = await request.json();
-        
-        const validation = addMaterialSchema.safeParse(body);
-        if (!validation.success) {
-            return ApiErrors.badRequest('Data tidak valid', { errors: validation.error.flatten() });
-        }
-
-        const { barangId, quantity, notes, gudangId } = validation.data;
-
-        // Resolve warehouse:
-        // 1. Explicitly provided gudangId
-        // 2. Fallback to a warehouse in user's site
-        let targetGudangId = gudangId;
-
-        if (!targetGudangId && user.siteId) {
-            // Find a warehouse in the user's site (prefer MAIN or just the first one)
-            // Gudang has many-to-many relation with Sites
-            const siteGudang = await prisma.gudang.findFirst({
-                where: { 
-                    sites: {
-                        some: {
-                            id: user.siteId
-                        }
-                    }
-                },
-                orderBy: { createdAt: 'asc' } // Stable sort
-            });
-            if (siteGudang) {
-                targetGudangId = siteGudang.id;
-            }
-        }
-
-        const service = getWorkOrderService();
-        // Updated service call with UserContext
-        const result = await service.addMaterial(id, barangId, quantity, user as unknown as UserContext, notes, targetGudangId);
-
-        if (!result.success) {
-            return apiError(
-                result.error || 'Gagal menambahkan material', 
-                result.code === 'ADD_MATERIAL_ERROR' ? ErrorCodes.VALIDATION_ERROR : ErrorCodes.INTERNAL_ERROR, 
-                { status: 400 }
-            );
-        }
-
-        return apiSuccess(result.data, { message: 'Material berhasil ditambahkan' });
-
-    } catch (error) {
-        console.error('Error adding material:', error);
-        return ApiErrors.internalError('Terjadi kesalahan saat menambahkan material');
+    if (!await hasPermission('list:update')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah work order');
     }
-}
+
+    const body = await req.json();
+    const validation = addMaterialSchema.safeParse(body);
+    if (!validation.success) {
+        return ApiErrors.badRequest('Data tidak valid', { errors: validation.error.flatten() });
+    }
+
+    const { barangId, quantity, notes, gudangId } = validation.data;
+
+    // Fetch user siteId for warehouse resolution
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { siteId: true, departmentId: true, role: true }
+    });
+
+    if (!dbUser) return ApiErrors.unauthorized();
+
+    // Resolve warehouse:
+    // 1. Explicitly provided gudangId
+    // 2. Fallback to a warehouse in user's site
+    let targetGudangId = gudangId;
+
+    if (!targetGudangId && dbUser.siteId) {
+        const siteGudang = await prisma.gudang.findFirst({
+            where: { 
+                sites: {
+                    some: {
+                        id: dbUser.siteId
+                    }
+                }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+        if (siteGudang) {
+            targetGudangId = siteGudang.id;
+        }
+    }
+
+    const userContext: UserContext = {
+        id: user.id,
+        role: user.role,
+        permissions: ctx.permissions,
+        siteId: dbUser.siteId || undefined,
+        departmentId: dbUser.departmentId || undefined,
+    }
+
+    const service = getWorkOrderService();
+    const result = await service.addMaterial(id, barangId, quantity, userContext, notes, targetGudangId);
+
+    if (!result.success) {
+        return apiError(
+            result.error || 'Gagal menambahkan material', 
+            result.code === 'ADD_MATERIAL_ERROR' ? ErrorCodes.VALIDATION_ERROR : ErrorCodes.INTERNAL_ERROR, 
+            { status: 400 }
+        );
+    }
+
+    return apiSuccess(result.data, { message: 'Material berhasil ditambahkan' });
+})

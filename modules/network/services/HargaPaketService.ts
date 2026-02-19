@@ -2,7 +2,7 @@ import { HargaPaketRepository } from '../repositories/HargaPaketRepository'
 import type { HargaPaketCreateInput, HargaPaketUpdateInput, HargaPaketFilterOptions } from '../repositories/HargaPaketRepository'
 import { hargaPaketSchema } from '@/lib/validations/hargapaket'
 import { sanitizeInput } from '@/lib/utils/sanitize'
-import { logger } from '@/lib/logger'
+import { logActivitySafe } from '@/lib/logger'
 
 /**
  * Service for HargaPaket business logic
@@ -75,16 +75,12 @@ export class HargaPaketService {
 
         // Log activity
         if (userId) {
-            try {
-                await logger.logActivity({
-                    action: 'CREATE',
-                    subject: 'Harga Paket',
-                    userId,
-                    details: { id: hargaPaket.id, name: hargaPaket.name, price: hargaPaket.harga },
-                })
-            } catch (e: unknown) {
-                console.error('[HargaPaketService] Logging failed', e)
-            }
+            logActivitySafe({
+                action: 'CREATE',
+                subject: 'Harga Paket',
+                userId,
+                details: { id: hargaPaket.id, name: hargaPaket.name, price: hargaPaket.harga },
+            })
         }
 
         return hargaPaket
@@ -134,16 +130,12 @@ export class HargaPaketService {
 
         // Log activity
         if (userId) {
-            try {
-                await logger.logActivity({
-                    action: 'UPDATE',
-                    subject: 'Harga Paket',
-                    userId,
-                    details: { id: updated.id, name: updated.name },
-                })
-            } catch (e: unknown) {
-                console.error('[HargaPaketService] Logging failed', e)
-            }
+            logActivitySafe({
+                action: 'UPDATE',
+                subject: 'Harga Paket',
+                userId,
+                details: { id: updated.id, name: updated.name },
+            })
         }
 
         return updated
@@ -169,16 +161,12 @@ export class HargaPaketService {
 
         // Log activity
         if (userId) {
-            try {
-                await logger.logActivity({
-                    action: 'DELETE',
-                    subject: 'Harga Paket',
-                    userId,
-                    details: { id, name: existing.name },
-                })
-            } catch (e: unknown) {
-                console.error('[HargaPaketService] Logging failed', e)
-            }
+            logActivitySafe({
+                action: 'DELETE',
+                subject: 'Harga Paket',
+                userId,
+                details: { id, name: existing.name },
+            })
         }
 
         return { success: true }

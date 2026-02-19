@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
-import { logger } from '@/lib/logger'
+import { logger, logActivitySafe } from '@/lib/logger'
 
 export interface DepartmentFilters {
     search?: string
@@ -248,12 +248,8 @@ export class DepartmentService {
         }
     }
 
-    private async logActivity(action: string, subject: string, userId: string, details: Record<string, unknown>): Promise<void> {
-        try {
-            await logger.logActivity({ action, subject, userId, details })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+    private logActivity(action: string, subject: string, userId: string, details: Record<string, unknown>): void {
+        logActivitySafe({ action, subject, userId, details })
     }
 }
 

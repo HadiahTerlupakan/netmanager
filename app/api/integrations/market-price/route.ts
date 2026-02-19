@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { ApiErrors, createHandler } from '@/lib/api'
 
 // Headers to mimic a real browser to avoid simple bot detection
 const TOKOPEDIA_HEADERS = {
@@ -25,7 +25,6 @@ const randomDelay = async (min: number = 300, max: number = 800) => {
 
 const GRAPHQL_URL = 'https://gql.tokopedia.com/graphql/SearchProductQueryV4'
 
-// Condensed Query for Search Product (V4 is commonly used)
 const SEARCH_QUERY = `
   query SearchProductQueryV4($params: String!) {
     ace_search_product_v4(params: $params) {
@@ -88,120 +87,99 @@ interface MarketPriceResult {
   image: string
 }
 
-export async function GET(request: NextRequest) {
-  // Auth check - only authenticated users can use this endpoint
-  const session = await verifyAuth(request)
-  if (!session) {
-    return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-  }
+export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+    const { searchParams } = req.nextUrl
+    const keyword = searchParams.get('keyword')
 
-  const searchParams = request.nextUrl.searchParams
-  const keyword = searchParams.get('keyword')
-
-  if (!keyword) {
-    return NextResponse.json({ error: 'Kata kunci wajib diisi' }, { status: 400 })
-  }
-
-  try {
-    // Enhanced params to mimic real desktop search
-    const params = Object.entries({
-      device: 'desktop',
-      navsource: '',
-      ob: '23', // Relevance
-      page: '1',
-      q: keyword,
-      related: 'true',
-      rows: '20', // Increased rows for better analysis
-      safe_search: 'false',
-      scheme: 'https',
-      shipping: '',
-      source: 'search',
-      st: 'product',
-      start: '0',
-      topads_bucket: 'true',
-      unique_id: '3220fd80a919cd5d95aaa42075073a58', // Random valid-looking ID
-      user_id: '0',
-      variants: ''
-    }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
-
-    // Add human-like delay before request
-    await randomDelay(300, 800)
-
-    const response = await fetch(GRAPHQL_URL, {
-      method: 'POST',
-      headers: {
-        ...TOKOPEDIA_HEADERS,
-        'Referer': `https://www.tokopedia.com/search?st=product&q=${encodeURIComponent(keyword)}`
-      },
-      body: JSON.stringify({
-        operationName: "SearchProductQueryV4",
-        variables: {
-          params: params
-        },
-        query: SEARCH_QUERY
-      })
-    })
-
-    if (!response.ok) {
-        throw new Error(`Error API Tokopedia: ${response.status}`)
+    if (!keyword) {
+        return ApiErrors.badRequest('Kata kunci wajib diisi')
     }
 
-    const json = await response.json()
-    // console.log('Tokopedia GQL Response for:', keyword)
-    // console.log(JSON.stringify(json, null, 2))
+    try {
+        const params = Object.entries({
+            device: 'desktop',
+            navsource: '',
+            ob: '23', 
+            page: '1',
+            q: keyword,
+            related: 'true',
+            rows: '20', 
+            safe_search: 'false',
+            scheme: 'https',
+            shipping: '',
+            source: 'search',
+            st: 'product',
+            start: '0',
+            topads_bucket: 'true',
+            unique_id: '3220fd80a919cd5d95aaa42075073a58', 
+            user_id: '0',
+            variants: ''
+        }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
 
-    // Safety check for data structure
-    const products: TokopediaProduct[] = json.data?.ace_search_product_v4?.data?.products || []
+        await randomDelay(300, 800)
 
-    // Map to comprehensive structure
-    const results: MarketPriceResult[] = products.map((p) => {
-        const price = parseInt(p.price.replace(/[^0-9]/g, ''))
-        const originalPrice = p.originalPrice ? parseInt(p.originalPrice.replace(/[^0-9]/g, '')) : 0
-        const discount = originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0
+        const response = await fetch(GRAPHQL_URL, {
+            method: 'POST',
+            headers: {
+                ...TOKOPEDIA_HEADERS,
+                'Referer': `https://www.tokopedia.com/search?st=product&q=${encodeURIComponent(keyword)}`
+            },
+            body: JSON.stringify({
+                operationName: "SearchProductQueryV4",
+                variables: {
+                    params: params
+                },
+                query: SEARCH_QUERY
+            })
+        })
 
-        // Extract "Terjual" info
-        const soldLabel = p.labelGroups?.find((l) => l.position === 'cost_per_unit' || l.title.toLowerCase().includes('terjual'))?.title || ''
-
-        // Extract Badge
-        const badge = p.badges?.[0]?.title || 'Merchant'
-
-        return {
-            id: p.id,
-            name: p.name,
-            price,
-            priceText: p.price,
-            originalPrice,
-            discount,
-            rating: p.ratingAverage,
-            reviewCount: p.countReview,
-            sold: soldLabel.replace('Terjual ', ''), // Clean up string
-            badge,
-            shopLocation: p.shop?.city,
-            shopName: p.shop?.name,
-            url: p.url,
-            image: p.imageUrl
+        if (!response.ok) {
+            throw new Error(`Error API Tokopedia: ${response.status}`)
         }
-    }).filter((p) => p.price > 0)
 
-    // Calculate Average
-    const total = results.reduce((sum: number, p) => sum + p.price, 0)
-    const average = results.length > 0 ? total / results.length : 0
+        const json = await response.json()
+        const products: TokopediaProduct[] = json.data?.ace_search_product_v4?.data?.products || []
 
-    return NextResponse.json({
-        source: 'Tokopedia',
-        keyword,
-        averagePrice: average,
-        minPrice: Math.min(...results.map((p) => p.price)),
-        maxPrice: Math.max(...results.map((p) => p.price)),
-        products: results
-    })
+        const results: MarketPriceResult[] = products.map((p) => {
+            const price = parseInt(p.price.replace(/[^0-9]/g, ''))
+            const originalPrice = p.originalPrice ? parseInt(p.originalPrice.replace(/[^0-9]/g, '')) : 0
+            const discount = originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0
+            const soldLabel = p.labelGroups?.find((l) => l.position === 'cost_per_unit' || l.title.toLowerCase().includes('terjual'))?.title || ''
+            const badge = p.badges?.[0]?.title || 'Merchant'
 
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
-    console.error('Market Price API Error:', error)
-    return NextResponse.json({
-        error: 'Gagal mengambil harga pasar',
-        details: message
-    }, { status: 500 })
-  }
-}
+            return {
+                id: p.id,
+                name: p.name,
+                price,
+                priceText: p.price,
+                originalPrice,
+                discount,
+                rating: p.ratingAverage,
+                reviewCount: p.countReview,
+                sold: soldLabel.replace('Terjual ', ''),
+                badge,
+                shopLocation: p.shop?.city,
+                shopName: p.shop?.name,
+                url: p.url,
+                image: p.imageUrl
+            }
+        }).filter((p) => p.price > 0)
+
+        const total = results.reduce((sum: number, p) => sum + p.price, 0)
+        const average = results.length > 0 ? total / results.length : 0
+
+        return NextResponse.json({
+            source: 'Tokopedia',
+            keyword,
+            averagePrice: average,
+            minPrice: Math.min(...results.map((p) => p.price)),
+            maxPrice: Math.max(...results.map((p) => p.price)),
+            products: results
+        })
+
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
+        console.error('Market Price API Error:', error)
+        return ApiErrors.internalError(`Gagal mengambil harga pasar: ${message}`)
+    }
+})

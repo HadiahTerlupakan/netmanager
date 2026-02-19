@@ -1,21 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) {
-      return new NextResponse('Tidak terautentikasi', { status: 401 })
-    }
-
-    // Permission check
-    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
@@ -27,12 +18,10 @@ export async function GET(
       }
     }
 
-    const { id } = await params
+    const { id } = ctx.params
     const service = getMixRadiusService()
 
-    // Default to 'standard' type, but could support 'thermal' via query param if needed
-    // The client currently just calls /print/[id]
-    const { searchParams } = new URL(req.url)
+    const { searchParams } = req.nextUrl
     const type = (searchParams.get('type') as 'standard' | 'thermal') || 'standard'
 
     const html = await service.getPrintInvoiceHtml(id, type)
@@ -42,8 +31,4 @@ export async function GET(
         'Content-Type': 'text/html',
       },
     })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
-    return new NextResponse(message, { status: 500 })
-  }
-}
+})

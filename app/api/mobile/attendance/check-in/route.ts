@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { logger } from '@/lib/logger'
+import { logger, logActivitySafe } from '@/lib/logger'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
@@ -273,19 +273,17 @@ export async function POST(request: NextRequest) {
         const attendance = await attendanceService.checkIn(checkInParams)
 
         // System Log
-        try {
-            await logger.logActivity({
-                action: 'CHECK_IN',
-                subject: 'Attendance',
-                userId,
-                details: {
-                    attendanceId: attendance.id,
-                    status: attendance.status,
-                    location,
-                    isOffline: !!offlineCapturedAt
-                }
-            })
-        } catch (e) { console.error('Logging check-in failed', e) }
+        logActivitySafe({
+            action: 'CHECK_IN',
+            subject: 'Attendance',
+            userId,
+            details: {
+                attendanceId: attendance.id,
+                status: attendance.status,
+                location,
+                isOffline: !!offlineCapturedAt
+            }
+        })
 
         return NextResponse.json({ success: true, data: attendance })
 

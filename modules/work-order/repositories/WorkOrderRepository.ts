@@ -1165,10 +1165,29 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return attachment;
     }
 
-    async deleteAttachment(attachmentId: string): Promise<void> {
+    async deleteAttachment(attachmentId: string, deletedById?: string): Promise<void> {
+        const attachment = await this.prisma.workOrderAttachments.findUnique({
+            where: { id: attachmentId }
+        });
+
+        if (!attachment) return;
+
         await this.prisma.workOrderAttachments.delete({
             where: { id: attachmentId },
         });
+
+        // Log deletion to timeline (triggers socket event -> triggers UI refresh)
+        const updateData: AddUpdateData = {
+            workOrderId: attachment.workOrderId,
+            updateType: 'NOTE',
+            message: `Menghapus lampiran: ${attachment.fileName}`,
+        };
+
+        if (deletedById) {
+            updateData.createdById = deletedById;
+        }
+
+        await this.addUpdate(updateData);
     }
 
     async getStatistics(filters?: Omit<WorkOrderFilters, 'search'>): Promise<WorkOrderStatistics> {

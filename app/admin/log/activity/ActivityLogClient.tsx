@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 import { SiteFilter } from '@/components/common/SiteFilter'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface SystemLog {
     id: string
@@ -216,68 +217,58 @@ export function ClientComponent() {
             </div>
 
             {/* Detail Modal */}
-            {selectedLog && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full shadow-xl max-h-[80vh] overflow-y-auto">
-                        <div className="p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Detail Log Aktivitas</h3>
-                                <button onClick={() => setSelectedLog(null)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                                    <span className="sr-only">Close</span>
-                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+            <Modal
+                isOpen={!!selectedLog}
+                onClose={() => setSelectedLog(null)}
+                title="Detail Log Aktivitas"
+                size="2xl"
+            >
+                {selectedLog && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase">Waktu</p>
+                                <p className="font-medium">{format(new Date(selectedLog.createdAt), 'dd MMMM yyyy HH:mm:ss', { locale: id })}</p>
                             </div>
-
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-xs text-gray-500 uppercase">Waktu</p>
-                                        <p className="font-medium">{format(new Date(selectedLog.createdAt), 'dd MMMM yyyy HH:mm:ss', { locale: id })}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 uppercase">Aksi</p>
-                                        <p className="font-medium">{selectedLog.action}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 uppercase">Subjek</p>
-                                        <p className="font-medium">{selectedLog.subject}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 uppercase">Pengguna</p>
-                                        <p className="font-medium">{selectedLog.user?.name || selectedLog.user?.email || 'System'}</p>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase mb-2">Detail Data</p>
-                                    <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto">
-                                        <pre className="text-xs text-gray-700 dark:text-gray-300 font-mono">
-                                            {(() => {
-                                                try {
-                                                    return JSON.stringify(JSON.parse(selectedLog.details || '{}'), null, 2)
-                                                } catch {
-                                                    return selectedLog.details || 'Tidak ada detail tambahan'
-                                                }
-                                            })()}
-                                        </pre>
-                                    </div>
-                                </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase">Aksi</p>
+                                <p className="font-medium">{selectedLog.action}</p>
                             </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase">Subjek</p>
+                                <p className="font-medium">{selectedLog.subject}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase">Pengguna</p>
+                                <p className="font-medium">{selectedLog.user?.name || selectedLog.user?.email || 'System'}</p>
+                            </div>
+                        </div>
 
-                            <div className="mt-6 flex justify-end">
-                                <button
-                                    onClick={() => setSelectedLog(null)}
-                                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                >
-                                    Tutup
-                                </button>
+                        <div>
+                            <p className="text-xs text-gray-500 uppercase mb-2">Detail Data</p>
+                            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto">
+                                <pre className="text-xs text-gray-700 dark:text-gray-300 font-mono">
+                                    {(() => {
+                                        try {
+                                            return JSON.stringify(JSON.parse(selectedLog.details || '{}'), null, 2)
+                                        } catch {
+                                            return selectedLog.details || 'Tidak ada detail tambahan'
+                                        }
+                                    })()}
+                                </pre>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+                <ModalFooter>
+                    <button
+                        onClick={() => setSelectedLog(null)}
+                        className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        Tutup
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

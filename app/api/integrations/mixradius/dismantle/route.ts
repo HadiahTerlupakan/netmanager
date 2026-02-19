@@ -1,10 +1,9 @@
-import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { MixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications'
-import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
 import * as crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -13,37 +12,24 @@ const workOrderRepo = new WorkOrderRepository(prisma)
 
 /**
  * POST /api/integrations/mixradius/dismantle
- *
  * Request dismantle (bongkar) for a MixRadius customer.
- * Creates a Work Order with type DISCONNECTION.
- *
- * Body: { customerId: string, reason: string, notes?: string }
  */
-export async function POST(req: NextRequest) {
-  try {
-    // Auth check
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized()
-    }
-
-    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
-    // Permission check - need mixradius:read to view customer AND workorders:create to create WO
+    // Permission check
     if (!isSuper) {
-      const permissions = await getUserPermissions(session.id)
+      const permissions = await getUserPermissions(user.id)
       const hasAccess = permissions.includes('*') || (
         permissions.includes('mixradius:read') &&
         (permissions.includes('workorders:create') || permissions.includes('list:create'))
       )
 
       if (!hasAccess) {
-        console.warn('[Dismantle] Access denied for user:', session.id, 'Permissions:', permissions.filter(p => p.includes('mixradius') || p.includes('workorder') || p.includes('list')))
         return ApiErrors.forbidden()
       }
     }
-
 
     const body = await req.json()
     const { customerId, reason, notes } = body
@@ -56,22 +42,20 @@ export async function POST(req: NextRequest) {
       return apiError(
         `Data berikut wajib diisi: ${missingFields.join(', ')}`,
         ErrorCodes.VALIDATION_ERROR,
-        { details: { missingFields } }
+        { details: { missingFields }, status: 400 }
       )
     }
 
     const service = new MixRadiusService()
     
-    // 1. Fetch live detail from MixRadius to get latest address/phone
     const mrCustomer = await service.fetchCustomerDetail(customerId)
     if (!mrCustomer) {
       return ApiErrors.notFound('Pelanggan tidak ditemukan di MixRadius')
     }
 
-    // 2. Fetch full Requester info and try to find matched local Pelanggan
     const [requester, localPelanggan] = await Promise.all([
         prisma.user.findUnique({
-            where: { id: session.id },
+            where: { id: user.id },
             select: { id: true, siteId: true }
         }),
         prisma.pelanggan.findFirst({
@@ -85,8 +69,6 @@ export async function POST(req: NextRequest) {
         })
     ])
 
-    // 3. Find Technical Department (default to first one if not sure)
-    // Or look for department with name containing 'Teknis' or 'Technical'
     const department = await prisma.departments.findFirst({
         where: {
             name: {
@@ -97,7 +79,6 @@ export async function POST(req: NextRequest) {
         select: { id: true }
     })
 
-    // 4. Create Work Order
     const title = `Request Dismantle: ${mrCustomer.fullname} (${mrCustomer.username})`
     const description = `Permintaan pembongkaran perangkat (dismantle) untuk pelanggan MixRadius.\n\n` +
                         `Alasan: ${reason}\n` +
@@ -107,7 +88,6 @@ export async function POST(req: NextRequest) {
                         `- Paket: ${mrCustomer.plan_name}\n` +
                         `- Alamat (Portal): ${mrCustomer.address}`
 
-    // Use requester's siteId if available (Site yang request), fallback to customer's site
     const targetSiteId = requester?.siteId || localPelanggan?.siteId || undefined
 
     const workOrder = await workOrderRepo.create({
@@ -119,14 +99,13 @@ export async function POST(req: NextRequest) {
         contactPhone: mrCustomer.phonenumber,
         locationAddress: mrCustomer.address,
         disconnectionReason: reason,
-        createdById: session.id,
+        createdById: user.id,
         ...(localPelanggan?.id ? { pelangganId: localPelanggan.id } : {}),
         ...(targetSiteId ? { siteId: targetSiteId } : {}),
         ...(department?.id ? { departmentId: department.id } : {}),
         ...(notes ? { internalNotes: notes } : {}),
     })
 
-    // 5. Add SOP Checklist Tasks
     const sopTasks = [
         "Konfirmasi jadwal kedatangan dengan pelanggan",
         "Pastikan perangkat (Modem/Router) dalam keadaan lengkap (Unit + Adaptor)",
@@ -139,16 +118,15 @@ export async function POST(req: NextRequest) {
 
     await prisma.workOrderTasks.createMany({
         data: sopTasks.map((taskTitle, index) => ({
-            id: crypto.randomUUID(), // Ensure UUID generation if DB doesn't auto-generate
+            id: crypto.randomUUID(),
             workOrderId: workOrder.id,
             title: taskTitle,
             order: index,
             status: 'PENDING',
-            updatedAt: new Date() // Explicitly set updatedAt if needed
+            updatedAt: new Date()
         }))
     })
 
-    // 6. Trigger Notifications
     await onWorkOrderCreated({
         id: workOrder.id,
         workOrderNumber: workOrder.workOrderNumber,
@@ -159,7 +137,6 @@ export async function POST(req: NextRequest) {
         siteId: workOrder.siteId,
     }, user.id).catch(err => console.error('[Dismantle] Notification error:', err))
 
-    // 6. Broadcast via WebSocket
     try {
         const { socketEmitter } = await import('@/lib/websocket/emitter')
         socketEmitter.newWorkOrder({
@@ -180,10 +157,4 @@ export async function POST(req: NextRequest) {
         data: workOrder,
         message: `Work Order ${workOrder.workOrderNumber} berhasil dibuat.`
     }, { status: 201 })
-
-  } catch (error: unknown) {
-    console.error('[API] Dismantle error:', error)
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
-    return ApiErrors.internalError(message)
-  }
-}
+})

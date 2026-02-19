@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
+import { logActivitySafe } from '@/lib/logger'
 
 /**
  * @swagger
@@ -279,22 +280,17 @@ export async function POST(
     })
 
     // System Log
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'SUSPEND',
-        subject: 'Pelanggan',
-        userId: (auth as { user: { id: string } }).user.id,
-        details: {
-            id: id,
-            type: suspensionType,
-            reason: reason,
-            suspensionId: result.id
-        }
-      })
-    } catch (logError: unknown) {
-      console.error('Failed to log activity:', logError)
-    }
+    logActivitySafe({
+      action: 'SUSPEND',
+      subject: 'Pelanggan',
+      userId: (auth as { user: { id: string } }).user.id,
+      details: {
+          id: id,
+          type: suspensionType,
+          reason: reason,
+          suspensionId: result.id
+      }
+    })
 
     return NextResponse.json({
       success: true,

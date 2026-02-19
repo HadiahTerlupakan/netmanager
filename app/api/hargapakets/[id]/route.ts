@@ -1,20 +1,12 @@
-import { NextRequest } from 'next/server'
-import { requireAuth } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { HargaPaketService } from '@/modules/network/services/HargaPaketService'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 
 const hargaPaketService = new HargaPaketService()
 
-export async function GET(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
     try {
-        const session = await requireAuth(req)
-        if (session instanceof Response) return ApiErrors.unauthorized('Session tidak valid')
-
-        const { id } = await params
         const hargaPaket = await hargaPaketService.getHargaPaketById(id)
         return apiSuccess(hargaPaket)
     } catch (error: unknown) {
@@ -27,24 +19,18 @@ export async function GET(
 
         return ApiErrors.internalError(err?.message || 'Gagal mengambil data harga paket')
     }
-}
+})
 
-export async function PUT(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const PUT = createHandler({ auth: true }, async (req, ctx) => {
+    if (!await hasPermission('harga:update')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk memperbarui harga paket')
+    }
+
+    const { id } = ctx.params
+    const body = await req.json()
+
     try {
-        const session = await requireAuth(req)
-        if (session instanceof Response) return ApiErrors.unauthorized('Session tidak valid')
-
-        if (!(await hasPermission('harga:update'))) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk memperbarui harga paket')
-        }
-
-        const { id } = await params
-        const body = await req.json()
-
-        const updated = await hargaPaketService.updateHargaPaket(id, body, (session as { user?: { id: string } }).user?.id)
+        const updated = await hargaPaketService.updateHargaPaket(id, body, ctx.session!.user.id)
         return apiSuccess(updated, { message: 'Harga paket berhasil diperbarui' })
     } catch (error: unknown) {
         const err = error as Error & { code?: string };
@@ -62,22 +48,17 @@ export async function PUT(
 
         return ApiErrors.internalError(err?.message || 'Gagal memperbarui harga paket')
     }
-}
+})
 
-export async function DELETE(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    if (!await hasPermission('harga:delete')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus harga paket')
+    }
+
+    const { id } = ctx.params
+
     try {
-        const session = await requireAuth(req)
-        if (session instanceof Response) return ApiErrors.unauthorized('Session tidak valid')
-
-        if (!(await hasPermission('harga:delete'))) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus harga paket')
-        }
-
-        const { id } = await params
-        await hargaPaketService.deleteHargaPaket(id, (session as { user?: { id: string } }).user?.id)
+        await hargaPaketService.deleteHargaPaket(id, ctx.session!.user.id)
         return apiSuccess(null, { message: 'Harga paket berhasil dihapus' })
     } catch (error: unknown) {
         const err = error as Error & { code?: string };
@@ -92,4 +73,4 @@ export async function DELETE(
 
         return ApiErrors.internalError(err?.message || 'Gagal menghapus harga paket')
     }
-}
+})

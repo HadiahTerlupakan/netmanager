@@ -1,49 +1,8 @@
-import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { getSalaryService } from '@/modules/salary/services/SalaryService'
 import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
-interface RouteParams {
-    params: Promise<{ id: string }>
-}
-
-/**
- * GET /api/admin/salary/slip/[id] - Get salary slip in receipt format
- */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
-        if (!await hasPermission('salary:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat slip gaji')
-        }
-
-        const { id } = await params
-        const service = getSalaryService()
-        const result = await service.getSalaryById(id)
-
-        if (!result.success) {
-            if (result.code === 'NOT_FOUND') {
-                return ApiErrors.notFound('Data gaji')
-            }
-            return ApiErrors.internalError(result.error)
-        }
-
-        // Format as receipt/slip
-        const slip = formatAsReceipt(result.data as unknown as SalaryData)
-
-        return apiSuccess({ slip, salary: result.data })
-    } catch (error) {
-        console.error('Error generating slip:', error)
-        return ApiErrors.internalError('Gagal membuat slip gaji')
-    }
-}
-
+// Helper interfaces
 interface SalaryDetail {
     type: 'EARNING' | 'DEDUCTION';
     name: string;
@@ -131,7 +90,6 @@ function formatAsReceipt(salary: SalaryData): string {
             : item.name
         slip += formatLine(label, formatCurrency(item.amount), 2) + '\n'
     }
-
     slip += dotLine + '\n'
     slip += formatLine('Total Pendapatan', formatCurrency(salary.totalEarnings)) + '\n'
 
@@ -174,3 +132,28 @@ function formatAsReceipt(salary: SalaryData): string {
 
     return slip
 }
+
+/**
+ * GET /api/admin/salary/slip/[id] - Get salary slip in receipt format
+ */
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    if (!await hasPermission('salary:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat slip gaji')
+    }
+
+    const { id } = ctx.params
+    const service = getSalaryService()
+    const result = await service.getSalaryById(id)
+
+    if (!result.success) {
+        if (result.code === 'NOT_FOUND') {
+            return ApiErrors.notFound('Data gaji')
+        }
+        return ApiErrors.internalError(result.error)
+    }
+
+    // Format as receipt/slip
+    const slip = formatAsReceipt(result.data as unknown as SalaryData)
+
+    return apiSuccess({ slip, salary: result.data })
+})

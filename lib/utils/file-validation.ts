@@ -12,22 +12,10 @@ export async function validateFileSignature(file: File, allowedTypes: ('jpg' | '
     const arrayBuffer = await file.slice(0, 4).arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
 
-    for (const type of allowedTypes) {
+    return allowedTypes.some(type => {
       const signature = SIGNATURES[type];
-      if (!signature) continue;
-
-      let match = true;
-      for (let i = 0; i < signature.length; i++) {
-        if (bytes[i] !== signature[i]) {
-          match = false;
-          break;
-        }
-      }
-
-      if (match) return true;
-    }
-
-    return false;
+      return signature?.every((byte, i) => bytes[i] === byte);
+    });
   } catch (error) {
     console.error('Error validating file signature:', error);
     return false;

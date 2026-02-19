@@ -2,7 +2,7 @@ import { AssetRepository } from '../repositories/AssetRepository'
 import type { CreateAssetInput, UpdateAssetInput, AssetWithRelations } from '../repositories/AssetRepository'
 import { FinanceService } from '../../finance/services/FinanceService'
 import { AssetStatus } from '@prisma/client'
-import { logger } from '@/lib/logger'
+import { logActivitySafe } from '@/lib/logger'
 
 export class AssetService {
     private assetRepo: AssetRepository
@@ -18,22 +18,18 @@ export class AssetService {
         const asset = await this.assetRepo.createAsset(data)
 
         // Log Activity
-        try {
-            await logger.logActivity({
-                action: 'CREATE',
-                subject: 'Asset',
-                userId: userId,
-                details: {
-                    id: asset.id,
-                    kodeAsset: asset.kodeAsset,
-                    barangId: asset.barangId,
-                    purchasePrice: asset.purchasePrice,
-                    status: asset.status
-                }
-            })
-        } catch (error) {
-            console.error('Failed to log asset creation:', error)
-        }
+        logActivitySafe({
+            action: 'CREATE',
+            subject: 'Asset',
+            userId: userId,
+            details: {
+                id: asset.id,
+                kodeAsset: asset.kodeAsset,
+                barangId: asset.barangId,
+                purchasePrice: asset.purchasePrice,
+                status: asset.status
+            }
+        })
 
         // Note: Initial Purchase expense is usually handled via Purchase Order / Finance separately
         // so we don't auto-create transaction here unless explicitly requested.
@@ -51,20 +47,16 @@ export class AssetService {
 
         // Log Activity
         if (userId) {
-            try {
-                await logger.logActivity({
-                    action: 'UPDATE',
-                    subject: 'Asset',
-                    userId: userId,
-                    details: {
-                        id: result.id,
-                        kodeAsset: result.kodeAsset,
-                        updates: data
-                    }
-                })
-            } catch (error) {
-                console.error('Failed to log asset update:', error)
-            }
+            logActivitySafe({
+                action: 'UPDATE',
+                subject: 'Asset',
+                userId: userId,
+                details: {
+                    id: result.id,
+                    kodeAsset: result.kodeAsset,
+                    updates: data
+                }
+            })
         }
 
         return result
@@ -158,21 +150,17 @@ export class AssetService {
         })
 
         // Log Activity
-        try {
-            await logger.logActivity({
-                action: 'DEPRECIATE',
-                subject: 'Asset',
-                userId: createdById,
-                details: {
-                    id: asset.id,
-                    kodeAsset: asset.kodeAsset,
-                    amount: actualAmount,
-                    period: customDate.toISOString()
-                }
-            })
-        } catch (error) {
-            console.error('Failed to log asset depreciation:', error)
-        }
+        logActivitySafe({
+            action: 'DEPRECIATE',
+            subject: 'Asset',
+            userId: createdById,
+            details: {
+                id: asset.id,
+                kodeAsset: asset.kodeAsset,
+                amount: actualAmount,
+                period: customDate.toISOString()
+            }
+        })
 
         return log
     }

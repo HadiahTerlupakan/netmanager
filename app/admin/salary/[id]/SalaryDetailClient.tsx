@@ -20,6 +20,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface SalaryRevision {
     field: string | null
@@ -661,12 +662,13 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                 </div>
             </div>
             {/* Manual Adjustment Modal */}
-            {showAdjustModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 space-y-4">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Tambah Komponen Manual</h3>
-
-                        <div className="space-y-3">
+            <Modal
+                isOpen={showAdjustModal}
+                onClose={() => setShowAdjustModal(false)}
+                title="Tambah Komponen Manual"
+                size="md"
+            >
+                <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipe</label>
                                 <div className="flex gap-2">
@@ -717,9 +719,15 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     onChange={e => setAdjustData({ ...adjustData, notes: e.target.value })}
                                 />
                             </div>
-                        </div>
+                </div>
 
-                        <div className="flex gap-3 pt-2">
+                <ModalFooter>
+                            <button
+                                onClick={() => setShowAdjustModal(false)}
+                                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                            >
+                                Batal
+                            </button>
                             <button
                                 onClick={handleAddAdjustment}
                                 disabled={loading || !adjustData.name || !adjustData.amount}
@@ -727,16 +735,8 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                             >
                                 Simpan
                             </button>
-                            <button
-                                onClick={() => setShowAdjustModal(false)}
-                                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                            >
-                                Batal
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

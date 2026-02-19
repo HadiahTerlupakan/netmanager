@@ -6,6 +6,7 @@ import { HiOutlineBanknotes, HiMagnifyingGlass } from 'react-icons/hi2'
 import clsx from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from 'react-hot-toast'
+import { formatCurrency } from '@/lib/utils'
 import type { Category, Account, PurchaseOrder } from '@/types'
 
 interface UnpaidBillsClientProps {
@@ -77,10 +78,6 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
     } finally {
       setLoading(false)
     }
-  }
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
   }
 
   // Filter Logic

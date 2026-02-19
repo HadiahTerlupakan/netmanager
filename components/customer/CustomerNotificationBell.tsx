@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { MdNotifications, MdChatBubble } from 'react-icons/md'
 import { HiMegaphone } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useCustomerNotifications } from '@/lib/websocket/hooks/useCustomerNotifications'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 interface Announcement {
     id: string;
@@ -30,15 +31,8 @@ export function CustomerNotificationBell() {
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    const closeDropdown = useCallback(() => setIsOpen(false), [])
+    useClickOutside(dropdownRef, closeDropdown)
 
     // Fetch announcements
     useEffect(() => {

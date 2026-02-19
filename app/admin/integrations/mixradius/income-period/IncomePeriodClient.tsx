@@ -26,6 +26,7 @@ import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import FeeConfigurationModal, { type FeeConfig } from './FeeConfigurationModal'
 import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from '@/modules/integrations/constants/DuitkuDefaults'
 import { NPLSummary } from "@/components/mixradius/NPLSummary"
+import { formatCurrency } from '@/lib/utils'
 
 interface IncomePeriodRecord {
   id: string
@@ -821,18 +822,6 @@ export default function IncomePeriodClient() {
   const neededTrxToBreakEven = (isDeficit && contributionMarginPerUser > 0)
       ? Math.ceil(shortfall / contributionMarginPerUser)
       : 0
-
-  const formatCurrency = (amount: string | number) => {
-    const num = parseNumber(amount)
-    if (isNaN(num)) return String(amount)
-
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(num)
-  }
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-'

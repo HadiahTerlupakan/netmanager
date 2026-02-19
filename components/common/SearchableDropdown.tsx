@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { HiChevronDown } from 'react-icons/hi2'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 interface SearchableDropdownProps {
     value: string
@@ -26,15 +27,8 @@ export default function SearchableDropdown({
         setSearchTerm(value)
     }, [value])
 
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    const closeDropdown = useCallback(() => setIsOpen(false), [])
+    useClickOutside(wrapperRef, closeDropdown)
 
     const filteredOptions = options.filter(option =>
         option.toLowerCase().includes(searchTerm.toLowerCase())

@@ -1,25 +1,11 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * GET /api/integrations/mixradius/sessions
- *
- * Mendapatkan daftar active PPP sessions dari MixRadius
- */
-export async function GET(req: NextRequest) {
-  try {
-    // Auth check
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized()
-    }
-
-    // Permission check
-    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
@@ -36,11 +22,6 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       count: activeSessions.size,
-      usernames: Array.from(activeSessions).slice(0, 50), // Return first 50 for debugging
+      usernames: Array.from(activeSessions).slice(0, 50),
     })
-  } catch (error: unknown) {
-    console.error('[API] Sessions error:', error)
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
-    return ApiErrors.internalError(message)
-  }
-}
+})

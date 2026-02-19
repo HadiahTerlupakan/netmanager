@@ -4,6 +4,7 @@ import type { ITransactionRepository } from '../repositories/ITransactionReposit
 import { TransactionCategoryRepository } from '../repositories/TransactionCategoryRepository'
 import type { ITransactionCategoryRepository } from '../repositories/ITransactionCategoryRepository'
 import { type Prisma, type PaymentStatus } from '@prisma/client'
+import { logActivitySafe } from '@/lib/logger'
 
 export class FinanceService {
   private transactionRepo: ITransactionRepository
@@ -71,23 +72,18 @@ export class FinanceService {
     })
 
     // Log Activity
-    try {
-        const { logger } = await import('@/lib/logger')
-        await logger.logActivity({
-            action: 'CREATE',
-            subject: 'Finance Transaction',
-            userId: data.createdById,
-            details: { 
-                id: result.id, 
-                type: result.type, 
-                amount: result.amount,
-                desc: result.description,
-                ref: result.referenceId
-            }
-        })
-    } catch (e) {
-        console.error('Logging failed', e)
-    }
+    logActivitySafe({
+        action: 'CREATE',
+        subject: 'Finance Transaction',
+        userId: data.createdById,
+        details: { 
+            id: result.id, 
+            type: result.type, 
+            amount: result.amount,
+            desc: result.description,
+            ref: result.referenceId
+        }
+    })
 
     return result
   }
@@ -185,23 +181,18 @@ export class FinanceService {
     })
 
     // Log Activity
-    try {
-        const { logger } = await import('@/lib/logger')
-        await logger.logActivity({
-            action: 'PAYMENT',
-            subject: 'Purchase Order',
-            userId: input.createdById,
-            details: { 
-                poId: po.id, 
-                poNumber: po.poNumber,
-                amount: input.amount,
-                status: result.newStatus,
-                transactionId: result.transaction.id
-            }
-        })
-    } catch (e) {
-        console.error('Logging failed', e)
-    }
+    logActivitySafe({
+        action: 'PAYMENT',
+        subject: 'Purchase Order',
+        userId: input.createdById,
+        details: { 
+            poId: po.id, 
+            poNumber: po.poNumber,
+            amount: input.amount,
+            status: result.newStatus,
+            transactionId: result.transaction.id
+        }
+    })
 
     return result.transaction
   }
@@ -300,21 +291,16 @@ export class FinanceService {
     })
 
     // Log Activity
-    try {
-        const { logger } = await import('@/lib/logger')
-        await logger.logActivity({
-            action: 'TRANSFER',
-            subject: 'Finance Funds',
-            userId: data.createdById,
-            details: { 
-                from: data.sourceAccountId, 
-                to: data.destinationAccountId, 
-                amount: data.amount 
-            }
-        })
-    } catch (e) {
-        console.error('Logging failed', e)
-    }
+    logActivitySafe({
+        action: 'TRANSFER',
+        subject: 'Finance Funds',
+        userId: data.createdById,
+        details: { 
+            from: data.sourceAccountId, 
+            to: data.destinationAccountId, 
+            amount: data.amount 
+        }
+    })
 
     return result
   }
@@ -347,21 +333,16 @@ export class FinanceService {
 
     // Log Activity
     if (userId) { // userId is optional because previous signature didn't have it, but we should supply it
-        try {
-            const { logger } = await import('@/lib/logger')
-            await logger.logActivity({
-                action: 'DELETE',
-                subject: 'Finance Transaction',
-                userId: userId,
-                details: { 
-                    id: result.id, 
-                    amount: result.amount, 
-                    desc: result.description 
-                }
-            })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+        logActivitySafe({
+            action: 'DELETE',
+            subject: 'Finance Transaction',
+            userId: userId,
+            details: { 
+                id: result.id, 
+                amount: result.amount, 
+                desc: result.description 
+            }
+        })
     }
 
     return result

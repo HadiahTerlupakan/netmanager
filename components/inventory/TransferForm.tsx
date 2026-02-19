@@ -10,6 +10,7 @@ import {
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef, UploadedPhoto } from './PhotoUpload'
 import { getWithAuth, postWithAuth } from '@/lib/api-client'
+import { getStockStatusColor, getKondisiColor } from '@/lib/utils/inventory-helpers'
 
 interface Barang {
   id: string
@@ -250,21 +251,6 @@ export function TransferForm({ initialData: _initialData, onClose, onSuccess }: 
   const selectedBarang = barangs.find(b => b.id === formData.barangId)
   const selectedGudangSumber = gudangs.find(g => g.id === formData.dariGudangId)
   const selectedGudangTujuan = gudangs.find(g => g.id === formData.keGudangId)
-
-  const getStockStatusColor = (stock: number) => {
-    if (stock === 0) return 'text-red-600 font-bold'
-    if (stock < 5) return 'text-yellow-600 font-semibold'
-    return 'text-green-600'
-  }
-
-  const getKondisiColor = (kondisi: string) => {
-    switch (kondisi) {
-      case 'BARU': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-      case 'BEKAS': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-      case 'RUSAK': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-    }
-  }
 
   // Filter gudang tujuan to exclude gudang sumber
   const availableGudangTujuan = gudangs.filter(g => g.id !== formData.dariGudangId)

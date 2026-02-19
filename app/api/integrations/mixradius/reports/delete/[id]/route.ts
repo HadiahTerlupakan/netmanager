@@ -1,26 +1,17 @@
-import { NextRequest } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized()
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
+    const { id } = ctx.params
 
-    const { id } = await params
-
-    // Permission check - require mixradius:delete permission
-    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-      const permissions = await getUserPermissions(session.id)
+      const permissions = await getUserPermissions(user.id)
       const hasAccess = permissions.includes('mixradius:delete') || permissions.includes('*')
       if (!hasAccess) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus data MixRadius')
@@ -35,8 +26,4 @@ export async function POST(
     } else {
       return ApiErrors.internalError('Gagal menghapus data di server MixRadius')
     }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
-    return ApiErrors.internalError(message)
-  }
-}
+})

@@ -1,165 +1,172 @@
-import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
-import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logger } from '@/lib/logger';
+import crypto from 'crypto';
 
 // GET /api/admin/workorders/[id]/tasks - Get tasks
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return ApiErrors.unauthorized('Session tidak valid');
-        }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user;
+    const { id } = ctx.params;
 
-        if (!await hasPermission('list:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tasks');
-        }
-
-        const { id } = await params;
-        const workOrderService = getWorkOrderService();
-        const result = await workOrderService.getWorkOrderById(id, user as unknown as UserContext);
-
-        if (!result.success) {
-            return ApiErrors.notFound('Work Order');
-        }
-
-        return apiSuccess(result.data?.tasks || []);
-    } catch (error) {
-        console.error('Error fetching tasks:', error);
-        return ApiErrors.internalError('Gagal mengambil tasks');
+    if (!await hasPermission('list:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat tasks');
     }
-}
+
+    // Fetch user details for context
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { siteId: true, departmentId: true, role: true }
+    });
+    if (!dbUser) return ApiErrors.unauthorized();
+
+    const userContext: UserContext = {
+        id: user.id,
+        role: user.role,
+        permissions: ctx.permissions,
+        siteId: dbUser.siteId || undefined,
+        departmentId: dbUser.departmentId || undefined,
+    }
+
+    const workOrderService = getWorkOrderService();
+    const result = await workOrderService.getWorkOrderById(id, userContext);
+
+    if (!result.success) {
+        return ApiErrors.notFound('Work Order');
+    }
+
+    return apiSuccess(result.data?.tasks || []);
+})
 
 // POST /api/admin/workorders/[id]/tasks - Add task
-export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return ApiErrors.unauthorized('Session tidak valid');
-        }
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user;
+    const { id } = ctx.params;
 
-        if (!await hasPermission('list:update')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah task');
-        }
+    if (!await hasPermission('list:update')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah task');
+    }
 
-        const { id } = await params;
-        const body = await request.json();
+    const body = await req.json();
 
-        if (!body.title) {
-            return apiError('Judul task wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-        }
+    if (!body.title) {
+        return apiError('Judul task wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
+    }
 
-        const workOrderService = getWorkOrderService();
-        const result = await workOrderService.addTask(id, {
-            title: body.title,
-            description: body.description,
-            order: body.order,
-        }, user as unknown as UserContext);
+    // Fetch user details for context
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { siteId: true, departmentId: true, role: true }
+    });
+    if (!dbUser) return ApiErrors.unauthorized();
 
-        if (!result.success) {
-            return apiError(result.error || 'Gagal menambah task', ErrorCodes.INTERNAL_ERROR, { status: 500 });
-        }
+    const userContext: UserContext = {
+        id: user.id,
+        role: user.role,
+        permissions: ctx.permissions,
+        siteId: dbUser.siteId || undefined,
+        departmentId: dbUser.departmentId || undefined,
+    }
 
-        const task = result.data as { id: string; title: string; order: number };
+    const workOrderService = getWorkOrderService();
+    const result = await workOrderService.addTask(id, {
+        title: body.title,
+        description: body.description,
+        order: body.order,
+    }, userContext);
 
-        // Log activity
-        await logger.logActivity({
-            action: 'CREATE',
-            subject: 'Work Order Task',
-            details: {
-                workOrderId: id,
-                taskId: task.id,
-                taskTitle: task.title,
-                order: task.order
-            },
-            userId: user.id
-        });
+    if (!result.success) {
+        return apiError(result.error || 'Gagal menambah task', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+    }
 
-        // Real-time update
-        const { socketEmitter } = await import('@/lib/websocket/emitter');
-        const woResult = await workOrderService.getWorkOrderById(id, user as unknown as UserContext);
-        if (woResult.success && woResult.data) {
-            socketEmitter.updateWorkOrder(woResult.data as unknown as Parameters<typeof socketEmitter.updateWorkOrder>[0]);
+    const task = result.data as { id: string; title: string; order: number };
 
-            // Send Push Notification
-            const woForNotify = await prisma.workOrders.findUnique({
-                where: { id },
-                select: {
-                    workOrderNumber: true,
-                    assignedTo: {
-                        select: { id: true, pushToken: true, isActive: true }
-                    }
-                }
-            });
+    // Log activity
+    await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Work Order Task',
+        details: {
+            workOrderId: id,
+            taskId: task.id,
+            taskTitle: task.title,
+            order: task.order
+        },
+        userId: user.id
+    });
 
-            if (woForNotify?.assignedTo?.pushToken && woForNotify.assignedTo.isActive) {
-                try {
-                    // Check if user is on leave
-                    const now = new Date();
-                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    const isOnLeave = await prisma.leaveRequest.findFirst({
-                        where: {
-                            userId: woForNotify.assignedTo.id,
-                            status: 'APPROVED',
-                            startDate: { lte: now },
-                            endDate: { gte: startOfToday }
-                        }
-                    });
+    // Real-time update
+    const { socketEmitter } = await import('@/lib/websocket/emitter');
+    const woResult = await workOrderService.getWorkOrderById(id, userContext);
+    if (woResult.success && woResult.data) {
+        socketEmitter.updateWorkOrder(woResult.data as unknown as Parameters<typeof socketEmitter.updateWorkOrder>[0]);
 
-                    if (!isOnLeave) {
-                        const { sendExpoPushNotifications } = await import('@/lib/expo');
-                        const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
-                        const message = `Admin menambahkan tugas: "${body.title}"`;
-
-                        await sendExpoPushNotifications(
-                            [woForNotify.assignedTo.pushToken],
-                            title,
-                            message,
-                            {
-                                type: 'WORK_ORDER',
-                                workOrderId: id,
-                                url: `/(app)/work-order-detail/${id}`
-                            }
-                        );
-                    } else {
-                         console.log(`Skipping notification for user ${woForNotify.assignedTo.id} (On Leave)`);
-                    }
-
-                    // Always create notification history
-                    const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
-                    const message = `Admin menambahkan tugas: "${body.title}"`;
-                    await prisma.notifications.create({
-                        data: {
-                            id: crypto.randomUUID(),
-                            type: 'WORK_ORDER',
-                            title: title,
-                            message: message,
-                            userId: woForNotify.assignedTo.id,
-                            sourceType: 'WORK_ORDER',
-                            sourceId: id,
-                            isRead: false,
-                            priority: 'NORMAL',
-                            createdAt: new Date(),
-                        }
-                    });
-                } catch (notifyError) {
-                    console.error('Failed to send task notification:', notifyError);
+        // Send Push Notification
+        const woForNotify = await prisma.workOrders.findUnique({
+            where: { id },
+            select: {
+                workOrderNumber: true,
+                assignedTo: {
+                    select: { id: true, pushToken: true, isActive: true }
                 }
             }
-        }
+        });
 
-        return apiSuccess(task, { status: 201, message: 'Task berhasil ditambahkan' });
-    } catch (error) {
-        console.error('Error adding task:', error);
-        return ApiErrors.internalError('Gagal menambah task');
+        if (woForNotify?.assignedTo?.pushToken && woForNotify.assignedTo.isActive) {
+            try {
+                // Check if user is on leave
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const isOnLeave = await prisma.leaveRequest.findFirst({
+                    where: {
+                        userId: woForNotify.assignedTo.id,
+                        status: 'APPROVED',
+                        startDate: { lte: now },
+                        endDate: { gte: startOfToday }
+                    }
+                });
+
+                if (!isOnLeave) {
+                    const { sendExpoPushNotifications } = await import('@/lib/expo');
+                    const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
+                    const message = `Admin menambahkan tugas: "${body.title}"`;
+
+                    await sendExpoPushNotifications(
+                        [woForNotify.assignedTo.pushToken],
+                        title,
+                        message,
+                        {
+                            type: 'WORK_ORDER',
+                            workOrderId: id,
+                            url: `/(app)/work-order-detail/${id}`
+                        }
+                    );
+                } else {
+                        console.log(`Skipping notification for user ${woForNotify.assignedTo.id} (On Leave)`);
+                }
+
+                // Always create notification history
+                const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
+                const message = `Admin menambahkan tugas: "${body.title}"`;
+                await prisma.notifications.create({
+                    data: {
+                        id: crypto.randomUUID(),
+                        type: 'WORK_ORDER',
+                        title: title,
+                        message: message,
+                        userId: woForNotify.assignedTo.id,
+                        sourceType: 'WORK_ORDER',
+                        sourceId: id,
+                        isRead: false,
+                        priority: 'NORMAL',
+                        createdAt: new Date(),
+                    }
+                });
+            } catch (notifyError) {
+                console.error('Failed to send task notification:', notifyError);
+            }
+        }
     }
-}
+
+    return apiSuccess(task, { status: 201, message: 'Task berhasil ditambahkan' });
+})

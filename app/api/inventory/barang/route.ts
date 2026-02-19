@@ -1,9 +1,8 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**
  * @swagger
@@ -142,137 +141,146 @@ import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
  *         $ref: '#/components/responses/Unauthorized'
  *       500:
  *         $ref: '#/components/responses/Error'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now()
+  const user = ctx.session!.user
+
+  if (!(await hasPermission("barang:read"))) {
+    return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat barang')
+  }
+
+  const searchParams = req.nextUrl.searchParams
+  const gudangId = searchParams.get('gudangId')
+  const search = searchParams.get('search')
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '10')
+  const offset = (page - 1) * limit
+
   try {
-    // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized('Session tidak valid')
+    const dbStart = Date.now()
+    const inventoryRepository = getInventoryRepository()
+
+    // Enforce Site Restriction
+    const permissions = await getUserPermissions(user.id);
+    const isSuper = isSuperAdmin(user)
+
+    // Check restriction: barang:site_only (specific) OR k_barang:site_only (mobile) OR gudang:site_only (inherited)
+    const hasRestriction = permissions.includes('barang:site_only') ||
+                           permissions.includes('k_barang:site_only') ||
+                           permissions.includes('gudang:site_only')
+
+    // ctx.session.user structure in createHandler might not have siteId directly mapped if it's strict
+    // We should fetch user or use what's available. `isSuperAdmin` helper usually takes a user object with role.
+    // If we need siteId, let's fetch it or trust it's in user object if createHandler passes it through (it does strictly type it though).
+    // In previous Finance migration, I fetched it from DB to be safe.
+    // However, here `isSuperAdmin` expects { role?: string, isSuperAdmin?: boolean }.
+    // Let's assume user has id. We can fetch siteId if needed.
+    // Wait, previous code used `session.siteId`. `session` was `Session` from next-auth.
+    // `createHandler` defines `session.user` as `{ id, email, name?, role? }`. It does NOT include siteId.
+    // So I MUST fetch siteId if restriction applies.
+    
+    let siteId: string | undefined = undefined;
+    if (!isSuper && hasRestriction) {
+        const { prisma } = await import('@/lib/prisma');
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+        siteId = dbUser?.siteId || undefined;
     }
 
-    if (!(await hasPermission("barang:read"))) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat barang')
+    const findAllParams: Parameters<typeof inventoryRepository.findAllBarang>[0] = {
+      skip: offset,
+      take: limit,
     }
 
-    const searchParams = req.nextUrl.searchParams
-    const gudangId = searchParams.get('gudangId')
-    const search = searchParams.get('search')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const offset = (page - 1) * limit
+    if (search) findAllParams.search = search
+    if (gudangId) findAllParams.gudangId = gudangId
+    if (siteId) findAllParams.siteId = siteId
 
-    try {
-      const dbStart = Date.now()
-      const inventoryRepository = getInventoryRepository()
+    const { items: barangs, total } = await inventoryRepository.findAllBarang(findAllParams)
 
-      // Enforce Site Restriction
-      const permissions = await getUserPermissions(session.id);
-      const isSuper = isSuperAdmin(session)
+    // Calculate total stock per item and filter by gudang if needed
+    const barangsWithStock = barangs.map(barang => {
+      let totalStock = 0
+      let stockPerGudang: {
+        gudangId: string;
+        gudangKode: string;
+        gudangNama: string;
+        stok: number;
+        stokBaru: number;
+        stokBekas: number;
+        stokRusak: number;
+      }[] = []
 
-      // Check restriction: barang:site_only (specific) OR k_barang:site_only (mobile) OR gudang:site_only (inherited)
-      const hasRestriction = permissions.includes('barang:site_only') ||
-                             permissions.includes('k_barang:site_only') ||
-                             permissions.includes('gudang:site_only')
+      if (barang.barangGudang) {
+        // Filter stocks by gudangId if specified, otherwise show all
+        const filteredStocks = gudangId
+          ? barang.barangGudang.filter(stock => stock.gudangId === gudangId)
+          : barang.barangGudang
 
-      const siteId = (!isSuper && hasRestriction) ? session.siteId : undefined
+        if (filteredStocks.length > 0) {
+          console.log('DEBUG STOCK ITEM [0]:', JSON.stringify(filteredStocks[0], null, 2))
+        }
 
-      const findAllParams: Parameters<typeof inventoryRepository.findAllBarang>[0] = {
-        skip: offset,
-        take: limit,
+        totalStock = filteredStocks.reduce((sum, stock) => sum + stock.stok, 0)
+
+        stockPerGudang = filteredStocks.map(stock => ({
+          gudangId: stock.gudangId,
+          gudangKode: stock.gudang.kode,
+          gudangNama: stock.gudang.nama,
+          stok: stock.stok,
+          stokBaru: (stock as unknown as Record<string, number>).stokBaru || 0,
+          stokBekas: (stock as unknown as Record<string, number>).stokBekas || 0,
+          stokRusak: (stock as unknown as Record<string, number>).stokRusak || 0
+        }))
       }
 
-      if (search) findAllParams.search = search
-      if (gudangId) findAllParams.gudangId = gudangId
-      if (siteId) findAllParams.siteId = siteId
+      return {
+        id: barang.id,
+        kode: barang.kode,
+        nama: barang.nama,
+        satuan: barang.satuan,
+        isWorkOrderMaterial: barang.isWorkOrderMaterial,
+        jenis: barang.jenis,
+        kategoriAset: barang.kategoriAset,
+        createdAt: barang.createdAt,
+        updatedAt: barang.updatedAt,
+        totalStock,
+        stockPerGudang
+      }
+    })
 
-      const { items: barangs, total } = await inventoryRepository.findAllBarang(findAllParams)
+    logger.dbOperation('findMany', 'Barang+BarangGudang', Date.now() - dbStart)
 
-      // Calculate total stock per item and filter by gudang if needed
-      const barangsWithStock = barangs.map(barang => {
-        let totalStock = 0
-        let stockPerGudang: {
-          gudangId: string;
-          gudangKode: string;
-          gudangNama: string;
-          stok: number;
-          stokBaru: number;
-          stokBekas: number;
-          stokRusak: number;
-        }[] = []
+    logger.apiRequest('GET', '/api/inventory/barang', 200, Date.now() - startTime, {
+      userId: user.id,
+      barangCount: barangsWithStock.length,
+      page,
+      limit,
+      total,
+      gudangId,
+      search,
+    })
 
-        if (barang.barangGudang) {
-          // Filter stocks by gudangId if specified, otherwise show all
-          const filteredStocks = gudangId
-            ? barang.barangGudang.filter(stock => stock.gudangId === gudangId)
-            : barang.barangGudang
-
-          if (filteredStocks.length > 0) {
-            console.log('DEBUG STOCK ITEM [0]:', JSON.stringify(filteredStocks[0], null, 2))
-          }
-
-          totalStock = filteredStocks.reduce((sum, stock) => sum + stock.stok, 0)
-
-          stockPerGudang = filteredStocks.map(stock => ({
-            gudangId: stock.gudangId,
-            gudangKode: stock.gudang.kode,
-            gudangNama: stock.gudang.nama,
-            stok: stock.stok,
-            stokBaru: (stock as unknown as Record<string, number>).stokBaru || 0,
-            stokBekas: (stock as unknown as Record<string, number>).stokBekas || 0,
-            stokRusak: (stock as unknown as Record<string, number>).stokRusak || 0
-          }))
-        }
-
-        return {
-          id: barang.id,
-          kode: barang.kode,
-          nama: barang.nama,
-          satuan: barang.satuan,
-          isWorkOrderMaterial: barang.isWorkOrderMaterial,
-          jenis: barang.jenis,
-          kategoriAset: barang.kategoriAset,
-          createdAt: barang.createdAt,
-          updatedAt: barang.updatedAt,
-          totalStock,
-          stockPerGudang
-        }
-      })
-
-      logger.dbOperation('findMany', 'Barang+BarangGudang', Date.now() - dbStart)
-
-      logger.apiRequest('GET', '/api/inventory/barang', 200, Date.now() - startTime, {
-        userId: session.id,
-        barangCount: barangsWithStock.length,
+    return apiSuccess({
+      barangs: barangsWithStock,
+      pagination: {
         page,
         limit,
         total,
-        gudangId,
-        search,
-      })
-
-      return apiSuccess({
-        barangs: barangsWithStock,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      })
-    } finally {
-      // do not disconnect shared prisma client
-    }
+        totalPages: Math.ceil(total / limit)
+      }
+    })
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error fetching barangs', err, {
       path: '/api/inventory/barang',
       method: 'GET',
     })
-    return ApiErrors.internalError('Gagal memuat data barang')
+    throw error // Let createHandler handle it
   }
-}
+})
 
 /**
  * Generate automatic barang code
@@ -287,78 +295,69 @@ async function generateBarangCode(): Promise<string> {
  * POST /api/inventory/barang
  * Create new item
  */
-export async function POST(req: NextRequest) {
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now()
+  const user = ctx.session!.user
+
+  if (!(await hasPermission("barang:create"))) {
+    return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat barang')
+  }
+
+  const body = await req.json()
+  const { nama, satuan, isWorkOrderMaterial } = body
+
+  // Validation
+  if (!nama || !satuan) {
+    return ApiErrors.badRequest('Nama dan satuan barang harus diisi')
+  }
+
   try {
-    // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized('Session tidak valid')
+    const dbStart = Date.now()
+    const inventoryRepository = getInventoryRepository()
+
+    // Generate unique kode
+    let kode: string
+    let attempts = 0
+    const maxAttempts = 10
+
+    do {
+      kode = await generateBarangCode()
+      const isExists = await inventoryRepository.existsBarangByKode(kode)
+
+      if (!isExists) break
+      attempts++
+    } while (attempts < maxAttempts)
+
+    if (attempts >= maxAttempts) {
+      throw new Error('Gagal generate kode unik')
     }
 
-    if (!(await hasPermission("barang:create"))) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat barang')
-    }
+    const barang = await inventoryRepository.createBarang({
+      kode,
+      nama,
+      satuan,
+      isWorkOrderMaterial,
+      jenis: body.jenis,
+      kategoriAset: body.kategoriAset
+    })
 
-    const body = await req.json()
-    const { nama, satuan, isWorkOrderMaterial } = body
+    logger.dbOperation('create', 'Barang', Date.now() - dbStart)
 
-    // Validation
-    if (!nama || !satuan) {
-      return apiError('Nama dan satuan barang harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    }
+    logger.apiRequest('POST', '/api/inventory/barang', 201, Date.now() - startTime, {
+      userId: user.id,
+      barangId: barang.id,
+      kode: barang.kode,
+    })
 
-    try {
-      const dbStart = Date.now()
-      const inventoryRepository = getInventoryRepository()
+    // System Log (Persistent)
+    await logger.logActivity({
+      action: 'CREATE',
+      subject: 'Barang',
+      userId: user.id,
+      details: { id: barang.id, nama: barang.nama, kode: barang.kode }
+    })
 
-      // Generate unique kode
-      let kode: string
-      let attempts = 0
-      const maxAttempts = 10
-
-      do {
-        kode = await generateBarangCode()
-        const isExists = await inventoryRepository.existsBarangByKode(kode)
-
-        if (!isExists) break
-        attempts++
-      } while (attempts < maxAttempts)
-
-      if (attempts >= maxAttempts) {
-        throw new Error('Gagal generate kode unik')
-      }
-
-      const barang = await inventoryRepository.createBarang({
-        kode,
-        nama,
-        satuan,
-        isWorkOrderMaterial,
-        jenis: body.jenis,
-        kategoriAset: body.kategoriAset
-      })
-
-      logger.dbOperation('create', 'Barang', Date.now() - dbStart)
-
-      logger.apiRequest('POST', '/api/inventory/barang', 201, Date.now() - startTime, {
-        userId: session.id,
-        barangId: barang.id,
-        kode: barang.kode,
-      })
-
-      // System Log (Persistent)
-      await logger.logActivity({
-        action: 'CREATE',
-        subject: 'Barang',
-        userId: session.id,
-        details: { id: barang.id, nama: barang.nama, kode: barang.kode }
-      })
-
-
-      return apiSuccess({ barang }, { status: 201, message: 'Barang berhasil dibuat' })
-    } finally {
-      // do not disconnect shared prisma client
-    }
+    return apiSuccess({ barang }, { status: 201, message: 'Barang berhasil dibuat' })
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error creating barang', err, {
@@ -368,4 +367,4 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : 'Gagal membuat barang'
     return ApiErrors.internalError(message)
   }
-}
+})

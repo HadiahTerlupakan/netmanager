@@ -1,15 +1,5 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig)
-  if (!session) {
-    return null
-  }
-  return session
-}
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**
  * @swagger
@@ -42,15 +32,8 @@ async function requireAdmin() {
  *       500:
  *         description: Server error
  */
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { id } = await params
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
 
     try {
       const performanceData = await prisma.networkPerformance.findUnique({
@@ -58,25 +41,15 @@ export async function GET(
       })
 
       if (!performanceData) {
-        return NextResponse.json({ error: 'Data performa tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Data performa')
       }
 
-      return NextResponse.json({ data: performanceData })
+      return apiSuccess({ data: performanceData })
     } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
       if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return NextResponse.json(
-          { error: 'Network performance monitoring will be available after database migration' },
-          { status: 503 }
-        )
+        return ApiErrors.internalError('Network performance monitoring will be available after database migration')
       }
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error fetching network performance data:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal memuat data performa jaringan' },
-      { status: 500 }
-    )
-  }
-}
+})

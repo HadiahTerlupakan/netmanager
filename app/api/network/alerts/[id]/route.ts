@@ -1,16 +1,7 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { networkAlertUpdateSchema } from '@/lib/validations/network-performance'
 import { prisma } from '@/lib/prisma'
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig as unknown as Record<string, unknown>)
-  if (!session) {
-    return null
-  }
-  return session
-}
+import { logActivitySafe } from '@/lib/logger'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**
  * @swagger
@@ -43,15 +34,8 @@ async function requireAdmin() {
  *       500:
  *         description: Server error
  */
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { id } = await params
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
 
     try {
       const alert = await prisma.networkAlerts.findUnique({
@@ -59,21 +43,14 @@ export async function GET(
       })
 
       if (!alert) {
-        return NextResponse.json({ error: 'Alert tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Alert')
       }
 
-      return NextResponse.json({ data: alert })
+      return apiSuccess({ data: alert })
     } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error fetching network alert:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal memuat data alert jaringan' },
-      { status: 500 }
-    )
-  }
-}
+})
 
 /**
  * @swagger
@@ -138,34 +115,23 @@ export async function GET(
  *       500:
  *         description: Server error
  */
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { id } = await params
-    const json = await req.json()
-    const parsed = networkAlertUpdateSchema.safeParse(json)
-
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-    }
-
-    const data = parsed.data
+export const PUT = createHandler({ 
+    auth: true,
+    schema: networkAlertUpdateSchema
+}, async (req, ctx) => {
+    const { id } = ctx.params
+    const data = ctx.validated
 
     try {
       const updateData: Record<string, unknown> = { ...data }
 
       if (data.acknowledged) {
-        updateData.acknowledgedBy = (session as { user: { id: string } }).user?.id
+        updateData.acknowledgedBy = ctx.session!.user.id
         updateData.acknowledgedAt = new Date()
       }
 
       if (data.resolved) {
-        updateData.resolvedBy = (session as { user: { id: string } }).user?.id
+        updateData.resolvedBy = ctx.session!.user.id
         updateData.resolvedAt = new Date()
       }
 
@@ -181,30 +147,18 @@ export async function PUT(
       })
 
       // System Log
-      try {
-        const { logger } = await import('@/lib/logger')
-        await logger.logActivity({
-          action: 'UPDATE',
-          subject: 'Network Alert',
-          userId: (session as { user: { id: string } }).user.id,
-          details: { id, updates: updateData }
-        })
-      } catch (e) {
-        console.error('Logging failed', e)
-      }
+      logActivitySafe({
+        action: 'UPDATE',
+        subject: 'Network Alert',
+        userId: ctx.session!.user.id,
+        details: { id, updates: updateData }
+      })
 
-      return NextResponse.json({ message: 'Alert berhasil diperbarui' })
+      return apiSuccess({ message: 'Alert berhasil diperbarui' })
     } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error updating network alert:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal memperbarui alert jaringan' },
-      { status: 500 }
-    )
-  }
-}
+})
 
 /**
  * @swagger
@@ -233,15 +187,8 @@ export async function PUT(
  *       500:
  *         description: Server error
  */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { id } = await params
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
 
     try {
       const alert = await prisma.networkAlerts.findUnique({
@@ -249,7 +196,7 @@ export async function DELETE(
       })
 
       if (!alert) {
-        return NextResponse.json({ error: 'Alert tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Alert')
       }
 
       await prisma.networkAlerts.delete({
@@ -257,27 +204,15 @@ export async function DELETE(
       })
 
       // System Log
-      try {
-        const { logger } = await import('@/lib/logger')
-        await logger.logActivity({
-          action: 'DELETE',
-          subject: 'Network Alert',
-          userId: (session as { user: { id: string } }).user.id,
-          details: { id, title: alert.title }
-        })
-      } catch (e) {
-        console.error('Logging failed', e)
-      }
+      logActivitySafe({
+        action: 'DELETE',
+        subject: 'Network Alert',
+        userId: ctx.session!.user.id,
+        details: { id, title: alert.title }
+      })
 
-      return NextResponse.json({ message: 'Alert berhasil dihapus' })
+      return apiSuccess({ message: 'Alert berhasil dihapus' })
     } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error deleting network alert:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal menghapus alert jaringan' },
-      { status: 500 }
-    )
-  }
-}
+})

@@ -1,23 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth-helpers'
+import { NextResponse } from 'next/server'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { hasPermission } from '@/lib/rbac'
 
-/**
- * POST /api/mikrotik-routers/[id]/generate-api-user
- * Generate API user untuk router yang sudah ada (tidak punya apiUsernameGenerated)
- */
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await requireAdmin(req)
-    if (session instanceof NextResponse) return session
-    
-    const { id } = await params
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    if (!await hasPermission("mikrotik:update")) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
+
+    const { id } = ctx.params
     const routerRepository = getMikroTikRouterRepository()
     const router = await routerRepository.findById(id)
     
     if (!router) {
-      return NextResponse.json({ error: 'Router tidak ditemukan' }, { status: 404 })
+      return ApiErrors.notFound('Router tidak ditemukan')
+    }
+
+    // Check site restriction
+    const user = ctx.session!.user
+    if ((await hasPermission("mikrotik:site_only")) && user.role !== 'SUPER_ADMIN') {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+        const userSiteId = dbUser?.siteId
+        if (!userSiteId || router.siteId !== userSiteId) {
+            return ApiErrors.forbidden('Akses ditolak')
+        }
     }
 
     // Import the provisioning service
@@ -59,21 +67,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await logger.logActivity({
         action: 'CREATE',
         subject: 'MikroTik API User',
-        userId: session.user.id!,
+        userId: user.id,
         details: { routerId: id, username: result.username }
       })
     } catch (e) {
       console.error('Logging failed', e)
     }
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       success: true, 
       username: result.username,
       logs: result.logs
     })
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Gagal membuat API user'
-    console.error('Error generating API user:', error)
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
-  }
-}
+})

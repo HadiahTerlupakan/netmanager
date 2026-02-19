@@ -24,6 +24,7 @@ import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { Combobox } from "@/components/ui/Combobox";
 import { formatCurrency } from "@/lib/utils";
+import { Modal, ModalBody } from "@/components/ui/Modal";
 
 type Expense = {
     id: string;
@@ -337,9 +338,13 @@ export function ClientComponent() {
             </div>
 
             {/* Wizard Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-[#1e293b] rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800">
+            <Modal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                padding={false}
+                size="xl"
+                showCloseButton={false}
+            >
                         {/* Stepper Indicator */}
                         <div className="bg-gray-50 dark:bg-[#161e2e] p-8 pb-4">
                             <div className="flex items-center justify-between max-w-xs mx-auto relative">
@@ -364,7 +369,7 @@ export function ClientComponent() {
                             </div>
                         </div>
 
-                        <div className="p-8">
+                        <ModalBody className="p-8">
                             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                                 {/* Step 1: Detail Pengeluaran */}
                                 {step === 1 && (
@@ -568,10 +573,8 @@ export function ClientComponent() {
                                     )}
                                 </div>
                             </form>
-                        </div>
-                    </div>
-                </div>
-            )}
+                        </ModalBody>
+            </Modal>
         </div>
     );
 }

@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { logActivitySafe } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   try {
@@ -125,17 +126,12 @@ export async function POST(req: NextRequest) {
       } as Prisma.BandwidthCreateInput,
     })
 
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'CREATE',
-        subject: 'Bandwidth',
-        ...(session.user.id ? { userId: session.user.id } : {}),
-        details: { id: bandwidth.id, name: bandwidth.name, siteId: siteIdToSave }
-      })
-    } catch (e) {
-      console.error('Logging failed', e)
-    }
+    logActivitySafe({
+      action: 'CREATE',
+      subject: 'Bandwidth',
+      ...(session.user.id ? { userId: session.user.id } : {}),
+      details: { id: bandwidth.id, name: bandwidth.name, siteId: siteIdToSave }
+    })
 
     return apiSuccess(bandwidth, { status: 201, message: 'Bandwidth berhasil dibuat' })
   } catch (error: unknown) {

@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { logger } from '@/lib/logger'
-import { ApiErrors } from '@/lib/api-response'
+import { createHandler, apiSuccess } from '@/lib/api'
 
 const financeService = new FinanceService()
 
@@ -13,49 +11,30 @@ const categorySchema = z.object({
   description: z.string().optional(),
 })
 
-export async function GET(req: NextRequest) {
-  const session = await verifyAuth(req)
-  if (!session) return ApiErrors.unauthorized()
-
-  try {
+export const GET = createHandler({ auth: true }, async () => {
     const categories = await financeService.getAllCategories()
-    return NextResponse.json(categories)
-  } catch (error) {
-    console.error('Error fetching categories:', error)
-    const message = error instanceof Error ? error.message : 'Gagal mengambil data kategori'
-    return ApiErrors.internalError(message)
-  }
-}
+    return apiSuccess(categories)
+})
 
-export async function POST(req: NextRequest) {
-  const session = await verifyAuth(req)
-  if (!session) return ApiErrors.unauthorized()
-
-  try {
-    const json = await req.json()
-    const result = categorySchema.safeParse(json)
-
-    if (!result.success) {
-      return ApiErrors.badRequest(result.error.issues[0]?.message || 'Validasi gagal')
-    }
-
-    const { description, ...rest } = result.data
+export const POST = createHandler({
+    auth: true,
+    schema: categorySchema
+}, async (req, ctx) => {
+    const { description, ...rest } = ctx.validated
+    
     const category = await financeService.createCategory({
         ...rest,
         ...(description ? { description } : {})
     })
 
-    await logger.logActivity({
-        action: 'CREATE',
-        subject: 'FinanceCategory',
-        details: { id: category.id, name: category.name, type: category.type },
-        userId: session.id
-    })
+    if (ctx.session?.user?.id) {
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'FinanceCategory',
+            details: { id: category.id, name: category.name, type: category.type },
+            userId: ctx.session.user.id
+        })
+    }
 
-    return NextResponse.json(category, { status: 201 })
-  } catch (error) {
-    console.error('Error creating category:', error)
-    const message = error instanceof Error ? error.message : 'Gagal membuat kategori'
-    return ApiErrors.internalError(message)
-  }
-}
+    return apiSuccess(category, { status: 201 })
+})

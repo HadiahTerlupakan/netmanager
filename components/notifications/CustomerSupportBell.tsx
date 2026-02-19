@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { HiOutlineChatBubbleOvalLeft } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeSupportTickets, type TicketPreview } from '@/lib/websocket/hooks/useRealtimeSupportTickets'
 import { usePermission } from '@/hooks/use-permission'
+import { getPriorityColor } from '@/lib/utils/priority-helpers'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 export function CustomerSupportBell() {
     const { hasPermission } = usePermission()
@@ -25,15 +27,8 @@ export function CustomerSupportBell() {
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    const closeDropdown = useCallback(() => setIsOpen(false), [])
+    useClickOutside(dropdownRef, closeDropdown)
 
     // Refresh when dropdown is opened
     useEffect(() => {
@@ -83,19 +78,6 @@ export function CustomerSupportBell() {
                 return 'Ditutup'
             default:
                 return status
-        }
-    }
-
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case 'URGENT':
-                return 'border-l-red-500'
-            case 'HIGH':
-                return 'border-l-orange-500'
-            case 'MEDIUM':
-                return 'border-l-yellow-500'
-            default:
-                return 'border-l-gray-300'
         }
     }
 
@@ -179,7 +161,7 @@ export function CustomerSupportBell() {
                                         key={ticket.id}
                                         href={`/admin/support/${ticket.id}`}
                                         onClick={() => setIsOpen(false)}
-                                        className={`block p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${getPriorityColor(ticket.priority)} ${needsAttention(ticket) ? 'bg-red-50/30 dark:bg-red-900/5' : ''
+                                        className={`block p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${getPriorityColor(ticket.priority, 'border-l-gray-300')} ${needsAttention(ticket) ? 'bg-red-50/30 dark:bg-red-900/5' : ''
                                             }`}
                                     >
                                         <div className="flex items-start justify-between gap-2">

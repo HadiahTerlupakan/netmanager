@@ -1,62 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { updateInvoiceSchema } from '@/lib/validations/invoice'
 import { hasPermission } from '@/lib/rbac'
 import { Prisma } from '@prisma/client'
+import { logActivitySafe } from '@/lib/logger'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { randomUUID } from 'crypto'
 
 /**
- * @swagger
- * /api/invoices/{id}:
- *   get:
- *     summary: Get invoice by ID
- *     description: Mengambil invoice berdasarkan ID
- *     tags: [Billing]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Invoice ID
- *     responses:
- *       200:
- *         description: Invoice berhasil diambil
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Invoice'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Invoice tidak ditemukan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ * GET /api/invoices/{id}
+ * Get invoice by ID
  */
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await getServerSession(authConfig)
-    if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
+    const user = ctx.session!.user
 
-    const { id } = await params
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
@@ -71,183 +28,84 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     })
 
     if (!invoice) {
-        return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Invoice')
     }
 
     // RBAC: Check site restrictions
-    if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as { siteId?: string }).siteId
-        // If invoice has siteId, strict match
-        // If invoice has NO siteId, assume accessible OR restricted (safer to allow for legacy data if needed, but for now strict)
-        // Let's rely on siteId being present for strictness.
+    const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
+    
+    if (isRestricted) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+        const userSiteId = dbUser?.siteId
+
         if (invoice.siteId && userSiteId && invoice.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+             return ApiErrors.forbidden('Akses ditolak')
         }
-        // If current user has site, but invoice has none?
-        // Maybe allow if inferred from Pelanggan? The query included pelanggan.
         if (!invoice.siteId && invoice.pelanggan.siteId && userSiteId && invoice.pelanggan.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+             return ApiErrors.forbidden('Akses ditolak')
         }
     }
 
-    return NextResponse.json(invoice)
-  } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
-    console.error('Error fetching invoice:', err)
-    return NextResponse.json(
-      { error: err.message || 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
-  }
-}
+    // Serialize BigInt
+    const serializedInvoice = {
+        ...invoice,
+        subtotal: invoice.subtotal.toString(),
+        taxAmount: invoice.taxAmount.toString(),
+        discountAmount: invoice.discountAmount.toString(),
+        totalAmount: invoice.totalAmount.toString(),
+        invoiceItem: invoice.invoiceItem.map(item => ({
+            ...item,
+            unitPrice: item.unitPrice.toString(),
+            totalPrice: item.totalPrice.toString()
+        }))
+    }
+
+    return apiSuccess(serializedInvoice)
+})
 
 /**
- * @swagger
- * /api/invoices/{id}:
- *   put:
- *     summary: Update invoice
- *     description: Mengupdate invoice yang sudah ada
- *     tags: [Billing]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Invoice ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               issueDate:
- *                 type: string
- *                 format: date
- *                 description: Tanggal issue invoice
- *               dueDate:
- *                 type: string
- *                 format: date
- *                 description: Tanggal jatuh tempo
- *               status:
- *                 type: string
- *                 enum: ["DRAFT", "SENT", "OVERDUE", "PAID", "CANCELLED"]
- *                 description: Status invoice
- *               notes:
- *                 type: string
- *                 description: Catatan invoice
- *               terms:
- *                 type: string
- *                 description: Syarat dan ketentuan
- *               taxAmount:
- *                 type: number
- *                 description: Jumlah pajak
- *               discountAmount:
- *                 type: number
- *                 description: Jumlah diskon
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     description:
- *                       type: string
- *                       description: Deskripsi item
- *                     quantity:
- *                       type: integer
- *                       description: Quantity
- *                     unitPrice:
- *                       type: number
- *                       description: Harga satuan
- *                     itemType:
- *                       type: string
- *                       enum: ["SERVICE", "PRODUCT", "SETUP_FEE", "MONTHLY_FEE", "ONE_TIME_FEE", "OTHER"]
- *                       description: Tipe item
- *     responses:
- *       200:
- *         description: Invoice berhasil diupdate
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Invoice'
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Invoice tidak ditemukan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ * PUT /api/invoices/{id}
+ * Update invoice
  */
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await getServerSession(authConfig)
-    if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
+export const PUT = createHandler({ 
+    auth: true,
+    schema: updateInvoiceSchema
+}, async (req, ctx) => {
+    const { id } = ctx.params
+    const user = ctx.session!.user
 
-    const { id } = await params
     // Check if invoice exists
     const existingInvoice = await prisma.invoice.findUnique({
       where: { id },
     })
 
     if (!existingInvoice) {
-      return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 })
+      return ApiErrors.notFound('Invoice')
     }
 
     // RBAC: Check site restrictions
-    const isRestricted = (await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN'
-    const userSiteId = (session.user as { siteId?: string }).siteId
-
+    const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
+    
+    let userSiteId: string | undefined
     if (isRestricted) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+        userSiteId = dbUser?.siteId || undefined
+
          if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+             return ApiErrors.forbidden('Akses ditolak')
          }
     }
 
-    const body = await req.json()
-    const validation = updateInvoiceSchema.safeParse(body)
-
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Validasi gagal', details: validation.error.flatten() },
-        { status: 400 }
-      )
-    }
-
-    const { items, ...updateData } = validation.data
+    const { items, ...updateData } = ctx.validated
 
     // If restricted, prevent changing siteId or force it to user site
     if (isRestricted && updateData.siteId && updateData.siteId !== userSiteId) {
-         return NextResponse.json({ error: 'Tidak dapat mengubah site invoice ke site lain' }, { status: 403 })
+         return ApiErrors.forbidden('Tidak dapat mengubah site invoice ke site lain')
     }
     // Force valid siteId if updating
     if (isRestricted) {
-        // We can either delete siteId from updateData to ignore it, or force it.
-        // updateData is gathered from validation.data.
-        // If user didn't send siteId, it's undefined.
-        // If strict, we can force current user site if the invoice didn't have one before.
         if (!existingInvoice.siteId && userSiteId) {
             updateData.siteId = userSiteId
         } else if (existingInvoice.siteId) {
@@ -314,7 +172,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       for (const item of processedItems) {
         await prisma.invoiceItem.create({
           data: {
-            id: crypto.randomUUID(),
+            id: randomUUID(),
             ...item,
             invoiceId: id,
           },
@@ -344,97 +202,57 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // System Log
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'UPDATE',
-        subject: 'Invoice',
-        userId: session.user.id,
-        details: { id: updatedInvoice.id, number: updatedInvoice.invoiceNumber, updates: updateData }
-      })
-    } catch (e) {
-      console.error('Logging failed', e)
+    logActivitySafe({
+      action: 'UPDATE',
+      subject: 'Invoice',
+      userId: user.id,
+      details: { id: updatedInvoice.id, number: updatedInvoice.invoiceNumber, updates: updateData }
+    })
+
+    // Serialize BigInt
+    const serializedInvoice = {
+        ...updatedInvoice,
+        subtotal: updatedInvoice.subtotal.toString(),
+        taxAmount: updatedInvoice.taxAmount.toString(),
+        discountAmount: updatedInvoice.discountAmount.toString(),
+        totalAmount: updatedInvoice.totalAmount.toString(),
+        invoiceItem: updatedInvoice.invoiceItem.map(item => ({
+            ...item,
+            unitPrice: item.unitPrice.toString(),
+            totalPrice: item.totalPrice.toString()
+        }))
     }
 
-    return NextResponse.json(updatedInvoice)
-  } catch (error) {
-    console.error('Error updating invoice:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
-  }
-}
+    return apiSuccess(serializedInvoice)
+})
 
 /**
- * @swagger
- * /api/invoices/{id}:
- *   delete:
- *     summary: Delete invoice
- *     description: Menghapus invoice
- *     tags: [Billing]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Invoice ID
- *     responses:
- *       200:
- *         description: Invoice berhasil dihapus
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Invoice berhasil dihapus"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Invoice tidak ditemukan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ * DELETE /api/invoices/{id}
+ * Delete invoice
  */
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await getServerSession(authConfig)
-    if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
+    const user = ctx.session!.user
 
-    const { id } = await params
     // Check if invoice exists
     const existingInvoice = await prisma.invoice.findUnique({
       where: { id },
     })
 
     if (!existingInvoice) {
-      return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 })
+      return ApiErrors.notFound('Invoice')
     }
 
     // RBAC: Check site restrictions
-    if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as { siteId?: string }).siteId
+    const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
+    
+    if (isRestricted) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+        const userSiteId = dbUser?.siteId
+
         if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+             return ApiErrors.forbidden('Akses ditolak')
         }
     }
 
@@ -444,10 +262,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     })
 
     if (paymentCount > 0) {
-      return NextResponse.json(
-        { error: 'Tidak dapat menghapus invoice yang sudah memiliki pembayaran' },
-        { status: 400 }
-      )
+      return ApiErrors.badRequest('Tidak dapat menghapus invoice yang sudah memiliki pembayaran')
     }
 
     // Delete invoice (cascade will delete items)
@@ -456,25 +271,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     })
 
     // System Log
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'DELETE',
-        subject: 'Invoice',
-        userId: session.user.id,
-        details: { id: existingInvoice.id, number: existingInvoice.invoiceNumber }
-      })
-    } catch (e) {
-      console.error('Logging failed', e)
-    }
+    logActivitySafe({
+      action: 'DELETE',
+      subject: 'Invoice',
+      userId: user.id,
+      details: { id: existingInvoice.id, number: existingInvoice.invoiceNumber }
+    })
 
-    return NextResponse.json({ message: 'Invoice berhasil dihapus' })
-  } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
-    console.error('Error deleting invoice:', err)
-    return NextResponse.json(
-      { error: err.message || 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
-  }
-}
+    return apiSuccess(null, { message: 'Invoice berhasil dihapus' })
+})

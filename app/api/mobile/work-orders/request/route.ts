@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { createNotification } from '@/modules/notification';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
+import { logActivitySafe } from '@/lib/logger';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -152,22 +153,17 @@ export async function POST(request: NextRequest) {
         }
 
         // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'CREATE',
-                subject: 'Work Order Request',
-                userId: userId,
-                details: { 
-                    id: workOrder.id, 
-                    number: workOrder.workOrderNumber, 
-                    title: workOrder.title,
-                    status: 'REQUESTED'
-                }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
+        logActivitySafe({
+            action: 'CREATE',
+            subject: 'Work Order Request',
+            userId: userId,
+            details: { 
+                id: workOrder.id, 
+                number: workOrder.workOrderNumber, 
+                title: workOrder.title,
+                status: 'REQUESTED'
+            }
+        })
 
         return NextResponse.json({
             success: true,

@@ -1,167 +1,173 @@
-import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
-import { verifyAuth, isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
-import { apiSuccess, ApiErrors } from '@/lib/api-response';
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
+import { isSuperAdmin } from '@/lib/auth';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
 /**
  * GET /api/admin/workorders/dashboard
- * 
- * Consolidated dashboard endpoint - combines 6 API calls into 1
- * Reduces network overhead and ensures consistent data snapshot
+ * Consolidated dashboard endpoint
  */
-export async function GET(request: NextRequest) {
-    try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return ApiErrors.unauthorized('Session tidak valid');
-        }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user;
 
-        if (!await hasPermission('work_order_dashboard:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat dashboard work order');
-        }
-
-        const { searchParams } = new URL(request.url);
-        const period = searchParams.get('period') || 'all_time';
-
-        // Build access restriction filters
-        const { departmentId, siteId, emptyResponse } = buildAccessFilters(user);
-
-        // If user has no access, return empty data
-        if (emptyResponse) {
-            return apiSuccess({
-                ...getEmptyDashboardData(),
-                message: "Restricted access: No department/site assigned."
-            });
-        }
-
-        // PHASE 4: Try to get cached data first
-        const cachedData = await workOrderCacheService.getCachedDashboardData(
-            user.id,
-            period,
-            { 
-                ...(departmentId ? { departmentId } : {}), 
-                ...(siteId ? { siteId } : {}) 
-            }
-        );
-
-        if (cachedData) {
-            return apiSuccess({
-                ...(cachedData as Record<string, unknown>),
-                cached: true,
-            });
-        }
-
-        // Build date filters based on period
-        const { dateFrom, dateTo } = buildDateRange(period);
-
-        // Execute all queries in parallel for maximum performance
-        const [
-            stats,
-            recentWorkOrders,
-            departmentWorkload,
-            topPerformers,
-            topAssists,
-            issueStats,
-            siteStats,
-            disconnectionStats,
-            responseStats,
-            adminKPI
-        ] = await Promise.all([
-            // Stats
-            workOrderRepo.getStatistics({
-                ...(departmentId ? { departmentId } : {}),
-                ...(siteId ? { siteId } : {})
-            }),
-            // Recent work orders (optimized - only 5)
-            workOrderRepo.getRecentWorkOrders(5, { 
-                ...(departmentId ? { departmentId } : {}) 
-            }),
-            // Department workload
-            workOrderRepo.getDepartmentWorkload(departmentId),
-            // Top performers
-            workOrderRepo.getTopPerformers(5, dateFrom, dateTo, departmentId),
-            // Top assists
-            workOrderRepo.getTopAssists(5, dateFrom, dateTo, departmentId),
-            // Issue statistics
-            workOrderRepo.getIssueStatistics(5, dateFrom, dateTo, departmentId, siteId),
-            // Site statistics
-            workOrderRepo.getSiteStatistics(5, dateFrom, dateTo, departmentId, siteId),
-            // Disconnection statistics
-            workOrderRepo.getDisconnectionStatistics(dateFrom, dateTo, departmentId, siteId),
-            // Response stats
-            workOrderRepo.getAdminResponseStats(
-                dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default: last 30 days
-                dateTo || new Date(),
-                departmentId
-            ),
-            // Admin KPI stats
-            workOrderRepo.getAdminKPIStats(departmentId, siteId),
-        ]);
-
-        // Count WO by type (Customer vs Internal) - using isInternal field
-        const baseWhere = {
-            ...(departmentId ? { departmentId } : {}),
-            ...(siteId ? { siteId } : {}),
-        };
-        
-        const [customerCount, internalCount] = await Promise.all([
-            // Customer WO: isInternal = false
-            prisma.workOrders.count({
-                where: {
-                    ...baseWhere,
-                    isInternal: false,
-                }
-            }),
-            // Internal WO: isInternal = true
-            prisma.workOrders.count({
-                where: {
-                    ...baseWhere,
-                    isInternal: true,
-                }
-            }),
-        ]);
-        
-        const woTypeStats = { customer: customerCount, internal: internalCount };
-
-        const dashboardData = {
-            stats,
-            recentWorkOrders,
-            departmentWorkload,
-            topPerformers,
-            topAssists,
-            issueStats,
-            siteStats,
-            disconnectionStats,
-            responseStats,
-            adminKPI,
-            woTypeStats, // Customer vs Internal count
-        };
-
-        // PHASE 4: Cache the result
-        await workOrderCacheService.cacheDashboardData(
-            user.id,
-            period,
-            dashboardData,
-            { 
-                ...(departmentId ? { departmentId } : {}), 
-                ...(siteId ? { siteId } : {}) 
-            }
-        );
-
-        return apiSuccess({
-            ...dashboardData,
-            cached: false,
-        });
-    } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        return ApiErrors.internalError('Gagal mengambil data dashboard');
+    if (!await hasPermission('work_order_dashboard:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat dashboard work order');
     }
-}
+
+    const { searchParams } = req.nextUrl;
+    const period = searchParams.get('period') || 'all_time';
+
+    // Fetch user context for restrictions
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, role: true, departmentId: true, siteId: true }
+    });
+
+    if (!dbUser) return ApiErrors.unauthorized();
+
+    // Construct user object for helpers
+    const userContext = {
+        id: user.id,
+        role: user.role,
+        permissions: ctx.permissions, // Use ctx permissions which are arrays of strings
+        departmentId: dbUser.departmentId,
+        siteId: dbUser.siteId
+    };
+
+    // Build access restriction filters
+    const { departmentId, siteId, emptyResponse } = buildAccessFilters(userContext);
+
+    // If user has no access, return empty data
+    if (emptyResponse) {
+        return apiSuccess({
+            ...getEmptyDashboardData(),
+            message: "Restricted access: No department/site assigned."
+        });
+    }
+
+    // Try to get cached data first
+    const cachedData = await workOrderCacheService.getCachedDashboardData(
+        user.id,
+        period,
+        { 
+            ...(departmentId ? { departmentId } : {}), 
+            ...(siteId ? { siteId } : {}) 
+        }
+    );
+
+    if (cachedData) {
+        return apiSuccess({
+            ...(cachedData as Record<string, unknown>),
+            cached: true,
+        });
+    }
+
+    // Build date filters based on period
+    const { dateFrom, dateTo } = buildDateRange(period);
+
+    // Execute all queries in parallel for maximum performance
+    const [
+        stats,
+        recentWorkOrders,
+        departmentWorkload,
+        topPerformers,
+        topAssists,
+        issueStats,
+        siteStats,
+        disconnectionStats,
+        responseStats,
+        adminKPI
+    ] = await Promise.all([
+        // Stats
+        workOrderRepo.getStatistics({
+            ...(departmentId ? { departmentId } : {}),
+            ...(siteId ? { siteId } : {})
+        }),
+        // Recent work orders (optimized - only 5)
+        workOrderRepo.getRecentWorkOrders(5, { 
+            ...(departmentId ? { departmentId } : {}) 
+        }),
+        // Department workload
+        workOrderRepo.getDepartmentWorkload(departmentId),
+        // Top performers
+        workOrderRepo.getTopPerformers(5, dateFrom, dateTo, departmentId),
+        // Top assists
+        workOrderRepo.getTopAssists(5, dateFrom, dateTo, departmentId),
+        // Issue statistics
+        workOrderRepo.getIssueStatistics(5, dateFrom, dateTo, departmentId, siteId),
+        // Site statistics
+        workOrderRepo.getSiteStatistics(5, dateFrom, dateTo, departmentId, siteId),
+        // Disconnection statistics
+        workOrderRepo.getDisconnectionStatistics(dateFrom, dateTo, departmentId, siteId),
+        // Response stats
+        workOrderRepo.getAdminResponseStats(
+            dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default: last 30 days
+            dateTo || new Date(),
+            departmentId
+        ),
+        // Admin KPI stats
+        workOrderRepo.getAdminKPIStats(departmentId, siteId),
+    ]);
+
+    // Count WO by type (Customer vs Internal) - using isInternal field
+    const baseWhere = {
+        ...(departmentId ? { departmentId } : {}),
+        ...(siteId ? { siteId } : {}),
+    };
+    
+    const [customerCount, internalCount] = await Promise.all([
+        // Customer WO: isInternal = false
+        prisma.workOrders.count({
+            where: {
+                ...baseWhere,
+                isInternal: false,
+            }
+        }),
+        // Internal WO: isInternal = true
+        prisma.workOrders.count({
+            where: {
+                ...baseWhere,
+                isInternal: true,
+            }
+        }),
+    ]);
+    
+    const woTypeStats = { customer: customerCount, internal: internalCount };
+
+    const dashboardData = {
+        stats,
+        recentWorkOrders,
+        departmentWorkload,
+        topPerformers,
+        topAssists,
+        issueStats,
+        siteStats,
+        disconnectionStats,
+        responseStats,
+        adminKPI,
+        woTypeStats, // Customer vs Internal count
+    };
+
+    // Cache the result
+    await workOrderCacheService.cacheDashboardData(
+        user.id,
+        period,
+        dashboardData,
+        { 
+            ...(departmentId ? { departmentId } : {}), 
+            ...(siteId ? { siteId } : {}) 
+        }
+    );
+
+    return apiSuccess({
+        ...dashboardData,
+        cached: false,
+    });
+})
 
 /**
  * Build date range based on period parameter

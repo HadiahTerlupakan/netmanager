@@ -1,36 +1,27 @@
-import { NextResponse } from 'next/server'
-import { getServerSession, type Session } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { MikroTikProvisioningService } from '@/modules/network/services/MikroTikProvisioningService'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
+import { hasPermission } from '@/lib/rbac'
 
 // Initialize service
 const provisioningService = new MikroTikProvisioningService()
 
-async function requireAdmin() {
-  const session = await getServerSession(authConfig as object) as Session | null
-  if (!session) {
-    return null
-  }
-  return session
-}
+export const POST = createHandler({ auth: true }, async (req, _ctx) => {
+    if (!await hasPermission("mikrotik:update")) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
 
-export async function POST(req: Request) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-  try {
     const body = await req.json()
     const { routerIds } = body
 
     if (!Array.isArray(routerIds) || routerIds.length === 0) {
-        return NextResponse.json({ error: 'No routers selected' }, { status: 400 })
+        return apiError('No routers selected', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     // 1. Fetch Global Settings
     const settings = await prisma.settings.findMany({
         where: {
-            key: { in: ['RADIUS_SECRET', 'ISOLIR_URL', 'MIKROTIK_API_URL'] } // MIKROTIK_API_URL often used as server IP fallback
+            key: { in: ['RADIUS_SECRET', 'ISOLIR_URL', 'MIKROTIK_API_URL'] }
         }
     });
 
@@ -38,15 +29,16 @@ export async function POST(req: Request) {
     const isolirUrl = settings.find(s => s.key === 'ISOLIR_URL')?.value
 
     // 2. Fetch Selected Routers
+    // TODO: Add site restriction check here if needed (fetch user siteId and filter routers)
     const routers = await prisma.mikroTikRouter.findMany({
         where: {
             id: { in: routerIds },
-            pingStatus: 'online' // Only try online routers? Or try all and fail? Better try all selected.
+            pingStatus: 'online'
         }
     })
 
     if (routers.length === 0) {
-        return NextResponse.json({ error: 'No valid routers found among selection' }, { status: 404 })
+        return ApiErrors.notFound('No valid routers found among selection')
     }
 
     const results = []
@@ -94,14 +86,9 @@ export async function POST(req: Request) {
         }
     }
 
-    return NextResponse.json({
+    return apiSuccess({
         success: true,
         message: `Reconfiguration completed. ${successCount}/${routers.length} successful.`,
         results
     })
-
-  } catch (error: unknown) {
-    console.error('Error reconfiguring routers:', error)
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Gagal mengkonfigurasi ulang router' }, { status: 500 })
-  }
-}
+})

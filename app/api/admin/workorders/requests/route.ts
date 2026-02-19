@@ -1,85 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { getWorkOrderService } from '@/modules/work-order';
-import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
 import { isSuperAdmin } from '@/lib/auth';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
-
-interface ExtendedUser {
-  id: string
-  role?: string
-  permissions?: string[]
-  siteId?: string
-  departmentId?: string
-  employee?: unknown
-}
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
+import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/admin/workorders/requests
  * List all Work Order Requests (status = REQUESTED)
  */
-export async function GET(request: NextRequest) {
-    try {
-        const session = await requireAuth(request);
-        if (session instanceof NextResponse) {
-            return session;
-        }
-        const user = session.user as ExtendedUser;
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user;
 
-        // Permission check
-        if (!await hasPermission('workorders:requests:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat permintaan work order');
-        }
-
-        const { searchParams } = new URL(request.url);
-        const page = parseInt(searchParams.get('page') || '1');
-        const limit = parseInt(searchParams.get('limit') || '20');
-        const search = searchParams.get('search') || undefined;
-        const departmentId = searchParams.get('departmentId') || undefined;
-        const siteId = searchParams.get('siteId') || undefined;
-
-        const isSuper = isSuperAdmin(user);
-
-        // Build filters
-        const filters: { departmentId?: string; siteId?: string; search?: string } = {
-            ...(search ? { search } : {})
-        };
-
-        if (!isSuper) {
-            if (user.permissions?.includes('workorders:site_only') && user.siteId) {
-                filters.siteId = user.siteId;
-            } else if (siteId) {
-                filters.siteId = siteId;
-            }
-
-            if (user.permissions?.includes('workorders:department_only') && user.departmentId) {
-                filters.departmentId = user.departmentId;
-            } else if (departmentId) {
-                filters.departmentId = departmentId;
-            }
-        } else {
-            if (siteId) filters.siteId = siteId;
-            if (departmentId) filters.departmentId = departmentId;
-        }
-
-        const workOrderService = getWorkOrderService();
-        const result = await workOrderService.getWorkOrderRequests(filters, page, limit);
-
-        if (!result.success) {
-            return apiError(result.error || 'Gagal mengambil permintaan work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
-        }
-
-        return apiSuccess({
-            data: result.data?.workOrders || [],
-            pagination: {
-                page: result.data?.page || page,
-                totalPages: result.data?.totalPages || 1,
-                total: result.data?.total || 0,
-            },
-            pendingCount: result.data?.total || 0,
-        });
-    } catch (error) {
-        console.error('Error fetching work order requests:', error);
-        return ApiErrors.internalError('Gagal mengambil permintaan work order');
+    if (!await hasPermission('workorders:requests:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat permintaan work order');
     }
-}
+
+    const { searchParams } = req.nextUrl;
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const search = searchParams.get('search') || undefined;
+    const departmentId = searchParams.get('departmentId') || undefined;
+    const siteId = searchParams.get('siteId') || undefined;
+
+    // Fetch user details for restrictions
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, role: true, departmentId: true, siteId: true }
+    });
+
+    if (!dbUser) return ApiErrors.unauthorized();
+
+    const isSuper = isSuperAdmin(user);
+    const permissions = ctx.permissions || [];
+
+    // Build filters
+    const filters: { departmentId?: string; siteId?: string; search?: string } = {
+        ...(search ? { search } : {})
+    };
+
+    if (!isSuper) {
+        if (permissions.includes('workorders:site_only') && dbUser.siteId) {
+            filters.siteId = dbUser.siteId;
+        } else if (siteId) {
+            filters.siteId = siteId;
+        }
+
+        if (permissions.includes('workorders:department_only') && dbUser.departmentId) {
+            filters.departmentId = dbUser.departmentId;
+        } else if (departmentId) {
+            filters.departmentId = departmentId;
+        }
+    } else {
+        if (siteId) filters.siteId = siteId;
+        if (departmentId) filters.departmentId = departmentId;
+    }
+
+    const workOrderService = getWorkOrderService();
+    const result = await workOrderService.getWorkOrderRequests(filters, page, limit);
+
+    if (!result.success) {
+        return apiError(result.error || 'Gagal mengambil permintaan work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+    }
+
+    return apiSuccess({
+        data: result.data?.workOrders || [],
+        pagination: {
+            page: result.data?.page || page,
+            totalPages: result.data?.totalPages || 1,
+            total: result.data?.total || 0,
+        },
+        pendingCount: result.data?.total || 0,
+    });
+})

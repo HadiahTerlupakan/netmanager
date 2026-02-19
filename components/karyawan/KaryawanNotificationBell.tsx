@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { MdNotifications, MdWork, MdInventory } from 'react-icons/md'
 import { HiMegaphone } from 'react-icons/hi2'
 import Link from 'next/link'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
 import { usePermission } from '@/hooks/use-permission'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 interface Announcement {
     id: string;
@@ -33,15 +34,8 @@ export function KaryawanNotificationBell() {
     const [_announcementsLoading, setAnnouncementsLoading] = useState(true)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    const closeDropdown = useCallback(() => setIsOpen(false), [])
+    useClickOutside(dropdownRef, closeDropdown)
 
     // Fetch announcements
     useEffect(() => {

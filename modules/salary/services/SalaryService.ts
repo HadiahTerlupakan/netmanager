@@ -2,7 +2,7 @@ import { SalaryRepository } from '../repositories/SalaryRepository'
 import type { SalaryWithDetails, SalaryFilters } from '../repositories/SalaryRepository'
 import { SalaryCalculatorService } from './SalaryCalculatorService'
 import { SalaryAuditService } from './SalaryAuditService'
-import { logger } from '@/lib/logger'
+import { logger, logActivitySafe } from '@/lib/logger'
 import { EmployeeType, Prisma } from '@prisma/client'
 import type { Salary } from '@prisma/client'
 
@@ -464,17 +464,13 @@ export class SalaryService {
     /**
      * Helper: Log activity
      */
-    private async logActivity(
+    private logActivity(
         action: string,
         subject: string,
         userId: string,
         details: Record<string, unknown>
-    ): Promise<void> {
-        try {
-            await logger.logActivity({ action, subject, userId, details })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+    ): void {
+        logActivitySafe({ action, subject, userId, details })
     }
 }
 

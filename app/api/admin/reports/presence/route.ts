@@ -1,45 +1,72 @@
-import { withAuth, withAnyPermission, withErrorHandler, applyRBACRestrictions } from '@/lib/middleware'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { OvertimeService } from '@/modules/overtime/services/OvertimeService'
-import { apiSuccess, ErrorCodes, apiError } from '@/lib/api-response'
+import { apiSuccess, ErrorCodes, apiError, createHandler, ApiErrors } from '@/lib/api'
+import { hasPermission } from '@/lib/rbac'
+import { prisma } from '@/lib/prisma'
+import { isSuperAdmin } from '@/lib/auth'
 
 // Disable Next.js caching for this route
 export const dynamic = 'force-dynamic'
 
-export const GET = withErrorHandler(
-    withAuth(
-        withAnyPermission(['attendance:read', 'attendance:report:view'],
-            applyRBACRestrictions(
-                {
-                    sitePermission: 'attendance:site_only',
-                    departmentPermission: 'attendance:department_only'
-                },
-                async ({ filters }) => {
-                    const { startDate: startDateStr, endDate: endDateStr, siteId, departmentId } = filters as Record<string, string>
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    // Check permission
+    const hasRead = await hasPermission('attendance:read');
+    const hasViewReport = await hasPermission('attendance:report:view');
+    
+    if (!hasRead && !hasViewReport) {
+        return ApiErrors.forbidden('Akses ditolak');
+    }
 
-                    if (!startDateStr || !endDateStr) {
-                        return apiError('Tanggal mulai dan tanggal akhir wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-                    }
+    const { searchParams } = req.nextUrl
+    const startDateStr = searchParams.get('startDate')
+    const endDateStr = searchParams.get('endDate')
+    
+    // RBAC filtering params
+    const user = ctx.session!.user
+    const isSuper = isSuperAdmin(user)
+    
+    let siteId = searchParams.get('siteId')
+    let departmentId = searchParams.get('departmentId')
 
-                    const startDate = new Date(startDateStr)
-                    startDate.setHours(0, 0, 0, 0)
-                    const endDate = new Date(endDateStr)
-                    endDate.setHours(23, 59, 59, 999)
+    if (!isSuper) {
+        // Fetch extended user info
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { siteId: true, departmentId: true }
+        })
 
-                    const attendanceService = new AttendanceService()
-                    const overtimeService = new OvertimeService()
+        const permissions = ctx.permissions || []
+        
+        if (permissions.includes('attendance:site_only')) {
+            if (!dbUser?.siteId) return apiSuccess({ attendance: [], overtime: [] }) // No access if restricted but no site
+            siteId = dbUser.siteId
+        }
+        
+        if (permissions.includes('attendance:department_only')) {
+            if (!dbUser?.departmentId) return apiSuccess({ attendance: [], overtime: [] })
+            departmentId = dbUser.departmentId
+        }
+    }
 
-                    const [attendanceReport, overtimeReport] = await Promise.all([
-                        attendanceService.getReportData(startDate, endDate, siteId, departmentId),
-                        overtimeService.getReportData(startDate, endDate, siteId, departmentId)
-                    ])
+    if (!startDateStr || !endDateStr) {
+        return apiError('Tanggal mulai dan tanggal akhir wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
 
-                    return apiSuccess({
-                        attendance: attendanceReport,
-                        overtime: overtimeReport
-                    })
-                }
-            )
-        )
-    )
-)
+    const startDate = new Date(startDateStr)
+    startDate.setHours(0, 0, 0, 0)
+    const endDate = new Date(endDateStr)
+    endDate.setHours(23, 59, 59, 999)
+
+    const attendanceService = new AttendanceService()
+    const overtimeService = new OvertimeService()
+
+    const [attendanceReport, overtimeReport] = await Promise.all([
+        attendanceService.getReportData(startDate, endDate, siteId || undefined, departmentId || undefined),
+        overtimeService.getReportData(startDate, endDate, siteId || undefined, departmentId || undefined)
+    ])
+
+    return apiSuccess({
+        attendance: attendanceReport,
+        overtime: overtimeReport
+    })
+})

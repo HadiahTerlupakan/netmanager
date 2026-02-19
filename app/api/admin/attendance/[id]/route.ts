@@ -1,61 +1,33 @@
-/**
- * Admin Attendance Single Record Routes
- * Migrated to use standardized middleware and validation
- */
-
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import {
-  withAuth, 
-  withPermission, 
-  withErrorHandler, 
-  withRateLimit,
-  RateLimits,
-  ValidationError,
-  NotFoundError,
-  applyRBACRestrictions,
-  type RBACFilterContext
-} from '@/lib/middleware'
-import { apiSuccess } from '@/lib/api-response'
+import { isSuperAdmin, getUserPermissions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import { attendanceUpdateSchema } from '@/lib/validations/attendance'
 import { idSchema } from '@/lib/validations/common'
-import { logger } from '@/lib/logger'
+import { logActivitySafe } from '@/lib/logger'
 
-interface RouteContext {
-  params: Promise<{ id: string }>
-}
+// GET /api/admin/attendance/[id]
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    if (!await hasPermission('attendance:read')) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
 
-/**
- * GET /api/admin/attendance/[id]
- * Retrieve single attendance record
- */
-export const GET = withErrorHandler(
-  withAuth(
-    withPermission('attendance:read',
-      applyRBACRestrictions(
-        { 
-          sitePermission: 'attendance:site_only', 
-          departmentPermission: 'attendance:department_only' 
-        },
-        withRateLimit(RateLimits.STANDARD,
-          async (context, routeContext) => {
-            const { filters } = context as RBACFilterContext<{ siteId?: string; departmentId?: string }>
-            const { id } = await (routeContext as RouteContext).params
+    const { id } = ctx.params
+    const user = ctx.session!.user
 
-            // Validate ID format
-            const parseResult = idSchema.safeParse(id)
-            if (!parseResult.success) {
-              throw new ValidationError('ID tidak valid', {
-                errors: parseResult.error.flatten().fieldErrors
-              })
-            }
+    // Validate ID format
+    const parseResult = idSchema.safeParse(id)
+    if (!parseResult.success) {
+        return apiError('ID tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
 
-            // Fetch attendance with user details
-            const attendance = await prisma.attendance.findUnique({
-              where: { id: parseResult.data },
-              include: {
-                user: {
-                  select: {
+    // Fetch attendance with user details
+    const attendance = await prisma.attendance.findUnique({
+        where: { id: parseResult.data },
+        include: {
+            user: {
+                select: {
                     id: true,
                     name: true,
                     email: true,
@@ -64,229 +36,194 @@ export const GET = withErrorHandler(
                     departmentId: true,
                     departments: { select: { name: true } },
                     sites: { select: { name: true } }
-                  }
                 }
-              }
-            })
-
-            if (!attendance) {
-              throw new NotFoundError('Data absensi tidak ditemukan')
             }
+        }
+    })
 
-            // Apply RBAC filtering on the retrieved record
-            const recordUser = attendance.user
-            if (filters.siteId && recordUser.siteId !== filters.siteId) {
-              throw new NotFoundError('Data absensi tidak ditemukan')
+    if (!attendance) {
+        return ApiErrors.notFound('Data absensi tidak ditemukan')
+    }
+
+    // Access Control
+    const permissions = await getUserPermissions(user.id)
+    const isSuper = isSuperAdmin(user)
+
+    if (!isSuper) {
+        // We can check against the fetched record directly without pre-fetching user details again 
+        // since we just need to compare with current user's claims. 
+        // But `user` from session doesn't have siteId/deptId. We need to fetch it.
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+
+        if (permissions.includes('attendance:site_only') && dbUser?.siteId) {
+            if (attendance.user.siteId !== dbUser.siteId) {
+                return ApiErrors.notFound('Data absensi tidak ditemukan')
             }
-            if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
-              throw new NotFoundError('Data absensi tidak ditemukan')
+        }
+        if (permissions.includes('attendance:department_only') && dbUser?.departmentId) {
+            if (attendance.user.departmentId !== dbUser.departmentId) {
+                return ApiErrors.notFound('Data absensi tidak ditemukan')
             }
+        }
+    }
 
-            return apiSuccess(attendance)
-          }
-        )
-      )
-    )
-  )
-)
+    return apiSuccess(attendance)
+})
 
-/**
- * PATCH /api/admin/attendance/[id]
- * Update attendance record (admin correction)
- */
-export const PATCH = withErrorHandler(
-  withAuth(
-    withPermission('attendance:update',
-      applyRBACRestrictions(
-        { 
-          sitePermission: 'attendance:site_only', 
-          departmentPermission: 'attendance:department_only' 
-        },
-        async ({ user, request, filters }, routeContext) => {
-          const { id } = await (routeContext as RouteContext).params
+// PATCH /api/admin/attendance/[id]
+export const PATCH = createHandler({ 
+    auth: true, 
+    schema: attendanceUpdateSchema 
+}, async (req, ctx) => {
+    if (!await hasPermission('attendance:update')) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
 
-          // Validate ID format
-          const idParseResult = idSchema.safeParse(id)
-          if (!idParseResult.success) {
-            throw new ValidationError('ID tidak valid', {
-              errors: idParseResult.error.flatten().fieldErrors
-            })
-          }
+    const { id } = ctx.params
+    const user = ctx.session!.user
+    const { checkIn, checkOut, status, notes } = ctx.validated
 
-          // Parse and validate request body
-          const body = await request.json()
-          const parseResult = attendanceUpdateSchema.safeParse(body)
+    // Fetch existing attendance
+    const existingAttendance = await prisma.attendance.findUnique({
+        where: { id },
+        include: { user: true }
+    })
 
-          if (!parseResult.success) {
-            throw new ValidationError('Data tidak valid', {
-              errors: parseResult.error.flatten().fieldErrors
-            })
-          }
+    if (!existingAttendance) {
+        return ApiErrors.notFound('Data absensi tidak ditemukan')
+    }
 
-          const { checkIn, checkOut, status, notes } = parseResult.data
+    // Access Control
+    const permissions = await getUserPermissions(user.id)
+    const isSuper = isSuperAdmin(user)
 
-          // Fetch existing attendance to get userId and User details
-          const existingAttendance = await prisma.attendance.findUnique({
-            where: { id: idParseResult.data },
-            include: { user: true }
-          })
+    if (!isSuper) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
-          if (!existingAttendance) {
-            throw new NotFoundError('Data absensi tidak ditemukan')
-          }
+        if (permissions.includes('attendance:site_only') && dbUser?.siteId) {
+            if (existingAttendance.user.siteId !== dbUser.siteId) {
+                return ApiErrors.notFound('Data absensi tidak ditemukan')
+            }
+        }
+        if (permissions.includes('attendance:department_only') && dbUser?.departmentId) {
+            if (existingAttendance.user.departmentId !== dbUser.departmentId) {
+                return ApiErrors.notFound('Data absensi tidak ditemukan')
+            }
+        }
+    }
 
-          // Apply RBAC filtering
-          const recordUser = existingAttendance.user
-          if (filters.siteId && recordUser.siteId !== filters.siteId) {
-            throw new NotFoundError('Data absensi tidak ditemukan')
-          }
-          if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
-            throw new NotFoundError('Data absensi tidak ditemukan')
-          }
+    // Prepare update data
+    const updateData: Prisma.AttendanceUpdateInput = {}
+    if (checkIn) updateData.checkIn = new Date(checkIn)
+    if (checkOut !== undefined) updateData.checkOut = checkOut ? new Date(checkOut) : null
+    if (notes !== undefined) updateData.notes = notes
 
-          // Prepare update data
-          const updateData: Prisma.AttendanceUpdateInput = {}
-          if (checkIn) updateData.checkIn = new Date(checkIn)
-          if (checkOut !== undefined) updateData.checkOut = checkOut ? new Date(checkOut) : null
-          if (notes !== undefined) updateData.notes = notes
+    // Auto-calculate status if checkIn changes
+    if (checkIn && existingAttendance.user.startWorkTime && existingAttendance.user.workingHourMode !== 'FLEXIBLE') {
+        const userDetails = existingAttendance.user
 
-          // Auto-calculate status if checkIn changes
-          if (checkIn && existingAttendance.user.startWorkTime && existingAttendance.user.workingHourMode !== 'FLEXIBLE') {
-            const userDetails = existingAttendance.user
+        const [toleranceSetting, timezoneSetting] = await Promise.all([
+            prisma.settings.findFirst({ where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' } }),
+            prisma.settings.findFirst({ where: { key: 'GENERAL_TIMEZONE' } })
+        ])
 
-            // Fetch Tolerance Setting and Timezone
-            const [toleranceSetting, timezoneSetting] = await Promise.all([
-              prisma.settings.findFirst({
-                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
-              }),
-              prisma.settings.findFirst({
-                where: { key: 'GENERAL_TIMEZONE' }
-              })
-            ])
+        const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
+        const timezone = timezoneSetting?.value || 'Asia/Jakarta'
 
-            const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
-            const timezone = timezoneSetting?.value || 'Asia/Jakarta'
+        const parts = userDetails.startWorkTime!.split(':')
+        const schedHour = Number(parts[0]) || 0
+        const schedMinute = Number(parts[1]) || 0
 
-            const parts = userDetails.startWorkTime!.split(':')
-            const schedHour = Number(parts[0]) || 0
-            const schedMinute = Number(parts[1]) || 0
+        const checkInDate = new Date(checkIn)
+        const checkInInTz = new Date(checkInDate.toLocaleString('en-US', { timeZone: timezone }))
 
-            // 1. Parse the new checkIn time
-            const checkInDate = new Date(checkIn)
+        const scheduleTime = new Date(checkInInTz)
+        scheduleTime.setHours(schedHour, schedMinute, 0, 0)
 
-            // 2. Convert checkIn to Wall Clock Time in Target Timezone
-            const checkInInTz = new Date(checkInDate.toLocaleString('en-US', { timeZone: timezone }))
+        const toleranceMs = toleranceMinutes * 60 * 1000
+        const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
 
-            // 3. Create Schedule for THAT day (in Timezone Context)
-            const scheduleTime = new Date(checkInInTz)
-            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
+        updateData.status = checkInInTz > lateThreshold ? 'LATE' : 'ON_TIME'
+    } else if (status) {
+        updateData.status = status
+    }
 
-            const toleranceMs = toleranceMinutes * 60 * 1000
-            const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
-
-            // Determine status by comparing "Wall Clock" times
-            updateData.status = checkInInTz > lateThreshold ? 'LATE' : 'ON_TIME'
-          } else if (status) {
-            // If checkIn didn't change (or user has no schedule), allow manual status update
-            updateData.status = status
-          }
-
-          const updated = await prisma.attendance.update({
-            where: { id: idParseResult.data },
-            data: updateData,
-            include: {
-              user: {
+    const updated = await prisma.attendance.update({
+        where: { id },
+        data: updateData,
+        include: {
+            user: {
                 select: {
-                  name: true,
-                  email: true,
-                  image: true,
-                  departments: { select: { name: true } },
-                  sites: { select: { name: true } }
+                    name: true,
+                    email: true,
+                    image: true,
+                    departments: { select: { name: true } },
+                    sites: { select: { name: true } }
                 }
-              }
             }
-          })
-
-          // System Log
-          try {
-            await logger.logActivity({
-              action: 'UPDATE',
-              subject: 'Attendance',
-              userId: user.id,
-              details: { id: idParseResult.data, updates: updateData }
-            })
-          } catch (e) { 
-            console.error('Logging failed', e) 
-          }
-
-          return apiSuccess(updated, { message: 'Absensi berhasil diperbarui' })
         }
-      )
-    )
-  )
-)
+    })
 
-/**
- * DELETE /api/admin/attendance/[id]
- * Remove attendance record
- */
-export const DELETE = withErrorHandler(
-  withAuth(
-    withPermission('attendance:delete',
-      applyRBACRestrictions(
-        { 
-          sitePermission: 'attendance:site_only', 
-          departmentPermission: 'attendance:department_only' 
-        },
-        async ({ user, filters }, routeContext) => {
-          const { id } = await (routeContext as RouteContext).params
+    logActivitySafe({
+        action: 'UPDATE',
+        subject: 'Attendance',
+        userId: user.id,
+        details: { id, updates: updateData }
+    })
 
-          // Validate ID format
-          const parseResult = idSchema.safeParse(id)
-          if (!parseResult.success) {
-            throw new ValidationError('ID tidak valid', {
-              errors: parseResult.error.flatten().fieldErrors
-            })
-          }
+    return apiSuccess(updated, { message: 'Absensi berhasil diperbarui' })
+})
 
-          // Check existence and apply RBAC
-          const existing = await prisma.attendance.findUnique({
-            where: { id: parseResult.data },
-            include: { user: true }
-          })
+// DELETE /api/admin/attendance/[id]
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    if (!await hasPermission('attendance:delete')) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
 
-          if (!existing) {
-            throw new NotFoundError('Data absensi tidak ditemukan')
-          }
+    const { id } = ctx.params
+    const user = ctx.session!.user
 
-          // Apply RBAC filtering
-          const recordUser = existing.user
-          if (filters.siteId && recordUser.siteId !== filters.siteId) {
-            throw new NotFoundError('Data absensi tidak ditemukan')
-          }
-          if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
-            throw new NotFoundError('Data absensi tidak ditemukan')
-          }
+    const existing = await prisma.attendance.findUnique({
+        where: { id },
+        include: { user: true }
+    })
 
-          await prisma.attendance.delete({
-            where: { id: parseResult.data }
-          })
+    if (!existing) {
+        return ApiErrors.notFound('Data absensi tidak ditemukan')
+    }
 
-          // System Log
-          try {
-            await logger.logActivity({
-              action: 'DELETE',
-              subject: 'Attendance',
-              userId: user.id,
-              details: { id: parseResult.data }
-            })
-          } catch (e) { 
-            console.error('Logging failed', e) 
-          }
+    // Access Control
+    const permissions = await getUserPermissions(user.id)
+    const isSuper = isSuperAdmin(user)
 
-          return apiSuccess({ id: parseResult.data }, { message: 'Absensi berhasil dihapus' })
+    if (!isSuper) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+
+        if (permissions.includes('attendance:site_only') && dbUser?.siteId) {
+            if (existing.user.siteId !== dbUser.siteId) {
+                return ApiErrors.notFound('Data absensi tidak ditemukan')
+            }
         }
-      )
-    )
-  )
-)
+        if (permissions.includes('attendance:department_only') && dbUser?.departmentId) {
+            if (existing.user.departmentId !== dbUser.departmentId) {
+                return ApiErrors.notFound('Data absensi tidak ditemukan')
+            }
+        }
+    }
+
+    await prisma.attendance.delete({
+        where: { id }
+    })
+
+    logActivitySafe({
+        action: 'DELETE',
+        subject: 'Attendance',
+        userId: user.id,
+        details: { id }
+    })
+
+    return apiSuccess({ id }, { message: 'Absensi berhasil dihapus' })
+})

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { hasPermission } from '@/lib/rbac'
 import { getRoleService } from '@/modules/roles'
 import { z } from 'zod'
+import { logActivitySafe } from '@/lib/logger'
 
 const roleUpdateSchema = z.object({
     name: z.string().min(2),
@@ -91,15 +92,12 @@ export async function PUT(req: Request, { params }: Params) {
         await invalidateRolePermissionCache(id)
 
         // System Log
-        try {
-            const { logger } = await import('@/lib/logger')
-            await logger.logActivity({
-                action: 'UPDATE',
-                subject: 'Role',
-                userId: session.user.id ?? 'unknown',
-                details: { id, updates: validated }
-            })
-        } catch (e: unknown) { console.error('Logging failed', e) }
+        logActivitySafe({
+            action: 'UPDATE',
+            subject: 'Role',
+            userId: session.user.id ?? 'unknown',
+            details: { id, updates: validated }
+        })
 
         return NextResponse.json(updatedRole)
     } catch (error: unknown) {
@@ -138,15 +136,12 @@ export async function DELETE(req: Request, { params }: Params) {
         await roleService.deleteRole(id)
 
         // System Log
-        try {
-            const { logger } = await import('@/lib/logger')
-            await logger.logActivity({
-                action: 'DELETE',
-                subject: 'Role',
-                userId: session.user.id ?? 'unknown',
-                details: { id }
-            })
-        } catch (e: unknown) { console.error('Logging failed', e) }
+        logActivitySafe({
+            action: 'DELETE',
+            subject: 'Role',
+            userId: session.user.id ?? 'unknown',
+            details: { id }
+        })
 
         return NextResponse.json({ success: true })
     } catch (error: unknown) {

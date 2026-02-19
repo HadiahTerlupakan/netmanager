@@ -4,7 +4,7 @@ import { LeaveRepository } from '../repositories/LeaveRepository'
 import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { createNotification } from '@/modules/notification/services/NotificationService'
-import { logger } from '@/lib/logger'
+import { logger, logActivitySafe } from '@/lib/logger'
 import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
@@ -520,17 +520,13 @@ export class LeaveService {
     /**
      * Helper: Log activity
      */
-    private async logActivity(
+    private logActivity(
         action: string,
         subject: string,
         userId: string,
         details: Record<string, unknown>
-    ): Promise<void> {
-        try {
-            await logger.logActivity({ action, subject, userId, details })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+    ): void {
+        logActivitySafe({ action, subject, userId, details })
     }
 
     /**

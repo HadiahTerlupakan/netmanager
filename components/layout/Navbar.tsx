@@ -1,5 +1,5 @@
 "use client"
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
@@ -7,23 +7,15 @@ import { HiBars3, HiMagnifyingGlass, HiOutlineCog6Tooth, HiOutlineUser, HiArrowR
 import { WorkOrderBell } from '@/components/notifications/WorkOrderBell'
 import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell'
 import { CustomerSupportBell } from '@/components/notifications/CustomerSupportBell'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 export default function Navbar() {
   const { data: session } = useSession()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [])
+  const closeProfile = useCallback(() => setIsProfileOpen(false), [])
+  useClickOutside(profileRef, closeProfile)
 
   return (
     <header className="h-16 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30 transition-colors duration-300">

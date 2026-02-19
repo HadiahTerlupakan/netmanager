@@ -13,7 +13,7 @@ import type { WorkOrderFilters, WorkOrderWithRelations } from '../repositories/I
 import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } from './WorkOrderNotifications'
 import { workOrderCacheService } from './WorkOrderCacheService'
 import { socketEmitter } from '@/lib/websocket/emitter'
-import { logger } from '@/lib/logger'
+import { logger, logActivitySafe } from '@/lib/logger'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 
@@ -953,17 +953,13 @@ export class WorkOrderService {
         }
     }
 
-    private async logActivity(
+    private logActivity(
         action: string,
         subject: string,
         userId: string,
         details: Record<string, unknown>
-    ): Promise<void> {
-        try {
-            await logger.logActivity({ action, subject, userId, details })
-        } catch (error) {
-            console.error('Logging failed', error)
-        }
+    ): void {
+        logActivitySafe({ action, subject, userId, details })
     }
 
     // ==================== COMMENT & TASK OPERATIONS ====================
@@ -1021,6 +1017,86 @@ export class WorkOrderService {
                 success: false,
                 error: error instanceof Error ? error.message : 'Gagal menambahkan tugas',
                 code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'OPERATION_FAILED'
+            }
+        }
+    }
+    /**
+     * Add attachment to work order
+     */
+    async addAttachment(
+        workOrderId: string,
+        data: {
+            fileName: string
+            filePath: string
+            fileSize: number
+            fileType: string
+            caption?: string
+        },
+        userContext: UserContext
+    ): Promise<ServiceResult<unknown>> {
+        try {
+            // Validate access
+            await this.validateWorkOrderAccess(workOrderId, userContext)
+
+            const attachment = await this.repository.addAttachment(
+                workOrderId,
+                data.fileName,
+                data.filePath,
+                data.fileSize,
+                data.fileType,
+                data.caption,
+                userContext.id
+            )
+
+            // Invalidate cache
+            await workOrderCacheService.invalidateAllCaches()
+
+            return { success: true, data: attachment }
+        } catch (error) {
+            logger.error('WorkOrderService.addAttachment failed', error instanceof Error ? error : undefined)
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Gagal menambahkan lampiran',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'UPLOAD_ERROR'
+            }
+        }
+    }
+
+    /**
+     * Delete attachment from work order
+     */
+    async deleteAttachment(
+        workOrderId: string,
+        attachmentId: string,
+        userContext: UserContext
+    ): Promise<ServiceResult<void>> {
+        try {
+            // Validate access
+            await this.validateWorkOrderAccess(workOrderId, userContext)
+
+            // Check if attachment exists and belongs to work order
+            const workOrder = await this.repository.findById(workOrderId)
+            if (!workOrder) {
+                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
+            }
+
+            const attachment = workOrder.attachments?.find(a => a.id === attachmentId)
+            if (!attachment) {
+                 return { success: false, error: 'Lampiran tidak ditemukan pada work order ini', code: 'NOT_FOUND' }
+            }
+
+            await this.repository.deleteAttachment(attachmentId, userContext.id)
+
+            // Invalidate cache
+            await workOrderCacheService.invalidateAllCaches()
+
+            return { success: true }
+        } catch (error) {
+            logger.error('WorkOrderService.deleteAttachment failed', error instanceof Error ? error : undefined)
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Gagal menghapus lampiran',
+                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'DELETE_ERROR'
             }
         }
     }

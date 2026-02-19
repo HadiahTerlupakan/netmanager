@@ -1,18 +1,9 @@
-import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { deviceBackupCreateSchema, deviceBackupQuerySchema } from '@/lib/validations/device-backup'
 import { prisma } from '@/lib/prisma'
+import { logActivitySafe } from '@/lib/logger'
 import { Prisma } from '@prisma/client'
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig)
-  if (!session) {
-    return null
-  }
-  return session
-}
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**
  * @swagger
@@ -100,17 +91,13 @@ async function requireAdmin() {
  *       500:
  *         description: Server error
  */
-export async function GET(req: Request) {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { searchParams } = new URL(req.url)
+export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+    const { searchParams } = req.nextUrl
     const queryParams = Object.fromEntries(searchParams.entries())
 
     const parsed = deviceBackupQuerySchema.safeParse(queryParams)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      return ApiErrors.badRequest('Invalid query parameters', { errors: parsed.error.flatten() })
     }
 
     const filters = parsed.data
@@ -150,7 +137,7 @@ export async function GET(req: Request) {
         prisma.deviceBackups.count({ where: where as Prisma.DeviceBackupsWhereInput }),
       ])
 
-      return NextResponse.json({
+      return apiSuccess({
         data,
         pagination: {
           page,
@@ -162,7 +149,7 @@ export async function GET(req: Request) {
     } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
       if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return NextResponse.json({
+        return apiSuccess({
           data: [],
           pagination: {
             page,
@@ -175,14 +162,7 @@ export async function GET(req: Request) {
       }
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error fetching device backups:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal memuat data backup perangkat' },
-      { status: 500 }
-    )
-  }
-}
+})
 
 /**
  * @swagger
@@ -256,19 +236,11 @@ export async function GET(req: Request) {
  *       500:
  *         description: Server error
  */
-export async function POST(req: Request) {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const json = await req.json()
-    const parsed = deviceBackupCreateSchema.safeParse(json)
-
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-    }
-
-    const data = parsed.data
+export const POST = createHandler({ 
+    auth: true,
+    schema: deviceBackupCreateSchema
+}, async (req, ctx) => {
+    const data = ctx.validated
 
     try {
       const result = await prisma.deviceBackups.create({
@@ -288,7 +260,7 @@ export async function POST(req: Request) {
           backupMethod: data.backupMethod ?? null,
           status: data.status,
           scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
-          createdBy: session.user?.id ?? null,
+          createdBy: ctx.session!.user.id,
           retentionDays: data.retentionDays ?? null,
           isAutoCleanup: data.isAutoCleanup,
           updatedAt: new Date(),
@@ -296,27 +268,15 @@ export async function POST(req: Request) {
       })
 
       // System Log
-      try {
-        const { logger } = await import('@/lib/logger')
-        await logger.logActivity({
-          action: 'CREATE',
-          subject: 'Device Backup',
-          userId: (session as { user?: { id?: string } })?.user?.id ?? '',
-          details: { id: result.id, name: data.backupName, deviceId: data.deviceId }
-        })
-      } catch (_e: unknown) {
-        console.error('Logging failed', _e)
-      }
+      logActivitySafe({
+        action: 'CREATE',
+        subject: 'Device Backup',
+        userId: ctx.session!.user.id,
+        details: { id: result.id, name: data.backupName, deviceId: data.deviceId }
+      })
 
-      return NextResponse.json({ id: result.id }, { status: 201 })
+      return apiSuccess({ id: result.id }, { status: 201 })
     } catch (prismaError: unknown) {
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error creating device backup:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal membuat backup perangkat' },
-      { status: 500 }
-    )
-  }
-}
+})

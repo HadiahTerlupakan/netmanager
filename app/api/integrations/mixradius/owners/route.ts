@@ -1,17 +1,15 @@
-import { NextRequest } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized()
-
-    const permissions = await getUserPermissions(session.id)
-    const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius:read');
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
+    const isSuper = isSuperAdmin(user)
+    const permissions = await getUserPermissions(user.id)
+    const hasAccess = isSuper || permissions.includes('*') || permissions.includes('mixradius:read');
+    
     if (!hasAccess) {
       return ApiErrors.forbidden()
     }
@@ -20,9 +18,4 @@ export async function GET(req: NextRequest) {
     const owners = await service.getOwnersWithIds()
 
     return apiSuccess(owners)
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
-    console.error('[API] MixRadius Owners Error:', message)
-    return ApiErrors.internalError(message)
-  }
-}
+})

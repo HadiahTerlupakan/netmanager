@@ -7,7 +7,7 @@ import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
 import type { FilterOptions } from '@/modules/pelanggan'
-import { logger } from '@/lib/logger'
+import { logActivitySafe } from '@/lib/logger'
 import { apiSuccess, apiPaginated } from '@/lib/api-response'
 
 /**
@@ -226,16 +226,12 @@ export async function POST(req: NextRequest) {
     revalidatePath('/api/pelanggan-ppp')
 
     // System Log
-    try {
-      await logger.logActivity({
-        action: 'CREATE',
-        subject: 'Pelanggan',
-        userId: session.user.id ?? 'unknown',
-        details: { id: pelanggan.id, nama: pelanggan.nama, username: pelanggan.username }
-      })
-    } catch (logError) {
-      console.error('Failed to log activity:', logError)
-    }
+    logActivitySafe({
+      action: 'CREATE',
+      subject: 'Pelanggan',
+      userId: session.user.id ?? 'unknown',
+      details: { id: pelanggan.id, nama: pelanggan.nama, username: pelanggan.username }
+    })
 
     return apiSuccess(pelanggan, { status: 201 })
   } catch (error) {

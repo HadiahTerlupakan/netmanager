@@ -8,6 +8,7 @@ import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
+import { logActivitySafe } from '@/lib/logger'
 
 interface ExtendedUser {
   id: string;
@@ -842,17 +843,12 @@ export async function PUT(
     })
 
     // System Log
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'UPDATE',
-        subject: 'Pelanggan',
-        userId: session?.user?.id,
-        details: { id: pelanggan.id, changes: Object.fromEntries(formData) } // Logging formData keys for simplicity or just ID
-      })
-    } catch (logError) {
-      console.error('Failed to log activity:', logError)
-    }
+    logActivitySafe({
+      action: 'UPDATE',
+      subject: 'Pelanggan',
+      userId: session?.user?.id,
+      details: { id: pelanggan.id, changes: Object.fromEntries(formData) } // Logging formData keys for simplicity or just ID
+    })
 
     // Debug: Log data yang dikembalikan
     console.log('[PUT Pelanggan] Data yang dikembalikan:', {
@@ -1141,17 +1137,12 @@ export async function DELETE(
     revalidatePath(`/api/pelanggan-ppp/${id}`)
 
     // System Log
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'DELETE',
-        subject: 'Pelanggan',
-        userId: session?.user?.id,
-        details: { id, nama: pelanggan.nama, username: pelanggan.username }
-      })
-    } catch (logError) {
-      console.error('Failed to log activity:', logError)
-    }
+    logActivitySafe({
+      action: 'DELETE',
+      subject: 'Pelanggan',
+      userId: session?.user?.id,
+      details: { id, nama: pelanggan.nama, username: pelanggan.username }
+    })
 
     return NextResponse.json({ message: 'Pelanggan berhasil dihapus' }, {
       headers: {

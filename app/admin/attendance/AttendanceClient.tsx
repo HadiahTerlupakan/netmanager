@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { FaSearch, FaFileExport, FaBuilding } from 'react-icons/fa'
-import { MdDelete, MdCancel, MdLocationOn, MdEdit, MdSave, MdTimer } from 'react-icons/md'
+import { MdDelete, MdLocationOn, MdEdit, MdSave, MdTimer } from 'react-icons/md'
 import Image from 'next/image'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { usePermission } from '@/hooks/use-permission'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -583,87 +584,93 @@ export function ClientComponent() {
             </div>
 
             {/* Photo Modal */}
-            {selectedPhoto && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)}>
-                    <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
-                        <Image src={selectedPhoto} alt="Full view" fill className="object-contain" />
-                        <button
-                            className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full"
-                            onClick={() => setSelectedPhoto(null)}
-                        >
-                            <MdCancel size={24} />
-                        </button>
-                    </div>
+            <Modal
+                isOpen={!!selectedPhoto}
+                onClose={() => setSelectedPhoto(null)}
+                title="Lihat Foto"
+                size="2xl"
+            >
+                <div className="relative w-full aspect-square md:aspect-video bg-black/5 rounded-lg overflow-hidden">
+                    {selectedPhoto && (
+                        <Image 
+                            src={selectedPhoto} 
+                            alt="Full view" 
+                            fill 
+                            className="object-contain" 
+                        />
+                    )}
                 </div>
-            )}
+                <ModalFooter>
+                    <button
+                        onClick={() => setSelectedPhoto(null)}
+                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm font-medium dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    >
+                        Tutup
+                    </button>
+                </ModalFooter>
+            </Modal>
 
             {/* Edit Modal */}
-            {isEditModalOpen && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Data Absensi</h3>
-                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-500">
-                                <MdCancel size={24} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Masuk (Check In)</label>
-                                <input
-                                    type="datetime-local"
-                                    value={editForm.checkIn}
-                                    onChange={(e) => {
-                                        setEditForm({ ...editForm, checkIn: e.target.value })
-                                        if (editErrors.checkIn) setEditErrors({ ...editErrors, checkIn: '' })
-                                    }}
-                                    className={`w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white ${editErrors.checkIn ? 'border-red-500' : ''}`}
-                                />
-                                {editErrors.checkIn && <p className="text-xs text-red-500 mt-1">{editErrors.checkIn}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Pulang (Check Out)</label>
-                                <input
-                                    type="datetime-local"
-                                    value={editForm.checkOut}
-                                    onChange={(e) => setEditForm({ ...editForm, checkOut: e.target.value })}
-                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Biarkan kosong jika belum checkout</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                                <select
-                                    value={editForm.status}
-                                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                >
-                                    <option value="ON_TIME">Tepat Waktu (ON_TIME)</option>
-                                    <option value="LATE">Terlambat (LATE)</option>
-                                    <option value="SICK">Sakit (SICK)</option>
-                                    <option value="PERMIT">Izin (PERMIT)</option>
-                                    <option value="ABSENT">Alpha (ABSENT)</option>
-                                    <option value="DAY_OFF">Libur (DAY_OFF)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-2">
-                            <button
-                                onClick={() => setIsEditModalOpen(false)}
-                                className="px-4 py-2 border rounded text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-sm"
-                            >
-                                Batal
-                            </button>
-                            <button
-                                onClick={handleUpdate}
-                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm flex items-center gap-2"
-                            >
-                                <MdSave /> Simpan Perubahan
-                            </button>
-                        </div>
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                title="Edit Data Absensi"
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Masuk (Check In)</label>
+                        <input
+                            type="datetime-local"
+                            value={editForm.checkIn}
+                            onChange={(e) => {
+                                setEditForm({ ...editForm, checkIn: e.target.value })
+                                if (editErrors.checkIn) setEditErrors({ ...editErrors, checkIn: '' })
+                            }}
+                            className={`w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white ${editErrors.checkIn ? 'border-red-500' : ''}`}
+                        />
+                        {editErrors.checkIn && <p className="text-xs text-red-500 mt-1">{editErrors.checkIn}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Pulang (Check Out)</label>
+                        <input
+                            type="datetime-local"
+                            value={editForm.checkOut}
+                            onChange={(e) => setEditForm({ ...editForm, checkOut: e.target.value })}
+                            className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Biarkan kosong jika belum checkout</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                        <select
+                            value={editForm.status}
+                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                            className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        >
+                            <option value="ON_TIME">Tepat Waktu (ON_TIME)</option>
+                            <option value="LATE">Terlambat (LATE)</option>
+                            <option value="SICK">Sakit (SICK)</option>
+                            <option value="PERMIT">Izin (PERMIT)</option>
+                            <option value="ABSENT">Alpha (ABSENT)</option>
+                            <option value="DAY_OFF">Libur (DAY_OFF)</option>
+                        </select>
                     </div>
                 </div>
-            )}
+                <ModalFooter>
+                    <button
+                        onClick={() => setIsEditModalOpen(false)}
+                        className="px-4 py-2 border rounded text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-sm font-medium transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={handleUpdate}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium flex items-center gap-2 transition-colors"
+                    >
+                        <MdSave /> Simpan Perubahan
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

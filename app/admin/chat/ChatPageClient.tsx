@@ -12,11 +12,11 @@ import {
     HiOutlinePhoto,
     HiOutlineMagnifyingGlass,
     HiOutlineMegaphone,
-    HiXMark,
 } from 'react-icons/hi2'
 import Image from 'next/image'
 import { usePermission } from '@/hooks/use-permission'
 import { useSocket } from '@/lib/websocket/SocketContext'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface ChatUser {
     id: string
@@ -731,16 +731,13 @@ export default function ChatPageClient() {
             </div>
 
             {/* New Chat Modal */}
-            {showNewChatModal && canSendMessage && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md mx-4 overflow-hidden">
-                        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Chat Baru</h3>
-                            <button onClick={() => setShowNewChatModal(false)} className="text-gray-400 hover:text-gray-600">
-                                <HiXMark className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <div className="p-4">
+            <Modal
+                isOpen={showNewChatModal && canSendMessage}
+                onClose={() => setShowNewChatModal(false)}
+                title="Chat Baru"
+                size="md"
+            >
+                <div className="space-y-4">
                             <input
                                 type="text"
                                 placeholder="Cari nama atau email..."
@@ -789,8 +786,8 @@ export default function ChatPageClient() {
                                     )
                                 )}
                             </div>
-                        </div>
-                        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                </div>
+                <ModalFooter>
                             <button
                                 onClick={createConversation}
                                 disabled={selectedUsers.length === 0}
@@ -798,25 +795,17 @@ export default function ChatPageClient() {
                             >
                                 Mulai Chat ({selectedUsers.length} dipilih)
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </ModalFooter>
+            </Modal>
 
             {/* Broadcast Modal */}
-            {showBroadcastModal && canBroadcast && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md mx-4 overflow-hidden">
-                        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                <HiOutlineMegaphone className="text-orange-500 w-5 h-5" />
-                                Broadcast
-                            </h3>
-                            <button onClick={() => setShowBroadcastModal(false)} className="text-gray-400 hover:text-gray-600">
-                                <HiXMark className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <div className="p-4 space-y-4">
+            <Modal
+                isOpen={showBroadcastModal && canBroadcast}
+                onClose={() => setShowBroadcastModal(false)}
+                title="Broadcast"
+                size="md"
+            >
+                <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Judul (opsional)
@@ -844,8 +833,8 @@ export default function ChatPageClient() {
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 📢 Pesan akan dikirim ke Global Chat dan notifikasi ke semua user
                             </p>
-                        </div>
-                        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                </div>
+                <ModalFooter>
                             <button
                                 onClick={sendBroadcast}
                                 disabled={!broadcastContent.trim() || sendingBroadcast}
@@ -860,10 +849,8 @@ export default function ChatPageClient() {
                                     </>
                                 )}
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

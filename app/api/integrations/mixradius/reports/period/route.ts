@@ -1,28 +1,17 @@
-import { NextRequest } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { getUserPermissions } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { searchParams } = req.nextUrl
     const service = getMixRadiusService()
+    const user = ctx.session!.user
 
-    // Permission Check
-    // Reuse verifyAuth logic or use helper if available in this context
-    // Since this is a simple route, we'll implement a basic check here or assume middleware handles it
-    // But to be consistent with others, let's verify auth and permissions.
-
-    // Note: This file uses 'getMixRadiusService' directly. Ideally it should check permissions.
-    // Let's add the check.
-    const { verifyAuth, getUserPermissions } = await import('@/lib/auth')
-    const session = await verifyAuth(request)
-    if (!session) return ApiErrors.unauthorized()
-
-    const permissions = await getUserPermissions(session.id)
+    const permissions = await getUserPermissions(user.id)
     // Check specific permission for this report
-    const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius_income:read') || permissions.includes('mixradius:read');
+    const hasAccess = user.role === 'SUPER_ADMIN' || permissions.includes('*') || permissions.includes('mixradius_income:read') || permissions.includes('mixradius:read');
     
     if (!hasAccess) {
        return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_income:read')
@@ -49,7 +38,4 @@ export async function GET(request: NextRequest) {
     ])
 
     return apiSuccess({ ...data, summary })
-  } catch (error) {
-    return ApiErrors.internalError(error instanceof Error ? error.message : 'Terjadi kesalahan')
-  }
-}
+})

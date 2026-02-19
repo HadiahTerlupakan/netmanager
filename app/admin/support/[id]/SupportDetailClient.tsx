@@ -20,6 +20,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeTicketChat } from '@/lib/websocket/hooks/useRealtimeTicketChat'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface Reply {
     id: string
@@ -628,20 +629,18 @@ export function ClientComponent() {
             </div>
 
             {/* Close Ticket Modal */}
-            {showCloseModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
-                                <HiXMark className="w-5 h-5 text-red-600" />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                                Tutup Tiket?
-                            </h3>
+            <Modal
+                isOpen={showCloseModal}
+                onClose={() => setShowCloseModal(false)}
+                title="Tutup Tiket?"
+                size="md"
+            >
+                        <div className="flex items-center gap-3 mb-4 text-amber-600">
+                            <HiOutlineEnvelope className="w-8 h-8" />
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Setelah ditutup, pelanggan tidak dapat membalas lagi. Pastikan masalah sudah terselesaikan.
+                            </p>
                         </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                            Setelah ditutup, pelanggan tidak dapat membalas lagi. Pastikan masalah sudah terselesaikan.
-                        </p>
                         <textarea
                             value={closingNote}
                             onChange={(e) => setClosingNote(e.target.value)}
@@ -649,7 +648,7 @@ export function ClientComponent() {
                             rows={3}
                             className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 mb-4"
                         />
-                        <div className="flex gap-3">
+                <ModalFooter>
                             <button
                                 onClick={() => setShowCloseModal(false)}
                                 className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -663,10 +662,8 @@ export function ClientComponent() {
                             >
                                 {closing ? 'Menutup...' : 'Tutup Tiket'}
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

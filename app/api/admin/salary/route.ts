@@ -1,17 +1,11 @@
-import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { getSalaryService } from '@/modules/salary/services/SalaryService'
 import { SalaryStatus, EmployeeType } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import { z } from 'zod'
 
 const service = getSalaryService()
 
-/**
- * Validation schema for calculating salary
- */
 const calculateSalarySchema = z.object({
     action: z.enum(['calculate-single', 'calculate-bulk']),
     userId: z.string().uuid().optional(),
@@ -22,137 +16,99 @@ const calculateSalarySchema = z.object({
     employeeType: z.nativeEnum(EmployeeType).optional(),
 })
 
-/**
- * GET /api/admin/salary - Get all salaries with filters
- */
-export async function GET(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
+export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+    // Permission check
+    if (!await hasPermission('salary:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data gaji')
+    }
 
-        // Permission check
-        if (!await hasPermission('salary:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data gaji')
-        }
+    const { searchParams } = req.nextUrl
 
-        const { searchParams } = new URL(request.url)
+    const monthStr = searchParams.get('month')
+    const yearStr = searchParams.get('year')
+    const status = searchParams.get('status') as SalaryStatus | undefined
+    const userId = searchParams.get('userId') || undefined
+    const departmentId = searchParams.get('departmentId') || undefined
+    const siteId = searchParams.get('siteId') || undefined
+    const employeeType = searchParams.get('employeeType') || undefined
 
-        const monthStr = searchParams.get('month')
-        const yearStr = searchParams.get('year')
-        const status = searchParams.get('status') as SalaryStatus | undefined
-        const userId = searchParams.get('userId') || undefined
-        const departmentId = searchParams.get('departmentId') || undefined
-        const siteId = searchParams.get('siteId') || undefined
-        const employeeType = searchParams.get('employeeType') || undefined
+    const filters = {
+        ...(monthStr ? { month: parseInt(monthStr) } : {}),
+        ...(yearStr ? { year: parseInt(yearStr) } : {}),
+        ...(status ? { status } : {}),
+        ...(userId ? { userId } : {}),
+        ...(departmentId ? { departmentId } : {}),
+        ...(siteId ? { siteId } : {}),
+        ...(employeeType ? { employeeType } : {})
+    }
 
-        const filters = {
-            ...(monthStr ? { month: parseInt(monthStr) } : {}),
-            ...(yearStr ? { year: parseInt(yearStr) } : {}),
-            ...(status ? { status } : {}),
-            ...(userId ? { userId } : {}),
-            ...(departmentId ? { departmentId } : {}),
-            ...(siteId ? { siteId } : {}),
-            ...(employeeType ? { employeeType } : {})
-        }
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1
+    const limit = searchParams.get('take') ? parseInt(searchParams.get('take')!) : 50
 
-        const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1
-        const limit = searchParams.get('take') ? parseInt(searchParams.get('take')!) : 50
+    const result = await service.getSalaries(filters, page, limit)
 
-        const result = await service.getSalaries(filters, page, limit)
+    if (!result.success) {
+        return ApiErrors.internalError(result.error)
+    }
+
+    return apiSuccess({
+        salaries: result.data?.salaries,
+        total: result.data?.total,
+        stats: result.data?.stats,
+        page: result.data?.page,
+        totalPages: result.data?.totalPages
+    })
+})
+
+export const POST = createHandler({ 
+    auth: true, 
+    schema: calculateSalarySchema 
+}, async (req, ctx) => {
+    // Permission check
+    if (!await hasPermission('salary:create')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat gaji')
+    }
+
+    const { action, userId, month, year, departmentId, siteId, employeeType } = ctx.validated
+    const sessionUserId = ctx.session!.user.id
+
+    if (action === 'calculate-single' && userId) {
+        // Calculate for single user
+        const result = await service.calculateSingle(userId, month, year, sessionUserId)
 
         if (!result.success) {
-            return ApiErrors.internalError(result.error)
+            return apiError(result.error || 'Gagal menghitung gaji', ErrorCodes.BUSINESS_LOGIC_ERROR, { status: 400 })
         }
 
         return apiSuccess({
-            salaries: result.data?.salaries,
-            total: result.data?.total,
-            stats: result.data?.stats,
-            page: result.data?.page,
-            totalPages: result.data?.totalPages
-        })
-    } catch (error) {
-        console.error('Error fetching salaries:', error)
-        return ApiErrors.internalError('Gagal mengambil data gaji')
+            salaryId: result.data?.salaryId
+        }, { message: 'Gaji berhasil dihitung' })
+    } else if (action === 'calculate-bulk') {
+        // Bulk calculate for all users
+        const result = await service.calculateBulk(
+            month,
+            year,
+            { 
+                ...(departmentId ? { departmentId } : {}),
+                ...(siteId ? { siteId } : {}),
+                ...(employeeType ? { employeeType } : {})
+            },
+            sessionUserId
+        )
+
+        if (!result.success) {
+            return apiError(result.error || 'Gagal menghitung gaji', ErrorCodes.BUSINESS_LOGIC_ERROR, { status: 400 })
+        }
+
+        return apiSuccess({
+            calculated: result.data?.success,
+            failed: result.data?.failed
+        }, { message: `${result.data?.success} gaji berhasil dihitung, ${result.data?.failed?.length || 0} gagal` })
+    } else {
+        return apiError(
+            'Action tidak valid. Gunakan "calculate-single" atau "calculate-bulk"',
+            ErrorCodes.VALIDATION_ERROR,
+            { status: 400 }
+        )
     }
-}
-
-/**
- * POST /api/admin/salary - Calculate salary (single or bulk)
- */
-export async function POST(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
-        // Permission check
-        if (!await hasPermission('salary:create')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat gaji')
-        }
-
-        const body = await request.json()
-        
-        // Validate with Zod
-        const parseResult = calculateSalarySchema.safeParse(body)
-        if (!parseResult.success) {
-            return apiError(
-                'Data tidak valid',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400, details: parseResult.error.flatten().fieldErrors }
-            )
-        }
-
-        const { action, userId, month, year, departmentId, siteId, employeeType } = parseResult.data
-
-        if (!session.user.id) {
-            return ApiErrors.unauthorized('User ID tidak ditemukan')
-        }
-
-        if (action === 'calculate-single' && userId) {
-            // Calculate for single user
-            const result = await service.calculateSingle(userId, month, year, session.user.id)
-
-            if (!result.success) {
-                return apiError(result.error || 'Gagal menghitung gaji', ErrorCodes.BUSINESS_LOGIC_ERROR, { status: 400 })
-            }
-
-            return apiSuccess({
-                salaryId: result.data?.salaryId
-            }, { message: 'Gaji berhasil dihitung' })
-        } else if (action === 'calculate-bulk') {
-            // Bulk calculate for all users
-            const result = await service.calculateBulk(
-                month,
-                year,
-                { 
-                    ...(departmentId ? { departmentId } : {}),
-                    ...(siteId ? { siteId } : {}),
-                    ...(employeeType ? { employeeType } : {})
-                },
-                session.user.id
-            )
-
-            if (!result.success) {
-                return apiError(result.error || 'Gagal menghitung gaji', ErrorCodes.BUSINESS_LOGIC_ERROR, { status: 400 })
-            }
-
-            return apiSuccess({
-                calculated: result.data?.success,
-                failed: result.data?.failed
-            }, { message: `${result.data?.success} gaji berhasil dihitung, ${result.data?.failed?.length || 0} gagal` })
-        } else {
-            return apiError(
-                'Action tidak valid. Gunakan "calculate-single" atau "calculate-bulk"',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400 }
-            )
-        }
-    } catch (error) {
-        console.error('Error calculating salary:', error)
-        return ApiErrors.internalError('Gagal menghitung gaji')
-    }
-}
+})

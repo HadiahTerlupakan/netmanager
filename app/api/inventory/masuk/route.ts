@@ -1,11 +1,10 @@
-import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
-import { logger } from '@/lib/logger'
+import { logger, logActivitySafe } from '@/lib/logger'
 import { validateGudangAccess } from '@/lib/inventory-validation'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import type { Session } from 'next-auth'
 
 /**
  * @swagger
@@ -14,73 +13,68 @@ import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
  *     summary: Get all stock-in movements with filters
  *     tags: [Inventory]
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now()
+  const user = ctx.session!.user
+
+  if (!(await hasPermission("masuk:read"))) {
+    return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat barang masuk')
+  }
+
+  const searchParams = req.nextUrl.searchParams
+  const barangId = searchParams.get('barangId') || undefined
+  const gudangId = searchParams.get('gudangId') || undefined
+  const search = searchParams.get('search') || undefined
+  let siteId = searchParams.get('siteId') || undefined
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '20')
+  const offset = (page - 1) * limit
+
+  // SITE RESTRICTION
+  const permissions = await getUserPermissions(user.id);
+  const isSuper = isSuperAdmin(user)
+
+  if (!isSuper && (permissions.includes('masuk:site_only') || permissions.includes('k_barang:site_only'))) {
+      const { prisma } = await import('@/lib/prisma');
+      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+      siteId = dbUser?.siteId || undefined
+  }
+
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return ApiErrors.unauthorized('Session tidak valid')
-    }
+    const dbStart = Date.now()
 
-    if (!(await hasPermission("masuk:read"))) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat barang masuk')
-    }
+    const inventoryRepository = getInventoryRepository()
 
-    const searchParams = req.nextUrl.searchParams
-    const barangId = searchParams.get('barangId')
-    const gudangId = searchParams.get('gudangId')
-    const search = searchParams.get('search')
-    let siteId = searchParams.get('siteId')
-    const page = parseInt(searchParams.get('page') || '1')
+    const { items: masukList, total } = await inventoryRepository.getHistoryMasuk({
+      skip: offset,
+      take: limit,
+      ...(barangId && { barangId }),
+      ...(gudangId && { gudangId }),
+      ...(search && { search }),
+      ...(siteId && { siteId })
+    })
 
-    // SITE RESTRICTION
-    const permissions = await getUserPermissions(session.user.id!);
-    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
+    logger.dbOperation('findMany', 'BarangMasuk+Relations', Date.now() - dbStart)
 
-    if (!isSuper && (permissions.includes('masuk:site_only') || permissions.includes('k_barang:site_only'))) {
-        siteId = (session.user as { siteId?: string }).siteId ?? null
-    }
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const offset = (page - 1) * limit
+    logger.apiRequest('GET', '/api/inventory/masuk', 200, Date.now() - startTime, {
+      userId: user.id,
+      count: masukList.length,
+      page,
+      limit,
+      total,
+      barangId,
+      gudangId,
+    })
 
-    try {
-      const dbStart = Date.now()
-
-      const inventoryRepository = getInventoryRepository()
-
-      const { items: masukList, total } = await inventoryRepository.getHistoryMasuk({
-        skip: offset,
-        take: limit,
-        ...(barangId && { barangId }),
-        ...(gudangId && { gudangId }),
-        ...(search && { search }),
-        ...(siteId && { siteId })
-      })
-
-      logger.dbOperation('findMany', 'BarangMasuk+Relations', Date.now() - dbStart)
-
-      logger.apiRequest('GET', '/api/inventory/masuk', 200, Date.now() - startTime, {
-        userId: session.user.id,
-        count: masukList.length,
+    return apiSuccess({
+      masukList,
+      pagination: {
         page,
         limit,
         total,
-        barangId,
-        gudangId,
-      })
-
-      return apiSuccess({
-        masukList,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      })
-    } finally {
-      // do not disconnect shared prisma client
-    }
+        totalPages: Math.ceil(total / limit)
+      }
+    })
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error fetching barang masuk', err, {
@@ -89,7 +83,7 @@ export async function GET(req: NextRequest) {
     })
     return ApiErrors.internalError('Gagal memuat data barang masuk')
   }
-}
+})
 
 /**
  * @swagger
@@ -98,110 +92,112 @@ export async function GET(req: NextRequest) {
  *     summary: Record new stock-in movement
  *     tags: [Inventory]
  */
-export async function POST(req: NextRequest) {
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now()
+  const user = ctx.session!.user
+
+  if (!(await hasPermission("masuk:create"))) {
+    return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat barang masuk')
+  }
+
+  const body = await req.json()
+  const {
+    barangId,
+    gudangId,
+    jumlah,
+    kondisi,
+    keterangan,
+    fotoBukti,
+    fotoMetadata
+  } = body
+
+  // Validation
+  const parsedJumlah = Number(jumlah)
+
+  if (!barangId || !gudangId || !jumlah || isNaN(parsedJumlah) || parsedJumlah <= 0) {
+    return ApiErrors.badRequest('Barang, gudang, dan jumlah harus diisi dengan benar')
+  }
+
+  // Validate photo data if provided
+  if (fotoBukti && !Array.isArray(fotoBukti)) {
+    return ApiErrors.badRequest('fotoBukti harus berupa array URL foto')
+  }
+
+  if (fotoMetadata && typeof fotoMetadata !== 'object') {
+    return ApiErrors.badRequest('fotoMetadata harus berupa object JSON')
+  }
+
+  // Fetch full user to mock session
+  const { prisma } = await import('@/lib/prisma');
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true, role: true } });
+  
+  const mockSession = {
+      user: {
+          ...user,
+          siteId: dbUser?.siteId,
+          role: dbUser?.role || user.role
+      },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  };
+
+  const access = await validateGudangAccess(mockSession as Session, gudangId)
+  if (!access.allowed) {
+    return ApiErrors.forbidden(access.error || 'Anda tidak memiliki akses ke gudang ini')
+  }
+
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return ApiErrors.unauthorized('Session tidak valid')
-    }
+    const inventoryRepository = getInventoryRepository()
+    const dbStart = Date.now()
 
-    if (!(await hasPermission("masuk:create"))) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat barang masuk')
-    }
-
-    const body = await req.json()
-    const {
+    // Use repository to add stock
+    const masukRecord = await inventoryRepository.addStock({
       barangId,
       gudangId,
-      jumlah,
-      kondisi,
+      jumlah: parsedJumlah,
+      kondisi: kondisi || 'BARU',
       keterangan,
-      fotoBukti,
-      fotoMetadata
-    } = body
+      userId: user.id,
+      fotoBukti: fotoBukti || [],
+      fotoMetadata: fotoMetadata || null,
+      tanggal: new Date()
+    })
 
-    // Validation
-    const parsedJumlah = Number(jumlah)
+    // Get updated stock level for WebSocket broadcast
+    const finalStock = await inventoryRepository.getStockLevel(barangId, gudangId)
 
-    if (!barangId || !gudangId || !jumlah || isNaN(parsedJumlah) || parsedJumlah <= 0) {
-      return apiError('Barang, gudang, dan jumlah harus diisi dengan benar', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    }
+    logger.dbOperation('transaction', 'BarangMasuk+BarangGudang', Date.now() - dbStart)
+    logger.apiRequest('POST', '/api/inventory/masuk', 201, Date.now() - startTime, {
+      userId: user.id,
+      barangId,
+      gudangId,
+      jumlah: parsedJumlah,
+      masukId: masukRecord.id,
+    })
 
-    // Validate photo data if provided
-    if (fotoBukti && !Array.isArray(fotoBukti)) {
-      return apiError('fotoBukti harus berupa array URL foto', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    }
+    // System Log
+    logActivitySafe({
+      action: 'CREATE',
+      subject: 'Inventory In',
+      userId: user.id,
+      details: { id: masukRecord.id, barangId, gudangId, quantity: parsedJumlah }
+    })
 
-    if (fotoMetadata && typeof fotoMetadata !== 'object') {
-      return apiError('fotoMetadata harus berupa object JSON', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    }
+    // Broadcast inventory update
+    const { socketEmitter } = await import('@/lib/websocket/emitter');
+    socketEmitter.inventoryUpdate({
+      type: 'masuk',
+      userId: user.id,
+      barangId,
+      gudangId,
+      jumlah: parsedJumlah,
+      totalStok: finalStock
+    });
 
-    const access = await validateGudangAccess(session, gudangId)
-    if (!access.allowed) {
-      return ApiErrors.forbidden(access.error || 'Anda tidak memiliki akses ke gudang ini')
-    }
-
-    try {
-      const inventoryRepository = getInventoryRepository()
-      const dbStart = Date.now()
-
-      // Use repository to add stock
-      const masukRecord = await inventoryRepository.addStock({
-        barangId,
-        gudangId,
-        jumlah: parsedJumlah,
-        kondisi: kondisi || 'BARU',
-        keterangan,
-        userId: session.user.id!,
-        fotoBukti: fotoBukti || [],
-        fotoMetadata: fotoMetadata || null,
-        tanggal: new Date()
-      })
-
-      // Get updated stock level for WebSocket broadcast
-      const finalStock = await inventoryRepository.getStockLevel(barangId, gudangId)
-
-      logger.dbOperation('transaction', 'BarangMasuk+BarangGudang', Date.now() - dbStart)
-      logger.apiRequest('POST', '/api/inventory/masuk', 201, Date.now() - startTime, {
-        userId: session.user.id,
-        barangId,
-        gudangId,
-        jumlah: parsedJumlah,
-        masukId: masukRecord.id,
-      })
-
-      // System Log
-      try {
-        await logger.logActivity({
-          action: 'CREATE',
-          subject: 'Inventory In',
-          userId: session.user.id!,
-          details: { id: masukRecord.id, barangId, gudangId, quantity: parsedJumlah }
-        })
-      } catch (e) {
-        console.error('Logging failed', e)
-      }
-
-      // Broadcast inventory update
-      const { socketEmitter } = await import('@/lib/websocket/emitter');
-      socketEmitter.inventoryUpdate({
-        type: 'masuk',
-        userId: session.user.id as string,
-        barangId,
-        gudangId,
-        jumlah: parsedJumlah,
-        totalStok: finalStock
-      });
-
-      return apiSuccess({
-        message: 'Barang masuk berhasil dicatat',
-        masukId: masukRecord.id,
-        data: masukRecord
-      }, { status: 201 })
-    } finally {
-      // do not disconnect shared prisma client
-    }
+    return apiSuccess({
+      message: 'Barang masuk berhasil dicatat',
+      masukId: masukRecord.id,
+      data: masukRecord
+    }, { status: 201 })
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error creating barang masuk', err, {
@@ -213,9 +209,9 @@ export async function POST(req: NextRequest) {
       return ApiErrors.notFound('Barang')
     }
     if (err.message === 'Gudang tidak ditemukan atau tidak aktif') {
-      return apiError('Gudang tidak ditemukan atau tidak aktif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+      return ApiErrors.badRequest('Gudang tidak ditemukan atau tidak aktif')
     }
 
     return ApiErrors.internalError('Gagal mencatat barang masuk')
   }
-}
+})

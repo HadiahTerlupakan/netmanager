@@ -17,6 +17,7 @@ import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { usePermission } from '@/hooks/use-permission'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface SalesUser {
     id: string
@@ -327,63 +328,52 @@ export default function SalesListClient() {
             </div>
 
             {/* Edit Modal */}
-            {editingUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-sm w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">Ubah Target Canvasing</h3>
-                            <button 
-                                onClick={() => setEditingUser(null)}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
-                            >
-                                &times;
-                            </button>
-                        </div>
-                        
-                        <div className="p-6">
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Target Bulanan ({editingUser.name})
-                                </label>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={newTarget}
-                                        onChange={(e) => setNewTarget(parseInt(e.target.value) || 0)}
-                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-mono text-lg"
-                                    />
-                                    <span className="text-gray-500 font-medium">Data</span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    Target ini akan muncul di dashboard aplikasi mobile user.
-                                </p>
-                            </div>
-
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    onClick={() => setEditingUser(null)}
-                                    disabled={saving}
-                                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    onClick={handleSaveTarget}
-                                    disabled={saving}
-                                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors shadow-sm shadow-indigo-200 dark:shadow-none flex justify-center items-center"
-                                >
-                                    {saving ? (
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                        'Simpan'
-                                    )}
-                                </button>
-                            </div>
-                        </div>
+            <Modal
+                isOpen={!!editingUser}
+                onClose={() => setEditingUser(null)}
+                title="Ubah Target Canvasing"
+                size="sm"
+            >
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Target Bulanan ({editingUser?.name})
+                    </label>
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="number"
+                            min="0"
+                            value={newTarget}
+                            onChange={(e) => setNewTarget(parseInt(e.target.value) || 0)}
+                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-mono text-lg"
+                        />
+                        <span className="text-gray-500 font-medium">Data</span>
                     </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                        Target ini akan muncul di dashboard aplikasi mobile user.
+                    </p>
                 </div>
-            )}
+
+                <ModalFooter>
+                    <button
+                        onClick={() => setEditingUser(null)}
+                        disabled={saving}
+                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={handleSaveTarget}
+                        disabled={saving}
+                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors shadow-sm shadow-indigo-200 dark:shadow-none flex justify-center items-center"
+                    >
+                        {saving ? (
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            'Simpan'
+                        )}
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiZoomIn } from 'react-icons/fi'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
+import { getKondisiBadge, formatInventoryDate } from '@/lib/utils/inventory-helpers'
 
 interface BarangKeluar {
   id: string
@@ -58,25 +59,6 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
     setLightboxOpen(true)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('id-ID', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
-  const getKondisiBadge = (kondisi: string) => {
-    const styles = {
-      BARU: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-      BEKAS: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-      RUSAK: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-    }
-    return styles[kondisi as keyof typeof styles] || styles.BARU
-  }
-
   const getKondisiLabel = (kondisi: string) => {
     switch (kondisi) {
       case 'BARU': return <span className="flex items-center gap-1"><FiCheckCircle className="w-3 h-3" /> Baru</span>
@@ -102,7 +84,7 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
               Tanggal
             </label>
             <p className="text-gray-900 dark:text-white">
-              {formatDate(keluar.tanggal)}
+              {formatInventoryDate(keluar.tanggal)}
             </p>
           </div>
           <div>
@@ -111,7 +93,7 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
               Dibuat Pada
             </label>
             <p className="text-gray-900 dark:text-white">
-              {formatDate(keluar.createdAt)}
+              {formatInventoryDate(keluar.createdAt)}
             </p>
           </div>
         </div>
@@ -223,7 +205,7 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
               <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
                 <span>{keluar.fotoBukti.length} foto terlampir</span>
                 {keluar.fotoMetadata && (
-                  <span>Diupload: {formatDate(keluar.fotoMetadata.uploadedAt || keluar.createdAt)}</span>
+                  <span>Diupload: {formatInventoryDate(keluar.fotoMetadata.uploadedAt || keluar.createdAt)}</span>
                 )}
               </div>
 

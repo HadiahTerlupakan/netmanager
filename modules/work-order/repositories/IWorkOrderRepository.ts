@@ -271,7 +271,7 @@ export interface IWorkOrderRepository {
 
     // Attachments
     addAttachment(workOrderId: string, fileName: string, filePath: string, fileSize: number, fileType: string, caption?: string, uploadedById?: string): Promise<WorkOrderAttachments>;
-    deleteAttachment(attachmentId: string): Promise<void>;
+    deleteAttachment(attachmentId: string, deletedById?: string): Promise<void>;
 
     // Statistics
     getStatistics(filters?: Omit<WorkOrderFilters, 'search'>): Promise<WorkOrderStatistics>;

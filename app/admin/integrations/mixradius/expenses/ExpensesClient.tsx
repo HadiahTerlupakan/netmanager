@@ -17,12 +17,11 @@ import {
   HiOutlineCheckCircle,
   HiOutlineInformationCircle,
   // HiOutlineBanknotes,
-  HiOutlineDocumentText,
-  HiOutlinePhoto
+  HiOutlineDocumentText
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
-// import { Modal } from '@/components/ui/Modal'
+import { Modal, ModalBody } from '@/components/ui/Modal'
 import { Combobox } from '@/components/ui/Combobox'
 import { formatCurrency } from '@/lib/utils'
 import { usePermission } from '@/hooks/use-permission'
@@ -851,9 +850,13 @@ export default function ExpensesClient() {
       </div>
 
       {/* Wizard Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-[#1e293b] rounded-[2.5rem] w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        padding={false}
+        size="xl"
+        showCloseButton={false}
+      >
                 {/* Stepper Indicator */}
                 <div className="bg-gray-50 dark:bg-[#161e2e] p-8 pb-4 rounded-t-[2.5rem]">
                     <div className="flex items-center justify-between max-w-xs mx-auto relative">
@@ -878,7 +881,7 @@ export default function ExpensesClient() {
                     </div>
                 </div>
 
-                <div className="p-8">
+                <ModalBody className="p-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Step 1: Detail Pengeluaran */}
                         {step === 1 && (
@@ -1071,14 +1074,6 @@ export default function ExpensesClient() {
                                         </div>
                                     </div>
                                 </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Bukti Transaksi (Opsional)</label>
-                                    <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl p-6 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 transition-all cursor-pointer bg-gray-50/50 dark:bg-[#161e2e]/50">
-                                        <HiOutlinePhoto className="w-8 h-8 mb-2" />
-                                        <p className="text-[10px] font-bold uppercase tracking-widest">Klik untuk Upload</p>
-                                    </div>
-                                </div>
                             </div>
                         )}
 
@@ -1097,7 +1092,7 @@ export default function ExpensesClient() {
                                 <button 
                                     type="button" 
                                     onClick={() => setIsModalOpen(false)} 
-                                    className="px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-all"
+                                    className="px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-all"
                                 >
                                     Batal
                                 </button>
@@ -1107,7 +1102,7 @@ export default function ExpensesClient() {
                                 <button 
                                     type="button" 
                                     onClick={nextStep} 
-                                    className="flex items-center gap-2 px-8 py-2.5 bg-gray-900 dark:bg-blue-600 text-white font-bold rounded-xl hover:bg-black dark:hover:bg-blue-700 transition-all shadow-lg active:scale-95"
+                                    className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95"
                                 >
                                     Lanjut
                                     <HiOutlineArrowRight className="w-5 h-5" />
@@ -1116,17 +1111,15 @@ export default function ExpensesClient() {
                                 <button 
                                     type="submit" 
                                     disabled={isSubmitting}
-                                    className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50"
+                                    className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}
                                 </button>
                             )}
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-      )}
+                </ModalBody>
+      </Modal>
       </>
       ) : activeTab === 'rab' ? (
           /* RAB View */

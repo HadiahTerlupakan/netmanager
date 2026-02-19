@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { HiCheck, HiOutlineWrench, HiOutlineClipboardDocumentList } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeWorkOrders } from '@/lib/websocket/hooks/useRealtimeWorkOrders'
 import { usePermission } from '@/hooks/use-permission'
+import { getPriorityColor } from '@/lib/utils/priority-helpers'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 export function WorkOrderBell() {
     const { hasPermission } = usePermission()
@@ -27,15 +29,8 @@ export function WorkOrderBell() {
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    const closeDropdown = useCallback(() => setIsOpen(false), [])
+    useClickOutside(dropdownRef, closeDropdown)
 
     // Refresh when dropdown is opened to ensure data is fresh
     useEffect(() => {
@@ -47,18 +42,6 @@ export function WorkOrderBell() {
     // Hide if no work order permission
     if (!hasPermission('workorders:read')) {
         return null
-    }
-
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case 'URGENT':
-            case 'CRITICAL':
-                return 'border-l-red-500'
-            case 'HIGH':
-                return 'border-l-orange-500'
-            default:
-                return 'border-l-blue-500'
-        }
     }
 
     return (
@@ -121,7 +104,7 @@ export function WorkOrderBell() {
                                 {notifications.map((notification) => (
                                     <div
                                         key={notification.id}
-                                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${getPriorityColor(notification.priority)} ${!notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
+                                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${getPriorityColor(notification.priority, 'border-l-blue-500')} ${!notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
                                             }`}
                                     >
                                         <div className="flex gap-3">

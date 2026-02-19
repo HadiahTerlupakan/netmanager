@@ -1,8 +1,6 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { z } from 'zod'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { createHandler, apiSuccess } from '@/lib/api'
 
 const accountSchema = z.object({
   name: z.string().min(1, 'Nama akun wajib diisi'),
@@ -12,40 +10,19 @@ const accountSchema = z.object({
   initialBalance: z.number().optional().default(0)
 })
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized()
-    }
-
+export const GET = createHandler({ auth: true }, async () => {
     const financeService = new FinanceService()
     const accounts = await financeService.getAccounts()
-
     return apiSuccess(accounts)
-  } catch (error: unknown) {
-    console.error('Get Accounts Error:', error)
-    const message = error instanceof Error ? error.message : 'Gagal mengambil data akun keuangan'
-    return ApiErrors.internalError(message)
-  }
-}
+})
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized()
-    }
-
-    const body = await req.json()
-    const validation = accountSchema.safeParse(body)
-
-    if (!validation.success) {
-      return ApiErrors.badRequest('Validasi gagal', { details: validation.error.format() as unknown as Record<string, unknown> })
-    }
-
+export const POST = createHandler({
+    auth: true,
+    schema: accountSchema
+}, async (req, ctx) => {
     const financeService = new FinanceService()
-    const { accountNumber, description, ...rest } = validation.data
+    const { accountNumber, description, ...rest } = ctx.validated
+    
     const account = await financeService.createAccount({
         ...rest,
         ...(accountNumber ? { accountNumber } : {}),
@@ -53,9 +30,4 @@ export async function POST(req: NextRequest) {
     })
 
     return apiSuccess(account, { status: 201, message: 'Akun berhasil dibuat' })
-  } catch (error: unknown) {
-    console.error('Create Account Error:', error)
-    const message = error instanceof Error ? error.message : 'Gagal membuat akun keuangan'
-    return ApiErrors.internalError(message)
-  }
-}
+})

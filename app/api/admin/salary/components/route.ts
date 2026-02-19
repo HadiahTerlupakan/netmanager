@@ -1,17 +1,11 @@
-import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { SalaryComponentRepository } from '@/modules/salary/repositories/SalaryComponentRepository'
 import { SalaryComponentType } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import { z } from 'zod'
 
 const componentRepo = new SalaryComponentRepository()
 
-/**
- * Validation schemas
- */
 const createComponentSchema = z.object({
     action: z.enum(['assign', 'create']).optional(),
     // For assign action
@@ -39,185 +33,117 @@ const updateComponentSchema = z.object({
     isActive: z.boolean().optional(),
 })
 
-/**
- * GET /api/admin/salary/components - List all components
- */
-export async function GET(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
-        if (!await hasPermission('salary:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat komponen gaji')
-        }
-
-        const { searchParams } = new URL(request.url)
-        const type = searchParams.get('type') as SalaryComponentType | undefined
-        const userId = searchParams.get('userId')
-
-        const components = await componentRepo.findAll(type)
-
-        // If userId specified, include user's component values
-        let userComponents = null
-        if (userId) {
-            userComponents = await componentRepo.getUserComponents(userId)
-        }
-
-        return apiSuccess({ components, userComponents })
-    } catch (error) {
-        console.error('Error fetching components:', error)
-        return ApiErrors.internalError('Gagal mengambil data komponen gaji')
+export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+    if (!await hasPermission('salary:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat komponen gaji')
     }
-}
 
-/**
- * POST /api/admin/salary/components - Create component or assign to user
- */
-export async function POST(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid')
+    const { searchParams } = req.nextUrl
+    const type = searchParams.get('type') as SalaryComponentType | undefined
+    const userId = searchParams.get('userId')
+
+    const components = await componentRepo.findAll(type)
+
+    // If userId specified, include user's component values
+    let userComponents = null
+    if (userId) {
+        userComponents = await componentRepo.getUserComponents(userId)
+    }
+
+    return apiSuccess({ components, userComponents })
+})
+
+export const POST = createHandler({ 
+    auth: true, 
+    schema: createComponentSchema 
+}, async (req, ctx) => {
+    if (!await hasPermission('salary:create')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat komponen gaji')
+    }
+
+    const { action, userId, componentId, amount, notes, name, type, rateType, defaultAmount, description, sortOrder } = ctx.validated
+
+    if (action === 'assign') {
+        if (!userId || !componentId || amount === undefined) {
+            return apiError('userId, componentId, dan amount wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
         }
 
-        if (!await hasPermission('salary:create')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat komponen gaji')
+        const userComponent = await componentRepo.assignToUser(userId, componentId, amount, notes)
+        return apiSuccess({ userComponent }, { message: 'Komponen berhasil ditambahkan ke user' })
+    } else {
+        if (!name || !type) {
+            return apiError('name dan type wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
         }
 
-        const body = await request.json()
-        const parseResult = createComponentSchema.safeParse(body)
+        // Check if component with same name already exists
+        const existingComponent = await componentRepo.findByName(name)
         
-        if (!parseResult.success) {
-            return apiError(
-                'Data tidak valid',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400, details: parseResult.error.flatten().fieldErrors }
-            )
-        }
-
-        const { action, userId, componentId, amount, notes, name, type, rateType, defaultAmount, description, sortOrder } = parseResult.data
-
-        if (action === 'assign') {
-            if (!userId || !componentId || amount === undefined) {
-                return apiError('userId, componentId, dan amount wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
+        let component;
+        if (existingComponent) {
+            const reqRateType = rateType || 'FIXED'
+            if (existingComponent.type !== type) {
+                return ApiErrors.conflict(`Komponen "${name}" sudah ada dengan tipe berbeda (${existingComponent.type})`)
             }
-
-            const userComponent = await componentRepo.assignToUser(userId, componentId, amount, notes)
-            return apiSuccess({ userComponent }, { message: 'Komponen berhasil ditambahkan ke user' })
+            if (existingComponent.rateType !== reqRateType) {
+                return ApiErrors.conflict(`Komponen "${name}" sudah ada dengan tipe rate berbeda (${existingComponent.rateType})`)
+            }
+            component = existingComponent
         } else {
-            if (!name || !type) {
-                return apiError('name dan type wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
-            }
-
-            // Check if component with same name already exists
-            const existingComponent = await componentRepo.findByName(name)
-            
-            let component;
-            if (existingComponent) {
-                const reqRateType = rateType || 'FIXED'
-                if (existingComponent.type !== type) {
-                    return ApiErrors.conflict(`Komponen "${name}" sudah ada dengan tipe berbeda (${existingComponent.type})`)
-                }
-                if (existingComponent.rateType !== reqRateType) {
-                    return ApiErrors.conflict(`Komponen "${name}" sudah ada dengan tipe rate berbeda (${existingComponent.rateType})`)
-                }
-                component = existingComponent
-            } else {
-                component = await componentRepo.create({
-                    name,
-                    type,
-                    rateType: rateType || 'FIXED',
-                    defaultAmount: defaultAmount ?? null,
-                    description: description ?? null,
-                    sortOrder: sortOrder || 0
-                })
-            }
-
-            return apiSuccess({ component }, { status: 201, message: 'Komponen berhasil dibuat' })
+            component = await componentRepo.create({
+                name,
+                type,
+                rateType: rateType || 'FIXED',
+                defaultAmount: defaultAmount ?? null,
+                description: description ?? null,
+                sortOrder: sortOrder || 0
+            })
         }
-    } catch (error) {
-        console.error('Error creating component:', error)
-        return ApiErrors.internalError('Gagal membuat komponen gaji')
+
+        return apiSuccess({ component }, { status: 201, message: 'Komponen berhasil dibuat' })
     }
-}
+})
 
-/**
- * PUT /api/admin/salary/components - Update component
- */
-export async function PUT(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
-
-        if (!await hasPermission('salary:update')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah komponen gaji')
-        }
-
-        const body = await request.json()
-        const parseResult = updateComponentSchema.safeParse(body)
-        
-        if (!parseResult.success) {
-            return apiError(
-                'Data tidak valid',
-                ErrorCodes.VALIDATION_ERROR,
-                { status: 400, details: parseResult.error.flatten().fieldErrors }
-            )
-        }
-
-        const { id, name, type, rateType, defaultAmount, description, sortOrder, isActive } = parseResult.data
-        const component = await componentRepo.update(id, {
-            ...(name ? { name } : {}),
-            ...(type ? { type } : {}),
-            ...(rateType ? { rateType } : {}),
-            ...(defaultAmount !== undefined ? { defaultAmount } : {}),
-            ...(description !== undefined ? { description } : {}),
-            ...(sortOrder !== undefined ? { sortOrder } : {}),
-            ...(isActive !== undefined ? { isActive } : {})
-        })
-
-        return apiSuccess({ component }, { message: 'Komponen berhasil diperbarui' })
-    } catch (error) {
-        console.error('Error updating component:', error)
-        return ApiErrors.internalError('Gagal memperbarui komponen gaji')
+export const PUT = createHandler({ 
+    auth: true, 
+    schema: updateComponentSchema 
+}, async (req, ctx) => {
+    if (!await hasPermission('salary:update')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah komponen gaji')
     }
-}
 
-/**
- * DELETE /api/admin/salary/components - Delete component or remove from user
- */
-export async function DELETE(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) {
-            return ApiErrors.unauthorized('Session tidak valid')
-        }
+    const { id, name, type, rateType, defaultAmount, description, sortOrder, isActive } = ctx.validated
+    const component = await componentRepo.update(id, {
+        ...(name ? { name } : {}),
+        ...(type ? { type } : {}),
+        ...(rateType ? { rateType } : {}),
+        ...(defaultAmount !== undefined ? { defaultAmount } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(sortOrder !== undefined ? { sortOrder } : {}),
+        ...(isActive !== undefined ? { isActive } : {})
+    })
 
-        if (!await hasPermission('salary:delete')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus komponen gaji')
-        }
+    return apiSuccess({ component }, { message: 'Komponen berhasil diperbarui' })
+})
 
-        const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
-        const userId = searchParams.get('userId')
-        const componentId = searchParams.get('componentId')
-
-        if (userId && componentId) {
-            // Remove component from user
-            await componentRepo.removeFromUser(userId, componentId)
-            return apiSuccess(null, { message: 'Komponen berhasil dihapus dari user' })
-        } else if (id) {
-            // Delete component
-            await componentRepo.delete(id)
-            return apiSuccess(null, { message: 'Komponen berhasil dihapus' })
-        } else {
-            return apiError('id atau (userId + componentId) wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
-        }
-    } catch (error) {
-        console.error('Error deleting component:', error)
-        return ApiErrors.internalError('Gagal menghapus komponen gaji')
+export const DELETE = createHandler({ auth: true }, async (req, _ctx) => {
+    if (!await hasPermission('salary:delete')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus komponen gaji')
     }
-}
+
+    const { searchParams } = req.nextUrl
+    const id = searchParams.get('id')
+    const userId = searchParams.get('userId')
+    const componentId = searchParams.get('componentId')
+
+    if (userId && componentId) {
+        // Remove component from user
+        await componentRepo.removeFromUser(userId, componentId)
+        return apiSuccess(null, { message: 'Komponen berhasil dihapus dari user' })
+    } else if (id) {
+        // Delete component
+        await componentRepo.delete(id)
+        return apiSuccess(null, { message: 'Komponen berhasil dihapus' })
+    } else {
+        return apiError('id atau (userId + componentId) wajib diisi', ErrorCodes.MISSING_FIELD, { status: 400 })
+    }
+})

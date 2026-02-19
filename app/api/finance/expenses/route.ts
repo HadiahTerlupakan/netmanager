@@ -1,155 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions, verifyAuth, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { hasPermission } from "@/lib/rbac";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
-
-export async function GET(req: NextRequest) {
-    try {
-        const user = await verifyAuth(req);
-        if (!user) return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
-
-        // Allow SUPER_ADMIN to bypass permission check
-        const isSuper = isSuperAdmin(user);
-
-        // Check for either generic expense permission OR mixradius expense permission
-        const hasAccess = isSuper ||
-                         (await hasPermission("expense:read")) ||
-                         (await hasPermission("mixradius_expenses:read"));
-
-        if (!hasAccess) {
-            return NextResponse.json({
-                success: false,
-                error: "Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read",
-                code: "FORBIDDEN"
-            }, { status: 403 });
-        }
-
-        const { searchParams } = new URL(req.url);
-        const startDate = searchParams.get("startDate");
-        const endDate = searchParams.get("endDate");
-        const siteId = searchParams.get("siteId");
-        const mixRadiusGroupId = searchParams.get("mixRadiusGroupId");
-        const category = searchParams.get("category");
-        const expenseCategoryId = searchParams.get("expenseCategoryId");
-        const scope = searchParams.get("scope");
-
-        console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, expenseCategoryId, scope });
-
-        // Build where clause
-        const where: Record<string, unknown> = {};
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-
-            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                return NextResponse.json({ error: "Format tanggal tidak valid" }, { status: 400 });
-            }
-
-            where.date = {
-                gte: start,
-                lte: end,
-            };
-        }
-
-        if (category) {
-            where.category = category;
-        }
-
-        if (expenseCategoryId) {
-            where.expenseCategoryId = expenseCategoryId;
-        }
-
-        if ((await hasPermission("expense:site_only")) && !isSuper) {
-            const userSiteId = (user as { siteId?: string }).siteId;
-            if (userSiteId) {
-                where.siteId = userSiteId;
-            } else {
-                 // If user is restricted but has no site, return empty
-                 return NextResponse.json([]);
-            }
-        } else if (scope === 'general') {
-             // Explicitly fetch expenses with NO site association (Shared/General)
-             where.siteId = null;
-             where.mixRadiusGroupId = null;
-        } else if (mixRadiusGroupId) {
-             // Precise filtering by Group ID if provided
-             where.mixRadiusGroupId = mixRadiusGroupId;
-        } else if (siteId) {
-             // Fallback to physical site ID if no specific group requested
-             where.siteId = siteId;
-        }
-
-        const expenses = await prisma.expense.findMany({
-            where,
-            orderBy: {
-                date: 'desc',
-            },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                    }
-                },
-                site: {
-                    select: {
-                        name: true
-                    }
-                },
-                mixRadiusGroup: {
-                    select: {
-                        id: true,
-                        name: true
-                    }
-                },
-                expenseCategory: {
-                    select: {
-                        id: true,
-                        name: true,
-                        type: true
-                    }
-                }
-            }
-        });
-
-        console.log(`[EXPENSES_GET] Found ${expenses.length} expenses.`);
-        if (expenses.length > 0) {
-            console.log("[DEBUG_GET] First expense structure:", JSON.stringify(expenses[0], (key, value) =>
-                typeof value === 'bigint' ? value.toString() : value, 2));
-        }
-
-        // Convert BigInt to string for JSON serialization
-        const serializedExpenses = expenses.map(expense => ({
-            ...expense,
-            amount: expense.amount.toString(),
-            depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
-            usefulLife: expense.usefulLife || 0,
-        }));
-
-        return NextResponse.json(serializedExpenses);
-    } catch (error: unknown) {
-        const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
-        console.error("[EXPENSES_GET] Prisma Error Details:", JSON.stringify(error, null, 2));
-        console.error("[EXPENSES_GET] Error Message:", err.message);
-        
-        // Check if it's a validation error specifically
-        if (err.message.includes("Unknown field")) {
-            console.log("[DEBUG] Diagnosis: Prisma Client out of sync with schema.prisma");
-        }
-
-        // Important: Return empty array on error to prevent frontend breakage, OR explicit error structure
-        // But since we want to debug, let's return error object with details
-        return NextResponse.json({
-            error: "Terjadi kesalahan server",
-            details: process.env.NODE_ENV === 'development' ? (err.message || String(err)) : undefined
-        }, { status: 500 });
-    }
-}
-
-import { z } from "zod";
 
 const expenseSchema = z.object({
     amount: z.union([z.string(), z.number()]).transform((val) => BigInt(val)),
@@ -163,85 +19,215 @@ const expenseSchema = z.object({
     mixRadiusGroupId: z.string().optional(),
 });
 
-export async function POST(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user?.email || !session.user?.id) {
-            return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    // ctx.session is guaranteed
+    const user = ctx.session!.user;
+
+    // Allow SUPER_ADMIN to bypass permission check
+    const isSuper = isSuperAdmin(user);
+
+    // Check for either generic expense permission OR mixradius expense permission
+    const hasAccess = isSuper ||
+                     (await hasPermission("expense:read")) ||
+                     (await hasPermission("mixradius_expenses:read"));
+
+    if (!hasAccess) {
+        return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read");
+    }
+
+    const { searchParams } = req.nextUrl;
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const siteId = searchParams.get("siteId");
+    const mixRadiusGroupId = searchParams.get("mixRadiusGroupId");
+    const category = searchParams.get("category");
+    const expenseCategoryId = searchParams.get("expenseCategoryId");
+    const scope = searchParams.get("scope");
+
+    console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, expenseCategoryId, scope });
+
+    // Build where clause
+    const where: Record<string, unknown> = {};
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return ApiErrors.badRequest("Format tanggal tidak valid");
         }
 
-        const userId = session.user.id;
+        where.date = {
+            gte: start,
+            lte: end,
+        };
+    }
 
-        // Allow SUPER_ADMIN to bypass permission check
-        const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean });
+    if (category) {
+        where.category = category;
+    }
 
-        // Check for either generic expense permission OR mixradius expense permission
-        const hasAccess = isSuper ||
-                         (await hasPermission("expense:create")) ||
-                         (await hasPermission("mixradius_expenses:create"));
+    if (expenseCategoryId) {
+        where.expenseCategoryId = expenseCategoryId;
+    }
 
-        if (!hasAccess) {
-            return NextResponse.json({
-                success: false,
-                error: "Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create",
-                code: "FORBIDDEN"
-            }, { status: 403 });
+    if ((await hasPermission("expense:site_only")) && !isSuper) {
+        // Need to fetch full user to get siteId if it's not in session
+        // Assuming session.user has siteId (ctx.session structure in handler.ts implies standard fields, let's double check if custom fields like siteId are passed)
+        // handler.ts only maps basic fields: id, email, name, role.
+        // It does NOT map siteId.
+        // So I need to fetch the user or rely on what's in 'user' variable if I cast it?
+        // Wait, handler.ts:
+        // ctx.session = { user: { id, email, name, role } }
+        // It does NOT include siteId.
+        // I must fetch the user from DB to get siteId, or update handler.ts.
+        // Updating handler.ts affects all files.
+        // Safer to fetch user here or check if session from `next-auth` (which I removed) had it.
+        // The original code used `verifyAuth` which returns the session user object.
+        // `createHandler` uses `getServerSession`.
+        // If `getServerSession` returns `siteId`, `createHandler` DROPS it because of explicit mapping.
+        // This is a limitation of `createHandler` current implementation.
+        // I should probably fix `createHandler` later to include `...session.user` to pass through custom fields.
+        // For now, I will use `prisma.user.findUnique` to be safe.
+        
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { siteId: true }
+        });
+        
+        const userSiteId = dbUser?.siteId;
+
+        if (userSiteId) {
+            where.siteId = userSiteId;
+        } else {
+             // If user is restricted but has no site, return empty
+             return apiSuccess([]);
         }
+    } else if (scope === 'general') {
+         // Explicitly fetch expenses with NO site association (Shared/General)
+         where.siteId = null;
+         where.mixRadiusGroupId = null;
+    } else if (mixRadiusGroupId) {
+         // Precise filtering by Group ID if provided
+         where.mixRadiusGroupId = mixRadiusGroupId;
+    } else if (siteId) {
+         // Fallback to physical site ID if no specific group requested
+         where.siteId = siteId;
+    }
 
-        const body = await req.json();
-
-        const validation = expenseSchema.safeParse(body);
-        if (!validation.success) {
-            return NextResponse.json({ error: "Input tidak valid", details: validation.error.format() }, { status: 400 });
+    const expenses = await prisma.expense.findMany({
+        where,
+        orderBy: {
+            date: 'desc',
+        },
+        include: {
+            user: {
+                select: {
+                    name: true,
+                }
+            },
+            site: {
+                select: {
+                    name: true
+                }
+            },
+            mixRadiusGroup: {
+                select: {
+                    id: true,
+                    name: true
+                }
+            },
+            expenseCategory: {
+                select: {
+                    id: true,
+                    name: true,
+                    type: true
+                }
+            }
         }
+    });
 
-        const {
+    console.log(`[EXPENSES_GET] Found ${expenses.length} expenses.`);
+
+    // Convert BigInt to string for JSON serialization
+    const serializedExpenses = expenses.map(expense => ({
+        ...expense,
+        amount: expense.amount.toString(),
+        depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
+        usefulLife: expense.usefulLife || 0,
+    }));
+
+    return apiSuccess(serializedExpenses);
+});
+
+export const POST = createHandler({ 
+    auth: true, 
+    schema: expenseSchema 
+}, async (req, ctx) => {
+    const user = ctx.session!.user;
+    const userId = user.id;
+
+    // Allow SUPER_ADMIN to bypass permission check
+    const isSuper = isSuperAdmin(user);
+
+    // Check for either generic expense permission OR mixradius expense permission
+    const hasAccess = isSuper ||
+                     (await hasPermission("expense:create")) ||
+                     (await hasPermission("mixradius_expenses:create"));
+
+    if (!hasAccess) {
+        return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create");
+    }
+
+    // Data is already validated and transformed by Zod via createHandler
+    const {
+        amount,
+        depreciation,
+        usefulLife,
+        date,
+        category,
+        expenseCategoryId,
+        description,
+        siteId,
+        mixRadiusGroupId
+    } = ctx.validated;
+
+    let finalSiteId = siteId;
+    if ((await hasPermission("expense:site_only")) && !isSuper) {
+         // Fetch user again to get siteId (see GET comment)
+         const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { siteId: true }
+        });
+         const userSiteId = dbUser?.siteId;
+         
+         if (!userSiteId) {
+             return ApiErrors.forbidden("User terikat site namun belum memiliki site");
+         }
+         finalSiteId = userSiteId;
+    }
+
+    // Simpan record Expense (Stand-alone mode)
+    const expense = await prisma.expense.create({
+        data: {
+            id: randomUUID(),
             amount,
             depreciation,
             usefulLife,
             date,
             category,
-            expenseCategoryId,
-            description,
-            siteId,
-            mixRadiusGroupId
-        } = validation.data;
+            ...(expenseCategoryId ? { expenseCategoryId } : {}),
+            ...(description !== undefined ? { description } : {}),
+            userId,
+            updatedAt: new Date(),
+            ...(finalSiteId ? { siteId: finalSiteId } : {}),
+            ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
+        },
+    });
 
-        let finalSiteId = siteId;
-        if ((await hasPermission("expense:site_only")) && !isSuper) {
-             const userSiteId = (session.user as { siteId?: string }).siteId;
-             if (!userSiteId) {
-                 return NextResponse.json({ error: "User terikat site namun belum memiliki site" }, { status: 403 });
-             }
-             finalSiteId = userSiteId;
-        }
-
-        // Simpan record Expense (Stand-alone mode)
-        const expense = await prisma.expense.create({
-            data: {
-                id: randomUUID(),
-                amount,
-                depreciation,
-                usefulLife,
-                date,
-                category,
-                ...(expenseCategoryId ? { expenseCategoryId } : {}),
-                ...(description !== undefined ? { description } : {}),
-                userId,
-                updatedAt: new Date(),
-                ...(finalSiteId ? { siteId: finalSiteId } : {}),
-                ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
-            },
-        });
-
-        return NextResponse.json({
-            ...expense,
-            amount: expense.amount.toString(),
-            depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
-            usefulLife: expense.usefulLife || 0,
-        });
-    } catch (error) {
-        console.error("[EXPENSES_POST]", error);
-        return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 });
-    }
-}
+    return apiSuccess({
+        ...expense,
+        amount: expense.amount.toString(),
+        depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
+        usefulLife: expense.usefulLife || 0,
+    });
+});

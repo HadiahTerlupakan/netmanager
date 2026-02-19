@@ -1,27 +1,16 @@
-
-import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
-import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const auth = await verifyAuth(req)
-    if (!auth) {
-      return ApiErrors.unauthorized()
-    }
-
-    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+export const PUT = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-      const permissions = await getUserPermissions(auth.id)
+      const permissions = await getUserPermissions(user.id)
       const hasAccess = permissions.includes('mixradius:update') || permissions.includes('*')
       if (!hasAccess) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk update MixRadius')
@@ -29,15 +18,14 @@ export async function PUT(
     }
 
     const body = await req.json()
-    const { id } = await params
+    const { id } = ctx.params
     
-    // Validate ID
-    if (!id) return apiError('ID akun wajib disertakan', ErrorCodes.VALIDATION_ERROR)
+    if (!id) return apiError('ID akun wajib disertakan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
 
     const updatedConfig = await mixRadiusConfigRepo.updateConfig(id, body)
 
     await logger.logActivity({
-      userId: auth.id,
+      userId: user.id,
       action: 'UPDATE',
       subject: 'mixradius_config',
       details: { id, changes: body },
@@ -45,43 +33,28 @@ export async function PUT(
       userAgent: req.headers.get('user-agent') || 'unknown',
     })
     return apiSuccess(updatedConfig)
-  } catch (error) {
-    console.error('[API] Error updating MixRadius config:', error)
-    const message = error instanceof Error ? error.message : 'Gagal memperbarui akun MixRadius'
-    return ApiErrors.internalError(message)
-  }
-}
+})
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const auth = await verifyAuth(req)
-    if (!auth) {
-      return ApiErrors.unauthorized()
-    }
-
-    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-      const permissions = await getUserPermissions(auth.id)
+      const permissions = await getUserPermissions(user.id)
       const hasAccess = permissions.includes('mixradius:delete') || permissions.includes('*')
       if (!hasAccess) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk delete MixRadius')
       }
     }
 
-    const { id } = await params
+    const { id } = ctx.params
     
-    // Validate ID
-    if (!id) return apiError('ID akun wajib disertakan', ErrorCodes.VALIDATION_ERROR)
+    if (!id) return apiError('ID akun wajib disertakan', ErrorCodes.VALIDATION_ERROR, { status: 400 })
 
     await mixRadiusConfigRepo.deleteConfig(id)
 
     await logger.logActivity({
-      userId: auth.id,
+      userId: user.id,
       action: 'DELETE',
       subject: 'mixradius_config',
       details: { id },
@@ -90,9 +63,4 @@ export async function DELETE(
     })
 
     return apiSuccess({ success: true })
-  } catch (error) {
-    console.error('[API] Error deleting MixRadius config:', error)
-    const message = error instanceof Error ? error.message : 'Gagal menghapus akun MixRadius'
-    return ApiErrors.internalError(message)
-  }
-}
+})

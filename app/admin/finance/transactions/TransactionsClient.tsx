@@ -10,6 +10,7 @@ import { MarketPriceCheck } from '@/components/procurement/MarketPriceCheck'
 import { SiteFilter } from '@/components/common/SiteFilter'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
+import { formatCurrency } from '@/lib/utils'
 import type { Category, Account, Transaction } from '@/types'
 
 interface TransactionsClientProps {
@@ -178,10 +179,6 @@ export default function TransactionsClient({ categories, accounts }: Transaction
     } finally {
         setLoading(false) // Ensure loading is off in all cases
     }
-  }
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
   }
 
   return (

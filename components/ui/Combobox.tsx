@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { useState, useRef, useCallback, type ReactNode } from 'react'
 import { MdExpandMore, MdSearch, MdClose } from 'react-icons/md'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 export interface ComboboxOption {
     value: string
@@ -38,15 +39,8 @@ export function Combobox({
     const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // Close when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    const closeDropdown = useCallback(() => setIsOpen(false), [])
+    useClickOutside(containerRef, closeDropdown)
 
     const handleSearch = (newQuery: string) => {
         setQuery(newQuery)

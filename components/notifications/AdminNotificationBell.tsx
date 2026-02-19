@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useClickOutside } from '@/hooks/useClickOutside'
 import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineExclamationTriangle, HiOutlineInformationCircle } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
+import { getPriorityColor } from '@/lib/utils/priority-helpers'
 
 export function AdminNotificationBell() {
     // const { hasPermission } = usePermission()
@@ -22,15 +24,8 @@ export function AdminNotificationBell() {
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    const closeDropdown = useCallback(() => setIsOpen(false), [])
+    useClickOutside(dropdownRef, closeDropdown)
 
     // Hide if user doesn't have read access to basic notifications
     // Assuming 'dashboard:read' or basic login is enough, but some might be restricted.
@@ -47,18 +42,6 @@ export function AdminNotificationBell() {
                 return <HiOutlineExclamationTriangle className="w-5 h-5 text-red-500" />
             default:
                 return <HiOutlineInformationCircle className="w-5 h-5 text-gray-500" />
-        }
-    }
-
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case 'URGENT':
-            case 'CRITICAL':
-                return 'border-l-red-500'
-            case 'HIGH':
-                return 'border-l-orange-500'
-            default:
-                return 'border-l-indigo-500'
         }
     }
 

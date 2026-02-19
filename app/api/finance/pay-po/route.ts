@@ -1,8 +1,6 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 const financeService = new FinanceService()
 
@@ -15,38 +13,30 @@ const payPoSchema = z.object({
   paidFromAccountId: z.string().optional(),
 })
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized()
+export const POST = createHandler({
+    auth: true,
+    schema: payPoSchema
+}, async (req, ctx) => {
+    const { poId, categoryId, date, amount, notes, paidFromAccountId } = ctx.validated
 
-    const json = await req.json()
-    const result = payPoSchema.safeParse(json)
+    try {
+        const transaction = await financeService.payPurchaseOrder({
+          poId,
+          categoryId,
+          date,
+          amount,
+          createdById: ctx.session!.user.id,
+          ...(notes ? { notes } : {}),
+          ...(paidFromAccountId ? { paidFromAccountId } : {})
+        })
 
-    if (!result.success) {
-        return ApiErrors.badRequest(result.error.issues[0]?.message || 'Validasi gagal')
+        return apiSuccess(transaction, { message: 'Pembayaran PO berhasil dicatat' })
+    } catch (error: unknown) {
+        console.error('Error paying PO:', error)
+        const message = error instanceof Error ? error.message : 'Gagal memproses pembayaran PO'
+        if (message.toLowerCase().includes('not found') || message.toLowerCase().includes('tidak ditemukan')) {
+          return ApiErrors.notFound('Purchase Order')
+        }
+        throw error
     }
-
-    const { poId, categoryId, date, amount, notes, paidFromAccountId } = result.data
-
-    const transaction = await financeService.payPurchaseOrder({
-      poId,
-      categoryId,
-      date,
-      amount,
-      createdById: session.id,
-      ...(notes ? { notes } : {}),
-      ...(paidFromAccountId ? { paidFromAccountId } : {})
-    })
-
-    return apiSuccess(transaction, { message: 'Pembayaran PO berhasil dicatat' })
-
-  } catch (error: unknown) {
-    console.error('Error paying PO:', error)
-    const message = error instanceof Error ? error.message : 'Gagal memproses pembayaran PO'
-    if (message.toLowerCase().includes('not found') || message.toLowerCase().includes('tidak ditemukan')) {
-      return ApiErrors.notFound('Purchase Order')
-    }
-    return ApiErrors.internalError(message)
-  }
-}
+})

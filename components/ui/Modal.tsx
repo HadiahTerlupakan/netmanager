@@ -11,6 +11,7 @@ interface ModalProps {
     children: ReactNode
     size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | undefined
     showCloseButton?: boolean | undefined
+    padding?: boolean
 }
 
 export function Modal({
@@ -21,6 +22,7 @@ export function Modal({
     children,
     size = 'md',
     showCloseButton = true,
+    padding = true,
 }: ModalProps) {
     // Lock body scroll when modal is open
     useEffect(() => {
@@ -62,7 +64,7 @@ export function Modal({
 
     return (
         <div
-            className="fixed inset-0 z-9999 flex items-end sm:items-center justify-center backdrop-blur-sm bg-black/30 animate-in fade-in duration-200 safe-area-inset-top safe-area-inset-bottom"
+            className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center backdrop-blur-sm bg-black/30 animate-in fade-in duration-200 safe-area-inset-top safe-area-inset-bottom"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
@@ -105,7 +107,7 @@ export function Modal({
                     </div>
                 )}
                 <div className="overflow-y-auto flex-1">
-                    <div className="p-5 sm:p-6">{children}</div>
+                    <div className={padding ? "p-5 sm:p-6" : ""}>{children}</div>
                 </div>
             </div>
         </div>
@@ -113,9 +115,9 @@ export function Modal({
 }
 
 // Helper component for modal footer
-export function ModalFooter({ children }: { children: ReactNode }) {
+export function ModalFooter({ children, className = '' }: { children: ReactNode; className?: string }) {
     return (
-        <div className="flex items-center justify-end gap-3 px-5 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 sticky bottom-0">
+        <div className={`flex items-center justify-end gap-3 px-5 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 sticky bottom-0 ${className}`}>
             {children}
         </div>
     )

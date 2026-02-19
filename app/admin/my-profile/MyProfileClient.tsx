@@ -7,6 +7,7 @@ import { HiSave } from 'react-icons/hi'
 import { MdTimer } from 'react-icons/md'
 import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
 import { validateRequired, validateLength } from '@/lib/utils/validation'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface ProfileData {
     id: string
@@ -380,14 +381,20 @@ export default function MyProfileClient() {
             </div>
 
             {/* Password Modal */}
-            {showPasswordModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="px-6 py-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                            <h3 className="text-lg font-bold dark:text-white">Ubah Password Keamanan</h3>
-                            <p className="text-xs text-gray-500">Pastikan password baru Anda kuat dan unik.</p>
-                        </div>
-                        <div className="p-6 space-y-4">
+            <Modal
+                isOpen={showPasswordModal}
+                onClose={() => {
+                    setShowPasswordModal(false)
+                    setCurrentPassword('')
+                    setNewPassword('')
+                    setConfirmPassword('')
+                    setPasswordErrors({})
+                }}
+                title="Ubah Password Keamanan"
+                description="Pastikan password baru Anda kuat dan unik."
+                size="md"
+            >
+                <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password Saat Ini</label>
                                 <input
@@ -427,15 +434,8 @@ export default function MyProfileClient() {
                                 />
                                 {passwordErrors.confirmPassword && <p className="text-xs text-red-500 mt-1">{passwordErrors.confirmPassword}</p>}
                             </div>
-                        </div>
-                        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 flex gap-3">
-                            <button
-                                onClick={handleChangePassword}
-                                disabled={changingPassword || retryCountdown !== null}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-bold transition-all shadow-md"
-                            >
-                                {changingPassword ? 'Memproses...' : 'Update Password'}
-                            </button>
+                </div>
+                <ModalFooter>
                             <button
                                 onClick={() => {
                                     setShowPasswordModal(false)
@@ -448,10 +448,15 @@ export default function MyProfileClient() {
                             >
                                 Batal
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                            <button
+                                onClick={handleChangePassword}
+                                disabled={changingPassword || retryCountdown !== null}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-bold transition-all shadow-md"
+                            >
+                                {changingPassword ? 'Memproses...' : 'Update Password'}
+                            </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

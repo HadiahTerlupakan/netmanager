@@ -1,7 +1,5 @@
-import { NextRequest } from "next/server";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { MappingService } from "@/modules/map/services/MappingService";
-import { apiSuccess, ApiErrors, withErrorHandler } from "@/lib/api-response";
-import { verifyAuth } from "@/lib/auth";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 
@@ -15,16 +13,24 @@ const updateEdgeSchema = z.object({
   notes: z.string().optional(),
 });
 
-type RouteContext = { params: Promise<{ edgeId: string }> };
-
-export const GET = withErrorHandler(async (req: NextRequest, context: unknown) => {
-  const auth = await verifyAuth(req);
-  if (!auth) return ApiErrors.unauthorized();
-  
-  const hasAccess = auth.permissions?.includes("map:read") || false;
-  if (!hasAccess) return ApiErrors.forbidden();
-
-  const { edgeId } = await (context as RouteContext).params;
+/**
+ * @swagger
+ * /api/map/edges/{edgeId}:
+ *   get:
+ *     summary: Get edge by ID
+ *     tags: [Map]
+ *     parameters:
+ *       - in: path
+ *         name: edgeId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+export const GET = createHandler({
+  auth: true,
+  permissions: ["map:read"]
+}, async (_req, ctx) => {
+  const { edgeId } = ctx.params;
   const edge = await service.getEdgeById(edgeId);
 
   if (!edge) {
@@ -34,29 +40,35 @@ export const GET = withErrorHandler(async (req: NextRequest, context: unknown) =
   return apiSuccess(edge);
 });
 
-export const PUT = withErrorHandler(async (req: NextRequest, context: unknown) => {
-  const auth = await verifyAuth(req);
-  if (!auth) return ApiErrors.unauthorized();
-  
-  const hasAccess = auth.permissions?.includes("map:update") || false;
-  if (!hasAccess) return ApiErrors.forbidden();
-
-  const { edgeId } = await (context as RouteContext).params;
-  const body = await req.json();
-
-  const validation = updateEdgeSchema.safeParse(body);
-  if (!validation.success) {
-    return ApiErrors.badRequest("Validation failed", validation.error.format());
-  }
+/**
+ * @swagger
+ * /api/map/edges/{edgeId}:
+ *   put:
+ *     summary: Update edge by ID
+ *     tags: [Map]
+ *     parameters:
+ *       - in: path
+ *         name: edgeId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+export const PUT = createHandler({
+  auth: true,
+  permissions: ["map:update"],
+  schema: updateEdgeSchema
+}, async (_req, ctx) => {
+  const { edgeId } = ctx.params;
+  const body = ctx.validated;
 
   try {
-    const updatedEdge = await service.updateEdge(edgeId, validation.data);
+    const updatedEdge = await service.updateEdge(edgeId, body);
 
     await logger.logActivity({
       action: "UPDATE",
       subject: "Edge",
-      details: { id: edgeId, changes: validation.data },
-      userId: auth.id
+      details: { id: edgeId, changes: body },
+      userId: ctx.session?.user.id
     });
 
     return apiSuccess(updatedEdge, { message: "Edge updated successfully" });
@@ -68,14 +80,24 @@ export const PUT = withErrorHandler(async (req: NextRequest, context: unknown) =
   }
 });
 
-export const DELETE = withErrorHandler(async (req: NextRequest, context: unknown) => {
-  const auth = await verifyAuth(req);
-  if (!auth) return ApiErrors.unauthorized();
-  
-  const hasAccess = auth.permissions?.includes("map:delete") || false;
-  if (!hasAccess) return ApiErrors.forbidden();
-
-  const { edgeId } = await (context as RouteContext).params;
+/**
+ * @swagger
+ * /api/map/edges/{edgeId}:
+ *   delete:
+ *     summary: Delete edge by ID
+ *     tags: [Map]
+ *     parameters:
+ *       - in: path
+ *         name: edgeId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+export const DELETE = createHandler({
+  auth: true,
+  permissions: ["map:delete"]
+}, async (_req, ctx) => {
+  const { edgeId } = ctx.params;
 
   try {
     await service.deleteEdge(edgeId);
@@ -84,7 +106,7 @@ export const DELETE = withErrorHandler(async (req: NextRequest, context: unknown
       action: "DELETE",
       subject: "Edge",
       details: { id: edgeId },
-      userId: auth.id
+      userId: ctx.session?.user.id
     });
 
     return apiSuccess({ deleted: true }, { message: "Edge deleted successfully" });

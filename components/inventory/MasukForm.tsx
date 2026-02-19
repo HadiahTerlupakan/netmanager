@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
 import { Combobox } from '@/components/ui/Combobox'
+import { getStockStatusColor, getKondisiColor } from '@/lib/utils/inventory-helpers'
 
 interface MasukFormProps {
   initialData?: {
@@ -324,21 +325,6 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
   }
 
   const selectedGudang = gudangs.find(g => g.id === formData.gudangId)
-
-  const getStockStatusColor = (stock: number) => {
-    if (stock === 0) return 'text-red-600 font-bold'
-    if (stock < 5) return 'text-yellow-600 font-semibold'
-    return 'text-green-600'
-  }
-
-  const getKondisiColor = (kondisi: string) => {
-    switch (kondisi) {
-      case 'BARU': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-      case 'BEKAS': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-      case 'RUSAK': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-    }
-  }
 
   // Combine barangs with persistedBarang for the Options list to ensure selected item is always visible
   const barangOptions = barangs.map(b => ({

@@ -1,24 +1,16 @@
-
-import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
-import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(req: NextRequest) {
-  try {
-    const auth = await verifyAuth(req)
-    if (!auth) {
-      return ApiErrors.unauthorized()
-    }
-
-    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-      const permissions = await getUserPermissions(auth.id)
+      const permissions = await getUserPermissions(user.id)
       const hasAccess = permissions.includes('mixradius_accounts:read') ||
                         permissions.includes('mixradius:read') ||
                         permissions.includes('*')
@@ -29,25 +21,14 @@ export async function GET(req: NextRequest) {
 
     const configs = await mixRadiusConfigRepo.getAllConfigs()
     return apiSuccess(configs)
-  } catch (error) {
-    console.error('[API] Error fetching MixRadius configs:', error)
-    const message = error instanceof Error ? error.message : 'Gagal mengambil daftar akun MixRadius'
-    return ApiErrors.internalError(message)
-  }
-}
+})
 
-export async function POST(req: NextRequest) {
-  try {
-    const auth = await verifyAuth(req)
-    if (!auth) {
-      return ApiErrors.unauthorized()
-    }
-
-    const user = auth as { id: string; role?: string; isSuperAdmin?: boolean }
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-      const permissions = await getUserPermissions(auth.id)
+      const permissions = await getUserPermissions(user.id)
       const hasAccess = permissions.includes('mixradius_accounts:create') ||
                         permissions.includes('mixradius:create') ||
                         permissions.includes('*')
@@ -69,14 +50,15 @@ export async function POST(req: NextRequest) {
       return apiError(
         `Data berikut wajib diisi: ${missingFields.join(', ')}`,
         ErrorCodes.VALIDATION_ERROR,
-        { details: { missingFields } }
+        { details: { missingFields }, status: 400 }
       )
     }
 
     if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
       return apiError(
         'Base URL harus diawali dengan http:// atau https://',
-        ErrorCodes.VALIDATION_ERROR
+        ErrorCodes.VALIDATION_ERROR,
+        { status: 400 }
       )
     }
 
@@ -89,7 +71,7 @@ export async function POST(req: NextRequest) {
     })
 
     await logger.logActivity({
-      userId: auth.id,
+      userId: user.id,
       action: 'CREATE',
       subject: 'mixradius_config',
       details: { id: newConfig.id, name: newConfig.name },
@@ -98,9 +80,4 @@ export async function POST(req: NextRequest) {
     })
 
     return apiSuccess(newConfig, { status: 201 })
-  } catch (error) {
-    console.error('[API] Error creating MixRadius config:', error)
-    const message = error instanceof Error ? error.message : 'Gagal menyimpan akun MixRadius'
-    return ApiErrors.internalError(message)
-  }
-}
+})

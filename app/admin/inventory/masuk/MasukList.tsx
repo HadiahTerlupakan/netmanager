@@ -8,6 +8,7 @@ import { MasukTable } from '@/components/inventory/MasukTable'
 import { DetailMasukModal } from '@/components/inventory/DetailMasukModal'
 import { getWithAuth } from '@/lib/api-client'
 import { usePermission } from '@/hooks/use-permission'
+import { Modal } from '@/components/ui/Modal'
 
 interface Site {
   id: string
@@ -150,43 +151,17 @@ export default function BarangMasukPage() {
       </div>
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 backdrop-blur-sm transition-opacity"
-              onClick={handleFormClose}
-            ></div>
-
-            {/* Modal */}
-            <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 ease-out scale-100 opacity-100">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {editingMasuk ? 'Edit Barang Masuk' : 'Catat Barang Masuk'}
-                </h3>
-                <button
-                  onClick={handleFormClose}
-                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-all duration-200"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                <MasukForm
-                  initialData={editingMasuk}
-                  onClose={handleFormClose}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showForm}
+        onClose={handleFormClose}
+        title={editingMasuk ? 'Edit Barang Masuk' : 'Catat Barang Masuk'}
+        size="lg"
+      >
+        <MasukForm
+          initialData={editingMasuk}
+          onClose={handleFormClose}
+        />
+      </Modal>
 
       {/* List Container */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">

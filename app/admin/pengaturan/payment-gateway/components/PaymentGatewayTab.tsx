@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import {
-    HiXMark,
     HiOutlineCog6Tooth,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
     HiCube
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface GatewayConfig {
     id: string;
@@ -273,178 +273,164 @@ export default function PaymentGatewayTab() {
             </div>
 
             {/* Configuration Modal */}
-            {modalOpen && selectedProvider && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                                Configure {PROVIDERS.find(p => p.id === selectedProvider)?.name}
-                            </h3>
-                            <button
-                                onClick={() => setModalOpen(false)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                            >
-                                <HiXMark className="w-6 h-6 text-gray-500" />
-                            </button>
+            <Modal
+                isOpen={modalOpen && !!selectedProvider}
+                onClose={() => setModalOpen(false)}
+                title={`Configure ${PROVIDERS.find(p => p.id === selectedProvider)?.name}`}
+                size="lg"
+            >
+                <div className="space-y-4">
+                    {/* Environment Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <div>
+                            <label className="font-medium text-gray-900 dark:text-white">Environment</label>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Choose sandbox for testing, production for live payments
+                            </p>
                         </div>
-
-                        {/* Modal Body */}
-                        <div className="p-6 space-y-4">
-                            {/* Environment Toggle */}
-                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                                <div>
-                                    <label className="font-medium text-gray-900 dark:text-white">Environment</label>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        Choose sandbox for testing, production for live payments
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`text-sm ${!formData.isProduction ? 'font-bold text-orange-600' : 'text-gray-500'}`}>
-                                        Sandbox
-                                    </span>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.isProduction}
-                                            onChange={(e) => setFormData({ ...formData, isProduction: e.target.checked })}
-                                            className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
-                                    </label>
-                                    <span className={`text-sm ${formData.isProduction ? 'font-bold text-green-600' : 'text-gray-500'}`}>
-                                        Production
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* API Key */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    API Key / Server Key *
-                                </label>
+                        <div className="flex items-center gap-3">
+                            <span className={`text-sm ${!formData.isProduction ? 'font-bold text-orange-600' : 'text-gray-500'}`}>
+                                Sandbox
+                            </span>
+                            <label className="relative inline-flex items-center cursor-pointer">
                                 <input
-                                    type="password"
-                                    value={formData.apiKey}
-                                    onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                                    placeholder="Enter API key"
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                    type="checkbox"
+                                    checked={formData.isProduction}
+                                    onChange={(e) => setFormData({ ...formData, isProduction: e.target.checked })}
+                                    className="sr-only peer"
                                 />
-                            </div>
-
-                            {/* API Secret (Optional) */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    API Secret (if applicable)
-                                </label>
-                                <input
-                                    type="password"
-                                    value={formData.apiSecret}
-                                    onChange={(e) => setFormData({ ...formData, apiSecret: e.target.value })}
-                                    placeholder="Enter API secret"
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                />
-                            </div>
-
-                            {/* Client Key */}
-                            {selectedProvider === 'MIDTRANS' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Client Key
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.clientKey}
-                                        onChange={(e) => setFormData({ ...formData, clientKey: e.target.value })}
-                                        placeholder="Enter client key"
-                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    />
-                                </div>
-                            )}
-
-                            {/* Merchant ID for Duitku, Tripay & DANA */}
-                            {(selectedProvider === 'DUITKU' || selectedProvider === 'TRIPAY' || selectedProvider === 'DANA') && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Merchant Code *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.merchantId}
-                                        onChange={(e) => setFormData({ ...formData, merchantId: e.target.value })}
-                                        placeholder="Enter merchant code"
-                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    />
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        Your unique merchant code from {
-                                            selectedProvider === 'TRIPAY' ? 'Tripay' :
-                                                selectedProvider === 'DANA' ? 'DANA' :
-                                                    'Duitku'
-                                        } dashboard
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Priority */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Priority: {formData.priority}
-                                </label>
-                                <input
-                                    type="range"
-                                    min="1"
-                                    max="10"
-                                    value={formData.priority}
-                                    onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
-                                    className="w-full"
-                                />
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    Higher priority = preferred for payments (1-10)
-                                </p>
-                            </div>
-
-                            {/* Webhook URL (Read-only) */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Webhook URL (Copy this to provider dashboard)
-                                </label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={`${process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'}/api/payment/webhook/${selectedProvider.toLowerCase()}`}
-                                        readOnly
-                                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
-                                    />
-                                    <button
-                                        onClick={() => navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook/${selectedProvider.toLowerCase()}`)}
-                                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
-                                    >
-                                        Copy
-                                    </button>
-                                </div>
-                            </div>
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                            </label>
+                            <span className={`text-sm ${formData.isProduction ? 'font-bold text-green-600' : 'text-gray-500'}`}>
+                                Production
+                            </span>
                         </div>
+                    </div>
 
-                        {/* Modal Footer */}
-                        <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-gray-800">
+                    {/* API Key */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            API Key / Server Key *
+                        </label>
+                        <input
+                            type="password"
+                            value={formData.apiKey}
+                            onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                            placeholder="Enter API key"
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* API Secret (Optional) */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            API Secret (if applicable)
+                        </label>
+                        <input
+                            type="password"
+                            value={formData.apiSecret}
+                            onChange={(e) => setFormData({ ...formData, apiSecret: e.target.value })}
+                            placeholder="Enter API secret"
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* Client Key */}
+                    {selectedProvider === 'MIDTRANS' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Client Key
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.clientKey}
+                                onChange={(e) => setFormData({ ...formData, clientKey: e.target.value })}
+                                placeholder="Enter client key"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            />
+                        </div>
+                    )}
+
+                    {/* Merchant ID for Duitku, Tripay & DANA */}
+                    {(selectedProvider === 'DUITKU' || selectedProvider === 'TRIPAY' || selectedProvider === 'DANA') && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Merchant Code *
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.merchantId}
+                                onChange={(e) => setFormData({ ...formData, merchantId: e.target.value })}
+                                placeholder="Enter merchant code"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Your unique merchant code from {
+                                    selectedProvider === 'TRIPAY' ? 'Tripay' :
+                                        selectedProvider === 'DANA' ? 'DANA' :
+                                            'Duitku'
+                                } dashboard
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Priority */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Priority: {formData.priority}
+                        </label>
+                        <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={formData.priority}
+                            onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                            className="w-full"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Higher priority = preferred for payments (1-10)
+                        </p>
+                    </div>
+
+                    {/* Webhook URL (Read-only) */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Webhook URL (Copy this to provider dashboard)
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={`${process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'}/api/payment/webhook/${selectedProvider?.toLowerCase()}`}
+                                readOnly
+                                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                            />
                             <button
-                                onClick={handleTestConnection}
-                                disabled={testing || !formData.apiKey}
-                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                onClick={() => navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook/${selectedProvider?.toLowerCase()}`)}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
                             >
-                                {testing ? 'Testing...' : 'Test Connection'}
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={saving || !formData.apiKey}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                {saving ? 'Saving...' : 'Save Configuration'}
+                                Copy
                             </button>
                         </div>
                     </div>
                 </div>
-            )}
+
+                <ModalFooter>
+                    <button
+                        onClick={handleTestConnection}
+                        disabled={testing || !formData.apiKey}
+                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {testing ? 'Testing...' : 'Test Connection'}
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !formData.apiKey}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {saving ? 'Saving...' : 'Save Configuration'}
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

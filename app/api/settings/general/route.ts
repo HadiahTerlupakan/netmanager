@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { invalidateTimezoneCache } from '@/lib/utils/get-timezone'
+import { logActivitySafe } from '@/lib/logger'
 
 /**
  * @swagger
@@ -165,6 +164,7 @@ import { invalidateTimezoneCache } from '@/lib/utils/get-timezone'
  *         $ref: '#/components/responses/Forbidden'
  *       500:
  *         $ref: '#/components/responses/Error'
+ *
  */
 
 type BankAccount = {
@@ -195,412 +195,133 @@ type GeneralSettings = {
  * GET /api/settings/general
  * Mengambil pengaturan umum
  */
-export async function GET(_req: NextRequest) {
-  try {
-    // Cek autentikasi
-    const session = await getServerSession(authConfig)
-    if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
-
-    // Cek role admin
-    if (false) {
-      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-    }
-
-    // Ambil semua pengaturan umum dari database
-    const settings = await prisma.settings.findMany({
-      where: {
-        key: {
-          in: [
-            'GENERAL_PERUSAHAAN',
-            'GENERAL_NAMA_APLIKASI',
-            'GENERAL_ALAMAT',
-            'GENERAL_NOMOR_HP',
-            'GENERAL_EMAIL',
-            'GENERAL_DESKRIPSI_INVOICE',
-            'GENERAL_REKENING_BANK',
-            'GENERAL_INVOICE_OTOMATIS',
-            'GENERAL_DISABLE_PERPANJANGAN_PAKET',
-            'GENERAL_TIMEZONE',
-            'GENERAL_ATTENDANCE_TOLERANCE',
-            'PPP_CONNECTION_MODE',
-            'GENERAL_AUTO_ISOLASI_ENABLED',
-            'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
-          ],
-        },
+export const GET = createHandler({ auth: true }, async () => {
+  // Ambil semua pengaturan umum dari database
+  const settings = await prisma.settings.findMany({
+    where: {
+      key: {
+        in: [
+          'GENERAL_PERUSAHAAN',
+          'GENERAL_NAMA_APLIKASI',
+          'GENERAL_ALAMAT',
+          'GENERAL_NOMOR_HP',
+          'GENERAL_EMAIL',
+          'GENERAL_DESKRIPSI_INVOICE',
+          'GENERAL_REKENING_BANK',
+          'GENERAL_INVOICE_OTOMATIS',
+          'GENERAL_DISABLE_PERPANJANGAN_PAKET',
+          'GENERAL_TIMEZONE',
+          'GENERAL_ATTENDANCE_TOLERANCE',
+          'PPP_CONNECTION_MODE',
+          'GENERAL_AUTO_ISOLASI_ENABLED',
+          'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
+        ],
       },
-    })
+    },
+  })
 
-    // Convert ke object
-    const settingsMap = new Map(settings.map((s) => [s.key, s.value]))
+  // Convert ke object
+  const settingsMap = new Map(settings.map((s) => [s.key, s.value]))
 
-    // Parse rekening bank dari JSON
-    let rekeningBank: BankAccount[] = []
-    try {
-      const rekeningBankStr = settingsMap.get('GENERAL_REKENING_BANK')
-      if (rekeningBankStr) {
-        rekeningBank = JSON.parse(rekeningBankStr)
-      }
-    } catch (e) {
-      console.error('Error parsing rekening bank:', e)
+  // Parse rekening bank dari JSON
+  let rekeningBank: BankAccount[] = []
+  try {
+    const rekeningBankStr = settingsMap.get('GENERAL_REKENING_BANK')
+    if (rekeningBankStr) {
+      rekeningBank = JSON.parse(rekeningBankStr)
     }
-
-    return NextResponse.json({
-      perusahaan: settingsMap.get('GENERAL_PERUSAHAAN') || '',
-      namaAplikasi: settingsMap.get('GENERAL_NAMA_APLIKASI') || 'NetManager',
-      alamat: settingsMap.get('GENERAL_ALAMAT') || '',
-      nomorHp: settingsMap.get('GENERAL_NOMOR_HP') || '',
-      email: settingsMap.get('GENERAL_EMAIL') || '',
-      deskripsiInvoice: settingsMap.get('GENERAL_DESKRIPSI_INVOICE') || '',
-      rekeningBank,
-      invoiceOtomatis: settingsMap.get('GENERAL_INVOICE_OTOMATIS') || '5',
-      disablePerpanjanganPaket: settingsMap.get('GENERAL_DISABLE_PERPANJANGAN_PAKET') || '5',
-      timezone: settingsMap.get('GENERAL_TIMEZONE') || 'Asia/Jakarta',
-      attendanceTolerance: settingsMap.get('GENERAL_ATTENDANCE_TOLERANCE') || '0',
-      pppConnectionMode: settingsMap.get('PPP_CONNECTION_MODE') || 'RADIUS',
-      autoIsolirEnabled: settingsMap.get('GENERAL_AUTO_ISOLASI_ENABLED') !== 'false',
-      autoIsolirHariToleransi: settingsMap.get('GENERAL_AUTO_ISOLASI_HARI_TOLERANSI') || '1',
-    })
-  } catch (error) {
-    console.error('Error fetching general settings:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+  } catch (e) {
+    console.error('Error parsing rekening bank:', e)
   }
-}
+
+  return apiSuccess({
+    perusahaan: settingsMap.get('GENERAL_PERUSAHAAN') || '',
+    namaAplikasi: settingsMap.get('GENERAL_NAMA_APLIKASI') || 'NetManager',
+    alamat: settingsMap.get('GENERAL_ALAMAT') || '',
+    nomorHp: settingsMap.get('GENERAL_NOMOR_HP') || '',
+    email: settingsMap.get('GENERAL_EMAIL') || '',
+    deskripsiInvoice: settingsMap.get('GENERAL_DESKRIPSI_INVOICE') || '',
+    rekeningBank,
+    invoiceOtomatis: settingsMap.get('GENERAL_INVOICE_OTOMATIS') || '5',
+    disablePerpanjanganPaket: settingsMap.get('GENERAL_DISABLE_PERPANJANGAN_PAKET') || '5',
+    timezone: settingsMap.get('GENERAL_TIMEZONE') || 'Asia/Jakarta',
+    attendanceTolerance: settingsMap.get('GENERAL_ATTENDANCE_TOLERANCE') || '0',
+    pppConnectionMode: settingsMap.get('PPP_CONNECTION_MODE') || 'RADIUS',
+    autoIsolirEnabled: settingsMap.get('GENERAL_AUTO_ISOLASI_ENABLED') !== 'false',
+    autoIsolirHariToleransi: settingsMap.get('GENERAL_AUTO_ISOLASI_HARI_TOLERANSI') || '1',
+  })
+})
 
 /**
  * POST /api/settings/general
  * Menyimpan pengaturan umum
  */
-export async function POST(req: NextRequest) {
-  try {
-    // Cek autentikasi
-    const session = await getServerSession(authConfig)
-    if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+  const body: GeneralSettings = await req.json()
 
-    // Cek role admin
-    if (false) {
-      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-    }
-
-    const body: GeneralSettings = await req.json()
-
-    // Validasi body
-    if (!body || typeof body !== 'object') {
-      return NextResponse.json(
-        { error: 'Body request tidak valid' },
-        { status: 400 }
-      )
-    }
-
-    const {
-      perusahaan,
-      namaAplikasi,
-      alamat,
-      nomorHp,
-      email,
-      deskripsiInvoice,
-      rekeningBank,
-      invoiceOtomatis,
-      disablePerpanjanganPaket,
-      timezone,
-      attendanceTolerance,
-      pppConnectionMode,
-      autoIsolirEnabled,
-      autoIsolirHariToleransi,
-    } = body
-
-    // Upsert semua pengaturan
-    await Promise.all([
-      // Perusahaan
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_PERUSAHAAN' },
-        update: {
-          value: perusahaan?.trim() || null,
-          description: 'Nama perusahaan',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_PERUSAHAAN',
-          value: perusahaan?.trim() || null,
-          description: 'Nama perusahaan',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Nama Aplikasi
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_NAMA_APLIKASI' },
-        update: {
-          value: namaAplikasi?.trim() || 'NetManager',
-          description: 'Nama Aplikasi',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_NAMA_APLIKASI',
-          value: namaAplikasi?.trim() || 'NetManager',
-          description: 'Nama Aplikasi',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Alamat
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_ALAMAT' },
-        update: {
-          value: alamat?.trim() || null,
-          description: 'Alamat perusahaan',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_ALAMAT',
-          value: alamat?.trim() || null,
-          description: 'Alamat perusahaan',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Nomor HP
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_NOMOR_HP' },
-        update: {
-          value: nomorHp?.trim() || null,
-          description: 'Nomor HP perusahaan',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_NOMOR_HP',
-          value: nomorHp?.trim() || null,
-          description: 'Nomor HP perusahaan',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Email
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_EMAIL' },
-        update: {
-          value: email?.trim() || null,
-          description: 'Email perusahaan',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_EMAIL',
-          value: email?.trim() || null,
-          description: 'Email perusahaan',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Deskripsi Invoice
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_DESKRIPSI_INVOICE' },
-        update: {
-          value: deskripsiInvoice?.trim() || null,
-          description: 'Deskripsi invoice',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_DESKRIPSI_INVOICE',
-          value: deskripsiInvoice?.trim() || null,
-          description: 'Deskripsi invoice',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Rekening Bank (simpan sebagai JSON)
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_REKENING_BANK' },
-        update: {
-          value: JSON.stringify(rekeningBank || []),
-          description: 'Daftar rekening bank',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_REKENING_BANK',
-          value: JSON.stringify(rekeningBank || []),
-          description: 'Daftar rekening bank',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Invoice Otomatis
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_INVOICE_OTOMATIS' },
-        update: {
-          value: invoiceOtomatis?.trim() || '5',
-          description: 'Jumlah hari sebelum jatuh tempo untuk invoice otomatis',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_INVOICE_OTOMATIS',
-          value: invoiceOtomatis?.trim() || '5',
-          description: 'Jumlah hari sebelum jatuh tempo untuk invoice otomatis',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Disable Perpanjangan Paket
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_DISABLE_PERPANJANGAN_PAKET' },
-        update: {
-          value: disablePerpanjanganPaket?.trim() || '5',
-          description: 'Jumlah hari sebelum jatuh tempo untuk disable perpanjangan paket',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_DISABLE_PERPANJANGAN_PAKET',
-          value: disablePerpanjanganPaket?.trim() || '5',
-          description: 'Jumlah hari sebelum jatuh tempo untuk disable perpanjangan paket',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Timezone
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_TIMEZONE' },
-        update: {
-          value: timezone?.trim() || 'Asia/Jakarta',
-          description: 'Zona waktu aplikasi (IANA timezone)',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_TIMEZONE',
-          value: timezone?.trim() || 'Asia/Jakarta',
-          description: 'Zona waktu aplikasi (IANA timezone)',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Attendance Tolerance
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' },
-        update: {
-          value: attendanceTolerance?.trim() || '0',
-          description: 'Toleransi keterlambatan (menit)',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_ATTENDANCE_TOLERANCE',
-          value: attendanceTolerance?.trim() || '0',
-          description: 'Toleransi keterlambatan (menit)',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // PPP Connection Mode
-      prisma.settings.upsert({
-        where: { key: 'PPP_CONNECTION_MODE' },
-        update: {
-          value: pppConnectionMode || 'RADIUS',
-          description: 'Mode koneksi PPP: RADIUS atau MIKROTIK_API',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'PPP_CONNECTION_MODE',
-          value: pppConnectionMode || 'RADIUS',
-          description: 'Mode koneksi PPP: RADIUS atau MIKROTIK_API',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Auto Isolir Enabled
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_AUTO_ISOLASI_ENABLED' },
-        update: {
-          value: autoIsolirEnabled === false ? 'false' : 'true',
-          description: 'Aktifkan isolir otomatis',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_AUTO_ISOLASI_ENABLED',
-          value: autoIsolirEnabled === false ? 'false' : 'true',
-          description: 'Aktifkan isolir otomatis',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-
-      // Auto Isolir Hari Toleransi
-      prisma.settings.upsert({
-        where: { key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI' },
-        update: {
-          value: autoIsolirHariToleransi?.trim() || '1',
-          description: 'Hari toleransi sebelum isolir otomatis',
-          updatedAt: new Date(),
-        },
-        create: {
-          key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
-          value: autoIsolirHariToleransi?.trim() || '1',
-          description: 'Hari toleransi sebelum isolir otomatis',
-          encrypted: false,
-          updatedAt: new Date(),
-          id: randomUUID()
-        },
-      }),
-    ])
-
-    // Invalidate timezone cache agar cron jobs menggunakan timezone baru
-    invalidateTimezoneCache()
-
-    // System Log
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'UPDATE',
-        subject: 'Settings',
-        userId: session.user.id,
-        details: { type: 'General', updates: body }
-      })
-    } catch (e) {
-      console.error('Logging failed', e)
-    }
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error saving general settings:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+  // Validasi body
+  if (!body || typeof body !== 'object') {
+    return ApiErrors.badRequest('Body request tidak valid')
   }
-}
 
+  const {
+    perusahaan,
+    namaAplikasi,
+    alamat,
+    nomorHp,
+    email,
+    deskripsiInvoice,
+    rekeningBank,
+    invoiceOtomatis,
+    disablePerpanjanganPaket,
+    timezone,
+    attendanceTolerance,
+    pppConnectionMode,
+    autoIsolirEnabled,
+    autoIsolirHariToleransi,
+  } = body
 
+  // Upsert semua pengaturan
+  const settingsToSave: Array<{ key: string; value: string | null; description: string }> = [
+    { key: 'GENERAL_PERUSAHAAN', value: perusahaan?.trim() || null, description: 'Nama perusahaan' },
+    { key: 'GENERAL_NAMA_APLIKASI', value: namaAplikasi?.trim() || 'NetManager', description: 'Nama Aplikasi' },
+    { key: 'GENERAL_ALAMAT', value: alamat?.trim() || null, description: 'Alamat perusahaan' },
+    { key: 'GENERAL_NOMOR_HP', value: nomorHp?.trim() || null, description: 'Nomor HP perusahaan' },
+    { key: 'GENERAL_EMAIL', value: email?.trim() || null, description: 'Email perusahaan' },
+    { key: 'GENERAL_DESKRIPSI_INVOICE', value: deskripsiInvoice?.trim() || null, description: 'Deskripsi invoice' },
+    { key: 'GENERAL_REKENING_BANK', value: JSON.stringify(rekeningBank || []), description: 'Daftar rekening bank' },
+    { key: 'GENERAL_INVOICE_OTOMATIS', value: invoiceOtomatis?.trim() || '5', description: 'Jumlah hari sebelum jatuh tempo untuk invoice otomatis' },
+    { key: 'GENERAL_DISABLE_PERPANJANGAN_PAKET', value: disablePerpanjanganPaket?.trim() || '5', description: 'Jumlah hari sebelum jatuh tempo untuk disable perpanjangan paket' },
+    { key: 'GENERAL_TIMEZONE', value: timezone?.trim() || 'Asia/Jakarta', description: 'Zona waktu aplikasi (IANA timezone)' },
+    { key: 'GENERAL_ATTENDANCE_TOLERANCE', value: attendanceTolerance?.trim() || '0', description: 'Toleransi keterlambatan (menit)' },
+    { key: 'PPP_CONNECTION_MODE', value: pppConnectionMode || 'RADIUS', description: 'Mode koneksi PPP: RADIUS atau MIKROTIK_API' },
+    { key: 'GENERAL_AUTO_ISOLASI_ENABLED', value: autoIsolirEnabled === false ? 'false' : 'true', description: 'Aktifkan isolir otomatis' },
+    { key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI', value: autoIsolirHariToleransi?.trim() || '1', description: 'Hari toleransi sebelum isolir otomatis' },
+  ]
 
+  await Promise.all(
+    settingsToSave.map(({ key, value, description }) =>
+      prisma.settings.upsert({
+        where: { key },
+        update: { value, description, updatedAt: new Date() },
+        create: { key, value, description, encrypted: false, updatedAt: new Date(), id: randomUUID() },
+      })
+    )
+  )
 
+  // Invalidate timezone cache agar cron jobs menggunakan timezone baru
+  invalidateTimezoneCache()
 
+  // System Log
+  // ctx.session is guaranteed to exist because auth: true
+  if (ctx.session?.user?.id) {
+    logActivitySafe({
+      action: 'UPDATE',
+      subject: 'Settings',
+      userId: ctx.session.user.id,
+      details: { type: 'General', updates: body }
+    })
+  }
 
-
-
-
+  return apiSuccess({ success: true })
+})

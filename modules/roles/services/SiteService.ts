@@ -1,5 +1,5 @@
 import { SiteRepository } from '../repositories/SiteRepository'
-import { logger } from '@/lib/logger'
+import { logActivitySafe } from '@/lib/logger'
 
 interface SiteCreateInput {
     code: string
@@ -82,21 +82,17 @@ export class SiteService {
         const site = await this.repository.create(createData)
 
         // Log activity
-        try {
-            await logger.logActivity({
-                action: 'CREATE',
-                subject: 'Site',
-                userId,
-                details: {
-                    id: site.id,
-                    name: site.name,
-                    code: site.code,
-                    assignedGudangs: data.gudangIds?.length || 0,
-                },
-            })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+        logActivitySafe({
+            action: 'CREATE',
+            subject: 'Site',
+            userId,
+            details: {
+                id: site.id,
+                name: site.name,
+                code: site.code,
+                assignedGudangs: data.gudangIds?.length || 0,
+            },
+        })
 
         return site
     }
@@ -135,19 +131,15 @@ export class SiteService {
         const site = await this.repository.update(id, updateData)
 
         // Log activity
-        try {
-            await logger.logActivity({
-                action: 'UPDATE',
-                subject: 'Site',
-                userId,
-                details: {
-                    id: site.id,
-                    updates: { ...data, gudangIdsCount: Array.isArray(data.gudangIds) ? data.gudangIds.length : 'unchanged' },
-                },
-            })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+        logActivitySafe({
+            action: 'UPDATE',
+            subject: 'Site',
+            userId,
+            details: {
+                id: site.id,
+                updates: { ...data, gudangIdsCount: Array.isArray(data.gudangIds) ? data.gudangIds.length : 'unchanged' },
+            },
+        })
 
         return site
     }
@@ -167,16 +159,12 @@ export class SiteService {
             // Soft delete - deactivate
             await this.repository.deactivate(id)
 
-            try {
-                await logger.logActivity({
-                    action: 'UPDATE',
-                    subject: 'Site',
-                    userId,
-                    details: { id: site.id, name: site.name, status: 'DEACTIVATED' },
-                })
-            } catch (e) {
-                console.error('Logging failed', e)
-            }
+            logActivitySafe({
+                action: 'UPDATE',
+                subject: 'Site',
+                userId,
+                details: { id: site.id, name: site.name, status: 'DEACTIVATED' },
+            })
 
             return { softDeleted: true, message: 'Site dinonaktifkan (memiliki pengguna/work order terkait)' }
         }
@@ -184,16 +172,12 @@ export class SiteService {
         // Hard delete
         await this.repository.delete(id)
 
-        try {
-            await logger.logActivity({
-                action: 'DELETE',
-                subject: 'Site',
-                userId,
-                details: { id: site.id, name: site.name },
-            })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+        logActivitySafe({
+            action: 'DELETE',
+            subject: 'Site',
+            userId,
+            details: { id: site.id, name: site.name },
+        })
 
         return { softDeleted: false, message: 'Site berhasil dihapus' }
     }

@@ -8,6 +8,7 @@ import ImageUpload from "@/components/common/ImageUpload";
 import type { MappingNode as PrismaMappingNode, MappingEdge, MapSettings } from "@prisma/client";
 import L from "leaflet";
 import { useToast } from "@/components/ui/Toast";
+import { calculateHaversineDistance } from "@/lib/geo-utils";
 import {
   HiMagnifyingGlass,
   HiServer,
@@ -18,6 +19,7 @@ import {
   HiCog6Tooth,
   HiListBullet,
   HiXMark,
+  HiExclamationTriangle,
 } from "react-icons/hi2";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/select";
@@ -71,23 +73,10 @@ const calculateDistance = (
   lng2: number,
   waypoints: [number, number][] = []
 ): number => {
-  const R = 6371000; // Earth radius in meters
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-
-  const haversine = (la1: number, lo1: number, la2: number, lo2: number) => {
-    const dLat = toRad(la2 - la1);
-    const dLng = toRad(lo2 - lo1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(la1)) * Math.cos(toRad(la2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
   const allPoints: [number, number][] = [[lat1, lng1], ...waypoints, [lat2, lng2]];
   let total = 0;
   for (let i = 0; i < allPoints.length - 1; i++) {
-    total += haversine(allPoints[i][0], allPoints[i][1], allPoints[i + 1][0], allPoints[i + 1][1]);
+    total += calculateHaversineDistance(allPoints[i][0], allPoints[i][1], allPoints[i + 1][0], allPoints[i + 1][1]);
   }
   return Math.round(total * 10) / 10;
 };
@@ -331,6 +320,7 @@ export default function NetworkMapInteractive() {
   } | null>(null);
 
   const [isManualAdd, setIsManualAdd] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ type: 'node' | 'edge', id: string } | null>(null);
 
   const mapRef = useRef<L.Map | null>(null);
 
@@ -818,31 +808,43 @@ export default function NetworkMapInteractive() {
     }
   };
 
-  const deleteNode = async (nodeId: string) => {
-    if (!confirm("Delete this node and all connected fiber lines?")) return;
-
-    try {
-      const res = await fetch(`/api/map/nodes/${nodeId}`, { method: "DELETE" });
-      if (res.ok) {
-        showToast("success", "Node deleted");
-        fetchData();
-      }
-    } catch (error) {
-      console.error(error);
-      showToast("error", "Gagal menghapus node");
-    }
+  const deleteNode = (nodeId: string) => {
+    setDeleteConfirmation({ type: 'node', id: nodeId });
   };
 
-  const deleteEdge = async (edgeId: string) => {
+  const deleteEdge = (edgeId: string) => {
+    setDeleteConfirmation({ type: 'edge', id: edgeId });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation) return;
+
+    const { type, id } = deleteConfirmation;
+    const endpoint = type === 'node' ? `/api/map/nodes/${id}` : `/api/map/edges/${id}`;
+    const label = type === 'node' ? 'Node' : 'Fiber line';
+
     try {
-      const res = await fetch(`/api/map/edges/${edgeId}`, { method: "DELETE" });
+      const res = await fetch(endpoint, { method: "DELETE" });
+      
       if (res.ok) {
-        showToast("success", "Fiber line deleted");
+        showToast("success", `${label} deleted successfully`);
         fetchData();
+        setDeleteConfirmation(null);
+      } else {
+        const error = await res.json().catch(() => ({ error: "Unknown error" }));
+        console.error(`DELETE ${type} failed:`, error);
+        
+        if (res.status === 403) {
+          showToast("error", "Permission denied: You cannot delete this item");
+        } else if (res.status === 404) {
+          showToast("error", `${label} not found (might be already deleted)`);
+        } else {
+          showToast("error", error.error || `Failed to delete ${label}`);
+        }
       }
     } catch (error) {
-      console.error(error);
-      showToast("error", "Gagal menghapus jalur fiber");
+      console.error(`DELETE ${type} exception:`, error);
+      showToast("error", `Failed to delete ${label}: Network error`);
     }
   };
 
@@ -1319,7 +1321,16 @@ export default function NetworkMapInteractive() {
                             </div>
                           </div>
                           <button
-                            onClick={() => deleteEdge(edge.edgeId)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log("Delete button clicked for edge:", edge.edgeId);
+                              deleteEdge(edge.edgeId);
+                            }}
+                            onMouseDown={(e) => {
+                                // Prevent map drag/click propagation
+                                e.stopPropagation();
+                            }}
                             className="w-full mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center justify-center gap-2 text-sm"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1966,6 +1977,43 @@ export default function NetworkMapInteractive() {
         onSave={handleFiberLineComplete}
         onFiberTypeChange={(type) => setFiberFormData(prev => prev ? { ...prev, fiberType: type } : null)}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteConfirmation}
+        onClose={() => setDeleteConfirmation(null)}
+        title="Confirm Deletion"
+        size="md"
+      >
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-4 text-amber-600">
+            <HiExclamationTriangle className="w-8 h-8" />
+            <p className="font-medium text-gray-900 dark:text-white">
+              Are you sure you want to delete this {deleteConfirmation?.type === 'node' ? 'Node' : 'Fiber Line'}?
+            </p>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+            This action cannot be undone.
+            {deleteConfirmation?.type === 'node' && " All connected fiber lines will also be deleted."}
+          </p>
+          <ModalFooter>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteConfirmation(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </ModalFooter>
+        </div>
+      </Modal>
     </div>
   );
 }

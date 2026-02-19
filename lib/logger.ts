@@ -256,6 +256,17 @@ export const logger = new Logger(
   process.env.LOG_LEVEL as LogLevel || LogLevel.INFO
 )
 
+/**
+ * Fire-and-forget activity logging helper.
+ * Replaces the repetitive try/catch boilerplate:
+ *   try { const { logger } = await import('@/lib/logger'); await logger.logActivity({...}) } catch (e) { console.error('Logging failed', e) }
+ * With a single line:
+ *   logActivitySafe({ action: 'CREATE', subject: 'Invoice', userId: '...', details: { ... } })
+ */
+export function logActivitySafe(data: { action: string; subject: string; details?: Record<string, unknown>; userId?: string; ipAddress?: string; userAgent?: string }): void {
+  logger.logActivity(data).catch(e => console.error('Logging failed', e))
+}
+
 // Export class untuk testing
 export { Logger }
 

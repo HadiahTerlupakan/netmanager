@@ -60,21 +60,8 @@ export function getWithExpiry<T>(key: string): T | null {
     }
 
     return item.value
-  } catch (error) {
-    // Jika error parsing, coba sebagai data lama langsung
-    try {
-      const itemStr = localStorage.getItem(key)
-      if (itemStr) {
-        const parsed = JSON.parse(itemStr)
-        // Jika berhasil parse dan tidak ada struktur expiry, berarti data lama
-        if (!parsed.expiry && !parsed.value) {
-          return parsed as T
-        }
-      }
-    } catch {
-      // Ignore
-    }
-    console.error(`Error getting localStorage item ${key}:`, error)
+  } catch {
+    console.error(`Error getting localStorage item ${key}`)
     return null
   }
 }

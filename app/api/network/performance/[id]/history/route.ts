@@ -1,16 +1,6 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 const historyQuerySchema = z.object({
   startDate: z.string().datetime().optional(),
@@ -92,21 +82,14 @@ const historyQuerySchema = z.object({
  *       500:
  *         description: Server error
  */
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { id } = await params
-    const { searchParams } = new URL(req.url)
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
+    const { searchParams } = req.nextUrl
     const queryParams = Object.fromEntries(searchParams.entries())
     
     const parsed = historyQuerySchema.safeParse(queryParams)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      return ApiErrors.badRequest('Invalid query parameters', { errors: parsed.error.flatten() })
     }
 
     const filters = parsed.data
@@ -141,7 +124,7 @@ export async function GET(
         prisma.networkPerformance.count({ where }),
       ])
 
-      return NextResponse.json({
+      return apiSuccess({
         data,
         pagination: {
           page,
@@ -153,7 +136,7 @@ export async function GET(
     } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
       if (prismaError && typeof prismaError === 'object' && 'code' in prismaError && prismaError.code === 'P2021') {
-        return NextResponse.json({
+        return apiSuccess({
           data: [],
           pagination: {
             page,
@@ -166,12 +149,4 @@ export async function GET(
       }
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error fetching performance history:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Gagal memuat riwayat performa'
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    )
-  }
-}
+})

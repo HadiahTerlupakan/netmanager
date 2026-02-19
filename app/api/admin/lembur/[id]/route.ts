@@ -1,62 +1,29 @@
-/**
- * Admin Lembur (Overtime) Single Record Routes
- * Migrated to use standardized middleware and validation
- */
-
 import { prisma } from '@/lib/prisma'
 import { OvertimeService } from '@/modules/overtime'
-import { 
-  withAuth, 
-  withPermission, 
-  withErrorHandler,
-  withRateLimit,
-  RateLimits,
-  ValidationError,
-  NotFoundError,
-  ForbiddenError,
-  applyRBACRestrictions,
-  type RBACFilterContext
-} from '@/lib/middleware'
-import { apiSuccess } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { lemburActionSchema } from '@/lib/validations/lembur'
-import { idSchema } from '@/lib/validations/common'
-import { logger } from '@/lib/logger'
-
-interface LemburFilters {
-  siteId?: string;
-  departmentId?: string;
-}
+import { logActivitySafe } from '@/lib/logger'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 /**
  * GET /api/admin/lembur/[id]
  * Retrieve single overtime record
  */
-export const GET = withErrorHandler(
-  withAuth(
-    withPermission('lembur:read',
-      applyRBACRestrictions(
-        {
-          sitePermission: 'lembur:site_only',
-          departmentPermission: 'lembur:department_only'
-        },
-        withRateLimit(RateLimits.STANDARD,
-          async ({ user: _user, request: _request, filters }: RBACFilterContext<LemburFilters>, routeContext) => {
-            const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
+    const { id } = ctx.params
 
-            // Validate ID format
-            const parseResult = idSchema.safeParse(id)
-            if (!parseResult.success) {
-              throw new ValidationError('ID tidak valid', { 
-                errors: parseResult.error.flatten().fieldErrors 
-              })
-            }
+    if (!(await hasPermission("lembur:read"))) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
 
-            // Fetch overtime with user details
-            const overtime = await prisma.overtime.findUnique({
-              where: { id: parseResult.data },
-              include: {
-                user: {
-                  select: {
+    // Fetch overtime with user details
+    const overtime = await prisma.overtime.findUnique({
+        where: { id },
+        include: {
+            user: {
+                select: {
                     id: true,
                     name: true,
                     email: true,
@@ -64,239 +31,201 @@ export const GET = withErrorHandler(
                     departmentId: true,
                     departments: { select: { name: true } },
                     sites: { select: { name: true } }
-                  }
                 }
-              }
-            })
-
-            if (!overtime) {
-              throw new NotFoundError('Data lembur tidak ditemukan')
             }
+        }
+    })
 
-            // Apply RBAC filtering
-            const recordUser = overtime.user
-            if (filters.siteId && recordUser.siteId !== filters.siteId) {
-              throw new NotFoundError('Data lembur tidak ditemukan')
-            }
-            if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
-              throw new NotFoundError('Data lembur tidak ditemukan')
-            }
+    if (!overtime) {
+        return ApiErrors.notFound('Data lembur tidak ditemukan')
+    }
 
-            return apiSuccess(overtime)
-          }
-        )
-      )
-    )
-  )
-)
+    // RBAC Filtering
+    const permissions = await getUserPermissions(user.id);
+    const isSuper = isSuperAdmin(user);
+
+    if (!isSuper) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+
+        if (permissions.includes('lembur:site_only') && dbUser?.siteId) {
+            if (overtime.user.siteId !== dbUser.siteId) {
+                return ApiErrors.notFound('Data lembur tidak ditemukan')
+            }
+        }
+        if (permissions.includes('lembur:department_only') && dbUser?.departmentId) {
+            if (overtime.user.departmentId !== dbUser.departmentId) {
+                return ApiErrors.notFound('Data lembur tidak ditemukan')
+            }
+        }
+    }
+
+    return apiSuccess(overtime)
+})
 
 /**
  * PATCH /api/admin/lembur/[id]
  * Update or verify overtime record
- * Handles both approval/rejection (requires lembur:verify) and data updates (requires lembur:update)
  */
-export const PATCH = withErrorHandler(
-  withAuth(
-    applyRBACRestrictions(
-      {
-        sitePermission: 'lembur:site_only',
-        departmentPermission: 'lembur:department_only'
-      },
-      async ({ user, request, filters }: RBACFilterContext<LemburFilters>, routeContext) => {
-        const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
+export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
+    const { id } = ctx.params
+    const body = await req.json()
+    
+    const parseResult = lemburActionSchema.safeParse(body)
+    if (!parseResult.success) {
+        return ApiErrors.badRequest('Data tidak valid', { errors: parseResult.error.flatten().fieldErrors })
+    }
 
-        // Validate ID format
-        const idParseResult = idSchema.safeParse(id)
-        if (!idParseResult.success) {
-          throw new ValidationError('ID tidak valid', { 
-            errors: idParseResult.error.flatten().fieldErrors 
-          })
+    const { action, reason, startTime, endTime } = parseResult.data
+
+    // Check ownership & site/dept restrictions first
+    const existing = await prisma.overtime.findUnique({
+        where: { id },
+        include: { user: true }
+    })
+
+    if (!existing) {
+        return ApiErrors.notFound('Data lembur tidak ditemukan')
+    }
+
+    // RBAC Filtering
+    const permissions = await getUserPermissions(user.id);
+    const isSuper = isSuperAdmin(user);
+
+    if (!isSuper) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+
+        if (permissions.includes('lembur:site_only') && dbUser?.siteId) {
+            if (existing.user.siteId !== dbUser.siteId) {
+                return ApiErrors.notFound('Data lembur tidak ditemukan')
+            }
+        }
+        if (permissions.includes('lembur:department_only') && dbUser?.departmentId) {
+            if (existing.user.departmentId !== dbUser.departmentId) {
+                return ApiErrors.notFound('Data lembur tidak ditemukan')
+            }
+        }
+    }
+
+    const service = new OvertimeService()
+
+    if (action === 'approve' || action === 'reject') {
+        if (!await hasPermission('lembur:verify')) {
+            return ApiErrors.forbidden('Anda membutuhkan permission lembur:verify')
         }
 
-        // Parse and validate request body
-        const body = await request.json()
-        const parseResult = lemburActionSchema.safeParse(body)
-
-        if (!parseResult.success) {
-          throw new ValidationError('Data tidak valid', { 
-            errors: parseResult.error.flatten().fieldErrors 
-          })
-        }
-
-        const { action, reason, startTime, endTime } = parseResult.data
-
-        // Check ownership & site/dept restrictions
-        const existing = await prisma.overtime.findUnique({
-          where: { id: idParseResult.data },
-          include: { user: true }
-        })
-
-        if (!existing) {
-          throw new NotFoundError('Data lembur tidak ditemukan')
-        }
-
-        // Apply RBAC filtering
-        const recordUser = existing.user
-        if (filters.siteId && recordUser.siteId !== filters.siteId) {
-          throw new NotFoundError('Data lembur tidak ditemukan')
-        }
-        if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
-          throw new NotFoundError('Data lembur tidak ditemukan')
-        }
-
-        const service = new OvertimeService()
-
-        // Distinguish between APPROVE/REJECT (Verify) vs EDIT (Update)
-        if (action === 'approve' || action === 'reject') {
-          // VERIFICATION ACTIONS - Use withPermission inline check
-          const { hasPermission } = await import('@/lib/rbac')
-          if (!await hasPermission('lembur:verify', user)) {
-            throw new ForbiddenError('Anda membutuhkan permission lembur:verify')
-          }
-
-          if (action === 'approve') {
-            const result = await service.approveRequest(idParseResult.data, user.id || 'system')
-
-            // System Log
-            try {
-              await logger.logActivity({
+        if (action === 'approve') {
+            const result = await service.approveRequest(id, user.id || 'system')
+            
+            logActivitySafe({
                 action: 'UPDATE',
                 subject: 'Overtime',
                 userId: user.id,
-                details: { id: idParseResult.data, action: 'APPROVE' }
-              })
-            } catch (e) { 
-              console.error('Logging failed', e) 
-            }
-
+                details: { id, action: 'APPROVE' }
+            })
             return apiSuccess(result, { message: 'Lembur berhasil disetujui' })
-          } else {
+        } else {
             if (!reason) {
-              throw new ValidationError('Alasan penolakan wajib diisi', {})
+                return ApiErrors.badRequest('Alasan penolakan wajib diisi')
             }
-            const result = await service.rejectRequest(idParseResult.data, reason)
-
-            // System Log
-            try {
-              await logger.logActivity({
+            const result = await service.rejectRequest(id, reason)
+            
+            logActivitySafe({
                 action: 'UPDATE',
                 subject: 'Overtime',
                 userId: user.id,
-                details: { id: idParseResult.data, action: 'REJECT', reason }
-              })
-            } catch (e) { 
-              console.error('Logging failed', e) 
-            }
-
+                details: { id, action: 'REJECT', reason }
+            })
             return apiSuccess(result, { message: 'Lembur berhasil ditolak' })
-          }
-        } else {
-          // EDIT DATA ACTIONS - Use withPermission inline check
-          const { hasPermission } = await import('@/lib/rbac')
-          if (!await hasPermission('lembur:update', user)) {
-            throw new ForbiddenError('Anda membutuhkan permission lembur:update')
-          }
+        }
+    } else {
+        if (!await hasPermission('lembur:update')) {
+            return ApiErrors.forbidden('Anda membutuhkan permission lembur:update')
+        }
 
-          // Clean up update data
-          const cleanData: { reason?: string; startTime?: Date; endTime?: Date } = {}
-          if (reason) cleanData.reason = reason
-          if (startTime) cleanData.startTime = new Date(startTime)
-          if (endTime) cleanData.endTime = new Date(endTime)
+        const cleanData: { reason?: string; startTime?: Date; endTime?: Date } = {}
+        if (reason) cleanData.reason = reason
+        if (startTime) cleanData.startTime = new Date(startTime)
+        if (endTime) cleanData.endTime = new Date(endTime)
 
-          const result = await prisma.overtime.update({
-            where: { id: idParseResult.data },
+        const result = await prisma.overtime.update({
+            where: { id },
             data: cleanData,
             include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                  departments: { select: { name: true } },
-                  sites: { select: { name: true } }
+                user: {
+                    select: {
+                        name: true,
+                        email: true,
+                        departments: { select: { name: true } },
+                        sites: { select: { name: true } }
+                    }
                 }
-              }
             }
-          })
+        })
 
-          // System Log
-          try {
-            await logger.logActivity({
-              action: 'UPDATE',
-              subject: 'Overtime',
-              userId: user.id,
-              details: { id: idParseResult.data, updates: cleanData }
-            })
-          } catch (e) { 
-            console.error('Logging failed', e) 
-          }
+        logActivitySafe({
+            action: 'UPDATE',
+            subject: 'Overtime',
+            userId: user.id,
+            details: { id, updates: cleanData }
+        })
 
-          return apiSuccess(result, { message: 'Data lembur berhasil diperbarui' })
-        }
-      }
-    )
-  )
-)
+        return apiSuccess(result, { message: 'Data lembur berhasil diperbarui' })
+    }
+})
 
 /**
  * DELETE /api/admin/lembur/[id]
  * Remove overtime record
  */
-export const DELETE = withErrorHandler(
-  withAuth(
-    withPermission('lembur:delete',
-      applyRBACRestrictions(
-        {
-          sitePermission: 'lembur:site_only',
-          departmentPermission: 'lembur:department_only'
-        },
-        async ({ user, filters }: RBACFilterContext<LemburFilters>, routeContext) => {
-          const { id } = await (routeContext as { params: Promise<{ id: string }> }).params
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
+    const { id } = ctx.params
 
-          // Validate ID format
-          const parseResult = idSchema.safeParse(id)
-          if (!parseResult.success) {
-            throw new ValidationError('ID tidak valid', { 
-              errors: parseResult.error.flatten().fieldErrors 
-            })
-          }
+    if (!(await hasPermission("lembur:delete"))) {
+        return ApiErrors.forbidden('Akses ditolak')
+    }
 
-          // Check existence and apply RBAC
-          const existing = await prisma.overtime.findUnique({
-            where: { id: parseResult.data },
-            include: { user: true }
-          })
+    const existing = await prisma.overtime.findUnique({
+        where: { id },
+        include: { user: true }
+    })
 
-          if (!existing) {
-            throw new NotFoundError('Data lembur tidak ditemukan')
-          }
+    if (!existing) {
+        return ApiErrors.notFound('Data lembur tidak ditemukan')
+    }
 
-          // Apply RBAC filtering
-          const recordUser = existing.user
-          if (filters.siteId && recordUser.siteId !== filters.siteId) {
-            throw new NotFoundError('Data lembur tidak ditemukan')
-          }
-          if (filters.departmentId && recordUser.departmentId !== filters.departmentId) {
-            throw new NotFoundError('Data lembur tidak ditemukan')
-          }
+    // RBAC Filtering
+    const permissions = await getUserPermissions(user.id);
+    const isSuper = isSuperAdmin(user);
 
-          const service = new OvertimeService()
-          await service.deleteOvertime(parseResult.data)
+    if (!isSuper) {
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
-          // System Log
-          try {
-            await logger.logActivity({
-              action: 'DELETE',
-              subject: 'Overtime',
-              userId: user.id,
-              details: { id: parseResult.data }
-            })
-          } catch (e) { 
-            console.error('Logging failed', e) 
-          }
-
-          return apiSuccess({ id: parseResult.data }, { message: 'Lembur berhasil dihapus' })
+        if (permissions.includes('lembur:site_only') && dbUser?.siteId) {
+            if (existing.user.siteId !== dbUser.siteId) {
+                return ApiErrors.notFound('Data lembur tidak ditemukan')
+            }
         }
-      )
-    )
-  )
-)
+        if (permissions.includes('lembur:department_only') && dbUser?.departmentId) {
+            if (existing.user.departmentId !== dbUser.departmentId) {
+                return ApiErrors.notFound('Data lembur tidak ditemukan')
+            }
+        }
+    }
+
+    const service = new OvertimeService()
+    await service.deleteOvertime(id)
+
+    logActivitySafe({
+        action: 'DELETE',
+        subject: 'Overtime',
+        userId: user.id,
+        details: { id }
+    })
+
+    return apiSuccess({ id }, { message: 'Lembur berhasil dihapus' })
+})

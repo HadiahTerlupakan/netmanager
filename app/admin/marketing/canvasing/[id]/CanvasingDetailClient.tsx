@@ -28,6 +28,7 @@ import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import Image from 'next/image'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface PointClaim {
     id: string;
@@ -615,19 +616,33 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             </div>
 
             {/* Zoom Modal */}
-            {zoomImage && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
-                    onClick={() => setZoomImage(null)}
-                >
-                    <div className="relative w-full h-full max-w-4xl max-h-[90vh]">
-                        <Image src={zoomImage} alt="Zoomed" fill className="object-contain rounded-lg shadow-2xl" />
-                    </div>
-                    <button className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
-                        <HiOutlineXMark className="w-8 h-8" />
-                    </button>
+            <Modal
+                isOpen={!!zoomImage}
+                onClose={() => setZoomImage(null)}
+                padding={false}
+                size="4xl"
+                showCloseButton={true}
+                title="Preview Foto"
+            >
+                <div className="relative w-full h-[80vh] flex items-center justify-center bg-black/90">
+                    {zoomImage && (
+                        <Image 
+                            src={zoomImage} 
+                            alt="Zoomed" 
+                            fill 
+                            className="object-contain" 
+                        />
+                    )}
                 </div>
-            )}
+                <ModalFooter className="bg-black/90 border-t border-white/10">
+                    <button 
+                        onClick={() => setZoomImage(null)}
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                        Tutup
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { HiOutlinePencil, HiOutlineTrash, HiOutlineCloudArrowUp, HiOutlineDevicePhoneMobile, HiOutlineExclamationTriangle, HiOutlineQuestionMarkCircle } from 'react-icons/hi2'
 import { usePermission } from '@/hooks/use-permission'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface AppVersion {
     id: string
@@ -492,12 +493,14 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
     const hasApk = !!apkFile
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                <div className="p-6">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Upload Versi Baru</h2>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Upload Versi Baru"
+            size="lg"
+        >
+                <div className="space-y-4">
+                    <form id="upload-form" onSubmit={handleSubmit} className="space-y-4">
                         {/* APK File - prioritas utama */}
                         <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-4 border-2 border-dashed border-indigo-300">
                             <label className="block text-sm font-medium mb-2 text-indigo-700 dark:text-indigo-300">
@@ -675,33 +678,33 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                             />
                             <p className="text-xs text-gray-500 mt-1">Versi di bawah ini akan dipaksa update</p>
                         </div>
-
-                        <div className="flex gap-3 pt-4">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-                                disabled={loading}
-                            >
-                                Batal
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {loading ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        <span>Proses...</span>
-                                    </>
-                                ) : 'Upload'}
-                            </button>
-                        </div>
                     </form>
                 </div>
-            </div>
-        </div>
+
+                <ModalFooter>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                        disabled={loading}
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="submit"
+                        form="upload-form"
+                        disabled={loading}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {loading ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                <span>Proses...</span>
+                            </>
+                        ) : 'Upload'}
+                    </button>
+                </ModalFooter>
+        </Modal>
     )
 }
 
@@ -741,12 +744,14 @@ function EditVersionModal({ version, onClose, onSuccess }: { version: AppVersion
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md">
-                <div className="p-6">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit v{version.version}</h2>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={`Edit v${version.version}`}
+            size="md"
+        >
+                <div className="space-y-4">
+                    <form id="edit-form" onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium mb-1">Catatan Rilis</label>
                             <textarea
@@ -778,26 +783,26 @@ function EditVersionModal({ version, onClose, onSuccess }: { version: AppVersion
                             />
                             <label htmlFor="isActive" className="text-sm font-medium">Aktif</label>
                         </div>
-
-                        <div className="flex gap-3 pt-4">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-                            >
-                                Batal
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                            >
-                                {loading ? 'Menyimpan...' : 'Simpan'}
-                            </button>
-                        </div>
                     </form>
                 </div>
-            </div>
-        </div>
+
+                <ModalFooter>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="submit"
+                        form="edit-form"
+                        disabled={loading}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                        {loading ? 'Menyimpan...' : 'Simpan'}
+                    </button>
+                </ModalFooter>
+        </Modal>
     )
 }

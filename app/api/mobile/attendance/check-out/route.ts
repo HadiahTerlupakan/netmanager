@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { logger } from '@/lib/logger'
+import { logger, logActivitySafe } from '@/lib/logger'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
@@ -180,18 +180,16 @@ export async function POST(request: NextRequest) {
             const result = await attendanceService.checkOut(checkOutParams)
 
             // System Log
-            try {
-                await logger.logActivity({
-                    action: 'CHECK_OUT',
-                    subject: 'Attendance',
-                    userId,
-                    details: {
-                        attendanceId: result.attendance.id,
-                        location,
-                        isOffline: !!offlineTime
-                    }
-                })
-            } catch (e) { console.error('Logging check-out failed', e) }
+            logActivitySafe({
+                action: 'CHECK_OUT',
+                subject: 'Attendance',
+                userId,
+                details: {
+                    attendanceId: result.attendance.id,
+                    location,
+                    isOffline: !!offlineTime
+                }
+            })
 
             return NextResponse.json({
                 success: true,

@@ -1,8 +1,8 @@
-import { NextRequest } from 'next/server';
 import { getWorkOrderService } from '@/modules/work-order';
-import { verifyAuth, isSuperAdmin } from '@/lib/auth';
+import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
+import { prisma } from '@/lib/prisma';
 
 const EMPTY_STATS = {
     total: 0, pending: 0, assigned: 0, inProgress: 0, onHold: 0,
@@ -11,54 +11,55 @@ const EMPTY_STATS = {
 };
 
 // GET /api/admin/workorders/stats - Get statistics
-export async function GET(request: NextRequest) {
-    try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return ApiErrors.unauthorized('Session tidak valid');
-        }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user;
 
-        if (!await hasPermission('work_order_dashboard:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat statistik work order');
-        }
-
-        const { searchParams } = new URL(request.url);
-        const departmentId = searchParams.get('departmentId');
-        const assignedToId = searchParams.get('assignedToId');
-
-        const filters: Record<string, string> = {};
-        if (departmentId) filters.departmentId = departmentId;
-        if (assignedToId) filters.assignedToId = assignedToId;
-
-        // Access Control
-        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
-        const hasSiteRestriction = user.permissions?.includes('workorders:site_only');
-        const isSuper = isSuperAdmin(user);
-
-        if (hasDepartmentRestriction && !isSuper) {
-            if (!user.departmentId) {
-                return apiSuccess(EMPTY_STATS);
-            }
-            filters.departmentId = user.departmentId;
-        }
-
-        if (hasSiteRestriction && !isSuper) {
-            if (!user.siteId) {
-                return apiSuccess(EMPTY_STATS);
-            }
-            filters.siteId = user.siteId;
-        }
-
-        const workOrderService = getWorkOrderService();
-        const result = await workOrderService.getStatistics(filters);
-
-        if (!result.success) {
-            return apiError(result.error || 'Gagal mengambil statistik', ErrorCodes.INTERNAL_ERROR, { status: 500 });
-        }
-
-        return apiSuccess(result.data);
-    } catch (error) {
-        console.error('Error fetching statistics:', error);
-        return ApiErrors.internalError('Gagal mengambil statistik');
+    if (!await hasPermission('work_order_dashboard:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat statistik work order');
     }
-}
+
+    const { searchParams } = req.nextUrl;
+    const departmentId = searchParams.get('departmentId');
+    const assignedToId = searchParams.get('assignedToId');
+
+    const filters: Record<string, string> = {};
+    if (departmentId) filters.departmentId = departmentId;
+    if (assignedToId) filters.assignedToId = assignedToId;
+
+    // Fetch extended user context for RBAC
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, role: true, departmentId: true, siteId: true }
+    });
+
+    if (!dbUser) return ApiErrors.unauthorized();
+
+    // Access Control
+    const permissions = ctx.permissions || [];
+    const hasDepartmentRestriction = permissions.includes('workorders:department_only');
+    const hasSiteRestriction = permissions.includes('workorders:site_only');
+    const isSuper = isSuperAdmin(user);
+
+    if (hasDepartmentRestriction && !isSuper) {
+        if (!dbUser.departmentId) {
+            return apiSuccess(EMPTY_STATS);
+        }
+        filters.departmentId = dbUser.departmentId;
+    }
+
+    if (hasSiteRestriction && !isSuper) {
+        if (!dbUser.siteId) {
+            return apiSuccess(EMPTY_STATS);
+        }
+        filters.siteId = dbUser.siteId;
+    }
+
+    const workOrderService = getWorkOrderService();
+    const result = await workOrderService.getStatistics(filters);
+
+    if (!result.success) {
+        return apiError(result.error || 'Gagal mengambil statistik', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+    }
+
+    return apiSuccess(result.data);
+})

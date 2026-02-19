@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
@@ -257,3 +257,4 @@ export async function GET(request: NextRequest) {
         return ApiErrors.internalError('Gagal mengambil data sales dashboard')
     }
 }
+import { NextResponse } from 'next/server'

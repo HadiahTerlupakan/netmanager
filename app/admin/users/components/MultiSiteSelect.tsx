@@ -1,6 +1,7 @@
 "use client"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { HiOutlineMap, HiOutlineCheck, HiOutlineStar, HiChevronDown, HiXMark } from 'react-icons/hi2'
+import { useClickOutside } from '@/hooks/useClickOutside'
 
 interface Site {
   id: string
@@ -36,15 +37,8 @@ export default function MultiSiteSelect({
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const closeDropdown = useCallback(() => setIsOpen(false), [])
+  useClickOutside(dropdownRef, closeDropdown)
 
   const isSelected = (siteId: string) => {
     return selectedSites.some(s => s.siteId === siteId)

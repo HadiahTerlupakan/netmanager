@@ -1,42 +1,42 @@
-import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
-import { verifyAuth, isSuperAdmin } from '@/lib/auth';
+import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors } from '@/lib/api-response';
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
-// GET /api/admin/workorders/department-workload - Get department workload statistics
-export async function GET(request: NextRequest) {
-    try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return ApiErrors.unauthorized('Session tidak valid');
-        }
+// GET /api/admin/workorders/department-workload
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user;
 
-        if (!await hasPermission('work_order_dashboard:read')) {
-            return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat beban kerja departemen');
-        }
-
-        let departmentIdFilter: string | undefined = undefined;
-
-        // NEW: Enforce Department Restriction Logic
-        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
-        const isSuper = isSuperAdmin(user);
-
-        if (hasDepartmentRestriction && !isSuper) {
-            if (!user.departmentId) {
-                return apiSuccess([], { message: "Restricted access: No department assigned." });
-            }
-            departmentIdFilter = user.departmentId;
-        }
-
-        const workload = await workOrderRepo.getDepartmentWorkload(departmentIdFilter);
-
-        return apiSuccess(workload);
-    } catch (error) {
-        console.error('Error fetching department workload:', error);
-        return ApiErrors.internalError('Gagal mengambil beban kerja departemen');
+    if (!await hasPermission('work_order_dashboard:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat beban kerja departemen');
     }
-}
+
+    let departmentIdFilter: string | undefined = undefined;
+
+    // Fetch user details for restrictions
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, role: true, departmentId: true }
+    });
+
+    if (!dbUser) return ApiErrors.unauthorized();
+
+    // Enforce Department Restriction
+    const permissions = ctx.permissions || [];
+    const hasDepartmentRestriction = permissions.includes('workorders:department_only');
+    const isSuper = isSuperAdmin(user);
+
+    if (hasDepartmentRestriction && !isSuper) {
+        if (!dbUser.departmentId) {
+            return apiSuccess([], { message: "Restricted access: No department assigned." });
+        }
+        departmentIdFilter = dbUser.departmentId;
+    }
+
+    const workload = await workOrderRepo.getDepartmentWorkload(departmentIdFilter);
+
+    return apiSuccess(workload);
+})

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { TicketStatus, TicketCategory, TicketPriority, Prisma } from '@prisma/client'
-import { logger } from '@/lib/logger'
+import { logActivitySafe } from '@/lib/logger'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 import { randomUUID } from 'crypto'
 
@@ -450,12 +450,8 @@ export class AdminSupportTicketService {
         }
     }
 
-    private async logActivity(action: string, subject: string, userId: string, details: Record<string, unknown>) {
-        try {
-            await logger.logActivity({ action, subject, userId, details })
-        } catch (e) {
-            console.error('[AdminSupportTicketService] Logging failed', e)
-        }
+    private logActivity(action: string, subject: string, userId: string, details: Record<string, unknown>) {
+        logActivitySafe({ action, subject, userId, details })
     }
 }
 

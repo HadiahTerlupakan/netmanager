@@ -4,6 +4,7 @@ import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
+import { logActivitySafe } from '@/lib/logger'
 
 interface ExtendedUser {
   id: string;
@@ -287,21 +288,16 @@ export async function POST(
     })
 
     // System Log
-    try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'ACTIVATE',
-        subject: 'Pelanggan',
-        userId: sessionUser.id,
-        details: {
-            id: id,
-            method: activationMethod,
-            suspensionId: result.id
-        }
-      })
-    } catch (logError: unknown) {
-      console.error('Failed to log activity:', logError)
-    }
+    logActivitySafe({
+      action: 'ACTIVATE',
+      subject: 'Pelanggan',
+      userId: sessionUser.id,
+      details: {
+          id: id,
+          method: activationMethod,
+          suspensionId: result.id
+      }
+    })
 
     return NextResponse.json({
       success: true,

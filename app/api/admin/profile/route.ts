@@ -1,25 +1,8 @@
-/**
- * Admin Profile Routes
- * Migrated to use standardized middleware and validation
- */
-
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { 
-  withAuth, 
-  withErrorHandler,
-  withRateLimit,
-  RateLimits,
-  ValidationError,
-  NotFoundError,
-  type AuthContext
-} from '@/lib/middleware'
-import { apiSuccess } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import { z } from 'zod'
 
-/**
- * Validation schemas
- */
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).optional(),
@@ -34,17 +17,11 @@ const changePasswordSchema = z.object({
   path: ['confirmPassword'],
 })
 
-/**
- * GET /api/admin/profile
- * Get current user profile
- */
-export const GET = withErrorHandler(
-  withAuth(
-    withRateLimit(RateLimits.STANDARD,
-      async ({ user }: AuthContext) => {
-        const profile = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: {
+// GET /api/admin/profile - Get current user profile
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const profile = await prisma.user.findUnique({
+        where: { id: ctx.session!.user.id },
+        select: {
             id: true,
             name: true,
             email: true,
@@ -55,111 +32,80 @@ export const GET = withErrorHandler(
             endWorkTime: true,
             workDays: true,
             departments: {
-              select: { id: true, name: true }
+                select: { id: true, name: true }
             },
             sites: {
-              select: { id: true, name: true }
+                select: { id: true, name: true }
             },
             role: {
-              select: { id: true, name: true }
+                select: { id: true, name: true }
             }
-          }
-        })
-
-        if (!profile) {
-          throw new NotFoundError('User')
         }
+    })
 
-        return apiSuccess(profile)
-      }
-    )
-  )
-)
+    if (!profile) {
+        return ApiErrors.notFound('User')
+    }
 
-/**
- * PATCH /api/admin/profile
- * Update current user profile
- */
-export const PATCH = withErrorHandler(
-  withAuth(
-    async ({ user, request }) => {
-      const body = await request.json()
-      
-      // Validate with Zod
-      const parseResult = updateProfileSchema.safeParse(body)
-      if (!parseResult.success) {
-        throw new ValidationError('Data tidak valid', { 
-          errors: parseResult.error.flatten().fieldErrors 
-        })
-      }
+    return apiSuccess(profile)
+})
 
-      const { name, phone } = parseResult.data
-      const updateData: { name?: string; phone?: string } = {}
-      if (name !== undefined) updateData.name = name
-      if (phone !== undefined) updateData.phone = phone
+// PATCH /api/admin/profile - Update current user profile
+export const PATCH = createHandler({ 
+    auth: true, 
+    schema: updateProfileSchema 
+}, async (req, ctx) => {
+    const { name, phone } = ctx.validated
+    const updateData: { name?: string; phone?: string } = {}
+    if (name !== undefined) updateData.name = name
+    if (phone !== undefined) updateData.phone = phone
 
-      if (Object.keys(updateData).length === 0) {
-        throw new ValidationError('Tidak ada field untuk diupdate', {})
-      }
+    if (Object.keys(updateData).length === 0) {
+        return apiError('Tidak ada field untuk diupdate', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
 
-      const updated = await prisma.user.update({
-        where: { id: user.id },
+    const updated = await prisma.user.update({
+        where: { id: ctx.session!.user.id },
         data: updateData,
         select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          image: true
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            image: true
         }
-      })
+    })
 
-      return apiSuccess(updated, { message: 'Profil berhasil diperbarui' })
-    }
-  )
-)
+    return apiSuccess(updated, { message: 'Profil berhasil diperbarui' })
+})
 
-/**
- * POST /api/admin/profile
- * Change user password
- */
-export const POST = withErrorHandler(
-  withAuth(
-    async ({ user, request }) => {
-      const body = await request.json()
-      
-      // Validate with Zod
-      const parseResult = changePasswordSchema.safeParse(body)
-      if (!parseResult.success) {
-        throw new ValidationError('Data tidak valid', { 
-          errors: parseResult.error.flatten().fieldErrors 
-        })
-      }
+// POST /api/admin/profile - Change user password
+export const POST = createHandler({ 
+    auth: true, 
+    schema: changePasswordSchema 
+}, async (req, ctx) => {
+    const { currentPassword, newPassword } = ctx.validated
 
-      const { currentPassword, newPassword } = parseResult.data
-
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
+    const dbUser = await prisma.user.findUnique({
+        where: { id: ctx.session!.user.id },
         select: { id: true, passwordHash: true }
-      })
+    })
 
-      if (!dbUser || !dbUser.passwordHash) {
-        throw new NotFoundError('User')
-      }
-
-      const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash)
-      if (!isValidPassword) {
-        throw new ValidationError('Password lama salah', {})
-      }
-
-      const newPasswordHash = await bcrypt.hash(newPassword, 10)
-      
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: newPasswordHash }
-      })
-
-      return apiSuccess(null, { message: 'Password berhasil diubah' })
+    if (!dbUser || !dbUser.passwordHash) {
+        return ApiErrors.notFound('User')
     }
-  )
-)
+
+    const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash)
+    if (!isValidPassword) {
+        return apiError('Password lama salah', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, 10)
+    
+    await prisma.user.update({
+        where: { id: ctx.session!.user.id },
+        data: { passwordHash: newPasswordHash }
+    })
+
+    return apiSuccess(null, { message: 'Password berhasil diubah' })
+})

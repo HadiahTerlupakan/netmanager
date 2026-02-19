@@ -20,6 +20,7 @@ import {
     MdConstruction,
     MdInstallDesktop
 } from 'react-icons/md'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface Registration {
     id: string
@@ -361,20 +362,25 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
             </div>
 
             {/* Reject Modal */}
-            {showRejectModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">Tolak Pendaftaran</h3>
-                        <p className="text-sm text-slate-600 mb-4">
-                            Masukkan alasan penolakan untuk pendaftaran ini.
-                        </p>
+            <Modal
+                isOpen={showRejectModal}
+                onClose={() => {
+                    setShowRejectModal(false)
+                    setRejectionReason('')
+                }}
+                title="Tolak Pendaftaran"
+                description="Masukkan alasan penolakan untuk pendaftaran ini."
+                size="md"
+            >
+                <div>
                         <textarea
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
                             placeholder="Contoh: Data tidak valid, nomor telepon tidak dapat dihubungi..."
                             className="w-full border border-slate-300 rounded-lg p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-red-500"
                         />
-                        <div className="flex gap-3 mt-4">
+                </div>
+                <ModalFooter>
                             <button
                                 onClick={() => {
                                     setShowRejectModal(false)
@@ -391,10 +397,8 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                             >
                                 {isSaving ? 'Menyimpan...' : 'Tolak'}
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

@@ -1,10 +1,8 @@
-import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions, getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
-import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { logger, logActivitySafe } from '@/lib/logger'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**
  * Generate automatic warehouse code
@@ -50,72 +48,67 @@ async function generateGudangCode(): Promise<string> {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now()
+  const user = ctx.session!.user
+
+  if (!(await hasPermission("gudang:read"))) {
+    return ApiErrors.forbidden('Akses ditolak')
+  }
+
+  const inventoryRepository = getInventoryRepository()
+
+  const { searchParams } = req.nextUrl
+  const viewAll = searchParams.get('view') === 'all'
+
+  // Check for site restriction
+  const permissions = await getUserPermissions(user.id);
+  
+  // Need to fetch siteId because createHandler session doesn't map it
+  const { prisma } = await import('@/lib/prisma');
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+  const siteId = dbUser?.siteId
+
+  // Only restrict if:
+  // 1. User has restriction permission
+  // 2. User has a site assigned
+  // 3. User is NOT requesting (and authorized for) view=all
+  //    (Super Admins or users with Admin Panel access can view all)
+  const isSuper = isSuperAdmin(user)
+  // ONLY Super Admin can bypass site restrictions via view=all
+  // Other users with accessAdminPanel must still respect site_only permission
+  const canViewAll = isSuper
+
+  // Check strict site restriction
+  // Support both administrative 'gudang:site_only' and mobile 'k_barang:site_only'
+  const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
+  let shouldRestrict: boolean = !!(hasRestriction && siteId)
+
+  if (viewAll && canViewAll) {
+    shouldRestrict = false
+  }
+
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return ApiErrors.unauthorized('Tidak terautentikasi')
-    }
+    const dbStart = Date.now()
+    const gudangs = await inventoryRepository.getAllGudang(shouldRestrict ? { siteId } : undefined)
 
-    if (!(await hasPermission("gudang:read"))) {
-      return ApiErrors.forbidden('Akses ditolak')
-    }
+    logger.dbOperation('findMany', 'Gudang', Date.now() - dbStart)
 
-    const inventoryRepository = getInventoryRepository()
+    logger.apiRequest('GET', '/api/inventory/gudang', 200, Date.now() - startTime, {
+      gudangCount: gudangs.length,
+      userId: user.id
+    })
 
-    const { searchParams } = new URL(req.url)
-    const viewAll = searchParams.get('view') === 'all'
-
-    // Check for site restriction
-    // const permissions = (session.user as any).permissions || []
-    const permissions = await getUserPermissions(session.user.id!);
-    const siteId = (session.user as { siteId?: string }).siteId
-
-
-    // Only restrict if:
-    // 1. User has restriction permission
-    // 2. User has a site assigned
-    // 3. User is NOT requesting (and authorized for) view=all
-    //    (Super Admins or users with Admin Panel access can view all)
-    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
-    // ONLY Super Admin can bypass site restrictions via view=all
-    // Other users with accessAdminPanel must still respect site_only permission
-    const canViewAll = isSuper
-
-    // Check strict site restriction
-    // Support both administrative 'gudang:site_only' and mobile 'k_barang:site_only'
-    const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
-    let shouldRestrict: boolean = !!(hasRestriction && siteId)
-
-    if (viewAll && canViewAll) {
-      shouldRestrict = false
-    }
-
-    try {
-      const dbStart = Date.now()
-      const gudangs = await inventoryRepository.getAllGudang(shouldRestrict ? { siteId } : undefined)
-
-      logger.dbOperation('findMany', 'Gudang', Date.now() - dbStart)
-
-      logger.apiRequest('GET', '/api/inventory/gudang', 200, Date.now() - startTime, {
-        gudangCount: gudangs.length,
-        ...(session.user.id ? { userId: session.user.id } : {})
-      })
-
-      return apiSuccess({ gudangs })
-    } finally {
-      // do not disconnect shared prisma client
-    }
+    return apiSuccess({ gudangs })
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error fetching gudangs', err, {
       path: '/api/inventory/gudang',
       method: 'GET',
     })
-    return ApiErrors.internalError('Gagal memuat data gudang')
+    throw error // Let createHandler handle it
   }
-}
+})
 
 /**
  * @swagger
@@ -178,83 +171,75 @@ export async function GET(req: NextRequest) {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function POST(req: NextRequest) {
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now()
+  const user = ctx.session!.user
+
+  if (!(await hasPermission("gudang:create"))) {
+    return ApiErrors.forbidden('Akses ditolak')
+  }
+
+  const inventoryRepository = getInventoryRepository()
+
+  const body = await req.json()
+  const { nama, lokasi, isActive, siteIds } = body
+
+  // Validation
+  if (!nama) {
+    return ApiErrors.badRequest('Nama gudang harus diisi')
+  }
+
+  // Note: siteIds is optional, gudang-site relationship managed from Site menu
+
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return ApiErrors.unauthorized('Tidak terautentikasi')
-    }
+    const dbStart = Date.now()
 
-    if (!(await hasPermission("gudang:create"))) {
-      return ApiErrors.forbidden('Akses ditolak')
-    }
+    // Generate automatic gudang code
+    const kode = await generateGudangCode()
 
-    const inventoryRepository = getInventoryRepository()
+    // NEW: Enforce Site Restriction on Creation
+    const permissions = await getUserPermissions(user.id);
+    const isSuper = isSuperAdmin(user)
+    
+    // Fetch siteId
+    const { prisma } = await import('@/lib/prisma');
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+    const userSiteId = dbUser?.siteId
 
-    const body = await req.json()
-    const { nama, lokasi, isActive, siteIds } = body
+    let finalSiteIds = siteIds
+    const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
 
-    // Validation
-    if (!nama) {
-      return ApiErrors.badRequest('Nama gudang harus diisi')
-    }
-
-    // Note: siteIds is optional, gudang-site relationship managed from Site menu
-
-    try {
-      const dbStart = Date.now()
-
-      // Generate automatic gudang code
-      const kode = await generateGudangCode()
-
-      // NEW: Enforce Site Restriction on Creation
-      // const permissions = (session.user as any).permissions || []
-      const permissions = await getUserPermissions(session.user.id!);
-      const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
-      const userSiteId = (session.user as { siteId?: string }).siteId
-
-      let finalSiteIds = siteIds
-      const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
-
-      if (!isSuper && hasRestriction) {
-        if (userSiteId) {
-          finalSiteIds = [userSiteId] // Force assignment to user's site
-        }
+    if (!isSuper && hasRestriction) {
+      if (userSiteId) {
+        finalSiteIds = [userSiteId] // Force assignment to user's site
       }
-
-      const gudang = await inventoryRepository.createGudang({
-        kode,
-        nama,
-        isActive: isActive ?? true,
-        ...(lokasi ? { lokasi } : {}),
-        ...(finalSiteIds ? { siteIds: finalSiteIds } : {})
-      })
-
-      logger.dbOperation('create', 'Gudang', Date.now() - dbStart)
-
-      logger.apiRequest('POST', '/api/inventory/gudang', 201, Date.now() - startTime, {
-        gudangId: gudang.id,
-        kode: gudang.kode,
-        ...(session.user.id ? { userId: session.user.id } : {})
-      })
-
-      // System Log
-      try {
-        await logger.logActivity({
-          action: 'CREATE',
-          subject: 'Gudang',
-          details: { id: gudang.id, name: gudang.nama, code: gudang.kode },
-          ...(session.user.id ? { userId: session.user.id } : {})
-        })
-      } catch (e) {
-        console.error('Logging failed', e)
-      }
-
-      return apiSuccess({ gudang }, { status: 201 })
-    } finally {
-      // do not disconnect shared prisma client
     }
+
+    const gudang = await inventoryRepository.createGudang({
+      kode,
+      nama,
+      isActive: isActive ?? true,
+      ...(lokasi ? { lokasi } : {}),
+      ...(finalSiteIds ? { siteIds: finalSiteIds } : {})
+    })
+
+    logger.dbOperation('create', 'Gudang', Date.now() - dbStart)
+
+    logger.apiRequest('POST', '/api/inventory/gudang', 201, Date.now() - startTime, {
+      gudangId: gudang.id,
+      kode: gudang.kode,
+      userId: user.id
+    })
+
+    // System Log
+    logActivitySafe({
+      action: 'CREATE',
+      subject: 'Gudang',
+      details: { id: gudang.id, name: gudang.nama, code: gudang.kode },
+      userId: user.id
+    })
+
+    return apiSuccess({ gudang }, { status: 201 })
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
     logger.error('Error creating gudang', err, {
@@ -263,4 +248,4 @@ export async function POST(req: NextRequest) {
     })
     return ApiErrors.internalError('Gagal membuat gudang')
   }
-}
+})

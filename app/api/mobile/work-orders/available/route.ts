@@ -3,6 +3,7 @@ import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'crypto';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
+import { logActivitySafe } from '@/lib/logger';
 
 // GET - List available work orders (PENDING status, not assigned)
 export async function GET(request: NextRequest) {
@@ -217,17 +218,12 @@ export async function POST(request: NextRequest) {
         });
 
         // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'UPDATE',
-                subject: 'Work Order',
-                userId: userId,
-                details: { id: workOrderId, action: 'ASSIGN_SELF_MOBILE', status: 'ASSIGNED' }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
+        logActivitySafe({
+            action: 'UPDATE',
+            subject: 'Work Order',
+            userId: userId,
+            details: { id: workOrderId, action: 'ASSIGN_SELF_MOBILE', status: 'ASSIGNED' }
+        })
 
         // Create update log
         await prisma.workOrderUpdates.create({

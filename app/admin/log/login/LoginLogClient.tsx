@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { HiOutlineRefresh } from 'react-icons/hi'
-import { HiOutlineClock, HiXMark, HiOutlineShieldCheck, HiOutlineUser, HiOutlineEye } from 'react-icons/hi2'
+import { HiOutlineClock, HiOutlineShieldCheck, HiOutlineUser, HiOutlineEye } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface SystemLog {
     id: string
@@ -199,152 +200,122 @@ export function ClientComponent() {
             </div>
 
             {/* Detail Modal */}
-            {showModal && selectedLog && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                        <div 
-                            className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
-                            onClick={() => setShowModal(false)}
-                        />
-                        
-                        <div className="relative inline-block w-full max-w-lg p-6 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
-                                        <HiOutlineShieldCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                            Detail Log Login
-                                        </h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {format(new Date(selectedLog.createdAt), 'dd MMM yyyy HH:mm:ss', { locale: id })}
-                                        </p>
+            <Modal
+                isOpen={showModal && !!selectedLog}
+                onClose={() => setShowModal(false)}
+                title="Detail Log Login"
+                size="lg"
+            >
+                <div className="space-y-4">
+                    {selectedLog && (() => {
+                        const details = parseDetails(selectedLog.details)
+                        return (
+                            <>
+                                {/* User Info */}
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
+                                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Informasi Pengguna
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Nama</p>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                {details.name || selectedLog.user?.name || '-'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                {details.email || selectedLog.user?.email || '-'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+                                                {details.role || '-'}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Portal</p>
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                                {details.portal || '-'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    <HiXMark className="w-5 h-5 text-gray-500" />
-                                </button>
-                            </div>
 
-                            {/* Content */}
-                            <div className="space-y-4">
-                                {(() => {
-                                    const details = parseDetails(selectedLog.details)
-                                    return (
-                                        <>
-                                            {/* User Info */}
-                                            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
-                                                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Informasi Pengguna
-                                                </h4>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Nama</p>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                            {details.name || selectedLog.user?.name || '-'}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                            {details.email || selectedLog.user?.email || '-'}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
-                                                            {details.role || '-'}
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Portal</p>
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                                                            {details.portal || '-'}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                {/* Login Info */}
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
+                                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Informasi Login
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Provider</p>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                                                {details.provider || '-'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                                {selectedLog.action}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">User Baru</p>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                {details.isNewUser ? 'Ya' : 'Tidak'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Waktu Login</p>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                {details.loginTime ? format(new Date(details.loginTime), 'HH:mm:ss', { locale: id }) : '-'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Technical Info */}
+                                {(selectedLog.ipAddress || selectedLog.userAgent) && (
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
+                                        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Informasi Teknis
+                                        </h4>
+                                        {selectedLog.ipAddress && (
+                                            <div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">IP Address</p>
+                                                <p className="text-sm font-mono text-gray-900 dark:text-white">
+                                                    {selectedLog.ipAddress}
+                                                </p>
                                             </div>
-
-                                            {/* Login Info */}
-                                            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
-                                                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Informasi Login
-                                                </h4>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Provider</p>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
-                                                            {details.provider || '-'}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                                            {selectedLog.action}
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">User Baru</p>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                            {details.isNewUser ? 'Ya' : 'Tidak'}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Waktu Login</p>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                            {details.loginTime ? format(new Date(details.loginTime), 'HH:mm:ss', { locale: id }) : '-'}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                        )}
+                                        {selectedLog.userAgent && (
+                                            <div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">User Agent</p>
+                                                <p className="text-sm font-mono text-gray-900 dark:text-white break-all">
+                                                    {selectedLog.userAgent}
+                                                </p>
                                             </div>
-
-                                            {/* Technical Info */}
-                                            {(selectedLog.ipAddress || selectedLog.userAgent) && (
-                                                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
-                                                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                        Informasi Teknis
-                                                    </h4>
-                                                    {selectedLog.ipAddress && (
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">IP Address</p>
-                                                            <p className="text-sm font-mono text-gray-900 dark:text-white">
-                                                                {selectedLog.ipAddress}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    {selectedLog.userAgent && (
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">User Agent</p>
-                                                            <p className="text-sm font-mono text-gray-900 dark:text-white break-all">
-                                                                {selectedLog.userAgent}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </>
-                                    )
-                                })()}
-                            </div>
-
-                            {/* Footer */}
-                            <div className="mt-6 flex justify-end">
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                >
-                                    Tutup
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                                        )}
+                                    </div>
+                                )}
+                            </>
+                        )
+                    })()}
                 </div>
-            )}
+
+                {/* Footer */}
+                <ModalFooter>
+                    <button
+                        onClick={() => setShowModal(false)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        Tutup
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

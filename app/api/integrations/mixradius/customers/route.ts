@@ -1,37 +1,23 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { getMixRadiusService, type FetchCustomersParams } from '@/modules/integrations'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * GET /api/integrations/mixradius/customers
- *
- * Fetch data pelanggan PPP dari MixRadius secara on-demand
- *
- * Query Parameters:
- * - start: Offset untuk pagination (default: 0)
- * - length: Jumlah data per request (default: 10, max: 100)
- * - search: Search query (optional)
- */
-export async function GET(req: NextRequest) {
-  try {
-    // Auth check
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized()
-    }
-
-    // Add RBAC permission check
-    const permissions = await getUserPermissions(session.id)
-    const hasAccess = session.isSuperAdmin || permissions.includes('*') || permissions.includes('mixradius:read');
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
+    
+    // RBAC permission check
+    const permissions = await getUserPermissions(user.id)
+    const isSuper = isSuperAdmin(user)
+    const hasAccess = isSuper || permissions.includes('*') || permissions.includes('mixradius:read');
+    
     if (!hasAccess) {
       return ApiErrors.forbidden()
     }
 
     // Parse query parameters
-    const { searchParams } = new URL(req.url)
+    const { searchParams } = req.nextUrl
     const start = parseInt(searchParams.get('start') || '0', 10)
     const length = parseInt(searchParams.get('length') || '10', 10)
     const search = searchParams.get('search') || ''
@@ -41,10 +27,8 @@ export async function GET(req: NextRequest) {
     const sortDir = (searchParams.get('sortDir') as 'asc' | 'desc') || undefined
     const forceRefresh = searchParams.get('forceRefresh') === 'true'
 
-    // Fetch data from MixRadius
     const service = getMixRadiusService()
 
-    // Construct params ensuring no explicit undefined values for exactOptionalPropertyTypes
     const params: FetchCustomersParams = {
       start,
       length: Math.min(length, 100),
@@ -64,9 +48,4 @@ export async function GET(req: NextRequest) {
     const data = await service.fetchCustomersPPP(params)
 
     return apiSuccess(data)
-  } catch (error: unknown) {
-    console.error('[API] MixRadius customers error:', error)
-    const message = error instanceof Error ? error.message : 'Gagal mengambil data pelanggan MixRadius'
-    return ApiErrors.internalError(message)
-  }
-}
+})

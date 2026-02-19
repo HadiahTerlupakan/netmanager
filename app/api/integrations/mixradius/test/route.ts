@@ -1,28 +1,18 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/integrations/mixradius/test
- *
  * Test endpoint untuk debug MixRadius login
  */
-export async function GET(req: NextRequest) {
-  try {
-    // Auth check
-    const session = await verifyAuth(req)
-    if (!session) {
-      return ApiErrors.unauthorized()
-    }
-
-    // Permission check - only super admin or user with mixradius:read
-    const user = session as { id: string; role?: string; isSuperAdmin?: boolean }
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const user = ctx.session!.user
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-      const permissions = await getUserPermissions(session.id)
+      const permissions = await getUserPermissions(user.id)
       const hasAccess = permissions.includes('mixradius:read') || permissions.includes('*')
       if (!hasAccess) {
         return ApiErrors.forbidden('Anda tidak memiliki akses ke data MixRadius')
@@ -37,7 +27,6 @@ export async function GET(req: NextRequest) {
     logs.push(`Base URL: ${baseUrl}`)
     logs.push(`Username: ${username}`)
 
-    // Step 1: Get login page
     logs.push('Step 1: Fetching login page...')
     
     let loginPageResponse
@@ -47,7 +36,7 @@ export async function GET(req: NextRequest) {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         },
-        // @ts-expect-error - Node.js specific option for self-signed certs
+        // @ts-expect-error - Node.js specific option
         rejectUnauthorized: false,
       })
       logs.push(`Login page status: ${loginPageResponse.status}`)
@@ -57,12 +46,10 @@ export async function GET(req: NextRequest) {
       return apiSuccess({ success: false, logs, error: message })
     }
 
-    // Get cookies
     const setCookieHeaders = loginPageResponse.headers.getSetCookie?.() || []
     const initialCookies = setCookieHeaders.map(c => c.split(';')[0]).join('; ')
     logs.push(`Initial cookies (${setCookieHeaders.length}): ${initialCookies}`)
 
-    // Step 2: Submit login
     logs.push('Step 2: Submitting login form...')
 
     const formData = new URLSearchParams()
@@ -82,7 +69,7 @@ export async function GET(req: NextRequest) {
         },
         body: formData.toString(),
         redirect: 'manual',
-        // @ts-expect-error - Node.js specific option for self-signed certs
+        // @ts-expect-error - Node.js specific option
         rejectUnauthorized: false,
       })
       logs.push(`Login response status: ${loginResponse.status}`)
@@ -93,7 +80,6 @@ export async function GET(req: NextRequest) {
       return apiSuccess({ success: false, logs, error: message })
     }
 
-    // Get session cookie
     const loginSetCookies = loginResponse.headers.getSetCookie?.() || []
     logs.push(`Login set-cookie headers count: ${loginSetCookies.length}`)
 
@@ -109,7 +95,6 @@ export async function GET(req: NextRequest) {
     }
 
     if (!sessionCookie) {
-      // Try fallback
       const fallbackCookie = loginResponse.headers.get('set-cookie') || ''
       logs.push(`Fallback set-cookie: ${fallbackCookie.substring(0, 80)}...`)
       const match = fallbackCookie.match(/Mixradius_Session=([^;]+)/)
@@ -125,7 +110,6 @@ export async function GET(req: NextRequest) {
 
     logs.push(`Session cookie: ${sessionCookie.substring(0, 50)}...`)
 
-    // Step 3: Fetch Dashboard to find links
     logs.push('Step 3: Fetching Dashboard to find Active Sessions link...')
 
     let pageResponse
@@ -136,7 +120,7 @@ export async function GET(req: NextRequest) {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
             'Cookie': sessionCookie
         },
-        // @ts-expect-error - Node.js specific option for self-signed certs
+        // @ts-expect-error - Node.js specific option
         rejectUnauthorized: false
       })
       logs.push(`Page response status: ${pageResponse.status}`)
@@ -149,7 +133,6 @@ export async function GET(req: NextRequest) {
     const pageHtml = await pageResponse.text()
     logs.push(`Page HTML length: ${pageHtml.length}`)
 
-    // Search for links containing "active", "online", "session"
     const links = pageHtml.match(/<a[^>]+href="([^"]*)"[^>]*>([^<]*(?:active|online|session)[^<]*)<\/a>/gi)
     if (links) {
         logs.push(`Found ${links.length} potential links:`)
@@ -163,9 +146,4 @@ export async function GET(req: NextRequest) {
     }
 
     return apiSuccess({ success: true, logs })
-
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
-    return ApiErrors.internalError(message)
-  }
-}
+})

@@ -11,6 +11,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
 import { formatForDateTimeInput, toISOString, formatDateDisplay, formatTimeDisplay, getDayName } from '@/lib/utils/datetime'
 import { validateReason, validateRejectionReason, validateTimeRange } from '@/lib/utils/validation'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface Overtime {
     id: string
@@ -672,10 +673,13 @@ export function ClientComponent() {
             </div>
 
             {/* Reject Modal */}
-            {rejectId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-[#1c2936] w-full max-w-sm rounded-xl p-4 shadow-xl">
-                        <h3 className="font-bold text-lg mb-3 dark:text-white">Alasan Penolakan</h3>
+            <Modal
+                isOpen={!!rejectId}
+                onClose={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
+                title="Alasan Penolakan"
+                size="sm"
+            >
+                <div>
                         <textarea
                             className={`w-full p-2 border rounded-lg mb-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${rejectError ? 'border-red-500' : ''}`}
                             rows={3}
@@ -690,7 +694,8 @@ export function ClientComponent() {
                             <p className="text-xs text-red-500 mb-2">{rejectError}</p>
                         )}
                         <p className="text-xs text-gray-500 mb-3">{rejectReason.length}/500 karakter</p>
-                        <div className="flex justify-end gap-2">
+                </div>
+                <ModalFooter>
                             <button
                                 onClick={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
                                 className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
@@ -698,24 +703,23 @@ export function ClientComponent() {
                                 Batal
                             </button>
                             <button
-                                onClick={() => handleAction(rejectId, 'reject', rejectReason)}
+                                onClick={() => handleAction(rejectId!, 'reject', rejectReason)}
                                 disabled={!rejectReason.trim() || processingId === rejectId}
                                 className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                             >
                                 Tolak
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </ModalFooter>
+            </Modal>
 
             {/* Edit Modal */}
-            {editId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-[#1c2936] w-full max-w-md rounded-xl p-6 shadow-xl">
-                        <h3 className="font-bold text-lg mb-4 dark:text-white">Edit Data Lembur</h3>
-                        
-                        <div className="space-y-4">
+            <Modal
+                isOpen={!!editId}
+                onClose={() => { setEditId(null); setEditErrors({}); }}
+                title="Edit Data Lembur"
+                size="md"
+            >
+                <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium mb-1 dark:text-gray-300">Alasan Lembur</label>
                                 <textarea
@@ -758,9 +762,8 @@ export function ClientComponent() {
                             {editErrors.time && (
                                 <p className="text-xs text-red-500">{editErrors.time}</p>
                             )}
-                        </div>
-
-                        <div className="flex justify-end gap-2 mt-6">
+                </div>
+                <ModalFooter>
                             <button
                                 onClick={() => { setEditId(null); setEditErrors({}); }}
                                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
@@ -774,25 +777,37 @@ export function ClientComponent() {
                             >
                                 Simpan Perubahan
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                </ModalFooter>
+            </Modal>
 
             {/* Photo Modal */}
-            {selectedPhoto && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)}>
-                    <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
-                        <Image src={selectedPhoto} alt="Full view" fill className="object-contain" />
-                        <button
-                            className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full"
-                            onClick={() => setSelectedPhoto(null)}
-                        >
-                            <MdCancel size={24} />
-                        </button>
-                    </div>
+            <Modal
+                isOpen={!!selectedPhoto}
+                onClose={() => setSelectedPhoto(null)}
+                title="Preview Foto"
+                size="4xl"
+                padding={false}
+                showCloseButton={true}
+            >
+                <div className="relative w-full h-[80vh] flex items-center justify-center bg-black/90">
+                    {selectedPhoto && (
+                        <Image 
+                            src={selectedPhoto} 
+                            alt="Full view" 
+                            fill 
+                            className="object-contain" 
+                        />
+                    )}
                 </div>
-            )}
+                <ModalFooter className="bg-black/90 border-t border-white/10">
+                    <button 
+                        onClick={() => setSelectedPhoto(null)}
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                        Tutup
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

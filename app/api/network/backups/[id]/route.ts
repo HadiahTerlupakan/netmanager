@@ -1,15 +1,6 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-
-async function requireAdmin() {
-  const session = await getServerSession(authConfig)
-  if (!session) {
-    return null
-  }
-  return session
-}
+import { logActivitySafe } from '@/lib/logger'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**
  * @swagger
@@ -42,15 +33,8 @@ async function requireAdmin() {
  *       500:
  *         description: Server error
  */
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { id } = await params
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
 
     try {
       const backup = await prisma.deviceBackups.findUnique({
@@ -58,28 +42,18 @@ export async function GET(
       })
 
       if (!backup) {
-        return NextResponse.json({ error: 'Backup tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Backup')
       }
 
-      return NextResponse.json({ data: backup })
+      return apiSuccess({ data: backup })
     } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
       if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return NextResponse.json(
-          { error: 'Device backups will be available after database migration' },
-          { status: 503 }
-        )
+        return ApiErrors.internalError('Device backups will be available after database migration')
       }
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error fetching device backup:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal memuat data backup perangkat' },
-      { status: 500 }
-    )
-  }
-}
+})
 
 /**
  * @swagger
@@ -108,15 +82,8 @@ export async function GET(
  *       500:
  *         description: Server error
  */
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-
-    const { id } = await params
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    const { id } = ctx.params
 
     try {
       const backup = await prisma.deviceBackups.findUnique({
@@ -124,7 +91,7 @@ export async function DELETE(
       })
 
       if (!backup) {
-        return NextResponse.json({ error: 'Backup tidak ditemukan' }, { status: 404 })
+        return ApiErrors.notFound('Backup')
       }
 
       await prisma.deviceBackups.delete({
@@ -132,34 +99,19 @@ export async function DELETE(
       })
 
       // System Log
-      try {
-        const { logger } = await import('@/lib/logger')
-        await logger.logActivity({
-          action: 'DELETE',
-          subject: 'Device Backup',
-          userId: (session as { user: { id: string } }).user.id,
-          details: { id, name: backup.backupName }
-        })
-      } catch (e) {
-        console.error('Logging failed', e)
-      }
+      logActivitySafe({
+        action: 'DELETE',
+        subject: 'Device Backup',
+        userId: ctx.session!.user.id,
+        details: { id, name: backup.backupName }
+      })
 
-      return NextResponse.json({ message: 'Backup berhasil dihapus' })
+      return apiSuccess({ message: 'Backup berhasil dihapus' })
     } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
       if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return NextResponse.json(
-          { error: 'Device backups will be available after database migration' },
-          { status: 503 }
-        )
+        return ApiErrors.internalError('Device backups will be available after database migration')
       }
       throw prismaError
     }
-  } catch (error: unknown) {
-    console.error('Error deleting device backup:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Gagal menghapus backup perangkat' },
-      { status: 500 }
-    )
-  }
-}
+})

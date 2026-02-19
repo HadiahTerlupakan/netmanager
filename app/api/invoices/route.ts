@@ -1,89 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { invoiceSchema } from '@/lib/validations/invoice'
 import { randomUUID } from 'crypto'
 import { hasPermission } from '@/lib/rbac'
+import { logActivitySafe } from '@/lib/logger'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 /**
- * @swagger
- * /api/invoices:
- *   get:
- *     summary: Get all invoices
- *     description: Mengambil daftar semua invoice dengan filter dan pagination
- *     tags: [Billing]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: ["DRAFT", "SENT", "OVERDUE", "PAID", "CANCELLED"]
- *         description: Filter by status
- *       - in: query
- *         name: pelangganId
- *         schema:
- *           type: string
- *         description: Filter by pelanggan ID
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 100
- *           default: 20
- *         description: Number of items per page
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search by invoice number or customer name
- *     responses:
- *       200:
- *         description: Daftar invoice berhasil diambil
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Invoice'
- *                 pagination:
- *                   $ref: '#/components/schemas/Pagination'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ * GET /api/invoices
+ * Get all invoices
  */
-export async function GET(req: NextRequest) {
-  try {
-    const session = await getServerSession(authConfig)
-    if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(req.url)
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const { searchParams } = req.nextUrl
     const status = searchParams.get('status')
     const pelangganId = searchParams.get('pelangganId')
     const page = parseInt(searchParams.get('page') || '1')
@@ -93,13 +21,20 @@ export async function GET(req: NextRequest) {
     const where: Record<string, unknown> = {}
     
     // RBAC: Check site restrictions
-    if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
-        const userSiteId = (session.user as { siteId?: string }).siteId
+    const user = ctx.session!.user
+    const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
+    
+    if (isRestricted) {
+        // Fetch user siteId
+        const { prisma: db } = await import('@/lib/prisma');
+        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+        const userSiteId = dbUser?.siteId
+
         if (userSiteId) {
             where.siteId = userSiteId
         } else {
              // User restricted but no site? Return empty
-             return NextResponse.json({
+             return apiSuccess({
                 data: [],
                 pagination: {
                     page,
@@ -112,6 +47,7 @@ export async function GET(req: NextRequest) {
              })
         }
     }
+
     if (status) {
       where.status = status
     }
@@ -148,7 +84,7 @@ export async function GET(req: NextRequest) {
 
     const totalPages = Math.ceil(total / limit)
 
-    return NextResponse.json({
+    return apiSuccess({
       data: invoices,
       pagination: {
         page,
@@ -159,146 +95,18 @@ export async function GET(req: NextRequest) {
         hasPrev: page > 1,
       },
     })
-  } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Terjadi kesalahan')
-    console.error('Error fetching invoices:', err)
-    return NextResponse.json(
-      { error: err.message || 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
-  }
-}
+})
 
 /**
- * @swagger
- * /api/invoices:
- *   post:
- *     summary: Create new invoice
- *     description: Membuat invoice baru
- *     tags: [Billing]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - pelangganId
- *               - issueDate
- *               - dueDate
- *               - items
- *             properties:
- *               pelangganId:
- *                 type: string
- *                 example: "clx1234567890"
- *                 description: ID pelanggan
- *               issueDate:
- *                 type: string
- *                 format: date
- *                 example: "2023-12-01"
- *                 description: Tanggal issue invoice
- *               dueDate:
- *                 type: string
- *                 format: date
- *                 example: "2023-12-15"
- *                 description: Tanggal jatuh tempo
- *               status:
- *                 type: string
- *                 enum: ["DRAFT", "SENT", "OVERDUE", "PAID", "CANCELLED"]
- *                 default: "DRAFT"
- *                 description: Status invoice
- *               notes:
- *                 type: string
- *                 description: Catatan invoice
- *               terms:
- *                 type: string
- *                 description: Syarat dan ketentuan
- *               taxAmount:
- *                 type: number
- *                 default: 0
- *                 description: Jumlah pajak
- *               discountAmount:
- *                 type: number
- *                 default: 0
- *                 description: Jumlah diskon
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *                   required:
- *                     - description
- *                     - unitPrice
- *                   properties:
- *                     description:
- *                       type: string
- *                       example: "Paket Internet Bulanan"
- *                       description: Deskripsi item
- *                     quantity:
- *                       type: integer
- *                       default: 1
- *                       description: Quantity
- *                     unitPrice:
- *                       type: number
- *                       example: 150000
- *                       description: Harga satuan
- *                     itemType:
- *                       type: string
- *                       enum: ["SERVICE", "PRODUCT", "SETUP_FEE", "MONTHLY_FEE", "ONE_TIME_FEE", "OTHER"]
- *                       default: "SERVICE"
- *                       description: Tipe item
- *     responses:
- *       201:
- *         description: Invoice berhasil dibuat
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Invoice'
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Pelanggan tidak ditemukan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ * POST /api/invoices
+ * Create new invoice
  */
-export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession(authConfig)
-    if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
-
-    const body = await req.json()
-    const validation = invoiceSchema.safeParse(body)
-
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Validasi gagal', details: validation.error.flatten() },
-        { status: 400 }
-      )
-    }
-
-    const { items, ...invoiceData } = validation.data
+export const POST = createHandler({ 
+    auth: true, 
+    schema: invoiceSchema 
+}, async (req, ctx) => {
+    const { items, ...invoiceData } = ctx.validated
+    const user = ctx.session!.user
 
     // Check if pelanggan exists
     const pelanggan = await prisma.pelanggan.findUnique({
@@ -306,30 +114,28 @@ export async function POST(req: NextRequest) {
     })
 
     if (!pelanggan) {
-      return NextResponse.json(
-        { error: 'Pelanggan tidak ditemukan' },
-        { status: 404 }
-      )
+      return ApiErrors.notFound('Pelanggan')
     }
 
     // RBAC: Check site restrictions for creation
     let finalSiteId = invoiceData.siteId
-    const isRestricted = (await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN'
+    const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
     
     if (isRestricted) {
-         const userSiteId = (session.user as { siteId?: string }).siteId
+         // Fetch user siteId
+         const { prisma: db } = await import('@/lib/prisma');
+         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+         const userSiteId = dbUser?.siteId
+
          if (!userSiteId) {
-             return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+             return ApiErrors.forbidden('User tidak memiliki akses site')
          }
          
          // Ensure Pelanggan belongs to the same site
          if (pelanggan.siteId && pelanggan.siteId !== userSiteId) {
-             return NextResponse.json({ error: 'Pelanggan tidak berada di site anda' }, { status: 403 })
+             return ApiErrors.forbidden('Pelanggan tidak berada di site anda')
          }
          
-         // If Pelanggan has no site, maybe prevent? Or allow if user matches?
-         // Safer to require Pelanggan site match or at least inherit user site if valid.
-         // Let's enforce that we set the invoice siteId to user's siteID
          finalSiteId = userSiteId
     } else {
         // If not restricted, auto-fill siteId from Pelanggan if not provided
@@ -338,116 +144,115 @@ export async function POST(req: NextRequest) {
         }
     }
 
-    // Generate invoice number
-    const currentYear = new Date().getFullYear()
-    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0')
-
-    // Count invoices for this month
-    const invoiceCount = await prisma.invoice.count({
-      where: {
-        createdAt: {
-          gte: new Date(currentYear, new Date().getMonth(), 1),
-          lt: new Date(currentYear, new Date().getMonth() + 1, 1),
-        },
-      },
-    })
-
-    const invoiceNumber = `INV/${currentYear}/${currentMonth}/${String(invoiceCount + 1).padStart(4, '0')}`
-
-    // Calculate totals
-    let subtotal = 0n
-    const processedItems = items.map(item => {
-      const unitPrice = BigInt(Math.round(item.unitPrice * 100)) / 100n
-      const totalPrice = BigInt(item.quantity) * unitPrice
-      subtotal += totalPrice
-
-      return {
-        id: randomUUID(),
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice,
-        totalPrice,
-        itemType: item.itemType,
-      }
-    })
-
-    const taxAmount = BigInt(Math.round(invoiceData.taxAmount * 100)) / 100n
-    const discountAmount = BigInt(Math.round(invoiceData.discountAmount * 100)) / 100n
-    const totalAmount = subtotal + taxAmount - discountAmount
-
-    const createData: Record<string, unknown> = {
-      id: randomUUID(),
-      invoiceNumber,
-      pelangganId: invoiceData.pelangganId,
-      issueDate: invoiceData.issueDate,
-      dueDate: invoiceData.dueDate,
-      status: invoiceData.status,
-      subtotal,
-      taxAmount,
-      discountAmount,
-      totalAmount,
-      createdBy: session.user?.id,
-      updatedAt: new Date(),
-      invoiceItem: {
-        create: processedItems,
-      },
-    }
-
-    if (invoiceData.notes) createData.notes = invoiceData.notes
-    if (invoiceData.terms) createData.terms = invoiceData.terms
-    if (finalSiteId) createData.siteId = finalSiteId
-
-    const invoice = await prisma.invoice.create({
-      data: createData as Prisma.InvoiceCreateInput,
-      include: {
-        pelanggan: {
-          include: {
-            hargaPaket: true,
-          },
-        },
-        invoiceItem: true,
-        payment: true,
-      },
-    })
-
-    // System Log
     try {
-      const { logger } = await import('@/lib/logger')
-      await logger.logActivity({
-        action: 'CREATE',
-        subject: 'Invoice',
-        userId: session.user.id!,
-        details: { id: invoice.id, number: invoice.invoiceNumber, total: Number(totalAmount) / 100 }
-      })
-    } catch (e) {
-      console.error('Logging failed', e)
+        // Generate invoice number
+        const currentYear = new Date().getFullYear()
+        const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0')
+
+        // Count invoices for this month
+        const invoiceCount = await prisma.invoice.count({
+          where: {
+            createdAt: {
+              gte: new Date(currentYear, new Date().getMonth(), 1),
+              lt: new Date(currentYear, new Date().getMonth() + 1, 1),
+            },
+          },
+        })
+
+        const invoiceNumber = `INV/${currentYear}/${currentMonth}/${String(invoiceCount + 1).padStart(4, '0')}`
+
+        // Calculate totals
+        let subtotal = 0n
+        const processedItems = items.map(item => {
+          const unitPrice = BigInt(Math.round(item.unitPrice * 100)) / 100n
+          const totalPrice = BigInt(item.quantity) * unitPrice
+          subtotal += totalPrice
+
+          return {
+            id: randomUUID(),
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice,
+            totalPrice,
+            itemType: item.itemType,
+          }
+        })
+
+        const taxAmount = BigInt(Math.round(invoiceData.taxAmount * 100)) / 100n
+        const discountAmount = BigInt(Math.round(invoiceData.discountAmount * 100)) / 100n
+        const totalAmount = subtotal + taxAmount - discountAmount
+
+        const createData: Record<string, unknown> = {
+          id: randomUUID(),
+          invoiceNumber,
+          pelangganId: invoiceData.pelangganId,
+          issueDate: new Date(invoiceData.issueDate),
+          dueDate: new Date(invoiceData.dueDate),
+          status: invoiceData.status,
+          subtotal,
+          taxAmount,
+          discountAmount,
+          totalAmount,
+          createdBy: user.id,
+          updatedAt: new Date(),
+          invoiceItem: {
+            create: processedItems,
+          },
+        }
+
+        if (invoiceData.notes) createData.notes = invoiceData.notes
+        if (invoiceData.terms) createData.terms = invoiceData.terms
+        if (finalSiteId) createData.siteId = finalSiteId
+
+        const invoice = await prisma.invoice.create({
+          data: createData as Prisma.InvoiceCreateInput,
+          include: {
+            pelanggan: {
+              include: {
+                hargaPaket: true,
+              },
+            },
+            invoiceItem: true,
+            payment: true,
+          },
+        })
+
+        // System Log
+        logActivitySafe({
+          action: 'CREATE',
+          subject: 'Invoice',
+          userId: user.id,
+          details: { id: invoice.id, number: invoice.invoiceNumber, total: Number(totalAmount) / 100 }
+        })
+
+        // Serialize BigInt for JSON response
+        const serializedInvoice = {
+            ...invoice,
+            subtotal: invoice.subtotal.toString(),
+            taxAmount: invoice.taxAmount.toString(),
+            discountAmount: invoice.discountAmount.toString(),
+            totalAmount: invoice.totalAmount.toString(),
+            invoiceItem: invoice.invoiceItem.map(item => ({
+                ...item,
+                unitPrice: item.unitPrice.toString(),
+                totalPrice: item.totalPrice.toString()
+            }))
+        }
+
+        return apiSuccess(serializedInvoice, { status: 201 })
+    } catch (error: unknown) {
+        console.error('Error creating invoice:', error)
+        
+        // Handle unique constraint violation
+        if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2002') {
+          return ApiErrors.conflict('Nomor invoice sudah digunakan')
+        }
+
+        // Handle foreign key constraint violation
+        if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2003') {
+          return ApiErrors.badRequest('Pelanggan tidak ditemukan (Foreign Key Error)')
+        }
+
+        return ApiErrors.internalError('Terjadi kesalahan server')
     }
-
-    return NextResponse.json(invoice, { status: 201 })
-  } catch (error: unknown) {
-    console.error('Error creating invoice:', error)
-
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
-
-    // Handle unique constraint violation
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Nomor invoice sudah digunakan' },
-        { status: 400 }
-      )
-    }
-
-    // Handle foreign key constraint violation
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2003') {
-      return NextResponse.json(
-        { error: 'Pelanggan tidak ditemukan' },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    )
-  }
-}
+})

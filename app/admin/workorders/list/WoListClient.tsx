@@ -19,6 +19,7 @@ import {
 import PageLoader from '@/components/ui/PageLoader'
 import { useToast } from '@/hooks/use-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { usePermission } from '@/hooks/use-permission'
 
 interface WorkOrder {
@@ -912,244 +913,250 @@ export function ClientComponent() {
                 </div>
             )}
             {/* Reject Modal */}
-            {showRejectModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tolak Hasil Pekerjaan</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                Work order akan dikembalikan ke status In Progress. Silakan berikan alasan penolakan.
-                            </p>
-                            <textarea
-                                value={rejectReason}
-                                onChange={(e) => setRejectReason(e.target.value)}
-                                placeholder="Alasan penolakan (wajib diisi)..."
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white"
-                            />
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        setShowRejectModal(false)
-                                        setRejectReason('')
-                                        setSelectedWorkOrderId(null)
-                                    }}
-                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    onClick={handleReject}
-                                    disabled={processingApproval || !rejectReason.trim()}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                                >
-                                    {processingApproval ? 'Memproses...' : 'Tolak & Kembalikan'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+            <Modal
+                isOpen={showRejectModal}
+                onClose={() => {
+                    setShowRejectModal(false)
+                    setRejectReason('')
+                    setSelectedWorkOrderId(null)
+                }}
+                title="Tolak Hasil Pekerjaan"
+                description="Work order akan dikembalikan ke status In Progress. Silakan berikan alasan penolakan."
+                size="md"
+            >
+                <div>
+                    <textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Alasan penolakan (wajib diisi)..."
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white"
+                    />
                 </div>
-            )}
+                <ModalFooter>
+                    <button
+                        onClick={() => {
+                            setShowRejectModal(false)
+                            setRejectReason('')
+                            setSelectedWorkOrderId(null)
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={handleReject}
+                        disabled={processingApproval || !rejectReason.trim()}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                        {processingApproval ? 'Memproses...' : 'Tolak & Kembalikan'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
             {/* Cancel Modal */}
-            {showCancelModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Batalkan Work Order</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                Tindakan ini tidak dapat dibatalkan. Work order akan ditandai sebagai Cancelled.
-                            </p>
-                            <textarea
-                                value={cancelReason}
-                                onChange={(e) => setCancelReason(e.target.value)}
-                                placeholder="Alasan pembatalan (wajib diisi)..."
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white"
-                            />
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        setShowCancelModal(false)
-                                        setCancelReason('')
-                                        setSelectedWorkOrderId(null)
-                                    }}
-                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Kembali
-                                </button>
-                                <button
-                                    onClick={handleCancel}
-                                    disabled={processingApproval || !cancelReason.trim()}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                                >
-                                    {processingApproval ? 'Memproses...' : 'Batalkan WO'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+            <Modal
+                isOpen={showCancelModal}
+                onClose={() => {
+                    setShowCancelModal(false)
+                    setCancelReason('')
+                    setSelectedWorkOrderId(null)
+                }}
+                title="Batalkan Work Order"
+                description="Tindakan ini tidak dapat dibatalkan. Work order akan ditandai sebagai Cancelled."
+                size="md"
+            >
+                <div>
+                    <textarea
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="Alasan pembatalan (wajib diisi)..."
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white"
+                    />
                 </div>
-            )}
+                <ModalFooter>
+                    <button
+                        onClick={() => {
+                            setShowCancelModal(false)
+                            setCancelReason('')
+                            setSelectedWorkOrderId(null)
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        Kembali
+                    </button>
+                    <button
+                        onClick={handleCancel}
+                        disabled={processingApproval || !cancelReason.trim()}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                        {processingApproval ? 'Memproses...' : 'Batalkan WO'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
             {/* Delete Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">Hapus Permanen Work Order?</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                                Tindakan ini tidak dapat dibatalkan. Work Order beserta seluruh data terkait (tasks, history, lampiran) akan dihapus permanen dari database.
-                            </p>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        setShowDeleteModal(false)
-                                        setSelectedWorkOrderId(null)
-                                    }}
-                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    onClick={handleDelete}
-                                    disabled={processingApproval}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                                >
-                                    {processingApproval ? 'Menghapus...' : 'Ya, Hapus Permanen'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => {
+                    setShowDeleteModal(false)
+                    setSelectedWorkOrderId(null)
+                }}
+                title="Hapus Permanen Work Order?"
+                description="Tindakan ini tidak dapat dibatalkan. Work Order beserta seluruh data terkait (tasks, history, lampiran) akan dihapus permanen dari database."
+                size="md"
+            >
+                <ModalFooter>
+                    <button
+                        onClick={() => {
+                            setShowDeleteModal(false)
+                            setSelectedWorkOrderId(null)
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        disabled={processingApproval}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                        {processingApproval ? 'Menghapus...' : 'Ya, Hapus Permanen'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
             {/* Approve WO Request Modal */}
-            {showApproveRequestModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 mb-4">Setujui WO Request</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                                Apakah Anda yakin ingin menyetujui request ini? Work Order akan berubah status menjadi <span className="font-semibold">PENDING</span> dan siap untuk di-assign ke teknisi.
-                            </p>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        setShowApproveRequestModal(false)
-                                        setSelectedWorkOrderId(null)
-                                    }}
-                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    onClick={handleApproveRequest}
-                                    disabled={processingApproval}
-                                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
-                                >
-                                    {processingApproval ? 'Memproses...' : 'Ya, Setujui'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <Modal
+                isOpen={showApproveRequestModal}
+                onClose={() => {
+                    setShowApproveRequestModal(false)
+                    setSelectedWorkOrderId(null)
+                }}
+                title="Setujui WO Request"
+                description="Apakah Anda yakin ingin menyetujui request ini? Work Order akan berubah status menjadi PENDING dan siap untuk di-assign ke teknisi."
+                size="md"
+            >
+                <ModalFooter>
+                    <button
+                        onClick={() => {
+                            setShowApproveRequestModal(false)
+                            setSelectedWorkOrderId(null)
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={handleApproveRequest}
+                        disabled={processingApproval}
+                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                        {processingApproval ? 'Memproses...' : 'Ya, Setujui'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
             {/* Reject WO Request Modal */}
-            {showRejectRequestModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">Tolak WO Request</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                Request akan ditolak dan pembuat request akan menerima notifikasi. Work Order akan berubah status menjadi <span className="font-semibold">REJECTED</span>.
-                            </p>
-                            <textarea
-                                value={rejectRequestReason}
-                                onChange={(e) => setRejectRequestReason(e.target.value)}
-                                placeholder="Alasan penolakan (wajib diisi)..."
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white"
-                            />
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        setShowRejectRequestModal(false)
-                                        setRejectRequestReason('')
-                                        setSelectedWorkOrderId(null)
-                                    }}
-                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    onClick={handleRejectRequest}
-                                    disabled={processingApproval || !rejectRequestReason.trim()}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                                >
-                                    {processingApproval ? 'Memproses...' : 'Tolak Request'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+            <Modal
+                isOpen={showRejectRequestModal}
+                onClose={() => {
+                    setShowRejectRequestModal(false)
+                    setRejectRequestReason('')
+                    setSelectedWorkOrderId(null)
+                }}
+                title="Tolak WO Request"
+                description="Request akan ditolak dan pembuat request akan menerima notifikasi. Work Order akan berubah status menjadi REJECTED."
+                size="md"
+            >
+                <div>
+                    <textarea
+                        value={rejectRequestReason}
+                        onChange={(e) => setRejectRequestReason(e.target.value)}
+                        placeholder="Alasan penolakan (wajib diisi)..."
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white"
+                    />
                 </div>
-            )}
+                <ModalFooter>
+                    <button
+                        onClick={() => {
+                            setShowRejectRequestModal(false)
+                            setRejectRequestReason('')
+                            setSelectedWorkOrderId(null)
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={handleRejectRequest}
+                        disabled={processingApproval || !rejectRequestReason.trim()}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                        {processingApproval ? 'Memproses...' : 'Tolak Request'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
             {/* Reminder Modal with Department Selection */}
-            {showReminderModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-sky-600 dark:text-sky-400 mb-4 flex items-center gap-2">
-                                <HiBellAlert className="w-5 h-5" />
-                                Kirim Reminder
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                Pilih department target untuk mengirim reminder push notification ke teknisi.
-                            </p>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Target Department
-                                </label>
-                                <select
-                                    value={selectedDepartmentId}
-                                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 dark:bg-gray-700 dark:text-white"
-                                >
-                                    <option value="">-- Semua Teknisi di Site --</option>
-                                    {departments.map(dept => (
-                                        <option key={dept.id} value={dept.id}>{dept.name}</option>
-                                    ))}
-                                </select>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    Kosongkan untuk kirim ke semua teknisi di site WO ini
-                                </p>
-                            </div>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        setShowReminderModal(false)
-                                        setSelectedDepartmentId('')
-                                        setSelectedWorkOrderId(null)
-                                    }}
-                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    onClick={handleSendReminder}
-                                    disabled={sendingReminderId !== null}
-                                    className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {sendingReminderId ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            Mengirim...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <HiBellAlert className="w-4 h-4" />
-                                            Kirim Reminder
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+            <Modal
+                isOpen={showReminderModal}
+                onClose={() => {
+                    setShowReminderModal(false)
+                    setSelectedDepartmentId('')
+                    setSelectedWorkOrderId(null)
+                }}
+                title="Kirim Reminder"
+                description="Pilih department target untuk mengirim reminder push notification ke teknisi."
+                size="md"
+            >
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Target Department
+                    </label>
+                    <select
+                        value={selectedDepartmentId}
+                        onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 dark:bg-gray-700 dark:text-white"
+                    >
+                        <option value="">-- Semua Teknisi di Site --</option>
+                        {departments.map(dept => (
+                            <option key={dept.id} value={dept.id}>{dept.name}</option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-gray-400 mt-1">
+                        Kosongkan untuk kirim ke semua teknisi di site WO ini
+                    </p>
                 </div>
-            )}
+                <ModalFooter>
+                    <button
+                        onClick={() => {
+                            setShowReminderModal(false)
+                            setSelectedDepartmentId('')
+                            setSelectedWorkOrderId(null)
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={handleSendReminder}
+                        disabled={sendingReminderId !== null}
+                        className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
+                    >
+                        {sendingReminderId ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Mengirim...
+                            </>
+                        ) : (
+                            <>
+                                <HiBellAlert className="w-4 h-4" />
+                                Kirim Reminder
+                            </>
+                        )}
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }

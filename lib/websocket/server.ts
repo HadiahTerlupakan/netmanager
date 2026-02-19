@@ -161,14 +161,15 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
  * Check if socket is allowed to join a room
  */
 function isRoomAllowed(socket: Socket, room: string): boolean {
-    const { userId, userRole } = socket.data as SocketData
+    const { userId, userRole, accessAdminPanel } = socket.data as SocketData
 
     // User can join their own room
     if (room === `user:${userId}`) return true
 
     // Admin can join admin rooms (includes SUPER_ADMIN, ADMIN, and users with admin panel access)
+    // Relaxed check: Allow if user has accessAdminPanel OR is in the specific role list
     const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'OWNER', 'MANAGER']
-    if (adminRoles.includes(userRole) && room.startsWith('admin:')) return true
+    if ((accessAdminPanel || adminRoles.includes(userRole?.toUpperCase())) && room.startsWith('admin:')) return true
 
     // Anyone can join their department room
     if (room.startsWith('department:')) return true

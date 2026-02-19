@@ -1,6 +1,6 @@
 import { CustomerTicketRepository } from '../repositories/CustomerTicketRepository'
 import { TicketCategory, TicketPriority } from '@prisma/client'
-import { logger } from '@/lib/logger'
+import { logActivitySafe } from '@/lib/logger'
 
 /**
  * Service for customer support ticket business logic
@@ -76,20 +76,16 @@ export class SupportTicketService {
         })
 
         // System Log
-        try {
-            await logger.logActivity({
-                action: 'CREATE',
-                subject: 'Support Ticket',
-                details: {
-                    customerId,
-                    id: ticket.id,
-                    ticketNumber: ticket.ticketNumber,
-                    subject: ticket.subject,
-                },
-            })
-        } catch (e) {
-            console.error('Logging failed', e)
-        }
+        logActivitySafe({
+            action: 'CREATE',
+            subject: 'Support Ticket',
+            details: {
+                customerId,
+                id: ticket.id,
+                ticketNumber: ticket.ticketNumber,
+                subject: ticket.subject,
+            },
+        })
 
         return {
             id: ticket.id,
