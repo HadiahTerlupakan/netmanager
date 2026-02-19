@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { MdCheckCircle, MdCancel, MdPending, MdAdd, MdDelete } from 'react-icons/md'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/Button'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
@@ -325,21 +326,21 @@ export function IzinClient() {
     // Render actions for each row
     const renderActions = (req: LeaveRequest) => (
         <>
-            <button
+            <Button
                 onClick={() => openActionModal(req)}
                 className="text-blue-600 hover:text-blue-800 font-bold text-xs"
             >
                 Detail
-            </button>
+            </Button>
             {canDelete && (
                 <>
                     <span className="text-gray-300">|</span>
-                    <button
+                    <Button
                         onClick={() => handleDelete(req.id)}
                         className="text-red-500 hover:text-red-700"
                     >
                         <MdDelete className="text-lg" />
-                    </button>
+                    </Button>
                 </>
             )}
         </>
@@ -353,18 +354,18 @@ export function IzinClient() {
                     <p className="text-gray-500 text-sm">Kelola pengajuan izin, sakit, dan cuti karyawan</p>
                 </div>
                 {canCreate && (
-                    <button
+                    <Button
                         onClick={handleOpenManualModal}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm flex items-center gap-2"
+                        
                     >
                         <MdAdd className="size-5" /> Input Manual
-                    </button>
+                    </Button>
                 )}
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex gap-2 overflow-x-auto">
                 {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map((status) => (
-                    <button
+                    <Button
                         key={status}
                         onClick={() => setFilterStatus(status)}
                         className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${filterStatus === status
@@ -373,7 +374,7 @@ export function IzinClient() {
                             }`}
                     >
                         {status === 'ALL' ? 'Semua' : status === 'PENDING' ? 'Menunggu Konfirmasi' : status === 'APPROVED' ? 'Disetujui' : 'Ditolak'}
-                    </button>
+                    </Button>
                 ))}
             </div>
 
@@ -475,38 +476,38 @@ export function IzinClient() {
                         <ModalFooter>
                             {selectedRequest.status === 'PENDING' && canVerify ? (
                                 <>
-                                    <button
+                                    <Button
                                         onClick={() => handleAction('REJECTED')}
                                         disabled={actionLoading || !rejectionReason.trim()}
                                         className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium disabled:opacity-50 flex items-center gap-2 border border-red-100 transition-colors"
                                     >
                                         <MdCancel className="text-lg" /> Tolak
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         onClick={() => handleAction('APPROVED')}
                                         disabled={actionLoading}
                                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-green-200 transition-colors"
                                     >
                                         <MdCheckCircle className="text-lg" /> Setujui
-                                    </button>
+                                    </Button>
                                 </>
                             ) : (
                                 <div className="flex gap-2 w-full justify-end">
                                     {canDelete && (
-                                        <button
+                                        <Button
                                             onClick={() => handleDelete(selectedRequest.id)}
                                             disabled={actionLoading}
                                             className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium flex items-center gap-2 transition-colors mr-auto"
                                         >
                                             <MdDelete className="text-lg" /> Hapus
-                                        </button>
+                                        </Button>
                                     )}
-                                    <button
+                                    <Button
                                         onClick={() => setIsActionModalOpen(false)}
                                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium dark:bg-gray-700 dark:text-gray-300 transition-colors"
                                     >
                                         Tutup
-                                    </button>
+                                    </Button>
                                 </div>
                             )}
                         </ModalFooter>
@@ -642,20 +643,20 @@ export function IzinClient() {
                     </div>
 
                     <ModalFooter>
-                        <button
+                        <Button
                             type="button"
                             onClick={() => setIsManualModalOpen(false)}
                             className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700 font-medium transition-colors"
                         >
                             Batal
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
                             disabled={actionLoading || uploading}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 shadow-sm shadow-blue-200 dark:shadow-none transition-colors"
+                            
                         >
                             {actionLoading ? 'Menyimpan...' : 'Simpan Data'}
-                        </button>
+                        </Button>
                     </ModalFooter>
                 </form>
             </Modal>

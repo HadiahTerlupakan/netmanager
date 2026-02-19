@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBackIos,
     MdRefresh,
@@ -87,21 +88,23 @@ export default function CustomerConnectionPage() {
 
                 {/* Top App Bar */}
                 <div className="sticky top-0 z-10 flex items-center bg-white dark:bg-[#1c2b3e] p-4 pb-2 justify-between border-b border-[#e5e7eb] dark:border-gray-700 shadow-sm">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         type="button"
                         onClick={() => router.back()}
-                        className="flex w-10 h-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-900 dark:text-white"
                     >
                         <MdArrowBackIos className="text-2xl" />
-                    </button>
+                    </Button>
                     <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Status Koneksi</h2>
                     <div className="flex w-12 items-center justify-end">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={handleRefresh}
-                            className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 bg-transparent text-[#111418] dark:text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0"
                         >
                             <MdRefresh className={`text-2xl ${isLoading ? 'animate-spin' : ''}`} />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -145,9 +148,9 @@ export default function CustomerConnectionPage() {
                                         <span className="text-[#617589] dark:text-gray-400 text-xs">IP Address</span>
                                         <span className="text-[#111418] dark:text-white text-sm font-medium font-mono">{ipAddress}</span>
                                     </div>
-                                    <button className="flex cursor-pointer items-center justify-center rounded-lg h-8 px-4 bg-[#0d9488]/10 hover:bg-[#0d9488]/20 text-[#0d9488] dark:text-teal-400 text-sm font-medium leading-normal transition-colors">
+                                    <Button variant="ghost" size="sm" className="bg-[#0d9488]/10 hover:bg-[#0d9488]/20 text-[#0d9488] dark:text-teal-400">
                                         <span className="truncate">Detail Perangkat</span>
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -189,7 +192,7 @@ export default function CustomerConnectionPage() {
 
                     {/* Action Grid */}
                     <div className="grid grid-cols-2 gap-3">
-                        <button className="group flex flex-col gap-3 rounded-xl border border-[#dbe0e6] dark:border-gray-700 bg-white dark:bg-[#1c2b3e] p-4 items-start shadow-sm active:scale-95 transition-transform">
+                        <Button variant="ghost" className="group flex flex-col gap-3 h-auto items-start border border-[#dbe0e6] dark:border-gray-700 active:scale-95">
                             <div className="p-2 rounded-full bg-[#0d9488]/10 text-[#0d9488] dark:text-teal-400 group-hover:bg-[#0d9488] group-hover:text-white transition-colors">
                                 <MdSpeed className="text-2xl" />
                             </div>
@@ -197,8 +200,8 @@ export default function CustomerConnectionPage() {
                                 <h2 className="text-[#111418] dark:text-white text-base font-bold leading-tight">Tes Kecepatan</h2>
                                 <p className="text-xs text-[#617589] dark:text-gray-400 mt-1">Cek performa jaringan</p>
                             </div>
-                        </button>
-                        <button className="group flex flex-col gap-3 rounded-xl border border-[#dbe0e6] dark:border-gray-700 bg-white dark:bg-[#1c2b3e] p-4 items-start shadow-sm active:scale-95 transition-transform">
+                        </Button>
+                        <Button variant="ghost" className="group flex flex-col gap-3 h-auto items-start border border-[#dbe0e6] dark:border-gray-700 active:scale-95">
                             <div className="p-2 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-colors">
                                 <MdPowerSettingsNew className="text-2xl" />
                             </div>
@@ -206,7 +209,7 @@ export default function CustomerConnectionPage() {
                                 <h2 className="text-[#111418] dark:text-white text-base font-bold leading-tight">Restart Router</h2>
                                 <p className="text-xs text-[#617589] dark:text-gray-400 mt-1">Perbaiki masalah ringan</p>
                             </div>
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Diagnosis Panel */}
@@ -221,9 +224,9 @@ export default function CustomerConnectionPage() {
                                     <p className="text-[#617589] dark:text-gray-400 text-sm font-normal leading-normal">Deteksi masalah dan optimalkan koneksi Anda secara otomatis.</p>
                                 </div>
                             </div>
-                            <button className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#0d9488] hover:bg-teal-600 text-white text-sm font-bold leading-normal transition-colors">
+                            <Button className="w-full">
                                 <span className="truncate">Mulai Diagnosa</span>
-                            </button>
+                            </Button>
                         </div>
                     </div>
 

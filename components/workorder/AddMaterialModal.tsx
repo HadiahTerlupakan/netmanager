@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { HiMagnifyingGlass, HiCube, HiCheck } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { toast } from 'react-hot-toast'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -152,7 +153,7 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
                             ) : items.length > 0 ? (
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {items.map((item) => (
-                                        <button
+                                        <Button
                                             key={item.id}
                                             onClick={() => handleSelect(item)}
                                             disabled={item.totalStock <= 0}
@@ -181,7 +182,7 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
                                                 </div>
                                                 <div className="text-xs text-gray-500">Stok Tersedia</div>
                                             </div>
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             ) : (
@@ -243,17 +244,17 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
             <ModalFooter>
                 {step === 2 ? (
                     <>
-                        <button
+                        <Button
                             onClick={() => setStep(1)}
                             className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                             disabled={loading}
                         >
                             Kembali
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                            
                         >
                             {loading ? (
                                 'Menyimpan...'
@@ -263,15 +264,15 @@ export default function AddMaterialModal({ isOpen, onClose, onSuccess, workOrder
                                     Simpan
                                 </>
                             )}
-                        </button>
+                        </Button>
                     </>
                 ) : (
-                    <button
+                    <Button variant="secondary"
                         onClick={onClose}
-                        className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                        
                     >
                         Tutup
-                    </button>
+                    </Button>
                 )}
             </ModalFooter>
         </Modal>

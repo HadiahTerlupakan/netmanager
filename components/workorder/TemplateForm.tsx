@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiPlus, HiTrash, HiBars3, HiCheck } from 'react-icons/hi2'
 import { toast } from 'react-hot-toast'
+import { Button } from '@/components/ui/Button'
 
 interface TemplateItem {
     id?: string
@@ -135,14 +136,14 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Daftar Tugas (Checklist)</h2>
-                    <button
+                    <Button variant="ghost" size="sm"
                         type="button"
                         onClick={handleAddItem}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                        
                     >
                         <HiPlus className="w-4 h-4" />
                         Tambah Item
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="space-y-4">
@@ -180,13 +181,13 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
                                     placeholder="Keterangan tambahan (opsional)"
                                 />
                             </div>
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() => handleRemoveItem(index)}
                                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors h-fit"
                             >
                                 <HiTrash className="w-5 h-5" />
-                            </button>
+                            </Button>
                         </div>
                     ))}
 
@@ -199,17 +200,17 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
             </div>
 
             <div className="flex justify-end gap-3">
-                <button
+                <Button
                     type="button"
                     onClick={() => router.back()}
                     className="px-6 py-2.5 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium"
                     disabled={loading}
                 >
                     Batal
-                </button>
-                <button
+                </Button>
+                <Button
                     type="submit"
-                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-sm disabled:opacity-50 flex items-center gap-2"
+                    
                     disabled={loading}
                 >
                     {loading ? 'Menyimpan...' : (
@@ -218,7 +219,7 @@ export default function TemplateForm({ initialData, isEdit = false }: Props) {
                             Simpan Template
                         </>
                     )}
-                </button>
+                </Button>
             </div>
         </form>
     )

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { HiOutlineEye, HiOutlineLockClosed, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlinePlus, HiOutlineTrash, HiOutlineArrowUturnLeft, HiOutlineGift, HiOutlineCheck, HiOutlineXMark } from 'react-icons/hi2'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
@@ -207,15 +208,15 @@ export default function CanvasingList() {
                     <div className="w-full md:w-48">
                         <SiteFilter onSiteChange={setSiteId} />
                     </div>
-                    {canCreate && (
-                        <Link 
-                            href="/admin/marketing/canvasing/new"
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all shadow-sm"
-                        >
-                            <HiOutlinePlus className="w-5 h-5" />
-                            Tambah Canvasing
-                        </Link>
-                    )}
+                {canCreate && (
+                    <Link 
+                        href="/admin/marketing/canvasing/new"
+                        className={buttonVariants({ variant: 'default', size: 'default' })}
+                    >
+                        <HiOutlinePlus className="w-5 h-5" />
+                        Tambah Canvasing
+                    </Link>
+                )}
                     
                     <div className="relative w-full md:w-64">
                         <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -298,35 +299,39 @@ export default function CanvasingList() {
                             )}
 
                             {canDelete && (
-                                <button 
+                                <Button 
+                                    variant="ghost"
+                                    size="icon-sm"
                                     onClick={() => handleDelete(item.id, item.nama)}
-                                    className="text-red-600 hover:text-red-800 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors inline-block"
                                     title="Hapus"
                                 >
                                     <HiOutlineTrash className="w-5 h-5" />
-                                </button>
+                                </Button>
                             )}
 
                             {item.status === 'APPROVED' && canUpdate && (
-                                <button 
+                                <Button 
+                                    variant="ghost"
+                                    size="icon-sm"
                                     onClick={() => handleCancelApproval(item.id, item.nama)}
-                                    className="text-orange-600 hover:text-orange-800 p-2 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors inline-block"
                                     title="Batal Approval"
                                 >
                                     <HiOutlineArrowUturnLeft className="w-5 h-5" />
-                                </button>
+                                </Button>
                             )}
 
                             {/* Tombol Claim Poin */}
                             {getPendingClaim(item) && canUpdate && (
-                                <button 
+                                <Button 
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => setClaimModal({ open: true, item, processing: false })}
-                                    className="text-purple-600 hover:text-purple-800 p-2 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors inline-flex items-center gap-1"
                                     title="Review Claim Poin"
+                                    className="inline-flex items-center gap-1"
                                 >
                                     <HiOutlineGift className="w-5 h-5" />
-                                    <span className="text-xs font-semibold hidden sm:inline">Claim</span>
-                                </button>
+                                    <span className="hidden sm:inline">Claim</span>
+                                </Button>
                             )}
 
                             {/* Badge Claimed */}
@@ -355,12 +360,13 @@ export default function CanvasingList() {
                                     <p className="text-xs text-gray-500">{claimModal.item.nama}</p>
                                 </div>
                             </div>
-                            <button 
+                            <Button 
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={() => setClaimModal({ open: false, item: null, processing: false })}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
                                 <HiOutlineXMark className="w-5 h-5 text-gray-500" />
-                            </button>
+                            </Button>
                         </div>
 
                         {/* Modal Content */}
@@ -448,9 +454,9 @@ export default function CanvasingList() {
                     <div className="relative w-full h-full max-w-4xl max-h-[90vh]">
                         <Image src={zoomImage} alt="Zoomed" fill className="object-contain rounded-lg shadow-2xl" />
                     </div>
-                    <button className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
+                    <Button variant="ghost" size="icon" className="absolute top-6 right-6">
                         <HiOutlineXMark className="w-8 h-8" />
-                    </button>
+                    </Button>
                 </div>
             )}
         </div>

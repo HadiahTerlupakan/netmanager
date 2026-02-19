@@ -15,6 +15,7 @@ import {
 } from 'chart.js'
 import type { TooltipItem } from 'chart.js'
 import { HiOutlineCalendar, HiOutlineAdjustmentsHorizontal } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 ChartJS.register(
   CategoryScale,
@@ -188,7 +189,7 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
           {/* Preset Buttons */}
           <div className="hidden sm:flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             {presetOptions.map((option) => (
-              <button
+              <Button
                 key={option.value}
                 onClick={() => handlePresetChange(option.value)}
                 className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
@@ -198,19 +199,19 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
                 }`}
               >
                 {option.label}
-              </button>
+              </Button>
             ))}
           </div>
           
           {/* Mobile Dropdown */}
           <div className="sm:hidden relative">
-            <button
+            <Button
               onClick={() => setShowDatePicker(!showDatePicker)}
               className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm"
             >
               <HiOutlineAdjustmentsHorizontal className="w-4 h-4" />
               <span>Filter</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -242,13 +243,13 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
               />
             </div>
             <div className="flex items-end">
-              <button
+              <Button
                 onClick={handleCustomDateApply}
                 disabled={!customStartDate || !customEndDate}
-                className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition-colors"
+                 className="w-full"
               >
                 Terapkan
-              </button>
+              </Button>
             </div>
           </div>
         </div>

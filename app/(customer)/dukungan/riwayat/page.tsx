@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBack,
     MdRefresh,
@@ -103,21 +104,23 @@ export default function TicketHistoryPage() {
 
                 {/* TopAppBar */}
                 <div className="sticky top-0 z-50 flex items-center bg-white dark:bg-[#1C2630] p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         type="button"
                         onClick={() => router.back()}
-                        className="flex w-10 h-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-900 dark:text-white"
                     >
                         <MdArrowBack className="text-2xl" />
-                    </button>
+                    </Button>
                     <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Riwayat Tiket</h2>
                     <div className="flex w-12 items-center justify-end">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={loadTickets}
-                            className="flex size-10 cursor-pointer items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
                             <MdRefresh className={`text-[#111418] dark:text-white text-[24px] ${loading ? 'animate-spin' : ''}`} />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 

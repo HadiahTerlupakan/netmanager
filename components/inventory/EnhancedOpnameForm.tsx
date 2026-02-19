@@ -8,6 +8,7 @@ import {
   FiAlertCircle,
   FiCheckCircle
 } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 
 interface EnhancedOpnameFormProps {
   onClose?: () => void
@@ -571,22 +572,22 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
         {gudangId && !fetching && barangList.length > 0 && (
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
             {onClose && (
-              <button
+              <Button variant="outline"
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                
                 disabled={loading}
               >
                 Batal
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="submit"
               disabled={loading || !hasChanges}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              
             >
               {loading ? 'Menyimpan...' : 'Simpan Stock Opname'}
-            </button>
+            </Button>
           </div>
         )}
       </form>

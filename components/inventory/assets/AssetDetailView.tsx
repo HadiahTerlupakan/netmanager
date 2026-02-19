@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FiUser, FiMapPin, FiCalendar, FiDollarSign } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
 
 interface DepreciationLog {
@@ -82,13 +83,13 @@ export function AssetDetailView({ asset: initialAsset }: AssetDetailProps) {
                         </h1>
                     </div>
                     <div className="flex gap-2">
-                        <button 
+                        <Button 
                             onClick={handleDepreciate}
                             disabled={loading || asset.status !== 'ACTIVE' || Number(asset.currentValue) <= Number(asset.residualValue)}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+                            
                         >
                             Hitung Penyusutan
-                        </button>
+                        </Button>
                     </div>
                 </div>
 

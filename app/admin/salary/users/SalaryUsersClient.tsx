@@ -14,6 +14,7 @@ import {
     HiOutlineCheckCircle,
 } from 'react-icons/hi2'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Modal } from '@/components/ui/Modal'
 
@@ -398,13 +399,13 @@ export default function SalaryUsersClient() {
                         Kelola daftar karyawan dan komponen gaji mereka
                     </p>
                 </div>
-                <button
+                <Button
                     onClick={() => setShowAddModal(true)}
                     className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
                 >
                     <HiOutlinePlus className="w-4 h-4 mr-2" />
                     Tambah Karyawan
-                </button>
+                </Button>
             </div>
 
             {/* Stats */}
@@ -462,12 +463,12 @@ export default function SalaryUsersClient() {
                             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto mb-6">
                                 Belum ada karyawan yang ditambahkan ke daftar gaji.
                             </p>
-                            <button
+                            <Button
                                 onClick={() => setShowAddModal(true)}
                                 className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline"
                             >
                                 + Tambah Karyawan Sekarang
-                            </button>
+                            </Button>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -555,21 +556,21 @@ export default function SalaryUsersClient() {
                                                             <HiOutlineEye className="w-4 h-4" />
                                                         </Link>
                                                         <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-                                                        <button
+                                                        <Button
                                                             onClick={() => openEditModal(user)}
                                                             className="p-1.5 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 rounded-lg transition-colors"
                                                             title="Edit Konfigurasi"
                                                         >
                                                             <HiOutlinePencil className="w-4 h-4" />
-                                                        </button>
+                                                        </Button>
                                                         <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-                                                        <button
+                                                        <Button
                                                             onClick={() => handleDeleteUser(user.id)}
                                                             className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
                                                             title="Hapus dari Daftar"
                                                         >
                                                             <HiOutlineTrash className="w-4 h-4" />
-                                                        </button>
+                                                        </Button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -835,13 +836,13 @@ export default function SalaryUsersClient() {
                                                     : `Rp ${pc.amount.toLocaleString('id-ID')}`
                                                 }
                                             </span>
-                                            <button
+                                            <Button
                                                 type="button"
                                                 onClick={() => setPendingComponents(prev => prev.filter((_, i) => i !== idx))}
                                                 className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-400 hover:text-red-600 transition-colors"
                                             >
                                                 <HiOutlineTrash className="w-3.5 h-3.5" />
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}
@@ -881,7 +882,7 @@ export default function SalaryUsersClient() {
                                     placeholder={newComponentRateType === 'PERCENTAGE' ? '5 (5%)' : '500000'}
                                     className="col-span-3 px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                 />
-                                <button
+                                <Button
                                     type="button"
                                     onClick={() => {
                                         if (newComponentName && newComponentAmount) {
@@ -900,7 +901,7 @@ export default function SalaryUsersClient() {
                                     className="col-span-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg text-sm flex items-center justify-center"
                                 >
                                     <HiOutlinePlus className="w-4 h-4" />
-                                </button>
+                                </Button>
                             </div>
                             <p className="text-xs text-gray-500">
                                 Contoh: Tunjangan Transport (Fix), BPJS (% Gaji), dll.
@@ -913,19 +914,19 @@ export default function SalaryUsersClient() {
                     </p>
 
                     <div className="flex gap-3 pt-2">
-                        <button
+                        <Button
                             type="submit"
-                            className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium"
+                             className="flex-1"
                         >
                             Tambah
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             onClick={() => setShowAddModal(false)}
                             className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
                             Batal
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </Modal>
@@ -1173,12 +1174,12 @@ export default function SalaryUsersClient() {
                                                             : formatCurrency(uc.amount)
                                                         }
                                                     </span>
-                                                    <button
+                                                    <Button
                                                         onClick={() => handleRemoveComponent(uc.id)}
                                                         className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-400 hover:text-red-600 transition-colors"
                                                     >
                                                         <HiOutlineTrash className="w-3.5 h-3.5" />
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         ))
@@ -1233,14 +1234,14 @@ export default function SalaryUsersClient() {
                                                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white dark:placeholder-gray-400"
                                             />
                                         </div>
-                                        <button
+                                        <Button
                                             type="button"
                                             onClick={handleCreateAndAssignComponent}
-                                            className="col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+                                             className="col-span-1"
                                             title="Tambah Komponen"
                                         >
                                             <HiOutlinePlus className="w-5 h-5" />
-                                        </button>
+                                        </Button>
                                     </div>
                                     <p className="text-xs text-gray-500">
                                         Komponen yang ditambahkan akan langsung disimpan.
@@ -1251,21 +1252,21 @@ export default function SalaryUsersClient() {
 
                         {/* Footer Actions - Matching Add Modal */}
                         <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                            <button
+                            <Button
                                 type="button"
                                 onClick={handleUpdateUser}
-                                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+                                 className="flex-1"
                             >
                                 <HiOutlineCheckCircle className="w-5 h-5" />
                                 Simpan Perubahan
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 onClick={() => setShowEditModal(false)}
                                 className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200"
                             >
                                 Batal
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
 import { usePermission } from '@/hooks/use-permission'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { HiPlus, HiPencil, HiTrash } from 'react-icons/hi2'
@@ -122,9 +123,9 @@ export default function SupplierListPage() {
                  </Link>
                )}
                {canDelete && (
-                 <button onClick={() => handleDelete(row.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                 <Button onClick={() => handleDelete(row.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
                    <HiTrash className="w-5 h-5" />
-                 </button>
+                 </Button>
                )}
             </div>
           )}
@@ -135,20 +136,20 @@ export default function SupplierListPage() {
                Total {total} data
              </div>
              <div className="flex gap-2">
-               <button 
+               <Button 
                  disabled={page === 1}
                  onClick={() => setPage(p => p - 1)}
                  className="px-3 py-1 border rounded disabled:opacity-50"
                >
                  Prev
-               </button>
-               <button
+               </Button>
+               <Button
                  disabled={page * limit >= total}
                  onClick={() => setPage(p => p + 1)}
                  className="px-3 py-1 border rounded disabled:opacity-50"
                >
                  Next
-               </button>
+               </Button>
              </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/select";
 import type { MappingNode, MappingEdge } from "@prisma/client";
@@ -123,19 +124,19 @@ export function EdgeFormModal({ edge, nodes, isOpen, onClose, onSave }: EdgeForm
         </div>
 
         <ModalFooter>
-          <button
+          <Button variant="outline"
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            
           >
             Batal
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            
           >
             {isEditing ? "Simpan Perubahan" : "Tambah Koneksi"}
-          </button>
+          </Button>
         </ModalFooter>
       </form>
     </Modal>

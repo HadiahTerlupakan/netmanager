@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { HiOutlineMapPin, HiOutlineUsers, HiOutlineClock, HiOutlineArrowPath, HiMagnifyingGlass, HiOutlineSignal, HiOutlineMap, HiOutlineSquares2X2 } from 'react-icons/hi2'
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { Button } from '@/components/ui/Button'
 import { useSocket } from '@/hooks/useSocket'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -141,7 +142,7 @@ export default function LiveMapClient() {
                     <div className="flex items-center gap-4 flex-wrap">
                         {/* View Toggle */}
                         <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                            <button
+                            <Button
                                 onClick={() => setViewMode('map')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
                                     viewMode === 'map' 
@@ -151,8 +152,8 @@ export default function LiveMapClient() {
                             >
                                 <HiOutlineMap className="w-4 h-4" />
                                 Map
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => setViewMode('cards')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
                                     viewMode === 'cards' 
@@ -162,7 +163,7 @@ export default function LiveMapClient() {
                             >
                                 <HiOutlineSquares2X2 className="w-4 h-4" />
                                 Cards
-                            </button>
+                            </Button>
                         </div>
                         {/* Stats Badge */}
                         <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full">
@@ -171,14 +172,14 @@ export default function LiveMapClient() {
                         </div>
 
                         {/* Manual Refresh */}
-                        <button
+                        <Button
                             onClick={fetchLocations}
                             disabled={loading}
-                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                            
                         >
                             <HiOutlineArrowPath className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
-                        </button>
+                        </Button>
                     </div>
                 </div>
 

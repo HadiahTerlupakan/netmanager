@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { HiCloudArrowUp, HiTrash } from 'react-icons/hi2'
 import Image from 'next/image'
+import { Button } from '@/components/ui/Button'
 
 interface ImageUploadProps {
   value?: string[]
@@ -102,14 +103,15 @@ export default function ImageUpload({ value = [], onChange, folder = 'uploads', 
                 sizes="(max-width: 768px) 50vw, 33vw"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button
+                <Button
                   type="button"
                   onClick={() => handleRemove(index)}
-                  className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                  variant="destructive"
+                  size="icon-sm"
                   title="Hapus foto"
                 >
                   <HiTrash className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             </div>
           ))}

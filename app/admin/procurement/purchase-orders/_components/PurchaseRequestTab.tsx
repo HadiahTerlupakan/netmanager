@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { HiCheck, HiX, HiEye, HiRefresh, HiSearch } from 'react-icons/hi'
+import { Button } from '@/components/ui/Button'
 import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { Modal } from '@/components/ui/Modal'
 import { usePermission } from '@/hooks/use-permission'
@@ -216,29 +217,29 @@ export default function PurchaseRequestTab() {
             priority: 'primary',
             render: (row) => (
                 <div className="flex gap-1">
-                    <button
+                    <Button
                         onClick={() => { setSelectedPR(row); setShowDetail(true) }}
                         className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
                         title="Detail"
                     >
                         <HiEye className="w-5 h-5" />
-                    </button>
+                    </Button>
                     {canUpdate && row.status === 'DRAFT' && (
                         <>
-                            <button
+                            <Button
                                 onClick={() => { setSelectedPR(row); setShowApproveModal(true) }}
                                 className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
                                 title="Approve"
                             >
                                 <HiCheck className="w-5 h-5" />
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => { setSelectedPR(row); setShowRejectModal(true) }}
                                 className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
                                 title="Reject"
                             >
                                 <HiX className="w-5 h-5" />
-                            </button>
+                            </Button>
                         </>
                     )}
                 </div>
@@ -273,12 +274,12 @@ export default function PurchaseRequestTab() {
                     <option value="REJECTED">Rejected</option>
                     <option value="ORDERED">Ordered</option>
                 </select>
-                <button
+                <Button variant="secondary"
                     onClick={fetchData}
-                    className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                    
                 >
                     <HiRefresh className="w-5 h-5" />
-                </button>
+                </Button>
             </div>
 
             {/* Table */}
@@ -297,20 +298,20 @@ export default function PurchaseRequestTab() {
                         Halaman {page} dari {totalPages} ({total} Data)
                     </span>
                     <div className="flex gap-2">
-                        <button
+                        <Button
                             disabled={page === 1}
                             onClick={() => setPage(p => p - 1)}
                             className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600"
                         >
                             Prev
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             disabled={page >= totalPages}
                             onClick={() => setPage(p => p + 1)}
                             className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600"
                         >
                             Next
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}
@@ -411,20 +412,20 @@ export default function PurchaseRequestTab() {
                         />
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button
+                        <Button
                             onClick={() => { setShowApproveModal(false); setCatatan('') }}
                             className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
                             disabled={processing}
                         >
                             Batal
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={() => handleAction('APPROVE')}
                             className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
                             disabled={processing}
                         >
                             {processing ? 'Processing...' : 'Approve'}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </Modal>
@@ -452,20 +453,20 @@ export default function PurchaseRequestTab() {
                         />
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button
+                        <Button
                             onClick={() => { setShowRejectModal(false); setCatatan('') }}
                             className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
                             disabled={processing}
                         >
                             Batal
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={() => handleAction('REJECT')}
                             className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
                             disabled={processing || !catatan.trim()}
                         >
                             {processing ? 'Processing...' : 'Reject'}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </Modal>

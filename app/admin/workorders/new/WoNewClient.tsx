@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { HiArrowLeft, HiSparkles, HiBolt, HiUserCircle, HiMagnifyingGlass, HiMapPin, HiWifi, HiClock, HiArchiveBoxArrowDown, HiPlusCircle, HiCloud, HiWrenchScrewdriver, HiSignal, HiEye, HiExclamationTriangle } from 'react-icons/hi2'
 import { toast } from 'react-hot-toast'
+import { Button } from '@/components/ui/Button'
 import PageLoader from '@/components/ui/PageLoader'
 
 interface Pelanggan {
@@ -609,7 +610,7 @@ export function ClientComponent() {
                                             <div className="font-semibold text-gray-900 dark:text-white">{formData.pelangganDisplay}</div>
                                             <div className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{formData.locationAddress}</div>
                                         </div>
-                                        <button type="button" onClick={() => setFormData({ ...formData, pelangganId: '', pelangganDisplay: '' })} className="text-sm font-medium text-sky-600 hover:text-sky-700 px-3 py-1.5 hover:bg-sky-100 rounded-lg transition-colors">Change</button>
+                                        <Button variant="link" size="sm" type="button" onClick={() => setFormData({ ...formData, pelangganId: '', pelangganDisplay: '' })}>Change</Button>
                                     </div>
                                 ) : (
                                     <div className="relative">
@@ -874,7 +875,7 @@ export function ClientComponent() {
 
                     <div className="flex gap-4 pt-4">
                         <Link href="/admin/workorders/list" className="flex-1 px-6 py-3.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-center font-medium transition-colors">Cancel</Link>
-                        <button type="submit" disabled={loading} className="flex-2 px-6 py-3.5 bg-sky-600 dark:bg-sky-700 text-white rounded-xl hover:bg-sky-700 dark:hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-sky-200 dark:shadow-sky-900/50 transition-all hover:shadow-xl hover:-translate-y-0.5">{loading ? 'Creating...' : 'Create Work Order'}</button>
+                        <Button type="submit" loading={loading} size="lg" className="flex-2">Create Work Order</Button>
                     </div>
                 </form>
             </div>

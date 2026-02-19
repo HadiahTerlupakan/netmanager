@@ -20,9 +20,10 @@ import {
   HiOutlineDocumentText
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/Button'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import { Modal, ModalBody } from '@/components/ui/Modal'
-import { Combobox } from '@/components/ui/Combobox'
+import { Combobox, type ComboboxOption } from '@/components/ui/Combobox'
 import { formatCurrency } from '@/lib/utils'
 import { usePermission } from '@/hooks/use-permission'
 import RABList, { type RABProject } from './RABList'
@@ -79,6 +80,8 @@ interface CategoryOption {
     id: string
     name: string
     type: string
+    parentId?: string | null
+    _count?: { children: number }
 }
 
 export default function ExpensesClient() {
@@ -203,8 +206,8 @@ export default function ExpensesClient() {
           try {
               const res = await fetch(`/api/finance/expense-categories?type=${selectedCategory}`)
               const json = await res.json()
-              if (Array.isArray(json)) {
-                  setFilterCategories(json)
+              if (json.success && Array.isArray(json.data)) {
+                  setFilterCategories(json.data)
               }
           } catch (e) {
               console.error('Failed to fetch filter categories', e)
@@ -220,8 +223,8 @@ export default function ExpensesClient() {
       try {
           const res = await fetch(`/api/finance/expense-categories?type=${formData.category}`)
           const json = await res.json()
-          if (Array.isArray(json)) {
-              setCategories(json)
+          if (json.success && Array.isArray(json.data)) {
+              setCategories(json.data)
           }
       } catch (e) {
           console.error('Failed to fetch categories', e)
@@ -313,7 +316,10 @@ export default function ExpensesClient() {
       }
 
       const result = await response.json()
-      setData(result)
+      // Fix: Ensure we are extracting the array from the response object
+      // API typically returns { success: true, data: [...] }
+      const expensesData = Array.isArray(result) ? result : (result.data || [])
+      setData(expensesData)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Gagal mengambil data pengeluaran'
       setError(errorMsg)
@@ -338,6 +344,54 @@ export default function ExpensesClient() {
             }
         }
       }, [formData.amount, formData.usefulLife, formData.category])
+
+  // Build hierarchical category options for Combobox
+  const hierarchicalCategoryOptions: ComboboxOption[] = useMemo(() => {
+      if (!categories.length) return []
+
+      // Separate roots (no parentId) and children
+      const roots = categories.filter(c => !c.parentId)
+      const childrenMap = new Map<string, CategoryOption[]>()
+      for (const cat of categories) {
+          if (cat.parentId) {
+              const arr = childrenMap.get(cat.parentId) || []
+              arr.push(cat)
+              childrenMap.set(cat.parentId, arr)
+          }
+      }
+
+      const result: ComboboxOption[] = []
+
+      const flatten = (items: CategoryOption[], depth: number) => {
+          for (const item of items) {
+              const children = childrenMap.get(item.id) || []
+              const hasChildren = children.length > 0
+              const indent = depth > 0 ? '\u2003'.repeat(depth) : ''
+              const prefix = depth > 0 ? '└ ' : ''
+
+              result.push({
+                  value: item.id,
+                  label: (
+                      <span className={`flex items-center gap-1 ${hasChildren && depth === 0 ? 'font-semibold text-gray-700 dark:text-gray-200' : ''}`}>
+                          <span className="text-gray-400">{indent}{prefix}</span>
+                          <span>{item.name}</span>
+                          {hasChildren && (
+                              <span className="text-[10px] text-gray-400 ml-1">({children.length})</span>
+                          )}
+                      </span>
+                  ),
+                  searchLabel: item.name,
+              })
+
+              if (hasChildren) {
+                  flatten(children.sort((a, b) => a.name.localeCompare(b.name)), depth + 1)
+              }
+          }
+      }
+
+      flatten(roots.sort((a, b) => a.name.localeCompare(b.name)), 0)
+      return result
+  }, [categories])
 
   const filteredData = data.filter(item => {
       if (!debouncedSearch) return true
@@ -1006,7 +1060,7 @@ export default function ExpensesClient() {
 
                                         <div className="relative">
                                             <Combobox
-                                                options={categories.map(c => ({ value: c.id, label: c.name }))}
+                                                options={hierarchicalCategoryOptions}
                                                 value={formData.expenseCategoryId}
                                                 onChange={val => setFormData({...formData, expenseCategoryId: val})}
                                                 placeholder="Pilih kategori pengeluaran..."
@@ -1080,41 +1134,40 @@ export default function ExpensesClient() {
                         {/* Navigation Buttons */}
                         <div className="flex justify-between gap-4 pt-6 mt-4 border-t border-gray-100 dark:border-gray-800">
                             {step > 1 ? (
-                                <button 
+                                <Button 
                                     type="button" 
+                                    variant="ghost"
                                     onClick={prevStep} 
-                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-all"
+                                    className="flex items-center gap-2"
                                 >
                                     <HiOutlineArrowLeft className="w-5 h-5" />
                                     Kembali
-                                </button>
+                                </Button>
                             ) : (
-                                <button 
+                                <Button 
                                     type="button" 
+                                    variant="ghost"
                                     onClick={() => setIsModalOpen(false)} 
-                                    className="px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-all"
                                 >
                                     Batal
-                                </button>
+                                </Button>
                             )}
 
                             {step < 3 ? (
-                                <button 
+                                <Button 
                                     type="button" 
                                     onClick={nextStep} 
-                                    className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95"
                                 >
                                     Lanjut
                                     <HiOutlineArrowRight className="w-5 h-5" />
-                                </button>
+                                </Button>
                             ) : (
-                                <button 
+                                <Button 
                                     type="submit" 
-                                    disabled={isSubmitting}
-                                    className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    loading={isSubmitting}
                                 >
-                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}
-                                </button>
+                                    Simpan Transaksi
+                                </Button>
                             )}
                         </div>
                     </form>

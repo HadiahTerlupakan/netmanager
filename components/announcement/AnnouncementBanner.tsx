@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { HiXMark, HiMegaphone } from 'react-icons/hi2';
+import { Button } from '@/components/ui/Button'
 
 interface Announcement {
     id: string;
@@ -78,29 +79,29 @@ export default function AnnouncementBanner({ portal }: AnnouncementBannerProps) 
                 <div className="shrink-0 sm:ml-3 flex items-center">
                     {announcements.length > 1 && (
                         <div className="flex space-x-2 mr-4 text-sm">
-                            <button
+                            <Button
                                 onClick={() => setCurrentIndex((prev) => (prev - 1 + announcements.length) % announcements.length)}
                                 className="hover:bg-indigo-700 rounded px-1"
                             >
                                 &lt;
-                            </button>
+                            </Button>
                             <span>{currentIndex + 1}/{announcements.length}</span>
-                            <button
+                            <Button
                                 onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
                                 className="hover:bg-indigo-700 rounded px-1"
                             >
                                 &gt;
-                            </button>
+                            </Button>
                         </div>
                     )}
-                    <button
+                    <Button
                         type="button"
-                        className="-mr-1 flex p-2 rounded-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2"
+                         className="-mr-1"
                         onClick={handleDismiss}
                     >
                         <span className="sr-only">Dismiss</span>
                         <HiXMark className="h-6 w-6 text-white" aria-hidden="true" />
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

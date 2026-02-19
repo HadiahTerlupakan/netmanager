@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TestConnectionModal from '@/components/mikrotik/TestConnectionModal'
 import ScriptGeneratorModal from '@/components/mikrotik/ScriptGeneratorModal'
+import { Button } from '@/components/ui/Button'
 
 interface TestConnectionResult {
   success: boolean
@@ -129,17 +130,15 @@ export function ClientComponent() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tambah Router [NAS]</h1>
         <div className="flex items-center gap-2">
-          <button className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-700 dark:hover:bg-green-400 transition-colors">
-            <span className="text-white">Panduan Dasar</span>
-          </button>
-          <button 
+          <Button variant="success">
+            Panduan Dasar
+          </Button>
+          <Button 
             type="button"
             onClick={() => setShowScriptModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-400 transition-colors"
           >
-            <span className="text-white">&lt;/&gt;</span>
-            <span className="text-white">SCRIPT GENERATOR</span>
-          </button>
+            &lt;/&gt; SCRIPT GENERATOR
+          </Button>
         </div>
       </div>
 

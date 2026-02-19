@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { MdCheckCircle, MdCancel, MdPending, MdTimer, MdDoneAll, MdPlayArrow, MdLocationOn, MdDelete, MdEdit } from 'react-icons/md'
 import { FaSearch, FaBuilding } from 'react-icons/fa'
 import Image from 'next/image'
+import { Button } from '@/components/ui/Button'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 import { useToast } from '@/hooks/use-toast'
@@ -463,18 +464,18 @@ export function ClientComponent() {
             render: (item) => (
                 <div className="flex gap-2">
                     {item.startPhoto && (
-                        <button onClick={() => setSelectedPhoto(item.startPhoto!)} className="relative group" title="Foto Mulai">
+                        <Button onClick={() => setSelectedPhoto(item.startPhoto!)} className="relative group" title="Foto Mulai">
                             <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-green-500 transition-all relative">
                                 <Image src={item.startPhoto} alt="Start" fill className="object-cover" />
                             </div>
-                        </button>
+                        </Button>
                     )}
                     {item.endPhoto && (
-                        <button onClick={() => setSelectedPhoto(item.endPhoto!)} className="relative group" title="Foto Selesai">
+                        <Button onClick={() => setSelectedPhoto(item.endPhoto!)} className="relative group" title="Foto Selesai">
                             <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-red-500 transition-all relative">
                                 <Image src={item.endPhoto} alt="End" fill className="object-cover" />
                             </div>
-                        </button>
+                        </Button>
                     )}
                     {!item.startPhoto && !item.endPhoto && <span className="text-xs text-gray-400">-</span>}
                 </div>
@@ -487,43 +488,43 @@ export function ClientComponent() {
         <>
             {item.status === 'PENDING' && canVerify && (
                 <>
-                    <button
+                    <Button
                         onClick={() => handleAction(item.id, 'approve')}
                         disabled={processingId === item.id}
                         className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Setujui (Verify)"
                     >
                         <MdCheckCircle className="text-lg" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => setRejectId(item.id)}
                         disabled={processingId === item.id}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Tolak (Verify)"
                     >
                         <MdCancel className="text-lg" />
-                    </button>
+                    </Button>
                 </>
             )}
             {canUpdate && (
-                <button
+                <Button
                     onClick={() => openEditModal(item)}
                     disabled={processingId === item.id}
                     className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
                     title="Edit Data"
                 >
                     <MdEdit className="text-lg" />
-                </button>
+                </Button>
             )}
             {canDelete && (
-                <button
+                <Button
                     onClick={() => handleDelete(item.id)}
                     disabled={processingId === item.id}
                     className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                     title="Hapus"
                 >
                     <MdDelete className="text-lg" />
-                </button>
+                </Button>
             )}
         </>
     )
@@ -631,13 +632,13 @@ export function ClientComponent() {
                         <option value="OFFDAY">📅 Hari Libur Karyawan</option>
                     </select>
                 </div>
-                <button
+                <Button
                     onClick={() => fetchRequests()}
                     disabled={retryCountdown !== null}
                     className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <FaSearch /> Cari
-                </button>
+                </Button>
             </div>
 
             {/* Table */}
@@ -654,21 +655,21 @@ export function ClientComponent() {
 
                 {/* Pagination Controls */}
                 <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
-                    <button
+                    <Button
                         disabled={page === 1}
                         onClick={() => setPage(p => p - 1)}
                         className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                         Sebelumnya
-                    </button>
+                    </Button>
                     <span className="text-sm text-gray-500 dark:text-gray-400">Halaman {page} dari {totalPages} ({totalItems} Data)</span>
-                    <button
+                    <Button
                         disabled={page === totalPages}
                         onClick={() => setPage(p => p + 1)}
                         className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                         Selanjutnya
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -696,19 +697,19 @@ export function ClientComponent() {
                         <p className="text-xs text-gray-500 mb-3">{rejectReason.length}/500 karakter</p>
                 </div>
                 <ModalFooter>
-                            <button
+                            <Button
                                 onClick={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
                                 className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => handleAction(rejectId!, 'reject', rejectReason)}
                                 disabled={!rejectReason.trim() || processingId === rejectId}
                                 className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                             >
                                 Tolak
-                            </button>
+                            </Button>
                 </ModalFooter>
             </Modal>
 
@@ -764,19 +765,19 @@ export function ClientComponent() {
                             )}
                 </div>
                 <ModalFooter>
-                            <button
+                            <Button
                                 onClick={() => { setEditId(null); setEditErrors({}); }}
                                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={handleEditSubmit}
                                 disabled={processingId === editId}
-                                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                
                             >
                                 Simpan Perubahan
-                            </button>
+                            </Button>
                 </ModalFooter>
             </Modal>
 
@@ -800,12 +801,12 @@ export function ClientComponent() {
                     )}
                 </div>
                 <ModalFooter className="bg-black/90 border-t border-white/10">
-                    <button 
+                    <Button 
                         onClick={() => setSelectedPhoto(null)}
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
                     >
                         Tutup
-                    </button>
+                    </Button>
                 </ModalFooter>
             </Modal>
         </div>

@@ -17,6 +17,7 @@ import Image from 'next/image'
 import { usePermission } from '@/hooks/use-permission'
 import { useSocket } from '@/lib/websocket/SocketContext'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 
 interface ChatUser {
     id: string
@@ -453,23 +454,24 @@ export default function ChatPageClient() {
                         <div className="flex gap-2">
                             {/* Broadcast button - only show if has permission */}
                             {canBroadcast && (
-                                <button
+                                <Button
+                                    variant="warning"
+                                    size="icon"
                                     onClick={() => setShowBroadcastModal(true)}
-                                    className="p-2 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition"
                                     title="Broadcast"
                                 >
                                     <HiOutlineMegaphone className="w-5 h-5" />
-                                </button>
+                                </Button>
                             )}
                             {/* New chat button - only show if can send message */}
                             {canSendMessage && (
-                                <button
+                                <Button
+                                    size="icon"
                                     onClick={() => setShowNewChatModal(true)}
-                                    className="p-2 bg-purple-500 text-white rounded-full hover:bg-purple-600 transition"
                                     title="New Chat"
                                 >
                                     <HiOutlinePlus className="w-5 h-5" />
-                                </button>
+                                </Button>
                             )}
                         </div>
                     </div>
@@ -619,25 +621,26 @@ export default function ChatPageClient() {
                                         </div>
                                         
                                         <div className="flex items-center space-x-2">
-                                            <button
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={() => {
                                                     playNotificationSound('chat')
                                                     showBrowserNotification('Test System', 'Ini adalah tes notifikasi suara dan visual.')
                                                     alert('Tes notifikasi dikirim. Jika tidak bunyi chat.mp3, akan fallback ke notification.mp3')
                                                 }}
-                                                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                                                 title="Test Notification"
                                             >
                                                 <span className="text-xl">🔔</span>
-                                            </button>
+                                            </Button>
                                             
                                             {hasPermission('broadcast:create') && (
-                                                <button
+                                                <Button
                                                     onClick={() => setShowBroadcastModal(true)}
-                                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                                                    size="sm"
                                                 >
                                                     Broadcast
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
                                     </div>
@@ -691,9 +694,9 @@ export default function ChatPageClient() {
                         {canSendMessage && (
                             <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center gap-3">
-                                    <button className="p-2 text-gray-400 hover:text-purple-500 transition">
+                                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-purple-500">
                                         <HiOutlinePhoto className="w-6 h-6" />
-                                    </button>
+                                    </Button>
                                     <input
                                         type="text"
                                         placeholder="Ketik pesan..."
@@ -702,17 +705,15 @@ export default function ChatPageClient() {
                                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                                         className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
-                                    <button
+                                    <Button
+                                        size="icon"
                                         onClick={sendMessage}
                                         disabled={!messageInput.trim() || sendingMessage}
-                                        className="p-3 bg-purple-500 text-white rounded-full hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                        loading={sendingMessage}
+                                        className="rounded-full"
                                     >
-                                        {sendingMessage ? (
-                                            <Spinner className="w-5 h-5" />
-                                        ) : (
-                                            <HiOutlinePaperAirplane className="w-5 h-5" />
-                                        )}
-                                    </button>
+                                        <HiOutlinePaperAirplane className="w-5 h-5" />
+                                    </Button>
                                 </div>
                             </div>
                         )}
@@ -788,13 +789,13 @@ export default function ChatPageClient() {
                             </div>
                 </div>
                 <ModalFooter>
-                            <button
+                            <Button
                                 onClick={createConversation}
                                 disabled={selectedUsers.length === 0}
-                                className="w-full py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                className="w-full"
                             >
                                 Mulai Chat ({selectedUsers.length} dipilih)
-                            </button>
+                            </Button>
                 </ModalFooter>
             </Modal>
 
@@ -835,20 +836,16 @@ export default function ChatPageClient() {
                             </p>
                 </div>
                 <ModalFooter>
-                            <button
+                            <Button
+                                variant="warning"
                                 onClick={sendBroadcast}
                                 disabled={!broadcastContent.trim() || sendingBroadcast}
-                                className="w-full py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                                loading={sendingBroadcast}
+                                className="w-full"
                             >
-                                {sendingBroadcast ? (
-                                    <Spinner className="w-5 h-5" />
-                                ) : (
-                                    <>
-                                        <HiOutlineMegaphone className="w-5 h-5" />
-                                        Kirim Broadcast
-                                    </>
-                                )}
-                            </button>
+                                <HiOutlineMegaphone className="w-5 h-5" />
+                                Kirim Broadcast
+                            </Button>
                 </ModalFooter>
             </Modal>
         </div>

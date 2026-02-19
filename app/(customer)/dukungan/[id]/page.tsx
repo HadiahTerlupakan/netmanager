@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBack,
     MdSend,
@@ -277,13 +278,14 @@ export default function TicketDetailPage() {
                 {/* TopAppBar */}
                 <div className="sticky top-0 z-50 bg-white dark:bg-[#1C2630] border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center p-4 pb-2 justify-between">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             type="button"
                             onClick={() => router.back()}
-                            className="flex w-10 h-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-900 dark:text-white"
                         >
                             <MdArrowBack className="text-2xl" />
-                        </button>
+                        </Button>
                         <div className="flex-1 text-center">
                             <h2 className="text-[#111418] dark:text-white text-base font-bold leading-tight truncate">
                                 {ticket.subject}
@@ -310,13 +312,15 @@ export default function TicketDetailPage() {
                         </div>
                         {/* Close Ticket Button - only show if not closed */}
                         {ticket.status !== 'CLOSED' && (
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setShowCloseModal(true)}
-                                className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1 transition-colors"
+                                className="text-gray-500 hover:text-red-500"
                             >
                                 <MdClose className="text-sm" />
                                 Tutup Tiket
-                            </button>
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -390,12 +394,13 @@ export default function TicketDetailPage() {
                                     {/* Interactive Button for Closing Prompt */}
                                     {isClosingPrompt && ticket.status !== 'CLOSED' && (
                                         <div className="border-t border-gray-200 dark:border-gray-700">
-                                            <button
-                                                onClick={() => setShowCloseModal(true)}
-                                                className="w-full py-3 text-[#0d9488] dark:text-teal-400 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded-b-2xl"
-                                            >
-                                                Tutup Tiket
-                                            </button>
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => setShowCloseModal(true)}
+                                            className="w-full text-[#0d9488] dark:text-teal-400 rounded-b-2xl"
+                                        >
+                                            Tutup Tiket
+                                        </Button>
                                         </div>
                                     )}
                                 </div>
@@ -428,12 +433,14 @@ export default function TicketDetailPage() {
                                                 fill
                                                 className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                                             />
-                                            <button
+                                            <Button
+                                                variant="destructive"
+                                                size="icon-sm"
                                                 onClick={() => removeAttachment(idx)}
-                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                                                className="absolute -top-2 -right-2 shadow-md"
                                             >
                                                 <MdClose size={14} />
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
@@ -448,14 +455,15 @@ export default function TicketDetailPage() {
                                 accept="image/*"
                                 onChange={handleFileSelect}
                             />
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={uploading || sending}
-                                className="p-3 text-gray-500 dark:text-gray-400 hover:text-[#0d9488] dark:hover:text-[#0d9488] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors shrink-0"
                                 title="Lampirkan Gambar"
                             >
                                 <MdAttachFile className="text-2xl" />
-                            </button>
+                            </Button>
                             <div className="flex-1 relative">
                                 <textarea
                                     value={message}
@@ -471,17 +479,14 @@ export default function TicketDetailPage() {
                                     }}
                                 />
                             </div>
-                            <button
+                            <Button
+                                size="icon"
                                 onClick={handleSendReply}
                                 disabled={(!message.trim() && attachments.length === 0) || sending || uploading}
-                                className="p-3 bg-[#0d9488] text-white rounded-xl hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0 shadow-lg shadow-teal-900/20"
+                                loading={sending || uploading}
                             >
-                                {sending || uploading ? (
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <MdSend className="text-xl ml-0.5" />
-                                )}
-                            </button>
+                                <MdSend className="text-xl ml-0.5" />
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -505,20 +510,22 @@ export default function TicketDetailPage() {
                                 </p>
                                 <div className="flex items-center justify-center gap-1">
                                     {[1, 2, 3, 4, 5].map((star) => (
-                                        <button
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             key={star}
                                             type="button"
                                             onClick={() => setRating(star)}
                                             onMouseEnter={() => setHoverRating(star)}
                                             onMouseLeave={() => setHoverRating(0)}
-                                            className="p-1 transition-transform hover:scale-110 focus:outline-none"
+                                            className="hover:scale-110"
                                         >
                                             {(hoverRating || rating) >= star ? (
                                                 <MdStar className="w-8 h-8 text-yellow-400" />
                                             ) : (
                                                 <MdStarOutline className="w-8 h-8 text-gray-300 dark:text-gray-600" />
                                             )}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                                 {rating > 0 && (
@@ -540,23 +547,25 @@ export default function TicketDetailPage() {
                                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-[#0d9488]/50 mb-4"
                             />
                             <div className="flex gap-3">
-                                <button
+                                <Button
+                                    variant="outline"
                                     onClick={() => {
                                         setShowCloseModal(false)
                                         setRating(0)
                                         setHoverRating(0)
                                     }}
-                                    className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                    className="flex-1"
                                 >
                                     Batal
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     onClick={handleCloseTicket}
                                     disabled={closing}
-                                    className="flex-1 px-4 py-2.5 bg-[#0d9488] text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 transition-colors"
+                                    loading={closing}
+                                    className="flex-1"
                                 >
-                                    {closing ? 'Menutup...' : 'Ya, Tutup'}
-                                </button>
+                                    Ya, Tutup
+                                </Button>
                             </div>
                         </div>
                     </div>

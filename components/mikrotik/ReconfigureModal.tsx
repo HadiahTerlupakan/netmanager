@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { HiArrowPath, HiCheck, HiExclamationTriangle, HiXMark } from 'react-icons/hi2'
 import { toast } from 'react-hot-toast'
@@ -119,12 +120,12 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
         <div className="space-y-4">
             <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500">Pilih router yang ingin dikonfigurasi ulang:</p>
-                <button 
+                <Button 
                     onClick={handleSelectAll}
-                    className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                    
                 >
                     {selectedIds.size === routers.length ? 'Unselect All' : 'Select All'}
-                </button>
+                </Button>
             </div>
             
             <div className="max-h-[300px] overflow-y-auto border rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
@@ -236,33 +237,33 @@ export default function ReconfigureModal({ open, onClose, onSuccess }: Reconfigu
             <ModalFooter>
                 {step === 'select' && (
                     <>
-                        <button
+                        <Button variant="secondary"
                             onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                            
                         >
                             Batal
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={handleReconfigure}
                             disabled={selectedIds.size === 0 || loading}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            
                         >
                             Proses ({selectedIds.size})
-                        </button>
+                        </Button>
                     </>
                 )}
                 {step === 'processing' && (
-                    <button disabled className="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed">
+                    <Button variant="secondary" disabled >
                         Memproses...
-                    </button>
+                    </Button>
                 )}
                 {step === 'result' && (
-                    <button
+                    <Button
                         onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                        
                     >
                         Tutup
-                    </button>
+                    </Button>
                 )}
             </ModalFooter>
         </Modal>

@@ -67,6 +67,7 @@ import {
   HiOutlineNoSymbol,
   HiOutlineQrCode,
 } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
 import { useSession, signOut } from 'next-auth/react'
@@ -301,13 +302,13 @@ export default function EmployeeSidebar() {
                 </h2>
                 <span className="text-[10px] font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">Karyawan Portal</span>
               </div>
-              <button
+              <Button
                 onClick={() => setIsOpen(false)}
                 className="ml-auto p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 md:hidden text-gray-400 hover:text-gray-600 transition-colors"
                 aria-label="Close menu"
               >
                 <HiXMark className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -332,7 +333,7 @@ export default function EmployeeSidebar() {
                 if (hasChildren) {
                   return (
                     <div key={item.code} className="space-y-1 mb-1">
-                      <button
+                      <Button
                         onClick={() => toggleMenu(item.code)}
                         className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
                           ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10'
@@ -352,7 +353,7 @@ export default function EmployeeSidebar() {
                         <HiChevronDown
                           className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180 text-indigo-500' : ''}`}
                         />
-                      </button>
+                      </Button>
 
                       <div
                         className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 translate-y-0' : 'grid-rows-[0fr] opacity-0 -translate-y-2'}`}
@@ -435,13 +436,13 @@ export default function EmployeeSidebar() {
                   {session?.user?.email || 'karyawan@example.com'}
                 </p>
               </div>
-              <button
+              <Button
                 onClick={() => signOut()}
                 className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
                 title="Sign Out"
               >
                 <HiArrowRightOnRectangle className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
           </div>
         </aside>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineExclamationTriangle, HiOutlineInformationCircle } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
@@ -48,7 +49,7 @@ export function AdminNotificationBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
-            <button
+            <Button
                 onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-full transition-all duration-200 group"
                 aria-label="Notifications"
@@ -63,7 +64,7 @@ export function AdminNotificationBell() {
                 {isConnected && (
                     <span className="absolute bottom-1 right-1 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
                 )}
-            </button>
+            </Button>
 
             {/* Dropdown */}
             {isOpen && (
@@ -79,13 +80,13 @@ export function AdminNotificationBell() {
                             )}
                         </div>
                         {unreadCount > 0 && (
-                            <button
+                            <Button
                                 onClick={markAllAsRead}
-                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                                
                             >
                                 <HiCheck className="w-3.5 h-3.5" />
                                 Tandai semua dibaca
-                            </button>
+                            </Button>
                         )}
                     </div>
 
@@ -114,13 +115,13 @@ export function AdminNotificationBell() {
                                                         {notification.title}
                                                     </p>
                                                     {!notification.isRead && (
-                                                        <button
+                                                        <Button
                                                             onClick={() => markAsRead(notification.id)}
                                                             className="shrink-0 p-1 text-gray-400 hover:text-indigo-600 rounded"
                                                             title="Tandai dibaca"
                                                         >
                                                             <HiCheck className="w-4 h-4" />
-                                                        </button>
+                                                        </Button>
                                                     )}
                                                 </div>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">

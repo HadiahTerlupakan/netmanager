@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { HiOutlineMapPin } from 'react-icons/hi2'
 import 'ol/ol.css'
+import { Button } from '@/components/ui/Button'
 
 // Types for refs
 import type Map from 'ol/Map'
@@ -205,14 +206,14 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {label}
                 </h2>
-                <button
+                <Button variant="ghost" size="sm"
                     type="button"
                     onClick={getCurrentLocation}
-                    className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                    
                 >
                     <HiOutlineMapPin className="h-4 w-4 mr-1" />
                     Lokasi Saat Ini
-                </button>
+                </Button>
             </div>
 
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">

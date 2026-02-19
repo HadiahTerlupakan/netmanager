@@ -28,12 +28,22 @@
   /* Semantic Colors (Same for both themes) */
   --color-success: 16 185 129;
   /* #10B981 - Emerald 500 */
+  --color-success-hover: 5 150 105;
+  /* #059669 - Emerald 600 */
   --color-warning: 245 158 11;
   /* #F59E0B - Amber 500 */
+  --color-warning-hover: 217 119 6;
+  /* #D97706 - Amber 600 */
   --color-error: 239 68 68;
   /* #EF4444 - Red 500 */
+  --color-error-hover: 220 38 38;
+  /* #DC2626 - Red 600 */
   --color-info: 59 130 246;
   /* #3B82F6 - Blue 500 */
+
+  /* Primary hover color */
+  --color-primary-hover: 67 56 202;
+  /* #4338CA - Indigo 700 */
 
   /* Enhanced Spacing Scale */
   --spacing-xs: 0.25rem;
@@ -179,4 +189,14 @@
     --font-caption: 13px / 18px;
     --font-label: 12px / 15px;
   }
+}
+
+/* Customer Portal Color Override */
+[data-portal="customer"] {
+  --color-primary: 13 148 136;
+  /* #0D9488 - Teal 600 */
+  --color-primary-variant: 20 184 166;
+  /* #14B8A6 - Teal 500 */
+  --color-primary-hover: 15 118 110;
+  /* #0F766E - Teal 700 */
 }

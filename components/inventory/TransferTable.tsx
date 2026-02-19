@@ -9,6 +9,7 @@ import {
   FiEye,
   FiArrowRight
 } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 import { deleteWithAuth } from '@/lib/api-client'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
@@ -192,14 +193,14 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete: _
       emptyMessage="Belum ada data transfer barang antar gudang."
       renderActions={(item) => (
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={() => onViewDetails(item)}
             className="p-2 text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
             title="Detail"
           >
             <FiEye className="w-5 h-5" />
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => handleDelete(item)}
             disabled={deletingId === item.id}
             className="p-2 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors disabled:opacity-50"
@@ -213,7 +214,7 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete: _
             ) : (
               <FiTrash2 className="w-5 h-5" />
             )}
-          </button>
+          </Button>
         </div>
       )}
     />

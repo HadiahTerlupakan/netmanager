@@ -19,6 +19,7 @@ import {
 } from 'react-icons/md'
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { Button } from '@/components/ui/Button'
 import { useRealtimeTicketChat } from '@/lib/websocket/hooks/useRealtimeTicketChat'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 
@@ -315,12 +316,12 @@ export function ClientComponent() {
                 {/* Header */}
                 <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
                     <div className="flex items-center gap-4">
-                        <button
+                        <Button
                             onClick={() => router.push('/admin/support')}
                             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                         >
                             <HiArrowLeft className="w-5 h-5" />
-                        </button>
+                        </Button>
                         <div className="flex-1 min-w-0">
                             <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                                 {ticket.subject}
@@ -346,13 +347,13 @@ export function ClientComponent() {
                             <option value="CLOSED">Ditutup</option>
                         </select>
                         {status !== 'CLOSED' && (
-                            <button
+                            <Button
                                 onClick={() => setShowCloseModal(true)}
                                 className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 title="Tutup Tiket"
                             >
                                 <HiXMark className="w-5 h-5" />
-                            </button>
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -434,12 +435,12 @@ export function ClientComponent() {
                                             fill
                                             className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                                         />
-                                        <button
+                                        <Button
                                             onClick={() => removeAttachment(idx)}
                                             className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
                                         >
                                             <HiXMark className="w-3 h-3" />
-                                        </button>
+                                        </Button>
                                     </div>
                                 ))}
                             </div>
@@ -453,14 +454,14 @@ export function ClientComponent() {
                                 accept="image/*"
                                 onChange={handleFileSelect}
                             />
-                            <button
+                            <Button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={uploading || sending}
                                 className="p-3 text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors shrink-0"
                                 title="Lampirkan Gambar"
                             >
                                 <HiPaperClip className="w-5 h-5" />
-                            </button>
+                            </Button>
                             <div className="flex-1 relative">
                                 <textarea
                                     value={message}
@@ -476,10 +477,10 @@ export function ClientComponent() {
                                     }}
                                 />
                             </div>
-                            <button
+                            <Button size="lg"
                                 onClick={handleSendReply}
                                 disabled={(!message.trim() && attachments.length === 0) || sending || uploading}
-                                className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 shrink-0 h-[46px]"
+                                 className="h-[46px]"
                             >
                                 {sending || uploading ? (
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -489,7 +490,7 @@ export function ClientComponent() {
                                         <span>Kirim</span>
                                     </>
                                 )}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -579,7 +580,7 @@ export function ClientComponent() {
                             >
                                 Lihat Profil Pelanggan
                             </Link>
-                            <button
+                            <Button
                                 onClick={() => {
                                     const params = new URLSearchParams({
                                         ticketId: ticket.id,
@@ -594,10 +595,10 @@ export function ClientComponent() {
                             >
                                 <MdAssignment className="text-xl" />
                                 Buat Work Order
-                            </button>
+                            </Button>
                             {/* Send Closing Message Button */}
                             {status !== 'CLOSED' && (
-                                <button
+                                <Button
                                     onClick={async () => {
                                         setSendingClosingMsg(true)
                                         try {
@@ -621,7 +622,7 @@ export function ClientComponent() {
                                     className="block w-full px-4 py-2 text-sm text-center bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors border border-teal-200 dark:border-teal-800 disabled:opacity-50"
                                 >
                                     {sendingClosingMsg ? 'Mengirim...' : '📩 Kirim Pesan Penutup'}
-                                </button>
+                                </Button>
                             )}
                         </div>
                     </div>
@@ -649,19 +650,19 @@ export function ClientComponent() {
                             className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 mb-4"
                         />
                 <ModalFooter>
-                            <button
+                            <Button
                                 onClick={() => setShowCloseModal(false)}
                                 className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                             >
                                 Batal
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="destructive"
                                 onClick={handleCloseTicket}
                                 disabled={closing}
-                                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors font-medium"
+                                 className="flex-1"
                             >
                                 {closing ? 'Menutup...' : 'Tutup Tiket'}
-                            </button>
+                            </Button>
                 </ModalFooter>
             </Modal>
         </div>

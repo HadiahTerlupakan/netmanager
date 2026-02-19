@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { HiCheck } from 'react-icons/hi'
 import toast from 'react-hot-toast'
@@ -163,17 +164,17 @@ export default function ReceiveGoodsModal({ isOpen, onClose, po, onSuccess }: Re
             </div>
 
             <ModalFooter>
-                <button
+                <Button variant="outline"
                     onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                    
                     disabled={loading}
                 >
                     Batal
-                </button>
-                <button
+                </Button>
+                <Button variant="success"
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+                    
                 >
                     {loading ? 'Menyimpan...' : (
                         <>
@@ -181,7 +182,7 @@ export default function ReceiveGoodsModal({ isOpen, onClose, po, onSuccess }: Re
                             Simpan & Update Stok
                         </>
                     )}
-                </button>
+                </Button>
             </ModalFooter>
         </Modal>
     )

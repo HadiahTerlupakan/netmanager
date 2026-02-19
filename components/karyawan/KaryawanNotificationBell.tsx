@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { MdNotifications, MdWork, MdInventory } from 'react-icons/md'
 import { HiMegaphone } from 'react-icons/hi2'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
 import { usePermission } from '@/hooks/use-permission'
 import { useClickOutside } from '@/hooks/useClickOutside'
@@ -91,19 +92,19 @@ export function KaryawanNotificationBell() {
 
     if (!canViewNotifications) {
         return (
-            <button
+            <Button
                 disabled
-                className="flex items-center justify-center rounded-full size-10 text-gray-300 dark:text-gray-700 cursor-not-allowed transition-colors relative"
+                 className="relative"
                 title="Anda tidak memiliki akses notifikasi"
             >
                 <MdNotifications className="text-2xl" />
-            </button>
+            </Button>
         )
     }
 
     return (
         <div className="relative" ref={dropdownRef}>
-            <button
+            <Button
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex items-center justify-center rounded-full size-10 hover:bg-black/5 dark:hover:bg-white/10 transition-colors relative"
             >
@@ -117,7 +118,7 @@ export function KaryawanNotificationBell() {
                 {isConnected && (
                     <span className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
                 )}
-            </button>
+            </Button>
 
             {isOpen && (
                 <div className="absolute right-0 top-12 w-80 max-h-[70vh] bg-white dark:bg-[#1c2936] rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50">
@@ -132,13 +133,13 @@ export function KaryawanNotificationBell() {
                             )}
                         </div>
                         {unreadCount > 0 && (
-                            <button
+                            <Button
                                 onClick={handleMarkAllAsRead}
                                 disabled={isLoading}
-                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                
                             >
                                 Tandai semua dibaca
-                            </button>
+                            </Button>
                         )}
                     </div>
 

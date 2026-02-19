@@ -100,7 +100,7 @@ export default function ProfilePPPPage() {
       const bandwidthsData = bandwidthsRes.ok ? await bandwidthsRes.json() : { data: [] }
 
       setProfilePPPs(profilePPPsData.data || profilePPPsData || [])
-      setMikroTikRouters(routersData.routers || routersData.data || [])
+      setMikroTikRouters(routersData.data?.routers || routersData.routers || [])
       setBandwidths(bandwidthsData.data || [])
       setError(null)
     } catch (error: unknown) {

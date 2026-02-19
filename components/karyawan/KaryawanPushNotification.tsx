@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { MdNotifications, MdNotificationsOff, MdClose } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 
 export function KaryawanPushNotification() {
     const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
@@ -138,14 +139,14 @@ export function KaryawanPushNotification() {
 
     if (!showBanner) {
         return (
-            <button
+            <Button
                 onClick={subscribe}
                 disabled={loading}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                
             >
                 <MdNotifications className="text-lg" />
                 <span className="text-sm font-medium">{loading ? 'Loading...' : 'Aktifkan Notifikasi'}</span>
-            </button>
+            </Button>
         )
     }
 
@@ -163,27 +164,27 @@ export function KaryawanPushNotification() {
                         Dapatkan notifikasi saat ada Work Order baru!
                     </p>
                     <div className="flex items-center gap-3 mt-3">
-                        <button
+                        <Button
                             onClick={subscribe}
                             disabled={loading}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                            
                         >
                             {loading ? 'Mengaktifkan...' : 'Aktifkan'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={dismissBanner}
-                            className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                            
                         >
                             Nanti
-                        </button>
+                        </Button>
                     </div>
                 </div>
-                <button
+                <Button
                     onClick={dismissBanner}
-                    className="p-1 hover:bg-blue-100 dark:hover:bg-blue-800/50 rounded-lg shrink-0"
+                    
                 >
                     <MdClose className="text-xl text-gray-400" />
-                </button>
+                </Button>
             </div>
         </div>
     )

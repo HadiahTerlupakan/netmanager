@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBack,
     MdSearch,
@@ -133,13 +134,14 @@ export default function CustomerHistoryPage() {
                 {/* Header */}
                 <header className="sticky top-0 z-50 bg-white dark:bg-[#1C2630] border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center px-4 py-3 justify-between">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             type="button"
                             onClick={() => router.back()}
-                            className="flex w-10 h-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-900 dark:text-white"
                         >
                             <MdArrowBack className="text-2xl" />
-                        </button>
+                        </Button>
                         <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight flex-1 text-center pr-10">Riwayat Transaksi</h2>
                     </div>
 
@@ -160,42 +162,50 @@ export default function CustomerHistoryPage() {
 
                     {/* Chips / Filters */}
                     <div className="flex gap-3 px-4 py-3 overflow-x-auto hide-scrollbar pb-4">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setFilter('ALL')}
-                            className={`flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full px-4 transition-all ${filter === 'ALL'
-                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30'
-                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                            className={`shrink-0 rounded-full ${filter === 'ALL'
+                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]'
+                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300'
                                 }`}
                         >
-                            <p className="text-sm font-medium leading-normal">Semua</p>
-                        </button>
-                        <button
+                            Semua
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setFilter('SUCCESS')}
-                            className={`flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full px-4 transition-all ${filter === 'SUCCESS'
-                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30'
-                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                            className={`shrink-0 rounded-full ${filter === 'SUCCESS'
+                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]'
+                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300'
                                 }`}
                         >
-                            <p className="text-sm font-medium leading-normal">Berhasil</p>
-                        </button>
-                        <button
+                            Berhasil
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setFilter('PENDING')}
-                            className={`flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full px-4 transition-all ${filter === 'PENDING'
-                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30'
-                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                            className={`shrink-0 rounded-full ${filter === 'PENDING'
+                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]'
+                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300'
                                 }`}
                         >
-                            <p className="text-sm font-medium leading-normal">Menunggu</p>
-                        </button>
-                        <button
+                            Menunggu
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setFilter('FAILED')}
-                            className={`flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full px-4 transition-all ${filter === 'FAILED'
-                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30'
-                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                            className={`shrink-0 rounded-full ${filter === 'FAILED'
+                                ? 'bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]'
+                                : 'bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300'
                                 }`}
                         >
-                            <p className="text-sm font-medium leading-normal">Gagal</p>
-                        </button>
+                            Gagal
+                        </Button>
                     </div>
                 </header>
 

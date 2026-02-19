@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import Image from 'next/image'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 
 interface PointClaim {
     id: string;
@@ -190,9 +191,9 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
         return (
             <div className="text-center py-20">
                 <p className="text-red-500 font-semibold">Data tidak ditemukan</p>
-                <button onClick={() => router.back()} className="mt-4 text-indigo-600 hover:underline">
+                <Button variant="link" onClick={() => router.back()} className="mt-4">
                     ← Kembali
-                </button>
+                </Button>
             </div>
         );
     }
@@ -200,13 +201,14 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
     return (
         <div className="space-y-6">
             {/* Back Button */}
-            <button 
+            <Button 
+                variant="ghost"
                 onClick={() => router.back()}
-                className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors"
+                className="inline-flex items-center gap-2"
             >
                 <HiOutlineChevronLeft className="w-5 h-5" />
                 <span>Kembali ke Daftar</span>
-            </button>
+            </Button>
 
             {/* Main Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -635,12 +637,12 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                     )}
                 </div>
                 <ModalFooter className="bg-black/90 border-t border-white/10">
-                    <button 
+                    <Button 
+                        variant="ghost"
                         onClick={() => setZoomImage(null)}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
                     >
                         Tutup
-                    </button>
+                    </Button>
                 </ModalFooter>
             </Modal>
         </div>

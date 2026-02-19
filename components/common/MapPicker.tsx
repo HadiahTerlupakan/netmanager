@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState } from 'react'
 import type Map from 'ol/Map'
 import type VectorLayer from 'ol/layer/Vector'
 import type VectorSource from 'ol/source/Vector'
+import { Button } from '@/components/ui/Button'
 
 // Komponen peta berbasis OpenLayers. Pastikan memasang dependency: npm i ol
 // Minimal init: tile OSM, click untuk set koordinat, serta marker sederhana.
@@ -175,14 +176,14 @@ export function MapPickerWithSearch(props: MapPickerProps) {
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari alamat atau tempat" className="flex-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
-        <button type="button" onClick={handleSearch} className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm">{searching ? 'Mencari…' : 'Cari'}</button>
+        <Button type="button" onClick={handleSearch} variant="outline" size="sm">{searching ? 'Mencari…' : 'Cari'}</Button>
       </div>
       {results.length > 0 && (
         <div className="max-h-40 overflow-auto rounded-md border border-gray-200 dark:border-gray-800">
           {results.map((r, i) => (
-            <button key={i} type="button" onClick={() => { setLat(r.lat); setLon(r.lon); setResults([]); try { window.dispatchEvent(new CustomEvent('mappicker-set', { detail: { lat: r.lat, lon: r.lon } })) } catch (_e) { }; props.onChange(r.lat, r.lon) }} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+            <Button key={i} type="button" onClick={() => { setLat(r.lat); setLon(r.lon); setResults([]); try { window.dispatchEvent(new CustomEvent('mappicker-set', { detail: { lat: r.lat, lon: r.lon } })) } catch (_e) { }; props.onChange(r.lat, r.lon) }} variant="ghost" className="w-full justify-start" size="sm">
               {r.displayName}
-            </button>
+            </Button>
           ))}
         </div>
       )}

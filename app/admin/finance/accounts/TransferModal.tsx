@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { HiOutlineArrowRight } from 'react-icons/hi2'
 import type { Account, Category } from '@/types'
 
@@ -224,33 +225,21 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <button 
+                    <Button 
                         type="button" 
+                        variant="outline"
                         onClick={onClose}
-                        className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                         Batal
-                    </button>
-                    <button 
+                    </Button>
+                    <Button 
                         type="submit" 
-                        disabled={loading}
-                        className="px-6 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/30 flex items-center gap-2"
+                        loading={loading}
+                        className="flex items-center gap-2"
                     >
-                        {loading ? (
-                            <>
-                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Memproses...
-                            </>
-                        ) : (
-                            <>
-                                <HiOutlineArrowRight className="w-4 h-4" />
-                                Transfer Sekarang
-                            </>
-                        )}
-                    </button>
+                        <HiOutlineArrowRight className="w-4 h-4" />
+                        Transfer Sekarang
+                    </Button>
                 </div>
             </form>
         </div>

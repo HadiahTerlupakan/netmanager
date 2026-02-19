@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiPlus, HiTrash } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { usePermission } from '@/hooks/use-permission'
@@ -128,20 +129,19 @@ const ModalForm = ({
       </div>
 
       <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700 mt-2">
-          <button 
-              className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors font-medium" 
+          <Button 
+              variant="ghost"
               onClick={onClose}
           >
               Batal
-          </button>
-          <button 
-              className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" 
+          </Button>
+          <Button 
+              loading={loading}
               onClick={onSubmit} 
-              disabled={loading}
+              className="flex items-center gap-2"
           >
-              {loading && <span className="loading loading-spinner loading-sm"></span>}
               {isEdit ? 'Simpan Perubahan' : 'Simpan Kategori'}
-          </button>
+          </Button>
       </div>
   </div>
 )
@@ -386,18 +386,18 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
                                 <td className="px-6 py-4 text-right whitespace-nowrap">
                                     <div className="flex justify-end gap-2">
                                         {canUpdate && (
-                                            <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title="Edit">
+                                            <Button variant="ghost" size="icon-sm" onClick={() => openEdit(item)} title="Edit">
                                                 <span className="sr-only">Edit</span>
                                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
-                                            </button>
+                                            </Button>
                                         )}
                                         {canDelete && (
-                                            <button onClick={() => openDelete(item)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title="Hapus">
+                                            <Button variant="ghost" size="icon-sm" onClick={() => openDelete(item)} title="Hapus">
                                                 <span className="sr-only">Hapus</span>
                                                 <HiTrash className="w-5 h-5" />
-                                            </button>
+                                            </Button>
                                         )}
                                     </div>
                                 </td>

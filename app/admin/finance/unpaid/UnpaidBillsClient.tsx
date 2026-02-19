@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiOutlineBanknotes, HiMagnifyingGlass } from 'react-icons/hi2'
 import clsx from 'clsx'
+import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
@@ -221,13 +222,14 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                                 </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button 
+                                <Button 
+                                    variant="link"
+                                    size="sm"
                                     onClick={() => openPaymentModal(po)}
                                     disabled={remaining <= 100}
-                                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                                 >
                                     Bayar
-                                </button>
+                                </Button>
                             </td>
                         </tr>
                         )
@@ -342,20 +344,19 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
               </div>
 
               <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700 mt-2">
-                 <button 
-                    className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors font-medium" 
+                 <Button 
+                    variant="ghost"
                     onClick={() => setSelectedPo(null)}
                 >
                     Batal
-                </button>
-                 <button 
-                    className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" 
+                </Button>
+                 <Button 
+                    loading={loading}
                     onClick={handlePay}
-                    disabled={loading}
+                    className="flex items-center gap-2"
                 >
-                    {loading && <span className="loading loading-spinner loading-sm"></span>}
                     Konfirmasi Pembayaran
-                </button>
+                </Button>
               </div>
             </div>
           )}

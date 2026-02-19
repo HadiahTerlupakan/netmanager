@@ -15,6 +15,7 @@ import {
 } from 'react-icons/hi2'
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { Button } from '@/components/ui/Button'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 interface Ticket {
@@ -201,13 +202,13 @@ export default function SupportContext() {
                         Kelola tiket dukungan dari pelanggan
                     </p>
                 </div>
-                <button
+                <Button
                     onClick={loadTickets}
-                    className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                    
                 >
                     <HiOutlineArrowPath className="w-4 h-4" />
                     Refresh
-                </button>
+                </Button>
             </div>
 
             {/* Stats Cards */}
@@ -439,20 +440,20 @@ export default function SupportContext() {
                             Halaman {page} dari {totalPages}
                         </div>
                         <div className="flex items-center gap-2">
-                            <button
+                            <Button
                                 onClick={() => setPage(Math.max(1, page - 1))}
                                 disabled={page === 1}
                                 className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <HiChevronLeft className="w-4 h-4" />
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                                 disabled={page === totalPages}
                                 className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <HiChevronRight className="w-4 h-4" />
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}

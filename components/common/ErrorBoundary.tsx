@@ -2,6 +2,7 @@
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react'
 import { HiExclamationTriangle, HiArrowPath, HiHome } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -109,22 +110,23 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <button
+                <Button
                   onClick={this.handleReset}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                  className="flex-1"
                 >
                   <HiArrowPath className="w-5 h-5" />
                   Coba Lagi
-                </button>
+                </Button>
 
                 {this.props.showHomeButton !== false && (
-                  <button
+                  <Button
                     onClick={this.handleGoHome}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                    variant="secondary"
+                    className="flex-1"
                   >
                     <HiHome className="w-5 h-5" />
                     Kembali ke Dashboard
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

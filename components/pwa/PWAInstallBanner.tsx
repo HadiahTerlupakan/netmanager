@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePWA } from '@/lib/hooks/usePWA'
+import { Button } from '@/components/ui/Button'
 import { HiOutlineArrowDownTray, HiOutlineShare, HiOutlinePlusCircle, HiXMark } from 'react-icons/hi2'
 
 export function PWAInstallBanner() {
@@ -53,12 +54,14 @@ export function PWAInstallBanner() {
     if (isIOS) {
         return (
             <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
-                <button
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={handleDismiss}
-                    className="absolute top-2 right-2 p-1 text-white/70 hover:text-white"
+                    className="absolute top-2 right-2 text-white/70 hover:text-white"
                 >
                     <HiXMark className="w-5 h-5" />
-                </button>
+                </Button>
                 <div className="flex items-start gap-4">
                     <div className="shrink-0 p-2 bg-white/20 rounded-lg">
                         <HiOutlineArrowDownTray className="w-6 h-6" />
@@ -70,12 +73,14 @@ export function PWAInstallBanner() {
                                 <p className="text-sm text-indigo-100 mb-3">
                                     Tambahkan ke Home Screen untuk akses cepat
                                 </p>
-                                <button
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => setShowIOSInstructions(true)}
-                                    className="px-4 py-2 bg-white text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors"
+                                    className="bg-white text-indigo-600 border-0 hover:bg-indigo-50"
                                 >
                                     Cara Install
-                                </button>
+                                </Button>
                             </>
                         ) : (
                             <div className="text-sm space-y-2 text-indigo-100">
@@ -104,12 +109,14 @@ export function PWAInstallBanner() {
 
     return (
         <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
-            <button
+            <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={handleDismiss}
-                className="absolute top-2 right-2 p-1 text-white/70 hover:text-white"
+                className="absolute top-2 right-2 text-white/70 hover:text-white"
             >
                 <HiXMark className="w-5 h-5" />
-            </button>
+            </Button>
             <div className="flex items-start gap-4">
                 <div className="shrink-0 p-2 bg-white/20 rounded-lg">
                     <HiOutlineArrowDownTray className="w-6 h-6" />
@@ -120,18 +127,22 @@ export function PWAInstallBanner() {
                         Akses cepat dari home screen
                     </p>
                     <div className="flex gap-2">
-                        <button
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={handleInstall}
-                            className="px-4 py-2 bg-white text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors"
+                            className="bg-white text-indigo-600 border-0 hover:bg-indigo-50"
                         >
                             Install
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={handleDismiss}
-                            className="px-4 py-2 bg-white/20 text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                            className="bg-white/20 text-white hover:bg-white/30"
                         >
                             Nanti
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

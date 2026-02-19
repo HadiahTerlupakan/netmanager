@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 import {
@@ -270,12 +271,12 @@ export default function CustomerSupportPage() {
                     <h3 className="text-lg font-bold mb-4">Hubungi Kami</h3>
                     <div className="grid grid-cols-2 gap-3">
                         {/* Chat */}
-                        <button className="col-span-1 flex flex-col items-center justify-center gap-3 rounded-2xl bg-white dark:bg-[#1c2333] p-6 shadow-sm ring-1 ring-slate-200 dark:ring-white/5 transition-all active:scale-95 hover:ring-[#0d9488]/50 group">
+                        <Button variant="ghost" className="col-span-1 flex flex-col items-center justify-center gap-3 h-auto shadow-sm ring-1 ring-slate-200 dark:ring-white/5 hover:ring-[#0d9488]/50 group">
                             <div className="rounded-full bg-blue-500/10 p-3 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
                                 <MdChat className="text-[28px]" />
                             </div>
                             <span className="text-sm font-bold text-slate-900 dark:text-white">Live Chat</span>
-                        </button>
+                        </Button>
                         {/* Email */}
                         <a href="mailto:support@netmanager.id" className="col-span-1 flex flex-col items-center justify-center gap-3 rounded-2xl bg-white dark:bg-[#1c2333] p-6 shadow-sm ring-1 ring-slate-200 dark:ring-white/5 transition-all active:scale-95 hover:ring-[#0d9488]/50 group">
                             <div className="rounded-full bg-purple-500/10 p-3 text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition-colors">
@@ -297,13 +298,13 @@ export default function CustomerSupportPage() {
                             <MdChevronRight className="text-slate-400 text-2xl pr-2" />
                         </a>
                         {/* Create Ticket Button */}
-                        <button
+                        <Button
                             onClick={() => setShowCreateModal(true)}
-                            className="col-span-2 mt-2 flex items-center justify-center gap-2 rounded-2xl bg-[#0d9488] py-4 text-white shadow-lg shadow-[#0d9488]/30 transition-all hover:bg-teal-600 active:scale-[0.98]"
+                            className="col-span-2 mt-2"
                         >
                             <MdEditSquare className="text-xl" />
                             <span className="text-base font-bold">Buat Tiket Baru</span>
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -313,9 +314,9 @@ export default function CustomerSupportPage() {
                         <div className="w-full max-w-sm bg-white dark:bg-[#1c2333] rounded-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
                             <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Buat Tiket Baru</h3>
-                                <button onClick={() => setShowCreateModal(false)} className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+                                <Button variant="ghost" size="icon" onClick={() => setShowCreateModal(false)}>
                                     <MdClose className="text-2xl text-gray-500" />
-                                </button>
+                                </Button>
                             </div>
 
                             <div className="p-5 overflow-y-auto">
@@ -369,13 +370,14 @@ export default function CustomerSupportPage() {
                                             ></textarea>
                                         </div>
 
-                                        <button
+                                        <Button
                                             onClick={handleSubmit}
                                             disabled={submitting}
-                                            className="w-full py-3.5 bg-[#0d9488] hover:bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-900/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            loading={submitting}
+                                            className="w-full"
                                         >
-                                            {submitting ? 'Mengirim...' : 'Kirim Tiket'}
-                                        </button>
+                                            Kirim Tiket
+                                        </Button>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center text-center py-6">
@@ -387,15 +389,16 @@ export default function CustomerSupportPage() {
                                             Nomor Tiket: <span className="font-mono font-bold text-slate-900 dark:text-white">{ticketNumber}</span>
                                             <br />Tim kami akan segera memproses laporan Anda.
                                         </p>
-                                        <button
+                                        <Button
+                                            variant="secondary"
                                             onClick={() => {
                                                 setSuccess(false)
                                                 setShowCreateModal(false)
                                             }}
-                                            className="w-full py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-slate-900 dark:text-white rounded-xl font-bold transition-all"
+                                            className="w-full"
                                         >
                                             Tutup
-                                        </button>
+                                        </Button>
                                     </div>
                                 )}
                             </div>

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { FaCamera, FaCheck, FaSignOutAlt, FaMapMarkerAlt, FaSpinner } from 'react-icons/fa'
 import { AttendanceStatusIndicator } from './AttendanceStatusIndicator'
 import { GeofenceStatusBadge } from './GeofenceStatusBadge'
+import { Button } from '@/components/ui/Button'
 
 export default function AttendanceCard() {
     const [loading, setLoading] = useState(false)
@@ -236,12 +237,12 @@ export default function AttendanceCard() {
                         {showCamera && (
                             <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
                                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                                <button
+                                <Button variant="secondary"
                                     onClick={capturePhoto}
-                                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white text-black rounded-full p-4 shadow-lg hover:bg-gray-100 transition"
+                                     className="absolute bottom-4 left-1/2"
                                 >
                                     <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                                </button>
+                                </Button>
                             </div>
                         )}
 
@@ -251,32 +252,32 @@ export default function AttendanceCard() {
                         {photo && !showCamera && (
                             <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
                                 <Image src={photo} alt="Selfie Preview" fill className="object-cover" />
-                                <button
+                                <Button
                                     onClick={() => setPhoto(null)}
                                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full text-xs"
                                 >
                                     Ulang
-                                </button>
+                                </Button>
                             </div>
                         )}
 
                         {/* Controls */}
                         {!showCamera && !photo && (
-                            <button
+                            <Button
                                 onClick={startCamera}
-                                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition"
+                                 className="w-full"
                             >
                                 <FaCamera /> Ambil Foto Selfie
-                            </button>
+                            </Button>
                         )}
 
                         <div className="flex gap-2">
-                            <button
+                            <Button variant="secondary"
                                 onClick={getLocation}
-                                className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded flex items-center justify-center gap-2 text-sm transition"
+                                 className="flex-1"
                             >
                                 <FaMapMarkerAlt /> {location ? 'Lokasi Tersimpan' : 'Ambil Lokasi'}
-                            </button>
+                            </Button>
                         </div>
 
                         <textarea
@@ -287,15 +288,10 @@ export default function AttendanceCard() {
                             rows={2}
                         />
 
-                        <button
+                        <Button variant="success"
                             onClick={handleSubmit}
                             disabled={loading || !photo}
-                            className={`w-full py-3 rounded-lg font-bold text-white transition ${loading || !photo
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : status === 'idle'
-                                        ? 'bg-green-600 hover:bg-green-700'
-                                        : 'bg-orange-600 hover:bg-orange-700'
-                                }`}
+                             className={`w-full ${loading || !photo ? ' cursor-not-allowed' : status === 'idle' ? ' ' : ' ' }`}
                         >
                             {loading ? (
                                 <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Memproses...</span>
@@ -304,7 +300,7 @@ export default function AttendanceCard() {
                             ) : (
                                 <span className="flex items-center justify-center gap-2"><FaSignOutAlt /> Check Out</span>
                             )}
-                        </button>
+                        </Button>
 
                         {!photo && (
                             <p className="text-xs text-center text-red-500">* Foto selfie wajib diisi</p>

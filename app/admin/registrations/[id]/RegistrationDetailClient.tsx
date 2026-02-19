@@ -20,6 +20,7 @@ import {
     MdConstruction,
     MdInstallDesktop
 } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 interface Registration {
@@ -305,7 +306,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                                 {actions.map((action) => {
                                     const ActionIcon = action.icon
                                     return (
-                                        <button
+                                        <Button
                                             key={action.status}
                                             onClick={() => {
                                                 if (action.needsReason) {
@@ -319,7 +320,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                                         >
                                             <ActionIcon className="text-lg" />
                                             {action.label}
-                                        </button>
+                                        </Button>
                                     )
                                 })}
                             </div>
@@ -381,7 +382,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                         />
                 </div>
                 <ModalFooter>
-                            <button
+                            <Button
                                 onClick={() => {
                                     setShowRejectModal(false)
                                     setRejectionReason('')
@@ -389,14 +390,14 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                                 className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                             >
                                 Batal
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => updateStatus('REJECTED', rejectionReason)}
                                 disabled={isSaving || !rejectionReason.trim()}
                                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
                             >
                                 {isSaving ? 'Menyimpan...' : 'Tolak'}
-                            </button>
+                            </Button>
                 </ModalFooter>
             </Modal>
         </div>

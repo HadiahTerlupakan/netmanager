@@ -16,6 +16,7 @@ import {
     MdRocketLaunch
 } from 'react-icons/md'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
 
 interface Invoice {
     id: string
@@ -238,10 +239,10 @@ export default function CustomerDashboardPage() {
                                 </div>
                                 <div className="pt-2">
                                     <Link href="/tagihan">
-                                        <button className="w-full bg-white text-[#0d9488] hover:bg-teal-50 font-bold py-3 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                                        <Button variant="outline" className="w-full">
                                             <span>{data.pendingInvoice ? 'Bayar Sekarang' : 'Lihat Riwayat'}</span>
                                             <MdArrowForward className="text-sm" />
-                                        </button>
+                                        </Button>
                                     </Link>
                                 </div>
                             </div>
@@ -253,7 +254,7 @@ export default function CustomerDashboardPage() {
                         <h3 className="text-[#111418] dark:text-white text-lg font-bold mb-3 px-1">Menu Cepat</h3>
                         <div className="grid grid-cols-2 gap-3">
                             <Link href="/paket">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 transition-colors group text-left">
+                                <Button variant="ghost" className="w-full flex flex-col gap-3 h-auto items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 group text-left">
                                     <div className="size-10 rounded-lg bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center text-[#0d9488] group-hover:scale-110 transition-transform">
                                         <MdDescription className="text-2xl" />
                                     </div>
@@ -261,11 +262,11 @@ export default function CustomerDashboardPage() {
                                         <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Detail Layanan</h2>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Info Paket</p>
                                     </div>
-                                </button>
+                                </Button>
                             </Link>
 
                             <Link href="/dukungan">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 transition-colors group text-left">
+                                <Button variant="ghost" className="w-full flex flex-col gap-3 h-auto items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 group text-left">
                                     <div className="size-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
                                         <MdSupportAgent className="text-2xl" />
                                     </div>
@@ -273,11 +274,11 @@ export default function CustomerDashboardPage() {
                                         <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Dukungan</h2>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bantuan Live</p>
                                     </div>
-                                </button>
+                                </Button>
                             </Link>
 
                             <Link href="/riwayat">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 transition-colors group text-left">
+                                <Button variant="ghost" className="w-full flex flex-col gap-3 h-auto items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 group text-left">
                                     <div className="size-10 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
                                         <MdHistory className="text-2xl" />
                                     </div>
@@ -285,11 +286,11 @@ export default function CustomerDashboardPage() {
                                         <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Riwayat</h2>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Transaksi</p>
                                     </div>
-                                </button>
+                                </Button>
                             </Link>
 
                             <Link href="/upgrade-paket">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 transition-colors group text-left">
+                                <Button variant="ghost" className="w-full flex flex-col gap-3 h-auto items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-[#0d9488]/50 group text-left">
                                     <div className="size-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
                                         <MdRocketLaunch className="text-2xl" />
                                     </div>
@@ -297,7 +298,7 @@ export default function CustomerDashboardPage() {
                                         <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Upgrade</h2>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tambah Kecepatan</p>
                                     </div>
-                                </button>
+                                </Button>
                             </Link>
                         </div>
                     </div>

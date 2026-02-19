@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBack,
     MdCalendarMonth,
@@ -50,13 +51,14 @@ export default function CustomerUpgradePackagePage() {
 
                 {/* Top App Bar */}
                 <div className="sticky top-0 z-50 flex items-center bg-white/90 dark:bg-[#101922]/90 backdrop-blur-md p-4 border-b border-gray-200 dark:border-gray-800 justify-between">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         type="button"
                         onClick={() => router.back()}
-                        className="flex w-10 h-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-900 dark:text-white"
                     >
                         <MdArrowBack className="text-2xl" />
-                    </button>
+                    </Button>
                     <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Upgrade Paket</h2>
                 </div>
 
@@ -245,10 +247,10 @@ export default function CustomerUpgradePackagePage() {
                                 <span className="font-black text-lg text-[#0d9488]">Rp 550rb<span className="text-xs text-gray-500 dark:text-gray-400 font-normal">/bln</span></span>
                             </div>
                         </div>
-                        <button className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-4 bg-[#0d9488] hover:bg-teal-600 text-white text-base font-bold leading-normal tracking-[0.015em] transition-colors shadow-lg shadow-teal-500/30">
+                        <Button className="w-full">
                             <span className="truncate">Lanjut Upgrade</span>
                             <MdArrowForward className="ml-2 text-sm" />
-                        </button>
+                        </Button>
                         <div className="flex justify-center items-center gap-1 text-[10px] text-gray-400">
                             <MdInfo className="text-[12px]" />
                             <a href="#" className="underline hover:text-gray-600">Syarat & Ketentuan Berlaku</a>

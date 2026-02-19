@@ -15,6 +15,7 @@ import {
     MdInstallDesktop,
     MdCancel
 } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface Registration {
@@ -253,12 +254,12 @@ export default function AdminRegistrationsPage() {
                         Verified: {statusCounts['VERIFIED'] || 0}
                     </p>
                 </div>
-                <button
+                <Button
                     onClick={fetchRegistrations}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors"
+                    
                 >
                     <MdRefresh /> Refresh
-                </button>
+                </Button>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 overflow-hidden">

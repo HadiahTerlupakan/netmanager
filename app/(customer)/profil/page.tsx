@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBack,
     MdEdit,
@@ -136,13 +137,14 @@ export default function CustomerProfilPage() {
 
                 {/* Top App Bar */}
                 <div className="sticky top-0 z-10 flex items-center bg-[#f6f7f8]/95 dark:bg-[#101922]/95 p-4 pb-2 justify-between backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         type="button"
                         onClick={() => router.back()}
-                        className="flex w-10 h-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-900 dark:text-white"
                     >
                         <MdArrowBack className="text-2xl" />
-                    </button>
+                    </Button>
                     <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">Pengaturan Akun</h2>
                 </div>
 
@@ -153,9 +155,9 @@ export default function CustomerProfilPage() {
                             className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-24 w-24 border-4 border-white dark:border-gray-700 shadow-md"
                             style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuC5CSzYuHLaqvmYa8lBplFGRvKgHiAtXRbTArIc14idsDgp7bVGWepxzP4MWldTWCMGUMCv1YjC0M4pClCyqMzAt4QaIsbXLm9m_a6LSIAoXSUlQtXb9tEUQTOMY-ifRod6e1UbS345BpgAo_j9q7tOJtzYHhu34j0uhdhuKx0TL_DS1axfgcAZfidBwMPPTF0K6L6Cmtqva9keLQahZbkSji_6M1B6PDJGeLvGkZzZTxsYp7OdM_k8HheOLRNSyXQZ8aNdnFU8Q_c")' }}
                         ></div>
-                        <button className="absolute bottom-0 right-0 bg-[#0d9488] text-white p-1.5 rounded-full shadow-lg border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                        <Button variant="ghost" size="icon-sm" className="absolute bottom-0 right-0 bg-[#0d9488] text-white shadow-lg border-2 border-white dark:border-gray-800">
                             <MdEdit className="text-[16px]" />
-                        </button>
+                        </Button>
                     </div>
                     <div className="flex flex-col items-center justify-center">
                         <p className="text-[#111418] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] text-center">{profile.nama}</p>
@@ -302,13 +304,14 @@ export default function CustomerProfilPage() {
 
                 {/* Footer Actions */}
                 <div className="px-4 mt-8 flex flex-col gap-4">
-                    <button
+                    <Button
+                        variant="outline"
                         onClick={handleLogout}
-                        className="w-full bg-white dark:bg-[#1e293b] text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 font-bold py-3.5 px-4 rounded-xl shadow-sm active:bg-red-50 dark:active:bg-red-900/10 transition-colors flex items-center justify-center gap-2"
+                        className="w-full border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400"
                     >
                         <MdLogout className="text-[20px]" />
                         Keluar Akun
-                    </button>
+                    </Button>
                     <p className="text-center text-xs text-gray-400 dark:text-gray-600 font-medium">Versi Aplikasi 2.4.0 (Build 302)</p>
                 </div>
                 <div className="h-10"></div>

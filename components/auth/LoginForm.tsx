@@ -5,8 +5,9 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { HiArrowPath, HiLockClosed } from 'react-icons/hi2'
+import { HiLockClosed } from 'react-icons/hi2'
 import { getAdminUrl, getSubdomainFromWindow } from '@/lib/utils/subdomain-client'
+import { Button } from '@/components/ui/Button'
 
 const schema = z.object({
   email: z.string().min(1, 'Email wajib diisi').email('Email tidak valid'),
@@ -192,23 +193,16 @@ export default function LoginForm() {
             <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">{errors.password.message}</p>
           )}
         </div>
-        <button
+        <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+          loading={isSubmitting}
+          size="lg"
+          className="w-full"
         >
-          {isSubmitting ? (
-            <>
-              <HiArrowPath className="w-4 h-4 animate-spin" />
-              Memproses...
-            </>
-          ) : (
-            <>
-              <HiLockClosed className="w-4 h-4" />
-              Masuk
-            </>
-          )}
-        </button>
+          <HiLockClosed className="w-4 h-4" />
+          Masuk
+        </Button>
       </form>
     </div>
   )

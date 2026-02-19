@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { MdCameraAlt, MdClose, MdImage } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 
 interface ImageUploadProps {
     images: File[]
@@ -96,13 +97,13 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
                                 alt={`Preview ${index + 1}`}
                                 className="w-full h-full object-cover"
                             />
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() => removeImage(index)}
                                 className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg"
                             >
                                 <MdClose className="text-sm" />
-                            </button>
+                            </Button>
                         </div>
                     ))}
                 </div>
@@ -111,22 +112,22 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
             {/* Upload Buttons */}
             {images.length < maxImages && (
                 <div className="flex gap-2">
-                    <button
+                    <Button variant="outline"
                         type="button"
                         onClick={openCamera}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                         className="flex-1"
                     >
                         <MdCameraAlt className="text-xl text-blue-600" />
                         <span className="text-sm font-medium">Kamera</span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="outline"
                         type="button"
                         onClick={openGallery}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                         className="flex-1"
                     >
                         <MdImage className="text-xl text-green-600" />
                         <span className="text-sm font-medium">Galeri</span>
-                    </button>
+                    </Button>
                 </div>
             )}
         </div>

@@ -14,6 +14,7 @@ import {
     MdOutlinePerson,
     MdPerson
 } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 
@@ -83,7 +84,7 @@ export default function KaryawanBottomNav() {
 
                     if (!isAllowed) {
                         return (
-                            <button
+                            <Button
                                 key={item.name}
                                 onClick={() => toast.error('Anda tidak memiliki akses ke menu ini.')}
                                 className="relative flex flex-col items-center justify-center flex-1 py-3 opacity-40 cursor-not-allowed group"
@@ -94,7 +95,7 @@ export default function KaryawanBottomNav() {
                                 <span className="mt-1 text-[11px] font-medium tracking-tight text-slate-400 dark:text-slate-500">
                                     {item.name}
                                 </span>
-                            </button>
+                            </Button>
                         )
                     }
 

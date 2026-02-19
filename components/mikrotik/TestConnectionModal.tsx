@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { HiArrowPath, HiCheck, HiXMark } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 type TestResult = {
@@ -148,12 +149,12 @@ export default function TestConnectionModal({ open, onClose, result, isLoading }
         )}
 
         <ModalFooter>
-          <button
+          <Button
             onClick={onClose}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+            
           >
             Tutup
-          </button>
+          </Button>
         </ModalFooter>
       </div>
     </Modal>

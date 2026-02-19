@@ -16,6 +16,7 @@ import {
     MdMail,
     MdPinDrop
 } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 
 export default function LandingPage() {
     const jsonLd = {
@@ -126,15 +127,15 @@ export default function LandingPage() {
                 <div className="px-6 -mt-10 relative z-20 mb-10">
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-blue-900/10 dark:shadow-black/30 p-2.5 flex flex-col sm:flex-row gap-2.5 border border-slate-100 dark:border-slate-700">
                         <Link href="/login" className="w-full">
-                            <button className="w-full bg-[#0d9488] hover:bg-teal-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-teal-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
+                            <Button className="w-full group">
                                 <span>Masuk ke Portal</span>
                                 <MdLogin className="text-sm group-hover:translate-x-1 transition-transform" />
-                            </button>
+                            </Button>
                         </Link>
                         <Link href="/register" className="w-full">
-                            <button className="w-full bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3.5 px-4 rounded-xl border border-slate-200 dark:border-slate-600 transition-all active:scale-[0.98] text-sm">
+                            <Button variant="outline" className="w-full">
                                 Daftar Baru
-                            </button>
+                            </Button>
                         </Link>
                     </div>
                 </div>

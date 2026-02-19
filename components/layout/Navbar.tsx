@@ -1,21 +1,36 @@
 "use client"
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
 import { HiBars3, HiMagnifyingGlass, HiOutlineCog6Tooth, HiOutlineUser, HiArrowRightOnRectangle } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { WorkOrderBell } from '@/components/notifications/WorkOrderBell'
 import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell'
 import { CustomerSupportBell } from '@/components/notifications/CustomerSupportBell'
 import { useClickOutside } from '@/hooks/useClickOutside'
+import CommandPalette from '@/components/layout/CommandPalette'
 
 export default function Navbar() {
   const { data: session } = useSession()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
   const closeProfile = useCallback(() => setIsProfileOpen(false), [])
   useClickOutside(profileRef, closeProfile)
+
+  // Cmd+K / Ctrl+K keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsCommandPaletteOpen(prev => !prev)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   return (
     <header className="h-16 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30 transition-colors duration-300">
@@ -23,7 +38,7 @@ export default function Navbar() {
 
         {/* Left: Mobile Toggle */}
         <div className="flex items-center shrink-0 md:hidden">
-          <button
+          <Button
             onClick={() => {
               const win = window as Window & {
                 toggleAdminSidebar?: () => void;
@@ -36,25 +51,27 @@ export default function Navbar() {
             aria-label="Toggle Menu"
           >
             <HiBars3 className="w-6 h-6" />
+          </Button>
+        </div>
+
+        {/* Center: Search Bar (triggers Command Palette) */}
+        <div className="flex-1 max-w-2xl flex items-center">
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="relative w-full max-w-md group flex items-center gap-2 pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-full leading-5 bg-gray-50 dark:bg-gray-900 text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-white dark:hover:bg-gray-950 transition-all duration-200 sm:text-sm text-left cursor-pointer"
+          >
+            <HiMagnifyingGlass className="absolute left-3 h-5 w-5 text-gray-400" />
+            <span>Search resources...</span>
+            <span className="ml-auto text-gray-400 text-xs border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5 hidden sm:block">⌘K</span>
           </button>
         </div>
 
-        {/* Center: Search Bar */}
-        <div className="flex-1 max-w-2xl flex items-center">
-          <div className="relative w-full max-w-md group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <HiMagnifyingGlass className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search resources..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-full leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:bg-white dark:focus:bg-gray-950 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 sm:text-sm"
-            />
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <span className="text-gray-400 text-xs border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5 hidden sm:block">⌘K</span>
-            </div>
-          </div>
-        </div>
+        {/* Command Palette */}
+        <CommandPalette
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
+        />
 
         {/* Right: Actions & Profile */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
@@ -69,9 +86,9 @@ export default function Navbar() {
           <AdminNotificationBell />
 
           {/* Settings (Optional Utility) */}
-          <button className="hidden sm:block p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-full transition-all duration-200">
+          <Button variant="ghost" >
             <HiOutlineCog6Tooth className="w-6 h-6" />
-          </button>
+          </Button>
 
           {/* Separator */}
           <div className="h-8 w-px bg-gray-100 dark:bg-gray-800 hidden sm:block"></div>
@@ -79,7 +96,7 @@ export default function Navbar() {
           {/* User Profile Card */}
           {session?.user && (
             <div className="relative" ref={profileRef}>
-              <button
+              <Button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="hidden sm:flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
@@ -106,7 +123,7 @@ export default function Navbar() {
                     {(session.user as { departmentName?: string; role?: string }).departmentName || ((session.user as { role?: string }).role || '').replace(/_/g, ' ')}
                   </span>
                 </div>
-              </button>
+              </Button>
 
               {/* Dropdown Menu */}
               {isProfileOpen && (
@@ -133,13 +150,13 @@ export default function Navbar() {
 
                   <div className="my-1 border-t border-gray-100 dark:border-gray-700"></div>
 
-                  <button
+                  <Button
                     onClick={() => signOut()}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left"
                   >
                     <HiArrowRightOnRectangle className="w-4 h-4" />
                     Keluar Aplikasi
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

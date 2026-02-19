@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from '@/components/ui/Button';
 
 interface AnnouncementFormProps {
     initialData?: {
@@ -185,13 +186,13 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
                     <Link href="/admin/announcement" className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
                         Cancel
                     </Link>
-                    <button
+                    <Button
                         type="submit"
                         disabled={saving}
-                        className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 border border-transparent rounded-md text-sm font-medium text-white hover:bg-indigo-700 dark:hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                        loading={saving}
                     >
-                        <span className="text-white">{saving ? 'Saving...' : 'Save Announcement'}</span>
-                    </button>
+                        Save Announcement
+                    </Button>
                 </div>
             </div>
         </form>

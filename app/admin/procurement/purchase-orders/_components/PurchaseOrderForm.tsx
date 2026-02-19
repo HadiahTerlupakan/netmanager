@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiPlus, HiTrash, HiSave, HiArrowLeft } from 'react-icons/hi'
 import { HiOutlineTag } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { Combobox } from '@/components/ui/Combobox'
 import type { ComboboxOption } from '@/components/ui/Combobox'
 import toast from 'react-hot-toast'
@@ -322,13 +323,13 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
             {/* Toolbar Action Bar - Outside the Document */}
             <div className="max-w-5xl mx-auto mb-6 flex justify-between items-center sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur py-2">
                 <div className="flex items-center gap-4">
-                    <button 
+                    <Button 
                         onClick={() => router.back()}
                         className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
                         title="Kembali"
                     >
                         <HiArrowLeft className="w-6 h-6" />
-                    </button>
+                    </Button>
                     <div>
                             <h1 className="text-xl font-bold text-gray-800 dark:text-white">
                                 {isReadOnly ? 'Detail Purchase Order' : isEdit ? 'Edit Purchase Order' : 'Purchase Order Baru'}
@@ -340,14 +341,14 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                 </div>
                 <div className="flex gap-3">
                     {!isReadOnly && (
-                        <button
+                        <Button
                             onClick={handleSubmit}
                             disabled={loading || disabled}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-50 disabled:shadow-none"
+                            
                         >
                             <HiSave className="w-5 h-5" />
                             {loading ? 'Menyimpan...' : 'Simpan PO'}
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -416,12 +417,12 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                         <div className="flex justify-between items-end mb-4">
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Order Details</h3>
                             {!isReadOnly && (
-                                <button
+                                <Button variant="ghost" size="sm"
                                     onClick={handleAddItem}
-                                    className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-md hover:bg-indigo-100 transition-colors"
+                                    
                                 >
                                     <HiPlus className="w-4 h-4" /> Add Item
-                                </button>
+                                </Button>
                             )}
                         </div>
                         
@@ -490,13 +491,13 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                                                             className="w-full text-right pl-2 pr-8 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
                                                         />
                                                         {item.barangId && (
-                                                            <button 
+                                                            <Button 
                                                                 onClick={() => openMarketPriceModal(index)}
                                                                 className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                                                                 title="Cek Harga Pasar"
                                                             >
                                                                 <HiOutlineTag className="w-4 h-4" />
-                                                            </button>
+                                                            </Button>
                                                         )}
                                                     </div>
                                                 ) : (
@@ -510,12 +511,12 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                                             </td>
                                             <td className="px-2 py-2 text-center align-middle">
                                                 {!isReadOnly && (
-                                                    <button
+                                                    <Button
                                                         onClick={() => handleRemoveItem(index)}
                                                         className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-all"
                                                     >
                                                         <HiTrash className="w-4 h-4" />
-                                                    </button>
+                                                    </Button>
                                                 )}
                                             </td>
                                         </tr>

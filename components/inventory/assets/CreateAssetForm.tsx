@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FiSave, FiArrowLeft } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 
 // Default useful life in months based on category
 const USEFUL_LIFE_MAP: Record<string, number> = {
@@ -247,21 +248,21 @@ export function CreateAssetForm() {
                 </div>
 
                 <div className="mt-8 flex justify-end gap-4">
-                    <button
+                    <Button
                         type="button"
                         onClick={() => router.back()}
                         className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 flex items-center"
                         disabled={loading}
                     >
                         <FiArrowLeft className="mr-2" /> Batal
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="submit"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+                        
                         disabled={loading}
                     >
                         {loading ? 'Menyimpan...' : <><FiSave className="mr-2" /> Simpan Aset</>}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </form>

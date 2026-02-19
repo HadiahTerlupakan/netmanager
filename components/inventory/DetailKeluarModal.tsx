@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiZoomIn } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
 import { getKondisiBadge, formatInventoryDate } from '@/lib/utils/inventory-helpers'
@@ -268,14 +269,14 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
       </div>
 
       <ModalFooter>
-        <button
+        <Button variant="secondary"
           onClick={onClose}
-          className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 rounded-lg transition-colors"
+          
         >
           Tutup
-        </button>
+        </Button>
         {onEdit && (
-          <button
+          <Button
             onClick={() => {
               onEdit(keluar)
               onClose()
@@ -284,7 +285,7 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
           >
             <FiEdit3 className="h-4 w-4 mr-2" />
             Edit
-          </button>
+          </Button>
         )}
       </ModalFooter>
     </Modal >

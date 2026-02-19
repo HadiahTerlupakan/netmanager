@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
     HiOutlineArrowLeft,
@@ -115,9 +116,9 @@ export default function SalaryUserDetailClient() {
         return (
             <div className="p-8 text-center text-gray-500">
                 <p>Data karyawan tidak ditemukan</p>
-                <button onClick={() => router.back()} className="text-indigo-600 mt-4 hover:underline">
+                <Button onClick={() => router.back()} className="text-indigo-600 mt-4 hover:underline">
                     Kembali
-                </button>
+                </Button>
             </div>
         )
     }
@@ -130,12 +131,12 @@ export default function SalaryUserDetailClient() {
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <button 
+                <Button 
                     onClick={() => router.back()}
                     className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors"
                 >
                     <HiOutlineArrowLeft className="w-5 h-5" />
-                </button>
+                </Button>
                 <div>
                     <h1 className="text-xl font-bold text-gray-900 dark:text-white">Detail Penggajian</h1>
                     <p className="text-sm text-gray-500">Konfigurasi gaji dan riwayat slip</p>

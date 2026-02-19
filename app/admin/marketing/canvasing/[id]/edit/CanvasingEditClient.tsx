@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiOutlineChevronLeft, HiOutlineCheck } from 'react-icons/hi2';
+import { Button } from '@/components/ui/Button'
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import PageLoader from '@/components/ui/PageLoader';
@@ -77,12 +78,13 @@ export default function CanvasingEditClient({ id }: { id: string }) {
     return (
         <div className="p-6">
             <div className="flex items-center gap-4 mb-8">
-                <button 
+                <Button 
+                    variant="ghost"
+                    size="icon"
                     onClick={() => router.back()}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
                     <HiOutlineChevronLeft className="w-6 h-6" />
-                </button>
+                </Button>
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Edit Canvasing</h1>
                     <p className="text-gray-500">Perbarui data canvasing calon pelanggan</p>
@@ -185,21 +187,20 @@ export default function CanvasingEditClient({ id }: { id: string }) {
                 </div>
 
                 <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-end gap-4">
-                    <button
+                    <Button
                         type="button"
+                        variant="ghost"
                         onClick={() => router.back()}
-                        className="px-6 py-2 text-gray-600 font-semibold hover:bg-gray-200 rounded-lg transition-all"
                     >
                         Batal
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="submit"
-                        disabled={isProcessing}
-                        className="px-8 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+                        loading={isProcessing}
                     >
                         <HiOutlineCheck className="w-5 h-5" />
                         Simpan Perubahan
-                    </button>
+                    </Button>
                 </div>
             </form>
         </div>

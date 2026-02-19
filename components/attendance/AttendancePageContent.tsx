@@ -15,6 +15,7 @@ import {
     MdClose,
     MdAnalytics
 } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import { format } from 'date-fns'
@@ -466,7 +467,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     {/* Header */}
                     <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-linear-to-b from-black/50 to-transparent">
                         <h3 className="text-white font-medium">Ambil Foto Selfie</h3>
-                        <button
+                        <Button
                             onClick={() => {
                                 setShowCamera(false)
                                 stopCamera()
@@ -474,7 +475,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             className="p-2 rounded-full bg-white/20 text-white backdrop-blur-sm"
                         >
                             <MdClose size={24} />
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Camera/Preview Area */}
@@ -496,12 +497,12 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     {/* Controls */}
                     <div className="absolute bottom-0 left-0 right-0 p-8 pb-12 bg-linear-to-t from-black/80 to-transparent flex flex-col items-center gap-6">
                         {/* Capture Button */}
-                        <button
+                        <Button
                             onClick={capturePhoto}
-                            className="p-1 rounded-full border-4 border-white transition-transform active:scale-95"
+                            
                         >
                             <div className="size-16 rounded-full bg-white border-4 border-black" />
-                        </button>
+                        </Button>
                         <p className="text-white/80 text-sm">Pastikan wajah terlihat jelas</p>
                     </div>
                 </div>
@@ -517,9 +518,9 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                 <div className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-2xl">
                     <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
                         <h3 className="font-bold text-gray-900 dark:text-white">Preview Selfie</h3>
-                        <button onClick={() => setPhoto(null)} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        <Button onClick={() => setPhoto(null)} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                             <MdClose size={24} />
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="relative aspect-3/4 bg-gray-100 dark:bg-gray-900">
@@ -532,7 +533,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     </div>
 
                     <div className="p-6 flex justify-center gap-4 bg-white dark:bg-gray-800">
-                        <button
+                        <Button
                             onClick={() => {
                                 setPhoto(null)
                                 startCamera()
@@ -540,8 +541,8 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             className="flex items-center gap-2 px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         >
                             <MdRefresh className="text-xl" /> Ulang
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={() => {
                                 handleAttendance();
                             }}
@@ -549,7 +550,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 shadow-blue-600/30 hover:bg-blue-700"
                         >
                             {loading ? 'Menyimpan...' : (status === 'checked-in' ? 'Absen Keluar' : 'Absen Masuk')}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -698,28 +699,22 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
 
                         {/* Action Buttons */}
                         <div className="grid grid-cols-2 gap-3">
-                            <button
+                            <Button
                                 onClick={status === 'idle' && !holidayInfo?.isNational ? startCamera : undefined}
                                 disabled={status !== 'idle' || !!holidayInfo?.isNational}
-                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold border ${status === 'idle' && !holidayInfo?.isNational
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-all border-transparent'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-transparent'
-                                    }`}
+                                 className={`h-12 flex items-center justify-center border ${status === 'idle' && !holidayInfo?.isNational ? ' active:scale-95 ' : ' cursor-not-allowed ' }`}
                             >
                                 <MdFingerprint className="text-[20px]" />
                                 <span>Absen Masuk</span>
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="destructive"
                                 onClick={status === 'checked-in' && !holidayInfo?.isNational ? startCamera : undefined}
                                 disabled={status !== 'checked-in' || !!holidayInfo?.isNational}
-                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold shadow-lg active:scale-95 transition-all ${status === 'checked-in' && !holidayInfo?.isNational
-                                    ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white shadow-red-500/20'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-transparent box-shadow-none'
-                                    }`}
+                                 className={`h-12 flex items-center justify-center active:scale-95 ${status === 'checked-in' && !holidayInfo?.isNational ? ' ' : ' cursor-not-allowed border box-' }`}
                             >
                                 <MdLogout className="text-[20px]" />
                                 <span>Absen Keluar</span>
-                            </button>
+                            </Button>
                         </div>
 
                         <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-4 font-medium">Pastikan anda berada di area kantor sebelum absen.</p>
@@ -733,7 +728,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             {showAnalytics ? 'Analisis Kehadiran' : 'Riwayat Absensi'}
                         </h3>
                         <div className="flex gap-2">
-                            <button
+                            <Button
                                 onClick={() => setShowAnalytics(!showAnalytics)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
                                     showAnalytics
@@ -743,7 +738,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             >
                                 <MdAnalytics className="text-sm" />
                                 <span className="text-xs font-bold">{showAnalytics ? 'Riwayat' : 'Analisis'}</span>
-                            </button>
+                            </Button>
                         </div>
                     </div>
 

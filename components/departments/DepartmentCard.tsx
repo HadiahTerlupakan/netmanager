@@ -6,6 +6,7 @@ import {
     HiOutlinePencil,
     HiOutlineTrash,
 } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 interface Department {
     id: string
@@ -66,20 +67,20 @@ export default function DepartmentCard({
 
             {/* Actions */}
             <div className="px-5 pb-5 pt-2 flex items-center gap-2 border-t border-gray-100 dark:border-gray-700/50">
-                <button
+                <Button
                     onClick={() => onEdit(department)}
                     className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <HiOutlinePencil className="w-4 h-4" />
                     Edit
-                </button>
-                <button
+                </Button>
+                <Button
                     onClick={() => onDelete(department.id, department.name)}
                     className="inline-flex items-center justify-center p-2.5 border border-red-200 dark:border-red-800/50 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     title="Delete Department"
                 >
                     <HiOutlineTrash className="w-4 h-4" />
-                </button>
+                </Button>
             </div>
         </div>
     )

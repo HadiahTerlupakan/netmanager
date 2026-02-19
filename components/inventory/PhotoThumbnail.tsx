@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { HiEye, HiTrash, HiPhoto } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 interface Photo {
   id: string
@@ -103,30 +104,23 @@ export function PhotoThumbnail({
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-2">
               {/* View Button */}
-              <button
-                className="p-2 bg-white dark:bg-gray-800 rounded-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              <Button
+                
                 title="Lihat foto"
               >
                 <HiEye className="w-4 h-4" />
-              </button>
+              </Button>
 
               {/* Delete Button */}
               {showDeleteButton && onDelete && (
-                <button
+                <Button variant="destructive"
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className={`
-                    p-2 rounded-full transition-colors
-                    ${showDeleteConfirm
-                      ? 'bg-red-500 text-white hover:bg-red-600'
-                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400'
-                    }
-                    ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}
-                  `}
+                   className={`${showDeleteConfirm ? ' ' : ' ' } ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title={showDeleteConfirm ? 'Konfirmasi hapus' : 'Hapus foto'}
                 >
                   <HiTrash className="w-4 h-4" />
-                </button>
+                </Button>
               )}
             </div>
           </div>

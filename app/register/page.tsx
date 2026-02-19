@@ -14,6 +14,7 @@ import {
     MdMap
 } from 'react-icons/md'
 import SearchableDropdown from '@/components/common/SearchableDropdown'
+import { Button } from '@/components/ui/Button'
 
 // Extend window interface for Turnstile
 declare global {
@@ -191,9 +192,9 @@ export default function RegistrationPage() {
                         Terima kasih telah mendaftar. Tim kami akan segera menghubungi Anda melalui WhatsApp/Email untuk verifikasi data dan jadwal survei lokasi.
                     </p>
                     <Link href="/">
-                        <button className="w-full bg-[#0f62fe] hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/30">
+                        <Button size="lg" className="w-full">
                             Kembali ke Beranda
-                        </button>
+                        </Button>
                     </Link>
                 </div>
             </div>
@@ -352,20 +353,15 @@ export default function RegistrationPage() {
                             </div>
                         )}
 
-                        <button
+                        <Button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full bg-[#0f62fe] hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-8 flex items-center justify-center gap-2"
+                            loading={isLoading}
+                            size="lg"
+                            className="w-full mt-8"
                         >
-                            {isLoading ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Memproses...
-                                </>
-                            ) : (
-                                'Kirim Pendaftaran'
-                            )}
-                        </button>
+                            Kirim Pendaftaran
+                        </Button>
                     </form>
                 </main>
             </div>

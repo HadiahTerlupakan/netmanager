@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Button } from '@/components/ui/Button'
 import { useToast } from '@/hooks/use-toast'
 import { HiOutlineUser, HiOutlineCamera, HiOutlineLockClosed, HiOutlineEnvelope, HiOutlinePhone, HiOutlineBuildingOffice, HiOutlineMapPin, HiOutlineClock } from 'react-icons/hi2'
 import { HiSave } from 'react-icons/hi'
@@ -240,7 +241,7 @@ export default function MyProfileClient() {
                                     </span>
                                 )}
                             </div>
-                            <button
+                            <Button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={uploadingPhoto}
                                 className="absolute bottom-0 right-0 bg-white dark:bg-gray-600 rounded-full p-2 shadow-lg hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors ring-2 ring-blue-600"
@@ -251,7 +252,7 @@ export default function MyProfileClient() {
                                 ) : (
                                     <HiOutlineCamera className="w-4 h-4 text-gray-600 dark:text-gray-200" />
                                 )}
-                            </button>
+                            </Button>
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -300,15 +301,15 @@ export default function MyProfileClient() {
                                 />
                             </div>
                             <div className="flex gap-3 pt-4 border-t dark:border-gray-700">
-                                <button
+                                <Button
                                     onClick={handleSave}
                                     disabled={saving || retryCountdown !== null}
-                                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                                    
                                 >
                                     <HiSave className="w-4 h-4" />
                                     {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     onClick={() => {
                                         setEditMode(false)
                                         setEditErrors({})
@@ -318,7 +319,7 @@ export default function MyProfileClient() {
                                     className="px-6 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium"
                                 >
                                     Batal
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ) : (
@@ -362,20 +363,20 @@ export default function MyProfileClient() {
                 {/* Action Buttons */}
                 {!editMode && (
                     <div className="px-6 pb-6 pt-4 border-t dark:border-gray-700 flex flex-col sm:flex-row gap-3">
-                        <button
+                        <Button
                             onClick={() => setEditMode(true)}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors font-semibold"
                         >
                             <HiOutlineUser className="w-5 h-5" />
                             Lengkapi Profil
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={() => setShowPasswordModal(true)}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors font-semibold border border-gray-200 dark:border-gray-600"
                         >
                             <HiOutlineLockClosed className="w-5 h-5" />
                             Ganti Password
-                        </button>
+                        </Button>
                     </div>
                 )}
             </div>
@@ -436,7 +437,7 @@ export default function MyProfileClient() {
                             </div>
                 </div>
                 <ModalFooter>
-                            <button
+                            <Button
                                 onClick={() => {
                                     setShowPasswordModal(false)
                                     setCurrentPassword('')
@@ -447,14 +448,14 @@ export default function MyProfileClient() {
                                 className="flex-1 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg font-medium"
                             >
                                 Batal
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={handleChangePassword}
                                 disabled={changingPassword || retryCountdown !== null}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-bold transition-all shadow-md"
+                                 className="flex-1"
                             >
                                 {changingPassword ? 'Memproses...' : 'Update Password'}
-                            </button>
+                            </Button>
                 </ModalFooter>
             </Modal>
         </div>

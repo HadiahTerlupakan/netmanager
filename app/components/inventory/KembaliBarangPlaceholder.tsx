@@ -1,6 +1,7 @@
 'use client'
 
 import { HiOutlineArrowPath, HiOutlineClock, HiOutlineInformationCircle } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 export default function KembaliBarangPlaceholder() {
   return (
@@ -54,12 +55,13 @@ export default function KembaliBarangPlaceholder() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
+            <Button
               disabled
-              className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg font-medium cursor-not-allowed"
+              variant="secondary"
+              size="lg"
             >
               Kembali Barang (Coming Soon)
-            </button>
+            </Button>
           </div>
         </div>
       </div>

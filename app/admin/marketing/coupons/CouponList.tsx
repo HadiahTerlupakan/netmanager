@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { HiOutlinePlus, HiTrash } from 'react-icons/hi2'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
@@ -75,7 +76,7 @@ export default function CouponList() {
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Manajemen Kupon</h1>
                 <Link
                     href="/admin/marketing/coupons/create"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                    className={buttonVariants({ variant: 'default', size: 'default' })}
                 >
                     <HiOutlinePlus className="w-5 h-5" />
                     Buat Kupon
@@ -145,9 +146,9 @@ export default function CouponList() {
                     ]}
                     emptyMessage="Tidak ada kupon ditemukan. Buat satu untuk memulai."
                     renderActions={(item) => (
-                        <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-800 p-2">
+                        <Button variant="ghost" size="icon-sm" onClick={() => handleDelete(item.id)}>
                             <HiTrash className="w-5 h-5" />
-                        </button>
+                        </Button>
                     )}
                 />
             </div>

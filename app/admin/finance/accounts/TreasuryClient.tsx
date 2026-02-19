@@ -9,6 +9,7 @@ import {
   HiOutlinePlus,
   HiOutlineArrowRight
 } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import TransferModal from './TransferModal'
 import AddAccountModal from './AddAccountModal'
 import clsx from 'clsx'
@@ -138,13 +139,13 @@ export default function TreasuryClient({ accounts }: TreasuryClientProps) {
 
         {/* Add Account Placeholder */}
          {canManageFinance && (
-           <button onClick={() => setAddAccountModalOpen(true)} className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all group min-h-[240px]">
+           <Button variant="ghost" onClick={() => setAddAccountModalOpen(true)} className="border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 flex flex-col items-center justify-center text-center min-h-[240px] w-full">
               <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 group-hover:text-blue-600 flex items-center justify-center mb-3 transition-colors">
                   <HiOutlinePlus className="w-6 h-6" />
               </div>
               <span className="font-semibold text-gray-600 dark:text-gray-300 group-hover:text-blue-600">Tambah Akun Baru</span>
               <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Rekening Bank, E-Wallet, atau Kas</span>
-           </button>
+           </Button>
          )}
       </div>
     </div>

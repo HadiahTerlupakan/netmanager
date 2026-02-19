@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 
 type ConfirmDialogProps = {
   open: boolean
@@ -34,20 +35,22 @@ export function ConfirmDialog({
         {description}
       </div>
       <ModalFooter>
-        <button
+        <Button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          variant="outline"
+          size="sm"
         >
           {cancelText}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onConfirm}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 transition-colors shadow-sm"
+          variant="destructive"
+          size="sm"
         >
           {confirmText}
-        </button>
+        </Button>
       </ModalFooter>
     </Modal>
   )

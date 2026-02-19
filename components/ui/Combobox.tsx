@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useCallback, type ReactNode } from 'react'
+import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { MdExpandMore, MdSearch, MdClose } from 'react-icons/md'
-import { useClickOutside } from '@/hooks/useClickOutside'
 
 export interface ComboboxOption {
     value: string
@@ -35,12 +35,60 @@ export function Combobox({
     const [isOpen, setIsOpen] = useState(false)
     const [query, setQuery] = useState('')
     const containerRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLDivElement>(null)
+    const dropdownRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
     const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
 
-    // Close when clicking outside
+    // Calculate dropdown position based on trigger element
+    const updatePosition = useCallback(() => {
+        if (!triggerRef.current) return
+        const rect = triggerRef.current.getBoundingClientRect()
+        const spaceBelow = window.innerHeight - rect.bottom
+        const dropdownHeight = 280 // max-h-60 = 15rem = 240px + padding ~280px
+        const openAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight
+
+        setDropdownStyle({
+            position: 'fixed',
+            left: rect.left,
+            width: rect.width,
+            zIndex: 99999,
+            ...(openAbove
+                ? { bottom: window.innerHeight - rect.top + 4 }
+                : { top: rect.bottom + 4 }),
+        })
+    }, [])
+
+    // Recalculate position on scroll/resize when open
+    useEffect(() => {
+        if (!isOpen) return
+        updatePosition()
+        const handleUpdate = () => updatePosition()
+        window.addEventListener('scroll', handleUpdate, true)
+        window.addEventListener('resize', handleUpdate)
+        return () => {
+            window.removeEventListener('scroll', handleUpdate, true)
+            window.removeEventListener('resize', handleUpdate)
+        }
+    }, [isOpen, updatePosition])
+
+    // Close when clicking outside (check both container and portal dropdown)
     const closeDropdown = useCallback(() => setIsOpen(false), [])
-    useClickOutside(containerRef, closeDropdown)
+    useEffect(() => {
+        if (!isOpen) return
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as Node
+            if (
+                containerRef.current && !containerRef.current.contains(target) &&
+                dropdownRef.current && !dropdownRef.current.contains(target)
+            ) {
+                closeDropdown()
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [isOpen, closeDropdown])
 
     const handleSearch = (newQuery: string) => {
         setQuery(newQuery)
@@ -77,6 +125,7 @@ export function Combobox({
     return (
         <div className={`relative ${className}`} ref={containerRef}>
             <div
+                ref={triggerRef}
                 className={`
                     w-full px-3 py-2 rounded-lg bg-white dark:bg-[#1c2936] border 
                     border-gray-200 dark:border-gray-700 flex items-center justify-between cursor-pointer
@@ -93,8 +142,13 @@ export function Combobox({
                 <MdExpandMore className={`text-xl text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </div>
 
-            {isOpen && !disabled && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-60 flex flex-col overflow-hidden">
+            {isOpen && !disabled && typeof document !== 'undefined' && createPortal(
+                <div 
+                    ref={dropdownRef}
+                    className="bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-60 flex flex-col overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                    style={dropdownStyle}
+                >
                     <div className="p-2 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-[#1c2936]">
                         <div className="relative">
                             <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
@@ -158,7 +212,8 @@ export function Combobox({
                             </>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     )

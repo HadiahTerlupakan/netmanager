@@ -19,6 +19,7 @@ import {
   Legend
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
+import { Button } from '@/components/ui/Button'
 
 ChartJS.register(
   CategoryScale,
@@ -278,13 +279,13 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                 onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCheck()}
             />
-            <button 
-                className="absolute right-2 top-2 bottom-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-lg font-medium transition-colors flex items-center gap-2"
+            <Button 
+                 className="absolute right-2 top-2 bottom-2"
                 onClick={handleCheck}
                 disabled={loading || !keyword}
             >
                 {loading ? <span className="loading loading-spinner loading-xs"></span> : 'Cari'}
-            </button>
+            </Button>
         </div>
       </div>
 
@@ -385,7 +386,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                             </h4>
                             <div className="flex flex-wrap gap-2">
                                 {analytics.topBrands.map((b: { name: string; count: number }) => (
-                                    <button
+                                    <Button
                                         key={b.name}
                                         onClick={() => setSelectedBrand(selectedBrand === b.name ? '' : b.name)}
                                         className={`px-3 py-1 text-xs rounded-full border transition-all ${
@@ -395,7 +396,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                                         }`}
                                     >
                                         {b.name} <span className="opacity-60 text-[10px] ml-1">({b.count})</span>
-                                    </button>
+                                    </Button>
                                 ))}
                             </div>
                         </div>
@@ -539,12 +540,12 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                                        </a>
    
                                        {onSelectPrice && (
-                                           <button 
+                                           <Button 
                                                onClick={() => onSelectPrice(item.price)}
                                                className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm shadow-indigo-200 dark:shadow-none transition-all hover:-translate-y-0.5"
                                            >
                                                Pilih
-                                           </button>
+                                           </Button>
                                        )}
                                    </div>
                                </td>

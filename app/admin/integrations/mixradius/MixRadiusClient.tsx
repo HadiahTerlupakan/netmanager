@@ -18,6 +18,7 @@ import {
   HiOutlineTrash
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/Button'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 
@@ -507,14 +508,16 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
             <div className="text-sm text-gray-500 dark:text-gray-400">Source</div>
             <div className="text-lg font-medium text-blue-600 dark:text-blue-400">sblnet.topsetting.com</div>
           </div>
-          <button 
+          <Button 
+            variant="outline"
+            size="sm"
             onClick={clearCache}
-            className="mt-2 flex items-center gap-2 px-2 py-1 text-[10px] font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded border border-red-100 dark:border-red-900/30 transition-all uppercase tracking-tighter"
+            className="mt-2 flex items-center gap-2"
             title="Hapus cache dan ambil data terbaru dari MixRadius"
           >
             <HiOutlineXCircle className="w-3.5 h-3.5" />
             Bersihkan Cache
-          </button>
+          </Button>
         </div>
       </div>
 

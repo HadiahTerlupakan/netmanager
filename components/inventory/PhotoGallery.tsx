@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { PhotoThumbnail, PhotoThumbnailWithCount } from './PhotoThumbnail'
 import {
@@ -198,12 +199,12 @@ export function PhotoGallery({
       {/* Show more indicator */}
       {maxThumbnails && photos.length > maxThumbnails && (
         <div className="mt-4 text-center">
-          <button
+          <Button
             onClick={() => setSelectedPhoto(photos[0] ?? null)}
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             Lihat {photos.length - maxThumbnails} foto lagi
-          </button>
+          </Button>
         </div>
       )}
 
@@ -234,53 +235,53 @@ export function PhotoGallery({
               <div className="flex items-center gap-2">
                 {/* Zoom Controls */}
                 <div className="flex items-center bg-gray-800 rounded-lg">
-                  <button
+                  <Button
                     onClick={handleZoomOut}
-                    className="p-2 hover:bg-gray-700 rounded-l-lg transition-colors"
+                    
                     title="Zoom out (-)"
                   >
                     <HiMagnifyingGlassMinus className="w-5 h-5" />
-                  </button>
+                  </Button>
                   <span className="px-3 text-sm">
                     {Math.round(zoomLevel * 100)}%
                   </span>
-                  <button
+                  <Button
                     onClick={handleZoomIn}
-                    className="p-2 hover:bg-gray-700 rounded-r-lg transition-colors"
+                    
                     title="Zoom in (+)"
                   >
                     <HiMagnifyingGlassPlus className="w-5 h-5" />
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Download Button */}
-                <button
+                <Button
                   onClick={handleDownload}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                  
                   title="Download foto"
                 >
                   <HiArrowDownTray className="w-5 h-5" />
-                </button>
+                </Button>
 
                 {/* Delete Button */}
                 {showDeleteButton && onDelete && (
-                  <button
+                  <Button variant="destructive"
                     onClick={handleDeleteFromModal}
-                    className="p-2 hover:bg-red-600 rounded-lg transition-colors text-red-400 hover:text-white"
+                    
                     title="Hapus foto"
                   >
                     <HiXMark className="w-5 h-5" />
-                  </button>
+                  </Button>
                 )}
 
                 {/* Close Button */}
-                <button
+                <Button
                   onClick={handleClose}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                  
                   title="Tutup (Esc)"
                 >
                   <HiXMark className="w-5 h-5" />
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -288,13 +289,13 @@ export function PhotoGallery({
             <div className="flex-1 relative overflow-hidden flex items-center justify-center">
               {/* Previous Button */}
               {currentIndex > 0 && (
-                <button
+                <Button
                   onClick={handlePrevious}
-                  className="absolute left-4 z-10 p-3 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all"
+                   className="absolute left-4 z-10"
                   title="Previous (←)"
                 >
                   <HiChevronLeft className="w-6 h-6" />
-                </button>
+                </Button>
               )}
 
               {/* Photo */}
@@ -316,13 +317,13 @@ export function PhotoGallery({
 
               {/* Next Button */}
               {currentIndex < photos.length - 1 && (
-                <button
+                <Button
                   onClick={handleNext}
-                  className="absolute right-4 z-10 p-3 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all"
+                   className="absolute right-4 z-10"
                   title="Next (→)"
                 >
                   <HiChevronRight className="w-6 h-6" />
-                </button>
+                </Button>
               )}
             </div>
 
@@ -336,7 +337,7 @@ export function PhotoGallery({
                 {/* Thumbnail Navigation */}
                 <div className="flex gap-1 max-w-md overflow-x-auto">
                   {photos.map((photo, index) => (
-                    <button
+                    <Button
                       key={photo.id}
                       onClick={() => {
                         setCurrentIndex(index)
@@ -357,7 +358,7 @@ export function PhotoGallery({
                         className="object-cover"
                         sizes="48px"
                       />
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>

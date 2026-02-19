@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { HiCheck, HiOutlineWrench, HiOutlineClipboardDocumentList } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { Button } from '@/components/ui/Button'
 import { useRealtimeWorkOrders } from '@/lib/websocket/hooks/useRealtimeWorkOrders'
 import { usePermission } from '@/hooks/use-permission'
 import { getPriorityColor } from '@/lib/utils/priority-helpers'
@@ -47,7 +48,7 @@ export function WorkOrderBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Wrench Button */}
-            <button
+            <Button
                 onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-full transition-all duration-200 group"
                 aria-label="Work Order Notifications"
@@ -63,7 +64,7 @@ export function WorkOrderBell() {
                 {isConnected && (
                     <span className="absolute bottom-1 right-1 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
                 )}
-            </button>
+            </Button>
 
             {/* Dropdown */}
             {isOpen && (
@@ -82,13 +83,13 @@ export function WorkOrderBell() {
                             )}
                         </div>
                         {unreadCount > 0 && (
-                            <button
+                            <Button
                                 onClick={markAllAsRead}
-                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                
                             >
                                 <HiCheck className="w-3.5 h-3.5" />
                                 Tandai dibaca
-                            </button>
+                            </Button>
                         )}
                     </div>
 
@@ -117,13 +118,13 @@ export function WorkOrderBell() {
                                                         {notification.title}
                                                     </p>
                                                     {!notification.isRead && (
-                                                        <button
+                                                        <Button
                                                             onClick={() => markAsRead(notification.id)}
                                                             className="shrink-0 p-1 text-gray-400 hover:text-blue-600 rounded"
                                                             title="Tandai dibaca"
                                                         >
                                                             <HiCheck className="w-4 h-4" />
-                                                        </button>
+                                                        </Button>
                                                     )}
                                                 </div>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">

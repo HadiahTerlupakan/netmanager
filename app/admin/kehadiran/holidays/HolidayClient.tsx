@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { FiChevronLeft, FiChevronRight, FiTrash2, FiCalendar } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 import { getWithAuth, postWithAuth, deleteWithAuth } from '@/lib/api-client'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { usePermission } from '@/hooks/use-permission'
@@ -122,15 +123,15 @@ export function HolidayClient() {
                     <FiCalendar /> Pengaturan Hari Libur
                 </h1>
                 <div className="flex bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200">
-                    <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-l-lg border-r border-gray-200 dark:border-gray-700 transition-colors">
+                    <Button onClick={handlePrevMonth} >
                         <FiChevronLeft />
-                    </button>
+                    </Button>
                     <div className="px-4 py-2 font-semibold min-w-[150px] text-center">
                         {MONTHS[month]} {year}
                     </div>
-                    <button onClick={handleNextMonth} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-r-lg border-l border-gray-200 dark:border-gray-700 transition-colors">
+                    <Button onClick={handleNextMonth} >
                         <FiChevronRight />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -171,13 +172,13 @@ export function HolidayClient() {
                                         {day}
                                     </span>
                                     {holiday && canDelete && (
-                                        <button
+                                        <Button
                                             onClick={(e) => handleDelete(holiday.id, e)}
                                             className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                                             title="Hapus"
                                         >
                                             <FiTrash2 size={14} />
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
 
@@ -257,19 +258,19 @@ export function HolidayClient() {
                         </div>
                     </div>
                     <ModalFooter>
-                        <button
+                        <Button
                             type="button"
                             onClick={() => setShowModal(false)}
                             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
                         >
                             Batal
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            
                         >
                             Simpan
-                        </button>
+                        </Button>
                     </ModalFooter>
                 </form>
             </Modal>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { HiBell, HiBellSlash, HiXMark } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 interface PushNotificationManagerProps {
     className?: string
@@ -163,27 +164,27 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
                         Dapatkan pemberitahuan langsung saat ada Work Order baru atau update penting.
                     </p>
                     <div className="flex items-center gap-3 mt-3">
-                        <button
+                        <Button
                             onClick={subscribe}
                             disabled={loading}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                            
                         >
                             {loading ? 'Mengaktifkan...' : 'Aktifkan Notifikasi'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={dismissBanner}
-                            className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                            
                         >
                             Nanti saja
-                        </button>
+                        </Button>
                     </div>
                 </div>
-                <button
+                <Button
                     onClick={dismissBanner}
-                    className="shrink-0 p-1 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded"
+                    
                 >
                     <HiXMark className="w-5 h-5 text-gray-500" />
-                </button>
+                </Button>
             </div>
         </div>
     )

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { HiOutlineHome, HiOutlineArrowLeft, HiOutlineExclamationCircle } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 export default function NotFound() {
   const pathname = usePathname()
@@ -71,17 +72,18 @@ export default function NotFound() {
             Kembali ke {dashboardLabel}
           </Link>
 
-          <button
+          <Button
+            variant="secondary"
+            size="lg"
             onClick={() => {
               if (typeof window !== 'undefined') {
                 window.history.back()
               }
             }}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
           >
             <HiOutlineArrowLeft className="w-5 h-5" />
             Kembali
-          </button>
+          </Button>
         </div>
       </div>
     </div>

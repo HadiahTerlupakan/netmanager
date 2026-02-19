@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react'
 import { HiXMark } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 interface ModalProps {
     isOpen: boolean
@@ -72,7 +73,7 @@ export function Modal({
             aria-describedby={descriptionId}
         >
             <div
-                className={`bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 safe-area-inset-bottom`}
+                className={`bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 safe-area-inset-bottom`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {(title || showCloseButton) && (
@@ -96,17 +97,19 @@ export function Modal({
                             </div>
                         )}
                         {showCloseButton && (
-                            <button
+                            <Button
                                 onClick={onClose}
-                                className="ml-auto min-w-[44px] min-h-[44px] p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors touch-manipulation flex items-center justify-center shrink-0"
+                                variant="ghost"
+                                size="icon"
+                                className="ml-auto min-w-[44px] min-h-[44px] shrink-0 touch-manipulation"
                                 aria-label="Close modal"
                             >
                                 <HiXMark className="w-6 h-6 sm:w-5 sm:h-5" />
-                            </button>
+                            </Button>
                         )}
                     </div>
                 )}
-                <div className="overflow-y-auto flex-1">
+                <div className="overflow-y-auto overflow-x-visible flex-1">
                     <div className={padding ? "p-5 sm:p-6" : ""}>{children}</div>
                 </div>
             </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { HiPlus, HiRefresh, HiSearch, HiPencil, HiTrash, HiChevronLeft, HiChevronRight, HiOutlineShoppingBag, HiOutlineArchive, HiEye, HiClipboardList, HiCollection } from 'react-icons/hi'
+import { Button } from '@/components/ui/Button'
 import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 
@@ -218,46 +219,46 @@ export default function PurchaseOrderListPage() {
             className: 'text-center w-40', // Increase width for buttons
             render: (row) => (
                 <div className="flex justify-center gap-2">
-                    <button
+                    <Button
                         onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}?mode=view`)}
                         className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                         title="Detail"
                     >
                         <HiEye className="w-5 h-5" />
-                    </button>
+                    </Button>
                     {canUpdate && (
-                         <button
+                         <Button
                             onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}`)}
                             className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Edit"
                         >
                             <HiPencil className="w-5 h-5" />
-                        </button>
+                        </Button>
                     )}
 
                     {canUpdate && row.status === 'DRAFT' && (
-                        <button
+                        <Button
                             onClick={(e) => handleStartShopping(row.id, e)}
                             disabled={processingId === row.id}
                             className={`p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${processingId === row.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title="Mulai Belanja"
                         >
                             <HiOutlineShoppingBag className="w-5 h-5" />
-                        </button>
+                        </Button>
                     )}
 
                     {canUpdate && row.status === 'ORDERED' && (
-                        <button
+                        <Button
                             onClick={(e) => handleReceiveGoods(row.id, e)}
                             className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Terima Barang"
                         >
                             <HiOutlineArchive className="w-5 h-5" />
-                        </button>
+                        </Button>
                     )}
 
                     {canDelete && ['DRAFT', 'ORDERED', 'CANCELLED'].includes(row.status) && (
-                        <button
+                        <Button
                             onClick={(e) => {
                                 e.stopPropagation()
                                 handleDelete(row.id)
@@ -266,7 +267,7 @@ export default function PurchaseOrderListPage() {
                             title="Hapus"
                         >
                             <HiTrash className="w-5 h-5" />
-                        </button>
+                        </Button>
                     )}
                 </div>
             )
@@ -293,13 +294,13 @@ export default function PurchaseOrderListPage() {
                     {canCreate && activeTab === 'po' && (
                         <>
                              <div className="relative group">
-                                <button
+                                <Button
                                     onClick={() => router.push('/admin/procurement/purchase-orders/create')}
                                     className="flex items-center gap-2 px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                                 >
                                     <HiPlus className="w-5 h-5" />
                                     Manual PO
-                                </button>
+                                </Button>
                              </div>
                         </>
                     )}
@@ -309,7 +310,7 @@ export default function PurchaseOrderListPage() {
             {/* Tabs */}
             <div className="border-b border-gray-200 dark:border-gray-700">
                 <nav className="-mb-px flex space-x-8">
-                    <button
+                    <Button
                         onClick={() => setActiveTab('pr')}
                         className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                             activeTab === 'pr'
@@ -319,8 +320,8 @@ export default function PurchaseOrderListPage() {
                     >
                         <HiClipboardList className="w-5 h-5" />
                         Purchase Requests
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => setActiveTab('po')}
                         className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                             activeTab === 'po'
@@ -330,7 +331,7 @@ export default function PurchaseOrderListPage() {
                     >
                         <HiCollection className="w-5 h-5" />
                         Purchase Orders
-                    </button>
+                    </Button>
                 </nav>
             </div>
 
@@ -352,12 +353,12 @@ export default function PurchaseOrderListPage() {
                                 className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
-                        <button
+                        <Button variant="secondary"
                             onClick={fetchData}
-                            className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            
                         >
                             <HiRefresh className="w-5 h-5" />
-                        </button>
+                        </Button>
                     </div>
 
                     <ResponsiveTable
@@ -374,20 +375,20 @@ export default function PurchaseOrderListPage() {
                                 Halaman {page} dari {totalPages} ({total} Data)
                             </span>
                             <div className="flex gap-2">
-                                <button
+                                <Button
                                     disabled={page === 1}
                                     onClick={() => setPage(p => p - 1)}
                                     className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
                                 >
                                     <HiChevronLeft /> Prev
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     disabled={page >= totalPages}
                                     onClick={() => setPage(p => p + 1)}
                                     className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
                                 >
                                     Next <HiChevronRight />
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     )}

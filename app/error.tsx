@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { HiOutlineExclamationTriangle, HiOutlineArrowLeft } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 export default function Error({
   error,
@@ -42,12 +43,9 @@ export default function Error({
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={reset}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
+          <Button onClick={reset}>
             Coba Lagi
-          </button>
+          </Button>
           
           <Link
             href="/admin"

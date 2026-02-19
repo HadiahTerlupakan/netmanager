@@ -63,12 +63,15 @@ export default function CategoryList() {
             })
 
             const res = await fetch(`/api/finance/expense-categories?${params}`)
-            const data = await res.json()
+            const json = await res.json()
+            // Fix: Extract data from wrapper { success: true, data: [...] }
+            const data = Array.isArray(json) ? json : (json.data || [])
+            
             if (Array.isArray(data)) {
                 setCategories(data)
 
                 // Auto expand categories that have children
-                const parents = data.filter(c => data.some(child => child.parentId === c.id)).map(c => c.id)
+                const parents = data.filter((c: Category) => data.some((child: Category) => child.parentId === c.id)).map((c: Category) => c.id)
                 setExpandedIds(new Set(parents))
             }
         } catch (_error) {
@@ -156,7 +159,9 @@ export default function CategoryList() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}))
-                throw new Error(errData.error || errData.message || 'Gagal menyimpan')
+                // Just toast the error, don't throw to avoid unhandled promise rejection in console if not caught upstream properly
+                toast.error(errData.error || errData.message || 'Gagal menyimpan')
+                return
             }
 
             toast.success(editingItem ? 'Kategori diperbarui' : 'Kategori dibuat')
@@ -177,7 +182,10 @@ export default function CategoryList() {
             })
 
             const json = await res.json()
-            if (!res.ok) throw new Error(json.error || 'Gagal menghapus')
+            if (!res.ok) {
+                toast.error(json.error || 'Gagal menghapus')
+                return
+            }
 
             toast.success('Kategori dihapus')
             fetchCategories()
@@ -187,118 +195,187 @@ export default function CategoryList() {
     }
 
     // Recursive Tree Item Component
-    const CategoryItem = ({ item, level = 0 }: { item: CategoryWithTotal, level?: number }) => {
+    const CategoryItem = ({ item, level = 0, isLast = false, parentIndexString = '' }: { item: CategoryWithTotal, level?: number, isLast?: boolean, parentIndexString?: string }) => {
         const hasChildren = item.children && item.children.length > 0
         const isExpanded = expandedIds.has(item.id)
         const hasAmount = item.totalRecursive > 0
 
-        return (
-            <div className="relative">
-                {/* Connecting Lines for children */}
-                {level > 0 && (
-                    <div
-                        className="absolute -left-4 top-0 w-4 h-8 border-l-2 border-b-2 border-gray-200 dark:border-gray-700 rounded-bl-lg"
-                        style={{ top: '-1.2rem' }}
-                    />
-                )}
+        // Calculate current index string (e.g. "1.1", "1.2") based on parent and item index
+        // Note: We need the index from the map function to generate this correctly.
+        // I'll update the recursive map call to pass `idx` and calculate `currentIndexString`.
+        
+        // This is handled in the recursive calls below. For root items, it's passed from the main render.
 
-                <div className={`
-                    relative flex items-center justify-between p-3 mb-2 rounded-xl transition-all duration-200 group
-                    ${level === 0
-                        ? 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm'
-                        : 'bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 ml-6'
-                    }
-                `}>
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Expand Toggle or Icon */}
-                        <button
-                            onClick={() => hasChildren && toggleExpand(item.id)}
-                            className={`p-1 rounded-lg transition-colors flex-shrink-0 ${hasChildren ? 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500' : 'cursor-default opacity-50'}`}
-                        >
-                            {hasChildren ? (
-                                isExpanded ? <HiChevronDown className="w-4 h-4" /> : <HiChevronRight className="w-4 h-4" />
-                            ) : (
-                                <div className="w-4 h-4" />
-                            )}
-                        </button>
-
-                        {/* Icon */}
-                        <div className={`p-2 rounded-lg flex-shrink-0 ${
-                            hasChildren
-                                ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                                : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                        }`}>
-                            {hasChildren ? <HiOutlineFolderOpen className="w-5 h-5" /> : <HiOutlineTag className="w-5 h-5" />}
-                        </div>
-
-                        {/* Text */}
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">
-                                {item.name}
-                            </span>
-                            {hasChildren && (
-                                <span className="text-[10px] text-gray-400 font-medium">
-                                    {item.children.length} Sub-kategori
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        {/* Amount Display */}
-                        <div className={`text-right ${hasAmount ? 'opacity-100' : 'opacity-40'} transition-opacity`}>
-                            <div className={`font-mono font-bold text-sm ${level === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-                                {formatCurrency(item.totalRecursive)}
+        // Level 0: Main Card Style
+        if (level === 0) {
+            return (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm mb-4 overflow-hidden transition-all hover:shadow-md">
+                    {/* Header / Main Row */}
+                    <div className="relative flex items-center justify-between p-4 group">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                            {/* Icon Box with Number */}
+                            <div className={`
+                                w-12 h-12 flex items-center justify-center rounded-xl bg-gradient-to-br relative overflow-hidden
+                                ${selectedType === 'OPEX' 
+                                    ? 'from-orange-50 to-orange-100 text-orange-600 dark:from-orange-900/30 dark:to-orange-800/20 dark:text-orange-400' 
+                                    : 'from-purple-50 to-purple-100 text-purple-600 dark:from-purple-900/30 dark:to-purple-800/20 dark:text-purple-400'
+                                }
+                            `}>
+                                <span className="absolute -bottom-2 -right-1 text-4xl opacity-10 font-black">{parentIndexString}</span>
+                                <span className="text-lg font-bold">{parentIndexString}</span>
                             </div>
-                            {hasChildren && item.totalDirect > 0 && (
-                                <div className="text-[10px] text-gray-400" title="Pengeluaran langsung di kategori ini (tanpa anak)">
-                                    (Langsung: {formatCurrency(item.totalDirect)})
+
+                            {/* Title & Subtitle */}
+                            <div className="flex flex-col min-w-0">
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">
+                                    {item.name}
+                                </h3>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    {hasChildren ? (
+                                        <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400">
+                                            {item.children.length} Sub-kategori
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-gray-400 italic">Tidak ada sub-kategori</span>
+                                    )}
                                 </div>
-                            )}
+                            </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        {/* Right Side: Total & Toggle */}
+                        <div className="flex items-center gap-4 sm:gap-6">
+                            <div className={`text-right flex flex-col items-end ${hasAmount ? 'opacity-100' : 'opacity-40'}`}>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</span>
+                                <span className={`text-lg font-black font-mono ${selectedType === 'OPEX' ? 'text-orange-600 dark:text-orange-400' : 'text-purple-600 dark:text-purple-400'}`}>
+                                    {formatCurrency(item.totalRecursive)}
+                                </span>
+                                {hasChildren && item.totalDirect > 0 && (
+                                    <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5" title="Langsung di kategori ini">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                                        Direct: {formatCurrency(item.totalDirect)}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Hover Actions (Desktop) */}
+                            <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleOpenModal(undefined, item.id); }}
+                                    className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                                    title="Tambah Sub"
+                                >
+                                    <HiOutlinePlus className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleOpenModal(item); }}
+                                    className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                    title="Edit"
+                                >
+                                    <HiOutlinePencilSquare className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Hapus"
+                                >
+                                    <HiOutlineTrash className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Expand Button */}
                             <button
-                                onClick={() => handleOpenModal(undefined, item.id)}
-                                className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
-                                title="Tambah Sub-kategori"
+                                onClick={() => hasChildren && toggleExpand(item.id)}
+                                className={`
+                                    w-8 h-8 flex items-center justify-center rounded-lg border transition-all
+                                    ${hasChildren 
+                                        ? isExpanded
+                                            ? 'bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
+                                            : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-gray-600'
+                                        : 'invisible'
+                                    }
+                                `}
                             >
-                                <HiOutlinePlus className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => handleOpenModal(item)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                title="Edit"
-                            >
-                                <HiOutlinePencilSquare className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => handleDelete(item.id)}
-                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                title="Hapus"
-                            >
-                                <HiOutlineTrash className="w-4 h-4" />
+                                <HiChevronRight className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
                             </button>
                         </div>
                     </div>
-                </div>
 
-                {/* Render Children */}
-                {hasChildren && isExpanded && (
-                    <div className="pl-6 relative">
-                        {/* Vertical line connecting children */}
-                        <div className="absolute left-6 top-0 bottom-4 w-px bg-gray-200 dark:bg-gray-700" />
-
-                        <div className="space-y-1 pt-1">
-                            {item.children.map((child: CategoryWithTotal) => (
+                    {/* Children Container (Inside Card Body) */}
+                    {hasChildren && isExpanded && (
+                        <div className="bg-gray-50/50 dark:bg-black/20 border-t border-gray-100 dark:border-gray-700/50 p-2 space-y-1">
+                            {item.children.map((child: CategoryWithTotal, idx: number) => (
                                 <CategoryItem
                                     key={child.id}
                                     item={child}
                                     level={level + 1}
+                                    isLast={idx === item.children.length - 1}
+                                    parentIndexString={`${parentIndexString}.${idx + 1}`}
                                 />
                             ))}
                         </div>
+                    )}
+                </div>
+            )
+        }
+
+        // Level > 0: List Item Style
+        return (
+            <div className="relative pl-4 pr-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors group flex items-center justify-between">
+                {/* Visual Tree Connector */}
+                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-gray-200 dark:bg-gray-700/50 rounded-full my-1"></div>
+                {isLast && <div className="absolute left-0 top-1/2 bottom-0 w-[2px] bg-gray-50 dark:bg-gray-900 z-10" style={{ marginBottom: '-4px' }}></div>} {/* Mask for last item line */}
+
+                <div className="flex items-center gap-3 flex-1 min-w-0 pl-3">
+                    <span className="font-mono text-xs text-gray-400 dark:text-gray-500 bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                        {parentIndexString}
+                    </span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                        {item.name}
+                    </span>
+                    {hasChildren && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 font-medium">
+                            {item.children.length}
+                        </span>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <span className={`font-mono text-sm font-bold ${hasAmount ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
+                        {formatCurrency(item.totalRecursive)}
+                    </span>
+
+                    {/* Mini Actions */}
+                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                            onClick={() => handleOpenModal(undefined, item.id)}
+                            className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors"
+                            title="Sub"
+                        >
+                            <HiOutlinePlus className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            onClick={() => handleOpenModal(item)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Edit"
+                        >
+                            <HiOutlinePencilSquare className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            onClick={() => handleDelete(item.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Hapus"
+                        >
+                            <HiOutlineTrash className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Recursive Children for deep nesting (though rare for simple COA) */}
+                {hasChildren && (
+                    <div className="w-full mt-2 pl-4 border-l border-gray-200 dark:border-gray-700 hidden">
+                        {/* Currently hiding deep nesting > level 1 to keep UI simple, 
+                            can be enabled if 'toggle' logic is added to children rows 
+                        */}
                     </div>
                 )}
             </div>
@@ -390,8 +467,8 @@ export default function CategoryList() {
                     </div>
                 ) : (
                     <div className="space-y-2 pb-10">
-                        {categoryTree.map(cat => (
-                            <CategoryItem key={cat.id} item={cat} />
+                        {categoryTree.map((cat, index) => (
+                            <CategoryItem key={cat.id} item={cat} parentIndexString={(index + 1).toString()} />
                         ))}
                     </div>
                 )}

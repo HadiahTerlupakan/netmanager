@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi'
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
+import { Button } from '@/components/ui/Button'
 import { getStockStatusColor, getKondisiColor } from '@/lib/utils/inventory-helpers'
 
 interface KeluarFormProps {
@@ -658,18 +659,18 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
       )}
 
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
+        <Button variant="outline"
           type="button"
           onClick={onClose}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          
           disabled={loading}
         >
           Batal
-        </button>
-        <button
+        </Button>
+        <Button variant="warning"
           type="submit"
           disabled={loading || (!initialData && stockByCondition.totalStok === 0)}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          
         >
           {loading
             ? 'Menyimpan...'
@@ -677,7 +678,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
               ? 'Update & Upload Foto'
               : 'Simpan'
           }
-        </button>
+        </Button>
       </div>
     </form>
   )

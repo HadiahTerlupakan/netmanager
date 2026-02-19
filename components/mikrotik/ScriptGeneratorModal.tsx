@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from 'react'
+import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { HiClipboard, HiClipboardDocumentCheck } from 'react-icons/hi2'
 
@@ -69,23 +70,23 @@ export default function ScriptGeneratorModal({ open, onClose, secret }: ScriptGe
             <pre className="w-full p-4 bg-gray-900 text-green-400 font-mono text-sm rounded-lg overflow-x-auto whitespace-pre-wrap">
               {fullScript}
             </pre>
-            <button
+            <Button
               onClick={handleCopy}
-              className="absolute top-2 right-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white transition-colors"
+               className="absolute top-2 right-2"
               title="Copy to Clipboard"
             >
               {copied ? <HiClipboardDocumentCheck className="w-5 h-5 text-green-400" /> : <HiClipboard className="w-5 h-5" />}
-            </button>
+            </Button>
           </div>
         </div>
 
         <ModalFooter>
-          <button
+          <Button variant="secondary"
             onClick={onClose}
-            className="rounded-md bg-gray-200 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            
           >
             Tutup
-          </button>
+          </Button>
         </ModalFooter>
       </div>
     </Modal>

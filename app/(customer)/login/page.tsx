@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBack,
     MdMailOutline,
@@ -113,17 +114,19 @@ export default function CustomerLoginPage() {
                                     placeholder="Masukkan kata sandi"
                                     required
                                 />
-                                <button
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#617589] hover:text-[#0d9488] transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#617589] hover:text-[#0d9488]"
                                 >
                                     {showPassword ? (
                                         <MdVisibilityOff className="text-[20px]" />
                                     ) : (
                                         <MdVisibility className="text-[20px]" />
                                     )}
-                                </button>
+                                </Button>
                             </div>
                         </label>
 
@@ -133,15 +136,14 @@ export default function CustomerLoginPage() {
                             </div>
                         )}
 
-                        <button
+                        <Button
                             type="submit"
                             disabled={isLoading}
-                            className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-[#0d9488] text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-teal-600 transition-colors shadow-md mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+                            loading={isLoading}
+                            className="w-full mt-4"
                         >
-                            <span className="truncate">
-                                {isLoading ? 'Memproses...' : 'Masuk'}
-                            </span>
-                        </button>
+                            Masuk
+                        </Button>
                     </form>
 
                     <div className="p-4 pb-8 text-center mt-auto">

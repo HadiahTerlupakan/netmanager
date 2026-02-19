@@ -16,6 +16,7 @@ import {
     HiOutlineChatBubbleLeftRight,
     HiOutlinePlusCircle,
 } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { usePermission } from '@/hooks/use-permission'
@@ -273,7 +274,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                 <div className="flex justify-between items-center mb-4">
                                     <h4 className="text-sm font-bold text-green-600 uppercase tracking-wider">Pendapatan</h4>
                                     {salary.status === 'REVISED' && (
-                                        <button
+                                        <Button
                                             onClick={() => {
                                                 setAdjustData({ ...adjustData, type: 'EARNING' })
                                                 setShowAdjustModal(true)
@@ -283,7 +284,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                         >
                                             <HiOutlinePlusCircle className="w-4 h-4" />
                                             Tambah
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                                 <div className="space-y-3">
@@ -316,7 +317,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                 <div className="flex justify-between items-center mb-4">
                                     <h4 className="text-sm font-bold text-red-500 uppercase tracking-wider">Potongan</h4>
                                     {salary.status === 'REVISED' && (
-                                        <button
+                                        <Button
                                             onClick={() => {
                                                 setAdjustData({ ...adjustData, type: 'DEDUCTION' })
                                                 setShowAdjustModal(true)
@@ -326,7 +327,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                         >
                                             <HiOutlinePlusCircle className="w-4 h-4" />
                                             Tambah
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                                 <div className="space-y-3">
@@ -471,22 +472,22 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                             {(salary.status === 'CALCULATED' || salary.status === 'REVISED') && hasPermission('salary:audit') && (
                                 <>
                                     <div className="flex gap-2">
-                                        <button
+                                        <Button
                                             onClick={() => handleAction('audit')}
                                             disabled={loading}
                                             className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                                         >
                                             <HiOutlineCheckCircle className="w-5 h-5" />
                                             Audit Selesai
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
                                             onClick={() => handleAction('recalculate')}
                                             disabled={loading}
                                             className="flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-3 px-4 rounded-lg transition-colors border border-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800"
                                             title="Hitung ulang gaji (ambil data terbaru dari absensi & settings)"
                                         >
                                             <HiOutlineArrowPath className="w-5 h-5" />
-                                        </button>
+                                        </Button>
                                     </div>
 
                                     {(salary.status === 'REVISED') && (
@@ -498,14 +499,14 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     {/* Minta Revisi - Only show if current status is NOT Revised */}
                                     {salary.status !== 'REVISED' && (
                                         !showRevisionInput ? (
-                                            <button
+                                            <Button
                                                 onClick={() => setShowRevisionInput(true)}
                                                 disabled={loading}
                                                 className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-medium py-3 px-4 rounded-lg transition-colors dark:bg-red-900/10 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                                             >
                                                 <HiOutlineXCircle className="w-5 h-5" />
                                                 Minta Revisi
-                                            </button>
+                                            </Button>
                                         ) : (
                                             <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg space-y-3 border border-red-100 dark:border-red-800">
                                                 <textarea
@@ -516,19 +517,19 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                                     onChange={(e) => setAuditNotes(e.target.value)}
                                                 />
                                                 <div className="flex gap-2">
-                                                    <button
+                                                    <Button
                                                         onClick={() => handleAction('revise', auditNotes)}
                                                         disabled={!auditNotes || loading}
                                                         className="flex-1 bg-red-600 text-white text-sm py-2 rounded hover:bg-red-700 disabled:opacity-50"
                                                     >
                                                         Kirim Revisi
-                                                    </button>
-                                                    <button
+                                                    </Button>
+                                                    <Button
                                                         onClick={() => setShowRevisionInput(false)}
                                                         className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                                                     >
                                                         Batal
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         )
@@ -548,21 +549,21 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                             Data telah diverifikasi dan siap untuk approval manajer.
                                         </p>
                                     </div>
-                                    <button
+                                    <Button
                                         onClick={() => handleAction('approve')}
                                         disabled={loading}
                                         className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                                     >
                                         <HiOutlineCheckCircle className="w-5 h-5" />
                                         Approve Salary
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         onClick={() => setShowRevisionInput(true)}
                                         disabled={loading}
                                         className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-3 px-4 rounded-lg transition-colors dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
                                         Tolak / Revisi
-                                    </button>
+                                    </Button>
                                     {showRevisionInput && (
                                         <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg space-y-3 border border-red-100 dark:border-red-800">
                                             <textarea
@@ -573,19 +574,19 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                                 onChange={(e) => setAuditNotes(e.target.value)}
                                             />
                                             <div className="flex gap-2">
-                                                <button
+                                                <Button
                                                     onClick={() => handleAction('revise', auditNotes)}
                                                     disabled={!auditNotes || loading}
                                                     className="flex-1 bg-red-600 text-white text-sm py-2 rounded hover:bg-red-700 disabled:opacity-50"
                                                 >
                                                     Kirim Revisi
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
                                                     onClick={() => setShowRevisionInput(false)}
                                                     className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                                                 >
                                                     Batal
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     )}
@@ -604,14 +605,14 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                             Gaji siap dibayarkan / ditransfer.
                                         </p>
                                     </div>
-                                    <button
+                                    <Button
                                         onClick={() => handleAction('paid')}
                                         disabled={loading}
                                         className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                                     >
                                         <HiOutlineBanknotes className="w-5 h-5" />
                                         Tandai Sudah Dibayar
-                                    </button>
+                                    </Button>
                                 </div>
                             )}
 
@@ -672,18 +673,18 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipe</label>
                                 <div className="flex gap-2">
-                                    <button
+                                    <Button
                                         onClick={() => setAdjustData({ ...adjustData, type: 'EARNING' })}
                                         className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'EARNING' ? 'bg-green-100 border-green-500 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
                                     >
                                         Pendapatan
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         onClick={() => setAdjustData({ ...adjustData, type: 'DEDUCTION' })}
                                         className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'DEDUCTION' ? 'bg-red-100 border-red-500 text-red-700 font-bold dark:bg-red-900/30 dark:text-red-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
                                     >
                                         Potongan
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
 
@@ -722,19 +723,19 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                 </div>
 
                 <ModalFooter>
-                            <button
+                            <Button
                                 onClick={() => setShowAdjustModal(false)}
                                 className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                                 Batal
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={handleAddAdjustment}
                                 disabled={loading || !adjustData.name || !adjustData.amount}
-                                className="flex-1 bg-indigo-600 text-white font-bold py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
+                                 className="flex-1"
                             >
                                 Simpan
-                            </button>
+                            </Button>
                 </ModalFooter>
             </Modal>
         </div>

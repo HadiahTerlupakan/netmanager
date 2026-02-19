@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import 'swagger-ui-react/swagger-ui.css'
+import { Button } from '@/components/ui/Button'
 
 // Dynamic import to prevent SSR issues
 const SwaggerUI = dynamic(() => import('swagger-ui-react'), {
@@ -61,12 +62,12 @@ export default function ApiDocsPage() {
           </div>
           <h2 className="text-xl font-semibold text-white mb-2">Error Loading Documentation</h2>
           <p className="text-gray-400 mb-4">{error}</p>
-          <button
+          <Button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     )

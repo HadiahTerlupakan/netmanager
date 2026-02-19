@@ -11,6 +11,7 @@ import {
     HiOutlineEye,
     HiOutlineArrowPath,
 } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -250,10 +251,10 @@ export default function SalaryListClient() {
                         Kelola data gaji karyawan
                     </p>
                 </div>
-                <button
+                <Button
                     onClick={handleCalculateBulk}
                     disabled={calculating}
-                    className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    
                 >
                     {calculating ? (
                         <HiOutlineArrowPath className="w-4 h-4 mr-2 animate-spin" />
@@ -261,7 +262,7 @@ export default function SalaryListClient() {
                         <HiOutlineCalculator className="w-4 h-4 mr-2" />
                     )}
                     {calculating ? 'Menghitung...' : 'Hitung Gaji Bulk'}
-                </button>
+                </Button>
             </div>
 
             {/* Stats Cards */}
@@ -371,12 +372,12 @@ export default function SalaryListClient() {
                                 <HiOutlineBanknotes className="w-16 h-16 mx-auto mb-4 text-gray-200 dark:text-gray-600" />
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">Pencatatan Gaji Kosong</h3>
                                 <p className="text-gray-500 dark:text-gray-400 mt-1">Belum ada data gaji untuk periode {MONTHS[selectedMonth - 1]} {selectedYear}.</p>
-                                <button
+                                <Button
                                     onClick={handleCalculateBulk}
-                                    className="mt-6 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold"
+                                     className="mt-6"
                                 >
                                     Generate Sekarang &rarr;
-                                </button>
+                                </Button>
                             </div>
                         }
                         renderActions={renderActions}

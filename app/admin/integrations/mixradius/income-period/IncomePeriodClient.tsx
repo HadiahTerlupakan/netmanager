@@ -22,6 +22,7 @@ import {
   HiOutlineClipboardDocumentList
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/Button'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import FeeConfigurationModal, { type FeeConfig } from './FeeConfigurationModal'
 import { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from '@/modules/integrations/constants/DuitkuDefaults'
@@ -1379,7 +1380,7 @@ export default function IncomePeriodClient() {
           {isCalculatingNet && <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div></div>}
           <div className="flex justify-between items-start">
              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">FEE GATEWAY (EST)</p>
-             <button onClick={() => setShowFeeModal(true)} className="text-gray-400 hover:text-blue-500"><HiOutlineCog className="w-4 h-4" /></button>
+             <Button variant="ghost" size="icon-sm" onClick={() => setShowFeeModal(true)}><HiOutlineCog className="w-4 h-4" /></Button>
           </div>
           <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(estGatewayFee)}</p>
         </div>
@@ -1495,7 +1496,7 @@ export default function IncomePeriodClient() {
                     </div>
                 </div>
              </div>
-             <button onClick={() => setShowFeeModal(true)} className="text-gray-400 hover:text-blue-500"><HiOutlineCog className="w-4 h-4" /></button>
+             <Button variant="ghost" size="icon-sm" onClick={() => setShowFeeModal(true)}><HiOutlineCog className="w-4 h-4" /></Button>
           </div>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(netIncome)}</p>
           <div className="flex flex-col gap-0.5 mt-1">

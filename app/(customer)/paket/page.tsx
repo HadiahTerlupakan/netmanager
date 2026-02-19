@@ -16,6 +16,7 @@ import {
     MdSupportAgent
 } from 'react-icons/md'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
 
 interface PackageData {
     profile: {
@@ -96,13 +97,14 @@ export default function CustomerPaketPage() {
 
                 {/* Header */}
                 <header className="flex items-center justify-between bg-white dark:bg-[#1a2632] p-4 sticky top-0 z-50 border-b border-gray-100 dark:border-gray-800">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         type="button"
                         onClick={() => router.back()}
-                        className="flex w-10 h-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-900 dark:text-white"
                     >
                         <MdArrowBack className="text-2xl" />
-                    </button>
+                    </Button>
                     <h2 className="text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Detail Layanan</h2>
                 </header>
 
@@ -224,9 +226,9 @@ export default function CustomerPaketPage() {
                                 <p className="text-xs text-teal-100 mt-1">Hanya tambah Rp 50rb/bln</p>
                             </div>
                             <Link href="/upgrade-paket">
-                                <button className="shrink-0 rounded-lg bg-white/20 hover:bg-white/30 px-3 py-1.5 text-xs font-bold text-white transition-colors">
+                                <Button variant="ghost" size="sm" className="shrink-0">
                                     Lihat
-                                </button>
+                                </Button>
                             </Link>
                         </div>
                     </div>
@@ -235,16 +237,16 @@ export default function CustomerPaketPage() {
                 {/* Fixed Bottom Actions */}
                 <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white dark:bg-[#1a2632] p-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 z-40 pb-6">
                     <Link href="/upgrade-paket" className="w-full">
-                        <button className="flex w-full cursor-pointer items-center justify-center rounded-xl h-12 px-5 bg-[#0d9488] hover:bg-teal-600 text-white text-base font-bold leading-normal tracking-[0.015em] transition-all shadow-md shadow-teal-500/20 active:scale-[0.98]">
+                        <Button className="w-full">
                             <MdSpeed className="mr-2 text-[20px]" />
                             <span>Upgrade Speed</span>
-                        </button>
+                        </Button>
                     </Link>
                     <Link href="/dukungan" className="w-full">
-                        <button className="flex w-full cursor-pointer items-center justify-center rounded-xl h-12 px-5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white text-base font-semibold leading-normal tracking-[0.015em] transition-all active:scale-[0.98]">
-                            <MdSupportAgent className="mr-2 text-[20px] text-gray-500" />
+                        <Button variant="secondary" className="w-full">
+                            <MdSupportAgent className="mr-2 text-[20px]" />
                             <span>Lapor Gangguan</span>
-                        </button>
+                        </Button>
                     </Link>
                 </div>
             </div>

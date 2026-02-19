@@ -5,6 +5,7 @@ import { HiXMark, HiMegaphone } from 'react-icons/hi2';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { io, Socket } from 'socket.io-client';
+import { Button } from '@/components/ui/Button'
 
 interface Announcement {
     id: string;
@@ -201,12 +202,12 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
                                 )}
                             </div>
                         </div>
-                        <button
+                        <Button variant="ghost"
                             onClick={handleDismiss}
-                            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                            
                         >
                             <HiXMark className="w-5 h-5 text-white" />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -226,18 +227,18 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
                 {/* Footer */}
                 <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between">
-                        <button
+                        <Button
                             onClick={handleDismissAll}
-                            className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            
                         >
                             Tutup Semua
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={handleDismiss}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+                            
                         >
                             {currentIndex < announcements.length - 1 ? 'Berikutnya' : 'Mengerti'}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

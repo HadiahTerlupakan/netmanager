@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import Image from "next/image";
+import { Button } from '@/components/ui/Button'
 import ImageUpload from "@/components/common/ImageUpload";
 import type { MappingNode as PrismaMappingNode, MappingEdge, MapSettings } from "@prisma/client";
 import L from "leaflet";
@@ -1029,7 +1030,7 @@ export default function NetworkMapInteractive() {
             </h1>
             {/* Left: Tabs */}
             <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-            <button
+            <Button
               onClick={() => setActiveTab("map")}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 activeTab === "map"
@@ -1039,8 +1040,8 @@ export default function NetworkMapInteractive() {
             >
               <HiMap className="w-4 h-4" />
               Map
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setActiveTab("list")}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 activeTab === "list"
@@ -1050,8 +1051,8 @@ export default function NetworkMapInteractive() {
             >
               <HiListBullet className="w-4 h-4" />
               List
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setActiveTab("settings")}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 activeTab === "settings"
@@ -1061,7 +1062,7 @@ export default function NetworkMapInteractive() {
             >
               <HiCog6Tooth className="w-4 h-4" />
               Settings
-            </button>
+            </Button>
           </div>
           </div>
 
@@ -1069,13 +1070,13 @@ export default function NetworkMapInteractive() {
           <div className="flex items-center gap-2">
             {/* Search */}
             <div className="relative z-20">
-              <button
+              <Button
                 onClick={() => setShowSearchDropdown(!showSearchDropdown)}
                 className={toolButtonClass(showSearchDropdown)}
               >
                 <HiMagnifyingGlass className="w-4 h-4" />
                 Search
-              </button>
+              </Button>
               {showSearchDropdown && (
                 <div
                   className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50"
@@ -1094,7 +1095,7 @@ export default function NetworkMapInteractive() {
                   {searchQuery && (
                     <div className="max-h-64 overflow-y-auto border-t border-gray-200 dark:border-gray-700">
                       {filteredNodes.slice(0, 10).map((node) => (
-                        <button
+                        <Button
                           key={node.nodeId}
                           onClick={() => {
                             if (mapRef.current && node.latitude && node.longitude) {
@@ -1111,7 +1112,7 @@ export default function NetworkMapInteractive() {
                           />
                           <span className="text-gray-900 dark:text-white flex-1">{node.name}</span>
                           <span className="text-gray-500 text-xs">{node.type.toUpperCase()}</span>
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   )}
@@ -1122,35 +1123,35 @@ export default function NetworkMapInteractive() {
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
 
             {/* Node Tools */}
-            <button
+            <Button
               onClick={() => handleToolbarClick("server")}
               className={toolButtonClass(serverActionMode !== "idle")}
             >
               <HiServer className="w-4 h-4" />
               Server
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => handleToolbarClick("odc")}
               className={toolButtonClass(odcActionMode !== "idle")}
             >
               <HiCube className="w-4 h-4" />
               ODC
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => handleToolbarClick("odp")}
               className={toolButtonClass(odpActionMode !== "idle")}
             >
               <HiSquare3Stack3D className="w-4 h-4" />
               ODP
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => handleToolbarClick("ont")}
               className={toolButtonClass(ontActionMode !== "idle")}
             >
               <HiCpuChip className="w-4 h-4" />
               ONT
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => handleToolbarClick("pole")}
               className={toolButtonClass(poleActionMode !== "idle")}
             >
@@ -1159,8 +1160,8 @@ export default function NetworkMapInteractive() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v18M8 6h8M8 10h8M8 14h8" />
               </svg>
               Pole
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => handleToolbarClick("joinbox")}
               className={toolButtonClass(joinboxActionMode !== "idle")}
             >
@@ -1168,12 +1169,12 @@ export default function NetworkMapInteractive() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
               Joinbox
-            </button>
+            </Button>
 
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
 
             {/* Fiber Line Tool */}
-            <button
+            <Button
               onClick={() => handleToolbarClick("fiber")}
               className={toolButtonClass(fiberLineMode !== "idle")}
             >
@@ -1181,7 +1182,7 @@ export default function NetworkMapInteractive() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               Fiber Line
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1207,7 +1208,7 @@ export default function NetworkMapInteractive() {
           </span>
           <div className="flex items-center gap-2">
             {(serverTempPosition || odcTempPosition || odpTempPosition || ontTempPosition || poleTempPosition || joinboxTempPosition) && (
-              <button
+              <Button
                 onClick={() => {
                   if (serverActionMode !== "idle") handleServerPositionSave();
                   if (odcActionMode !== "idle") handleOdcPositionSave();
@@ -1219,9 +1220,9 @@ export default function NetworkMapInteractive() {
                 className="px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-sm font-medium"
               >
                 Save
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               onClick={() => {
                 handleServerPositionCancel();
                 handleOdcPositionCancel();
@@ -1234,7 +1235,7 @@ export default function NetworkMapInteractive() {
               className="p-1 hover:bg-blue-600 rounded"
             >
               <HiXMark className="w-5 h-5" />
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1320,7 +1321,7 @@ export default function NetworkMapInteractive() {
                               <span className="font-medium">{totalDistance.toFixed(1)} m</span>
                             </div>
                           </div>
-                          <button
+                          <Button
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -1337,7 +1338,7 @@ export default function NetworkMapInteractive() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                             Delete Fiber Line
-                          </button>
+                          </Button>
                         </div>
                       </Popup>
                     </Polyline>
@@ -1583,15 +1584,15 @@ export default function NetworkMapInteractive() {
                             </div>
 
                             {/* Copy Info Button */}
-                            <button
+                            <Button variant="secondary" size="sm"
                               onClick={copyInfo}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded mb-3"
+                               className="mb-3"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                               </svg>
                               Copy Info
-                            </button>
+                            </Button>
 
                             {/* Slot Usage - for ODC and ODP */}
                             {(isOdc || isOdp) && (
@@ -1675,7 +1676,7 @@ export default function NetworkMapInteractive() {
                             {/* Action Buttons */}
                             <div className="border-t border-gray-200 pt-3 space-y-2">
                               {/* Edit Button */}
-                              <button
+                              <Button
                                 onClick={() => onEditNode(node)}
                                 className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors"
                               >
@@ -1683,11 +1684,11 @@ export default function NetworkMapInteractive() {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                                 Edit {isServerOrOlt ? "OLT" : node.type.toUpperCase()}
-                              </button>
+                              </Button>
 
                               {/* Edit Location and Delete Buttons */}
                               <div className="flex gap-2">
-                                <button
+                                <Button
                                   onClick={() => onEditNodeLocation(node)}
                                   className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors"
                                 >
@@ -1696,8 +1697,8 @@ export default function NetworkMapInteractive() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                   </svg>
                                   Edit Location
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   onClick={() => deleteNode(node.nodeId)}
                                   className="flex items-center justify-center gap-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
                                 >
@@ -1705,7 +1706,7 @@ export default function NetworkMapInteractive() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
                                   Delete
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -1762,13 +1763,13 @@ export default function NetworkMapInteractive() {
               )}
 
               {/* Map Style Toggle */}
-              <button
+              <Button
                 onClick={() => setMapStyle(mapStyle === "satellite" ? "plain" : "satellite")}
                 className="absolute bottom-4 right-4 z-1000 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <HiMap className="w-4 h-4" />
                 {mapStyle === "satellite" ? "Sat Plain" : "Plain Sat"}
-              </button>
+              </Button>
             </div>
 
             {/* Statistics Bar */}
@@ -1801,38 +1802,38 @@ export default function NetworkMapInteractive() {
                 
                 {/* Manual Add Button Group */}
                 <div className="flex bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <button
+                  <Button
                     onClick={() => handleManualAdd("olt")}
                     className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 flex items-center gap-1"
                     title="Add Server/OLT"
                   >
                     <HiServer className="w-4 h-4 text-purple-500" />
                     <span className="hidden sm:inline">OLT</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleManualAdd("odc")}
                     className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 flex items-center gap-1"
                     title="Add ODC"
                   >
                     <HiCube className="w-4 h-4 text-blue-500" />
                     <span className="hidden sm:inline">ODC</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleManualAdd("odp")}
                     className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 flex items-center gap-1"
                     title="Add ODP"
                   >
                     <HiSquare3Stack3D className="w-4 h-4 text-cyan-500" />
                     <span className="hidden sm:inline">ODP</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleManualAdd("ont")}
                     className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1"
                     title="Add ONT"
                   >
                     <HiCpuChip className="w-4 h-4 text-orange-500" />
                     <span className="hidden sm:inline">ONT</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1863,8 +1864,8 @@ export default function NetworkMapInteractive() {
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 font-mono">{node.serialNumber || "-"}</td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex gap-2">
-                          <button onClick={() => onEditNode(node)} className="text-blue-600 hover:text-blue-800">Edit</button>
-                          <button onClick={() => deleteNode(node.nodeId)} className="text-red-600 hover:text-red-800">Delete</button>
+                          <Button onClick={() => onEditNode(node)} className="text-blue-600 hover:text-blue-800">Edit</Button>
+                          <Button onClick={() => deleteNode(node.nodeId)} className="text-red-600 hover:text-red-800">Delete</Button>
                         </div>
                       </td>
                     </tr>
@@ -1998,18 +1999,18 @@ export default function NetworkMapInteractive() {
           </p>
           <ModalFooter>
             <div className="flex justify-end gap-2">
-              <button
+              <Button
                 onClick={() => setDeleteConfirmation(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button variant="destructive"
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                
               >
                 Delete
-              </button>
+              </Button>
             </div>
           </ModalFooter>
         </div>
@@ -2415,7 +2416,7 @@ function NodeFormModal({
             <div>
               <label className={labelClass}>Identifier Type</label>
               <div className="flex gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={() => setOntIdentifierType("pppoe")}
                   className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -2425,8 +2426,8 @@ function NodeFormModal({
                   }`}
                 >
                   PPPoE
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setOntIdentifierType("serial")}
                   className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -2436,7 +2437,7 @@ function NodeFormModal({
                   }`}
                 >
                   Serial Number
-                </button>
+                </Button>
               </div>
             </div>
             {ontIdentifierType === "pppoe" ? (
@@ -2710,13 +2711,13 @@ function NodeFormModal({
         )}
       </div>
       <ModalFooter>
-        <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
-        <button onClick={onSave} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <Button variant="outline" onClick={onClose} >Cancel</Button>
+        <Button onClick={onSave} >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           {isEditing ? "Save Changes" : isOnt ? "Save ONT" : isPole ? "Save Pole" : isJoinbox ? "Save Joinbox" : "Add Node"}
-        </button>
+        </Button>
       </ModalFooter>
     </Modal>
   );
@@ -2871,22 +2872,22 @@ function FiberFormModal({
         </div>
 
         <ModalFooter>
-          <button
+          <Button variant="outline"
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+            
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Fiber Line
-          </button>
+          </Button>
         </ModalFooter>
       </form>
     </Modal>
@@ -2971,29 +2972,29 @@ function SettingsTab({
       </div>
 
       {/* Save Button */}
-      <button onClick={() => onSave(formData)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+      <Button onClick={() => onSave(formData)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
         Save Settings
-      </button>
+      </Button>
 
       {/* Map Data Management */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Map Data Management</h3>
         <div className="flex flex-wrap gap-2 mb-4">
-          <button onClick={onExport} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+          <Button variant="success" onClick={onExport} >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Export Map
-          </button>
-          <button onClick={() => setShowResetModal(true)} className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+          </Button>
+          <Button onClick={() => setShowResetModal(true)} className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
             Reset Map Data
-          </button>
+          </Button>
         </div>
         <div className="flex gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3025,8 +3026,8 @@ function SettingsTab({
               className={`${inputClass} mb-4`}
             />
             <div className="flex gap-2">
-              <button onClick={() => { setShowResetModal(false); setResetPassword(""); }} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
-              <button onClick={() => { onReset(resetPassword); setShowResetModal(false); setResetPassword(""); }} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete All</button>
+              <Button onClick={() => { setShowResetModal(false); setResetPassword(""); }} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</Button>
+              <Button onClick={() => { onReset(resetPassword); setShowResetModal(false); setResetPassword(""); }} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete All</Button>
             </div>
           </div>
         </div>

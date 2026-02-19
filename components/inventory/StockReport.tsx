@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FiMapPin, FiAlertTriangle, FiCheckCircle, FiDownload, FiRefreshCw, FiXCircle, FiMinusCircle } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 
 interface StockItem {
     barangId: string
@@ -150,14 +151,14 @@ export function StockReport() {
                                 </option>
                             ))}
                         </select>
-                        <button
+                        <Button
                             onClick={() => selectedGudangId && fetchStockReport(selectedGudangId)}
                             disabled={!selectedGudangId || loading}
                             className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                         >
                             <FiRefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -221,13 +222,13 @@ export function StockReport() {
 
                     {/* Export Button */}
                     <div className="flex justify-end">
-                        <button
+                        <Button variant="success"
                             onClick={handleExportCSV}
-                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                            
                         >
                             <FiDownload className="h-4 w-4 mr-2" />
                             Export CSV
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Items Table */}

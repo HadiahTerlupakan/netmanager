@@ -11,6 +11,7 @@ import {
   HiCpuChip,
   HiLink,
 } from "react-icons/hi2";
+import { Button } from '@/components/ui/Button'
 import type { MappingNode, MappingEdge } from "@prisma/client";
 
 interface MapSidebarProps {
@@ -69,12 +70,12 @@ export function MapSidebar({
   return (
     <>
       {/* Toggle Button */}
-      <button
-        className={`absolute top-4 ${open ? "left-[316px]" : "left-4"} z-[1001] bg-white dark:bg-gray-800 shadow-lg p-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-gray-700`}
+      <Button variant="outline"
+         className={`absolute top-4 ${open ? "left-[316px]" : "left-4"} z-[1001] border border-gray-200 duration-300`}
         onClick={onToggle}
       >
         {open ? <HiChevronLeft className="h-4 w-4" /> : <HiChevronRight className="h-4 w-4" />}
-      </button>
+      </Button>
 
       {/* Sidebar Panel */}
       <div
@@ -106,7 +107,7 @@ export function MapSidebar({
                 </h3>
                 <div className="space-y-1">
                   {typeNodes.map((node) => (
-                    <button
+                    <Button
                       key={node.nodeId}
                       onClick={() => onNodeSelect(node)}
                       className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-left transition-colors"
@@ -118,7 +119,7 @@ export function MapSidebar({
                           {node.capacity} port • {node.serialNumber || "No S/N"}
                         </p>
                       </div>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -135,7 +136,7 @@ export function MapSidebar({
                     const sourceNode = nodes.find((n) => n.nodeId === edge.source);
                     const targetNode = nodes.find((n) => n.nodeId === edge.target);
                     return (
-                      <button
+                      <Button
                         key={edge.edgeId}
                         onClick={() => onEdgeSelect(edge)}
                         className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-left transition-colors"
@@ -149,7 +150,7 @@ export function MapSidebar({
                             {edge.fiberType} {edge.distance ? `• ${edge.distance}m` : ""}
                           </p>
                         </div>
-                      </button>
+                      </Button>
                     );
                   })}
                   {edges.length > 20 && (

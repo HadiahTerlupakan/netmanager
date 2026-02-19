@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { HiOutlineArrowTrendingUp, HiOutlineArrowTrendingDown } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 interface FastMovingItem {
   id: string
@@ -47,7 +48,7 @@ export function MovementRanking({ fastMoving, slowMoving, loading }: Props) {
           🏆 Ranking Pemakaian
         </h3>
         <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-          <button
+          <Button
             onClick={() => setActiveTab('fast')}
             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'fast'
@@ -57,8 +58,8 @@ export function MovementRanking({ fastMoving, slowMoving, loading }: Props) {
           >
             <HiOutlineArrowTrendingUp className="inline w-4 h-4 mr-1" />
             Fast Moving
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setActiveTab('slow')}
             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'slow'
@@ -68,7 +69,7 @@ export function MovementRanking({ fastMoving, slowMoving, loading }: Props) {
           >
             <HiOutlineArrowTrendingDown className="inline w-4 h-4 mr-1" />
             Slow Moving
-          </button>
+          </Button>
         </div>
       </div>
 

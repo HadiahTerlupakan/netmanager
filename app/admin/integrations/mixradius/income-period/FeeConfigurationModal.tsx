@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { HiPlus, HiTrash } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 
@@ -102,9 +103,9 @@ export default function FeeConfigurationModal({
                                 className="w-24 text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                 placeholder="0"
                             />
-                            <button onClick={() => removeFee(method)} className="text-red-500 hover:text-red-700 dark:hover:text-red-400">
+                            <Button variant="ghost" size="icon-sm" onClick={() => removeFee(method)}>
                                 <HiTrash className="w-5 h-5" />
-                            </button>
+                            </Button>
                         </div>
                     ))}
                     {Object.keys(fees).length === 0 && (
@@ -131,20 +132,21 @@ export default function FeeConfigurationModal({
                         </datalist>
                     </div>
 
-                    <button
+                    <Button
+                        variant="secondary"
+                        size="icon"
                         onClick={addNewMethod}
                         disabled={!newMethod}
-                        className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
                     >
                         <HiPlus className="w-5 h-5" />
-                    </button>
+                    </Button>
                 </div>
             </div>
             <ModalFooter>
-                <button onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Batal</button>
-                <button onClick={handleSave} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                    {loading ? 'Menyimpan...' : 'Simpan Konfigurasi'}
-                </button>
+                <Button variant="ghost" onClick={onClose}>Batal</Button>
+                <Button loading={loading} onClick={handleSave}>
+                    Simpan Konfigurasi
+                </Button>
             </ModalFooter>
         </Modal>
     )

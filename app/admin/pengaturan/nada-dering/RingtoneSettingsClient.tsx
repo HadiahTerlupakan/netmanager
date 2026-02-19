@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { HiOutlineSpeakerWave, HiOutlinePlay, HiOutlinePause, HiOutlineTrash, HiOutlineCloudArrowUp } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 export default function RingtoneSettingsClient() {
     const [enabled, setEnabled] = useState(true)
@@ -268,13 +269,14 @@ export default function RingtoneSettingsClient() {
                                                 <span className="text-2xl">🎵</span>
                                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[200px]">{customSoundName}</span>
                                             </div>
-                                            <button 
+                                            <Button 
+                                                variant="ghost"
+                                                size="icon-sm"
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteCustom(); }}
-                                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"
                                                 title="Hapus file"
                                             >
                                                 <HiOutlineTrash className="w-5 h-5" />
-                                            </button>
+                                            </Button>
                                         </div>
                                     )}
                                 </div>

@@ -13,6 +13,7 @@ import {
   HiOutlineInformationCircle
 } from 'react-icons/hi2'
 import { PhotoUpload, type UploadedPhoto } from './PhotoUpload'
+import { Button } from '@/components/ui/Button'
 
 interface BarangStock {
   gudangId: string;
@@ -517,23 +518,22 @@ export default function AmbilBarangForm() {
           </div>
 
           {/* Submit Button */}
-          <button
+          <Button
             type="submit"
             disabled={loading || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-linear-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 text-lg"
+            loading={loading}
+            size="lg"
+            className="w-full"
           >
             {loading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Memproses...
-              </>
+              'Memproses...'
             ) : (
               <>
                 <HiOutlineCheckCircle className="w-5 h-5" />
                 Ambil Barang
               </>
             )}
-          </button>
+          </Button>
         </form>
       </div>
 

@@ -6,6 +6,7 @@ import { MdNotifications, MdChatBubble } from 'react-icons/md'
 import { HiMegaphone } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { Button } from '@/components/ui/Button'
 import { useCustomerNotifications } from '@/lib/websocket/hooks/useCustomerNotifications'
 import { useClickOutside } from '@/hooks/useClickOutside'
 
@@ -62,7 +63,7 @@ export function CustomerNotificationBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
-            <button
+            <Button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${totalCount > 0
                     ? 'text-[#0d9488] bg-teal-50 dark:bg-teal-900/20'
@@ -80,7 +81,7 @@ export function CustomerNotificationBell() {
                 {isConnected && (
                     <span className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
                 )}
-            </button>
+            </Button>
 
             {/* Dropdown */}
             {isOpen && (

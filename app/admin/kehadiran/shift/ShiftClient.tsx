@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineArrowPath } from "react-icons/hi2"
+import { Button } from '@/components/ui/Button'
 import { usePermission } from "@/hooks/use-permission"
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable"
 import { Modal, ModalFooter } from "@/components/ui/Modal"
@@ -238,30 +239,30 @@ export default function ShiftClient() {
         <div className="flex gap-2">
             {canUpdate && (
                 <>
-                    <button
+                    <Button
                         onClick={() => openEditModal(shift)}
                         className="p-1 text-blue-600 hover:bg-blue-50 rounded dark:hover:bg-blue-900/20"
                         title="Edit"
                     >
                         <HiOutlinePencil className="w-4 h-4" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => toggleActive(shift)}
                         className="p-1 text-gray-600 hover:bg-gray-50 rounded dark:hover:bg-gray-700"
                         title={shift.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                     >
                         <HiOutlineArrowPath className="w-4 h-4" />
-                    </button>
+                    </Button>
                 </>
             )}
             {canDelete && (
-                <button
+                <Button
                     onClick={() => handleDelete(shift)}
                     className="p-1 text-red-600 hover:bg-red-50 rounded dark:hover:bg-red-900/20"
                     title="Hapus"
                 >
                     <HiOutlineTrash className="w-4 h-4" />
-                </button>
+                </Button>
             )}
         </div>
     )
@@ -277,13 +278,13 @@ export default function ShiftClient() {
                     </p>
                 </div>
                 {canCreate && (
-                    <button
+                    <Button
                         onClick={openCreateModal}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        
                     >
                         <HiOutlinePlus className="w-5 h-5" />
                         Tambah Shift
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -385,20 +386,20 @@ export default function ShiftClient() {
                     </div>
 
                     <ModalFooter>
-                        <button
+                        <Button
                             type="button"
                             onClick={() => setShowModal(false)}
                             className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             Batal
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
                             disabled={saving}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm shadow-blue-200 dark:shadow-none"
+                            
                         >
                             {saving ? 'Menyimpan...' : 'Simpan'}
-                        </button>
+                        </Button>
                     </ModalFooter>
                 </form>
             </Modal>

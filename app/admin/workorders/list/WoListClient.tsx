@@ -20,6 +20,7 @@ import PageLoader from '@/components/ui/PageLoader'
 import { useToast } from '@/hooks/use-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { usePermission } from '@/hooks/use-permission'
 
 interface WorkOrder {
@@ -753,9 +754,9 @@ export function ClientComponent() {
                     <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900 dark:text-white">Filters</h3>
                         {hasActiveFilters && (
-                            <button onClick={clearFilters} className="text-sm text-sky-600 hover:text-sky-700 font-medium">
+                            <Button variant="link" size="sm" onClick={clearFilters}>
                                 Reset
-                            </button>
+                            </Button>
                         )}
                     </div>
 

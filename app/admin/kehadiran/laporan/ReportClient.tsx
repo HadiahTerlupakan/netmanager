@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { FaSearch, FaFileExport } from 'react-icons/fa'
 import { MdTrendingUp, MdAccessTime, MdPeople, MdPersonOff, MdTimer } from 'react-icons/md'
+import { Button } from '@/components/ui/Button'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -398,33 +399,33 @@ export function ClientComponent() {
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
-                <button
+                <Button
                     onClick={() => fetchReport()}
                     disabled={loading || retryCountdown !== null}
                     className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 flex items-center gap-2 h-[38px] disabled:opacity-50"
                 >
                     <FaSearch /> {loading ? 'Memuat...' : 'Terapkan'}
-                </button>
+                </Button>
             </div>
 
             {/* Tab Navigation */}
             <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
-                <button
+                <Button
                     onClick={() => setActiveTab('dashboard')}
                     className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'dashboard'
                         ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                     📊 Dashboard
-                </button>
-                <button
+                </Button>
+                <Button
                     onClick={() => setActiveTab('rekap')}
                     className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'rekap'
                         ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                     👥 Rekap Karyawan
-                </button>
+                </Button>
             </div>
 
             {loading && !data && (
@@ -691,12 +692,12 @@ export function ClientComponent() {
                                     className="border rounded pl-8 pr-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white w-48"
                                 />
                             </div>
-                            <button
+                            <Button variant="success"
                                 onClick={handleExportCSV}
-                                className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 flex items-center gap-2"
+                                
                             >
                                 <FaFileExport /> Export CSV
-                            </button>
+                            </Button>
                         </div>
                     </div>
 

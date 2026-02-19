@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { Button } from '@/components/ui/Button'
 import {
     MdArrowBackIos,
     MdHelpOutline,
@@ -195,18 +196,19 @@ export default function CustomerInvoicesPage() {
 
                 {/* Top App Bar */}
                 <div className="flex items-center bg-white dark:bg-[#1a2632] p-4 pb-2 justify-between sticky top-0 z-50 border-b border-gray-100 dark:border-gray-800">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         type="button"
                         onClick={() => router.back()}
-                        className="flex w-10 h-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-900 dark:text-white"
                     >
                         <MdArrowBackIos className="text-2xl" />
-                    </button>
+                    </Button>
                     <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Tagihan & Pembayaran</h2>
                     <div className="flex w-12 items-center justify-end">
-                        <button className="flex size-12 cursor-pointer items-center justify-center rounded-lg bg-transparent text-[#111418] dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <Button variant="ghost" size="icon">
                             <MdHelpOutline className="text-2xl" />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -250,12 +252,13 @@ export default function CustomerInvoicesPage() {
                                         <span>Pembayaran aman & terenkripsi</span>
                                     </div>
                                     {totalPending > 0 && (
-                                        <button
+                                        <Button
                                             onClick={() => setShowPaymentModal(true)}
-                                            className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 bg-white text-[#0d9488] hover:bg-gray-50 active:scale-[0.98] transition-all text-base font-bold leading-normal tracking-[0.015em] shadow-sm"
+                                            variant="outline"
+                                            className="w-full h-12"
                                         >
                                             <span>Bayar Sekarang</span>
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             </div>
@@ -265,48 +268,56 @@ export default function CustomerInvoicesPage() {
                     {/* Headline: Transaction History */}
                     <div className="px-4 pt-4 pb-2 flex justify-between items-end">
                         <h3 className="text-[#111418] dark:text-white tracking-tight text-xl font-bold leading-tight">Riwayat Transaksi</h3>
-                        <button className="text-[#0d9488] text-sm font-semibold hover:underline">Unduh Semua</button>
+                        <Button variant="link" className="text-[#0d9488]">Unduh Semua</Button>
                     </div>
 
                     {/* Filter Chips */}
                     <div className="w-full overflow-x-auto hide-scrollbar pb-2">
                         <div className="flex gap-3 px-4 min-w-max">
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setFilter('ALL')}
-                                className={`flex h-9 items-center justify-center px-4 rounded-full transition-colors ${filter === 'ALL'
-                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418]'
-                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+                                className={`rounded-full ${filter === 'ALL'
+                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418] hover:bg-[#111418] dark:hover:bg-white'
+                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white'
                                     }`}
                             >
-                                <p className="text-sm font-medium">Semua</p>
-                            </button>
-                            <button
+                                Semua
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setFilter('PAID')}
-                                className={`flex h-9 items-center justify-center px-4 rounded-full transition-colors ${filter === 'PAID'
-                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418]'
-                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+                                className={`rounded-full ${filter === 'PAID'
+                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418] hover:bg-[#111418] dark:hover:bg-white'
+                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white'
                                     }`}
                             >
-                                <p className="text-sm font-medium">Lunas</p>
-                            </button>
-                            <button
+                                Lunas
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setFilter('UNPAID')}
-                                className={`flex h-9 items-center justify-center px-4 rounded-full transition-colors ${filter === 'UNPAID'
-                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418]'
-                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+                                className={`rounded-full ${filter === 'UNPAID'
+                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418] hover:bg-[#111418] dark:hover:bg-white'
+                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white'
                                     }`}
                             >
-                                <p className="text-sm font-medium">Belum Bayar</p>
-                            </button>
-                            <button
+                                Belum Bayar
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setFilter('FAILED')}
-                                className={`flex h-9 items-center justify-center px-4 rounded-full transition-colors ${filter === 'FAILED'
-                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418]'
-                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+                                className={`rounded-full ${filter === 'FAILED'
+                                    ? 'bg-[#111418] dark:bg-white text-white dark:text-[#111418] hover:bg-[#111418] dark:hover:bg-white'
+                                    : 'bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 text-[#111418] dark:text-white'
                                     }`}
                             >
-                                <p className="text-sm font-medium">Gagal</p>
-                            </button>
+                                Gagal
+                            </Button>
                         </div>
                     </div>
 
@@ -360,14 +371,14 @@ export default function CustomerInvoicesPage() {
                     {/* Quick Actions Section */}
                     <div className="px-4 mt-6 mb-4">
                         <div className="grid grid-cols-2 gap-3">
-                            <button className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 active:bg-gray-50 dark:active:bg-gray-800 transition-colors hover:border-[#0d9488]/50">
+                            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto border border-gray-200 dark:border-gray-700 hover:border-[#0d9488]/50">
                                 <MdCreditCard className="text-[#0d9488] text-3xl" />
                                 <span className="text-sm font-medium text-[#111418] dark:text-white">Metode Bayar</span>
-                            </button>
-                            <button className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700 active:bg-gray-50 dark:active:bg-gray-800 transition-colors hover:border-[#0d9488]/50">
+                            </Button>
+                            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto border border-gray-200 dark:border-gray-700 hover:border-[#0d9488]/50">
                                 <MdAutorenew className="text-[#0d9488] text-3xl" />
                                 <span className="text-sm font-medium text-[#111418] dark:text-white">Auto Debet</span>
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
@@ -379,9 +390,9 @@ export default function CustomerInvoicesPage() {
                     <div className="bg-white dark:bg-[#1a2632] w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold">Rincian Pembayaran</h3>
-                            <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                            <Button variant="ghost" size="icon" onClick={() => setShowPaymentModal(false)}>
                                 <MdCancel className="text-2xl text-gray-500" />
-                            </button>
+                            </Button>
                         </div>
 
                         <div className="space-y-4">
@@ -406,23 +417,25 @@ export default function CustomerInvoicesPage() {
                                         disabled={appliedDiscount !== null}
                                     />
                                     {appliedDiscount ? (
-                                        <button
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
                                             onClick={() => {
                                                 setAppliedDiscount(null)
                                                 setCouponCode('')
                                             }}
-                                            className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-medium text-sm"
                                         >
                                             Hapus
-                                        </button>
+                                        </Button>
                                     ) : (
-                                        <button
+                                        <Button
+                                            size="sm"
                                             onClick={handleCheckCoupon}
                                             disabled={couponLoading || !couponCode}
-                                            className="px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-black rounded-lg hover:opacity-90 disabled:opacity-50 font-medium text-sm"
+                                            loading={couponLoading}
                                         >
-                                            {couponLoading ? 'Mohon tunggu...' : 'Gunakan'}
-                                        </button>
+                                            Gunakan
+                                        </Button>
                                     )}
                                 </div>
                                 {couponError && <p className="text-xs text-red-500">{couponError}</p>}
@@ -443,13 +456,14 @@ export default function CustomerInvoicesPage() {
                                 </span>
                             </div>
 
-                            <button
+                            <Button
                                 onClick={handlePayment}
                                 disabled={paymentLoading}
-                                className="w-full py-3 bg-[#0d9488] text-white rounded-xl font-bold hover:bg-[#0f766e] transition-colors disabled:opacity-50"
+                                loading={paymentLoading}
+                                className="w-full"
                             >
-                                {paymentLoading ? 'Memproses...' : 'Konfirmasi Pembayaran'}
-                            </button>
+                                Konfirmasi Pembayaran
+                            </Button>
                         </div>
                     </div>
                 </div>

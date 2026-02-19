@@ -15,6 +15,7 @@ import {
     Filler
 } from 'chart.js'
 import { HiCalendarDays, HiMagnifyingGlass, HiArrowTrendingUp } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 
 ChartJS.register(
     CategoryScale,
@@ -330,14 +331,14 @@ export function WoTrendCharts({
                             className="bg-transparent text-sm border-none focus:ring-0 dark:text-white p-0"
                         />
                     </div>
-                    <button
+                    <Button variant="success"
                         onClick={onApply}
                         disabled={loading}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-colors"
+                        
                     >
                         <HiMagnifyingGlass className="w-4 h-4" />
                         {loading ? 'Loading...' : 'Terapkan'}
-                    </button>
+                    </Button>
                 </div>
             </div>
 

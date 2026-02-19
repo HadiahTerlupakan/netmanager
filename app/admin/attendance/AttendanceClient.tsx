@@ -6,6 +6,7 @@ import { MdDelete, MdLocationOn, MdEdit, MdSave, MdTimer } from 'react-icons/md'
 import Image from 'next/image'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { usePermission } from '@/hooks/use-permission'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -431,22 +432,26 @@ export function ClientComponent() {
     const renderActions = (item: Attendance) => (
         <>
             {canUpdate && (
-                <button
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => handleEditClick(item)}
-                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition-colors dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400"
+                    className="text-blue-600 dark:text-blue-400"
                     title="Edit Data"
                 >
                     <MdEdit size={18} />
-                </button>
+                </Button>
             )}
             {canDelete && (
-                <button
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => handleDelete(item.id)}
-                    className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-2 rounded-full transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400"
+                    className="text-red-600 dark:text-red-400"
                     title="Hapus Data"
                 >
                     <MdDelete size={18} />
-                </button>
+                </Button>
             )}
         </>
     )
@@ -535,19 +540,18 @@ export function ClientComponent() {
                     </select>
                 </div>
                 <div className="flex gap-2">
-                    <button
+                    <Button
                         onClick={() => fetchAttendances()}
                         disabled={retryCountdown !== null}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2 disabled:opacity-50"
                     >
                         <FaSearch /> Cari
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="success"
                         onClick={handleExport}
-                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm h-[38px] flex items-center gap-2"
                     >
                         <FaFileExport /> Export CSV
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -565,21 +569,23 @@ export function ClientComponent() {
 
                 {/* Pagination Controls */}
                 <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
-                    <button
+                    <Button
+                        variant="outline"
+                        size="sm"
                         disabled={page === 1}
                         onClick={() => setPage(p => p - 1)}
-                        className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                         Sebelumnya
-                    </button>
+                    </Button>
                     <span className="text-sm text-gray-500 dark:text-gray-400">Halaman {page} dari {totalPages} ({totalItems} Data)</span>
-                    <button
+                    <Button
+                        variant="outline"
+                        size="sm"
                         disabled={page === totalPages}
                         onClick={() => setPage(p => p + 1)}
-                        className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                         Selanjutnya
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -601,12 +607,12 @@ export function ClientComponent() {
                     )}
                 </div>
                 <ModalFooter>
-                    <button
+                    <Button
+                        variant="secondary"
                         onClick={() => setSelectedPhoto(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm font-medium dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                     >
                         Tutup
-                    </button>
+                    </Button>
                 </ModalFooter>
             </Modal>
 
@@ -657,18 +663,17 @@ export function ClientComponent() {
                     </div>
                 </div>
                 <ModalFooter>
-                    <button
+                    <Button
+                        variant="outline"
                         onClick={() => setIsEditModalOpen(false)}
-                        className="px-4 py-2 border rounded text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-sm font-medium transition-colors"
                     >
                         Batal
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={handleUpdate}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium flex items-center gap-2 transition-colors"
                     >
                         <MdSave /> Simpan Perubahan
-                    </button>
+                    </Button>
                 </ModalFooter>
             </Modal>
         </div>

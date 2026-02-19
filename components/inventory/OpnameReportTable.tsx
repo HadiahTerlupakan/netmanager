@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { FiEdit2, FiTrash2, FiEye, FiFilter, FiDownload, FiMinusCircle } from 'react-icons/fi'
+import { Button } from '@/components/ui/Button'
 import type { StockOpnameRecord } from '@/lib/types/inventory'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
@@ -327,24 +328,24 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
   const renderActions = (opname: StockOpnameRecord) => (
     <div className="flex justify-center space-x-2">
         {onView && (
-        <button
+        <Button
             onClick={() => onView(opname)}
             className="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200"
             title="View Detail"
         >
             <FiEye className="h-4 w-4" />
-        </button>
+        </Button>
         )}
         {onEdit && (
-        <button
+        <Button
             onClick={() => onEdit(opname)}
             className="inline-flex items-center justify-center w-8 h-8 rounded text-yellow-600 hover:bg-yellow-50 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 border border-yellow-200"
             title="Edit"
         >
             <FiEdit2 className="h-4 w-4" />
-        </button>
+        </Button>
         )}
-        <button
+        <Button
         onClick={() => {
             console.log('Delete clicked for ID:', opname.id)
             handleDelete(opname.id)
@@ -354,7 +355,7 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
         title="Delete"
         >
         <FiTrash2 className="h-4 w-4" />
-        </button>
+        </Button>
     </div>
   )
 
@@ -425,13 +426,13 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
 
       {/* Export Button */}
       <div className="flex justify-end">
-        <button
+        <Button variant="outline"
           onClick={handleExportCSV}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          
         >
           <FiDownload className="mr-2 h-4 w-4" />
           Export CSV
-        </button>
+        </Button>
       </div>
 
       {/* Table */}
@@ -448,12 +449,12 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
         {error ? (
           <div className="text-center py-8">
             <p className="text-red-600">{error}</p>
-            <button
+            <Button
               onClick={fetchOpnameList}
-              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+               className="mt-2"
             >
               Retry
-            </button>
+            </Button>
           </div>
         ) : (
             <ResponsiveTable
@@ -472,20 +473,20 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
           <div className="bg-white dark:bg-gray-800 px-4 py-3 border-t border-gray-200 dark:border-gray-700 sm:px-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 flex justify-between sm:hidden">
-                <button
+                <Button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                   className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                 >
                   Previous
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                   className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                 >
                   Next
-                </button>
+                </Button>
               </div>
               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
@@ -497,15 +498,15 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
                 </div>
                 <div>
                   <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <button
+                    <Button
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
                       className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                     >
                       Previous
-                    </button>
+                    </Button>
                     {[...Array(totalPages)].map((_, i) => i + 1).map((page) => (
-                      <button
+                      <Button
                         key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page
@@ -514,15 +515,15 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
                           }`}
                       >
                         {page}
-                      </button>
+                      </Button>
                     ))}
-                    <button
+                    <Button
                       onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                       disabled={currentPage === totalPages}
                       className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                     >
                       Next
-                    </button>
+                    </Button>
                   </nav>
                 </div>
               </div>

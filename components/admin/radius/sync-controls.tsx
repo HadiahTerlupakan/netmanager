@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal';
 import { HiOutlineRefresh, HiOutlineCheckCircle, HiOutlineExclamationCircle } from 'react-icons/hi';
 
@@ -42,13 +43,13 @@ export function SyncControls() {
 
     return (
         <>
-            <button
+            <Button
                 onClick={() => setIsOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
             >
                 <HiOutlineRefresh className="h-4 w-4" />
                 Sync All Users
-            </button>
+            </Button>
 
             {isOpen && (
                 <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Sync All Users to RADIUS">
@@ -70,17 +71,17 @@ export function SyncControls() {
                         </div>
 
                         <div className="flex gap-3 justify-end pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                            <button
+                            <Button
                                 onClick={() => setIsOpen(false)}
                                 disabled={loading}
                                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={handleSync}
                                 disabled={loading}
-                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 disabled:opacity-50"
+                                
                             >
                                 {loading ? (
                                     <>
@@ -93,7 +94,7 @@ export function SyncControls() {
                                         Start Sync
                                     </>
                                 )}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </Modal>

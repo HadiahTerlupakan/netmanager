@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { HiOutlineRefresh } from 'react-icons/hi'
 import { HiOutlineClock, HiOutlineShieldCheck, HiOutlineUser, HiOutlineEye } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
 import PageLoader from '@/components/ui/PageLoader'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
@@ -88,13 +89,13 @@ export function ClientComponent() {
                         Riwayat aktivitas login pengguna ke sistem
                     </p>
                 </div>
-                <button
+                <Button
                     onClick={() => fetchLogs(pagination.page)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <HiOutlineRefresh className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                     Refresh
-                </button>
+                </Button>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -158,13 +159,13 @@ export function ClientComponent() {
                                     header: 'Detail',
                                     priority: 'secondary',
                                     render: (item) => (
-                                        <button
+                                        <Button
                                             onClick={() => openDetail(item)}
                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                                         >
                                             <HiOutlineEye className="w-4 h-4" />
                                             Lihat Detail
-                                        </button>
+                                        </Button>
                                     )
                                 }
                             ]}
@@ -178,20 +179,20 @@ export function ClientComponent() {
                                     Hal {pagination.page} dari {pagination.totalPages} ({pagination.total} Log)
                                 </p>
                                 <div className="flex items-center gap-2">
-                                    <button
+                                    <Button
                                         onClick={() => handlePageChange(pagination.page - 1)}
                                         disabled={pagination.page === 1}
                                         className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Sebelumnya
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         onClick={() => handlePageChange(pagination.page + 1)}
                                         disabled={pagination.page === pagination.totalPages}
                                         className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Selanjutnya
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         )}
@@ -308,12 +309,12 @@ export function ClientComponent() {
 
                 {/* Footer */}
                 <ModalFooter>
-                    <button
+                    <Button
                         onClick={() => setShowModal(false)}
                         className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     >
                         Tutup
-                    </button>
+                    </Button>
                 </ModalFooter>
             </Modal>
         </div>

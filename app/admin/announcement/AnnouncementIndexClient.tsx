@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable';
+import { Button } from '@/components/ui/Button';
 
 interface Announcement {
     id: string;
@@ -115,7 +116,7 @@ export function ClientComponent() {
     const renderActions = (announcement: Announcement) => (
         <div className="text-right text-sm font-medium">
             <Link href={`/admin/announcement/${announcement.id}`} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 mr-4">Edit</Link>
-            <button onClick={() => handleDelete(announcement.id)} className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300">Delete</button>
+            <Button variant="ghost" size="sm" onClick={() => handleDelete(announcement.id)} className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300">Delete</Button>
         </div>
     );
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PurchaseOrderForm from '../_components/PurchaseOrderForm'
 import ReceiveGoodsModal from '../_components/ReceiveGoodsModal'
+import { Button } from '@/components/ui/Button'
 import { usePermission } from '@/hooks/use-permission'
 import toast from 'react-hot-toast'
 import React from 'react'
@@ -126,12 +127,12 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                 <div className="relative">
                     {(canProcess || canReceive) && (
                         <>
-                            <button 
+                            <Button 
                                 onClick={() => setShowActions(!showActions)}
                                 className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm flex items-center gap-2"
                             >
                                 Aksi <HiChevronDown className={`w-4 h-4 transition-transform ${showActions ? 'rotate-180' : ''}`} />
-                            </button>
+                            </Button>
 
                             {showActions && (
                                 <>
@@ -141,7 +142,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                     />
                                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-20 py-1">
                                         {canProcess && (
-                                            <button
+                                            <Button
                                                 onClick={() => {
                                                     setShowActions(false)
                                                     handleStartShopping()
@@ -150,10 +151,10 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                                             >
                                                 {processingAction ? 'Memproses...' : 'Mulai Belanja'}
-                                            </button>
+                                            </Button>
                                         )}
                                         {canReceive && (
-                                            <button
+                                            <Button
                                                 onClick={() => {
                                                     setShowActions(false)
                                                     setShowReceiveModal(true)
@@ -161,7 +162,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                                 className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
                                             >
                                                 Terima Barang
-                                            </button>
+                                            </Button>
                                         )}
                                     </div>
                                 </>

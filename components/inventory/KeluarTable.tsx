@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Button } from '@/components/ui/Button'
 import { useSocketEvent } from '@/hooks/useSocket'
 import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiUser } from 'react-icons/fi'
 import { getWithAuth, deleteWithAuth } from '@/lib/api-client'
@@ -287,27 +288,27 @@ export function KeluarTable({
   // Render actions for each row
   const renderActions = (item: BarangKeluar) => (
     <>
-      <button
+      <Button
         onClick={() => onView?.(item)}
         className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
         title="Lihat Detail"
       >
         <FiEye className="h-4 w-4" />
-      </button>
-      <button
+      </Button>
+      <Button
         onClick={() => onEdit?.(item)}
         className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
         title="Edit"
       >
         <FiEdit className="h-4 w-4" />
-      </button>
-      <button
+      </Button>
+      <Button
         onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
         title="Hapus"
       >
         <FiTrash2 className="h-4 w-4" />
-      </button>
+      </Button>
     </>
   )
 
@@ -339,23 +340,23 @@ export function KeluarTable({
             {pagination.total} data
           </div>
           <div className="flex items-center space-x-2">
-            <button
+            <Button
               onClick={() => setPage(page - 1)}
               disabled={page === 1}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
               Previous
-            </button>
+            </Button>
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Page {page} of {pagination.totalPages}
             </span>
-            <button
+            <Button
               onClick={() => setPage(page + 1)}
               disabled={page === pagination.totalPages}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}

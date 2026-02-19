@@ -17,6 +17,7 @@ import {
     HiOutlineChartBar
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
 import type { RABProject } from './RABList'
 import { Modal } from '@/components/ui/Modal'
@@ -1061,7 +1062,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                 {expenseTab === 'CAPEX' ? <HiOutlineCube className="w-12 h-12" /> : <HiOutlineBanknotes className="w-12 h-12" />}
                                             </div>
                                             <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Belum ada item {expenseTab} ditambahkan</p>
-                                            <button onClick={handleAddItem} className="mt-4 text-xs font-black text-blue-500 hover:underline">MULAI TAMBAH ITEM SEKARANG</button>
+                                            <Button variant="link" size="sm" onClick={handleAddItem} className="mt-4">MULAI TAMBAH ITEM SEKARANG</Button>
                                         </div>
                                     ) : (
                                         <div className="overflow-x-auto">
