@@ -211,7 +211,7 @@ export default function CanvasingList() {
                 {canCreate && (
                     <Link 
                         href="/admin/marketing/canvasing/new"
-                        className={buttonVariants({ variant: 'default', size: 'default' })}
+                        className={`${buttonVariants({ variant: 'default', size: 'default' })} !text-white`}
                     >
                         <HiOutlinePlus className="w-5 h-5" />
                         Tambah Canvasing

@@ -52,66 +52,66 @@ export default function CanvasingCreateClient() {
                     <HiOutlineChevronLeft className="w-6 h-6" />
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Tambah Canvasing Baru</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tambah Canvasing Baru</h1>
                     <p className="text-gray-500">Input data calon pelanggan baru secara manual</p>
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <form onSubmit={handleSubmit} className="max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                 <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Nama Lengkap (Sesuai KTP)</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Nama Lengkap (Sesuai KTP)</label>
                         <input
                             required
                             type="text"
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.nama}
                             onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Nomor KTP (NIK)</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Nomor KTP (NIK)</label>
                         <input
                             required
                             type="text"
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.noKtp}
                             onChange={(e) => setFormData({ ...formData, noKtp: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Nomor Telepon</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Nomor Telepon</label>
                         <input
                             required
                             type="text"
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.noTelpon}
                             onChange={(e) => setFormData({ ...formData, noTelpon: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Email (Opsional)</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Email (Opsional)</label>
                         <input
                             type="email"
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-bold text-gray-700">Alamat Lengkap</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Alamat Lengkap</label>
                         <textarea
                             required
                             rows={3}
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none"
                             value={formData.alamat}
                             onChange={(e) => setFormData({ ...formData, alamat: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Paket Layanan</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Paket Layanan</label>
                         <select
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.paket}
                             onChange={(e) => setFormData({ ...formData, paket: e.target.value })}
                         >
@@ -123,36 +123,36 @@ export default function CanvasingCreateClient() {
                         </select>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Estimasi Kabel (Meter)</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Estimasi Kabel (Meter)</label>
                         <input
                             required
                             type="number"
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.kabel}
                             onChange={(e) => setFormData({ ...formData, kabel: parseInt(e.target.value) || 0 })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">ODP Terdekat (Opsional)</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">ODP Terdekat (Opsional)</label>
                         <input
                             type="text"
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.odp}
                             onChange={(e) => setFormData({ ...formData, odp: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Serial Number (Opsional)</label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Serial Number (Opsional)</label>
                         <input
                             type="text"
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                             value={formData.sn}
                             onChange={(e) => setFormData({ ...formData, sn: e.target.value })}
                         />
                     </div>
                 </div>
 
-                <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-end gap-4">
+                <div className="p-8 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-4">
                     <Button
                         type="button"
                         variant="ghost"

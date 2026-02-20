@@ -43,11 +43,14 @@ export async function getUserFeaturesWithCanvasing(userId: string): Promise<stri
 
   if (!user?.role?.permission) return []
 
-  // Get base features from role
-  const roleFeatures = [...new Set(user.role.permission.map(p => p.resource))]
+  // Get mobile features only (m_* prefix) from role permissions.
+  // Admin resources (non-m_*) are intentionally excluded —
+  // mobile app only needs mobile permissions, admin permissions are irrelevant here.
+  const roleFeatures = [...new Set(
+    user.role.permission
+      .map(p => p.resource)
+      .filter(resource => resource.startsWith('m_'))
+  )]
 
-  // Bypass logic REMOVED to respect Matrix/RBAC permissions.
-  // The 'm_canvasing' permission must be explicitly assigned to the role.
-  
   return roleFeatures
 }

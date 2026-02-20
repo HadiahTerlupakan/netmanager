@@ -112,8 +112,9 @@ export default function BandwidthPage() {
         throw new Error(errorMessage)
       }
 
-      const data = await res.json()
-      setBandwidths(data)
+      const json = await res.json()
+      const dataArray = Array.isArray(json) ? json : (json.data || [])
+      setBandwidths(dataArray)
       setError(null)
     } catch (error: unknown) {
       console.error('Error loading data:', error)

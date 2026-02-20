@@ -76,7 +76,7 @@ export default function CouponList() {
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Manajemen Kupon</h1>
                 <Link
                     href="/admin/marketing/coupons/create"
-                    className={buttonVariants({ variant: 'default', size: 'default' })}
+                    className={`${buttonVariants({ variant: 'default', size: 'default' })} !text-white`}
                 >
                     <HiOutlinePlus className="w-5 h-5" />
                     Buat Kupon

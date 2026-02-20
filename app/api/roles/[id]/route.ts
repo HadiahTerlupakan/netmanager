@@ -5,6 +5,7 @@ import { hasPermission } from '@/lib/rbac'
 import { getRoleService } from '@/modules/roles'
 import { z } from 'zod'
 import { logActivitySafe } from '@/lib/logger'
+import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
 
 const roleUpdateSchema = z.object({
     name: z.string().min(2),
@@ -63,6 +64,13 @@ export async function PUT(req: Request, { params }: Params) {
         const validated = roleUpdateSchema.parse(body)
         console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
 
+        // Sanitize permissions based on panel access flags (safety net)
+        const sanitizedPermissions = await sanitizePermissionsByPanelAccess(
+            validated.permissions,
+            validated.accessAdminPanel ?? false,
+            validated.accessEmployeePanel ?? false
+        )
+
         const roleService = getRoleService()
         const updateData: {
             name: string;
@@ -75,7 +83,7 @@ export async function PUT(req: Request, { params }: Params) {
             isSuperAdmin?: boolean;
         } = {
             name: validated.name,
-            permissions: validated.permissions,
+            permissions: sanitizedPermissions,
         }
         if (validated.description !== undefined) updateData.description = validated.description
         if (validated.accessAdminPanel !== undefined) updateData.accessAdminPanel = validated.accessAdminPanel

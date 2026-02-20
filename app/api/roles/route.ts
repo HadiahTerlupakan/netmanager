@@ -6,6 +6,7 @@ import { hasPermission } from '@/lib/rbac'
 import { getRoleService } from '@/modules/roles'
 import { z } from 'zod'
 import { logActivitySafe } from '@/lib/logger'
+import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
 
 const roleSchema = z.object({
     name: z.string().min(2),
@@ -84,12 +85,19 @@ export async function POST(req: Request) {
         const validated = roleSchema.parse(body)
         console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
 
+        // Sanitize permissions based on panel access flags (safety net)
+        const sanitizedPermissions = await sanitizePermissionsByPanelAccess(
+            validated.permissions,
+            validated.accessAdminPanel ?? false,
+            validated.accessEmployeePanel ?? false
+        )
+
         const roleService = getRoleService()
 
         // Build the role data conditionally to avoid passing undefined
         const roleData: Record<string, unknown> = {
             name: validated.name,
-            permissions: validated.permissions,
+            permissions: sanitizedPermissions,
         }
 
         // Only include optional properties if they have values

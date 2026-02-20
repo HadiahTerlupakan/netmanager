@@ -33,6 +33,9 @@ const TEMPLATE_ICONS: Record<string, React.ReactNode> = {
 }
 import type { ResourceAction } from '@/lib/resource-capabilities'
 
+// Helper: daftar semua resource admin & mobile untuk validasi konsistensi
+const ALL_ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat() as string[]
+const ALL_MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat() as string[]
 
 export function ClientComponent() {
     const router = useRouter()
@@ -146,6 +149,13 @@ export function ClientComponent() {
                         })
 
                         setExpandedGroups(groupsToExpand)
+
+                        // Auto-select initial tab based on portal access
+                        if (roleData.accessAdminPanel) {
+                            setActiveTab('admin')
+                        } else if (roleData.accessEmployeePanel) {
+                            setActiveTab('employee')
+                        }
                     } else {
                         toast.error(roleData.error || 'Gagal memuat data role')
                         router.push('/admin/settings/roles')
@@ -257,7 +267,20 @@ export function ClientComponent() {
                             <input
                                 type="checkbox"
                                 checked={formData.accessAdminPanel}
-                                onChange={e => setFormData({ ...formData, accessAdminPanel: e.target.checked })}
+                                onChange={e => {
+                                    const checked = e.target.checked
+                                    let newPermissions = formData.permissions
+                                    if (!checked) {
+                                        // Strip all admin permissions (non-m_ resources)
+                                        newPermissions = newPermissions.filter(p => p.split(':')[0].startsWith('m_'))
+                                    }
+                                    setFormData({ ...formData, accessAdminPanel: checked, permissions: newPermissions })
+                                    if (checked) {
+                                        setActiveTab('admin')
+                                    } else if (activeTab === 'admin' && formData.accessEmployeePanel) {
+                                        setActiveTab('employee')
+                                    }
+                                }}
                                 className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
                             />
                             <div>
@@ -265,11 +288,24 @@ export function ClientComponent() {
                                 <span className="text-sm text-gray-500 dark:text-gray-400">Izinkan akses ke dashboard admin dan manajemen sistem ({`/admin`}).</span>
                             </div>
                         </label>
-                        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                        <label className="flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors">
                             <input
                                 type="checkbox"
                                 checked={formData.accessEmployeePanel}
-                                onChange={e => setFormData({ ...formData, accessEmployeePanel: e.target.checked })}
+                                onChange={e => {
+                                    const checked = e.target.checked
+                                    let newPermissions = formData.permissions
+                                    if (!checked) {
+                                        // Strip all mobile permissions (m_* resources)
+                                        newPermissions = newPermissions.filter(p => !p.split(':')[0].startsWith('m_'))
+                                    }
+                                    setFormData({ ...formData, accessEmployeePanel: checked, permissions: newPermissions })
+                                    if (checked) {
+                                        setActiveTab('employee')
+                                    } else if (activeTab === 'employee' && formData.accessAdminPanel) {
+                                        setActiveTab('admin')
+                                    }
+                                }}
                                 className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
                             />
                             <div>
@@ -472,26 +508,51 @@ export function ClientComponent() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('admin')}
-                                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${activeTab === 'admin'
-                                    ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                                    }`}
+                                disabled={!formData.accessAdminPanel}
+                                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${
+                                    !formData.accessAdminPanel
+                                        ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                        : activeTab === 'admin'
+                                            ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
+                                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                }`}
                             >
                                 Portal Admin
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('employee')}
-                                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${activeTab === 'employee'
-                                    ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                                    }`}
+                                disabled={!formData.accessEmployeePanel}
+                                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${
+                                    !formData.accessEmployeePanel
+                                        ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                        : activeTab === 'employee'
+                                            ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
+                                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                }`}
                             >
                                 Mobile App
                             </button>
                         </div>
                     </div>
 
+                    {/* Warning: Both portals off */}
+                    {!formData.accessAdminPanel && !formData.accessEmployeePanel && (
+                        <div className="p-6 text-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                            <div className="text-gray-400 dark:text-gray-500 mb-2">
+                                <FiX className="w-10 h-10 mx-auto" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                Tidak ada portal yang aktif
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                Aktifkan minimal satu portal di bagian &quot;Akses Portal&quot; di atas untuk mengatur permission.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Matrix content - only show when at least one portal is active */}
+                    {(formData.accessAdminPanel || formData.accessEmployeePanel) && (
                     <div className="space-y-4">
                         {(Object.entries(activeTab === 'admin' ? PERMISSION_GROUPS : PERMISSION_GROUPS_MOBILE) as unknown as [string, readonly string[]][]).map(([groupName, resources]) => {
                             const groupActions = resources.flatMap(resource =>
@@ -748,6 +809,7 @@ export function ClientComponent() {
                             )
                         })}
                     </div>
+                    )}
                 </div>
                 )}
 

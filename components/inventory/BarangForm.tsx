@@ -181,8 +181,8 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
       )}
 
       {!initialData?.id && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-md">
+          <p className="text-sm text-blue-800 dark:text-blue-300 flex items-center gap-2">
             <FiInfo className="w-4 h-4 shrink-0" /> Kode barang akan di-generate otomatis
           </p>
         </div>
