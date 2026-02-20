@@ -49,8 +49,11 @@ export function AdminNotificationBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
-            <Button onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-full transition-all duration-200 group"
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsOpen(!isOpen)}
+                className="relative group"
                 aria-label="Notifications"
             >
                 <HiOutlineBell className="w-6 h-6" />

@@ -45,6 +45,20 @@
   --color-primary-hover: 67 56 202;
   /* #4338CA - Indigo 700 */
 
+  /* Neutral Button Tokens (defaults to dark, overridden by .light/.dark) */
+  --color-neutral-border: 75 85 99;
+  /* gray-600 */
+  --color-neutral-text: 229 231 235;
+  /* gray-200 */
+  --color-neutral-text-strong: 243 244 246;
+  /* gray-100 */
+  --color-neutral-bg: 31 41 55;
+  /* gray-800 */
+  --color-neutral-bg-hover: 55 65 81;
+  /* gray-700 */
+  --color-link-text: 99 102 241;
+  /* Indigo 500 - lighter for dark backgrounds */
+
   /* Enhanced Spacing Scale */
   --spacing-xs: 0.25rem;
   /* 4px */
@@ -132,6 +146,20 @@
   --color-border: 226 232 240;
   /* #E2E8F0 - Soft border */
 
+  /* Neutral Button Tokens for light theme */
+  --color-neutral-border: 209 213 219;
+  /* gray-300 */
+  --color-neutral-text: 55 65 81;
+  /* gray-700 */
+  --color-neutral-text-strong: 17 24 39;
+  /* gray-900 */
+  --color-neutral-bg: 243 244 246;
+  /* gray-100 */
+  --color-neutral-bg-hover: 229 231 235;
+  /* gray-200 */
+  --color-link-text: 79 70 229;
+  /* Indigo 600 - primary */
+
   /* Enhanced shadows for light theme */
   --shadow-neumorphic-raised: 8px 8px 16px rgba(0, 0, 0, 0.08), -8px -8px 16px rgba(255, 255, 255, 0.95);
   --shadow-neumorphic-inset: inset 8px 8px 16px rgba(0, 0, 0, 0.08), inset -8px -8px 16px rgba(255, 255, 255, 0.95);
@@ -160,6 +188,20 @@
   /* rgba(255, 255, 255, 0.5) - Placeholder white */
   --color-border: 255 255 255 / 0.1;
   /* rgba(255, 255, 255, 0.1) - Subtle white border */
+
+  /* Neutral Button Tokens for dark theme */
+  --color-neutral-border: 75 85 99;
+  /* gray-600 */
+  --color-neutral-text: 229 231 235;
+  /* gray-200 */
+  --color-neutral-text-strong: 243 244 246;
+  /* gray-100 */
+  --color-neutral-bg: 31 41 55;
+  /* gray-800 */
+  --color-neutral-bg-hover: 55 65 81;
+  /* gray-700 */
+  --color-link-text: 99 102 241;
+  /* Indigo 500 */
 }
 
 /* Responsive Typography */

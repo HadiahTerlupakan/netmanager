@@ -13,11 +13,18 @@ export default {
         sans: ['var(--font-inter)', 'sans-serif'],
       },
       colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
         "background-light": "#f6f7f8",
         "background-dark": "#101922",
         "surface-dark": "#1a2632",
+        // Semantic neutral colors for button variants (outline, secondary, ghost)
+        neutral: {
+          border: 'rgb(var(--color-neutral-border) / <alpha-value>)',
+          text: 'rgb(var(--color-neutral-text) / <alpha-value>)',
+          'text-strong': 'rgb(var(--color-neutral-text-strong) / <alpha-value>)',
+          bg: 'rgb(var(--color-neutral-bg) / <alpha-value>)',
+          'bg-hover': 'rgb(var(--color-neutral-bg-hover) / <alpha-value>)',
+        },
+        link: 'rgb(var(--color-link-text) / <alpha-value>)',
         // Semantic colors via CSS variables - auto-switch for admin/customer & light/dark
         primary: {
           DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',

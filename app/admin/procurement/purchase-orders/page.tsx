@@ -304,21 +304,25 @@ export default function PurchaseOrderListPage() {
             {/* Tabs */}
             <div className="border-b border-gray-200 dark:border-gray-700">
                 <nav className="-mb-px flex space-x-8">
-                    <Button onClick={() => setActiveTab('pr')}
-                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    <Button 
+                        variant="ghost"
+                        onClick={() => setActiveTab('pr')}
+                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors rounded-none ${
                             activeTab === 'pr'
-                                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-transparent hover:bg-transparent'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-transparent'
                         }`}
                     >
                         <HiClipboardList className="w-5 h-5" />
                         Purchase Requests
                     </Button>
-                    <Button onClick={() => setActiveTab('po')}
-                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    <Button 
+                        variant="ghost"
+                        onClick={() => setActiveTab('po')}
+                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors rounded-none ${
                             activeTab === 'po'
-                                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-transparent hover:bg-transparent'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-transparent'
                         }`}
                     >
                         <HiCollection className="w-5 h-5" />
@@ -367,15 +371,19 @@ export default function PurchaseOrderListPage() {
                                 Halaman {page} dari {totalPages} ({total} Data)
                             </span>
                             <div className="flex gap-2">
-                                <Button disabled={page === 1}
+                                <Button 
+                                    variant="outline"
+                                    disabled={page === 1}
                                     onClick={() => setPage(p => p - 1)}
-                                    className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
+                                    className="flex items-center gap-1 px-3 py-1 text-sm rounded-lg"
                                 >
                                     <HiChevronLeft /> Prev
                                 </Button>
-                                <Button disabled={page >= totalPages}
+                                <Button 
+                                    variant="outline"
+                                    disabled={page >= totalPages}
                                     onClick={() => setPage(p => p + 1)}
-                                    className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
+                                    className="flex items-center gap-1 px-3 py-1 text-sm rounded-lg"
                                 >
                                     Next <HiChevronRight />
                                 </Button>

@@ -92,11 +92,11 @@ export function CustomerSupportBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Chat Bubble Button */}
-            <Button onClick={() => setIsOpen(!isOpen)}
-                className={`relative p-2 rounded-full transition-all duration-200 group ${unreadCount > 0
-                    ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
-                    : 'text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10'
-                    }`}
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsOpen(!isOpen)}
+                className="relative group"
                 aria-label="Customer Support Tickets"
                 title="Tiket Dukungan Pelanggan"
             >
@@ -132,11 +132,14 @@ export function CustomerSupportBell() {
                                     {unreadCount} perlu respon
                                 </span>
                             )}
-                            <Button onClick={(e) => {
+                            <Button 
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={(e) => {
                                     e.stopPropagation()
                                     refresh()
                                 }}
-                                className="p-1 text-gray-400 hover:text-teal-600 rounded transition-colors"
+                                className="text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20"
                                 title="Refresh"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

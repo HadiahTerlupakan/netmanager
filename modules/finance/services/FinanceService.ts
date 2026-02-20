@@ -23,6 +23,12 @@ export class FinanceService {
     return this.categoryRepo.create(data)
   }
 
+  async updateCategory(id: string, data: Prisma.TransactionCategoryUpdateInput) {
+    const category = await this.categoryRepo.findById(id)
+    if (!category) throw new Error('Kategori tidak ditemukan')
+    return this.categoryRepo.update(id, data)
+  }
+
   async getTransactions(filters?: { startDate?: string, endDate?: string, categoryId?: string, accountId?: string, siteId?: string }) {
     return this.transactionRepo.findAll({
       ...(filters?.startDate ? { startDate: new Date(filters.startDate) } : {}),

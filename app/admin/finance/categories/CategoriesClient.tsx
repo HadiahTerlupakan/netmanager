@@ -196,7 +196,9 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
         throw new Error(errData?.error || 'Gagal membuat kategori')
       }
 
-      const newItem = await res.json()
+      const resData = await res.json()
+      const newItem = resData.data // Extract actual category object from API response
+      
       setData([...data, newItem])
 
       // Reset & Close
@@ -229,7 +231,9 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
           throw new Error(errData?.error || 'Gagal mengupdate kategori')
         }
 
-        const updatedItem = await res.json()
+        const resData = await res.json()
+        const updatedItem = resData.data // Extract actual category object from API response
+        
         setData(data.map(d => d.id === updatedItem.id ? updatedItem : d))
 
         setEditModalOpen(false)
@@ -353,7 +357,7 @@ export default function CategoriesClient({ initialData }: CategoriesClientProps)
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredData.length === 0 ? (
-                        <tr><td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Belum ada kategori ditemukan</td></tr>
+                        <tr key="empty"><td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Belum ada kategori ditemukan</td></tr>
                     ) : (
                         filteredData.map(item => (
                             <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">

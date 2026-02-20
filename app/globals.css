@@ -1,5 +1,6 @@
 /* Google Fonts now loaded via next/font/google in layout.tsx for better performance */
 @import "tailwindcss";
+@config "../tailwind.config.ts";
 
 /*
  * Main Global CSS Entry Point

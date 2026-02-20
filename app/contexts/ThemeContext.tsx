@@ -1,96 +1,28 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+/**
+ * Thin wrapper around next-themes that re-exports useTheme with a
+ * convenience `toggleTheme` helper so existing consumers don't break.
+ *
+ * ThemeProvider configuration has moved to the session-provider files
+ * where `<ThemeProvider>` from `next-themes` is rendered directly.
+ */
 
-type Theme = 'light' | 'dark'
-
-interface ThemeContextType {
-  theme: Theme
-  toggleTheme: () => void
-  setTheme: (theme: Theme) => void
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
-
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark')
-  const [mounted, setMounted] = useState(false)
-
-  // Apply theme to HTML element
-  const applyTheme = (newTheme: Theme) => {
-    const root = document.documentElement
-    root.classList.remove('light', 'dark')
-    root.classList.add(newTheme)
-    
-    // Also set data-theme attribute for additional targeting
-    root.setAttribute('data-theme', newTheme)
-  }
-
-  // Check system preference on mount
-  useEffect(() => {
-    // Check system preference
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const initialTheme = systemPrefersDark ? 'dark' : 'light'
-
-    // Use setTimeout to defer state updates
-    setTimeout(() => {
-      setMounted(true)
-      setThemeState(initialTheme)
-      applyTheme(initialTheme)
-    }, 0)
-  }, [])
-
-  // Listen for system theme changes
-  useEffect(() => {
-    if (!mounted) return
-    
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    
-    const handleChange = (e: MediaQueryListEvent) => {
-      const newTheme = e.matches ? 'dark' : 'light'
-      setThemeState(newTheme)
-      applyTheme(newTheme)
-    }
-    
-    mediaQuery.addEventListener('change', handleChange)
-    
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [mounted])
-
-  // Apply theme when it changes
-  useEffect(() => {
-    if (mounted) {
-      applyTheme(theme)
-    }
-  }, [theme, mounted])
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme)
-    applyTheme(newTheme)
-  }
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark'
-    setThemeState(newTheme)
-    applyTheme(newTheme)
-  }
-
-  // Prevent flash of incorrect theme
-  if (!mounted) {
-    return null
-  }
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  )
-}
+import { useTheme as useNextTheme } from 'next-themes'
 
 export function useTheme() {
-  const context = useContext(ThemeContext)
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider')
+  const { theme, setTheme, resolvedTheme, systemTheme } = useNextTheme()
+
+  const toggleTheme = () => {
+    // resolvedTheme accounts for 'system' → actual value
+    const current = resolvedTheme ?? theme ?? 'dark'
+    setTheme(current === 'dark' ? 'light' : 'dark')
   }
-  return context
+
+  return {
+    theme: (resolvedTheme ?? theme ?? 'dark') as 'light' | 'dark',
+    setTheme,
+    toggleTheme,
+    systemTheme,
+  }
 }

@@ -239,14 +239,18 @@ export default function ShiftClient() {
         <div className="flex gap-2">
             {canUpdate && (
                 <>
-                    <Button onClick={() => openEditModal(shift)}
-                        className="p-1 text-blue-600 hover:bg-blue-50 rounded dark:hover:bg-blue-900/20"
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => openEditModal(shift)}
                         title="Edit"
                     >
                         <HiOutlinePencil className="w-4 h-4" />
                     </Button>
-                    <Button onClick={() => toggleActive(shift)}
-                        className="p-1 text-gray-600 hover:bg-gray-50 rounded dark:hover:bg-gray-700"
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => toggleActive(shift)}
                         title={shift.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                     >
                         <HiOutlineArrowPath className="w-4 h-4" />
@@ -254,8 +258,10 @@ export default function ShiftClient() {
                 </>
             )}
             {canDelete && (
-                <Button onClick={() => handleDelete(shift)}
-                    className="p-1 text-red-600 hover:bg-red-50 rounded dark:hover:bg-red-900/20"
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => handleDelete(shift)}
                     title="Hapus"
                 >
                     <HiOutlineTrash className="w-4 h-4" />
@@ -382,17 +388,18 @@ export default function ShiftClient() {
                     </div>
 
                     <ModalFooter>
-                        <Button type="button"
+                        <Button
+                            type="button"
+                            variant="outline"
                             onClick={() => setShowModal(false)}
-                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             Batal
                         </Button>
-                        <Button type="submit"
-                            disabled={saving}
-                            
+                        <Button
+                            type="submit"
+                            loading={saving}
                         >
-                            {saving ? 'Menyimpan...' : 'Simpan'}
+                            Simpan
                         </Button>
                     </ModalFooter>
                 </form>

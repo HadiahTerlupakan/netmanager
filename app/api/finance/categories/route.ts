@@ -1,14 +1,16 @@
 import { z } from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { logger } from '@/lib/logger'
-import { createHandler, apiSuccess } from '@/lib/api'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { prisma } from '@/lib/prisma'
 
 const financeService = new FinanceService()
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Nama kategori wajib diisi'),
   type: z.enum(['INCOME', 'EXPENSE']),
-  description: z.string().optional(),
+  expenseType: z.enum(['OPERATIONAL', 'CAPITAL', 'OTHER']).optional().nullable(),
+  description: z.string().optional().nullable(),
 })
 
 export const GET = createHandler({ auth: true }, async () => {
@@ -20,12 +22,20 @@ export const POST = createHandler({
     auth: true,
     schema: categorySchema
 }, async (req, ctx) => {
-    const { description, ...rest } = ctx.validated
+    const { description, expenseType, ...rest } = ctx.validated
     
-    const category = await financeService.createCategory({
+    // Pass expenseType correctly based on type
+    const categoryData: any = {
         ...rest,
         ...(description ? { description } : {})
-    })
+    }
+    
+    // Only add expenseType if it's an EXPENSE
+    if (rest.type === 'EXPENSE' && expenseType) {
+        categoryData.expenseType = expenseType
+    }
+    
+    const category = await financeService.createCategory(categoryData)
 
     if (ctx.session?.user?.id) {
         await logger.logActivity({
@@ -37,4 +47,72 @@ export const POST = createHandler({
     }
 
     return apiSuccess(category, { status: 201 })
+})
+
+export const PUT = createHandler({
+    auth: true,
+    schema: categorySchema
+}, async (req, ctx) => {
+    const url = new URL(req.url)
+    const id = url.searchParams.get('id')
+
+    if (!id) return ApiErrors.badRequest('ID Kategori wajib diisi')
+
+    const { description, expenseType, ...rest } = ctx.validated
+    
+    // Pass expenseType correctly based on type
+    const categoryData: any = {
+        ...rest,
+        ...(description ? { description } : {})
+    }
+    
+    // Only add expenseType if it's an EXPENSE
+    if (rest.type === 'EXPENSE' && expenseType) {
+        categoryData.expenseType = expenseType
+    }
+    
+    const category = await financeService.updateCategory(id, categoryData)
+
+    if (ctx.session?.user?.id) {
+        await logger.logActivity({
+            action: 'UPDATE',
+            subject: 'FinanceCategory',
+            details: { id: category.id, name: category.name, type: category.type },
+            userId: ctx.session.user.id
+        })
+    }
+
+    return apiSuccess(category)
+})
+
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+    const url = new URL(req.url)
+    const id = url.searchParams.get('id')
+
+    if (!id) return ApiErrors.badRequest('ID Kategori wajib diisi')
+
+    // Periksa apakah kategori sedang digunakan di tabel Transaction
+    const usedCount = await prisma.transaction.count({
+        where: { categoryId: id }
+    })
+
+    if (usedCount > 0) {
+        return ApiErrors.badRequest('Tidak bisa dihapus. Kategori ini sedang digunakan oleh transaksi.')
+    }
+
+    // Hapus kategori
+    await prisma.transactionCategory.delete({
+        where: { id }
+    })
+
+    if (ctx.session?.user?.id) {
+        await logger.logActivity({
+            action: 'DELETE',
+            subject: 'FinanceCategory',
+            details: { id },
+            userId: ctx.session.user.id
+        })
+    }
+
+    return apiSuccess({ message: 'Kategori berhasil dihapus' })
 })

@@ -1,10 +1,12 @@
 'use client'
 
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from 'next-themes'
 import { HiOutlineSun, HiOutlineMoon } from 'react-icons/hi2'
 
 export default function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
+  const theme = resolvedTheme ?? 'dark'
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
   return (
     <button
