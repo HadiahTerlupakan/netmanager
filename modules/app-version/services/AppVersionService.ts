@@ -321,7 +321,8 @@ export class AppVersionService {
                 }
 
                 console.log(`[AppVersionService] Uploading APK to R2 (${(uploadBuffer.length / 1024 / 1024).toFixed(2)}MB)`)
-                const url = await uploadToR2(uploadBuffer, key, 'application/vnd.android.package-archive')
+                const contentDisposition = `attachment; filename="${sanitizedFilename}"`
+                const url = await uploadToR2(uploadBuffer, key, 'application/vnd.android.package-archive', contentDisposition)
                 console.log(`[AppVersionService] R2 upload successful: ${url}`)
                 return url
             } else {

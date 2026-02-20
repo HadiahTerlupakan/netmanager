@@ -161,12 +161,14 @@ export async function testR2Connection(settings: Omit<R2Settings, 'enabled'>): P
  * @param key Object key (path in bucket)
  * @param contentType MIME type of the file
  * @param expiresIn Expiration time in seconds (default: 3600 / 1 hour)
+ * @param contentDisposition Optional Content-Disposition header for the object
  * @returns Object containing presigned URL and the final public URL
  */
 export async function getPresignedUrl(
     key: string,
     contentType: string,
-    expiresIn = 3600
+    expiresIn = 3600,
+    contentDisposition?: string
 ): Promise<{ uploadUrl: string; publicUrl: string }> {
     const settings = await getR2Settings()
 
@@ -184,6 +186,7 @@ export async function getPresignedUrl(
             Bucket: settings.bucketName,
             Key: key,
             ContentType: contentType,
+            ...(contentDisposition && { ContentDisposition: contentDisposition }),
         })
 
         const uploadUrl = await getSignedUrl(client, command, { expiresIn })
@@ -208,12 +211,14 @@ export async function getPresignedUrl(
  * @param buffer File buffer to upload
  * @param key Object key (path in bucket)
  * @param contentType MIME type of the file
+ * @param contentDisposition Optional Content-Disposition header for the object
  * @returns Public URL of the uploaded file
  */
 export async function uploadToR2(
     buffer: Buffer,
     key: string,
-    contentType: string
+    contentType: string,
+    contentDisposition?: string
 ): Promise<string> {
     const settings = await getR2Settings()
 
@@ -235,6 +240,7 @@ export async function uploadToR2(
                 Key: key,
                 Body: buffer,
                 ContentType: contentType,
+                ...(contentDisposition && { ContentDisposition: contentDisposition }),
             },
         })
 

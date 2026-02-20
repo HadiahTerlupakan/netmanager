@@ -22,8 +22,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         // Check if it's an R2 URL (full URL) or local path
         if (apkUrl.startsWith('http://') || apkUrl.startsWith('https://')) {
-            // Redirect to R2 URL for direct download
-            return NextResponse.redirect(apkUrl)
+            // Proxy the R2 file with proper headers for Android APK installation
+            // NOTE: Direct redirect (302) causes issues on Android because:
+            // 1. Cross-origin redirect loses download context
+            // 2. R2 serves the file without Content-Disposition header
+            // 3. Android cannot recognize the downloaded file as an installable APK
+            try {
+                const r2Response = await fetch(apkUrl)
+
+                if (!r2Response.ok) {
+                    console.error('Error fetching APK from R2:', r2Response.status, r2Response.statusText)
+                    return NextResponse.json({ error: 'Gagal mengunduh APK dari storage' }, { status: 502 })
+                }
+
+                const apkBuffer = await r2Response.arrayBuffer()
+
+                return new NextResponse(apkBuffer, {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'application/vnd.android.package-archive',
+                        'Content-Disposition': `attachment; filename="${apkInfo.filename}"`,
+                        'Content-Length': apkBuffer.byteLength.toString(),
+                        'Cache-Control': 'no-cache',
+                    }
+                })
+            } catch (fetchError) {
+                console.error('Error proxying APK from R2:', fetchError)
+                return NextResponse.json({ error: 'Gagal mengunduh APK dari storage' }, { status: 502 })
+            }
         } else {
             // Local file - stream it
             const filePath = path.join(process.cwd(), 'public', apkUrl)
