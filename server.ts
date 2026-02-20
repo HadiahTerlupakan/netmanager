@@ -404,6 +404,16 @@ app.prepare().then(() => {
             console.log('[Server] Auto checkout cron scheduled (23:59)')
     }).catch(err => console.error('[Server] Failed to start Auto Checkout Service:', err))
 
+    // Start Location Cleanup Service (Daily at 02:00 AM)
+    import('./modules/attendance/services/LocationTrackingService').then(({ LocationTrackingService }) => {
+        cron.schedule('0 2 * * *', () => {
+            console.log('[Cron] Running daily location cleanup')
+            const service = new LocationTrackingService()
+            service.cleanupOldLocations().catch(err => console.error('[Cron] Location cleanup failed:', err))
+        })
+        console.log('[Server] Location cleanup cron scheduled (02:00)')
+    }).catch(err => console.error('[Server] Failed to start Location Tracking Service for cleanup:', err))
+
     // Start Monthly Asset Depreciation Service (Monthly on 1st at 02:00 AM)
     import('./modules/inventory/services/AssetService').then(({ AssetService }) => {
         cron.schedule('0 2 1 * *', async () => {

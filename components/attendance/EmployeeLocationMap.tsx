@@ -8,6 +8,7 @@ import type VectorLayer from 'ol/layer/Vector'
 import type VectorSource from 'ol/source/Vector'
 import type Overlay from 'ol/Overlay'
 import type { Options as OverlayOptions } from 'ol/Overlay'
+import type Point from 'ol/geom/Point'
 
 interface EmployeeLocation {
     userId: string
@@ -44,6 +45,7 @@ export default function EmployeeLocationMap({
     const popupRef = useRef<HTMLDivElement | null>(null)
     const onEmployeeClickRef = useRef(onEmployeeClick)
     const [mapReady, setMapReady] = useState(false)
+    const initialFitDoneRef = useRef(false) // Ref untuk track apakah initial auto-fit sudah dilakukan
 
     // Update the ref whenever the callback changes
     useEffect(() => {
@@ -113,11 +115,21 @@ export default function EmployeeLocationMap({
                 if (feature && overlayRef.current && popupRef.current) {
                     const data = feature.get('employeeData') as EmployeeLocation
                     if (data) {
+                        // Helper function for XSS prevention
+                        const escapeHtml = (unsafe: string) => {
+                            return String(unsafe)
+                                .replace(/&/g, "&amp;")
+                                .replace(/</g, "&lt;")
+                                .replace(/>/g, "&gt;")
+                                .replace(/"/g, "&quot;")
+                                .replace(/'/g, "&#039;");
+                        }
+
                         popupRef.current.innerHTML = `
                             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 min-w-[180px] border border-gray-200 dark:border-gray-700">
-                                <div class="font-semibold text-gray-800 dark:text-white text-sm">${data.userName}</div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${data.departmentName || '-'}</div>
-                                <div class="text-xs text-blue-600 dark:text-blue-400 mt-1">${data.siteName || 'Unknown'}</div>
+                                <div class="font-semibold text-gray-800 dark:text-white text-sm">${escapeHtml(data.userName)}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${escapeHtml(data.departmentName || '-')}</div>
+                                <div class="text-xs text-blue-600 dark:text-blue-400 mt-1">${escapeHtml(data.siteName || 'Unknown')}</div>
                                 ${data.isMoving ? '<div class="text-xs text-green-600 mt-1">📍 Moving</div>' : ''}
                             </div>
                         `
@@ -162,7 +174,6 @@ export default function EmployeeLocationMap({
         console.log('[EmployeeLocationMap] Updating markers, locations:', locations.length, locations)
         ;(async () => {
             if (!markerLayerRef.current || !mapRef.current) return
-            if (locations.length === 0) return
 
             const { default: _Feature } = await import('ol/Feature')
             const { default: Point } = await import('ol/geom/Point')
@@ -172,23 +183,19 @@ export default function EmployeeLocationMap({
 
             const source = markerLayerRef.current.getSource()
             if (!source) return
-            source.clear()
 
-            // Add markers for each employee
+            // Gunakan Set untuk mendeteksi user mana yang dihapus
+            const activeUserIds = new Set<string>()
+
+            // Add or update markers for each employee (Incremental Update)
             locations.forEach((loc) => {
+                activeUserIds.add(loc.userId)
+                
                 const coord = fromLonLat([loc.longitude, loc.latitude])
-                const feature = new Feature({
-                    geometry: new Point(coord),
-                    employeeData: loc
-                })
-
-                // Get initial for avatar
                 const initial = loc.userName.charAt(0).toUpperCase()
-
-                // Style based on moving status
                 const color = loc.isMoving ? '#22c55e' : '#2563eb'
 
-                feature.setStyle(new Style({
+                const style = new Style({
                     image: new CircleStyle({
                         radius: 16,
                         fill: new Fill({ color }),
@@ -200,22 +207,66 @@ export default function EmployeeLocationMap({
                         fill: new Fill({ color: '#ffffff' }),
                         offsetY: 1
                     })
-                }))
+                })
 
-                source.addFeature(feature)
+                let feature = source.getFeatureById(loc.userId)
+
+                if (!feature) {
+                    // Feature baru
+                    feature = new _Feature({
+                        geometry: new Point(coord),
+                        employeeData: loc
+                    })
+                    feature.setId(loc.userId) // Penting untuk lookup incremental update
+                    feature.setStyle(style)
+                    source.addFeature(feature)
+                } else {
+                    // Update feature yang sudah ada
+                    feature.set('employeeData', loc)
+                    const point = feature.getGeometry() as Point
+                    point.setCoordinates(coord)
+                    feature.setStyle(style)
+                }
             })
 
-            // Fit view to show all markers
-            const extent = source.getExtent()
-            if (extent && extent[0] !== Infinity && mapRef.current) {
-                mapRef.current.getView().fit(extent, {
-                    padding: [50, 50, 50, 50],
-                    maxZoom: 16,
-                    duration: 500
-                })
+            // Hapus feature user yang sudah tidak ada di data lokasi
+            source.getFeatures().forEach((feature) => {
+                const id = feature.getId() as string
+                if (id && !activeUserIds.has(id)) {
+                    source.removeFeature(feature)
+                }
+            })
+
+            // Fit view to show all markers HANYA pada saat load pertama
+            if (!initialFitDoneRef.current && locations.length > 0) {
+                const extent = source.getExtent()
+                if (extent && extent[0] !== Infinity && mapRef.current) {
+                    mapRef.current.getView().fit(extent, {
+                        padding: [50, 50, 50, 50],
+                        maxZoom: 16,
+                        duration: 500
+                    })
+                    initialFitDoneRef.current = true
+                }
             }
         })()
-    }, [locations, mapReady, onEmployeeClick]) // Re-run when locations change OR when map becomes ready
+    }, [locations, mapReady]) // Removed onEmployeeClick from deps to avoid re-renders
+
+    // Manual Fit to all markers function
+    const fitToAll = () => {
+        if (!markerLayerRef.current || !mapRef.current) return
+        const source = markerLayerRef.current.getSource()
+        if (!source) return
+        
+        const extent = source.getExtent()
+        if (extent && extent[0] !== Infinity && mapRef.current) {
+            mapRef.current.getView().fit(extent, {
+                padding: [50, 50, 50, 50],
+                maxZoom: 16,
+                duration: 500
+            })
+        }
+    }
 
     return (
         <div className="relative">
@@ -231,17 +282,26 @@ export default function EmployeeLocationMap({
                 style={{ display: 'none' }}
             />
             
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 dark:border-gray-700">
-                <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Keterangan</div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span className="w-3 h-3 rounded-full bg-blue-600"></span>
-                    <span>Diam</span>
+            {/* Legend and Actions */}
+            <div className="absolute bottom-4 left-4 flex flex-col gap-2">
+                <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 dark:border-gray-700">
+                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Keterangan</div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                        <span className="w-3 h-3 rounded-full bg-blue-600"></span>
+                        <span>Diam</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                        <span>Bergerak</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                    <span>Bergerak</span>
-                </div>
+                
+                <button 
+                    onClick={fitToAll}
+                    className="bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 backdrop-blur-sm text-xs font-medium text-gray-700 dark:text-gray-300 rounded-lg p-2 shadow-lg border border-gray-200 dark:border-gray-700 transition-colors flex items-center justify-center gap-1"
+                >
+                    📍 Pusatkan Peta
+                </button>
             </div>
 
             {/* Employee count badge */}

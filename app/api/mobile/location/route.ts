@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
+import { z } from 'zod'
+
+// Validasi input lokasi menggunakan Zod
+const locationSchema = z.object({
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    accuracy: z.number().optional().nullable(),
+    altitude: z.number().optional().nullable(),
+    speed: z.number().optional().nullable(),
+    heading: z.number().optional().nullable(),
+    batteryLevel: z.number().optional().nullable(),
+    isMoving: z.boolean().optional().default(false),
+    recordedAt: z.string().datetime().optional()
+})
+
+const batchLocationSchema = z.object({
+    locations: z.array(locationSchema)
+})
 
 /**
  * POST /api/mobile/location
@@ -12,7 +30,6 @@ export async function POST(request: NextRequest) {
     try {
         const authHeader = request.headers.get('Authorization')
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            console.log(`[API][${timestamp}] Location update: Missing token`)
             return NextResponse.json({ error: 'Token hilang atau tidak valid' }, { status: 401 })
         }
 
@@ -22,25 +39,18 @@ export async function POST(request: NextRequest) {
         }
         const payload = await verifyMobileToken(token)
         if (!payload) {
-            console.log(`[API][${timestamp}] Location update: Invalid token`)
             return NextResponse.json({ error: 'Token tidak valid atau kadaluarsa' }, { status: 401 })
         }
 
         const userId = payload.id as string
         const body = await request.json()
 
-        console.log(`[API][${timestamp}] ========== LOCATION UPDATE ==========`)
-        console.log(`[API][${timestamp}] User ID: ${userId}`)
-        console.log(`[API][${timestamp}] Data received:`, JSON.stringify(body))
-
         const locationService = new LocationTrackingService()
 
         // Cek apakah user sedang check-in
         const isCheckedIn = await locationService.isUserCurrentlyCheckedIn(userId)
-        console.log(`[API][${timestamp}] User check-in status: ${isCheckedIn}`)
 
         if (!isCheckedIn) {
-            console.log(`[API][${timestamp}] ❌ User not checked in, stopping tracking`)
             return NextResponse.json({
                 success: false,
                 message: 'User belum melakukan check-in',
@@ -50,20 +60,16 @@ export async function POST(request: NextRequest) {
 
         // Handle batch locations (offline sync)
         if (Array.isArray(body.locations)) {
-            console.log(`[API][${timestamp}] Processing batch of ${body.locations.length} locations`)
-            const count = await locationService.saveLocations(userId, body.locations.map((loc: Record<string, unknown>) => ({
-                latitude: loc.latitude,
-                longitude: loc.longitude,
-                accuracy: loc.accuracy,
-                altitude: loc.altitude,
-                speed: loc.speed,
-                heading: loc.heading,
-                batteryLevel: loc.batteryLevel,
-                isMoving: loc.isMoving,
-                recordedAt: loc.recordedAt ? new Date(loc.recordedAt as string) : new Date()
+            const parsed = batchLocationSchema.safeParse(body)
+            if (!parsed.success) {
+                return NextResponse.json({ error: 'Data lokasi tidak valid', details: parsed.error.format() }, { status: 400 })
+            }
+
+            const count = await locationService.saveLocations(userId, parsed.data.locations.map(loc => ({
+                ...loc,
+                recordedAt: loc.recordedAt ? new Date(loc.recordedAt) : new Date()
             })))
 
-            console.log(`[API][${timestamp}] ✅ Batch saved: ${count} locations`)
             return NextResponse.json({ 
                 success: true, 
                 message: `Saved ${count} locations`,
@@ -72,21 +78,16 @@ export async function POST(request: NextRequest) {
         }
 
         // Handle single location
-        console.log(`[API][${timestamp}] Saving single location...`)
+        const parsed = locationSchema.safeParse(body)
+        if (!parsed.success) {
+            return NextResponse.json({ error: 'Data lokasi tidak valid', details: parsed.error.format() }, { status: 400 })
+        }
+
         await locationService.saveLocation(userId, {
-            latitude: body.latitude,
-            longitude: body.longitude,
-            accuracy: body.accuracy,
-            altitude: body.altitude,
-            speed: body.speed,
-            heading: body.heading,
-            batteryLevel: body.batteryLevel,
-            isMoving: body.isMoving,
-            recordedAt: body.recordedAt ? new Date(body.recordedAt) : new Date()
+            ...parsed.data,
+            recordedAt: parsed.data.recordedAt ? new Date(parsed.data.recordedAt) : new Date()
         })
 
-        console.log(`[API][${timestamp}] ✅ Single location saved successfully`)
-        console.log(`[API][${timestamp}] ==========================================`)
         return NextResponse.json({ success: true, message: 'Lokasi tersimpan' })
 
     } catch (error: unknown) {

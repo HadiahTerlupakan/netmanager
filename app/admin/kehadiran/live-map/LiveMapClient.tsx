@@ -33,7 +33,7 @@ interface EmployeeLocation {
 }
 
 export default function LiveMapClient() {
-    const { socket } = useSocket()
+    const { socket, isConnected } = useSocket()
     const [locations, setLocations] = useState<EmployeeLocation[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -82,7 +82,8 @@ export default function LiveMapClient() {
 
                 // If user not found, they might be new - trigger fetch
                 if (index === -1) {
-                    fetchLocations()
+                    // Trigger fetch outside setState to avoid anti-pattern
+                    setTimeout(() => fetchLocations(), 0)
                     return prev
                 }
 
@@ -116,6 +117,19 @@ export default function LiveMapClient() {
             socket.emit('leave:room', 'admin:location')
         }
     }, [socket, fetchLocations])
+
+    // Polling fallback when socket is disconnected
+    useEffect(() => {
+        // If socket is connected, we don't need polling
+        if (isConnected) return
+
+        // If disconnected, poll every 15 seconds
+        const intervalId = setInterval(() => {
+            fetchLocations()
+        }, 15000)
+
+        return () => clearInterval(intervalId)
+    }, [isConnected, fetchLocations])
 
     // Filter locations by search
     const safeLocations = Array.isArray(locations) ? locations : []

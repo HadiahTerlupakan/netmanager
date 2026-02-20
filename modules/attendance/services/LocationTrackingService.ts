@@ -110,16 +110,30 @@ export class LocationTrackingService {
     }
 
     /**
+     * Helper to get today's start (00:00) in WIB (UTC+7) converted back to UTC
+     */
+    private getTodayWIBStartUTC(): Date {
+        const now = new Date()
+        const wibOffset = 7 * 60 // WIB is UTC+7, convert to minutes
+        const utcOffset = now.getTimezoneOffset() // Server's offset in minutes (negative for UTC+)
+        const totalOffset = wibOffset + utcOffset // Total offset from server time to WIB
+        
+        // Create "today at 00:00 WIB" in UTC
+        const todayWIB = new Date(now.getTime() + totalOffset * 60 * 1000)
+        todayWIB.setHours(0, 0, 0, 0)
+        return new Date(todayWIB.getTime() - totalOffset * 60 * 1000)
+    }
+
+    /**
      * Cek apakah user sedang dalam status aktif (sudah check-in, belum check-out)
      */
     async isUserCurrentlyCheckedIn(userId: string): Promise<boolean> {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        const todayUTC = this.getTodayWIBStartUTC()
 
         const activeAttendance = await prisma.attendance.findFirst({
             where: {
                 userId,
-                checkIn: { gte: today },
+                checkIn: { gte: todayUTC },
                 checkOut: null
             }
         })

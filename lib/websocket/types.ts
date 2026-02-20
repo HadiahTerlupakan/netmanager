@@ -35,6 +35,9 @@ export const SOCKET_EVENTS = {
 
     // User Status
     USER_STATUS_CHANGE: 'user:status',
+
+    // Live Location Tracking
+    ADMIN_LOCATION_UPDATE: 'admin:location:update',
 } as const
 
 // Notification payload
