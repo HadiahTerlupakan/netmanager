@@ -266,15 +266,16 @@ export async function GET(request: Request) {
     // Index parent nodes by edge target
     const parentMap = new Map()
     mappingEdges.forEach((edge) => {
-      // Find the source node (parent)
       const parentNode = mappingNodes.find((n) => n.nodeId === edge.source)
-      if (parentNode) {
-        // Store parent details for the target node
-        parentMap.set(edge.target, {
-          id: parentNode.nodeId,
+      const targetNode = mappingNodes.find((n) => n.nodeId === edge.target)
+      if (parentNode && targetNode) {
+        const parentData = {
+          id: parentNode.name || parentNode.nodeId,
           name: parentNode.name,
           type: parentNode.type
-        })
+        };
+        parentMap.set(targetNode.nodeId, parentData);
+        parentMap.set(targetNode.name, parentData);
       }
     })
 
@@ -305,8 +306,8 @@ export async function GET(request: Request) {
     // Index technical details (capacity, splitter, usedSlots, photo, inputCoreColor) by ID
     const nodeDetailsMap = new Map()
     nodesWithDetails.forEach((node) => {
-      const parent = parentMap.get(node.nodeId)
-      nodeDetailsMap.set(node.nodeId, {
+      const parent = parentMap.get(node.nodeId) || parentMap.get(node.name)
+      const details = {
         splitter: node.splitter,
         capacity: node.capacity,
         usedSlots: node.usedSlots,
@@ -315,18 +316,26 @@ export async function GET(request: Request) {
         attenuationInput: node.attenuationIn,
         attenuationOutput: node.attenuationOut,
         parent: parent
-      })
+      };
+      nodeDetailsMap.set(node.nodeId, details);
+      if (node.name) nodeDetailsMap.set(node.name, details);
     })
 
     // Index edges for waypoints by source_target
     const edgeMap = new Map()
     mappingEdges.forEach((edge) => {
-      edgeMap.set(`${edge.source}_${edge.target}`, parseWaypoints(edge.waypoints))
+      const wp = parseWaypoints(edge.waypoints);
+      edgeMap.set(`${edge.source}_${edge.target}`, wp);
+      const sourceNode = mappingNodes.find(n => n.nodeId === edge.source);
+      const targetNode = mappingNodes.find(n => n.nodeId === edge.target);
+      if (sourceNode?.name && targetNode?.name) {
+        edgeMap.set(`${sourceNode.name}_${targetNode.name}`, wp);
+      }
     })
 
     // Enrich OTBs with details
     const enrichedOtbs = otbs.map((otb) => {
-      const details = nodeDetailsMap.get(otb.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      const details = nodeDetailsMap.get(otb.id) || nodeDetailsMap.get(otb.name) || { splitter: null, capacity: 0, usedSlots: 0 }
       return {
         ...otb,
         ...details
@@ -335,10 +344,10 @@ export async function GET(request: Request) {
 
     // Enrich ODCs with details and waypoints
     const enrichedOdcs = odcs.map((odc) => {
-      const details = nodeDetailsMap.get(odc.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      const details = nodeDetailsMap.get(odc.id) || nodeDetailsMap.get(odc.name) || { splitter: null, capacity: 0, usedSlots: 0 }
       let waypoints = []
       if (odc.otbCore?.otb?.id) {
-        waypoints = edgeMap.get(`${odc.otbCore.otb.id}_${odc.id}`) || []
+        waypoints = edgeMap.get(`${odc.otbCore.otb.id}_${odc.id}`) || edgeMap.get(`${odc.otbCore.otb.name}_${odc.name}`) || []
       }
 
       // Fallback logic for parent and attenuation
@@ -361,7 +370,7 @@ export async function GET(request: Request) {
 
     // Enrich ODPs with details and waypoints
     const enrichedOdps = odps.map((odp) => {
-      const details = nodeDetailsMap.get(odp.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      const details = nodeDetailsMap.get(odp.id) || nodeDetailsMap.get(odp.name) || { splitter: null, capacity: 0, usedSlots: 0 }
       let waypoints: unknown[] = []
       if (odp.odcOutput?.odc?.id) {
         waypoints = edgeMap.get(`${odp.odcOutput.odc.id}_${odp.id}`) || []
@@ -389,7 +398,7 @@ export async function GET(request: Request) {
 
     // Enrich Joinboxes with details
     const enrichedJoinboxes = joinboxes.map((jb) => {
-      const details = nodeDetailsMap.get(jb.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      const details = nodeDetailsMap.get(jb.id) || nodeDetailsMap.get(jb.name) || { splitter: null, capacity: 0, usedSlots: 0 }
       return {
         ...jb,
         ...details
@@ -398,7 +407,7 @@ export async function GET(request: Request) {
 
     // Enrich Poles with details
     const enrichedPoles = poles.map((pole) => {
-      const details = nodeDetailsMap.get(pole.id) || { splitter: null, capacity: 0, usedSlots: 0 }
+      const details = nodeDetailsMap.get(pole.id) || nodeDetailsMap.get(pole.name) || { splitter: null, capacity: 0, usedSlots: 0 }
       return {
         ...pole,
         ...details

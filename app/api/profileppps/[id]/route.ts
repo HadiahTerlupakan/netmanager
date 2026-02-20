@@ -331,13 +331,19 @@ export async function PUT(
     // bandwidthId tidak disimpan di database, hanya digunakan untuk mengambil rate limit
     const { ipRange: _ipRange, bandwidthId, ...rawPrismaData } = validation.data
 
-    // Filter out undefined values and convert them to null for Prisma
-    const prismaData: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(rawPrismaData)) {
-      if (value !== undefined) {
-        prismaData[key] = value
-      }
-    }
+    // Buat objek data explicitly untuk Prisma
+    const prismaData = {
+      name: rawPrismaData.name,
+      localAddress: rawPrismaData.localAddress,
+      remoteAddress: rawPrismaData.remoteAddress,
+      dnsServer: rawPrismaData.dnsServer !== undefined ? rawPrismaData.dnsServer : null,
+      sessionTimeout: rawPrismaData.sessionTimeout !== undefined ? rawPrismaData.sessionTimeout : null,
+      idleTimeout: rawPrismaData.idleTimeout !== undefined ? rawPrismaData.idleTimeout : null,
+      description: rawPrismaData.description !== undefined ? rawPrismaData.description : null,
+      status: rawPrismaData.status,
+      mikroTikRouterId: rawPrismaData.mikroTikRouterId !== undefined ? rawPrismaData.mikroTikRouterId : null,
+      updatedAt: new Date(),
+    };
 
     // Update Profile PPP di database
     const profilePPP = await prisma.profilePPP.update({

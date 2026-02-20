@@ -68,6 +68,13 @@ export class HargaPaketService {
             ...(validData.description ? { description: validData.description } : {}),
             ...(validData.featured !== undefined ? { featured: validData.featured } : {}),
             ...(validData.status ? { status: validData.status } : {}),
+            ...(validData.usePPN !== undefined ? { usePPN: validData.usePPN } : {}),
+            ...(validData.ppnPercentage !== undefined ? { ppnPercentage: validData.ppnPercentage } : {}),
+            ...(validData.useDiscount !== undefined ? { useDiscount: validData.useDiscount } : {}),
+            ...(validData.discountType !== undefined ? { discountType: validData.discountType } : {}),
+            ...(validData.discountValue !== undefined ? { discountValue: validData.discountValue } : {}),
+            ...(validData.discountDuration !== undefined ? { discountDuration: validData.discountDuration } : {}),
+            ...(validData.discountDurationUnit !== undefined ? { discountDurationUnit: validData.discountDurationUnit } : {}),
         })
 
         // Sync MikroTik rate limit if needed

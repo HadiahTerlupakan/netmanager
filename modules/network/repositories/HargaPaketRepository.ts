@@ -59,6 +59,7 @@ export class HargaPaketRepository {
             include: {
                 bandwidth: true,
                 profilePPP: true,
+                site: true,
             },
         })
     }
@@ -71,6 +72,7 @@ export class HargaPaketRepository {
             where: { id },
             include: {
                 bandwidth: true,
+                site: true,
                 profilePPP: {
                     include: {
                         mikroTikRouter: true,

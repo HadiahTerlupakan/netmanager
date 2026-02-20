@@ -273,21 +273,26 @@ export async function POST(req: NextRequest) {
     // bandwidthId tidak disimpan di database, hanya digunakan untuk mengambil rate limit
     const { ipRange: _ipRange, bandwidthId, ...rawPrismaData } = validation.data
 
-    // Filter out undefined values to comply with exactOptionalPropertyTypes
-    const prismaData: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(rawPrismaData)) {
-      if (value !== undefined) {
-        prismaData[key] = value
-      }
-    }
+    // Buat objek data explicitly untuk Prisma tanpa field yang bisa undefined/bermasalah
+    // dan pastikan field yang optional diberikan nilai yang sesuai.
+    const prismaData = {
+      id: randomUUID(),
+      name: rawPrismaData.name,
+      localAddress: rawPrismaData.localAddress,
+      remoteAddress: rawPrismaData.remoteAddress,
+      dnsServer: rawPrismaData.dnsServer || null,
+      sessionTimeout: rawPrismaData.sessionTimeout || null,
+      idleTimeout: rawPrismaData.idleTimeout || null,
+      description: rawPrismaData.description || null,
+      status: rawPrismaData.status,
+      siteId: rawPrismaData.siteId || null,
+      mikroTikRouterId: rawPrismaData.mikroTikRouterId || null,
+      updatedAt: new Date(),
+    };
 
     // Simpan Profile PPP ke database
     const profilePPP = await prisma.profilePPP.create({
-      data: {
-        id: randomUUID(),
-        ...prismaData,
-        updatedAt: new Date(),
-      } as unknown as Prisma.ProfilePPPCreateInput,
+      data: prismaData,
       include: {
         mikroTikRouter: true,
       },

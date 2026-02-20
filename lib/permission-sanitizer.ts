@@ -1,7 +1,5 @@
-import { prisma } from '@/lib/prisma'
-
 /**
- * Sanitizes permission IDs based on panel access flags.
+ * Sanitizes permission arrays based on panel access flags.
  * - If accessEmployeePanel is false, strips all permissions whose resource starts with "m_"
  * - If accessAdminPanel is false, strips all permissions whose resource does NOT start with "m_"
  *
@@ -9,23 +7,19 @@ import { prisma } from '@/lib/prisma'
  * regardless of what the frontend sends.
  */
 export async function sanitizePermissionsByPanelAccess(
-  permissionIds: string[],
+  permissions: string[],
   accessAdminPanel: boolean,
   accessEmployeePanel: boolean
 ): Promise<string[]> {
-  if (permissionIds.length === 0) return []
+  if (permissions.length === 0) return []
 
   // If both panels are active, no filtering needed
-  if (accessAdminPanel && accessEmployeePanel) return permissionIds
-
-  // Fetch the permissions with their resources
-  const permissions = await prisma.permission.findMany({
-    where: { id: { in: permissionIds } },
-    select: { id: true, resource: true },
-  })
+  if (accessAdminPanel && accessEmployeePanel) return permissions
 
   const filtered = permissions.filter((p) => {
-    const isMobileResource = p.resource.startsWith('m_')
+    // p is "resource:action"
+    const [resource] = p.split(':')
+    const isMobileResource = resource.startsWith('m_')
 
     // If employee panel is off, remove all mobile (m_*) permissions
     if (!accessEmployeePanel && isMobileResource) return false
@@ -36,5 +30,5 @@ export async function sanitizePermissionsByPanelAccess(
     return true
   })
 
-  return filtered.map((p) => p.id)
+  return filtered
 }
