@@ -479,7 +479,7 @@ export class AppVersionService {
                 buildNumber: latestVersion.buildNumber,
                 versionCode: latestVersion.versionCode,
                 releaseNotes: latestVersion.releaseNotes,
-                downloadUrl: latestVersion.apkUrl ? `/api/mobile/app-version/download/${latestVersion.id}` : null,
+                downloadUrl: latestVersion.apkUrl ? (latestVersion.apkUrl.startsWith("http://") || latestVersion.apkUrl.startsWith("https://") ? latestVersion.apkUrl : `/api/mobile/app-version/download/${latestVersion.id}`) : null,
                 apkSize: latestVersion.apkSize ? Number(latestVersion.apkSize) : null
             } : null
         }
