@@ -92,7 +92,7 @@ export default function PelangganPPPPage() {
             setDisableDuration(parseInt(settingsData.disablePerpanjanganPaket) || 5)
           }
         } catch (_e) {
-          console.error('Error parsing settings:', e)
+          console.error('Error parsing settings:', _e)
         }
       }
 

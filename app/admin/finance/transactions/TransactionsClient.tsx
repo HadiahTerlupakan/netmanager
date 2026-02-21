@@ -254,7 +254,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div>
                    <label htmlFor="filter-site" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Site</label>
-                   <SiteFilter id="filter-site" onSiteChange={setFilterSiteId} />
+                   <SiteFilter onSiteChange={setFilterSiteId} />
                 </div>
                 <div>
                    <label htmlFor="filter-category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Kategori</label>
