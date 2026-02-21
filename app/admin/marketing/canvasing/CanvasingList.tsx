@@ -34,6 +34,8 @@ interface CanvasingItem {
     sales: { name: string }
     createdAt: string
     pointClaims?: PointClaim
+    site?: { name: string } | null
+    rejectReason?: string | null
 }
 
 export default function CanvasingList() {
@@ -252,7 +254,12 @@ export default function CanvasingList() {
                             key: 'sales',
                             header: 'Sales',
                             priority: 'secondary',
-                            render: (item) => <span className="text-sm">{item.sales.name}</span>
+                            render: (item) => (
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{item.sales.name}</span>
+                                    {item.site && <span className="text-xs text-gray-500">{item.site.name}</span>}
+                                </div>
+                            )
                         },
                         {
                             key: 'alamat',
@@ -274,7 +281,16 @@ export default function CanvasingList() {
                             key: 'status',
                             header: 'Status',
                             priority: 'primary',
-                            render: (item) => <StatusBadge status={item.status} />
+                            render: (item) => (
+                                <div className="flex flex-col gap-1 items-start">
+                                    <StatusBadge status={item.status} />
+                                    {item.status === 'REJECTED' && item.rejectReason && (
+                                        <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100 max-w-[200px] truncate" title={item.rejectReason}>
+                                            {item.rejectReason}
+                                        </span>
+                                    )}
+                                </div>
+                            )
                         }
                     ]}
                     emptyMessage="Tidak ada data canvasing ditemukan."

@@ -11,6 +11,11 @@ export class CanvasingRepository implements ICanvasingRepository {
         ...data,
       },
       include: {
+          site: {
+              select: {
+                  name: true
+              }
+          },
           sales: {
               select: {
                   id: true,
@@ -21,6 +26,12 @@ export class CanvasingRepository implements ICanvasingRepository {
           }
       }
     }) as Promise<CanvasingWithSalesInfo>
+  }
+
+  async findByWorkOrderId(workOrderId: string): Promise<Canvasing | null> {
+    return this.db.canvasing.findFirst({
+      where: { workOrderId }
+    })
   }
 
   async findById(id: string): Promise<Canvasing | null> {
@@ -93,7 +104,7 @@ export class CanvasingRepository implements ICanvasingRepository {
         AND: [
           filters?.status ? { status: filters.status } : {},
           filters?.salesId ? { salesId: filters.salesId } : {},
-          filters?.siteId ? { sales: { siteId: filters.siteId } } : {},
+          filters?.siteId ? { siteId: filters.siteId } : {},
         ],
       },
       include: {

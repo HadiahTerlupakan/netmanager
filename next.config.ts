@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },
       { protocol: 'http', hostname: '127.0.0.1' },
+      { protocol: 'http', hostname: '192.168.**' },
+      { protocol: 'http', hostname: '10.**' },
+      { protocol: 'http', hostname: '192.168.1.100' },
+      { protocol: 'http', hostname: '**' },
       { protocol: 'https', hostname: '**.radpro.id' },
       { protocol: 'https', hostname: '**.r2.dev' },
       { protocol: 'https', hostname: 'cdn.radpro.id' },
