@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
-import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiNoSymbol, HiXMark } from 'react-icons/hi2'
+import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiNoSymbol, HiXMark, HiMagnifyingGlass } from 'react-icons/hi2'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
@@ -36,20 +36,42 @@ export default function PelangganPPPPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([])
-  const [disableDuration, setDisableDuration] = useState<number>(5) // Default 5 days
+  const [disableDuration, setDisableDuration] = useState<number>(5)
+  
+  // Filters
   const [siteId, setSiteId] = useState<string | undefined>(undefined)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  
+  // Pagination
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [limit] = useState(10)
+
+  // Debounce effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1) // Reset to first page on search
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Reset page when other filters change
+  useEffect(() => {
+    setPage(1)
+  }, [siteId, statusFilter])
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Fetch data pelanggan and settings in parallel
       const params = new URLSearchParams()
       if (siteId) params.append('siteId', siteId)
+      if (debouncedSearch) params.append('search', debouncedSearch)
+      if (statusFilter) params.append('status', statusFilter)
       params.append('page', page.toString())
       params.append('limit', limit.toString())
 
@@ -61,18 +83,15 @@ export default function PelangganPPPPage() {
         fetch('/api/settings/general')
       ])
 
-      if (!resPelanggan.ok) {
-        throw new Error('Gagal memuat data pelanggan PPP')
-      }
+      if (!resPelanggan.ok) throw new Error('Gagal memuat data pelanggan PPP')
 
-      // Handle settings response
       if (resSettings.ok) {
         try {
           const settingsData = await resSettings.json()
           if (settingsData.disablePerpanjanganPaket) {
             setDisableDuration(parseInt(settingsData.disablePerpanjanganPaket) || 5)
           }
-        } catch (e) {
+        } catch (_e) {
           console.error('Error parsing settings:', e)
         }
       }
@@ -84,8 +103,7 @@ export default function PelangganPPPPage() {
           const parsed = JSON.parse(text)
           if (Array.isArray(parsed)) {
             data = parsed
-            // Compatibility for array response (no pagination)
-             setTotalPages(1) // Should ideally be calculated or unknown
+             setTotalPages(1)
           } else if (parsed && parsed.data && Array.isArray(parsed.data)) {
             data = parsed.data
             if (parsed.meta) {
@@ -95,62 +113,44 @@ export default function PelangganPPPPage() {
               throw new Error(parsed.error)
             } else {
                data = []
-               console.error('[Frontend] Unexpected API response structure:', parsed)
             }
           }
-        } catch (e: unknown) {
-          console.error('Error parsing JSON:', e)
-          const errorMessage = e instanceof Error ? e.message : 'Gagal memproses data pelanggan'
-          throw new Error(errorMessage)
+        } catch (_e) {
+          throw new Error('Gagal memproses data pelanggan')
         }
   
-        // Debug: Log data yang diterima
-        console.log('[Frontend] Data pelanggan diterima:', data.length, 'pelanggan')
         setPelanggans(data)
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data'
-        setError(errorMessage)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data')
     } finally {
       setLoading(false)
     }
-  }, [siteId, page, limit])
+  }, [siteId, debouncedSearch, statusFilter, page, limit])
 
   useEffect(() => {
     loadData()
   }, [loadData])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Tindakan ini tidak dapat dibatalkan.')) {
-      return
-    }
+    if (!confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Tindakan ini tidak dapat dibatalkan.')) return
 
     try {
-      // Debug: Log ID yang akan dikirim
-      console.log('[Frontend] Menghapus pelanggan dengan ID:', id, 'Type:', typeof id)
-
       const res = await fetch(`/api/pelanggan-ppp/${id}`, { method: 'DELETE' })
       if (!res.ok) {
         const errorData = await res.json()
-        console.error('[Frontend] Error response:', errorData)
         throw new Error(errorData.error || 'Gagal menghapus pelanggan')
       }
-      const result = await res.json()
-      console.log('[Frontend] Delete berhasil:', result)
       await loadData()
-    } catch (err: unknown) {
-      console.error('[Frontend] Error saat menghapus:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus data'
-      alert(errorMessage)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus data')
     }
   }
 
   const handleStatusUpdate = async (id: string, newStatus: string, actionName: string) => {
-    if (!confirm(`Apakah Anda yakin ingin mengubah status pelanggan ini menjadi ${actionName}? Akses internet akan ${newStatus === 'AKTIF' ? 'diaktifkan' : 'dimatikan'}.`)) {
-      return
-    }
+    if (!confirm(`Apakah Anda yakin ingin mengubah status pelanggan ini menjadi ${actionName}? Akses internet akan ${newStatus === 'AKTIF' ? 'diaktifkan' : 'dimatikan'}.`)) return
 
     try {
-      setLoading(true) // Show global loading or improved localized loading state
+      setLoading(true)
       const res = await fetch(`/api/pelanggan-ppp/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -161,42 +161,21 @@ export default function PelangganPPPPage() {
         const errorData = await res.json()
         throw new Error(errorData.error || 'Gagal mengubah status')
       }
-
-      const result = await res.json()
-      console.log('Status updated:', result)
       await loadData()
-    } catch (err: unknown) {
-      console.error('Error updating status:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Gagal mengubah status'
-      alert(errorMessage)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Gagal mengubah status')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRenewal = (id: string) => {
-    // Redirect ke halaman renewal admin
-    window.location.href = `/admin/pelanggan/ppp/${id}/renew`
-  }
-
-  const handlePrint = (id: string) => {
-    // Buka halaman print tagihan di tab baru
-    window.open(`/admin/pelanggan/ppp/${id}/print`, '_blank')
-  }
-
   const isRenewalAllowed = (jatuhTempo: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-
     const jatuhTempoDate = new Date(jatuhTempo)
     jatuhTempoDate.setHours(0, 0, 0, 0)
-
-    // Calculate allowed date: jatuhTempo - disableDuration days
     const allowedDate = new Date(jatuhTempoDate)
     allowedDate.setDate(allowedDate.getDate() - disableDuration)
-
-    // Allow if today is past or equal to the allowed start date
-    // Also allow if already overdue (handled by logic naturally as today > jatuhTempo > allowedDate)
     return today >= allowedDate
   }
 
@@ -206,68 +185,62 @@ export default function PelangganPPPPage() {
       header: 'Nama Pelanggan',
       render: (item: PelangganPPP) => (
         <div>
-          <div className="font-medium text-gray-900 dark:text-white">{item.nama}</div>
-          <div className="text-sm text-gray-500">{item.idPelanggan}</div>
-          {/* Mobile only: secondary info */}
-          <div className="md:hidden text-xs text-gray-400 mt-1">
-             {item.hargaPaket?.name || '-'}
-          </div>
+          <div className="font-semibold text-gray-900 dark:text-white">{item.nama}</div>
+          <div className="text-sm text-gray-500 font-mono mt-0.5">{item.idPelanggan}</div>
+          <div className="md:hidden text-xs text-gray-400 mt-1">{item.hargaPaket?.name || '-'}</div>
         </div>
       ),
       priority: 'primary'
     },
     {
       key: 'hargaPaket.name',
-      header: 'Paket',
+      header: 'Paket / Biaya',
       render: (item: PelangganPPP) => (
         <div>
-          <div className="font-medium">{item.hargaPaket?.name || '-'} ({item.tipe})</div>
-          <div className="text-sm text-gray-500">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(item.hargaPaket?.harga || 0)}</div>
+          <div className="font-medium text-gray-800 dark:text-gray-200">
+            {item.hargaPaket?.name || '-'} <span className="text-xs font-normal text-gray-400 ml-1">({item.tipe})</span>
+          </div>
+          <div className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">
+            {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(item.hargaPaket?.harga || 0)}
+          </div>
         </div>
       ),
       priority: 'secondary'
     },
     {
         key: 'site.name',
-        header: 'Site',
-        render: (item: PelangganPPP) => item.site?.name || '-',
+        header: 'Site Area',
+        render: (item: PelangganPPP) => (
+          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            {item.site?.name || '-'}
+          </span>
+        ),
         priority: 'tertiary'
     },
     {
       key: 'tanggalAktif',
       header: 'Masa Aktif',
       render: (item: PelangganPPP) => {
-        const activeDate = new Date(item.tanggalAktif)
         const dueDate = new Date(item.jatuhTempo)
-        const now = new Date()
+        const diffDays = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
         
-        // Calculate days remaining
-        const diffTime = dueDate.getTime() - now.getTime()
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        
-        // Determine status based on days remaining
-        let statusColor = 'text-green-600'
+        let statusColor = 'text-emerald-600 dark:text-emerald-400'
         let statusText = `${diffDays} hari lagi`
         
         if (diffDays < 0) {
-            statusColor = 'text-red-600'
+            statusColor = 'text-rose-600 dark:text-rose-400'
             statusText = `Telat ${Math.abs(diffDays)} hari`
-        } else if (diffDays <= disableDuration) { // Use dynamic setting here
-            statusColor = 'text-orange-500' 
-            statusText = `${diffDays} hari lagi (Segera Habis)`
+        } else if (diffDays <= disableDuration) {
+            statusColor = 'text-amber-600 dark:text-amber-400' 
+            statusText = `${diffDays} hari (Akan Habis)`
         }
 
         return (
-          <div>
-            <div className="text-sm">
-              <span className="text-gray-500">Aktif: </span>
-              {activeDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+          <div className="space-y-1">
+            <div className="text-xs text-gray-500">
+              Exp: <span className="font-medium text-gray-700 dark:text-gray-300">{dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
-            <div className="text-sm">
-              <span className="text-gray-500">Exp: </span>
-              {dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-            </div>
-            <div className={`text-xs font-medium mt-1 ${statusColor}`}>
+            <div className={`text-xs font-bold ${statusColor} bg-opacity-10 px-2 py-0.5 rounded-full inline-block ${statusColor.replace('text-', 'bg-')}`}>
               {statusText}
             </div>
           </div>
@@ -279,148 +252,153 @@ export default function PelangganPPPPage() {
       key: 'status',
       header: 'Status',
       render: (item: PelangganPPP) => <StatusBadge status={item.status} />,
-      priority: 'primary', // Keep status visible on mobile
+      priority: 'primary',
       mobileLabel: 'Status'
     }
   ] as Column<PelangganPPP>[]
 
-  if (loading && pelanggans.length === 0) {
-    return <PageLoader />
-  }
+  if (loading && pelanggans.length === 0) return <PageLoader />
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 pb-8">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pelanggan PPP</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Kelola data pelanggan PPPoE dan Hotspot
+            Kelola data dan status akses internet pelanggan PPPoE
           </p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Link
-            href="/admin/pelanggan/ppp/create"
-            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-md bg-indigo-600 dark:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-          >
-            <HiOutlinePlus className="-ml-0.5 mr-1.5 h-5 w-5 text-white" aria-hidden="true" />
-            <span className="text-white">Tambah Pelanggan</span>
-          </Link>
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={loadData}
-            className="inline-flex items-center justify-center rounded-md bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
           >
-            <HiArrowPath className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
+            <HiArrowPath className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
             Refresh
           </button>
+          <Link
+            href="/admin/pelanggan/ppp/create"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all"
+          >
+            <HiOutlinePlus className="-ml-1 mr-2 h-5 w-5" />
+            Tambah Pelanggan
+          </Link>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-4 border border-red-200">
+        <div className="rounded-lg bg-rose-50 dark:bg-rose-900/20 p-4 border border-rose-200 dark:border-rose-800">
           <div className="flex">
-            <div className="shrink-0">
-              <HiXMark className="h-5 w-5 text-red-400" aria-hidden="true" />
-            </div>
+            <HiXMark className="h-5 w-5 text-rose-500 mt-0.5 shrink-0" />
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Terjadi kesalahan</h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>{error}</p>
-              </div>
+              <h3 className="text-sm font-medium text-rose-800 dark:text-rose-200">Terjadi kesalahan</h3>
+              <p className="mt-1 text-sm text-rose-700 dark:text-rose-300">{error}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* FILTER SECTION */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Pencarian</label>
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                id="search"
+                className="block w-full rounded-lg border-0 py-2.5 pl-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600 transition-all"
+                placeholder="Cari nama, ID, username..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="w-full md:w-64">
             <SiteFilter 
                 value={siteId} 
                 onSiteChange={setSiteId}
-                className="w-full"
             />
-            {/* Add more filters here if needed */}
-         </div>
+          </div>
+          <div className="w-full md:w-48">
+             <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Status</label>
+             <select
+               id="status"
+               className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600 transition-all"
+               value={statusFilter}
+               onChange={(e) => setStatusFilter(e.target.value)}
+             >
+               <option value="">Semua Status</option>
+               <option value="AKTIF">Aktif</option>
+               <option value="NONAKTIF">Nonaktif</option>
+               <option value="ISOLIR">Isolir</option>
+               <option value="DISMANTLE">Dismantle</option>
+             </select>
+          </div>
+        </div>
       </div>
 
-      <ResponsiveTable
-        data={pelanggans}
-        columns={columns}
-        keyField="id"
-        loading={loading}
-        emptyMessage="Belum ada data pelanggan PPP"
-        page={page}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        renderActions={(item: PelangganPPP) => {
-          const allowed = isRenewalAllowed(item.jatuhTempo)
-          return (
-            <div className="flex items-center gap-2">
-              {item.status !== 'ISOLIR' && (
+      {/* TABLE SECTION */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <ResponsiveTable
+          data={pelanggans}
+          columns={columns}
+          keyField="id"
+          loading={loading}
+          emptyMessage={searchQuery ? "Pelanggan tidak ditemukan berdasarkan pencarian Anda." : "Belum ada data pelanggan PPP"}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          renderActions={(item: PelangganPPP) => {
+            const allowed = isRenewalAllowed(item.jatuhTempo)
+            return (
+              <div className="flex items-center justify-end gap-1.5">
+                {/* Control Actions */}
+                {item.status !== 'ISOLIR' && (
+                  <button onClick={() => handleStatusUpdate(item.id, 'ISOLIR', 'ISOLIR')} title="Isolir (Blokir Akses)" className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 dark:bg-orange-500/10 dark:hover:bg-orange-500/20 dark:text-orange-400 rounded-lg transition-colors">
+                    <HiNoSymbol className="w-4 h-4" />
+                  </button>
+                )}
+                {item.status !== 'DISMANTLE' && (
+                  <button onClick={() => handleStatusUpdate(item.id, 'DISMANTLE', 'DISMANTLE')} title="Dismantle (Berhenti Langganan)" className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 rounded-lg transition-colors">
+                    <HiXMark className="w-4 h-4" />
+                  </button>
+                )}
+                {['ISOLIR', 'DISMANTLE', 'NONAKTIF'].includes(item.status) && (
+                  <button onClick={() => handleStatusUpdate(item.id, 'AKTIF', 'AKTIF')} title="Aktifkan Kembali" className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:text-emerald-400 rounded-lg transition-colors">
+                    <HiArrowPath className="w-4 h-4" />
+                  </button>
+                )}
+                
+                <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+                
+                {/* Billing & Edit Actions */}
                 <button
-                  onClick={() => handleStatusUpdate(item.id, 'ISOLIR', 'ISOLIR')}
-                  className="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 transition-colors"
-                  title="Isolir (Menunggak)"
+                  onClick={() => allowed ? window.location.href = `/admin/pelanggan/ppp/${item.id}/renew` : null}
+                  disabled={!allowed}
+                  title={allowed ? "Perpanjang Layanan" : `Bisa diperpanjang ${disableDuration} hari sebelum jatuh tempo`}
+                  className={`p-2 rounded-lg transition-colors ${allowed ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-400 bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60'}`}
                 >
-                  <HiNoSymbol className="w-4 h-4" />
+                  <HiArrowPathRoundedSquare className="w-4 h-4" />
                 </button>
-              )}
-              {item.status !== 'DISMANTLE' && (
-                <button
-                  onClick={() => handleStatusUpdate(item.id, 'DISMANTLE', 'DISMANTLE')}
-                  className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors"
-                  title="Dismantle (Berhenti)"
-                >
-                  <HiXMark className="w-4 h-4" />
+                <button onClick={() => window.open(`/admin/pelanggan/ppp/${item.id}/print`, '_blank')} title="Cetak Tagihan" className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 dark:text-purple-400 rounded-lg transition-colors">
+                  <HiPrinter className="w-4 h-4" />
                 </button>
-              )}
-              {['ISOLIR', 'DISMANTLE', 'NONAKTIF'].includes(item.status) && (
-                <button
-                  onClick={() => handleStatusUpdate(item.id, 'AKTIF', 'AKTIF')}
-                  className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 transition-colors"
-                  title="Aktifkan Kembali"
-                >
-                  <HiArrowPath className="w-4 h-4" />
+                <Link href={`/admin/pelanggan/ppp/${item.id}/edit`} title="Edit Pelanggan" className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 dark:text-blue-400 rounded-lg transition-colors">
+                  <HiPencil className="w-4 h-4" />
+                </Link>
+                <button onClick={() => handleDelete(item.id)} title="Hapus Pelanggan" className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 rounded-lg transition-colors">
+                  <HiTrash className="w-4 h-4" />
                 </button>
-              )}
-              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-              <button
-                onClick={() => allowed && handleRenewal(item.id)}
-                disabled={!allowed}
-                className={`font-medium inline-flex items-center justify-center w-10 h-10 rounded transition-colors ${allowed
-                  ? 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20'
-                  : 'text-gray-400 cursor-not-allowed opacity-50 bg-gray-50 dark:bg-gray-800'
-                  }`}
-                title={allowed ? "Perpanjang Layanan" : `Perpanjangan baru bisa dilakukan ${disableDuration} hari sebelum jatuh tempo`}
-              >
-                <HiArrowPathRoundedSquare className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => handlePrint(item.id)}
-                className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                title="Print Tagihan"
-              >
-                <HiPrinter className="w-5 h-5" />
-              </button>
-              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-              <Link
-                href={`/admin/pelanggan/ppp/${item.id}/edit`}
-                className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
-                title="Edit"
-              >
-                <HiPencil className="w-5 h-5" />
-              </Link>
-              <button
-                onClick={() => handleDelete(item.id)}
-                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                title="Hapus"
-              >
-                <HiTrash className="w-5 h-5" />
-              </button>
-            </div>
-          )
-        }}
-      />
+              </div>
+            )
+          }}
+        />
+      </div>
     </div>
   )
 }
