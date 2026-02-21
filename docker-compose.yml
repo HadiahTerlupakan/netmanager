@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16
-    container_name: netmanager-postgres
+    container_name: netmanager-postgres-app
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-netmgr}
@@ -15,6 +15,41 @@ services:
       - db_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - netmanager-network
+
+
+  db_radius:
+    image: postgres:16
+    container_name: netmanager-postgres-radius
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-netmgr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netmgr}
+      POSTGRES_DB: ${POSTGRES_DB_RADIUS:-radius}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_radius_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -63,15 +98,15 @@ services:
     container_name: netmanager-freeradius
     restart: unless-stopped
     depends_on:
-      - db
+      - db_radius
     ports:
       - "1812:1812/udp"
       - "1813:1813/udp"
     environment:
       - DB_TYPE=postgresql
-      - DB_HOST=db
+      - DB_HOST=db_radius
       - DB_PORT=5432
-      - DB_NAME=${POSTGRES_DB:-netmanager}
+      - DB_NAME=${POSTGRES_DB_RADIUS:-radius}
       - DB_USER=${POSTGRES_USER:-netmgr}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-netmgr}
       - RADIUS_SECRET=${RADIUS_SECRET:-testing123}
@@ -95,6 +130,8 @@ services:
 
 volumes:
   db_data:
+    driver: local
+  db_radius_data:
     driver: local
   redis_data:
     driver: local

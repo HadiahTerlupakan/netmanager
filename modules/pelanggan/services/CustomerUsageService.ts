@@ -24,13 +24,13 @@ export class CustomerUsageService {
         const latestSession = await this.repository.getLatestSession(customer.username)
 
         // Check if online
-        const isOnline = latestSession && !latestSession.acctStopTime
+        const isOnline = latestSession && !latestSession.acctstoptime
 
         // Calculate session duration if online
         let sessionDuration = 0
-        if (isOnline && latestSession.acctStartTime) {
+        if (isOnline && latestSession.acctstarttime) {
             sessionDuration = Math.floor(
-                (Date.now() - new Date(latestSession.acctStartTime).getTime()) / 1000
+                (Date.now() - new Date(latestSession.acctstarttime).getTime()) / 1000
             )
         }
 
@@ -47,21 +47,21 @@ export class CustomerUsageService {
         return {
             connection: {
                 isOnline,
-                ipAddress: isOnline ? latestSession.framedIpAddress : null,
-                nasIpAddress: isOnline ? latestSession.nasIpAddress : null,
-                sessionId: isOnline ? latestSession.acctSessionId : null,
-                sessionStart: isOnline ? latestSession.acctStartTime : null,
+                ipAddress: isOnline ? latestSession.framedipaddress : null,
+                nasipaddress: isOnline ? latestSession.nasipaddress : null,
+                sessionId: isOnline ? latestSession.acctsessionid : null,
+                sessionStart: isOnline ? latestSession.acctstarttime : null,
                 sessionDuration: isOnline ? sessionDuration : 0,
                 sessionDurationFormatted: isOnline ? this.formatDuration(sessionDuration) : null,
-                lastSeen: latestSession?.acctStopTime || latestSession?.acctUpdateTime || null,
+                lastSeen: latestSession?.acctstoptime || latestSession?.acctupdatetime || null,
             },
             usage: {
                 monthly: {
-                    download: this.formatBytes(monthlyUsage._sum.acctInputOctets),
-                    upload: this.formatBytes(monthlyUsage._sum.acctOutputOctets),
+                    download: this.formatBytes(monthlyUsage._sum.acctinputoctets),
+                    upload: this.formatBytes(monthlyUsage._sum.acctoutputoctets),
                     total: this.formatBytes(
-                        (monthlyUsage._sum.acctInputOctets || BigInt(0)) +
-                        (monthlyUsage._sum.acctOutputOctets || BigInt(0))
+                        (monthlyUsage._sum.acctinputoctets || BigInt(0)) +
+                        (monthlyUsage._sum.acctoutputoctets || BigInt(0))
                     ),
                     period: {
                         start: startOfMonth,
@@ -69,11 +69,11 @@ export class CustomerUsageService {
                     },
                 },
                 allTime: {
-                    download: this.formatBytes(totalUsage._sum.acctInputOctets),
-                    upload: this.formatBytes(totalUsage._sum.acctOutputOctets),
+                    download: this.formatBytes(totalUsage._sum.acctinputoctets),
+                    upload: this.formatBytes(totalUsage._sum.acctoutputoctets),
                     total: this.formatBytes(
-                        (totalUsage._sum.acctInputOctets || BigInt(0)) +
-                        (totalUsage._sum.acctOutputOctets || BigInt(0))
+                        (totalUsage._sum.acctinputoctets || BigInt(0)) +
+                        (totalUsage._sum.acctoutputoctets || BigInt(0))
                     ),
                 },
             },

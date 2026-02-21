@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client-radius"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==============================================================================
+// RADIUS MODELS (FreeRADIUS Tables)
+// ==============================================================================
+
+model radacct {
+  radacctid           BigInt    @id @default(autoincrement())
+  acctsessionid       String    @db.VarChar(64)
+  acctuniqueid        String    @unique(map: "radacct_acctuniqueid_key") @db.VarChar(32)
+  username            String    @db.VarChar(64)
+  realm               String?   @default("") @db.VarChar(64)
+  nasipaddress        String    @db.VarChar(15)
+  nasportid           String?   @db.VarChar(32)
+  nasporttype         String?   @db.VarChar(32)
+  acctstarttime       DateTime? @db.Timestamp(6)
+  acctupdatetime      DateTime? @db.Timestamp(6)
+  acctstoptime        DateTime? @db.Timestamp(6)
+  acctinterval        Int?
+  acctsessiontime     Int?
+  acctauthentic       String?   @db.VarChar(32)
+  connectinfo_start   String?   @db.VarChar(120)
+  connectinfo_stop    String?   @db.VarChar(120)
+  acctinputoctets     BigInt?
+  acctoutputoctets    BigInt?
+  calledstationid     String?   @db.VarChar(50)
+  callingstationid    String?   @db.VarChar(50)
+  acctterminatecause  String?   @db.VarChar(32)
+  servicetype         String?   @db.VarChar(32)
+  framedprotocol      String?   @db.VarChar(32)
+  framedipaddress     String?   @db.VarChar(15)
+  framedipv6address   String?   @db.VarChar(45)
+  framedipv6prefix    String?   @db.VarChar(45)
+  framedinterfaceid   String?   @db.VarChar(44)
+  delegatedipv6prefix String?   @db.VarChar(45)
+  class               String?   @db.VarChar(64)
+
+  @@index([acctsessionid], map: "radacct_acctsessionid_idx")
+  @@index([acctsessiontime], map: "radacct_acctsessiontime_idx")
+  @@index([acctstarttime], map: "radacct_acctstarttime_idx")
+  @@index([acctstoptime], map: "radacct_acctstoptime_idx")
+  @@index([calledstationid], map: "radacct_calledstationid_idx")
+  @@index([callingstationid], map: "radacct_callingstationid_idx")
+  @@index([class], map: "radacct_class_idx")
+  @@index([framedipaddress], map: "radacct_framedipaddress_idx")
+  @@index([framedipv6address], map: "radacct_framedipv6address_idx")
+  @@index([framedipv6prefix], map: "radacct_framedipv6prefix_idx")
+  @@index([nasipaddress], map: "radacct_nasipaddress_idx")
+  @@index([username], map: "radacct_username_idx")
+}
+
+model radcheck {
+  id        Int    @id @default(autoincrement())
+  username  String @default("") @db.VarChar(64)
+  attribute String @default("") @db.VarChar(64)
+  op        String @default("==") @db.VarChar(2)
+  value     String @default("") @db.VarChar(253)
+
+  @@index([username], map: "radcheck_username_idx")
+}
+
+model radgroupcheck {
+  id        Int    @id @default(autoincrement())
+  groupname String @default("") @db.VarChar(64)
+  attribute String @default("") @db.VarChar(64)
+  op        String @default("==") @db.VarChar(2)
+  value     String @default("") @db.VarChar(253)
+
+  @@index([groupname], map: "radgroupcheck_groupname_idx")
+}
+
+model radgroupreply {
+  id        Int    @id @default(autoincrement())
+  groupname String @default("") @db.VarChar(64)
+  attribute String @default("") @db.VarChar(64)
+  op        String @default("=") @db.VarChar(2)
+  value     String @default("") @db.VarChar(253)
+
+  @@index([groupname], map: "radgroupreply_groupname_idx")
+}
+
+model radreply {
+  id        Int    @id @default(autoincrement())
+  username  String @default("") @db.VarChar(64)
+  attribute String @default("") @db.VarChar(64)
+  op        String @default("=") @db.VarChar(2)
+  value     String @default("") @db.VarChar(253)
+
+  @@index([username], map: "radreply_username_idx")
+}
+
+model radusergroup {
+  id        Int    @id @default(autoincrement())
+  username  String @default("") @db.VarChar(64)
+  groupname String @default("") @db.VarChar(64)
+  priority  Int    @default(1)
+
+  @@index([username], map: "radusergroup_username_idx")
+}
+
+model radpostauth {
+  id       Int       @id @default(autoincrement())
+  username String    @default("") @db.VarChar(64)
+  pass     String?   @default("") @db.VarChar(64)
+  reply    String?   @default("") @db.VarChar(32)
+  authdate DateTime? @default(now()) @db.Timestamp(6)
+  class    String?   @db.VarChar(64)
+
+  @@index([class], map: "radpostauth_class_idx")
+  @@index([username], map: "radpostauth_username_idx")
+}
+
+model nas {
+  id          Int     @id @default(autoincrement())
+  nasname     String  @db.VarChar(128)
+  shortname   String? @db.VarChar(32)
+  type        String? @default("other") @db.VarChar(30)
+  ports       Int?
+  secret      String  @db.VarChar(60)
+  server      String? @db.VarChar(64)
+  community   String? @db.VarChar(50)
+  description String? @db.VarChar(200)
+
+  @@index([nasname], map: "nas_nasname_idx")
+}
+
+model radippool {
+  id               Int       @id @default(autoincrement())
+  pool_name        String    @db.VarChar(30)
+  framedipaddress  String    @db.VarChar(15)
+  nasipaddress     String    @db.VarChar(15)
+  calledstationid  String    @db.VarChar(30)
+  callingstationid String    @db.VarChar(30)
+  expiry_time      DateTime? @db.Timestamp(6)
+  username         String    @db.VarChar(64)
+  pool_key         String    @db.VarChar(30)
+
+  @@index([framedipaddress], map: "radippool_framedipaddress_idx")
+  @@index([pool_name, expiry_time], map: "radippool_poolname_expire_idx")
+  @@index([pool_name, pool_key, framedipaddress], map: "radippool_poolname_poolkey_ipaddress_idx")
+}
+

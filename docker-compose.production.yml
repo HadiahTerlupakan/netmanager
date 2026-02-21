@@ -17,7 +17,7 @@ services:
   # ==========================================================================
   db:
     image: postgres:16-alpine
-    container_name: netmanager-db
+    container_name: netmanager-db-app
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-netmgr}
@@ -48,6 +48,42 @@ services:
       - internal
 
   # ==========================================================================
+
+  # ==========================================================================
+  # DATABASE RADIUS - PostgreSQL
+  # ==========================================================================
+  db_radius:
+    image: postgres:16-alpine
+    container_name: netmanager-db-radius
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-netmgr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
+      POSTGRES_DB: ${POSTGRES_DB_RADIUS:-radius}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_radius_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - internal
+
   # CACHE - Redis
   # ==========================================================================
   redis:
@@ -89,16 +125,16 @@ services:
     container_name: netmanager-radius
     restart: always
     depends_on:
-      db:
+      db_radius:
         condition: service_healthy
     ports:
       - "1812:1812/udp"
       - "1813:1813/udp"
     environment:
       DB_TYPE: postgresql
-      DB_HOST: db
+      DB_HOST: db_radius
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-netmanager}
+      DB_NAME: ${POSTGRES_DB_RADIUS:-radius}
       DB_USER: ${POSTGRES_USER:-netmgr}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       RADIUS_SECRET: ${RADIUS_SECRET:?RADIUS_SECRET wajib diisi}
@@ -132,6 +168,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db_radius:
+        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
@@ -141,6 +179,7 @@ services:
       NODE_ENV: production
       TMPDIR: /app/tmp
       DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
+      RADIUS_DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_radius:5432/${POSTGRES_DB_RADIUS:-radius}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
       # Auth Configuration
@@ -421,6 +460,8 @@ services:
 # ==============================================================================
 volumes:
   postgres_data:
+    driver: local
+  postgres_radius_data:
     driver: local
   redis_data:
     driver: local

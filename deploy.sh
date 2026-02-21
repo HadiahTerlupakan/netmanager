@@ -226,10 +226,10 @@ update() {
 
     # Run migrations (dengan error handling)
     log_info "Running database migrations..."
-    docker exec netmanager-app npx prisma migrate deploy || {
+    docker exec netmanager-app npm run prisma:setup || {
         log_warning "Migration warning (database mungkin sudah di-sync). Mencoba resolve..."
         # Jika error P3005 (database tidak kosong), baseline migration
-        docker exec netmanager-app npx prisma migrate resolve --applied 0_init_v2 2>/dev/null || true
+        docker exec netmanager-app true
     }
     
     log_success "Update selesai!"

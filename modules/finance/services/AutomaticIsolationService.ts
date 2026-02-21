@@ -1,3 +1,4 @@
+import { InvoiceStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';
 import { createNotification } from '@/modules/notification';
@@ -33,7 +34,7 @@ export class AutomaticIsolationService {
             // This ensures we isolate them based on actual unpaid bills, not just based on falling behind the calendar.
             const overdueInvoices = await prisma.invoice.findMany({
                 where: {
-                    status: 'UNPAID',
+                    status: InvoiceStatus.OVERDUE,
                     dueDate: { lt: today },
                     pelanggan: {
                         status: Status.AKTIF,

@@ -1,3 +1,4 @@
+import { InvoiceStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -11,8 +12,6 @@ interface EligibleCustomerRow {
     jatuhTempo: Date;
     userId: string | null;
     usePPN: boolean;
-        tipe: string;
-        status: string;
     tipe: string;
     status: string;
     hargaPaketId: string;
@@ -279,7 +278,7 @@ export class AutomaticBillingService {
         let newJatuhTempo = new Date(customer.jatuhTempo);
 
         if (customer.tipe === 'NON_REGULER') {
-            let baseDate = customer.status === 'ISOLIR' || new Date(customer.jatuhTempo) < today ? today : new Date(customer.jatuhTempo);
+            const baseDate = customer.status === 'ISOLIR' || new Date(customer.jatuhTempo) < today ? today : new Date(customer.jatuhTempo);
             newJatuhTempo = safeAddMonth(baseDate);
         } else {
             newJatuhTempo = safeAddMonth(invoice.dueDate);
@@ -291,7 +290,7 @@ export class AutomaticBillingService {
         const unpaidInvoices = await prisma.invoice.count({
             where: {
                 pelangganId: customer.id,
-                status: { notIn: ['PAID', 'VOID', 'CANCELLED'] }
+                status: { notIn: ['PAID', InvoiceStatus.CANCELLED, 'CANCELLED'] }
             }
         });
 

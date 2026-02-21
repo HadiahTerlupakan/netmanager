@@ -1,3 +1,4 @@
+import { prismaRadius } from '@/lib/prisma-radius';
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -22,9 +23,9 @@ export class CustomerUsageRepository {
      * Get latest RADIUS session for username
      */
     async getLatestSession(username: string) {
-        return prisma.radacct.findFirst({
+        return prismaRadius.radacct.findFirst({
             where: { username },
-            orderBy: { acctStartTime: 'desc' },
+            orderBy: { acctstarttime: 'desc' },
         })
     }
 
@@ -32,14 +33,14 @@ export class CustomerUsageRepository {
      * Get monthly usage aggregate
      */
     async getMonthlyUsage(username: string, startOfMonth: Date) {
-        return prisma.radacct.aggregate({
+        return prismaRadius.radacct.aggregate({
             where: {
                 username,
-                acctStartTime: { gte: startOfMonth },
+                acctstarttime: { gte: startOfMonth },
             },
             _sum: {
-                acctInputOctets: true,
-                acctOutputOctets: true,
+                acctinputoctets: true,
+                acctoutputoctets: true,
             },
         })
     }
@@ -48,11 +49,11 @@ export class CustomerUsageRepository {
      * Get total usage aggregate (all time)
      */
     async getTotalUsage(username: string) {
-        return prisma.radacct.aggregate({
+        return prismaRadius.radacct.aggregate({
             where: { username },
             _sum: {
-                acctInputOctets: true,
-                acctOutputOctets: true,
+                acctinputoctets: true,
+                acctoutputoctets: true,
             },
         })
     }

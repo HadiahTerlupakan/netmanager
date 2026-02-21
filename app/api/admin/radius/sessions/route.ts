@@ -15,12 +15,12 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     const sessions = await radiusRepo.getActiveSessions(username);
 
     // Convert BigInt to string for JSON serialization
-    const serializedSessions = sessions.map((session) => ({
+    const serializedSessions = sessions.map((session: any) => ({
         ...session,
-        radAcctId: session.radAcctId.toString(),
-        acctSessionTime: session.acctSessionTime?.toString() || null,
-        acctInputOctets: session.acctInputOctets?.toString() || null,
-        acctOutputOctets: session.acctOutputOctets?.toString() || null,
+        radacctid: session.radacctid.toString(),
+        acctsessiontime: session.acctsessiontime?.toString() || null,
+        acctinputoctets: session.acctinputoctets?.toString() || null,
+        acctoutputoctets: session.acctoutputoctets?.toString() || null,
     }));
 
     return apiSuccess({
