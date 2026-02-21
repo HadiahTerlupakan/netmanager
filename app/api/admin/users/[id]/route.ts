@@ -2,6 +2,8 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
+import { emitSocketEvent } from '@/lib/websocket/emit'
+import { SOCKET_EVENTS } from '@/lib/websocket/types'
 import { checkSiteRestriction, canAccessSite } from '@/modules/roles'
 import { updateUserSchema } from '@/lib/validations/user'
 import type { Session } from 'next-auth'
@@ -219,6 +221,9 @@ export const PATCH = createHandler({
     if (body.roleId !== undefined) {
       const { invalidatePermissionCache } = await import('@/lib/auth')
       await invalidatePermissionCache(id)
+      
+      // Emit socket event so mobile app can refresh permissions without logout
+      await emitSocketEvent(`user:${id}`, SOCKET_EVENTS.USER_PERMISSIONS_UPDATE, { userId: id })
     }
 
     logger.apiRequest('PATCH', `/api/admin/users/${id}`, 200, Date.now() - startTime, {
