@@ -195,8 +195,7 @@ export function getCanvasingService(): CanvasingService {
   if (!canvasingServiceInstance) {
     canvasingServiceInstance = new CanvasingService(
       getCanvasingRepository(),
-      getWorkOrderRepository(),
-      getPointClaimRepository()
+      getWorkOrderRepository()
     )
   }
   return canvasingServiceInstance

@@ -15,7 +15,6 @@ import { workOrderCacheService } from './WorkOrderCacheService'
 import { socketEmitter } from '@/lib/websocket/emitter'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { format } from 'date-fns'
-import { getCanvasingService, getCanvasingRepository } from '@/lib/repositories'
 import { id as localeId } from 'date-fns/locale'
 
 // Types
@@ -392,20 +391,6 @@ export class WorkOrderService {
             // Fetch full WO data for notification
             const fullWorkOrder = await this.repository.findById(id)
             
-            // If COMPLETED, check if it's tied to a Canvasing
-            if (status === 'COMPLETED') {
-                try {
-                    const canvasingRepo = getCanvasingRepository()
-                    const canvasing = await canvasingRepo.findByWorkOrderId(id)
-                    if (canvasing && canvasing.status === 'APPROVED') {
-                        const canvasingSvc = getCanvasingService()
-                        await canvasingSvc.markAsInstalled(canvasing.id)
-                    }
-                } catch (err) {
-                    console.error('[WO Service] Failed to mark canvasing as installed:', err)
-                }
-            }
-
             // Notify status change
             if (fullWorkOrder) {
                 await onWorkOrderStatusChanged(

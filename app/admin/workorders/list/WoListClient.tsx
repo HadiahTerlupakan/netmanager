@@ -15,7 +15,6 @@ import {
     HiTrash,
     HiXCircle,
     HiBellAlert,
-    HiOutlineArrowDownTray,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useToast } from '@/hooks/use-toast'
@@ -473,61 +472,6 @@ export function ClientComponent() {
         setSearch('')
     }
 
-    const handleExportCSV = () => {
-        const headers = [
-            'Nomor WO',
-            'Judul',
-            'Tipe',
-            'Status',
-            'Prioritas',
-            'Jenis WO',
-            'Pelanggan',
-            'ID Pelanggan',
-            'Ditugaskan Ke',
-            'Departemen',
-            'Site',
-            'Tanggal Dibuat',
-            'Tanggal Selesai'
-        ]
-
-        const rows = workOrders.map(wo => {
-            const isInternal = !wo.pelanggan && wo.contactName && wo.department;
-            const jenisWO = wo.pelanggan ? 'Customer' : (isInternal ? 'Internal' : 'Other');
-            const customerName = wo.pelanggan ? wo.pelanggan.nama : (wo.contactName || '-');
-            const customerId = wo.pelanggan ? wo.pelanggan.idPelanggan : '-';
-
-            return [
-                wo.workOrderNumber,
-                `"${wo.title.replace(/"/g, '""')}"`,
-                wo.type,
-                statusLabels[wo.status] || wo.status,
-                wo.priority,
-                jenisWO,
-                `"${customerName.replace(/"/g, '""')}"`,
-                `"${customerId.replace(/"/g, '""')}"`,
-                `"${wo.assignedTo?.name || '-'}"`,
-                `"${wo.department?.name || '-'}"`,
-                `"${wo.site?.name || '-'}"`,
-                wo.createdAt ? format(new Date(wo.createdAt), 'yyyy-MM-dd HH:mm') : '-',
-                wo.completedAt ? format(new Date(wo.completedAt), 'yyyy-MM-dd HH:mm') : '-'
-            ]
-        })
-
-        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.setAttribute('href', url)
-        
-        const dateStr = format(new Date(), 'yyyy-MM-dd')
-        link.setAttribute('download', `work-orders-${dateStr}.csv`)
-        
-        link.style.visibility = 'hidden'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-    }
-
     const hasActiveFilters = filterStatus || filterPriority || filterType || filterWoType || unassignedOnly || search
 
     // Define columns for ResponsiveTable
@@ -791,15 +735,6 @@ export function ClientComponent() {
                         <HiAdjustmentsHorizontal className="w-5 h-5" />
                         <span>Filter</span>
                         {hasActiveFilters && <span className="w-2 h-2 bg-sky-500 rounded-full"></span>}
-                    </button>
-                    <button
-                        onClick={handleExportCSV}
-                        disabled={workOrders.length === 0}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
-                        title="Export CSV"
-                    >
-                        <HiOutlineArrowDownTray className="w-5 h-5" />
-                        <span className="hidden sm:inline">Export CSV</span>
                     </button>
                     {canCreate && (
                         <Link

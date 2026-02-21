@@ -14,13 +14,6 @@ export interface CreateCanvasingInput {
   longitude?: number | null
   foto?: string | null
   fotoKtp?: string | null
-  fotoInstalasi?: string | null
-
-  rejectReason?: string | null
-  approvedBy?: string | null
-  approvedAt?: Date | null
-  workOrderId?: string | null
-
   salesId: string
 }
 
@@ -37,17 +30,9 @@ export interface UpdateCanvasingInput {
   status?: CanvasingStatus
   foto?: string | null
   fotoKtp?: string | null
-  fotoInstalasi?: string | null
-
-  rejectReason?: string | null
-  approvedBy?: string | null
-  approvedAt?: Date | null
-  workOrderId?: string | null
-
 }
 
 export interface CanvasingWithSalesSite extends Canvasing {
-  site?: { name: string } | null;
   sales: {
     id: string
     name: string | null
@@ -72,7 +57,6 @@ export interface CanvasingWithSalesInfo extends Canvasing {
 export interface ICanvasingRepository {
   create(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo>
   findById(id: string): Promise<Canvasing | null>
-  findByWorkOrderId(workOrderId: string): Promise<Canvasing | null>
   findByIdWithSales(id: string): Promise<CanvasingWithSalesSite | null>
   findAll(filters?: { status?: CanvasingStatus; salesId?: string; siteId?: string }): Promise<Canvasing[]>
   update(id: string, data: UpdateCanvasingInput): Promise<Canvasing>

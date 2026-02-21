@@ -1,16 +1,12 @@
 import type { Canvasing, CanvasingStatus } from '@prisma/client'
 import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput, CanvasingWithSalesInfo } from '../repositories/ICanvasingRepository'
 import type { IWorkOrderRepository } from '../../work-order/repositories/IWorkOrderRepository'
-import type { IPointClaimRepository } from '../repositories/IPointClaimRepository'
-import { socketEmitter } from '@/lib/websocket/emitter'
-import { SOCKET_EVENTS } from '@/lib/websocket/types'
 import { createNotification, notifyNewCanvasing } from '../../notification/services/NotificationService'
 
 export class CanvasingService {
   constructor(
     private readonly repository: ICanvasingRepository,
-    private readonly woRepository: IWorkOrderRepository,
-    private readonly pointClaimRepository: IPointClaimRepository
+    private readonly woRepository: IWorkOrderRepository
   ) {}
 
   async createRequest(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo> {
@@ -71,8 +67,6 @@ export class CanvasingService {
       contactPhone: request.noTelpon,
       // Location
       locationAddress: request.alamat,
-      ...(request.foto ? { fotoRumah: request.foto } : {}),
-      ...(request.fotoKtp ? { fotoKtp: request.fotoKtp } : {}),
       ...(request.latitude ? { locationLat: request.latitude } : {}),
       ...(request.longitude ? { locationLng: request.longitude } : {}),
       createdById: approverId,
@@ -103,22 +97,13 @@ export class CanvasingService {
     }
 
     // 5. Update Canvasing status
-    socketEmitter.notifyUser(request.salesId, {
-      title: 'Canvasing Disetujui',
-      message: `Canvasing ${request.nama} disetujui, SPK Pemasangan sedang dibuat!`,
-      type: 'SUCCESS',
-      id: crypto.randomUUID(),
-      priority: 'NORMAL',
-      createdAt: new Date().toISOString()
-    })
     const approved = await this.repository.update(id, {
       status: 'APPROVED',
+      // @ts-expect-error - approvedBy and workOrderId fields exist in schema but may not be in type definition
       approvedBy: approverId,
       approvedAt: new Date(),
       workOrderId: workOrder.id
     })
-
-    // Note: PointClaim is now created at the COMPLETE stage, not here.
 
     // 6. Notify sales that canvasing was approved
     if (request.salesId) {
@@ -137,20 +122,11 @@ export class CanvasingService {
     return approved
   }
 
-  async rejectRequest(id: string, rejectReason?: string): Promise<Canvasing> {
+  async rejectRequest(id: string): Promise<Canvasing> {
     // Get request to notify sales
     const request = await this.repository.findById(id)
     
-    const rejected = await this.repository.update(id, { status: 'REJECTED', rejectReason: rejectReason || null })
-    
-    socketEmitter.notifyUser(request.salesId, {
-      title: 'Canvasing Ditolak',
-      message: `Canvasing ${request.nama} ditolak. Alasan: ${rejectReason}`,
-      type: 'ERROR',
-      id: crypto.randomUUID(),
-      priority: 'NORMAL',
-      createdAt: new Date().toISOString()
-    })
+    const rejected = await this.repository.update(id, { status: 'REJECTED' })
 
     // Notify sales that canvasing was rejected
     if (request?.salesId) {
@@ -181,84 +157,10 @@ export class CanvasingService {
     // Reset to PENDING and unlink from WO
     return this.repository.update(id, {
       status: 'PENDING',
+      // @ts-expect-error - These fields exist in schema
       workOrderId: null,
       approvedBy: null,
       approvedAt: null
     })
-  }
-
-  async markAsInstalled(id: string): Promise<Canvasing> {
-    const request = await this.repository.findById(id)
-    if (!request) throw new Error('Request tidak ditemukan')
-    
-    const installed = await this.repository.update(id, {
-      status: 'INSTALASI',
-    })
-
-    // Emit to sales that installation is done
-    socketEmitter.notifyUser(installed.salesId, {
-      title: 'Pemasangan Selesai',
-      message: `Teknisi telah memasang perangkat untuk canvasing ${installed.nama}. Silakan lakukan laporan!`,
-      type: 'INFO',
-      id: crypto.randomUUID(),
-      priority: 'NORMAL',
-      createdAt: new Date().toISOString()
-    })
-    
-    // Also notify admins to update dashboard
-    // Notify admins via broadcast or specific method
-    socketEmitter.broadcast('canvasing:update', installed)
-
-    return installed
-  }
-
-  async completeCanvasing(id: string, salesId: string, fotoInstalasi: string, sn?: string): Promise<Canvasing> {
-    const request = await this.repository.findById(id)
-    if (!request) throw new Error('Request tidak ditemukan')
-    if (request.salesId !== salesId) throw new Error('Hanya sales pembuat yang bisa menyelesaikan canvasing')
-    if (request.status !== 'INSTALASI') throw new Error('Canvasing belum pada tahap instalasi')
-
-    const dataToUpdate: any = {
-      status: 'COMPLETE',
-      fotoInstalasi
-    }
-    if (sn) dataToUpdate.sn = sn
-
-    const completed = await this.repository.update(id, dataToUpdate)
-
-    // Notify admins
-    socketEmitter.notifyAdmins({
-      title: 'Canvasing Complete',
-      message: `Sales telah melaporkan selesai untuk canvasing ${completed.nama}.`,
-      type: 'INFO',
-      id: crypto.randomUUID(),
-      priority: 'NORMAL',
-      createdAt: new Date().toISOString()
-    })
-    socketEmitter.broadcast('canvasing:update', completed)
-
-    return completed
-  }
-
-  async claimCommission(id: string, salesId: string): Promise<Canvasing> {
-    const request = await this.repository.findById(id)
-    if (!request) throw new Error('Request tidak ditemukan')
-    if (request.salesId !== salesId) throw new Error('Hanya sales pembuat yang bisa melakukan claim')
-    if (request.status !== 'COMPLETE') throw new Error('Canvasing harus berstatus COMPLETE untuk diclaim')
-
-    const claimed = await this.repository.update(id, {
-      status: 'CLAIM',
-    })
-
-    // Create PointClaim for Sales
-    await this.pointClaimRepository.create({
-      salesId: request.salesId,
-      canvasingId: id,
-      buktiUrls: request.foto ? [request.foto] : [],
-      keterangan: `Komisi otomatis Canvasing: ${request.nama}`
-    })
-
-    socketEmitter.broadcast('canvasing:update', claimed)
-    return claimed
   }
 }

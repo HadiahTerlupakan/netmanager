@@ -8,8 +8,7 @@ import {
     HiOutlineTag,
     HiChevronRight,
     HiChevronDown,
-    HiOutlineCalendar,
-    HiOutlineArrowDownTray
+    HiOutlineCalendar
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
@@ -110,47 +109,6 @@ export default function CategoryList() {
     const grandTotal = useMemo(() => {
         return categoryTree.reduce((sum, cat) => sum + cat.totalRecursive, 0)
     }, [categoryTree])
-
-    // Export CSV
-    const handleExportCSV = () => {
-        // Flatten tree recursively
-        const flatRows: { name: string; type: string; parent: string; totalDirect: number; totalRecursive: number }[] = []
-        const flatten = (items: CategoryWithTotal[], parentName: string = '') => {
-            for (const item of items) {
-                flatRows.push({
-                    name: item.name,
-                    type: item.type,
-                    parent: parentName,
-                    totalDirect: item.totalDirect || 0,
-                    totalRecursive: item.totalRecursive
-                })
-                if (item.children && item.children.length > 0) {
-                    flatten(item.children, item.name)
-                }
-            }
-        }
-        flatten(categoryTree)
-
-        const headers = ['Nama Kategori', 'Tipe', 'Kategori Induk', 'Total Langsung', 'Total (Termasuk Sub)']
-        const rows = flatRows.map(row => [
-            `"${(row.name || '').replace(/"/g, '""')}"`,
-            row.type,
-            `"${(row.parent || '').replace(/"/g, '""')}"`,
-            row.totalDirect,
-            row.totalRecursive
-        ])
-
-        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.setAttribute('href', url)
-        link.setAttribute('download', `coa-${selectedType}-${startDate}-${endDate}.csv`)
-        link.style.visibility = 'hidden'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-    }
 
     const toggleExpand = (id: string) => {
         setExpandedIds(prev => {
@@ -480,16 +438,6 @@ export default function CategoryList() {
                             {formatCurrency(grandTotal)}
                         </p>
                     </div>
-
-                    <button
-                        onClick={handleExportCSV}
-                        disabled={categories.length === 0}
-                        className="flex items-center justify-center gap-2 px-5 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-sm font-bold active:scale-95 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="Export CSV"
-                    >
-                        <HiOutlineArrowDownTray className="w-5 h-5" />
-                        <span className="hidden sm:inline">Export CSV</span>
-                    </button>
 
                     <button
                         onClick={() => handleOpenModal()}
