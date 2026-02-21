@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     if (filterSiteId) filterParams.siteId = filterSiteId
     const requests = await service.getAllRequests(filterParams)
 
-    return NextResponse.json({ data: requests })
+    return apiSuccess(requests)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Gagal mengambil data canvasing'
     return ApiErrors.internalError(message)
