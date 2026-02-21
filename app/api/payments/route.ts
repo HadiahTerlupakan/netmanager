@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
 import { Prisma } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
+import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 
 /**
  * GET /api/payments
@@ -158,7 +159,7 @@ export const POST = createHandler({
             // But let's be safe.
             const totalPaid = invoice.payment.reduce(
               (sum, p) => sum + p.amount,
-              0n
+              BigInt(0)
             )
 
             // Update invoice paid amount and status
@@ -168,7 +169,7 @@ export const POST = createHandler({
                 paidAmount: totalPaid,
                 status: totalPaid >= invoice.totalAmount 
                   ? 'PAID' 
-                  : totalPaid > 0n 
+                  : totalPaid > BigInt(0) 
                     ? 'PARTIAL_PAID' 
                     : invoice.status,
                 paidAt: totalPaid >= invoice.totalAmount ? new Date() : null,

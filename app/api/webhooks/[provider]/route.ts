@@ -1,3 +1,4 @@
+import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PaymentGatewayManager } from '@/modules/finance/services/payment-gateway/gateway-manager'
@@ -200,13 +201,13 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
                 return sum + p.amount
             }
             return sum
-        }, 0n)
+        }, BigInt(0))
 
         // Determine invoice status
         let invoiceStatus: string
         if (totalPaid >= invoice.totalAmount) {
             invoiceStatus = 'PAID'
-        } else if (totalPaid > 0n) {
+        } else if (totalPaid > BigInt(0)) {
             invoiceStatus = 'PARTIAL_PAID'
         } else {
             invoiceStatus = invoice.status
@@ -220,6 +221,10 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
                 ...(invoiceStatus === 'PAID' ? { paidAt: new Date() } : {}),
             },
         })
+        
+        if (invoiceStatus === 'PAID') {
+            await AutomaticBillingService.handleInvoicePaid(invoiceId);
+        }
 
         console.log(`[Webhook] Invoice ${invoiceId} updated: status=${invoiceStatus}, paidAmount=${totalPaid}`)
     }

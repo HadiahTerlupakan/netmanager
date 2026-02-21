@@ -199,75 +199,19 @@ export default function PppPrintClient() {
 
   // Calculate totals using a clean hook logic (derived from state)
   const invoiceCalculations = (() => {
-    if (!pelanggan || !tagihan) return null
-
-    // 1. Base Package Price
-    const hargaPaket = pelanggan.hargaPaket?.harga || 0
-    let subtotalPaket = hargaPaket
-
-    // 2. Calculate Discount
-    let diskon = 0
-    // Logic diskon existing
-    if (pelanggan.useDiscount) {
-        if (pelanggan.discountType === 'FIXED' && pelanggan.discountValue) {
-            diskon = pelanggan.discountValue
-        } else if (pelanggan.discountType === 'PERCENT' && pelanggan.discountValue) {
-            diskon = (hargaPaket * pelanggan.discountValue) / 100
-        }
-    } else if (pelanggan.hargaPaket?.useDiscount) {
-         if (pelanggan.hargaPaket.discountType === 'FIXED' && pelanggan.hargaPaket.discountValue) {
-            diskon = pelanggan.hargaPaket.discountValue
-         } else if (pelanggan.hargaPaket.discountType === 'PERCENT' && pelanggan.hargaPaket.discountValue) {
-            diskon = (hargaPaket * pelanggan.hargaPaket.discountValue) / 100
-         }
-    }
-    
-    // Apply discount
-    subtotalPaket = Math.max(0, subtotalPaket - diskon)
-
-    // 3. Additional Fees
-    let biayaInstalasi = 0
-    if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
-        const disc = pelanggan.biayaInstalasiDiskon || 0
-        biayaInstalasi = pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * disc / 100)
-    }
-
-    let biayaSewa = 0
-    if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
-        const disc = pelanggan.biayaSewaPerangkatDiskon || 0
-        biayaSewa = pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * disc / 100)
-    }
-
-    let biayaLainnya = 0
-    if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
-         const disc = pelanggan.biayaLainnyaDiskon || 0
-         biayaLainnya = pelanggan.biayaLainnya - (pelanggan.biayaLainnya * disc / 100)
-    }
-
-    // 4. Final Subtotal
-    const subtotal = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
-
-    // 5. PPN
-    let ppn = 0
-    if (pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage) {
-        ppn = (subtotal * pelanggan.hargaPaket.ppnPercentage) / 100
-    }
-
-    // 6. Total
-    const total = subtotal + ppn
+    if (!tagihan) return null
 
     return {
-        hargaPaket,
-        diskon,
-        biayaInstalasi,
-        biayaSewa,
-        biayaLainnya,
-        subtotal,
-        ppn,
-        total
+        hargaPaket: tagihan.subtotal, // Subtotal includes all base prices based on current mapping
+        diskon: tagihan.diskon || 0,
+        biayaInstalasi: tagihan.biayaInstalasi || 0,
+        biayaSewa: tagihan.biayaSewaPerangkat || 0,
+        biayaLainnya: tagihan.biayaLainnya || 0,
+        subtotal: tagihan.subtotal, // Real subtotal of all items
+        ppn: tagihan.ppn || 0,
+        total: tagihan.total || 0
     }
   })()
-
   // Helper strings
   const getAlamatLengkap = () => {
     if (!pelanggan) return ''
@@ -508,8 +452,8 @@ export default function PppPrintClient() {
                             <td className="px-3 py-4 text-sm text-gray-500 text-center">
                                 {getPeriodeAktif()}
                             </td>
-                            <td className="px-3 py-4 text-sm text-right text-gray-900 tabular-nums font-medium">
-                                {formatRupiah(pelanggan.hargaPaket.harga)}
+                            <td className="px-3 py-4 text-sm font-medium text-right text-gray-900 tabular-nums">
+                                {formatRupiah(invoiceCalculations?.hargaPaket || 0)}
                             </td>
                         </tr>
                     )}
@@ -539,17 +483,7 @@ export default function PppPrintClient() {
                         </tr>
                     ) : null}
 
-                     {invoiceCalculations && invoiceCalculations.diskon > 0 ? (
-                        <tr className="bg-green-50/20">
-                            <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
-                                <div className="font-medium text-green-700">Discount Applied</div>
-                            </td>
-                            <td className="px-3 py-4 text-sm text-gray-500 text-center">-</td>
-                            <td className="px-3 py-4 text-sm text-right text-green-700 tabular-nums font-medium">
-                                - {formatRupiah(invoiceCalculations.diskon)}
-                            </td>
-                        </tr>
-                    ) : null}
+                    {/* Discount moved to Totals Box for cleaner accounting presentation */}
                 </tbody>
             </table>
         </div>
@@ -562,6 +496,12 @@ export default function PppPrintClient() {
                     <span>Subtotal</span>
                     <span className="font-medium text-gray-900">{formatRupiah(invoiceCalculations.subtotal)}</span>
                 </div>
+                {invoiceCalculations.diskon > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                        <span>Discount</span>
+                        <span className="font-medium">- {formatRupiah(invoiceCalculations.diskon)}</span>
+                    </div>
+                )}
                 {invoiceCalculations.ppn > 0 && (
                     <div className="flex justify-between text-sm text-gray-600">
                         <span>VAT (11%)</span>

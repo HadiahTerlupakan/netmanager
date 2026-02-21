@@ -11,6 +11,10 @@ interface EligibleCustomerRow {
     jatuhTempo: Date;
     userId: string | null;
     usePPN: boolean;
+        tipe: string;
+        status: string;
+    tipe: string;
+    status: string;
     hargaPaketId: string;
     paketName: string;
     paketHarga: number;
@@ -58,12 +62,12 @@ export class AutomaticBillingService {
                 const customers = await prisma.$queryRaw<EligibleCustomerRow[]>(
                     Prisma.sql`
                         SELECT
-                            p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId",
+                            p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId", p.tipe, p.status,
                             h.name AS "paketName", h.harga AS "paketHarga",
                             h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
                         FROM "Pelanggan" p
                         INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
-                        WHERE p.status = 'AKTIF'
+                        WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
                           AND p."hargaPaketId" != ''
                           AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
                         ORDER BY p.id ASC
@@ -110,6 +114,8 @@ export class AutomaticBillingService {
                             jatuhTempo: row.jatuhTempo,
                             userId: row.userId,
                             usePPN: row.usePPN,
+                            tipe: row.tipe,
+                            status: row.status,
                             hargaPaket: {
                                 id: row.hargaPaketId,
                                 name: row.paketName,
@@ -206,15 +212,7 @@ export class AutomaticBillingService {
                 }
             });
 
-            // 4. Update jatuhTempo customer ke bulan berikutnya
-            const currentDueDate = new Date(customer.jatuhTempo);
-            const nextDueDate = new Date(currentDueDate);
-            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-            
-            await tx.pelanggan.update({
-                where: { id: customer.id },
-                data: { jatuhTempo: nextDueDate }
-            });
+            // 4. Update jatuhTempo removed. Will be updated upon payment.
 
             return invoice;
         });
@@ -249,5 +247,81 @@ export class AutomaticBillingService {
         });
 
         return result;
+    }
+    /**
+     * Update jatuhTempo and status when an invoice is fully paid.
+     * Call this from webhook or manual payment handlers.
+     */
+    static async handleInvoicePaid(invoiceId: string) {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { pelanggan: true }
+        });
+
+        if (!invoice || invoice.status !== 'PAID') return;
+
+        const customer = invoice.pelanggan;
+        if (!customer) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const safeAddMonth = (date: Date) => {
+            const d = new Date(date);
+            const day = d.getDate();
+            d.setMonth(d.getMonth() + 1);
+            if (d.getDate() !== day) {
+                d.setDate(0);
+            }
+            return d;
+        };
+
+        let newJatuhTempo = new Date(customer.jatuhTempo);
+
+        if (customer.tipe === 'NON_REGULER') {
+            let baseDate = customer.status === 'ISOLIR' || new Date(customer.jatuhTempo) < today ? today : new Date(customer.jatuhTempo);
+            newJatuhTempo = safeAddMonth(baseDate);
+        } else {
+            newJatuhTempo = safeAddMonth(invoice.dueDate);
+            if (newJatuhTempo < customer.jatuhTempo) {
+                newJatuhTempo = new Date(customer.jatuhTempo);
+            }
+        }
+
+        const unpaidInvoices = await prisma.invoice.count({
+            where: {
+                pelangganId: customer.id,
+                status: { notIn: ['PAID', 'VOID', 'CANCELLED'] }
+            }
+        });
+
+        const updates: any = {
+            jatuhTempo: newJatuhTempo
+        };
+
+        let shouldActivate = false;
+
+        if (customer.tipe === 'REGULER') {
+            if (unpaidInvoices === 0 && customer.status !== 'AKTIF') {
+                updates.status = 'AKTIF';
+                shouldActivate = true;
+            }
+        } else {
+            if (customer.status !== 'AKTIF') {
+                updates.status = 'AKTIF';
+                shouldActivate = true;
+            }
+        }
+
+        await prisma.pelanggan.update({
+            where: { id: customer.id },
+            data: updates
+        });
+
+        if (shouldActivate) {
+            const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
+            const radiusService = new RadiusSyncService(prisma);
+            await radiusService.handleStatusChange(customer.id, 'AKTIF');
+        }
     }
 }

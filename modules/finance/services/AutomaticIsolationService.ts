@@ -29,16 +29,28 @@ export class AutomaticIsolationService {
             today.setHours(0, 0, 0, 0);
 
             // Calculation Logic:
-            // Find Active customers where jatuhTempo < Today (Overdue)
-            const activeCustomers = await prisma.pelanggan.findMany({
+            // NEW LOGIC: Find Active customers who have at least ONE UNPAID invoice that is overdue
+            // This ensures we isolate them based on actual unpaid bills, not just based on falling behind the calendar.
+            const overdueInvoices = await prisma.invoice.findMany({
                 where: {
-                    status: Status.AKTIF, // Use Enum
-                    autoIsolir: true, // Only process if auto-isolation is enabled for this customer
-                    jatuhTempo: {
-                        lt: today // Strictly less than today means they missed the date
+                    status: 'UNPAID',
+                    dueDate: { lt: today },
+                    pelanggan: {
+                        status: Status.AKTIF,
+                        autoIsolir: true
                     }
-                }
+                },
+                include: { pelanggan: true }
             });
+
+            // Group by pelanggan to avoid processing the same customer multiple times
+            const activeCustomersMap = new Map();
+            for (const inv of overdueInvoices) {
+                if (inv.pelanggan) {
+                    activeCustomersMap.set(inv.pelanggan.id, inv.pelanggan);
+                }
+            }
+            const activeCustomers = Array.from(activeCustomersMap.values());
 
             console.log(`[AutoIsolation] Found ${activeCustomers.length} candidates (overdue). Processing...`);
 
@@ -50,25 +62,7 @@ export class AutomaticIsolationService {
                     const dueDate = new Date(customer.jatuhTempo);
                     dueDate.setHours(0, 0, 0, 0);
 
-                    // Cek apakah customer sudah membayar invoice untuk periode ini
-                    // Jika ada invoice PAID dengan dueDate dalam 30 hari terakhir, skip isolir
-                    const thirtyDaysAgo = new Date();
-                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                    
-                    const recentPaidInvoice = await prisma.invoice.findFirst({
-                        where: {
-                            pelangganId: customer.id,
-                            status: 'PAID',
-                            dueDate: {
-                                gte: thirtyDaysAgo
-                            }
-                        }
-                    });
 
-                    if (recentPaidInvoice) {
-                        console.log(`[AutoIsolation] Skipping ${customer.nama} - has recent paid invoice (${recentPaidInvoice.invoiceNumber})`);
-                        continue; // Skip isolir karena sudah bayar
-                    }
 
                     // Difference in days (untuk logging saja)
                     const diffTime = Math.abs(today.getTime() - dueDate.getTime());
