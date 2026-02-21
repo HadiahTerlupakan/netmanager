@@ -34,8 +34,8 @@ const TEMPLATE_ICONS: Record<string, React.ReactNode> = {
 import type { ResourceAction } from '@/lib/resource-capabilities'
 
 // Helper: daftar semua resource admin & mobile untuk validasi konsistensi
-const ALL_ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat() as string[]
-const ALL_MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat() as string[]
+const _ALL_ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat() as string[]
+const _ALL_MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat() as string[]
 
 export function ClientComponent() {
     const router = useRouter()

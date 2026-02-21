@@ -79,29 +79,108 @@ export async function POST(request: NextRequest) {
         const finalAmount = totalAmount - discountAmount
 
         const result = await prisma.$transaction(async (tx) => {
-            const payment = await tx.payment.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    updatedAt: new Date(),
-                    amount: finalAmount,
-                    paymentDate: new Date(),
-                    paymentMethod: (paymentMethod === 'MANUAL' ? 'OTHER' : paymentMethod) || 'OTHER',
-                    reference: `PAY-${Date.now()}`,
-                    notes: notes,
-                    pelangganId: authResult.session.id,
-                    invoiceId: invoiceIds[0]
-                }
-            })
+            const discountPerInvoice = discountAmount > 0 
+                ? Math.floor(discountAmount / invoiceIds.length) 
+                : 0;
+
+            const payments = [];
+
+            for (let i = 0; i < invoiceIds.length; i++) {
+                const invoiceId = invoiceIds[i];
+                
+                const invoice = await tx.invoice.findUnique({
+                    where: { id: invoiceId }
+                });
+
+                if (!invoice) continue;
+
+                const currentDiscount = (i === invoiceIds.length - 1 && discountAmount > 0)
+                    ? discountAmount - (discountPerInvoice * (invoiceIds.length - 1))
+                    : discountPerInvoice;
+
+                const currentFinalAmount = Number(invoice.totalAmount) - currentDiscount;
+
+                const payment = await tx.payment.create({
+                    data: {
+                        id: crypto.randomUUID(),
+                        updatedAt: new Date(),
+                        amount: currentFinalAmount,
+                        paymentDate: new Date(),
+                        paymentMethod: (paymentMethod === 'MANUAL' ? 'OTHER' : paymentMethod) || 'OTHER',
+                        gatewayStatus: paymentMethod === 'MANUAL' ? 'PAID' : 'PENDING',
+                        reference: `PAY-${crypto.randomUUID()}`,
+                        notes: notes,
+                        pelangganId: authResult.session.id,
+                        invoiceId: invoiceId
+                    }
+                });
+
+                payments.push(payment);
+            }
 
             if (couponId) {
                 await couponService.recordUsage(couponId, authResult.session.id, tx)
                 await couponService.incrementUsage(couponId, tx)
             }
 
-            return payment
+            return payments;
         })
 
-        return apiSuccess({ payment: result }, { message: 'Pembayaran berhasil diproses' })
+        let paymentUrl = null;
+        let transactionId = null;
+        
+        if (paymentMethod !== 'MANUAL' && result.length > 0) {
+            try {
+                const customer = await prisma.pelanggan.findUnique({
+                    where: { id: authResult.session.id }
+                });
+
+                if (customer) {
+                    const { PaymentGatewayManager } = await import('@/modules/finance/services/payment-gateway/gateway-manager');
+                    const gatewayManager = new PaymentGatewayManager(prisma as any);
+                    
+                        const customerEmail = customer.email ? String(customer.email) : 'customer@example.com';
+                        const customerPhone = customer.noTelp ? String(customer.noTelp) : '';
+                        
+                        const gatewayResult = await gatewayManager.createPayment({
+                            orderId: result[0].reference || result[0].id,
+                            amount: Number(finalAmount),
+                            customerName: customer.nama,
+                            customerEmail: customerEmail,
+                            customerPhone: customerPhone,
+                            description: `Pembayaran Tagihan NetManager`,
+                            paymentMethods: [paymentMethod]
+                        });
+
+                    if (gatewayResult.success) {
+                        paymentUrl = gatewayResult.paymentUrl || gatewayResult.qrCodeUrl || null;
+                        transactionId = gatewayResult.transactionId || null;
+
+                        if (transactionId || paymentUrl) {
+                            const paymentIds = result.map(p => p.id);
+                            await prisma.payment.updateMany({
+                                where: { id: { in: paymentIds } },
+                                data: {
+                                    transactionId: transactionId,
+                                    paymentUrl: paymentUrl,
+                                    gatewayProvider: (gatewayResult as any).providerName || paymentMethod
+                                }
+                            });
+                        }
+                    } else {
+                        console.error('[Gateway Payment Error]:', gatewayResult.error);
+                    }
+                }
+            } catch (gatewayErr) {
+                console.error('[Gateway Integration Error]:', gatewayErr);
+            }
+        }
+
+        return apiSuccess({ 
+            payments: result,
+            paymentUrl,
+            transactionId
+        }, { message: paymentUrl ? 'Menunggu pembayaran via gateway' : 'Pembayaran berhasil diproses' })
 
     } catch (error) {
         const err = error as Error

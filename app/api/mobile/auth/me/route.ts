@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
       features: permissions,
       isSales: session.role.toUpperCase().includes('SALES'),
       image: user.image,
-      // Note: these fields might not be in UserPublic, falling back to defaults if not present
-      workDays: (user as any).workDays || [],
-      workingHourMode: (user as any).workingHourMode || 'FLEXIBLE',
-      isOnLeave: (user as any).isOnLeave || false,
+      // These fields are not in UserPublic/findById select, use defaults for mobile API
+      workDays: [] as string[],
+      workingHourMode: 'FLEXIBLE',
+      isOnLeave: false,
     }
 
     return apiSuccess(userData)

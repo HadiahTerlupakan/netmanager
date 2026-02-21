@@ -1,0 +1,226 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { PaymentGatewayManager } from '@/modules/finance/services/payment-gateway/gateway-manager'
+import { PrismaClient } from '@prisma/client'
+
+/**
+ * Signature header mapping per payment gateway provider.
+ * Each provider sends webhook signatures in different headers.
+ */
+const SIGNATURE_HEADERS: Record<string, string> = {
+    XENDIT: 'x-callback-token',
+    MIDTRANS: '',              // Midtrans includes signature in body
+    TRIPAY: 'x-callback-signature',
+    DUITKU: '',                // Duitku includes signature in body
+    BRI: 'x-signature',
+    BCA: 'x-bca-signature',
+    DANA: 'x-dana-signature',
+}
+
+/**
+ * POST /api/webhooks/[provider]
+ * 
+ * Receives payment webhook callbacks from external payment gateway providers.
+ * This endpoint is public (no auth) — security is via webhook signature verification.
+ * 
+ * Flow:
+ * 1. Extract provider from URL params
+ * 2. Parse request body
+ * 3. Extract signature from provider-specific header
+ * 4. Verify signature + process webhook via PaymentGatewayManager
+ * 5. Update Payment record (gatewayStatus, transactionId, etc.)
+ * 6. Update linked Invoice(s) status
+ */
+export async function POST(
+    request: NextRequest,
+    { params }: { params: Promise<{ provider: string }> }
+) {
+    const { provider } = await params
+    const providerType = provider.toUpperCase()
+
+    try {
+        // Validate provider is supported
+        const supportedProviders = Object.keys(SIGNATURE_HEADERS)
+        if (!supportedProviders.includes(providerType)) {
+            console.warn(`[Webhook] Unknown provider: ${providerType}`)
+            return NextResponse.json(
+                { error: 'Unknown payment provider' },
+                { status: 400 }
+            )
+        }
+
+        // Parse request body
+        const rawBody = await request.text()
+        let payload: Record<string, unknown>
+
+        try {
+            payload = JSON.parse(rawBody)
+        } catch {
+            console.error(`[Webhook] Invalid JSON body from ${providerType}`)
+            return NextResponse.json(
+                { error: 'Invalid request body' },
+                { status: 400 }
+            )
+        }
+
+        // Extract signature from provider-specific header
+        const signatureHeader = SIGNATURE_HEADERS[providerType]
+        const signature = signatureHeader
+            ? (request.headers.get(signatureHeader) ?? undefined)
+            : undefined
+
+        // Process webhook through gateway manager
+        const gatewayManager = new PaymentGatewayManager(prisma as unknown as PrismaClient)
+        const webhookResult = await gatewayManager.processWebhook(providerType, payload, signature)
+
+        console.log(`[Webhook] ${providerType} processed:`, {
+            orderId: webhookResult.orderId,
+            status: webhookResult.status,
+            transactionId: webhookResult.transactionId,
+        })
+
+        // Map webhook status to GatewayPaymentStatus enum
+        const gatewayStatusMap: Record<string, string> = {
+            PAID: 'PAID',
+            PENDING: 'PENDING',
+            EXPIRED: 'EXPIRED',
+            CANCELLED: 'CANCELLED',
+            FAILED: 'FAILED',
+        }
+        const gatewayStatus = gatewayStatusMap[webhookResult.status] || 'FAILED'
+
+        // Find Payment record by reference (orderId = payment.reference)
+        const payment = await prisma.payment.findFirst({
+            where: { reference: webhookResult.orderId },
+        })
+
+        if (!payment) {
+            console.warn(`[Webhook] Payment not found for orderId: ${webhookResult.orderId}`)
+            // Return 200 to prevent gateway from retrying
+            return NextResponse.json({ status: 'ok', message: 'Payment record not found' })
+        }
+
+        // Update Payment record with gateway response
+        await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+                gatewayStatus: gatewayStatus as any,
+                transactionId: webhookResult.transactionId || null,
+                gatewayProvider: providerType,
+                ...(webhookResult.paymentMethod ? { paymentMethod: webhookResult.paymentMethod as any } : {}),
+                ...(webhookResult.paidAt ? { paymentDate: webhookResult.paidAt } : {}),
+            },
+        })
+
+        // If payment is confirmed (PAID), update linked invoices
+        if (gatewayStatus === 'PAID') {
+            await updateInvoicesOnPayment(payment.id, payment.notes)
+        }
+
+        // If payment expired/cancelled/failed, update gateway status only
+        if (['EXPIRED', 'CANCELLED', 'FAILED'].includes(gatewayStatus)) {
+            console.log(`[Webhook] Payment ${payment.id} marked as ${gatewayStatus}`)
+        }
+
+        // Always return 200 to acknowledge receipt
+        return NextResponse.json({ status: 'ok' })
+
+    } catch (error) {
+        const err = error as Error
+        console.error(`[Webhook] Error processing ${providerType}:`, err.message, err.stack)
+
+        // Return 200 for signature errors (don't retry invalid webhooks)
+        if (err.message.includes('Invalid webhook signature')) {
+            return NextResponse.json(
+                { status: 'error', message: 'Invalid signature' },
+                { status: 401 }
+            )
+        }
+
+        // Return 500 for server errors (gateway will retry)
+        return NextResponse.json(
+            { status: 'error', message: 'Internal server error' },
+            { status: 500 }
+        )
+    }
+}
+
+/**
+ * Update all linked invoices when payment is confirmed.
+ * Parses invoiceIds from payment notes metadata and updates each invoice.
+ */
+async function updateInvoicesOnPayment(paymentId: string, notes: string | null) {
+    // Try to extract invoiceIds from notes metadata
+    let invoiceIds: string[] = []
+
+    if (notes) {
+        try {
+            const metadata = JSON.parse(notes)
+            if (Array.isArray(metadata.invoiceIds)) {
+                invoiceIds = metadata.invoiceIds
+            }
+        } catch {
+            // Notes is plain text, not JSON metadata
+        }
+    }
+
+    // If no invoiceIds from notes, try from direct payment-invoice link
+    if (invoiceIds.length === 0) {
+        const payment = await prisma.payment.findUnique({
+            where: { id: paymentId },
+            select: { invoiceId: true },
+        })
+
+        if (payment?.invoiceId) {
+            invoiceIds = [payment.invoiceId]
+        }
+    }
+
+    if (invoiceIds.length === 0) {
+        console.log(`[Webhook] No invoices linked to payment ${paymentId}`)
+        return
+    }
+
+    // Update each invoice's paid amount and status
+    for (const invoiceId of invoiceIds) {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { payment: true },
+        })
+
+        if (!invoice) {
+            console.warn(`[Webhook] Invoice ${invoiceId} not found`)
+            continue
+        }
+
+        // Calculate total paid from all PAID payments
+        const totalPaid = invoice.payment.reduce((sum, p) => {
+            // Only count payments that are confirmed (PAID or no gateway status = manual)
+            if (!p.gatewayStatus || p.gatewayStatus === 'PAID') {
+                return sum + p.amount
+            }
+            return sum
+        }, 0n)
+
+        // Determine invoice status
+        let invoiceStatus: string
+        if (totalPaid >= invoice.totalAmount) {
+            invoiceStatus = 'PAID'
+        } else if (totalPaid > 0n) {
+            invoiceStatus = 'PARTIAL_PAID'
+        } else {
+            invoiceStatus = invoice.status
+        }
+
+        await prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                paidAmount: totalPaid,
+                status: invoiceStatus as any,
+                ...(invoiceStatus === 'PAID' ? { paidAt: new Date() } : {}),
+            },
+        })
+
+        console.log(`[Webhook] Invoice ${invoiceId} updated: status=${invoiceStatus}, paidAmount=${totalPaid}`)
+    }
+}

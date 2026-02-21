@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { logger } from '@/lib/logger'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
@@ -24,15 +25,10 @@ export const POST = createHandler({
 }, async (req, ctx) => {
     const { description, expenseType, ...rest } = ctx.validated
     
-    // Pass expenseType correctly based on type
-    const categoryData: any = {
+    const categoryData: Prisma.TransactionCategoryCreateInput = {
         ...rest,
-        ...(description ? { description } : {})
-    }
-    
-    // Only add expenseType if it's an EXPENSE
-    if (rest.type === 'EXPENSE' && expenseType) {
-        categoryData.expenseType = expenseType
+        ...(description ? { description } : {}),
+        ...(rest.type === 'EXPENSE' && expenseType ? { expenseType } : {}),
     }
     
     const category = await financeService.createCategory(categoryData)
@@ -60,15 +56,10 @@ export const PUT = createHandler({
 
     const { description, expenseType, ...rest } = ctx.validated
     
-    // Pass expenseType correctly based on type
-    const categoryData: any = {
+    const categoryData: Prisma.TransactionCategoryUpdateInput = {
         ...rest,
-        ...(description ? { description } : {})
-    }
-    
-    // Only add expenseType if it's an EXPENSE
-    if (rest.type === 'EXPENSE' && expenseType) {
-        categoryData.expenseType = expenseType
+        ...(description ? { description } : {}),
+        ...(rest.type === 'EXPENSE' && expenseType ? { expenseType } : {}),
     }
     
     const category = await financeService.updateCategory(id, categoryData)

@@ -1,5 +1,6 @@
 // Xendit Payment Provider Implementation
 
+import crypto from 'crypto'
 import type {
     PaymentProvider,
     ProviderConfig,
@@ -147,18 +148,40 @@ export class XenditProvider implements PaymentProvider {
         }
     }
 
-    verifyWebhook(payload: Record<string, unknown>, _signature?: string): boolean {
+    verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
         try {
             if (!this.config) {
                 return false
             }
 
             // Xendit uses callback token for verification
-            const callbackToken = payload.callback_token || payload['x-callback-token']
+            // The token comes from request header 'x-callback-token' (passed as signature)
+            // or from payload itself
+            const callbackToken = signature || payload['x-callback-token'] as string
 
-            // In production, you should verify the callback token matches your stored token
-            // For now, we'll do basic validation
-            return !!callbackToken
+            if (!callbackToken) {
+                return false
+            }
+
+            // Compare against stored callback verification token from settings
+            const storedToken = this.config.settings?.callbackToken as string 
+                || this.config.apiSecret 
+                || this.config.apiKey
+
+            if (!storedToken) {
+                console.warn('Xendit: No callback token configured for verification')
+                return false
+            }
+
+            // Use timing-safe comparison to prevent timing attacks
+            const tokenBuffer = Buffer.from(callbackToken)
+            const storedBuffer = Buffer.from(storedToken)
+
+            if (tokenBuffer.length !== storedBuffer.length) {
+                return false
+            }
+
+            return crypto.timingSafeEqual(tokenBuffer, storedBuffer)
         } catch (error) {
             console.error('Xendit webhook verification error:', error)
             return false

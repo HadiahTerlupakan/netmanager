@@ -49,7 +49,7 @@ export class DuitkuProvider implements PaymentProvider {
             const requestBody = {
                 merchantCode,
                 paymentAmount,
-                paymentMethod: 'VC', // Virtual Account - can be changed based on preference
+                paymentMethod: params.paymentMethods?.[0] || 'VC', // Use requested method or default to Virtual Account
                 merchantOrderId,
                 productDetails: params.description,
                 merchantUserInfo: params.customerName,
@@ -148,8 +148,8 @@ export class DuitkuProvider implements PaymentProvider {
             return {
                 orderId,
                 status,
-                ...(result.statusCode === '00' ? { paidAt: new Date() } : {}),
-                paymentMethod: result.paymentMethod,
+                ...(result.statusCode === '00' ? { paidAt: result.settlementDate ? new Date(result.settlementDate) : new Date() } : {}),
+                paymentMethod: result.paymentCode || result.paymentMethod,
                 amount: result.amount,
                 transactionId: result.reference
             }

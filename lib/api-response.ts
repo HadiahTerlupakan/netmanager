@@ -25,6 +25,42 @@ export interface ErrorResponse {
 }
 
 /**
+ * Helper to serialize BigInt correctly
+ * Converts BigInt to Number if safe, otherwise to String
+ */
+export function serializeData<T>(data: T): T {
+    if (data === null || data === undefined) {
+        return data;
+    }
+
+    if (typeof data === 'bigint') {
+        // Convert to Number if it's within safe integer limits, otherwise string
+        return (data <= BigInt(Number.MAX_SAFE_INTEGER) && data >= BigInt(Number.MIN_SAFE_INTEGER) 
+            ? Number(data) 
+            : data.toString()) as unknown as T;
+    }
+
+    if (Array.isArray(data)) {
+        return data.map(item => serializeData(item)) as unknown as T;
+    }
+
+    if (typeof data === 'object') {
+        // Handle Date objects explicitly so they don't become plain objects
+        if (data instanceof Date) {
+            return data;
+        }
+        
+        const serializedObj: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+            serializedObj[key] = serializeData(value);
+        }
+        return serializedObj as unknown as T;
+    }
+
+    return data;
+}
+
+/**
  * Create a standardized success response
  */
 export function apiSuccess<T>(
@@ -35,9 +71,11 @@ export function apiSuccess<T>(
         headers?: Record<string, string>
     }
 ): NextResponse<SuccessResponse<T>> {
+    const serializedData = serializeData(data);
+    
     const response: SuccessResponse<T> = {
         success: true,
-        data,
+        data: serializedData,
         ...(options?.message && { message: options.message })
     }
 
@@ -163,9 +201,11 @@ export function apiPaginated<T>(
         message?: string
     }
 ): NextResponse<PaginatedResponse<T>> {
+    const serializedData = serializeData(data) as T[];
+
     const response: PaginatedResponse<T> = {
         success: true,
-        data,
+        data: serializedData,
         meta: {
             page: options.page,
             limit: options.limit,
@@ -202,16 +242,19 @@ export function apiPaginatedWithSummary<T, S = unknown>(
         message?: string
     }
 ): NextResponse<PaginatedWithSummaryResponse<T, S>> {
+    const serializedData = serializeData(data) as T[];
+    const serializedSummary = options.summary ? serializeData(options.summary) as S : undefined;
+
     const response: PaginatedWithSummaryResponse<T, S> = {
         success: true,
-        data,
+        data: serializedData,
         meta: {
             page: options.page,
             limit: options.limit,
             total: options.total,
             totalPages: Math.ceil(options.total / options.limit),
         },
-        ...(options.summary && { summary: options.summary }),
+        ...(serializedSummary && { summary: serializedSummary }),
         ...(options.message && { message: options.message }),
     }
 

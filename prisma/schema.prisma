@@ -639,25 +639,32 @@ model Overtime {
 }
 
 model Payment {
-  id            String            @id
-  invoiceId     String?
-  pelangganId   String
-  amount        BigInt
-  paymentDate   DateTime
-  paymentMethod PaymentMethod
-  reference     String?
-  notes         String?
-  verifiedBy    String?
-  verifiedAt    DateTime?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime
-  invoice       Invoice?          @relation(fields: [invoiceId], references: [id])
-  accountId     String?
-  account       FinancialAccount? @relation(fields: [accountId], references: [id])
+  id              String                @id
+  invoiceId       String?
+  pelangganId     String
+  amount          BigInt
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod
+  reference       String?
+  notes           String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime
+  invoice         Invoice?              @relation(fields: [invoiceId], references: [id])
+  accountId       String?
+  account         FinancialAccount?     @relation(fields: [accountId], references: [id])
+  gatewayStatus   GatewayPaymentStatus?
+  gatewayProvider String?
+  transactionId   String?
+  paymentUrl      String?
+  expiresAt       DateTime?
 
   @@index([invoiceId])
   @@index([paymentDate])
   @@index([pelangganId])
+  @@index([gatewayStatus])
+  @@index([transactionId])
 }
 
 model PaymentGatewayConfig {
@@ -2378,6 +2385,7 @@ enum InvoiceStatus {
   SENT
   OVERDUE
   PAID
+  PARTIAL_PAID
   CANCELLED
 }
 
@@ -2793,6 +2801,14 @@ enum PaymentStatus {
   UNPAID
   PARTIAL
   PAID
+}
+
+enum GatewayPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
 }
 
 enum JenisBarang {

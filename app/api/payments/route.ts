@@ -110,8 +110,8 @@ export const POST = createHandler({
       }
     }
 
-    // Convert amount to BigInt (stored in cents)
-    const amountInCents = BigInt(Math.round(amount * 100)) / 100n
+    // Convert amount to BigInt (stored in whole rupiah)
+    const amountInCents = BigInt(Math.round(amount))
 
     try {
         const payment = await prisma.payment.create({
@@ -119,6 +119,7 @@ export const POST = createHandler({
             id: randomUUID(),
             paymentDate: new Date(paymentData.paymentDate),
             paymentMethod: paymentData.paymentMethod,
+            gatewayStatus: (paymentData as any).paymentStatus || 'PAID',
             reference: paymentData.reference ?? null,
             notes: paymentData.notes ?? null,
             invoiceId: invoiceId || null,
@@ -165,7 +166,11 @@ export const POST = createHandler({
               where: { id: invoiceId },
               data: {
                 paidAmount: totalPaid,
-                status: totalPaid >= invoice.totalAmount ? 'PAID' : invoice.status,
+                status: totalPaid >= invoice.totalAmount 
+                  ? 'PAID' 
+                  : totalPaid > 0n 
+                    ? 'PARTIAL_PAID' 
+                    : invoice.status,
                 paidAt: totalPaid >= invoice.totalAmount ? new Date() : null,
               },
             })
@@ -177,7 +182,7 @@ export const POST = createHandler({
           action: 'CREATE',
           subject: 'Payment',
           userId: user.id,
-          details: { id: payment.id, amount: Number(amountInCents) / 100, method: paymentData.paymentMethod }
+          details: { id: payment.id, amount: Number(amountInCents), method: paymentData.paymentMethod }
         })
 
         return apiSuccess(payment, { status: 201 })

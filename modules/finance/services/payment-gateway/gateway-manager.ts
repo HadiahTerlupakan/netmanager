@@ -56,7 +56,7 @@ export class PaymentGatewayManager {
         // Decrypt API keys and initialize
         const apiSecret = config.apiSecret ? decryptApiKey(config.apiSecret) : undefined
 
-        provider.initialize({
+        await provider.initialize({
             apiKey: config.apiKey ? decryptApiKey(config.apiKey) : '',
             ...(apiSecret ? { apiSecret } : {}),
             ...(config.clientKey ? { clientKey: config.clientKey } : {}),
@@ -86,24 +86,24 @@ export class PaymentGatewayManager {
         } catch (error: unknown) {
             console.error(`Payment creation failed with ${providerConfig.provider}:`, error)
 
-            // Try fallback to next provider
+            // Try fallback to remaining providers in priority order
             const allProviders = await this.getEnabledProviders()
-            const fallbackProvider = allProviders[1]
+            const fallbackProviders = allProviders.filter(p => p.provider !== providerConfig.provider)
 
-            if (allProviders.length > 1 && fallbackProvider) {
-                console.log(`Trying fallback provider: ${fallbackProvider.provider}`)
+            for (const fallback of fallbackProviders) {
+                console.log(`Trying fallback provider: ${fallback.provider}`)
 
                 try {
-                    const provider = await this.getProviderInstance(fallbackProvider.provider)
+                    const provider = await this.getProviderInstance(fallback.provider)
                     return await provider.createPayment(params)
                 } catch (fallbackError: unknown) {
                     const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
-                    console.error(`Fallback provider also failed:`, fallbackError)
-                    throw new Error(`All payment providers failed. Last error: ${fallbackMessage}`)
+                    console.error(`Fallback provider ${fallback.provider} failed: ${fallbackMessage}`)
+                    continue
                 }
             }
 
-            throw error
+            throw new Error(`All payment providers failed. Primary: ${providerConfig.provider}`)
         }
     }
 
@@ -163,7 +163,7 @@ export class PaymentGatewayManager {
 
         // If temp config provided, use it (for testing before saving)
         if (tempConfig) {
-            provider.initialize(tempConfig)
+            await provider.initialize(tempConfig)
             return provider.testConnection()
         }
 
