@@ -253,12 +253,12 @@ export default function TransactionsClient({ categories, accounts }: Transaction
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div>
-                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Site</label>
-                   <SiteFilter onSiteChange={setFilterSiteId} />
+                   <label htmlFor="filter-site" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Site</label>
+                   <SiteFilter id="filter-site" onSiteChange={setFilterSiteId} />
                 </div>
                 <div>
-                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Kategori</label>
-                   <select 
+                   <label htmlFor="filter-category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Kategori</label>
+                   <select id="filter-category" 
                         className="block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
@@ -377,49 +377,109 @@ export default function TransactionsClient({ categories, accounts }: Transaction
             title="Catat Transaksi Manual"
             size="lg"
        >
-            <div className="space-y-5">
-                <div className="form-control">
-                    <label className="label font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Tipe Transaksi</label>
+            <div className="space-y-6">
+                <div>
+                    <span className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Tipe Transaksi</span>
                     <div className="grid grid-cols-2 gap-4">
-                        <div 
+                        <button
+                            type="button"
                             onClick={() => setForm({...form, type: 'INCOME'})}
-                            className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all ${
+                            className={`relative overflow-hidden flex flex-col items-center justify-center gap-3 p-4 border-2 rounded-xl transition-all duration-200 ${
                                 form.type === 'INCOME' 
-                                    ? 'bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-400 dark:text-green-300 ring-1 ring-green-500' 
-                                    : 'bg-white border-gray-200 hover:border-green-300 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
+                                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
+                                    : 'border-gray-200 hover:border-green-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:bg-green-50/50'
                             }`}
                         >
-                            <div className={`p-2 rounded-full ${form.type === 'INCOME' ? 'bg-green-200 dark:bg-green-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className={`p-3 rounded-full ${form.type === 'INCOME' ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
                                 </svg>
                             </div>
-                            <span className="font-semibold text-sm">Pemasukan</span>
-                        </div>
+                            <span className="font-bold text-sm">Pemasukan</span>
+                            {form.type === 'INCOME' && <div className="absolute top-0 right-0 w-2 h-full bg-green-500" />}
+                        </button>
 
-                        <div 
+                        <button
+                            type="button"
                             onClick={() => setForm({...form, type: 'EXPENSE'})}
-                            className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all ${
+                            className={`relative overflow-hidden flex flex-col items-center justify-center gap-3 p-4 border-2 rounded-xl transition-all duration-200 ${
                                 form.type === 'EXPENSE' 
-                                    ? 'bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-400 dark:text-red-300 ring-1 ring-red-500' 
-                                    : 'bg-white border-gray-200 hover:border-red-300 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
+                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400' 
+                                    : 'border-gray-200 hover:border-red-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:bg-red-50/50'
                             }`}
                         >
-                            <div className={`p-2 rounded-full ${form.type === 'EXPENSE' ? 'bg-red-200 dark:bg-red-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className={`p-3 rounded-full ${form.type === 'EXPENSE' ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
                                 </svg>
                             </div>
-                            <span className="font-semibold text-sm">Pengeluaran</span>
-                        </div>
+                            <span className="font-bold text-sm">Pengeluaran</span>
+                            {form.type === 'EXPENSE' && <div className="absolute top-0 right-0 w-2 h-full bg-red-500" />}
+                        </button>
                     </div>
                 </div>
 
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="tx-amount" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nominal (Rp) <span className="text-red-500">*</span></label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold select-none">Rp</span>
+                                <input 
+                                    id="tx-amount"
+                                    type="number" 
+                                    placeholder="0"
+                                    className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm font-bold text-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
+                                    value={form.amount || ''} 
+                                    onChange={(e) => setForm({...form, amount: Number(e.target.value)})} 
+                                />
+                            </div>
+                            {form.amount > 0 && (
+                                <p className="mt-1.5 text-xs font-medium text-green-600 dark:text-green-400">
+                                    Bisa dibaca: {formatCurrency(form.amount)}
+                                </p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label htmlFor="tx-date" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Tanggal <span className="text-red-500">*</span></label>
+                            <input 
+                                id="tx-date"
+                                type="date" 
+                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow" 
+                                value={form.date} 
+                                onChange={(e) => setForm({...form, date: e.target.value})} 
+                            />
+                        </div>
+                    </div>
+
+                    {/* Market Price Helper */}
+                    {form.type === 'EXPENSE' && (
+                        <div className="pt-2">
+                           <details className="group">
+                               <summary className="list-none cursor-pointer text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1.5 font-medium select-none bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-100 dark:border-blue-800 w-max transition-colors">
+                                   <svg className="w-4 h-4 group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                   </svg>
+                                   Butuh referensi harga? Cek Harga Pasar
+                               </summary>
+                               <div className="mt-3 bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                                   <MarketPriceCheck 
+                                       initialKeyword={form.description} 
+                                       onSelectPrice={(price) => setForm(prev => ({ ...prev, amount: price }))} 
+                                   />
+                               </div>
+                           </details>
+                        </div>
+                    )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="form-control">
-                        <label className="label font-medium text-sm text-gray-700 dark:text-gray-300">Kategori</label>
-                        <select 
-                            className="select select-bordered w-full bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                    <div>
+                        <label htmlFor="tx-category" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Kategori <span className="text-red-500">*</span></label>
+                        <select id="filter-category" 
+                            id="tx-category"
+                            className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow" 
                             value={form.categoryId} 
                             onChange={(e) => setForm({...form, categoryId: e.target.value})}
                         >
@@ -429,99 +489,63 @@ export default function TransactionsClient({ categories, accounts }: Transaction
                                 .map(c => <option key={c.id} value={c.id}>{c.name}</option>)
                             }
                         </select>
-                         {categories.filter(c => c.type === form.type).length === 0 && (
-                            <span className="text-xs text-red-500 mt-1">Belum ada kategori untuk tipe ini.</span>
+                        {categories.filter(c => c.type === form.type).length === 0 && (
+                            <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                                <HiXCircle className="w-3.5 h-3.5" /> Belum ada kategori untuk tipe ini.
+                            </p>
                         )}
                     </div>
 
-                    <div className="form-control">
-                     <label className="label font-medium text-sm text-gray-700 dark:text-gray-300">
-                        {form.type === 'INCOME' ? 'Masuk ke Akun' : 'Sumber Dana (Bayar Pakai)'}
-                     </label>
-                     <select 
-                         className="select select-bordered w-full bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600"
-                         value={form.accountId}
-                         onChange={(e) => setForm({...form, accountId: e.target.value})}
-                     >
-                         <option value="">-- Pilih Akun --</option>
-                         {accounts.map(a => (
-                             <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>
-                         ))}
-                     </select>
-                 </div>
-
-                 <div className="form-control">
-                        <label className="label font-medium text-sm text-gray-700 dark:text-gray-300">Tanggal</label>
-                        <input 
-                            type="date" 
-                            className="input input-bordered w-full bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                            value={form.date} 
-                            onChange={(e) => setForm({...form, date: e.target.value})} 
-                        />
+                    <div>
+                        <label htmlFor="tx-account" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                            {form.type === 'INCOME' ? 'Masuk ke Akun' : 'Sumber Dana'} <span className="text-red-500">*</span>
+                        </label>
+                        <select id="filter-category" 
+                            id="tx-account"
+                            className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
+                            value={form.accountId}
+                            onChange={(e) => setForm({...form, accountId: e.target.value})}
+                        >
+                            <option value="">-- Pilih Akun --</option>
+                            {accounts.map(a => (
+                                <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
-                <div className="form-control">
-                    <label className="label font-medium text-sm text-gray-700 dark:text-gray-300">Jumlah (Rp)</label>
-                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">Rp</span>
-                        <input 
-                            type="number" 
-                            className="input input-bordered w-full pl-10 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                            value={form.amount} 
-                            onChange={(e) => setForm({...form, amount: Number(e.target.value)})} 
-                        />
-                    </div>
-
-                {/* Market Price Helper */}
-                {form.type === 'EXPENSE' && (
-                    <div className="mb-4">
-                       <details className="group">
-                           <summary className="list-none cursor-pointer text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium select-none">
-                               <svg className="w-4 h-4 group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                               </svg>
-                               Butuh referensi harga? Cek Harga Pasar
-                           </summary>
-                           <div className="mt-2">
-                               <MarketPriceCheck 
-                                   initialKeyword={form.description} 
-                                   onSelectPrice={(price) => setForm(prev => ({ ...prev, amount: price }))} 
-                               />
-                           </div>
-                       </details>
-                    </div>
-                )}
-                </div>
-
-                <div className="form-control">
-                    <label className="label font-medium text-sm text-gray-700 dark:text-gray-300">Keterangan</label>
+                <div>
+                    <label htmlFor="tx-desc" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Keterangan Tambahan</label>
                     <textarea 
-                        className="textarea textarea-bordered h-24 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                        id="tx-desc"
+                        className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow resize-none" 
+                        rows={3}
                         value={form.description} 
                         onChange={(e) => setForm({...form, description: e.target.value})}
-                        placeholder="Contoh: Pembayaran Listrik, Penjualan Scrap, dll"
+                        placeholder={form.type === 'INCOME' ? "Contoh: Penjualan Scrap, Pencairan Dana, dll" : "Contoh: Pembayaran Listrik, Belanja Rutin, dll"}
                     ></textarea>
                 </div>
 
-                {/* Photo Upload Section */}
-                <div className="form-control">
-                    <label className="label font-medium text-sm text-gray-700 dark:text-gray-300 mb-1">
-                        Upload Bukti Transaksi (Opsional)
-                    </label>
-                    <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div>
+                    <span className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                        Bukti Transaksi <span className="text-gray-400 font-normal">(Opsional)</span>
+                    </span>
+                    <div className="bg-white dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-4 transition-colors hover:border-blue-400">
                         <PhotoUpload 
                             ref={photoUploadRef}
                             transactionType="finance-transaction"
                             maxPhotos={3}
-                            transactionId="temp-transaction" // Provide a placeholder ID, will be handled by upload endpoint
+                            transactionId="temp-transaction"
                         />
                     </div>
                 </div>
 
-                <div className="modal-action pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <Button variant="ghost" className="mr-2" onClick={() => setModalOpen(false)}>Batal</Button>
-                    <Button loading={loading} onClick={handleCreate}>
+                {/* Actions */}
+                <div className="pt-5 mt-2 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-700">
+                    <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
+                        Batal
+                    </Button>
+                    <Button type="button" loading={loading} onClick={handleCreate}>
                         Simpan Transaksi
                     </Button>
                 </div>
