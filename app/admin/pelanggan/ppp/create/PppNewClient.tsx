@@ -271,7 +271,7 @@ export function ClientComponent() {
       // Tambahkan semua field formData
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
-          if (key === 'siteId' && !value) return // Skip if empty siteId (though validation handles it)
+          // if (key === 'siteId' && !value) return
           if (typeof value === 'number') {
             formDataToSend.append(key, value.toString())
           } else if (typeof value === 'boolean') {
@@ -308,6 +308,7 @@ export function ClientComponent() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}))
+        console.error("API Error details:", errorData)
 
         // Handle rate limit
         if (res.status === 429) {

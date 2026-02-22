@@ -1,0 +1,229 @@
+generator client_billing {
+  provider = "prisma-client-js"
+  output   = "./generated/billing"
+}
+
+datasource db {
+  provider = "postgresql"
+  
+}
+
+model Invoice {
+  id             String        @id
+  invoiceNumber  String        @unique
+  pelangganId    String
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime
+  status         InvoiceStatus @default(DRAFT)
+  subtotal       BigInt        @default(0)
+  taxAmount      BigInt        @default(0)
+  discountAmount BigInt        @default(0)
+  totalAmount    BigInt        @default(0)
+  paidAmount     BigInt        @default(0)
+  notes          String?
+  terms          String?
+  sentAt         DateTime?
+  paidAt         DateTime?
+  createdBy      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  siteId         String?
+  invoiceItem    InvoiceItem[]
+  payment        Payment[]
+
+  @@index([dueDate])
+  @@index([invoiceNumber])
+  @@index([issueDate])
+  @@index([pelangganId])
+  @@index([status])
+  @@index([siteId])
+}
+
+model InvoiceItem {
+  id          String   @id
+  invoiceId   String
+  description String
+  quantity    Int      @default(1)
+  unitPrice   BigInt
+  totalPrice  BigInt
+  itemType    ItemType @default(SERVICE)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id              String                @id
+  invoiceId       String?
+  pelangganId     String
+  amount          BigInt
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod
+  reference       String?
+  notes           String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime
+  invoice         Invoice?              @relation(fields: [invoiceId], references: [id])
+  accountId       String?
+  gatewayStatus   GatewayPaymentStatus?
+  gatewayProvider String?
+  transactionId   String?
+  paymentUrl      String?
+  expiresAt       DateTime?
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@index([pelangganId])
+  @@index([gatewayStatus])
+  @@index([transactionId])
+}
+
+model PaymentGatewayConfig {
+  id           String    @id
+  provider     String    @unique
+  providerName String
+  isEnabled    Boolean   @default(false)
+  isProduction Boolean   @default(false)
+  priority     Int       @default(0)
+  apiKey       String?
+  apiSecret    String?
+  clientKey    String?
+  merchantId   String?
+  webhookUrl   String?
+  callbackUrl  String?
+  settings     Json?
+  lastTestedAt DateTime?
+  testStatus   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+  createdBy    String?
+
+  @@index([isEnabled])
+  @@index([priority])
+  @@index([provider])
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  date        DateTime        @default(now())
+  amount      Float
+  type        TransactionType
+  description String?
+  referenceId String? // Could be PO ID, Invoice ID, etc.
+
+  categoryId String
+  category   TransactionCategory @relation(fields: [categoryId], references: [id])
+
+  accountId       String? // Make optional initially for migration
+  purchaseOrderId String?
+  createdById     String
+  attachments     String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([date])
+  @@index([type])
+  @@index([categoryId])
+  @@index([accountId])
+  @@index([purchaseOrderId])
+  @@map("transactions")
+}
+
+model TransactionCategory {
+  id          String          @id @default(uuid())
+  name        String
+  type        TransactionType
+  expenseType ExpenseType? // Only for EXPENSE type
+  description String?
+  isSystem    Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  transactions Transaction[]
+
+  @@map("transaction_categories")
+}
+
+model MixRadiusInvoice {
+  id            String    @id @default(cuid())
+  invoiceNumber String    @unique
+  mixRadiusId   String? // The internal ID from MixRadius
+  username      String
+  fullName      String?
+  planName      String?
+  amount        Decimal   @db.Decimal(19, 2)
+  status        String // PAID, UNPAID, etc.
+  paymentMethod String?
+  issuedDate    DateTime // derived from renewed_on or created_on
+  dueDate       DateTime? // derived or calculated
+  expiredOn     DateTime?
+  syncedAt      DateTime  @default(now())
+
+  @@index([status])
+  @@index([username])
+  @@index([dueDate])
+  @@map("mix_radius_invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  OVERDUE
+  PAID
+  PARTIAL_PAID
+  CANCELLED
+}
+
+enum ItemType {
+  SERVICE
+  PRODUCT
+  SETUP_FEE
+  MONTHLY_FEE
+  ONE_TIME_FEE
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  E_WALLET
+  CREDIT_CARD
+  DEBIT_CARD
+  CHECK
+  OTHER
+}
+
+enum Status {
+  AKTIF
+  NONAKTIF
+  MAINTENANCE
+  ISOLIR
+  DISMANTLE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum ExpenseType {
+  OPERATIONAL // Opex
+  CAPITAL // Capex
+  OTHER
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum GatewayPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}

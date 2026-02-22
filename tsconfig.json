@@ -23,6 +23,8 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
+      "@prisma/client-radius": ["./node_modules/@prisma/client-radius"],
+      
       "@/*": [
         "./*"
       ],

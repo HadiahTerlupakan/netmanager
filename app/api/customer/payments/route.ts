@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { PelangganService } from '@/modules/pelanggan'
 import { CouponService } from '@/modules/coupons/services/CouponService'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
 
         const finalAmount = totalAmount - discountAmount
 
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await prismaBilling.$transaction(async (tx) => {
             const discountPerInvoice = discountAmount > 0 
                 ? Math.floor(discountAmount / invoiceIds.length) 
                 : 0;
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
 
                         if (transactionId || paymentUrl) {
                             const paymentIds = result.map(p => p.id);
-                            await prisma.payment.updateMany({
+                            await prismaBilling.payment.updateMany({
                                 where: { id: { in: paymentIds } },
                                 data: {
                                     transactionId: transactionId,

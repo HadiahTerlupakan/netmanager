@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { SiteFilter } from '@/components/common/SiteFilter'
 import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiMapPin } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { MapPickerWithSearch } from '@/components/common/MapPicker'
@@ -897,6 +898,26 @@ export function ClientComponent() {
               {/* Tab Content */}
               {activeTab === 'paket' && (
                 <div className="space-y-5">
+                  
+                  {/* Site Selection */}
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Pilih Site <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mb-2">
+                         <SiteFilter 
+                            isInput={true}
+                            value={formData.siteId || ''}
+                            onSiteChange={(siteId) => {
+                                setFormData(prev => ({ ...prev, siteId: siteId || '', hargaPaketId: '', odpId: '' }))
+                            }} 
+                         />
+                    </div>
+                     <p className="text-xs text-gray-500">
+                        Ubah site jika ada pemindahan pelanggan. Akan mereset paket & ODP yang dipilih.
+                     </p>
+                  </div>
+
                   {/* Status dan Tipe Pelanggan */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Status Registrasi */}

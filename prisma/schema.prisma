@@ -7,8 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
-
 model ARAgingSnapshot {
   id               String   @id
   snapshotDate     DateTime @default(now())
@@ -209,41 +207,39 @@ model CustomerCohort {
   @@index([cohortYear, cohortMonth])
 }
 
-
 model ExpenseCategory {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   name      String
-  type      String   // "CAPEX" or "OPEX"
+  type      String // "CAPEX" or "OPEX"
   parentId  String?
   parent    ExpenseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children  ExpenseCategory[] @relation("CategoryHierarchy")
   expenses  Expense[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 
   @@index([type])
   @@index([parentId])
 }
 
 model Expense {
-  id               String           @id
-  date             DateTime         @default(now())
-  amount           BigInt
-  depreciation     BigInt?          @default(0)
-  usefulLife       Int?             @default(0)
-  category         String
+  id                String           @id
+  date              DateTime         @default(now())
+  amount            BigInt
+  depreciation      BigInt?          @default(0)
+  usefulLife        Int?             @default(0)
+  category          String
   expenseCategoryId String?
   expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id])
-  
-  categoryId        String?
-  accountId         String?
-  transactionCategory TransactionCategory? @relation(fields: [categoryId], references: [id])
-  financialAccount    FinancialAccount?    @relation(fields: [accountId], references: [id])
+
+  categoryId       String?
+  accountId        String?
+  financialAccount FinancialAccount? @relation(fields: [accountId], references: [id])
 
   description      String?
-  userId      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  userId           String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime
   siteId           String?
   mixRadiusGroupId String?
   site             Sites?               @relation(fields: [siteId], references: [id])
@@ -298,52 +294,6 @@ model Holiday {
   isNational  Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-}
-
-model Invoice {
-  id             String        @id
-  invoiceNumber  String        @unique
-  pelangganId    String
-  issueDate      DateTime      @default(now())
-  dueDate        DateTime
-  status         InvoiceStatus @default(DRAFT)
-  subtotal       BigInt        @default(0)
-  taxAmount      BigInt        @default(0)
-  discountAmount BigInt        @default(0)
-  totalAmount    BigInt        @default(0)
-  paidAmount     BigInt        @default(0)
-  notes          String?
-  terms          String?
-  sentAt         DateTime?
-  paidAt         DateTime?
-  createdBy      String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime
-  siteId         String?
-  pelanggan      Pelanggan     @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  site           Sites?        @relation(fields: [siteId], references: [id])
-  invoiceItem    InvoiceItem[]
-  payment        Payment[]
-
-  @@index([dueDate])
-  @@index([invoiceNumber])
-  @@index([issueDate])
-  @@index([pelangganId])
-  @@index([status])
-  @@index([siteId])
-}
-
-model InvoiceItem {
-  id          String   @id
-  invoiceId   String
-  description String
-  quantity    Int      @default(1)
-  unitPrice   BigInt
-  totalPrice  BigInt
-  itemType    ItemType @default(SERVICE)
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  @@index([invoiceId])
 }
 
 model Joinbox {
@@ -638,60 +588,6 @@ model Overtime {
   @@index([userId, status], map: "idx_overtime_user_status")
 }
 
-model Payment {
-  id              String                @id
-  invoiceId       String?
-  pelangganId     String
-  amount          BigInt
-  paymentDate     DateTime
-  paymentMethod   PaymentMethod
-  reference       String?
-  notes           String?
-  verifiedBy      String?
-  verifiedAt      DateTime?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime
-  invoice         Invoice?              @relation(fields: [invoiceId], references: [id])
-  accountId       String?
-  account         FinancialAccount?     @relation(fields: [accountId], references: [id])
-  gatewayStatus   GatewayPaymentStatus?
-  gatewayProvider String?
-  transactionId   String?
-  paymentUrl      String?
-  expiresAt       DateTime?
-
-  @@index([invoiceId])
-  @@index([paymentDate])
-  @@index([pelangganId])
-  @@index([gatewayStatus])
-  @@index([transactionId])
-}
-
-model PaymentGatewayConfig {
-  id           String    @id
-  provider     String    @unique
-  providerName String
-  isEnabled    Boolean   @default(false)
-  isProduction Boolean   @default(false)
-  priority     Int       @default(0)
-  apiKey       String?
-  apiSecret    String?
-  clientKey    String?
-  merchantId   String?
-  webhookUrl   String?
-  callbackUrl  String?
-  settings     Json?
-  lastTestedAt DateTime?
-  testStatus   String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime
-  createdBy    String?
-
-  @@index([isEnabled])
-  @@index([priority])
-  @@index([provider])
-}
-
 model Pelanggan {
   id                            String              @id
   idPelanggan                   String              @unique
@@ -758,7 +654,6 @@ model Pelanggan {
   lastVersionName               String?
   lastVersionUpdate             DateTime?
   couponUsage                   CouponUsage[]
-  invoice                       Invoice[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
   odp                           Odp?                @relation(fields: [odpId], references: [id])
   site                          Sites?              @relation(fields: [siteId], references: [id])
@@ -1016,7 +911,6 @@ model User {
   work_order_updates                         WorkOrderUpdates[]
   work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
-  transactions                               Transaction[]
   assets                                     Asset[]
   leaveBalances                              LeaveBalance[]
   transferAntarGudangs                       TransferAntarGudang[]     @relation("TransferCreatedBy")
@@ -1025,8 +919,8 @@ model User {
   salaries                                   Salary[]
   salariesAuditedBy                          Salary[]                  @relation("SalaryAuditedBy")
   salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
-  userSalaryComponents       UserSalaryComponent[]
-  createdRabProjects         RabProject[]
+  userSalaryComponents                       UserSalaryComponent[]
+  createdRabProjects                         RabProject[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -1726,7 +1620,6 @@ model Sites {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime
   expenses             Expense[]
-  invoices             Invoice[]
   mikrotikRouter       MikroTikRouter[]
   odcs                 Odc[]
   odps                 Odp[]
@@ -1797,7 +1690,7 @@ model StockOpname {
   tanggalExpire     DateTime?
   nomorBatch        String?
   catatanDetail     String?
-  alasanSelisih     String?   // hilang, rusak, revisi, salah_input, terpakai, expired, lebih, lainnya
+  alasanSelisih     String? // hilang, rusak, revisi, salah_input, terpakai, expired, lebih, lainnya
   createdAt         DateTime  @default(now())
   barang            Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang            Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
@@ -2380,24 +2273,6 @@ enum DurasiUnit {
   TAHUN
 }
 
-enum InvoiceStatus {
-  DRAFT
-  SENT
-  OVERDUE
-  PAID
-  PARTIAL_PAID
-  CANCELLED
-}
-
-enum ItemType {
-  SERVICE
-  PRODUCT
-  SETUP_FEE
-  MONTHLY_FEE
-  ONE_TIME_FEE
-  OTHER
-}
-
 enum KondisiBarang {
   BARU
   BEKAS
@@ -2430,16 +2305,6 @@ enum OvertimeStatus {
   IN_PROGRESS
   COMPLETED
   REJECTED
-}
-
-enum PaymentMethod {
-  CASH
-  BANK_TRANSFER
-  E_WALLET
-  CREDIT_CARD
-  DEBIT_CARD
-  CHECK
-  OTHER
 }
 
 enum PeriodType {
@@ -2680,7 +2545,6 @@ model PurchaseOrder {
   receivedBy  User? @relation("POReceiver", fields: [receivedById], references: [id])
 
   paymentStatus PaymentStatus @default(UNPAID)
-  transactions  Transaction[]
 
   @@map("purchase_orders")
 }
@@ -2723,92 +2587,12 @@ model FinancialAccount {
   description   String?
   isActive      Boolean     @default(true)
   createdAt     DateTime    @default(now())
-  updatedAt   DateTime        @updatedAt
+  updatedAt     DateTime    @updatedAt
 
-  transactions Transaction[]
-  expenses     Expense[]
-  payments       Payment[]
+  expenses       Expense[]
   purchaseOrders PurchaseOrder[] @relation("POPaidFrom") // For payments made TO suppliers
 
-
-
   @@map("financial_accounts")
-}
-
-model TransactionCategory {
-  id          String          @id @default(uuid())
-  name        String
-  type        TransactionType
-  expenseType ExpenseType? // Only for EXPENSE type
-  description String?
-  isSystem    Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  transactions Transaction[]
-  expenses     Expense[]
-
-  @@map("transaction_categories")
-}
-
-model Transaction {
-  id          String          @id @default(uuid())
-  date        DateTime        @default(now())
-  amount      Float
-  type        TransactionType
-  description String?
-  referenceId String? // Could be PO ID, Invoice ID, etc.
-
-  categoryId String
-  category   TransactionCategory @relation(fields: [categoryId], references: [id])
-
-  accountId String? // Make optional initially for migration
-  account   FinancialAccount? @relation(fields: [accountId], references: [id])
-
-
-
-  purchaseOrderId String?
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id])
-
-  attachments String[] @default([])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([date])
-  @@index([type])
-  @@index([categoryId])
-  @@index([accountId])
-  @@index([purchaseOrderId])
-  @@map("transactions")
-}
-
-enum TransactionType {
-  INCOME
-  EXPENSE
-}
-
-enum ExpenseType {
-  OPERATIONAL // Opex
-  CAPITAL // Capex
-  OTHER
-}
-
-enum PaymentStatus {
-  UNPAID
-  PARTIAL
-  PAID
-}
-
-enum GatewayPaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  EXPIRED
-  CANCELLED
 }
 
 enum JenisBarang {
@@ -2887,41 +2671,17 @@ model MixRadiusCustomer {
   lastSyncedAt DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-
-  invoices MixRadiusInvoice[]
-}
-
-model MixRadiusInvoice {
-  id            String             @id @default(cuid())
-  invoiceNumber String             @unique
-  mixRadiusId   String? // The internal ID from MixRadius
-  username      String
-  fullName      String?
-  planName      String?
-  amount        Decimal            @db.Decimal(19, 2)
-  status        String // PAID, UNPAID, etc.
-  paymentMethod String?
-  issuedDate    DateTime // derived from renewed_on or created_on
-  dueDate       DateTime? // derived or calculated
-  expiredOn     DateTime?
-  syncedAt      DateTime           @default(now())
-  customer      MixRadiusCustomer? @relation(fields: [username], references: [username])
-
-  @@index([status])
-  @@index([username])
-  @@index([dueDate])
-  @@map("mix_radius_invoices")
 }
 
 model MixRadiusOwnerGroup {
-  id        String   @id @default(uuid())
-  name      String
-  owners    String[]
-  siteId    String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  site      Sites?    @relation(fields: [siteId], references: [id])
+  id          String       @id @default(uuid())
+  name        String
+  owners      String[]
+  siteId      String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  site        Sites?       @relation(fields: [siteId], references: [id])
   expenses    Expense[]
   rabProjects RabProject[]
 
@@ -3080,23 +2840,23 @@ model WorkOrderTemplateItem {
 // ==================== MAPPING MODELS ====================
 
 model MappingNode {
-  nodeId       String   @id @map("node_id")
-  type         String // 'olt', 'odc', 'odp', 'ont'
-  name         String?
-  latitude     Float?
-  longitude    Float?
-  capacity     Int      @default(0)
-  splitter     String?
-  pppoe        String?
-  serialNumber String?  @map("serialnumber")
-  notes        String?
+  nodeId         String   @id @map("node_id")
+  type           String // 'olt', 'odc', 'odp', 'ont'
+  name           String?
+  latitude       Float?
+  longitude      Float?
+  capacity       Int      @default(0)
+  splitter       String?
+  pppoe          String?
+  serialNumber   String?  @map("serialnumber")
+  notes          String?
   attenuationIn  Float?   @map("attenuation_in")
   attenuationOut Float?   @map("attenuation_out")
   inputCoreColor String?  @map("input_core_color")
   photo          String?
   metadata       Json?    @map("metadata") // For extra fields like poleSize, hasSlack, etc.
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   // Relations
   outgoingEdges MappingEdge[] @relation("SourceNode")
@@ -3138,40 +2898,40 @@ model MapSettings {
 }
 
 model RabProject {
-  id               String               @id @default(cuid())
+  id               String  @id @default(cuid())
   name             String
   description      String?
   siteId           String?
   mixRadiusGroupId String?
 
   // Financial Projections (Monthly)
-  projectedRevenue BigInt   @default(0)
-  projectedOpex    BigInt   @default(0)
+  projectedRevenue BigInt @default(0)
+  projectedOpex    BigInt @default(0)
 
   // Growth Period Settings
-  targetSubscribers Int?                 // Target number of subscribers
-  arpu              BigInt?              // Average Revenue Per User
-  growthType        RabGrowthType        @default(LINEAR)
+  targetSubscribers Int? // Target number of subscribers
+  arpu              BigInt? // Average Revenue Per User
+  growthType        RabGrowthType @default(LINEAR)
 
   // LINEAR: subscribersPerMonth (how many new subs per month)
   // PERCENTAGE: initialPercent (starting %), monthlyGrowthPercent (% increase per month)
   // CUSTOM: milestones array [{month, percent}]
-  growthSettings    Json?
+  growthSettings Json?
 
   // Project Timeline
-  startDate         DateTime?            // When the project starts
+  startDate DateTime? // When the project starts
 
-  status           RabStatus            @default(DRAFT)
+  status RabStatus @default(DRAFT)
 
-  items            RabItem[]
+  items RabItem[]
 
-  createdBy        String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  site             Sites?               @relation(fields: [siteId], references: [id])
-  mixRadiusGroup   MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
-  creator          User?                @relation(fields: [createdBy], references: [id])
+  site           Sites?               @relation(fields: [siteId], references: [id])
+  mixRadiusGroup MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
+  creator        User?                @relation(fields: [createdBy], references: [id])
 
   @@index([siteId])
   @@index([status])
@@ -3189,9 +2949,7 @@ model RabItem {
   category     RabItemCategory @default(HARDWARE)
   expenseType  RabExpenseType  @default(CAPEX)
 
-
-
-  rabProject   RabProject      @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
 
   @@map("rab_items")
 }
@@ -3229,4 +2987,8 @@ enum RabGrowthType {
   CUSTOM
 }
 
-
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}

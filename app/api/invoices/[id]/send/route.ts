@@ -1,4 +1,5 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/prisma';
+import { prismaBilling } from '@/lib/prisma-billing';
 import { sendInvoiceSchema } from '@/lib/validations/invoice'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 
@@ -28,10 +29,10 @@ export const POST = createHandler({
         // Actually, let's just fetch it and check after
     }
 
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await prismaBilling.invoice.findUnique({
       where: { id },
       include: {
-        pelanggan: true,
+        
         invoiceItem: true,
       },
     })
@@ -52,9 +53,14 @@ export const POST = createHandler({
 
     const { recipientEmail, recipientPhone, message: _message, sendMethod } = ctx.validated
 
+    const pelanggan = await prisma.pelanggan.findUnique({
+      where: { id: invoice.pelangganId }
+    });
+
+
     // Determine recipients
-    const email = recipientEmail || invoice.pelanggan.email
-    const phone = recipientPhone || invoice.pelanggan.noTelp
+    const email = recipientEmail || (pelanggan as any)?.email
+    const phone = recipientPhone || (pelanggan as any)?.noTelp
 
     if (!email && !phone) {
       return apiError('Pelanggan tidak memiliki email atau nomor telepon', ErrorCodes.VALIDATION_ERROR, { status: 400 })
@@ -95,7 +101,7 @@ export const POST = createHandler({
     }
 
     // Update invoice status to SENT and set sentAt
-    await prisma.invoice.update({
+    await prismaBilling.invoice.update({
       where: { id },
       data: {
         status: 'SENT',

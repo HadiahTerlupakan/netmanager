@@ -1,5 +1,7 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { prisma } from '@/lib/prisma'
-import { type Transaction, type Prisma } from '@prisma/client'
+import { prismaBilling } from '@/lib/prisma-billing';
+import { type Transaction, type Prisma } from '@/prisma/generated/billing'
 import type { ITransactionRepository } from './ITransactionRepository'
 
 
@@ -11,7 +13,7 @@ export class TransactionRepository implements ITransactionRepository {
     accountId?: string
     siteId?: string
   }): Promise<Transaction[]> {
-    const where: Prisma.TransactionWhereInput = {}
+    const where: PrismaBilling.TransactionWhereInput = {}
     
     if (params?.startDate && params?.endDate) {
       where.date = {
@@ -28,43 +30,30 @@ export class TransactionRepository implements ITransactionRepository {
       where.accountId = params.accountId
     }
 
-    if (params?.siteId) {
-        where.OR = [
-            { createdBy: { siteId: params.siteId } },
-            { purchaseOrder: { creator: { siteId: params.siteId } } }
-        ]
-    }
+    
 
-    return prisma.transaction.findMany({
+    return prismaBilling.transaction.findMany({
       where,
-      include: {
-        category: true,
-        createdBy: {
-            select: { name: true }
-        },
-        purchaseOrder: {
-            select: { poNumber: true }
-        }
-      },
+      include: { category: true },
       orderBy: { date: 'desc' }
     })
   }
 
-  async create(data: Prisma.TransactionCreateInput): Promise<Transaction> {
-    return prisma.transaction.create({
+  async create(data: PrismaBilling.TransactionCreateInput): Promise<Transaction> {
+    return prismaBilling.transaction.create({
       data
     })
   }
 
   async findByPurchaseOrder(poId: string): Promise<Transaction[]> {
-    return prisma.transaction.findMany({
+    return prismaBilling.transaction.findMany({
       where: { purchaseOrderId: poId }
     })
   }
 
   async getExpenseSummary(startDate: Date, endDate: Date): Promise<{ CAPITAL: number; OPERATIONAL: number; OTHER: number }> {
     // Group by categoryId and sum amount
-    const grouped = await prisma.transaction.groupBy({
+    const grouped = await prismaBilling.transaction.groupBy({
       by: ['categoryId'],
       where: {
         type: 'EXPENSE',
@@ -85,7 +74,7 @@ export class TransactionRepository implements ITransactionRepository {
     // This is necessary because groupBy doesn't support relations
     const categoryIds = grouped.map(g => g.categoryId).filter(id => id !== null) as string[]
 
-    const categories = await prisma.transactionCategory.findMany({
+    const categories = await prismaBilling.transactionCategory.findMany({
       where: {
         id: { in: categoryIds }
       },

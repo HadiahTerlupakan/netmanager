@@ -4,7 +4,7 @@
  * DTOs define the shape of data for API responses and requests.
  */
 
-import type { InvoiceStatus } from '@prisma/client'
+import type { InvoiceStatus } from '@/prisma/generated/billing'
 
 // ==================== Response DTOs ====================
 

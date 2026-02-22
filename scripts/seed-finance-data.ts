@@ -1,5 +1,6 @@
 
 import { PrismaClient } from '@prisma/client'
+import { prismaBilling } from '../lib/prisma-billing'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
@@ -25,12 +26,12 @@ async function main() {
   ]
 
   for (const cat of expenseCategories) {
-    const exists = await prisma.transactionCategory.findFirst({
+    const exists = await prismaBilling.transactionCategory.findFirst({
       where: { name: cat.name, type: 'EXPENSE' }
     })
     
     if (!exists) {
-      await prisma.transactionCategory.create({
+      await prismaBilling.transactionCategory.create({
         data: {
             name: cat.name,
             type: 'EXPENSE', // Type casting handled by Prisma based on schema enum

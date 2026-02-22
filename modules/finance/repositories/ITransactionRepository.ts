@@ -1,4 +1,5 @@
-import { type Transaction, Prisma } from '@prisma/client'
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
+import { type Transaction, Prisma } from '@/prisma/generated/billing'
 
 export interface ITransactionRepository {
   findAll(params?: {
@@ -9,7 +10,7 @@ export interface ITransactionRepository {
     siteId?: string
   }): Promise<Transaction[]>
   
-  create(data: Prisma.TransactionCreateInput): Promise<Transaction>
+  create(data: PrismaBilling.TransactionCreateInput): Promise<Transaction>
   findByPurchaseOrder(poId: string): Promise<Transaction[]>
   getExpenseSummary(startDate: Date, endDate: Date): Promise<{ CAPITAL: number; OPERATIONAL: number; OTHER: number }>
 }

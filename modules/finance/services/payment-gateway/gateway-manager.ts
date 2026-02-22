@@ -1,3 +1,4 @@
+import { prismaBilling } from '@/lib/prisma-billing';
 // Gateway Manager - Manages all payment providers
 
 import { PrismaClient } from '@prisma/client'
@@ -12,7 +13,7 @@ export class PaymentGatewayManager {
      * Get all enabled providers, sorted by priority
      */
     async getEnabledProviders() {
-        return this.prisma.paymentGatewayConfig.findMany({
+        return prismaBilling.paymentGatewayConfig.findMany({
             where: { isEnabled: true },
             orderBy: { priority: 'desc' }
         })
@@ -38,7 +39,7 @@ export class PaymentGatewayManager {
      */
     async getProviderInstance(providerType: string): Promise<PaymentProvider> {
         // Get config from database
-        const config = await this.prisma.paymentGatewayConfig.findUnique({
+        const config = await prismaBilling.paymentGatewayConfig.findUnique({
             where: { provider: providerType }
         })
 
@@ -130,7 +131,7 @@ export class PaymentGatewayManager {
      * Process webhook from any provider
      */
     async processWebhook(providerType: string, payload: Record<string, unknown>, signature?: string) {
-        const config = await this.prisma.paymentGatewayConfig.findUnique({
+        const config = await prismaBilling.paymentGatewayConfig.findUnique({
             where: { provider: providerType }
         })
 

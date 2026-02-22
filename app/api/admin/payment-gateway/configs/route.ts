@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
@@ -8,7 +9,7 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat payment gateway');
     }
     
-    const configs = await prisma.paymentGatewayConfig.findMany({
+    const configs = await prismaBilling.paymentGatewayConfig.findMany({
         orderBy: { priority: 'desc' }
     })
 

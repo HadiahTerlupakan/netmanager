@@ -1,6 +1,6 @@
 import { BillingAnalyticsRepository } from '../repositories/BillingAnalyticsRepository'
 import type { InvoiceWithPayments } from '../repositories/BillingAnalyticsRepository'
-import type { Payment } from '@prisma/client'
+import type { Payment } from '@/prisma/generated/billing'
 
 type PeriodType = 'TODAY' | 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR' | 'CUSTOM'
 
@@ -110,7 +110,7 @@ export class BillingAnalyticsService {
         const totalRevenue = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount) / 100, 0)
         const totalPayments = invoices.reduce((sum, inv) => sum + inv.payment.length, 0)
         const totalPaid = invoices.reduce((sum, inv) => {
-            const paid = inv.payment.reduce((pSum, p) => pSum + Number(p.amount) / 100, 0)
+            const paid = inv.payment.reduce((pSum: any, p: any) => pSum + Number(p.amount) / 100, 0)
             return sum + paid
         }, 0)
         const outstandingAmount = totalRevenue - totalPaid

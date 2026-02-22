@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { prismaBilling } from '@/lib/prisma-billing';
 import type { MixRadiusCustomerDetail, MixRadiusIncomePeriodRecord } from "./MixRadiusService"
 import { getMixRadiusService } from "./MixRadiusService"
 import { randomUUID } from "crypto"
@@ -222,7 +223,7 @@ export class MixRadiusSyncService {
       syncedAt: new Date(),
     }
 
-    return await prisma.mixRadiusInvoice.upsert({
+    return await prismaBilling.mixRadiusInvoice.upsert({
       where: { invoiceNumber: record.invoice },
       update: invoiceData,
       create: {
@@ -263,7 +264,7 @@ export class MixRadiusSyncService {
     let totalCustomers = 0;
 
     // Pre-calculate average prices per plan for fallback estimation
-    const planAverages = await prisma.mixRadiusInvoice.groupBy({
+    const planAverages = await prismaBilling.mixRadiusInvoice.groupBy({
       by: ["planName"],
       _avg: { amount: true },
       where: { amount: { gt: 0 } },
@@ -276,7 +277,7 @@ export class MixRadiusSyncService {
       }
     });
 
-    const globalAverageResult = await prisma.mixRadiusInvoice.aggregate({
+    const globalAverageResult = await prismaBilling.mixRadiusInvoice.aggregate({
       _avg: { amount: true },
       where: { amount: { gt: 0 } },
     });

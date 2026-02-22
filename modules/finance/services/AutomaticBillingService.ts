@@ -1,5 +1,6 @@
-import { InvoiceStatus } from '@prisma/client';
+import {  InvoiceStatus  } from '@/prisma/generated/billing';;
 import { prisma } from '@/lib/prisma';
+import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { createNotification } from '@/modules/notification';
@@ -83,7 +84,7 @@ export class AutomaticBillingService {
 
                 // OPTIMIZATION: Batch check existing invoices (instead of N queries)
                 const eligibleIds = customers.map(c => c.id);
-                const existingInvoices = await prisma.invoice.findMany({
+                const existingInvoices = await prismaBilling.invoice.findMany({
                     where: {
                         pelangganId: { in: eligibleIds },
                         dueDate: {
@@ -186,7 +187,7 @@ export class AutomaticBillingService {
             const totalAmount = amount + taxAmount;
 
             // 3. Create Invoice
-            const invoice = await tx.invoice.create({
+            const invoice = await prismaBilling.invoice.create({
                 data: {
                     id: randomUUID(),
                     invoiceNumber,
@@ -252,14 +253,16 @@ export class AutomaticBillingService {
      * Call this from webhook or manual payment handlers.
      */
     static async handleInvoicePaid(invoiceId: string) {
-        const invoice = await prisma.invoice.findUnique({
+        const invoice = await prismaBilling.invoice.findUnique({
             where: { id: invoiceId },
-            include: { pelanggan: true }
+            include: { /* pelanggan: true removed */ }
         });
 
         if (!invoice || invoice.status !== 'PAID') return;
 
-        const customer = invoice.pelanggan;
+        
+          const { prisma: mainDb } = await import("@/lib/prisma");
+          const customer = await mainDb.pelanggan.findUnique({ where: { id: invoice.pelangganId } });
         if (!customer) return;
 
         const today = new Date();
@@ -287,7 +290,7 @@ export class AutomaticBillingService {
             }
         }
 
-        const unpaidInvoices = await prisma.invoice.count({
+        const unpaidInvoices = await prismaBilling.invoice.count({
             where: {
                 pelangganId: customer.id,
                 status: { notIn: ['PAID', InvoiceStatus.CANCELLED, 'CANCELLED'] }

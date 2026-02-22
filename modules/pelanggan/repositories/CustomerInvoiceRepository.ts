@@ -1,10 +1,13 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { prisma } from '@/lib/prisma'
-import { Prisma, InvoiceStatus } from '@prisma/client'
+import { prismaBilling } from '@/lib/prisma-billing';
+import {  Prisma } from '@prisma/client';
+import { InvoiceStatus  } from '@/prisma/generated/billing';
 
 /**
  * Type for invoice with its relations used in this repository
  */
-type InvoiceWithRelations = Prisma.InvoiceGetPayload<{
+type InvoiceWithRelations = PrismaBilling.InvoiceGetPayload<{
     include: {
         invoiceItem: true,
         payment: true,
@@ -31,13 +34,13 @@ export class CustomerInvoiceRepository {
         const { page, limit, status } = options
         const skip = (page - 1) * limit
 
-        const where: Prisma.InvoiceWhereInput = { pelangganId }
+        const where: PrismaBilling.InvoiceWhereInput = { pelangganId }
         if (status) {
             where.status = status as InvoiceStatus
         }
 
         const [invoices, total] = await Promise.all([
-            prisma.invoice.findMany({
+            prismaBilling.invoice.findMany({
                 where,
                 orderBy: { issueDate: 'desc' },
                 skip,
@@ -50,7 +53,7 @@ export class CustomerInvoiceRepository {
                     },
                 },
             }),
-            prisma.invoice.count({ where }),
+            prismaBilling.invoice.count({ where }),
         ])
 
         return { invoices, total }

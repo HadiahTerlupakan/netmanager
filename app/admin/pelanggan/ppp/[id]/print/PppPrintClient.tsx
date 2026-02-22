@@ -108,20 +108,30 @@ export default function PppPrintClient() {
           throw new Error('Failed to fetch pelanggan data')
         }
         const pelangganData = await pelangganRes.json()
-        setPelanggan(pelangganData.pelanggan)
+        // The API returns the raw object directly now, not { pelanggan: ... }
+        if (pelangganData.id) {
+            setPelanggan(pelangganData)
+        } else if (pelangganData.pelanggan) {
+            setPelanggan(pelangganData.pelanggan)
+        } else {
+            console.error("Unknown pelanggan format", pelangganData);
+        }
 
         // Fetch latest tagihan
         const tagihanRes = await fetch(`/api/tagihan/pelanggan/${id}?latest=true`)
         if (tagihanRes.ok) {
           const tagihanData = await tagihanRes.json()
-          if (tagihanData.tagihan) {
+          console.log('PRINT TAGIHAN RES:', tagihanData)
+          if (tagihanData.data?.tagihan) {
+            setTagihan(tagihanData.data.tagihan)
+          } else if (tagihanData.tagihan) {
             setTagihan(tagihanData.tagihan)
           }
         }
 
         // Fetch logo settings
         try {
-          const logoRes = await fetch('/api/admin/settings/logo')
+          const logoRes = await fetch('/api/settings/logo/public')
           if (logoRes.ok) {
             const logoData = await logoRes.json()
             if (logoData.logoInvoice) {
@@ -147,7 +157,7 @@ export default function PppPrintClient() {
 
         // Fetch general settings
         try {
-          const generalRes = await fetch('/api/admin/settings/general')
+          const generalRes = await fetch('/api/settings/general/public')
           if (generalRes.ok) {
             const generalData = await generalRes.json()
             setGeneralSettings(generalData)
@@ -198,18 +208,37 @@ export default function PppPrintClient() {
   }
 
   // Calculate totals using a clean hook logic (derived from state)
+    // Provide dummy tagihan if none exists so the component doesn't crash
+  const printTagihan = tagihan || {
+    id: '-',
+    status: 'UNPAID',
+    createdAt: new Date().toISOString(),
+    jatuhTempo: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+    total: pelanggan?.hargaPaket?.harga || 0,
+    metodePembayaran: '-',
+    keterangan: 'Belum ada tagihan tercatat',
+    nomor: '-',
+    noTagihan: '-',
+    subtotal: Number(pelanggan?.hargaPaket?.harga || 0),
+    ppn: 0,
+    biayaInstalasi: 0,
+    biayaSewaPerangkat: 0,
+    biayaLainnya: 0,
+    diskon: 0
+  };
+
   const invoiceCalculations = (() => {
-    if (!tagihan) return null
+    if (!printTagihan) return null
 
     return {
-        hargaPaket: tagihan.subtotal, // Subtotal includes all base prices based on current mapping
-        diskon: tagihan.diskon || 0,
-        biayaInstalasi: tagihan.biayaInstalasi || 0,
-        biayaSewa: tagihan.biayaSewaPerangkat || 0,
-        biayaLainnya: tagihan.biayaLainnya || 0,
-        subtotal: tagihan.subtotal, // Real subtotal of all items
-        ppn: tagihan.ppn || 0,
-        total: tagihan.total || 0
+        hargaPaket: printTagihan.subtotal, // Subtotal includes all base prices based on current mapping
+        diskon: printTagihan.diskon || 0,
+        biayaInstalasi: printTagihan.biayaInstalasi || 0,
+        biayaSewa: printTagihan.biayaSewaPerangkat || 0,
+        biayaLainnya: printTagihan.biayaLainnya || 0,
+        subtotal: printTagihan.subtotal, // Real subtotal of all items
+        ppn: printTagihan.ppn || 0,
+        total: printTagihan.total || 0
     }
   })()
   // Helper strings
@@ -229,7 +258,9 @@ export default function PppPrintClient() {
     return <PageLoader />
   }
 
-  if (error || !pelanggan || !tagihan) {
+  
+  
+  if (error || !pelanggan) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -253,11 +284,11 @@ export default function PppPrintClient() {
   // Format nomor invoice untuk konfirmasi pelanggan ke admin
   // Support format lama (TAG-YYYYMM-XXXX) dan format baru (INVXXXXYYYYZZZZ)
   // Menampilkan nomor tagihan tanpa prefix TAG- atau INV
-  let invoiceNumber = tagihan.noTagihan
-  if (invoiceNumber.startsWith('INV')) {
+  let invoiceNumber = printTagihan.noTagihan || (printTagihan as any).nomor || "-"
+  if (invoiceNumber && invoiceNumber.startsWith('INV')) {
     // Format baru: INVXXXXYYYYZZZZ -> XXXXYYYYZZZZ
     invoiceNumber = invoiceNumber.replace(/^INV/, '')
-  } else if (invoiceNumber.startsWith('TAG-')) {
+  } else if (invoiceNumber && invoiceNumber.startsWith('TAG-')) {
     // Format lama: TAG-YYYYMM-XXXX -> YYYYMM-XXXX (tanpa prefix TAG-)
     invoiceNumber = invoiceNumber.replace(/^TAG-/, '')
   }
@@ -376,11 +407,11 @@ export default function PppPrintClient() {
                 
                 <div className="flex justify-end mb-6">
                     <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
-                        tagihan.status === 'LUNAS' 
+                        printTagihan.status === 'LUNAS' 
                         ? 'bg-green-50 text-green-700 ring-green-600/20' 
                         : 'bg-red-50 text-red-700 ring-red-600/10'
                     }`}>
-                        {tagihan.status === 'LUNAS' ? 'PAID' : 'UNPAID'}
+                        {printTagihan.status === 'LUNAS' ? 'PAID' : 'UNPAID'}
                     </span>
                 </div>
                 
@@ -391,11 +422,11 @@ export default function PppPrintClient() {
                     </div>
                     <div className="flex justify-end gap-8">
                         <dt className="text-gray-500 min-w-[80px]">Issued</dt>
-                        <dd className="font-medium text-gray-900">{formatDateShort(tagihan.createdAt)}</dd>
+                        <dd className="font-medium text-gray-900">{formatDateShort(printTagihan.createdAt as string)}</dd>
                     </div>
                     <div className="flex justify-end gap-8">
                         <dt className="text-gray-500 min-w-[80px]">Due Date</dt>
-                        <dd className="font-medium text-gray-900">{formatDateShort(tagihan.jatuhTempo)}</dd>
+                        <dd className="font-medium text-gray-900">{formatDateShort(printTagihan.jatuhTempo as string)}</dd>
                     </div>
                 </dl>
             </div>

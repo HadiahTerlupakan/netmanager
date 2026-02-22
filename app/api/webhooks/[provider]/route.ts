@@ -1,6 +1,7 @@
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { PaymentGatewayManager } from '@/modules/finance/services/payment-gateway/gateway-manager'
 import { PrismaClient } from '@prisma/client'
 
@@ -91,7 +92,7 @@ export async function POST(
         const gatewayStatus = gatewayStatusMap[webhookResult.status] || 'FAILED'
 
         // Find Payment record by reference (orderId = payment.reference)
-        const payment = await prisma.payment.findFirst({
+        const payment = await prismaBilling.payment.findFirst({
             where: { reference: webhookResult.orderId },
         })
 
@@ -102,7 +103,7 @@ export async function POST(
         }
 
         // Update Payment record with gateway response
-        await prisma.payment.update({
+        await prismaBilling.payment.update({
             where: { id: payment.id },
             data: {
                 gatewayStatus: gatewayStatus as any,
@@ -167,7 +168,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
 
     // If no invoiceIds from notes, try from direct payment-invoice link
     if (invoiceIds.length === 0) {
-        const payment = await prisma.payment.findUnique({
+        const payment = await prismaBilling.payment.findUnique({
             where: { id: paymentId },
             select: { invoiceId: true },
         })
@@ -184,7 +185,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
 
     // Update each invoice's paid amount and status
     for (const invoiceId of invoiceIds) {
-        const invoice = await prisma.invoice.findUnique({
+        const invoice = await prismaBilling.invoice.findUnique({
             where: { id: invoiceId },
             include: { payment: true },
         })
@@ -213,7 +214,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
             invoiceStatus = invoice.status
         }
 
-        await prisma.invoice.update({
+        await prismaBilling.invoice.update({
             where: { id: invoiceId },
             data: {
                 paidAmount: totalPaid,

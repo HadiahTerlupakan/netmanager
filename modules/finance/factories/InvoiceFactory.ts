@@ -1,3 +1,4 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 /**
  * InvoiceFactory
  *
@@ -6,6 +7,7 @@
 
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { randomUUID } from 'crypto'
 
 export class InvoiceFactory {
@@ -25,7 +27,7 @@ export class InvoiceFactory {
         taxRate?: number // e.g., 0.11 for 11% PPN
         discountAmount?: number
         siteId?: string
-    }): Promise<Prisma.InvoiceUncheckedCreateInput> {
+    }): Promise<PrismaBilling.InvoiceUncheckedCreateInput> {
         const invoiceNumber = await this.generateInvoiceNumber()
 
         // Due date: 10th of the billing month
@@ -33,7 +35,7 @@ export class InvoiceFactory {
 
         // Calculate amounts
         let subtotal = dto.packagePrice
-        const items: Prisma.InvoiceItemCreateManyInvoiceInput[] = [{
+        const items: PrismaBilling.InvoiceItemCreateManyInvoiceInput[] = [{
             id: randomUUID(),
             description: `Langganan ${dto.packageName} - ${this.getMonthName(dto.periodMonth)} ${dto.periodYear}`,
             quantity: 1,
@@ -101,12 +103,12 @@ export class InvoiceFactory {
         discountAmount?: number
         notes?: string
         siteId?: string
-    }): Promise<Prisma.InvoiceUncheckedCreateInput> {
+    }): Promise<PrismaBilling.InvoiceUncheckedCreateInput> {
         const invoiceNumber = await this.generateInvoiceNumber()
 
         // Calculate amounts
         let subtotal = 0
-        const invoiceItems: Prisma.InvoiceItemCreateManyInvoiceInput[] = dto.items.map(item => {
+        const invoiceItems: PrismaBilling.InvoiceItemCreateManyInvoiceInput[] = dto.items.map((item: any) => {
             const totalPrice = item.quantity * item.unitPrice
             subtotal += totalPrice
             return {
@@ -156,7 +158,7 @@ export class InvoiceFactory {
         packageName: string
         taxRate?: number
         siteId?: string
-    }): Promise<Prisma.InvoiceUncheckedCreateInput> {
+    }): Promise<PrismaBilling.InvoiceUncheckedCreateInput> {
         const invoiceNumber = await this.generateInvoiceNumber()
 
         // Calculate prorated amount
@@ -215,7 +217,7 @@ export class InvoiceFactory {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-        const count = await prisma.invoice.count({
+        const count = await prismaBilling.invoice.count({
             where: {
                 createdAt: {
                     gte: startOfMonth,

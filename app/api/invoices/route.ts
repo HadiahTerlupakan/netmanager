@@ -1,4 +1,6 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client'
 import { invoiceSchema } from '@/lib/validations/invoice'
 import { randomUUID } from 'crypto'
@@ -57,21 +59,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (search) {
       where.OR = [
         { invoiceNumber: { contains: search, mode: 'insensitive' } },
-        { pelanggan: { nama: { contains: search, mode: 'insensitive' } } },
-      ]
+        ]
     }
 
     const skip = (page - 1) * limit
 
     const [invoices, total] = await Promise.all([
-      prisma.invoice.findMany({
+      prismaBilling.invoice.findMany({
         where,
         include: {
-          pelanggan: {
-            include: {
-              hargaPaket: true,
-            },
-          },
           invoiceItem: true,
           payment: true,
         },
@@ -79,7 +75,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         skip,
         take: limit,
       }),
-      prisma.invoice.count({ where }),
+      prismaBilling.invoice.count({ where }),
     ])
 
     const totalPages = Math.ceil(total / limit)
@@ -150,7 +146,7 @@ export const POST = createHandler({
         const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0')
 
         // Count invoices for this month
-        const invoiceCount = await prisma.invoice.count({
+        const invoiceCount = await prismaBilling.invoice.count({
           where: {
             createdAt: {
               gte: new Date(currentYear, new Date().getMonth(), 1),
@@ -163,7 +159,7 @@ export const POST = createHandler({
 
         // Calculate totals
         let subtotal = 0n
-        const processedItems = items.map(item => {
+        const processedItems = items.map((item: any) => {
           const unitPrice = BigInt(Math.round(item.unitPrice * 100)) / 100n
           const totalPrice = BigInt(item.quantity) * unitPrice
           subtotal += totalPrice
@@ -204,15 +200,10 @@ export const POST = createHandler({
         if (invoiceData.terms) createData.terms = invoiceData.terms
         if (finalSiteId) createData.siteId = finalSiteId
 
-        const invoice = await prisma.invoice.create({
-          data: createData as Prisma.InvoiceCreateInput,
-          include: {
-            pelanggan: {
-              include: {
-                hargaPaket: true,
-              },
-            },
-            invoiceItem: true,
+        const invoice = await prismaBilling.invoice.create({
+          data: createData as PrismaBilling.InvoiceCreateInput,
+        include: {
+          invoiceItem: true,
             payment: true,
           },
         })
@@ -232,7 +223,7 @@ export const POST = createHandler({
             taxAmount: invoice.taxAmount.toString(),
             discountAmount: invoice.discountAmount.toString(),
             totalAmount: invoice.totalAmount.toString(),
-            invoiceItem: invoice.invoiceItem.map(item => ({
+            invoiceItem: invoice.invoiceItem.map((item: any) => ({
                 ...item,
                 unitPrice: item.unitPrice.toString(),
                 totalPrice: item.totalPrice.toString()

@@ -1,30 +1,45 @@
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { updateInvoiceSchema } from '@/lib/validations/invoice'
-import { hasPermission } from '@/lib/rbac'
-import { Prisma } from '@prisma/client'
-import { logActivitySafe } from '@/lib/logger'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { randomUUID } from 'crypto'
+import { prismaBilling } from '@/lib/prisma-billing';
+import { z } from 'zod'
+import { Prisma } from '@/prisma/generated/billing'
+import { createHandler, ApiErrors } from '@/lib/api'
+import { InvoiceStatus, PaymentMethod } from '@/prisma/generated/billing'
+import { hasPermission } from "@/lib/rbac"
 
-/**
- * GET /api/invoices/{id}
- * Get invoice by ID
- */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+const updateSchema = z.object({
+  invoiceNumber: z.string().optional(),
+  pelangganId: z.string().optional(),
+  siteId: z.string().optional().nullable(),
+  issueDate: z.string().transform(str => new Date(str)).optional(),
+  dueDate: z.string().transform(str => new Date(str)).optional(),
+  status: z.nativeEnum(InvoiceStatus).optional(),
+  subtotal: z.number().optional(),
+  taxAmount: z.number().optional(),
+  discountAmount: z.number().optional(),
+  totalAmount: z.number().optional(),
+  notes: z.string().optional().nullable(),
+  terms: z.string().optional().nullable(),
+  invoiceItem: z.array(z.object({
+    id: z.string().optional(),
+    description: z.string(),
+    quantity: z.number(),
+    unitPrice: z.number(),
+    totalPrice: z.number()
+  })).optional()
+})
+
+// GET /api/invoices/[id]
+export const GET = createHandler({ auth: true }, async (req: any, ctx: any) => {
     const { id } = ctx.params
     const user = ctx.session!.user
 
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await prismaBilling.invoice.findUnique({
       where: { id },
       include: {
-        pelanggan: {
-          include: {
-            hargaPaket: true,
-          },
-        },
         invoiceItem: true,
-        payment: true,
-      },
+        payment: true
+      }
     })
 
     if (!invoice) {
@@ -42,41 +57,38 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         if (invoice.siteId && userSiteId && invoice.siteId !== userSiteId) {
              return ApiErrors.forbidden('Akses ditolak')
         }
-        if (!invoice.siteId && invoice.pelanggan.siteId && userSiteId && invoice.pelanggan.siteId !== userSiteId) {
-             return ApiErrors.forbidden('Akses ditolak')
-        }
     }
+    
+    // Manually stitch pelanggan data
+    const pelanggan = await prisma.pelanggan.findUnique({ where: { id: invoice.pelangganId } });
 
-    // Serialize BigInt
-    const serializedInvoice = {
+    // Format for BigInt and include pelanggan
+    return NextResponse.json({
         ...invoice,
-        subtotal: invoice.subtotal.toString(),
-        taxAmount: invoice.taxAmount.toString(),
-        discountAmount: invoice.discountAmount.toString(),
-        totalAmount: invoice.totalAmount.toString(),
+        pelanggan,
+        subtotal: Number(invoice.subtotal),
+        taxAmount: Number(invoice.taxAmount),
+        discountAmount: Number(invoice.discountAmount),
+        totalAmount: Number(invoice.totalAmount),
+        paidAmount: Number(invoice.paidAmount),
         invoiceItem: invoice.invoiceItem.map(item => ({
             ...item,
-            unitPrice: item.unitPrice.toString(),
-            totalPrice: item.totalPrice.toString()
+            unitPrice: Number(item.unitPrice),
+            totalPrice: Number(item.totalPrice)
+        })),
+        payment: invoice.payment.map(p => ({
+            ...p,
+            amount: Number(p.amount)
         }))
-    }
-
-    return apiSuccess(serializedInvoice)
+    })
 })
 
-/**
- * PUT /api/invoices/{id}
- * Update invoice
- */
-export const PUT = createHandler({ 
-    auth: true,
-    schema: updateInvoiceSchema
-}, async (req, ctx) => {
+// PUT /api/invoices/[id]
+export const PUT = createHandler({ auth: true }, async (req: any, ctx: any) => {
     const { id } = ctx.params
     const user = ctx.session!.user
 
-    // Check if invoice exists
-    const existingInvoice = await prisma.invoice.findUnique({
+    const existingInvoice = await prismaBilling.invoice.findUnique({
       where: { id },
     })
 
@@ -84,7 +96,6 @@ export const PUT = createHandler({
       return ApiErrors.notFound('Invoice')
     }
 
-    // RBAC: Check site restrictions
     const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
     
     let userSiteId: string | undefined
@@ -98,144 +109,74 @@ export const PUT = createHandler({
          }
     }
 
-    const { items, ...updateData } = ctx.validated
+    const body = await req.json()
+    const validatedData = updateSchema.parse(body)
 
-    // If restricted, prevent changing siteId or force it to user site
-    if (isRestricted && updateData.siteId && updateData.siteId !== userSiteId) {
-         return ApiErrors.forbidden('Tidak dapat mengubah site invoice ke site lain')
-    }
-    // Force valid siteId if updating
-    if (isRestricted) {
-        if (!existingInvoice.siteId && userSiteId) {
-            updateData.siteId = userSiteId
-        } else if (existingInvoice.siteId) {
-            updateData.siteId = existingInvoice.siteId
-        }
+    if (validatedData.siteId && userSiteId && validatedData.siteId !== userSiteId) {
+         return ApiErrors.forbidden('Akses ditolak untuk mengubah site')
     }
 
-    // Update invoice and items if provided
-    let updatedInvoice
-    if (items && items.length > 0) {
-      // Delete existing items
-      await prisma.invoiceItem.deleteMany({
-        where: { invoiceId: id },
-      })
+    const { invoiceItem, ...invoiceData } = validatedData
 
-      // Calculate totals
-      let subtotal = 0n
-      const processedItems = items.map(item => {
-        const unitPrice = BigInt(Math.round(item.unitPrice * 100)) / 100n
-        const totalPrice = BigInt(item.quantity) * unitPrice
-        subtotal += totalPrice
+    const updatedInvoice = await prismaBilling.$transaction(async (tx) => {
+      if (invoiceItem && invoiceItem.length > 0) {
+        await tx.invoiceItem.deleteMany({
+          where: { invoiceId: id }
+        })
 
-        return {
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice,
-          totalPrice,
-          itemType: item.itemType,
-        }
-      })
-
-      const taxAmount = BigInt(Math.round((updateData.taxAmount || 0) * 100)) / 100n
-      const discountAmount = BigInt(Math.round((updateData.discountAmount || 0) * 100)) / 100n
-      const totalAmount = subtotal + taxAmount - discountAmount
-
-      // Update invoice
-      const { siteId, ...restUpdateData } = updateData
-      const updatePayload: Prisma.InvoiceUpdateInput = {
-        ...restUpdateData,
-        subtotal,
-        taxAmount,
-        discountAmount,
-        totalAmount,
-      }
-      if (siteId) {
-        updatePayload.site = { connect: { id: siteId } }
-      }
-
-      updatedInvoice = await prisma.invoice.update({
-        where: { id },
-        data: updatePayload,
-        include: {
-          pelanggan: {
-            include: {
-              hargaPaket: true,
-            },
-          },
-          invoiceItem: true,
-          payment: true,
-        },
-      })
-
-      // Create invoice items
-      for (const item of processedItems) {
-        await prisma.invoiceItem.create({
-          data: {
-            id: randomUUID(),
-            ...item,
+        await tx.invoiceItem.createMany({
+          data: invoiceItem.map((item) => ({
+            id: item.id || crypto.randomUUID(),
             invoiceId: id,
-          },
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: BigInt(item.unitPrice),
+            totalPrice: BigInt(item.totalPrice)
+          }))
         })
       }
-    } else {
-      // Just update invoice fields
-      const { siteId, ...restUpdateData } = updateData
-      const updatePayload: Prisma.InvoiceUpdateInput = { ...restUpdateData }
-      if (siteId) {
-        updatePayload.site = { connect: { id: siteId } }
+
+      const updateData: any = {
+        ...invoiceData,
       }
+      
+      if (updateData.subtotal !== undefined) updateData.subtotal = BigInt(updateData.subtotal)
+      if (updateData.taxAmount !== undefined) updateData.taxAmount = BigInt(updateData.taxAmount)
+      if (updateData.discountAmount !== undefined) updateData.discountAmount = BigInt(updateData.discountAmount)
+      if (updateData.totalAmount !== undefined) updateData.totalAmount = BigInt(updateData.totalAmount)
 
-      updatedInvoice = await prisma.invoice.update({
+      return tx.invoice.update({
         where: { id },
-        data: updatePayload,
+        data: updateData,
         include: {
-          pelanggan: {
-            include: {
-              hargaPaket: true,
-            },
-          },
-          invoiceItem: true,
-          payment: true,
-        },
+          invoiceItem: true
+        }
       })
-    }
-
-    // System Log
-    logActivitySafe({
-      action: 'UPDATE',
-      subject: 'Invoice',
-      userId: user.id,
-      details: { id: updatedInvoice.id, number: updatedInvoice.invoiceNumber, updates: updateData }
     })
 
-    // Serialize BigInt
-    const serializedInvoice = {
-        ...updatedInvoice,
-        subtotal: updatedInvoice.subtotal.toString(),
-        taxAmount: updatedInvoice.taxAmount.toString(),
-        discountAmount: updatedInvoice.discountAmount.toString(),
-        totalAmount: updatedInvoice.totalAmount.toString(),
-        invoiceItem: updatedInvoice.invoiceItem.map(item => ({
-            ...item,
-            unitPrice: item.unitPrice.toString(),
-            totalPrice: item.totalPrice.toString()
-        }))
-    }
+    const pelanggan = await prisma.pelanggan.findUnique({ where: { id: updatedInvoice.pelangganId } });
 
-    return apiSuccess(serializedInvoice)
+    return NextResponse.json({
+      ...updatedInvoice,
+      pelanggan,
+      subtotal: Number(updatedInvoice.subtotal),
+      taxAmount: Number(updatedInvoice.taxAmount),
+      discountAmount: Number(updatedInvoice.discountAmount),
+      totalAmount: Number(updatedInvoice.totalAmount),
+      paidAmount: Number(updatedInvoice.paidAmount),
+      invoiceItem: updatedInvoice.invoiceItem.map(item => ({
+        ...item,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice)
+      }))
+    })
 })
 
-/**
- * DELETE /api/invoices/{id}
- * Delete invoice
- */
-export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+export const DELETE = createHandler({ auth: true }, async (req: any, ctx: any) => {
     const { id } = ctx.params
     const user = ctx.session!.user
 
-    // Check if invoice exists
-    const existingInvoice = await prisma.invoice.findUnique({
+    const existingInvoice = await prismaBilling.invoice.findUnique({
       where: { id },
     })
 
@@ -243,7 +184,6 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.notFound('Invoice')
     }
 
-    // RBAC: Check site restrictions
     const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
     
     if (isRestricted) {
@@ -256,27 +196,9 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         }
     }
 
-    // Check if invoice has payments
-    const paymentCount = await prisma.payment.count({
-      where: { invoiceId: id },
+    await prismaBilling.invoice.delete({
+      where: { id }
     })
 
-    if (paymentCount > 0) {
-      return ApiErrors.badRequest('Tidak dapat menghapus invoice yang sudah memiliki pembayaran')
-    }
-
-    // Delete invoice (cascade will delete items)
-    await prisma.invoice.delete({
-      where: { id },
-    })
-
-    // System Log
-    logActivitySafe({
-      action: 'DELETE',
-      subject: 'Invoice',
-      userId: user.id,
-      details: { id: existingInvoice.id, number: existingInvoice.invoiceNumber }
-    })
-
-    return apiSuccess(null, { message: 'Invoice berhasil dihapus' })
+    return NextResponse.json({ message: 'Invoice deleted successfully' })
 })

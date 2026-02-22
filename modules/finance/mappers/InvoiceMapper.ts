@@ -4,7 +4,7 @@
  * Transforms Prisma entities to DTOs for API responses.
  */
 
-import type { Invoice, InvoiceItem, Payment } from '@prisma/client'
+import type { Invoice, InvoiceItem, Payment } from '@/prisma/generated/billing'
 import type {
     InvoiceListItemDTO,
     InvoiceDetailDTO,

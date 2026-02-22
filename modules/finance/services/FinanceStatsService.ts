@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client'
 import { startOfDay, endOfDay } from 'date-fns'
 
@@ -83,7 +84,7 @@ export class FinanceStatsService {
      * Get payments for date range
      */
     private async getPayments(dateRange: DateRange) {
-        return prisma.payment.findMany({
+        return prismaBilling.payment.findMany({
             where: {
                 paymentDate: {
                     gte: dateRange.startDate,

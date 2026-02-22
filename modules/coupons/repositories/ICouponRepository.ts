@@ -1,3 +1,4 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 
 import type { Coupon, CouponUsage, DiscountType, Prisma } from '@prisma/client'
 
@@ -27,7 +28,7 @@ export interface ICouponRepository {
     findById(id: string): Promise<Coupon | null>
     findByCode(code: string): Promise<Coupon | null>
     create(data: CreateCouponInput): Promise<Coupon>
-    incrementUsage(id: string, tx?: Prisma.TransactionClient): Promise<Coupon>
-    recordUsage(couponId: string, pelangganId: string, tx?: Prisma.TransactionClient): Promise<CouponUsage>
+    incrementUsage(id: string, tx?: PrismaBilling.TransactionClient): Promise<Coupon>
+    recordUsage(couponId: string, pelangganId: string, tx?: PrismaBilling.TransactionClient): Promise<CouponUsage>
     delete(id: string): Promise<void>
 }

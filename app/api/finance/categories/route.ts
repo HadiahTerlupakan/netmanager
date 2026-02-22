@@ -1,9 +1,11 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { logger } from '@/lib/logger'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 
 const financeService = new FinanceService()
 
@@ -25,7 +27,7 @@ export const POST = createHandler({
 }, async (req, ctx) => {
     const { description, expenseType, ...rest } = ctx.validated
     
-    const categoryData: Prisma.TransactionCategoryCreateInput = {
+    const categoryData: PrismaBilling.TransactionCategoryCreateInput = {
         ...rest,
         ...(description ? { description } : {}),
         ...(rest.type === 'EXPENSE' && expenseType ? { expenseType } : {}),
@@ -56,7 +58,7 @@ export const PUT = createHandler({
 
     const { description, expenseType, ...rest } = ctx.validated
     
-    const categoryData: Prisma.TransactionCategoryUpdateInput = {
+    const categoryData: PrismaBilling.TransactionCategoryUpdateInput = {
         ...rest,
         ...(description ? { description } : {}),
         ...(rest.type === 'EXPENSE' && expenseType ? { expenseType } : {}),
@@ -83,7 +85,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     if (!id) return ApiErrors.badRequest('ID Kategori wajib diisi')
 
     // Periksa apakah kategori sedang digunakan di tabel Transaction
-    const usedCount = await prisma.transaction.count({
+    const usedCount = await prismaBilling.transaction.count({
         where: { categoryId: id }
     })
 
@@ -92,7 +94,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     // Hapus kategori
-    await prisma.transactionCategory.delete({
+    await prismaBilling.transactionCategory.delete({
         where: { id }
     })
 

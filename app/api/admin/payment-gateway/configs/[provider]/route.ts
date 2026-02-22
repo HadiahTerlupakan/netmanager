@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { encryptApiKey } from '@/lib/utils/encryption'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
@@ -29,7 +30,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     const encryptedApiSecret = apiSecret ? encryptApiKey(apiSecret) : undefined
 
     // Upsert configuration
-    const config = await prisma.paymentGatewayConfig.upsert({
+    const config = await prismaBilling.paymentGatewayConfig.upsert({
         where: { provider },
         create: {
             id: randomUUID(),

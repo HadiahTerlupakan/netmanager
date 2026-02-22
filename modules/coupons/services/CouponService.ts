@@ -1,3 +1,4 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 
 import { Prisma } from '@prisma/client'
 import type { ICouponRepository, CreateCouponInput, VerifyCouponResult } from '../repositories/ICouponRepository'
@@ -59,11 +60,11 @@ export class CouponService {
         }
     }
 
-    async recordUsage(couponId: string, pelangganId: string, tx?: Prisma.TransactionClient) {
+    async recordUsage(couponId: string, pelangganId: string, tx?: PrismaBilling.TransactionClient) {
         return this.repo.recordUsage(couponId, pelangganId, tx)
     }
 
-    async incrementUsage(couponId: string, tx?: Prisma.TransactionClient) {
+    async incrementUsage(couponId: string, tx?: PrismaBilling.TransactionClient) {
         return this.repo.incrementUsage(couponId, tx)
     }
 

@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { apiSuccess, createHandler } from '@/lib/api'
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { id: pelangganId } = ctx.params
 
     // Fetch invoices for this customer
-    const invoices = await prisma.invoice.findMany({
+    const invoices = await prismaBilling.invoice.findMany({
         where: {
             pelangganId: pelangganId
         },
@@ -48,5 +49,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         }
     })
 
-    return apiSuccess(tagihans)
+    
+    const url = new URL(req.url);
+    const isLatest = url.searchParams.get('latest') === 'true';
+    
+    if (isLatest) {
+        return apiSuccess({ tagihan: tagihans.length > 0 ? tagihans[0] : null });
+    }
+    return apiSuccess({ data: tagihans });
 })

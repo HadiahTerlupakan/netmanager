@@ -1,6 +1,10 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing'
+;
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client'
-import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit, InvoiceStatus } from '@prisma/client'
+import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client'
+import { InvoiceStatus } from '@/prisma/generated/billing'
 import { randomUUID } from 'crypto'
 
 export interface CreatePelangganDTO {
@@ -55,7 +59,8 @@ export interface CreatePelangganDTO {
 // Use Prisma's generated type for accurate typing
 const _pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({
     include: {
-        hargaPaket: {
+                    site: true,
+                    hargaPaket: {
             include: {
                 profilePPP: true,
                 bandwidth: true,
@@ -78,8 +83,7 @@ export class PelangganRepository {
 
         return prisma.pelanggan.findMany({
             where,
-            include: {
-                hargaPaket: {
+            include: { site: true, hargaPaket: {
                     include: {
                         profilePPP: true,
                         bandwidth: true,
@@ -98,8 +102,7 @@ export class PelangganRepository {
         const [data, total] = await Promise.all([
             prisma.pelanggan.findMany({
                 where,
-                include: {
-                    hargaPaket: {
+                include: { site: true, hargaPaket: {
                         include: {
                             profilePPP: true,
                             bandwidth: true,
@@ -204,8 +207,7 @@ export class PelangganRepository {
                 odpId: data.odpId,
                 siteId: data.siteId,
             },
-            include: {
-                hargaPaket: {
+            include: { site: true, hargaPaket: {
                     include: {
                         profilePPP: true,
                         bandwidth: true,
@@ -249,8 +251,7 @@ export class PelangganRepository {
     async findByIdWithPackage(id: string) {
         return prisma.pelanggan.findUnique({
             where: { id },
-            include: {
-                hargaPaket: {
+            include: { site: true, hargaPaket: {
                     include: {
                         bandwidth: true,
                     },
@@ -308,7 +309,7 @@ export class PelangganRepository {
         const skip = (page - 1) * limit
 
         const [payments, total] = await Promise.all([
-            prisma.payment.findMany({
+            prismaBilling.payment.findMany({
                 where: { pelangganId },
                 orderBy: { paymentDate: 'desc' },
                 skip,
@@ -322,7 +323,7 @@ export class PelangganRepository {
                     },
                 },
             }),
-            prisma.payment.count({ where: { pelangganId } }),
+            prismaBilling.payment.count({ where: { pelangganId } }),
         ])
 
         return { payments, total }
@@ -339,19 +340,19 @@ export class PelangganRepository {
         const { page, limit, status } = options
         const skip = (page - 1) * limit
 
-        const where: Prisma.InvoiceWhereInput = { pelangganId }
+        const where: PrismaBilling.InvoiceWhereInput = { pelangganId }
         if (status && status.length > 0) {
             where.status = { in: status as InvoiceStatus[] }
         }
 
         const [invoices, total] = await Promise.all([
-            prisma.invoice.findMany({
+            prismaBilling.invoice.findMany({
                 where,
                 orderBy: { dueDate: 'desc' },
                 skip,
                 take: limit,
             }),
-            prisma.invoice.count({ where }),
+            prismaBilling.invoice.count({ where }),
         ])
 
         return { invoices, total }
@@ -361,7 +362,7 @@ export class PelangganRepository {
      * Get invoices by IDs for payment validation
      */
     async getInvoicesByIds(ids: string[], pelangganId: string, validStatuses: string[]) {
-        return prisma.invoice.findMany({
+        return prismaBilling.invoice.findMany({
             where: {
                 id: { in: ids },
                 pelangganId,

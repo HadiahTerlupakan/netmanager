@@ -1,5 +1,6 @@
-import { InvoiceStatus } from '@prisma/client';
+import {  InvoiceStatus  } from '@/prisma/generated/billing';;
 import { prisma } from '@/lib/prisma';
+import { prismaBilling } from '@/lib/prisma-billing';
 import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';
 import { createNotification } from '@/modules/notification';
 import { logger } from '@/lib/logger';
@@ -32,23 +33,21 @@ export class AutomaticIsolationService {
             // Calculation Logic:
             // NEW LOGIC: Find Active customers who have at least ONE UNPAID invoice that is overdue
             // This ensures we isolate them based on actual unpaid bills, not just based on falling behind the calendar.
-            const overdueInvoices = await prisma.invoice.findMany({
+            const overdueInvoices = await prismaBilling.invoice.findMany({
                 where: {
                     status: InvoiceStatus.OVERDUE,
-                    dueDate: { lt: today },
-                    pelanggan: {
-                        status: Status.AKTIF,
-                        autoIsolir: true
-                    }
-                },
-                include: { pelanggan: true }
+                    dueDate: { lt: today }
+                }
             });
 
             // Group by pelanggan to avoid processing the same customer multiple times
             const activeCustomersMap = new Map();
+            
+            const { prisma: mainDb } = await import('@/lib/prisma');
             for (const inv of overdueInvoices) {
-                if (inv.pelanggan) {
-                    activeCustomersMap.set(inv.pelanggan.id, inv.pelanggan);
+                const pelanggan = await mainDb.pelanggan.findUnique({ where: { id: inv.pelangganId } });
+                if (pelanggan && pelanggan.status === 'AKTIF' && pelanggan.autoIsolir) {
+                    activeCustomersMap.set(pelanggan.id, pelanggan);
                 }
             }
             const activeCustomers = Array.from(activeCustomersMap.values());

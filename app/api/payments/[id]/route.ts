@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 /**
@@ -8,20 +9,9 @@ import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { id } = ctx.params
 
-    const payment = await prisma.payment.findUnique({
+    const payment = await prismaBilling.payment.findUnique({
       where: { id },
-      include: {
-        invoice: {
-          include: {
-            pelanggan: {
-              include: {
-                hargaPaket: true,
-              },
-            },
-          },
-        },
-      },
-    })
+      include: { invoice: true } })
 
     if (!payment) {
         return ApiErrors.notFound('Pembayaran')

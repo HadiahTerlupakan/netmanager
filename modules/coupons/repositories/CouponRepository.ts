@@ -1,3 +1,4 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { PrismaClient, Prisma } from '@prisma/client'
 import type { Coupon, CouponUsage } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -42,7 +43,7 @@ export class CouponRepository implements ICouponRepository {
         })
     }
 
-    async incrementUsage(id: string, tx?: Prisma.TransactionClient): Promise<Coupon> {
+    async incrementUsage(id: string, tx?: PrismaBilling.TransactionClient): Promise<Coupon> {
         const db = tx || this.db
         // Use unknown as intermediate cast to avoid direct any
         const delegate = (db as unknown as { coupon: Prisma.CouponDelegate<undefined> }).coupon
@@ -52,7 +53,7 @@ export class CouponRepository implements ICouponRepository {
         })
     }
 
-    async recordUsage(couponId: string, pelangganId: string, tx?: Prisma.TransactionClient): Promise<CouponUsage> {
+    async recordUsage(couponId: string, pelangganId: string, tx?: PrismaBilling.TransactionClient): Promise<CouponUsage> {
         const db = tx || this.db
         const delegate = (db as unknown as { couponUsage: Prisma.CouponUsageDelegate<undefined> }).couponUsage
         return delegate.create({

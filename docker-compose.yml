@@ -68,6 +68,40 @@ services:
     networks:
       - netmanager-network
 
+  db_billing:
+    image: postgres:16
+    container_name: netmanager-postgres-billing
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-netmgr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netmgr}
+      POSTGRES_DB: ${POSTGRES_DB_BILLING:-billing}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
+    ports:
+      - "5434:5432"
+    volumes:
+      - db_billing_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - netmanager-network
+
   redis:
     image: redis:7-alpine
     container_name: netmanager-redis
@@ -132,6 +166,8 @@ volumes:
   db_data:
     driver: local
   db_radius_data:
+    driver: local
+  db_billing_data:
     driver: local
   redis_data:
     driver: local

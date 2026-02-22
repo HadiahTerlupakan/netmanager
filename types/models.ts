@@ -1,3 +1,4 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 /**
  * Re-export Prisma types dan custom model extensions
  */
@@ -14,7 +15,7 @@ export type PrismaTransaction = Omit<PrismaClientType, '$connect' | '$disconnect
 // Prisma where input types untuk reusable filters
 export type UserWhereInput = Prisma.UserWhereInput;
 export type PelangganWhereInput = Prisma.PelangganWhereInput;
-export type InvoiceWhereInput = Prisma.InvoiceWhereInput;
+export type InvoiceWhereInput = PrismaBilling.InvoiceWhereInput;
 export type WorkOrderWhereInput = Prisma.WorkOrdersWhereInput;
 export type BarangWhereInput = Prisma.BarangWhereInput;
 export type GudangWhereInput = Prisma.GudangWhereInput;
@@ -22,38 +23,38 @@ export type GudangWhereInput = Prisma.GudangWhereInput;
 // Prisma order by types
 export type UserOrderByInput = Prisma.UserOrderByWithRelationInput;
 export type PelangganOrderByInput = Prisma.PelangganOrderByWithRelationInput;
-export type InvoiceOrderByInput = Prisma.InvoiceOrderByWithRelationInput;
+export type InvoiceOrderByInput = PrismaBilling.InvoiceOrderByWithRelationInput;
 export type BarangOrderByInput = Prisma.BarangOrderByWithRelationInput;
 export type GudangOrderByInput = Prisma.GudangOrderByWithRelationInput;
 
 // Prisma create input types
 export type UserCreateInput = Prisma.UserCreateInput;
 export type PelangganCreateInput = Prisma.PelangganCreateInput;
-export type InvoiceCreateInput = Prisma.InvoiceCreateInput;
+export type InvoiceCreateInput = PrismaBilling.InvoiceCreateInput;
 export type BarangCreateInput = Prisma.BarangCreateInput;
 export type GudangCreateInput = Prisma.GudangCreateInput;
-export type PaymentCreateInput = Prisma.PaymentCreateInput;
+export type PaymentCreateInput = PrismaBilling.PaymentCreateInput;
 export type ExpenseCreateInput = Prisma.ExpenseCreateInput;
 
 // Prisma update input types
 export type UserUpdateInput = Prisma.UserUpdateInput;
 export type PelangganUpdateInput = Prisma.PelangganUpdateInput;
-export type InvoiceUpdateInput = Prisma.InvoiceUpdateInput;
+export type InvoiceUpdateInput = PrismaBilling.InvoiceUpdateInput;
 export type BarangUpdateInput = Prisma.BarangUpdateInput;
 export type GudangUpdateInput = Prisma.GudangUpdateInput;
-export type PaymentUpdateInput = Prisma.PaymentUpdateInput;
+export type PaymentUpdateInput = PrismaBilling.PaymentUpdateInput;
 export type ExpenseUpdateInput = Prisma.ExpenseUpdateInput;
 
 // Prisma select types
 export type UserSelect = Prisma.UserSelect;
 export type PelangganSelect = Prisma.PelangganSelect;
-export type InvoiceSelect = Prisma.InvoiceSelect;
+export type InvoiceSelect = PrismaBilling.InvoiceSelect;
 export type BarangSelect = Prisma.BarangSelect;
 export type GudangSelect = Prisma.GudangSelect;
 
 // Prisma include types
 export type UserInclude = Prisma.UserInclude;
 export type PelangganInclude = Prisma.PelangganInclude;
-export type InvoiceInclude = Prisma.InvoiceInclude;
+export type InvoiceInclude = PrismaBilling.InvoiceInclude;
 export type BarangGudangInclude = Prisma.BarangGudangInclude;
 export type WorkOrdersInclude = Prisma.WorkOrdersInclude;

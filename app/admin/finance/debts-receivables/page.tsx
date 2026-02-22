@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import DebtsReceivablesClient from './DebtsReceivablesClient'
 
 export const dynamic = 'force-dynamic'
@@ -11,28 +12,16 @@ export default async function DebtsReceivablesPage() {
       paymentStatus: { not: 'PAID' }
     },
     include: {
-      supplier: true,
-      transactions: {
-        where: { type: 'EXPENSE' }
-      }
+      supplier: true
     },
     orderBy: { createdAt: 'desc' }
   })
 
   // 2. Fetch AR Data (Sent/Overdue Invoices)
-  const receivables = await prisma.invoice.findMany({
+  const receivables = await prismaBilling.invoice.findMany({
     where: {
       status: {
         in: ['SENT', 'OVERDUE']
-      }
-    },
-    include: {
-      pelanggan: {
-        select: {
-          id: true,
-          nama: true,
-          idPelanggan: true
-        }
       }
     },
     orderBy: {
@@ -41,33 +30,21 @@ export default async function DebtsReceivablesPage() {
   })
 
   // 3. Fetch Dependencies (Categories, Accounts) for AP Actions
-  const categories = await prisma.transactionCategory.findMany({
-    where: { type: 'EXPENSE' },
-    orderBy: { name: 'asc' }
+  const expenseCategories = await prismaBilling.transactionCategory.findMany({
+    where: { type: 'EXPENSE' }
   })
 
-  const accounts = await prisma.financialAccount.findMany({
-    where: { isActive: true },
-    orderBy: { type: 'asc' }
-  })
-
-  // Serialization
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formattedReceivables = receivables.map((inv: any) => ({
-    ...inv,
-    totalAmount: Number(inv.totalAmount),
-    paidAmount: Number(inv.paidAmount),
-    subtotal: Number(inv.subtotal),
-    taxAmount: Number(inv.taxAmount),
-    discountAmount: Number(inv.discountAmount)
-  }))
+  const accounts = await prisma.financialAccount.findMany()
 
   return (
-    <DebtsReceivablesClient 
-        unpaidData={unpaidPos}
-        receivablesData={formattedReceivables}
-        categories={categories}
-        accounts={accounts}
-    />
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight">Hutang & Piutang</h1>
+      <DebtsReceivablesClient 
+        unpaidData={unpaidPos as any} 
+        receivablesData={receivables as any} 
+        categories={expenseCategories as any}
+        accounts={accounts as any}
+      />
+    </div>
   )
 }

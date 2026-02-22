@@ -617,6 +617,8 @@ export async function PUT(
     const biayaLainnyaDiskon = biayaLainnyaDiskonRaw ? parseFloat(biayaLainnyaDiskonRaw) : null
     const keteranganBiayaLainnya = formData.get('keteranganBiayaLainnya') as string | null
     const odpId = formData.get('odpId') as string | null
+    const siteIdRaw = formData.get('siteId') as string | null
+    const siteId = siteIdRaw === '' ? null : siteIdRaw
     const tipeValue = parseEnumValue(tipe, TipePelanggan) ?? TipePelanggan.REGULER
     const statusValue = parseEnumValue(status, Status) ?? Status.AKTIF
     const discountTypeValue = parseEnumValue(discountType, DiscountType)
@@ -831,6 +833,7 @@ export async function PUT(
         biayaLainnyaDiskon: useDiskonBiayaLainnya ? (biayaLainnyaDiskon || null) : null,
         keteranganBiayaLainnya: keteranganBiayaLainnya?.trim() || null,
         odpId: odpId?.trim() || null,
+        siteId: siteId,
       },
       include: {
         hargaPaket: {

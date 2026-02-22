@@ -123,6 +123,8 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData()
     const rawData = Object.fromEntries(formData.entries())
+    if (rawData.siteId === '') rawData.siteId = null;
+    if (rawData.odpId === '') rawData.odpId = null;
 
     // Convert checkbox/boolean fields explicitly for Zod
     // (Note: The schema handles string 'true'/'on', but helpful to be explicit)
@@ -131,8 +133,11 @@ export async function POST(req: NextRequest) {
     const validationResult = createPelangganSchema.safeParse(rawData)
 
     if (!validationResult.success) {
+      console.log('Validation Error:', JSON.stringify(validationResult.error.flatten(), null, 2));
+      const details = validationResult.error.flatten();
+      const firstError = Object.values(details.fieldErrors)[0]?.[0] || 'Periksa kembali input Anda';
       return NextResponse.json(
-        { error: 'Validasi Gagal', details: validationResult.error.flatten() },
+        { error: `Validasi Gagal: ${firstError}`, details },
         { status: 400 }
       )
     }

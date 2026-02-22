@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import CategoriesClient from './CategoriesClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CategoriesPage() {
-  const categories = await prisma.transactionCategory.findMany({
+  const categories = await prismaBilling.transactionCategory.findMany({
     orderBy: { name: 'asc' }
   })
 

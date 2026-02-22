@@ -81,7 +81,44 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+    
+
+  # ==========================================================================
+  # DATABASE BILLING - PostgreSQL
+  # ==========================================================================
+  db_billing:
+    image: postgres:16-alpine
+    container_name: netmanager-db-billing
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-netmgr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
+      POSTGRES_DB: ${POSTGRES_DB_BILLING:-billing}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_billing_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
     networks:
+      - internal
+
+  networks:
       - internal
 
   # CACHE - Redis
@@ -126,6 +163,8 @@ services:
     restart: always
     depends_on:
       db_radius:
+        condition: service_healthy
+      db_billing:
         condition: service_healthy
     ports:
       - "1812:1812/udp"
@@ -179,7 +218,10 @@ services:
       NODE_ENV: production
       TMPDIR: /app/tmp
       DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
+      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
       RADIUS_DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_radius:5432/${POSTGRES_DB_RADIUS:-radius}
+      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
+      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
       # Auth Configuration
@@ -398,6 +440,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
+      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
     command: npx prisma migrate deploy
     networks:
       - internal
@@ -418,6 +461,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
+      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
     command: npx prisma db seed
     networks:
       - internal
@@ -462,6 +506,8 @@ volumes:
   postgres_data:
     driver: local
   postgres_radius_data:
+    driver: local
+  postgres_billing_data:
     driver: local
   redis_data:
     driver: local

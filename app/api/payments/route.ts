@@ -1,5 +1,7 @@
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import { paymentSchema } from '@/lib/validations/payment'
 import { randomUUID } from 'crypto'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
@@ -45,24 +47,14 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     const skip = (page - 1) * limit
 
     const [payments, total] = await Promise.all([
-      prisma.payment.findMany({
-        where: where as Prisma.PaymentWhereInput,
-        include: {
-          invoice: {
-            include: {
-              pelanggan: {
-                include: {
-                  hargaPaket: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { paymentDate: 'desc' },
+      prismaBilling.payment.findMany({
+        where: where as PrismaBilling.PaymentWhereInput,
+        include: { invoice: true },
+orderBy: { paymentDate: 'desc' },
         skip,
         take: limit,
       }),
-      prisma.payment.count({ where: where as Prisma.PaymentWhereInput }),
+      prismaBilling.payment.count({ where: where as PrismaBilling.PaymentWhereInput }),
     ])
 
     const totalPages = Math.ceil(total / limit)
@@ -102,7 +94,7 @@ export const POST = createHandler({
 
     // If invoiceId is provided, check if invoice exists
     if (invoiceId) {
-      const invoice = await prisma.invoice.findUnique({
+      const invoice = await prismaBilling.invoice.findUnique({
         where: { id: invoiceId },
       })
 
@@ -115,7 +107,7 @@ export const POST = createHandler({
     const amountInCents = BigInt(Math.round(amount))
 
     try {
-        const payment = await prisma.payment.create({
+        const payment = await prismaBilling.payment.create({
           data: {
             id: randomUUID(),
             paymentDate: new Date(paymentData.paymentDate),
@@ -129,22 +121,12 @@ export const POST = createHandler({
             verifiedBy: user.id,
             updatedAt: new Date(),
           },
-          include: {
-            invoice: {
-              include: {
-                pelanggan: {
-                  include: {
-                    hargaPaket: true,
-                  },
-                },
-              },
-            },
-          },
-        })
+          include: { invoice: true },
+})
 
         // If payment is linked to an invoice, update invoice status and paid amount
         if (invoiceId) {
-          const invoice = await prisma.invoice.findUnique({
+          const invoice = await prismaBilling.invoice.findUnique({
             where: { id: invoiceId },
             include: {
               payment: true,
@@ -163,7 +145,7 @@ export const POST = createHandler({
             )
 
             // Update invoice paid amount and status
-            await prisma.invoice.update({
+            await prismaBilling.invoice.update({
               where: { id: invoiceId },
               data: {
                 paidAmount: totalPaid,

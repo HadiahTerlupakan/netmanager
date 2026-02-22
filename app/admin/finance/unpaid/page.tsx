@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing';
 import UnpaidBillsClient from './UnpaidBillsClient'
 
 export const dynamic = 'force-dynamic'
@@ -10,15 +11,12 @@ export default async function UnpaidBillsPage() {
       paymentStatus: { not: 'PAID' }
     },
     include: {
-      supplier: true,
-      transactions: {
-        where: { type: 'EXPENSE' }
-      }
+      supplier: true
     },
     orderBy: { createdAt: 'desc' }
   })
 
-  const categories = await prisma.transactionCategory.findMany({
+  const categories = await prismaBilling.transactionCategory.findMany({
     where: { type: 'EXPENSE' },
     orderBy: { name: 'asc' }
   })
@@ -28,8 +26,5 @@ export default async function UnpaidBillsPage() {
     orderBy: { type: 'asc' }
   })
 
-  // Serialize BigInt if any (none here mostly, but good practice if Amount was BigInt)
-  // FinancialAccount balance is Float. Transaction amount is Float. PO amounts are Float.
-
-  return <UnpaidBillsClient initialData={unpaidPos} categories={categories} accounts={accounts} />
+  return <UnpaidBillsClient initialData={unpaidPos as any} categories={categories} accounts={accounts} />
 }

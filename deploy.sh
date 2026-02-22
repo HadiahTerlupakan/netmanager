@@ -187,6 +187,9 @@ deploy() {
     log_info "Running database migrations..."
     docker compose -f $COMPOSE_FILE --profile migrate run --rm db-migrate
     
+    log_info "Pushing schema to billing database (initial sync)..."
+    docker exec netmanager-app npx prisma db push --schema=prisma/billing.prisma || true
+    
     log_success "Deployment selesai!"
     log_info "Gunakan './deploy.sh status' untuk melihat status services"
 }

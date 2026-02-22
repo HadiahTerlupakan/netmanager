@@ -1,3 +1,5 @@
+import { prismaBilling } from '@/lib/prisma-billing';
+import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { prisma } from '@/lib/prisma'
 import { TransactionRepository } from '../repositories/TransactionRepository'
 import type { ITransactionRepository } from '../repositories/ITransactionRepository'
@@ -19,11 +21,11 @@ export class FinanceService {
     return this.categoryRepo.findAll()
   }
 
-  async createCategory(data: Prisma.TransactionCategoryCreateInput) {
+  async createCategory(data: PrismaBilling.TransactionCategoryCreateInput) {
     return this.categoryRepo.create(data)
   }
 
-  async updateCategory(id: string, data: Prisma.TransactionCategoryUpdateInput) {
+  async updateCategory(id: string, data: PrismaBilling.TransactionCategoryUpdateInput) {
     const category = await this.categoryRepo.findById(id)
     if (!category) throw new Error('Kategori tidak ditemukan')
     return this.categoryRepo.update(id, data)
@@ -61,7 +63,7 @@ export class FinanceService {
         }
 
         // 2. Create Transaction
-        return tx.transaction.create({
+        return prismaBilling.transaction.create({
             data: {
                 type: data.type,
                 amount: data.amount,
@@ -139,7 +141,7 @@ export class FinanceService {
       }
 
       // Create Financial Transaction record
-      const transaction = await tx.transaction.create({
+      const transaction = await prismaBilling.transaction.create({
         data: {
           type: 'EXPENSE',
           amount: input.amount,
@@ -155,11 +157,11 @@ export class FinanceService {
 
       // Calculate new Payment Status
       // Fetch all transactions for this PO (including the one just created)
-      const existingTx = await tx.transaction.findMany({
+      const existingTx = await prismaBilling.transaction.findMany({
         where: { purchaseOrderId: input.poId }
       })
 
-      const totalPaid = existingTx.reduce((sum, t) => sum + t.amount, 0)
+      const totalPaid = existingTx.reduce((sum: number, t: any) => sum + t.amount, 0)
 
       // Determine status: UNPAID (no payments), PARTIAL (some payments), PAID (fully paid)
       let newStatus: PaymentStatus = 'UNPAID'
@@ -227,7 +229,7 @@ export class FinanceService {
        })
        
        const summary = {
-         totalPPN: pos.reduce((sum, po) => sum + po.ppnAmount, 0),
+         totalPPN: pos.reduce((sum: number, po: any) => sum + po.ppnAmount, 0),
          details: pos
        }
        
@@ -266,7 +268,7 @@ export class FinanceService {
       })
 
       // 3. Create Outgoing Transaction (Source)
-      await tx.transaction.create({
+      await prismaBilling.transaction.create({
         data: {
           type: 'EXPENSE',
           amount: data.amount,
@@ -280,7 +282,7 @@ export class FinanceService {
       })
 
       // 4. Create Incoming Transaction (Destination)
-      await tx.transaction.create({
+      await prismaBilling.transaction.create({
         data: {
           type: 'INCOME',
           amount: data.amount,
@@ -313,7 +315,7 @@ export class FinanceService {
 
   async deleteTransaction(id: string, userId?: string) {
     const result = await prisma.$transaction(async (tx) => {
-      const transaction = await tx.transaction.findUnique({ where: { id } })
+      const transaction = await prismaBilling.transaction.findUnique({ where: { id } })
       if (!transaction) throw new Error('Transaksi tidak ditemukan')
 
       // Revert account balance if associated with an account
@@ -333,7 +335,7 @@ export class FinanceService {
         }
       }
 
-      await tx.transaction.delete({ where: { id } })
+      await prismaBilling.transaction.delete({ where: { id } })
       return transaction
     })
 
