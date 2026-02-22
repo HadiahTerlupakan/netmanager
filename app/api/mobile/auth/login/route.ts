@@ -67,7 +67,6 @@ export async function POST(req: Request) {
             // User found, check password
             let isPasswordValid = false
             if (customer.password && customer.password === password) isPasswordValid = true
-            if (customer.passwordLogin && customer.passwordLogin === password) isPasswordValid = true
             if (!isPasswordValid && customer.passwordHash) {
                 isPasswordValid = await compare(password, customer.passwordHash)
             }

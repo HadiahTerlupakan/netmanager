@@ -12,7 +12,6 @@ export interface CreatePelangganDTO {
     nama: string
     username: string
     password: string
-    passwordLogin: string
     passwordHash: string
     hargaPaketId: string
     tipe: TipePelanggan
@@ -164,7 +163,6 @@ export class PelangganRepository {
                 nama: data.nama,
                 username: data.username,
                 password: data.password,
-                passwordLogin: data.passwordLogin,
                 passwordHash: data.passwordHash,
                 hargaPaketId: data.hargaPaketId,
                 tipe: data.tipe,

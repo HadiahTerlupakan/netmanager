@@ -10,7 +10,6 @@ export interface CreatePelangganInput {
     nama: string
     username: string
     password: string // PPPoE password
-    passwordLogin: string // Portal login password
     hargaPaketId: string
     tipe: TipePelanggan
     tanggalAktif: string // YYYY-MM-DD format
@@ -101,7 +100,7 @@ export class PelangganService {
         }
 
         // Hash passwordLogin
-        const passwordHash = await hash(data.passwordLogin.trim(), 12)
+        const passwordHash = await hash(data.password.trim(), 12)
 
         // Parse dates
         const parseLocalDate = (dateStr: string): Date => {
@@ -115,7 +114,6 @@ export class PelangganService {
             nama: data.nama.trim(),
             username: data.username.trim(),
             password: data.password.trim(),
-            passwordLogin: data.passwordLogin.trim(),
             passwordHash,
             hargaPaketId: data.hargaPaketId,
             tipe: data.tipe,
@@ -283,7 +281,7 @@ export class PelangganService {
         }
 
         // Hash and update new password
-        const newHash = await hash(newPassword, 10)
+        const newHash = await hash(newPassword, 12)
         return this.pelangganRepository.updateProfile(customerId, { passwordHash: newHash })
     }
 
@@ -376,4 +374,3 @@ export function getPelangganService(): PelangganService {
     }
     return pelangganServiceInstance
 }
-

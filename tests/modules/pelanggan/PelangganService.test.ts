@@ -6,7 +6,8 @@ import type { Pelanggan, HargaPaket } from '@prisma/client'
 
 // Mock bcryptjs
 vi.mock('bcryptjs', () => ({
-  hash: vi.fn().mockResolvedValue('hashed_password')
+  hash: vi.fn().mockResolvedValue('hashed_password'),
+  compare: vi.fn().mockResolvedValue(true),
 }))
 
 // Mock radius-sync-hooks
@@ -27,7 +28,6 @@ describe('PelangganService', () => {
       nama: 'Test Customer',
       username: 'testuser',
       password: 'pppoe123',
-      passwordLogin: 'login123',
       hargaPaketId: 'paket-001',
       tipe: 'REGULER',
       tanggalAktif: '2024-01-01',
@@ -149,6 +149,28 @@ describe('PelangganService', () => {
 
       expect(result).toBeDefined()
       expect(result?.id).toBe('pelanggan-id')
+    })
+  })
+
+  describe('changePassword', () => {
+    it('should hash new customer password with cost factor 12', async () => {
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce({
+        passwordHash: 'existing_hash',
+      } as unknown as Pelanggan)
+
+      prismaMock.pelanggan.update.mockResolvedValueOnce({
+        id: 'pelanggan-id',
+        noTelp: null,
+        is2FAEnabled: false,
+        isBillNotifEnabled: true,
+        isPromoEnabled: true,
+        updatedAt: new Date(),
+      } as unknown as Pelanggan)
+
+      await service.changePassword('pelanggan-id', 'current-password', 'new-password')
+
+      const { hash } = await import('bcryptjs')
+      expect(hash).toHaveBeenLastCalledWith('new-password', 12)
     })
   })
 })

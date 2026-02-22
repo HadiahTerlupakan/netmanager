@@ -594,7 +594,6 @@ model Pelanggan {
   nama                          String
   username                      String
   password                      String
-  passwordLogin                 String
   hargaPaketId                  String
   tipe                          TipePelanggan       @default(REGULER)
   tanggalAktif                  DateTime

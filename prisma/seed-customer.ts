@@ -74,7 +74,6 @@ async function main() {
   const pelanggan = await prisma.pelanggan.upsert({
     where: { idPelanggan },
     update: {
-      passwordLogin: plainPassword,
       passwordHash: passwordHash,
       status: 'AKTIF'
     },
@@ -84,7 +83,6 @@ async function main() {
       nama: 'Test Customer',
       username: 'testcustomer',
       password: plainPassword, // This is often used for PPP password
-      passwordLogin: plainPassword, // This is used for Portal login in some places
       passwordHash: passwordHash,
       hargaPaketId: hargaPaket.id,
       siteId: site.id,

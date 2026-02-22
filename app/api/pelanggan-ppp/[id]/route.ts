@@ -254,8 +254,8 @@ export async function GET(
     }
 
     // Hapus password dari response
-    const { password: _, passwordLogin: __, ...pelangganData } = pelanggan
 
+    const { password: _, ...pelangganData } = pelanggan;
     return NextResponse.json(pelangganData, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -303,7 +303,6 @@ export async function GET(
  *               - nama
  *               - username
  *               - password
- *               - passwordLogin
  *               - hargaPaketId
  *               - tanggalAktif
  *               - jatuhTempo
@@ -321,7 +320,6 @@ export async function GET(
  *               password:
  *                 type: string
  *                 description: PPPoE password
- *               passwordLogin:
  *                 type: string
  *                 description: Login password
  *               hargaPaketId:
@@ -568,7 +566,6 @@ export async function PUT(
     const nama = formData.get('nama') as string
     const username = formData.get('username') as string
     const password = formData.get('password') as string
-    const passwordLogin = formData.get('passwordLogin') as string
     const hargaPaketId = formData.get('hargaPaketId') as string
     const tipe = formData.get('tipe') as string
     const tanggalAktif = formData.get('tanggalAktif') as string
@@ -625,7 +622,7 @@ export async function PUT(
     const discountDurationUnitValue = parseEnumValue(discountDurationUnit, DurasiUnit)
 
     // Validasi required fields
-    if (!idPelanggan || !nama || !username || !password || !passwordLogin || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
+    if (!idPelanggan || !nama || !username || !password || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
       return NextResponse.json(
         { error: 'Semua field wajib harus diisi' },
         { status: 400 }
@@ -793,7 +790,6 @@ export async function PUT(
         nama: nama.trim(),
         username: username.trim(),
         password: password.trim(),
-        passwordLogin: passwordLogin.trim(),
         hargaPaketId,
         tipe: tipeValue,
         tanggalAktif: parsedTanggalAktif,

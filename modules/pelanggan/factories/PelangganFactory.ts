@@ -18,7 +18,6 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
-        passwordLogin: string
         hargaPaketId: string
         tanggalAktif: string
         jatuhTempo: string
@@ -43,7 +42,6 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
-        passwordLogin: string
         hargaPaketId: string
         tanggalAktif: string
         jatuhTempo: string
@@ -70,7 +68,6 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
-        passwordLogin: string
         hargaPaketId: string
         alamat?: string
         noTelp?: string
@@ -89,7 +86,6 @@ export class PelangganFactory {
             nama: dto.nama,
             username: dto.username,
             password: dto.password,
-            passwordLogin: dto.passwordLogin,
             hargaPaketId: dto.hargaPaketId,
             tanggalAktif,
             jatuhTempo,
@@ -111,7 +107,6 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
-        passwordLogin: string
         hargaPaketId: string
         tipe: TipePelanggan
         status: Status
@@ -130,7 +125,6 @@ export class PelangganFactory {
             nama: dto.nama,
             username: dto.username,
             password: dto.password,
-            passwordLogin: dto.passwordLogin,
             hargaPaketId: dto.hargaPaketId,
             tipe: dto.tipe,
             status: dto.status,
