@@ -2991,3 +2991,23 @@ enum PaymentStatus {
   PARTIAL
   PAID
 }
+
+model AcsVendor {
+  id                    String   @id @default(cuid())
+  name                  String   @unique
+  manufacturerPatterns  String
+  productPatterns       String
+  parameterPrefix       String?
+  serviceListPath       String?
+  lanBindingPath        String?
+  vlanIdPath            String?
+  httpWanEnablePath     String?
+  firewallLevelPath     String?
+  priority              Int      @default(10)
+  enabled               Boolean  @default(true)
+  description           String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("acs_vendors")
+}
