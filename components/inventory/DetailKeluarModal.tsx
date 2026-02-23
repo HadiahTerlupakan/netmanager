@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image';
 
 import { useState } from 'react'
 import { FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiZoomIn } from 'react-icons/fi'
@@ -220,7 +221,7 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
                       style={{ minHeight: '200px' }}
                       onClick={() => openLightbox(index)}
                     >
-                      <img
+                      <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
                         src={url}
                         alt={`Foto bukti ${index + 1}`}
                         className="w-full h-48 object-contain bg-white dark:bg-gray-900"

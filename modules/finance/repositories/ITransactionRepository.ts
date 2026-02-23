@@ -1,5 +1,5 @@
 import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
-import { type Transaction, Prisma } from '@/prisma/generated/billing'
+import { type Transaction } from '@/prisma/generated/billing'
 
 export interface ITransactionRepository {
   findAll(params?: {

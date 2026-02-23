@@ -1,6 +1,6 @@
 import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 
-import type { Coupon, CouponUsage, DiscountType, Prisma } from '@prisma/client'
+import type { Coupon, CouponUsage, DiscountType } from '@prisma/client'
 
 export interface CreateCouponInput {
     code: string

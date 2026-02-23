@@ -275,9 +275,9 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     <h4 className="text-sm font-bold text-green-600 uppercase tracking-wider">Pendapatan</h4>
                                     {salary.status === 'REVISED' && (
                                         <Button onClick={() => {
-                                                setAdjustData({ ...adjustData, type: 'EARNING' })
-                                                setShowAdjustModal(true)
-                                            }}
+                                            setAdjustData({ ...adjustData, type: 'EARNING' })
+                                            setShowAdjustModal(true)
+                                        }}
                                             className="text-xs flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50 px-2 py-1 rounded transition-colors border border-transparent hover:border-green-200"
                                             title="Tambah Pendapatan Manual"
                                         >
@@ -317,9 +317,9 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     <h4 className="text-sm font-bold text-red-500 uppercase tracking-wider">Potongan</h4>
                                     {salary.status === 'REVISED' && (
                                         <Button onClick={() => {
-                                                setAdjustData({ ...adjustData, type: 'DEDUCTION' })
-                                                setShowAdjustModal(true)
-                                            }}
+                                            setAdjustData({ ...adjustData, type: 'DEDUCTION' })
+                                            setShowAdjustModal(true)
+                                        }}
                                             className="text-xs flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors border border-transparent hover:border-red-200"
                                             title="Tambah Potongan Manual"
                                         >
@@ -626,7 +626,7 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                                     Print Struk & PDF
                                 </Link>
                                 <div className="text-center text-xs text-gray-400">
-                                    * Gunakan opsi "Save as PDF" saat print untuk download
+                                    * Gunakan opsi &quot;Save as PDF&quot; saat print untuk download
                                 </div>
                             </div>
                         </CardContent>
@@ -658,68 +658,68 @@ export default function SalaryDetailClient({ salary, currentUser: _currentUser }
                 size="md"
             >
                 <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipe</label>
-                                <div className="flex gap-2">
-                                    <Button onClick={() => setAdjustData({ ...adjustData, type: 'EARNING' })}
-                                        className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'EARNING' ? 'bg-green-100 border-green-500 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
-                                    >
-                                        Pendapatan
-                                    </Button>
-                                    <Button onClick={() => setAdjustData({ ...adjustData, type: 'DEDUCTION' })}
-                                        className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'DEDUCTION' ? 'bg-red-100 border-red-500 text-red-700 font-bold dark:bg-red-900/30 dark:text-red-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
-                                    >
-                                        Potongan
-                                    </Button>
-                                </div>
-                            </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipe</label>
+                        <div className="flex gap-2">
+                            <Button onClick={() => setAdjustData({ ...adjustData, type: 'EARNING' })}
+                                className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'EARNING' ? 'bg-green-100 border-green-500 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
+                            >
+                                Pendapatan
+                            </Button>
+                            <Button onClick={() => setAdjustData({ ...adjustData, type: 'DEDUCTION' })}
+                                className={`flex-1 py-2 px-3 text-sm rounded border ${adjustData.type === 'DEDUCTION' ? 'bg-red-100 border-red-500 text-red-700 font-bold dark:bg-red-900/30 dark:text-red-300' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}
+                            >
+                                Potongan
+                            </Button>
+                        </div>
+                    </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Komponen</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                                    placeholder={adjustData.type === 'EARNING' ? "Contoh: Bonus Project, Susulan Lembur" : "Contoh: Potongan Kasbon, Denda"}
-                                    value={adjustData.name}
-                                    onChange={e => setAdjustData({ ...adjustData, name: e.target.value })}
-                                />
-                            </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Komponen</label>
+                        <input
+                            type="text"
+                            className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                            placeholder={adjustData.type === 'EARNING' ? "Contoh: Bonus Project, Susulan Lembur" : "Contoh: Potongan Kasbon, Denda"}
+                            value={adjustData.name}
+                            onChange={e => setAdjustData({ ...adjustData, name: e.target.value })}
+                        />
+                    </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah (Rp)</label>
-                                <input
-                                    type="number"
-                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                                    placeholder="0"
-                                    value={adjustData.amount}
-                                    onChange={e => setAdjustData({ ...adjustData, amount: e.target.value })}
-                                />
-                            </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah (Rp)</label>
+                        <input
+                            type="number"
+                            className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                            placeholder="0"
+                            value={adjustData.amount}
+                            onChange={e => setAdjustData({ ...adjustData, amount: e.target.value })}
+                        />
+                    </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catatan / Alasan</label>
-                                <textarea
-                                    className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                                    rows={2}
-                                    placeholder="Alasan penambahan..."
-                                    value={adjustData.notes}
-                                    onChange={e => setAdjustData({ ...adjustData, notes: e.target.value })}
-                                />
-                            </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catatan / Alasan</label>
+                        <textarea
+                            className="w-full p-2 border rounded focus:ring-2 ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                            rows={2}
+                            placeholder="Alasan penambahan..."
+                            value={adjustData.notes}
+                            onChange={e => setAdjustData({ ...adjustData, notes: e.target.value })}
+                        />
+                    </div>
                 </div>
 
                 <ModalFooter>
-                            <Button onClick={() => setShowAdjustModal(false)}
-                                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                            >
-                                Batal
-                            </Button>
-                            <Button onClick={handleAddAdjustment}
-                                disabled={loading || !adjustData.name || !adjustData.amount}
-                                 className="flex-1"
-                            >
-                                Simpan
-                            </Button>
+                    <Button onClick={() => setShowAdjustModal(false)}
+                        className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                        Batal
+                    </Button>
+                    <Button onClick={handleAddAdjustment}
+                        disabled={loading || !adjustData.name || !adjustData.amount}
+                        className="flex-1"
+                    >
+                        Simpan
+                    </Button>
                 </ModalFooter>
             </Modal>
         </div>

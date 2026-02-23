@@ -1,5 +1,5 @@
 import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
-import { type TransactionCategory, type Prisma } from '@/prisma/generated/billing'
+import { type TransactionCategory } from '@/prisma/generated/billing'
 
 export interface ITransactionCategoryRepository {
   findAll(): Promise<TransactionCategory[]>

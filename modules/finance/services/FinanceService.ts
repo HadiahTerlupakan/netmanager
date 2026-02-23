@@ -5,7 +5,7 @@ import { TransactionRepository } from '../repositories/TransactionRepository'
 import type { ITransactionRepository } from '../repositories/ITransactionRepository'
 import { TransactionCategoryRepository } from '../repositories/TransactionCategoryRepository'
 import type { ITransactionCategoryRepository } from '../repositories/ITransactionCategoryRepository'
-import { type Prisma, type PaymentStatus } from '@prisma/client'
+import { type PaymentStatus } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
 
 export class FinanceService {
@@ -54,43 +54,43 @@ export class FinanceService {
   }) {
     // 1. Update Account Balance if provided
     const result = await prisma.$transaction(async (tx) => {
-        if (data.accountId) {
-            const modification = data.type === 'INCOME' ? data.amount : -data.amount
-            await tx.financialAccount.update({
-                where: { id: data.accountId },
-                data: { balance: { increment: modification } }
-            })
-        }
-
-        // 2. Create Transaction
-        return prismaBilling.transaction.create({
-            data: {
-                type: data.type,
-                amount: data.amount,
-                date: new Date(data.date),
-                description: data.description ?? null,
-                categoryId: data.categoryId,
-                createdById: data.createdById,
-                referenceId: data.referenceId ?? null,
-                accountId: data.accountId ?? null,
-                attachments: data.attachments || []
-            },
-            include: { category: true }
+      if (data.accountId) {
+        const modification = data.type === 'INCOME' ? data.amount : -data.amount
+        await tx.financialAccount.update({
+          where: { id: data.accountId },
+          data: { balance: { increment: modification } }
         })
+      }
+
+      // 2. Create Transaction
+      return prismaBilling.transaction.create({
+        data: {
+          type: data.type,
+          amount: data.amount,
+          date: new Date(data.date),
+          description: data.description ?? null,
+          categoryId: data.categoryId,
+          createdById: data.createdById,
+          referenceId: data.referenceId ?? null,
+          accountId: data.accountId ?? null,
+          attachments: data.attachments || []
+        },
+        include: { category: true }
+      })
     })
 
     // Log Activity
     logActivitySafe({
-        action: 'CREATE',
-        subject: 'Finance Transaction',
-        userId: data.createdById,
-        details: { 
-            id: result.id, 
-            type: result.type, 
-            amount: result.amount,
-            desc: result.description,
-            ref: result.referenceId
-        }
+      action: 'CREATE',
+      subject: 'Finance Transaction',
+      userId: data.createdById,
+      details: {
+        id: result.id,
+        type: result.type,
+        amount: result.amount,
+        desc: result.description,
+        ref: result.referenceId
+      }
     })
 
     return result
@@ -121,23 +121,23 @@ export class FinanceService {
     const result = await prisma.$transaction(async (tx) => {
       // 2a. Validate and Update Account Balance if provided (Decrease for payment)
       if (input.paidFromAccountId) {
-          // Validasi saldo mencukupi
-          const account = await tx.financialAccount.findUnique({
-            where: { id: input.paidFromAccountId }
-          })
-          
-          if (!account) {
-            throw new Error('Akun keuangan tidak ditemukan')
-          }
-          
-          if (account.balance < input.amount) {
-            throw new Error(`Saldo akun ${account.name} tidak mencukupi. Saldo: Rp ${account.balance.toLocaleString('id-ID')}, Dibutuhkan: Rp ${input.amount.toLocaleString('id-ID')}`)
-          }
-          
-          await tx.financialAccount.update({
-              where: { id: input.paidFromAccountId },
-              data: { balance: { decrement: input.amount } }
-          })
+        // Validasi saldo mencukupi
+        const account = await tx.financialAccount.findUnique({
+          where: { id: input.paidFromAccountId }
+        })
+
+        if (!account) {
+          throw new Error('Akun keuangan tidak ditemukan')
+        }
+
+        if (account.balance < input.amount) {
+          throw new Error(`Saldo akun ${account.name} tidak mencukupi. Saldo: Rp ${account.balance.toLocaleString('id-ID')}, Dibutuhkan: Rp ${input.amount.toLocaleString('id-ID')}`)
+        }
+
+        await tx.financialAccount.update({
+          where: { id: input.paidFromAccountId },
+          data: { balance: { decrement: input.amount } }
+        })
       }
 
       // Create Financial Transaction record
@@ -161,7 +161,7 @@ export class FinanceService {
         where: { purchaseOrderId: input.poId }
       })
 
-      const totalPaid = existingTx.reduce((sum: number, t: any) => sum + t.amount, 0)
+      const totalPaid = existingTx.reduce((sum: number, t) => sum + Number(t.amount), 0)
 
       // Determine status: UNPAID (no payments), PARTIAL (some payments), PAID (fully paid)
       let newStatus: PaymentStatus = 'UNPAID'
@@ -180,8 +180,8 @@ export class FinanceService {
       await tx.purchaseOrder.update({
         where: { id: input.poId },
         data: {
-            paymentStatus: newStatus,
-            ...(input.paidFromAccountId ? { paidFromAccountId: input.paidFromAccountId } : {})
+          paymentStatus: newStatus,
+          ...(input.paidFromAccountId ? { paidFromAccountId: input.paidFromAccountId } : {})
         }
       })
 
@@ -190,16 +190,16 @@ export class FinanceService {
 
     // Log Activity
     logActivitySafe({
-        action: 'PAYMENT',
-        subject: 'Purchase Order',
-        userId: input.createdById,
-        details: { 
-            poId: po.id, 
-            poNumber: po.poNumber,
-            amount: input.amount,
-            status: result.newStatus,
-            transactionId: result.transaction.id
-        }
+      action: 'PAYMENT',
+      subject: 'Purchase Order',
+      userId: input.createdById,
+      details: {
+        poId: po.id,
+        poNumber: po.poNumber,
+        amount: input.amount,
+        status: result.newStatus,
+        transactionId: result.transaction.id
+      }
     })
 
     return result.transaction
@@ -207,40 +207,40 @@ export class FinanceService {
 
 
   async getReports(type: 'CAPEX_OPEX' | 'TAX') {
-     if (type === 'TAX') {
-       // Input VAT from Purchase Orders
-       // Start of year default
-       const startDate = new Date(new Date().getFullYear(), 0, 1)
-       
-       const pos = await prisma.purchaseOrder.findMany({
-         where: {
-           ppnAmount: { gt: 0 },
-           createdAt: { gte: startDate }
-         },
-         select: {
-           poNumber: true,
-           ppnAmount: true,
-           ppnRate: true,
-           totalAmount: true, // DPP
-           createdAt: true,
-           supplier: { select: { name: true } }
-         },
-         orderBy: { createdAt: 'desc' }
-       })
-       
-       const summary = {
-         totalPPN: pos.reduce((sum: number, po: any) => sum + po.ppnAmount, 0),
-         details: pos
-       }
-       
-       return summary
-     }
-     
-     if (type === 'CAPEX_OPEX') {
-       const startDate = new Date(new Date().getFullYear(), 0, 1) // This year default
-       const endDate = new Date()
+    if (type === 'TAX') {
+      // Input VAT from Purchase Orders
+      // Start of year default
+      const startDate = new Date(new Date().getFullYear(), 0, 1)
 
-       return this.transactionRepo.getExpenseSummary(startDate, endDate)
+      const pos = await prisma.purchaseOrder.findMany({
+        where: {
+          ppnAmount: { gt: 0 },
+          createdAt: { gte: startDate }
+        },
+        select: {
+          poNumber: true,
+          ppnAmount: true,
+          ppnRate: true,
+          totalAmount: true, // DPP
+          createdAt: true,
+          supplier: { select: { name: true } }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+
+      const summary = {
+        totalPPN: pos.reduce((sum: number, po) => sum + Number(po.ppnAmount), 0),
+        details: pos
+      }
+
+      return summary
+    }
+
+    if (type === 'CAPEX_OPEX') {
+      const startDate = new Date(new Date().getFullYear(), 0, 1) // This year default
+      const endDate = new Date()
+
+      return this.transactionRepo.getExpenseSummary(startDate, endDate)
     }
     return null
   }
@@ -294,20 +294,20 @@ export class FinanceService {
           referenceId: 'TRANSFER'
         }
       })
-      
+
       return { success: true }
     })
 
     // Log Activity
     logActivitySafe({
-        action: 'TRANSFER',
-        subject: 'Finance Funds',
-        userId: data.createdById,
-        details: { 
-            from: data.sourceAccountId, 
-            to: data.destinationAccountId, 
-            amount: data.amount 
-        }
+      action: 'TRANSFER',
+      subject: 'Finance Funds',
+      userId: data.createdById,
+      details: {
+        from: data.sourceAccountId,
+        to: data.destinationAccountId,
+        amount: data.amount
+      }
     })
 
     return result
@@ -341,16 +341,16 @@ export class FinanceService {
 
     // Log Activity
     if (userId) { // userId is optional because previous signature didn't have it, but we should supply it
-        logActivitySafe({
-            action: 'DELETE',
-            subject: 'Finance Transaction',
-            userId: userId,
-            details: { 
-                id: result.id, 
-                amount: result.amount, 
-                desc: result.description 
-            }
-        })
+      logActivitySafe({
+        action: 'DELETE',
+        subject: 'Finance Transaction',
+        userId: userId,
+        details: {
+          id: result.id,
+          amount: result.amount,
+          desc: result.description
+        }
+      })
     }
 
     return result

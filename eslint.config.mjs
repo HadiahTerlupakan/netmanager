@@ -1,48 +1,32 @@
-import next from "eslint-config-next";
-import tseslint from "typescript-eslint";
-import reactHooks from "eslint-plugin-react-hooks";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
-  ...next,
-  ...tseslint.configs.recommended,
+  ...nextCoreWebVitals,
+  ...nextTypescript,
   {
     ignores: [
-      "**/node_modules/**",
+      "prisma/generated/**",
+      "scripts/**",
+      "temp_genieacs_source/**",
       ".next/**",
       "out/**",
-      "build/**",
-      "**/*.d.ts",
-      "**/*.config.js",
-      "**/*.config.mjs",
-      "**/*.config.ts",
-      "tmp/**",
-      "dist/**",
       "public/sw.js",
+      "public/sw.js.map",
       "public/workbox-*.js",
-      "public/worker-*.js",
-      "coverage/**",
-      ".agent/**",
-      ".claude/**",
-      ".cursor/**",
-      ".kilocode/**",
-      ".gemini/**",
-      ".opencode/**"
-    ]
+      "public/worker-*.js"
+    ],
   },
   {
-    plugins: {
-      "react-hooks": reactHooks
-    },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", {
-        "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_",
-        "caughtErrorsIgnorePattern": "^_"
-      }],
-      "react/no-unescaped-entities": "off",
-      "@next/next/no-img-element": "off",
-      "react-hooks/exhaustive-deps": "warn"
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "caughtErrorsIgnorePattern": "^_"
+        }
+      ]
     }
   }
 ];

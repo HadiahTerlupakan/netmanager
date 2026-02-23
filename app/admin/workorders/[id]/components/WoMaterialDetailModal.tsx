@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import type { MaterialDetailData } from '../types'
 
@@ -141,7 +142,7 @@ export function WoMaterialDetailModal({ isOpen, onClose, data, loading }: WoMate
                             <div className="grid grid-cols-2 gap-4">
                                 {data.fotoBukti.map((url, idx) => (
                                     <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                                        <img src={url} alt={`Bukti ${idx + 1}`} className="rounded-lg border-2 border-gray-200 dark:border-gray-600 h-32 w-full object-cover hover:border-indigo-500 transition-colors" />
+                                        <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={url} alt={`Bukti ${idx + 1}`} className="rounded-lg border-2 border-gray-200 dark:border-gray-600 h-32 w-full object-cover hover:border-indigo-500 transition-colors" />
                                     </a>
                                 ))}
                             </div>

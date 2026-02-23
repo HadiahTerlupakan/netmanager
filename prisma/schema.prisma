@@ -3011,3 +3011,15 @@ model AcsVendor {
 
   @@map("acs_vendors")
 }
+
+model AcsWifiSecurity {
+  id              String   @id @default(cuid())
+  productClass    String   @unique
+  parameterPath   String
+  wpaTypes        String?
+  encryptTypes    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("acs_wifi_security")
+}

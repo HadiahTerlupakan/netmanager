@@ -26,5 +26,6 @@ export default async function UnpaidBillsPage() {
     orderBy: { type: 'asc' }
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <UnpaidBillsClient initialData={unpaidPos as any} categories={categories} accounts={accounts} />
 }

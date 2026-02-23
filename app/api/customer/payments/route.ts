@@ -80,15 +80,15 @@ export async function POST(request: NextRequest) {
         const finalAmount = totalAmount - discountAmount
 
         const result = await prismaBilling.$transaction(async (tx) => {
-            const discountPerInvoice = discountAmount > 0 
-                ? Math.floor(discountAmount / invoiceIds.length) 
+            const discountPerInvoice = discountAmount > 0
+                ? Math.floor(discountAmount / invoiceIds.length)
                 : 0;
 
             const payments = [];
 
             for (let i = 0; i < invoiceIds.length; i++) {
                 const invoiceId = invoiceIds[i];
-                
+
                 const invoice = await tx.invoice.findUnique({
                     where: { id: invoiceId }
                 });
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
         let paymentUrl = null;
         let transactionId = null;
-        
+
         if (paymentMethod !== 'MANUAL' && result.length > 0) {
             try {
                 const customer = await prisma.pelanggan.findUnique({
@@ -138,20 +138,21 @@ export async function POST(request: NextRequest) {
 
                 if (customer) {
                     const { PaymentGatewayManager } = await import('@/modules/finance/services/payment-gateway/gateway-manager');
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const gatewayManager = new PaymentGatewayManager(prisma as any);
-                    
-                        const customerEmail = customer.email ? String(customer.email) : 'customer@example.com';
-                        const customerPhone = customer.noTelp ? String(customer.noTelp) : '';
-                        
-                        const gatewayResult = await gatewayManager.createPayment({
-                            orderId: result[0].reference || result[0].id,
-                            amount: Number(finalAmount),
-                            customerName: customer.nama,
-                            customerEmail: customerEmail,
-                            customerPhone: customerPhone,
-                            description: `Pembayaran Tagihan NetManager`,
-                            paymentMethods: [paymentMethod]
-                        });
+
+                    const customerEmail = customer.email ? String(customer.email) : 'customer@example.com';
+                    const customerPhone = customer.noTelp ? String(customer.noTelp) : '';
+
+                    const gatewayResult = await gatewayManager.createPayment({
+                        orderId: result[0].reference || result[0].id,
+                        amount: Number(finalAmount),
+                        customerName: customer.nama,
+                        customerEmail: customerEmail,
+                        customerPhone: customerPhone,
+                        description: `Pembayaran Tagihan NetManager`,
+                        paymentMethods: [paymentMethod]
+                    });
 
                     if (gatewayResult.success) {
                         paymentUrl = gatewayResult.paymentUrl || gatewayResult.qrCodeUrl || null;
@@ -164,6 +165,7 @@ export async function POST(request: NextRequest) {
                                 data: {
                                     transactionId: transactionId,
                                     paymentUrl: paymentUrl,
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     gatewayProvider: (gatewayResult as any).providerName || paymentMethod
                                 }
                             });
@@ -177,7 +179,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        return apiSuccess({ 
+        return apiSuccess({
             payments: result,
             paymentUrl,
             transactionId

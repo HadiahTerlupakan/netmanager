@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image';
 
 import { useState } from 'react'
 import { FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiZoomIn } from 'react-icons/fi'
@@ -201,7 +202,7 @@ export function DetailMasukModal({ masuk, isOpen, onClose, onEdit }: DetailMasuk
                     style={{ minHeight: '200px' }}
                     onClick={() => openLightbox(index)}
                   >
-                    <img
+                    <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
                       src={url}
                       alt={`Foto bukti ${index + 1}`}
                       className="w-full h-48 object-contain"

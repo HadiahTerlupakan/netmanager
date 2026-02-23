@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { useRef } from 'react'
 import { format } from 'date-fns'
 import {
@@ -111,7 +112,7 @@ export function WoDiscussionTab({
                                                     }}
                                                     className="block w-full cursor-pointer"
                                                 >
-                                                    <img
+                                                    <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
                                                         src={attData.filePath}
                                                         alt={attData.caption || 'Attachment'}
                                                         className={`rounded-lg object-cover max-h-60 min-w-[200px] w-full hover:opacity-90 transition-opacity ${isMe ? 'bg-indigo-500' : 'bg-gray-100'}`}

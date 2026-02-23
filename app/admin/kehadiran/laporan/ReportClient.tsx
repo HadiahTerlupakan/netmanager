@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image';
 
 import React, { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
@@ -271,7 +272,7 @@ export function ClientComponent() {
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0 relative">
                         { }
-                        <img
+                        <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
                             src={item.user?.image || `https://ui-avatars.com/api/?name=${item.user?.name}&background=random`}
                             alt=""
                             className="w-full h-full object-cover"

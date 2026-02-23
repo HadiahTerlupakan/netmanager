@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image';
 
 import { useState, useRef } from 'react'
 import { MdCameraAlt, MdClose, MdImage } from 'react-icons/md'
@@ -92,7 +93,7 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
                 <div className="grid grid-cols-3 gap-2 mb-3">
                     {previews.map((preview, index) => (
                         <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-                            <img
+                            <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
                                 src={preview}
                                 alt={`Preview ${index + 1}`}
                                 className="w-full h-full object-cover"

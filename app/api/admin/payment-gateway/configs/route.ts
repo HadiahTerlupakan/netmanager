@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'

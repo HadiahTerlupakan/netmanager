@@ -58,6 +58,8 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'NETWORK.MAP', name: 'Topology Map', path: '/admin/map', icon: 'HiOutlineMap' },
             { code: 'NETWORK.MIKROTIK', name: 'MikroTik', path: '/admin/network/mikrotik', icon: 'HiOutlineServer' },
             { code: 'NETWORK.RADIUS', name: 'RADIUS', path: '/admin/network/radius', icon: 'HiOutlineKey' },
+            { code: 'NETWORK.ACS_DASHBOARD', name: 'ACS Dashboard', path: '/admin/network/acs', icon: 'HiOutlineChartPie' },
+            { code: 'NETWORK.ACS_DEVICES', name: 'ONT Devices', path: '/admin/network/acs/devices', icon: 'HiOutlineWifi' },
         ],
     },
     {
@@ -254,6 +256,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'PENGATURAN.PAYMENT_GATEWAY', name: 'Payment', path: '/admin/pengaturan/payment-gateway', icon: 'HiOutlineCreditCard' },
             { code: 'PENGATURAN.API', name: 'API', path: '/admin/pengaturan/api', icon: 'HiOutlineCodeBracket' },
             { code: 'PENGATURAN.NADA_DERING', name: 'Nada Dering', path: '/admin/pengaturan/nada-dering', icon: 'HiOutlineSpeakerWave' },
+            { code: 'PENGATURAN.ACS', name: 'ACS & Vendor', path: '/admin/pengaturan/acs', icon: 'HiOutlineServerStack' },
             { code: 'PENGATURAN.APP_VERSION', name: 'Versi App', path: '/admin/pengaturan/app-version', icon: 'HiOutlineDevicePhoneMobile' },
         ],
     },

@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
 import { apiSuccess, createHandler } from '@/lib/api'
 

@@ -1,6 +1,5 @@
 import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 
-import { Prisma } from '@prisma/client'
 import type { ICouponRepository, CreateCouponInput, VerifyCouponResult } from '../repositories/ICouponRepository'
 import { CouponRepository } from '../repositories/CouponRepository'
 

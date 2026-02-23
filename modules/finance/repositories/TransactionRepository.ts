@@ -1,7 +1,6 @@
 import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
-import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
-import { type Transaction, type Prisma } from '@/prisma/generated/billing'
+import { type Transaction } from '@/prisma/generated/billing'
 import type { ITransactionRepository } from './ITransactionRepository'
 
 

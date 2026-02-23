@@ -106,10 +106,10 @@ export async function POST(
         await prismaBilling.payment.update({
             where: { id: payment.id },
             data: {
-                gatewayStatus: gatewayStatus as any,
+                gatewayStatus: gatewayStatus as unknown,
                 transactionId: webhookResult.transactionId || null,
                 gatewayProvider: providerType,
-                ...(webhookResult.paymentMethod ? { paymentMethod: webhookResult.paymentMethod as any } : {}),
+                ...(webhookResult.paymentMethod ? { paymentMethod: webhookResult.paymentMethod as unknown } : {}),
                 ...(webhookResult.paidAt ? { paymentDate: webhookResult.paidAt } : {}),
             },
         })
@@ -218,7 +218,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
             where: { id: invoiceId },
             data: {
                 paidAmount: totalPaid,
-                status: invoiceStatus as any,
+                status: invoiceStatus as unknown,
                 ...(invoiceStatus === 'PAID' ? { paidAt: new Date() } : {}),
             },
         })

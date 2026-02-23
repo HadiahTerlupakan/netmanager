@@ -15,6 +15,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     const sessions = await radiusRepo.getActiveSessions(username);
 
     // Convert BigInt to string for JSON serialization
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const serializedSessions = sessions.map((session: any) => ({
         ...session,
         radacctid: session.radacctid.toString(),

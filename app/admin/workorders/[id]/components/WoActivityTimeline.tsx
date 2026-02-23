@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import {
@@ -99,7 +100,7 @@ export function WoActivityTimeline({
                                                 rel="noopener noreferrer"
                                                 className="block"
                                             >
-                                                <img
+                                                <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
                                                     src={attData.filePath}
                                                     alt={attData.caption || 'Attachment'}
                                                     className="h-40 rounded-lg object-cover mb-2"

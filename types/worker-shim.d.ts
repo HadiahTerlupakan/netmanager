@@ -1,3 +1,3 @@
 interface ExtendableEvent extends Event {
-  waitUntil(fn: Promise<any>): void;
+  waitUntil(fn: Promise<unknown>): void;
 }

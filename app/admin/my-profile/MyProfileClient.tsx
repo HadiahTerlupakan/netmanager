@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image';
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/Button'
@@ -230,7 +231,7 @@ export default function MyProfileClient() {
                             <div className="w-24 h-24 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center border-4 border-white dark:border-gray-800 shadow-lg overflow-hidden shrink-0">
                                 {profile?.image ? (
                                      
-                                    <img 
+                                    <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} 
                                         src={profile.image} 
                                         alt="Profile" 
                                         className="w-full h-full object-cover"

@@ -90,6 +90,7 @@ const nextConfig: NextConfig = {
 
     // Remove console.log in production (keep console.error and console.warn)
     if (!dev && !isServer) {
+// eslint-disable-next-line @typescript-eslint/no-require-imports
       const TerserPlugin = require('terser-webpack-plugin')
       config.optimization.minimizer = config.optimization.minimizer || []
       config.optimization.minimizer.push(

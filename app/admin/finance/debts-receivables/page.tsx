@@ -39,9 +39,10 @@ export default async function DebtsReceivablesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Hutang & Piutang</h1>
-      <DebtsReceivablesClient 
-        unpaidData={unpaidPos as any} 
-        receivablesData={receivables as any} 
+      {/* eslint-disable @typescript-eslint/no-explicit-any */}
+      <DebtsReceivablesClient
+        unpaidData={unpaidPos as any}
+        receivablesData={receivables as any}
         categories={expenseCategories as any}
         accounts={accounts as any}
       />

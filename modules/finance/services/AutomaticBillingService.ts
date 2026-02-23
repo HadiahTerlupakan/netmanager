@@ -1,4 +1,4 @@
-import {  InvoiceStatus  } from '@/prisma/generated/billing';;
+import { InvoiceStatus } from '@/prisma/generated/billing';;
 import { prisma } from '@/lib/prisma';
 import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client';
@@ -164,12 +164,12 @@ export class AutomaticBillingService {
         };
     }, dueDate: Date) {
         // Use transaction to ensure atomicity
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (_tx) => {
             // 1. Generate Invoice Number with UUID suffix to prevent race condition
             const currentYear = new Date().getFullYear();
             const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
             const currentDay = String(new Date().getDate()).padStart(2, '0');
-            
+
             // Use crypto.randomUUID for better uniqueness (12 chars from UUID v4 to avoid collisions)
             // 8 chars was colliding at ~100k scale. 12 chars (16^12) is safe.
             const uniqueSuffix = randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
@@ -260,9 +260,9 @@ export class AutomaticBillingService {
 
         if (!invoice || invoice.status !== 'PAID') return;
 
-        
-          const { prisma: mainDb } = await import("@/lib/prisma");
-          const customer = await mainDb.pelanggan.findUnique({ where: { id: invoice.pelangganId } });
+
+        const { prisma: mainDb } = await import("@/lib/prisma");
+        const customer = await mainDb.pelanggan.findUnique({ where: { id: invoice.pelangganId } });
         if (!customer) return;
 
         const today = new Date();
@@ -297,6 +297,7 @@ export class AutomaticBillingService {
             }
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updates: any = {
             jatuhTempo: newJatuhTempo
         };

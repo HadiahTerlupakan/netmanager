@@ -10,14 +10,14 @@ import type {
     IRadiusRepository,
     IRadiusUser,
     IRadiusBandwidth,
-    IRadiusSession,
     IRadiusAccountingStats,
     INas,
     IRadIpPool,
+    IRadiusSession,
     IDashboardStats,
     IRadiusSessionView,
 } from './IRadiusRepository';
-import { Prisma } from '@prisma/client';
+
 
 export class RadiusRepository implements IRadiusRepository {
     constructor(private prisma: PrismaClient) { }
@@ -33,7 +33,7 @@ export class RadiusRepository implements IRadiusRepository {
                 attribute: 'Cleartext-Password',
                 op: ':=',
                 value: data.password,
-                
+
             },
         });
 
@@ -54,7 +54,7 @@ export class RadiusRepository implements IRadiusRepository {
             },
             data: {
                 value: password,
-                
+
             },
         });
     }
@@ -107,7 +107,7 @@ export class RadiusRepository implements IRadiusRepository {
                 attribute: 'Mikrotik-Rate-Limit',
                 op: ':=',
                 value: rateLimit,
-                
+
             },
         });
     }
@@ -178,7 +178,7 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get active sessions (acctstoptime is null)
      */
-    async getActiveSessions(username?: string): Promise<any> {
+    async getActiveSessions(username?: string): Promise<IRadiusSession[]> {
         const sessions = await prismaRadius.radacct.findMany({
             where: {
                 acctstoptime: null,
@@ -189,7 +189,7 @@ export class RadiusRepository implements IRadiusRepository {
             },
         });
 
-        return sessions as any as any;
+        return sessions as unknown as IRadiusSession[];
     }
 
     /**
@@ -199,7 +199,7 @@ export class RadiusRepository implements IRadiusRepository {
         username: string,
         startDate?: Date,
         endDate?: Date
-    ): Promise<any> {
+    ): Promise<IRadiusSession[]> {
         const sessions = await prismaRadius.radacct.findMany({
             where: {
                 username,
@@ -219,7 +219,7 @@ export class RadiusRepository implements IRadiusRepository {
             },
         });
 
-        return sessions as any as any;
+        return sessions as unknown as IRadiusSession[];
     }
 
     /**
@@ -241,7 +241,9 @@ export class RadiusRepository implements IRadiusRepository {
             activeSessions: 0,
         };
 
-        for (const session of sessions) {
+        for (const rawSession of sessions) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const session = rawSession as any;
             if (session.acctsessiontime) {
                 stats.totalSessionTime += session.acctsessiontime;
             }
@@ -380,7 +382,7 @@ export class RadiusRepository implements IRadiusRepository {
                 secret: nas.secret,
                 community: nas.community ?? null,
                 description: nas.description ?? null,
-                
+
             },
         });
 
@@ -410,7 +412,7 @@ export class RadiusRepository implements IRadiusRepository {
                 ...(nas.secret !== undefined ? { secret: nas.secret } : {}),
                 ...(nas.community !== undefined ? { community: nas.community } : {}),
                 ...(nas.description !== undefined ? { description: nas.description } : {}),
-                
+
             },
         });
 
@@ -559,7 +561,7 @@ export class RadiusRepository implements IRadiusRepository {
             data: {
                 nasipaddress: null,
                 pool_key: null,
-                
+
             },
         });
     }
@@ -690,6 +692,7 @@ export class RadiusRepository implements IRadiusRepository {
         const { page = 1, limit = 50, status = 'active' } = options;
         const skip = (page - 1) * limit;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const where: any = {};
         if (status === 'active') {
             where.acctstoptime = null;

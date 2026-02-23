@@ -189,27 +189,23 @@ export function MonthlyTrendChart({ data, loading, onDateRangeChange }: Props) {
           {/* Preset Buttons */}
           <div className="hidden sm:flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             {presetOptions.map((option) => (
-              <Button key={option.value}
-                onClick={() => handlePresetChange(option.value)}
-                className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+              <button type="button" key={option.value} onClick={() => handlePresetChange(option.value)} className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                   selectedPreset === option.value
                     ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
+                }`}>
                 {option.label}
-              </Button>
+              </button>
             ))}
           </div>
           
           {/* Mobile Dropdown */}
           <div className="sm:hidden relative">
-            <Button onClick={() => setShowDatePicker(!showDatePicker)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm"
+            <button type="button" onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-200"
             >
               <HiOutlineAdjustmentsHorizontal className="w-4 h-4" />
               <span>Filter</span>
-            </Button>
+            </button>
           </div>
         </div>
       </div>

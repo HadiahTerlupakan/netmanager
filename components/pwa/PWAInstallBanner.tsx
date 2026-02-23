@@ -90,11 +90,11 @@ export function PWAInstallBanner() {
                                 </p>
                                 <p className="flex items-center gap-2">
                                     <span className="bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">2</span>
-                                    <span>Pilih "Add to Home Screen" <HiOutlinePlusCircle className="inline w-4 h-4" /></span>
+                                    <span>Pilih &quot;Add to Home Screen&quot; <HiOutlinePlusCircle className="inline w-4 h-4" /></span>
                                 </p>
                                 <p className="flex items-center gap-2">
                                     <span className="bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">3</span>
-                                    <span>Tap "Add"</span>
+                                    <span>Tap &quot;Add&quot;</span>
                                 </p>
                             </div>
                         )}

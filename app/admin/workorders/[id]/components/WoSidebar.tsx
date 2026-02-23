@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import {
@@ -102,7 +103,7 @@ export function WoSidebar({
                                                 }}
                                                 className="block group relative aspect-square cursor-pointer"
                                             >
-                                                <img
+                                                <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
                                                     src={att.filePath}
                                                     alt="Bukti Selesai"
                                                     className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700 group-hover:border-emerald-500 transition-colors"

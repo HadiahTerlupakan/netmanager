@@ -320,8 +320,6 @@ export async function GET(
  *               password:
  *                 type: string
  *                 description: PPPoE password
- *                 type: string
- *                 description: Login password
  *               hargaPaketId:
  *                 type: string
  *                 description: Package ID
@@ -552,11 +550,11 @@ export async function PUT(
 
     const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
     if (isSiteRestricted) {
-        const user = session.user as ExtendedUser;
-        const userSiteId = user.siteId
-        if (existingPelanggan.siteId !== userSiteId) {
-          return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-        }
+      const user = session.user as ExtendedUser;
+      const userSiteId = user.siteId
+      if (existingPelanggan.siteId !== userSiteId) {
+        return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+      }
     }
 
     const formData = await req.formData()
@@ -1096,11 +1094,11 @@ export async function DELETE(
 
     const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
     if (isSiteRestricted) {
-        const user = session.user as ExtendedUser;
-        const userSiteId = user.siteId
-        if (pelanggan.siteId !== userSiteId) {
-          return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-        }
+      const user = session.user as ExtendedUser;
+      const userSiteId = user.siteId
+      if (pelanggan.siteId !== userSiteId) {
+        return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+      }
     }
 
 

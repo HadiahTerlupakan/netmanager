@@ -5,8 +5,8 @@ import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
  * Factory pattern for creating Invoice with different configurations.
  */
 
-import type { Prisma } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
+
+
 import { prismaBilling } from '@/lib/prisma-billing';
 import { randomUUID } from 'crypto'
 
@@ -108,7 +108,7 @@ export class InvoiceFactory {
 
         // Calculate amounts
         let subtotal = 0
-        const invoiceItems: PrismaBilling.InvoiceItemCreateManyInvoiceInput[] = dto.items.map((item: any) => {
+        const invoiceItems: PrismaBilling.InvoiceItemCreateManyInvoiceInput[] = dto.items.map((item) => {
             const totalPrice = item.quantity * item.unitPrice
             subtotal += totalPrice
             return {

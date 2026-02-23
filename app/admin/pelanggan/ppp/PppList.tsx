@@ -224,14 +224,14 @@ export default function PelangganPPPPage() {
         const dueDate = new Date(item.jatuhTempo)
         const diffDays = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
         
-        let statusColor = 'text-emerald-600 dark:text-emerald-400'
+        let statusColor = 'text-white bg-emerald-600 dark:bg-emerald-500'
         let statusText = `${diffDays} hari lagi`
         
         if (diffDays < 0) {
-            statusColor = 'text-rose-600 dark:text-rose-400'
+            statusColor = 'text-white bg-rose-600 dark:bg-rose-500'
             statusText = `Telat ${Math.abs(diffDays)} hari`
         } else if (diffDays <= disableDuration) {
-            statusColor = 'text-amber-600 dark:text-amber-400' 
+            statusColor = 'text-white bg-amber-600 dark:bg-amber-500' 
             statusText = `${diffDays} hari (Akan Habis)`
         }
 
@@ -240,7 +240,7 @@ export default function PelangganPPPPage() {
             <div className="text-xs text-gray-500">
               Exp: <span className="font-medium text-gray-700 dark:text-gray-300">{dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
-            <div className={`text-xs font-bold ${statusColor} bg-opacity-10 px-2 py-0.5 rounded-full inline-block ${statusColor.replace('text-', 'bg-')}`}>
+            <div className={`text-xs font-bold ${statusColor} px-2 py-1 rounded-full inline-block`}>
               {statusText}
             </div>
           </div>
@@ -279,10 +279,10 @@ export default function PelangganPPPPage() {
           </button>
           <Link
             href="/admin/pelanggan/ppp/create"
-            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all"
           >
-            <HiOutlinePlus className="-ml-1 mr-2 h-5 w-5" />
-            Tambah Pelanggan
+            <HiOutlinePlus className="-ml-1 mr-2 h-5 w-5 text-white" />
+            <span className="text-white">Tambah Pelanggan</span>
           </Link>
         </div>
       </div>
