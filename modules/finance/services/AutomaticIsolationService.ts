@@ -1,4 +1,4 @@
-import {  InvoiceStatus  } from '@/prisma/generated/billing';;
+import { InvoiceStatus } from '@/prisma/generated/billing';;
 import { prisma } from '@/lib/prisma';
 import { prismaBilling } from '@/lib/prisma-billing';
 import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';
@@ -12,7 +12,7 @@ export class AutomaticIsolationService {
      */
     static async runDailyCheck() {
         try {
-            console.log('[AutoIsolation] Starting daily isolation check...');
+            // console.log('[AutoIsolation] Starting daily isolation check...');
 
             // 1. Check if feature is enabled
             const enabledSetting = await prisma.settings.findUnique({
@@ -23,7 +23,7 @@ export class AutomaticIsolationService {
             const isEnabled = enabledSetting?.value !== 'false';
 
             if (!isEnabled) {
-                console.log('[AutoIsolation] Feature is disabled in settings. Skipping.');
+                // console.log('[AutoIsolation] Feature is disabled in settings. Skipping.');
                 return;
             }
 
@@ -42,7 +42,7 @@ export class AutomaticIsolationService {
 
             // Group by pelanggan to avoid processing the same customer multiple times
             const activeCustomersMap = new Map();
-            
+
             const { prisma: mainDb } = await import('@/lib/prisma');
             for (const inv of overdueInvoices) {
                 const pelanggan = await mainDb.pelanggan.findUnique({ where: { id: inv.pelangganId } });
@@ -52,9 +52,9 @@ export class AutomaticIsolationService {
             }
             const activeCustomers = Array.from(activeCustomersMap.values());
 
-            console.log(`[AutoIsolation] Found ${activeCustomers.length} candidates (overdue). Processing...`);
+            // console.log(`[AutoIsolation] Found ${activeCustomers.length} candidates (overdue). Processing...`);
 
-            let isolatedCount = 0;
+            // let isolatedCount = 0;
             const radiusService = new RadiusSyncService(prisma); // Fixed instantiation
 
             for (const customer of activeCustomers) {
@@ -68,7 +68,7 @@ export class AutomaticIsolationService {
                     const diffTime = Math.abs(today.getTime() - dueDate.getTime());
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                    console.log(`[AutoIsolation] Isolating ${customer.nama} (Due: ${customer.jatuhTempo}, Late: ${diffDays} days)`);
+                    // console.log(`[AutoIsolation] Isolating ${customer.nama} (Due: ${customer.jatuhTempo}, Late: ${diffDays} days)`);
 
                     // Perform Isolation
                     // 1. Update DB Status
@@ -105,14 +105,14 @@ export class AutomaticIsolationService {
                         }
                     });
 
-                    isolatedCount++;
+                    // _isolatedCount++;
 
                 } catch (err) {
                     console.error(`[AutoIsolation] Error isolating customer ${customer.id}:`, err);
                 }
             }
 
-            console.log(`[AutoIsolation] Finished. Isolated ${isolatedCount} customers.`);
+            // console.log(`[AutoIsolation] Finished. Isolated ${isolatedCount} customers.`);
 
         } catch (error) {
             console.error('[AutoIsolation] Fatal error:', error);

@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
             ...(updatedWorkOrder.departmentId && { departmentId: updatedWorkOrder.departmentId }),
             ...(updatedWorkOrder.siteId && { siteId: updatedWorkOrder.siteId }),
         });
-        console.log(`[Mobile Claim] Notifying admins with triggeredByName: '${user?.name}' (DB) vs '${payload.name}' (Token)`);
+        // console.log(`[Mobile Claim] Notifying admins with triggeredByName: '${user?.name}' (DB) vs '${payload.name}' (Token)`);
 
         return NextResponse.json({ success: true, workOrder: updatedWorkOrder });
     } catch (error) {

@@ -221,9 +221,9 @@ export class BCAProvider implements PaymentProvider {
         }
     }
 
-    async cancelPayment(orderId: string): Promise<void> {
+    async cancelPayment(_orderId: string): Promise<void> {
         // BCA Virtual Account biasanya tidak support cancel, akan expired otomatis
-        console.log(`BCA VA will auto-expire for order: ${orderId}`)
+        // console.log(`BCA VA will auto-expire for order: ${orderId}`)
     }
 
     verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {

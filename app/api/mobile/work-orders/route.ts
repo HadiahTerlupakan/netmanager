@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         );
 
         // 4. Return Data
-        console.log('[Mobile WO API] userId:', userId, 'type:', type, 'count:', result.workOrders.length);
+        // console.log('[Mobile WO API] userId:', userId, 'type:', type, 'count:', result.workOrders.length);
         return NextResponse.json({
             success: true,
             data: result.workOrders,

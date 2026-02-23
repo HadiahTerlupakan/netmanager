@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
             }
 
             if (allowedSiteIds.length === 0) {
-                console.log(`[Mobile Gudang] Access Denied: User ${user.email} (Role: ${user.role?.name}) has no site assigned.`);
+                // console.log(`[Mobile Gudang] Access Denied: User ${user.email} (Role: ${user.role?.name}) has no site assigned.`);
                 return NextResponse.json({ 
                     error: `Halo ${user.name}, akun Anda belum memiliki Site yang ditentukan. Silakan hubungi admin untuk assign Site ke akun Anda agar dapat melihat daftar Gudang.`,
                     code: 'NO_SITE_ASSIGNED',
@@ -95,9 +95,9 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        console.log('[Mobile Gudang] User:', user.name, 'Role:', user.role?.name);
-        console.log('[Mobile Gudang] isSiteRestricted:', isSiteRestricted);
-        console.log('[Mobile Gudang] WhereClause:', JSON.stringify(whereClause, null, 2));
+        // console.log('[Mobile Gudang] User:', user.name, 'Role:', user.role?.name);
+        // console.log('[Mobile Gudang] isSiteRestricted:', isSiteRestricted);
+        // console.log('[Mobile Gudang] WhereClause:', JSON.stringify(whereClause, null, 2));
 
         const gudangs = await prisma.gudang.findMany({
             where: whereClause,
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
             orderBy: { nama: 'asc' }
         })
 
-        console.log('[Mobile Gudang] Found:', gudangs.length, 'warehouses');
+        // console.log('[Mobile Gudang] Found:', gudangs.length, 'warehouses');
         gudangs.forEach(g => console.log(`- ${g.nama} (Sites: ${g.sites.map(s => s.name).join(', ') || 'NONE'})`));
 
         return NextResponse.json({ gudangList: gudangs })

@@ -74,7 +74,7 @@ export async function sendPushNotification(
         const webPushError = error as { statusCode?: number; message?: string };
         if (webPushError.statusCode === 410) {
             // Subscription expired or unsubscribed
-            console.log('Push subscription expired:', subscription.endpoint);
+            // console.log('Push subscription expired:', subscription.endpoint);
             return false;
         }
         console.error('Error sending push notification:', webPushError.message || error);

@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
         const cronSecret = process.env.CRON_SECRET
 
         if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-            console.log('[Cron WO Reminder] Unauthorized access attempt')
+            // console.log('[Cron WO Reminder] Unauthorized access attempt')
             return ApiErrors.unauthorized('Tidak terautentikasi')
         }
 
         const now = new Date()
         const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
-        console.log(`[Cron WO Reminder] Starting auto-reminder check at ${now.toISOString()}`)
+        // console.log(`[Cron WO Reminder] Starting auto-reminder check at ${now.toISOString()}`)
 
         const staleWorkOrders = await prisma.workOrders.findMany({
             where: {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
             take: 100,
         })
 
-        console.log(`[Cron WO Reminder] Found ${staleWorkOrders.length} stale work orders`)
+        // console.log(`[Cron WO Reminder] Found ${staleWorkOrders.length} stale work orders`)
 
         const results: ReminderResult[] = []
         let totalSent = 0
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
                 })
 
                 totalSent += sentCount
-                console.log(`[Cron WO Reminder] Sent reminder for ${wo.workOrderNumber} (${ageHours}h old) → ${sentCount} recipients`)
+                // console.log(`[Cron WO Reminder] Sent reminder for ${wo.workOrderNumber} (${ageHours}h old) → ${sentCount} recipients`)
             } catch (error) {
                 console.error(`[Cron WO Reminder] Error sending reminder for ${wo.workOrderNumber}:`, error)
             }

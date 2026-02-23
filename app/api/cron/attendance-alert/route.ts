@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         const cronSecret = process.env.CRON_SECRET
 
         if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-            console.log('[Cron] Unauthorized access attempt')
+            // console.log('[Cron] Unauthorized access attempt')
             return ApiErrors.unauthorized('Tidak terautentikasi')
         }
 

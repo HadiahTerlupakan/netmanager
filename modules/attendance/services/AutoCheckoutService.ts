@@ -59,7 +59,7 @@ export class AutoCheckoutService {
         })
 
 
-        console.log(`[AutoCheckout] Found ${openAttendances.length} open sessions. Processing...`)
+        // console.log(`[AutoCheckout] Found ${openAttendances.length} open sessions. Processing...`)
 
         let updatedCount = 0
 
@@ -92,7 +92,7 @@ export class AutoCheckoutService {
                         // Now (23:59 Mon) < ShiftEnd (04:00 Tue). -> SKIP.
                         if (now < shiftEndDate) {
                             shouldCheckout = false
-                            console.log(`[AutoCheckout] Skipping ${user.name} (Shift ${user.shift.name}). Overnight shift in progress.`)
+                            // console.log(`[AutoCheckout] Skipping ${user.name} (Shift ${user.shift.name}). Overnight shift in progress.`)
                         } else {
                             // If we are past the shift end (e.g. Cron runs next day),
                             // we set checkout time to the Shift End Time (as per "Mangkir" logic usually maxing out at shift end)
@@ -126,7 +126,7 @@ export class AutoCheckoutService {
             }
         }
 
-        console.log(`[AutoCheckout] Successfully auto-checked out ${updatedCount} users.`)
+        // console.log(`[AutoCheckout] Successfully auto-checked out ${updatedCount} users.`)
         return updatedCount
     }
 }

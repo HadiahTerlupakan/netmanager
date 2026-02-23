@@ -97,12 +97,12 @@ export class WhatsAppService {
 
             const provider = WhatsAppFactory.createProvider(config)
 
-            console.log(`[WhatsApp] Sending via ${config.provider} to ${params.phone}`)
+            // console.log(`[WhatsApp] Sending via ${config.provider} to ${params.phone}`)
 
             const result = await provider.sendMessage(params)
 
             if (result.success) {
-                console.log(`[WhatsApp] Message sent successfully, ID: ${result.messageId}`)
+                // console.log(`[WhatsApp] Message sent successfully, ID: ${result.messageId}`)
             } else {
                 console.error(`[WhatsApp] Failed to send:`, result.error)
             }
@@ -139,12 +139,12 @@ export class WhatsAppService {
                 throw new Error(`Provider ${config.provider} tidak mendukung pengiriman file`)
             }
 
-            console.log(`[WhatsApp] Sending file via ${config.provider} to ${params.phone}`)
+            // console.log(`[WhatsApp] Sending file via ${config.provider} to ${params.phone}`)
 
             const result = await provider.sendFile(params)
 
             if (result.success) {
-                console.log(`[WhatsApp] File sent successfully, ID: ${result.messageId}`)
+                // console.log(`[WhatsApp] File sent successfully, ID: ${result.messageId}`)
             } else {
                 console.error(`[WhatsApp] Failed to send file:`, result.error)
             }

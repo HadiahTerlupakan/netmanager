@@ -113,7 +113,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
                 const { MikroTikProvisioningService } = await import('@/modules/network/services/MikroTikProvisioningService');
                 const provisioningService = new MikroTikProvisioningService();
                 
-                console.log(`Deprovisioning router ${router.ipAddress}...`);
+                // console.log(`Deprovisioning router ${router.ipAddress}...`);
                 const result = await provisioningService.deprovisionRadius(
                     {
                         ip: router.ipAddress,
@@ -127,7 +127,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
                 if (!result.success) {
                     console.warn(`Deprovisioning failed: ${result.logs.join(', ')}`);
                 } else {
-                    console.log(`Deprovisioning success: ${result.logs.join(', ')}`);
+                    // console.log(`Deprovisioning success: ${result.logs.join(', ')}`);
                 }
              } catch (e) {
                  console.error('Failed to auto-deprovision:', e);

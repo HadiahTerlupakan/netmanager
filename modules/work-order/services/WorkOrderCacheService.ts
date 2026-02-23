@@ -42,7 +42,7 @@ export class WorkOrderCacheService {
         try {
             const key = this.getDashboardCacheKey(userId, period, options);
             await redis.setex(key, DASHBOARD_TTL, JSON.stringify(data));
-            console.log(`[CACHE] Cached dashboard data for user ${userId}, period ${period}`);
+            // console.log(`[CACHE] Cached dashboard data for user ${userId}, period ${period}`);
         } catch (error) {
             console.error('[CACHE] Failed to cache dashboard data:', error);
             // Don't throw - cache failures should not break the application
@@ -63,12 +63,12 @@ export class WorkOrderCacheService {
 
             if (cached) {
                 await this.incrementHit();
-                console.log(`[CACHE] Hit: dashboard data for user ${userId}`);
+                // console.log(`[CACHE] Hit: dashboard data for user ${userId}`);
                 return JSON.parse(cached);
             }
 
             await this.incrementMiss();
-            console.log(`[CACHE] Miss: dashboard data for user ${userId}`);
+            // console.log(`[CACHE] Miss: dashboard data for user ${userId}`);
             return null;
         } catch (error) {
             console.error('[CACHE] Failed to get cached dashboard data:', error);
@@ -161,7 +161,7 @@ export class WorkOrderCacheService {
 
             if (keys.length > 0) {
                 await redis.del(...keys);
-                console.log(`[CACHE] Invalidated ${keys.length} work order cache keys`);
+                // console.log(`[CACHE] Invalidated ${keys.length} work order cache keys`);
             }
         } catch (error) {
             console.error('[CACHE] Failed to invalidate all caches:', error);
@@ -178,7 +178,7 @@ export class WorkOrderCacheService {
 
             if (keys.length > 0) {
                 await redis.del(...keys);
-                console.log(`[CACHE] Invalidated ${keys.length} dashboard cache keys`);
+                // console.log(`[CACHE] Invalidated ${keys.length} dashboard cache keys`);
             }
         } catch (error) {
             console.error('[CACHE] Failed to invalidate dashboard caches:', error);
@@ -195,7 +195,7 @@ export class WorkOrderCacheService {
 
             if (keys.length > 0) {
                 await redis.del(...keys);
-                console.log(`[CACHE] Invalidated ${keys.length} list cache keys`);
+                // console.log(`[CACHE] Invalidated ${keys.length} list cache keys`);
             }
         } catch (error) {
             console.error('[CACHE] Failed to invalidate list caches:', error);
@@ -212,7 +212,7 @@ export class WorkOrderCacheService {
 
             if (keys.length > 0) {
                 await redis.del(...keys);
-                console.log(`[CACHE] Invalidated ${keys.length} stats cache keys`);
+                // console.log(`[CACHE] Invalidated ${keys.length} stats cache keys`);
             }
         } catch (error) {
             console.error('[CACHE] Failed to invalidate stats caches:', error);

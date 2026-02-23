@@ -37,7 +37,7 @@ export class AbsenceService {
         })
         
         if (holidays.length > 0) {
-            console.log(`[AbsenceService] ${targetDate.toDateString()} is a holiday. Skipping absence check.`)
+            // console.log(`[AbsenceService] ${targetDate.toDateString()} is a holiday. Skipping absence check.`)
             return { processed: 0, alpha: 0, message: 'Holiday' }
         }
 
@@ -68,7 +68,7 @@ export class AbsenceService {
         let alphaCount = 0
 
         // 3. Iterate and Check
-        console.log(`[AbsenceService] Processing ${users.length} active users for ${targetDate.toDateString()}`)
+        // console.log(`[AbsenceService] Processing ${users.length} active users for ${targetDate.toDateString()}`)
         
         for (const user of users) {
              // 3.1 Check Work Days
@@ -148,7 +148,7 @@ export class AbsenceService {
                         updatedAt: new Date()
                     }
                 })
-                console.log(`[AbsenceService] Marked ALPHA for ${user.name} on ${targetDate.toDateString()}`)
+                // console.log(`[AbsenceService] Marked ALPHA for ${user.name} on ${targetDate.toDateString()}`)
                 alphaCount++
              } catch (error) {
                  console.error(`[AbsenceService] Error creating Alpha for ${user.name}:`, error)

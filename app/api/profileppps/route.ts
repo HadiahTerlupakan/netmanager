@@ -302,7 +302,7 @@ export async function POST(req: NextRequest) {
     // Alur: 1. Buat IP Pool (jika ipRange disediakan), 2. Buat Profile PPP dengan rate limit dari Bandwidth
     if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
       try {
-        console.log('[API ProfilePPP] Attempting to create profile in MikroTik router:', validation.data.mikroTikRouterId)
+        // console.log('[API ProfilePPP] Attempting to create profile in MikroTik router:', validation.data.mikroTikRouterId)
 
         // Ambil rate limit dari Bandwidth
         // Prioritas: 1. bandwidthId langsung (jika disediakan), 2. HargaPaket yang terkait
@@ -310,9 +310,9 @@ export async function POST(req: NextRequest) {
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
 
         if (rateLimit) {
-          console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
+          // console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
         } else {
-          console.log('[API ProfilePPP] No rate limit found from Bandwidth, creating profile without rate limit')
+          // console.log('[API ProfilePPP] No rate limit found from Bandwidth, creating profile without rate limit')
         }
 
         const mikrotikResult = await createPPPProfileInMikroTik(
@@ -334,7 +334,7 @@ export async function POST(req: NextRequest) {
           // Jangan gagalkan request, hanya log error
           // Profile sudah dibuat di database, user bisa sync manual nanti jika diperlukan
         } else {
-          console.log('[API ProfilePPP] Successfully created PPP profile in MikroTik')
+          // console.log('[API ProfilePPP] Successfully created PPP profile in MikroTik')
         }
       } catch (mikrotikError: unknown) {
         console.error('[API ProfilePPP] Error creating PPP profile in MikroTik:', mikrotikError)
@@ -346,7 +346,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // Jika tidak ada mikroTikRouterId yang dipilih, skip pembuatan profile di MikroTik
-      console.log('[API ProfilePPP] No MikroTik router selected, skipping MikroTik profile creation')
+      // console.log('[API ProfilePPP] No MikroTik router selected, skipping MikroTik profile creation')
     }
 
     return NextResponse.json(profilePPP, { status: 201 })

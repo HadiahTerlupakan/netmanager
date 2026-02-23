@@ -115,7 +115,7 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
     if (!excludeUserId) {
         console.warn(`[NotificationDebug] WARNING: findEligibleRecipients called without excludeUserId. This may cause self-notifications.`);
     }
-    console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}, Exclude: ${excludeUserId || 'NONE'}`);
+    // console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}, Exclude: ${excludeUserId || 'NONE'}`);
 
     // Build where clause
     const whereClause: Prisma.UserWhereInput = {
@@ -208,7 +208,7 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
     const eligibleUsers = usersWithPermission.filter(user => {
         // Explicit exclusion safety net
         if (excludeUserId && user.id === excludeUserId) {
-            console.log(`[NotificationDebug] Explicitly excluding user ${user.name} (${user.id})`);
+            // console.log(`[NotificationDebug] Explicitly excluding user ${user.name} (${user.id})`);
             return false;
         }
 
@@ -232,12 +232,12 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
         const match = hasAccessViaSites || hasAccessViaLegacy;
         
         if (!match) {
-            console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSites=[${userSiteIds.join(',')}], LegacySite=${user.siteId} vs WOSite=${siteId})`);
+            // console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSites=[${userSiteIds.join(',')}], LegacySite=${user.siteId} vs WOSite=${siteId})`);
         }
         return match;
     });
 
-    console.log(`[NotificationDebug] Found ${eligibleUsers.length} eligible recipients`);
+    // console.log(`[NotificationDebug] Found ${eligibleUsers.length} eligible recipients`);
     return eligibleUsers.map(u => ({ id: u.id }));
 }
 
@@ -249,10 +249,10 @@ export async function notifyNewWorkOrder(data: WorkOrderNotificationData & { tri
     const priorityEmoji = getPriorityEmoji(data.priority);
     const typeLabel = getWorkOrderTypeLabel(data.type);
 
-    console.log(`[NotificationDebug] Processing New WO Notification: ${data.workOrderNumber}`);
+    // console.log(`[NotificationDebug] Processing New WO Notification: ${data.workOrderNumber}`);
     const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
     
-    console.log(`[Notification] New WO ${data.workOrderNumber}: Found ${recipients.length} recipients`);
+    // console.log(`[Notification] New WO ${data.workOrderNumber}: Found ${recipients.length} recipients`);
 
     if (recipients.length === 0) {
         console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New WO ${data.workOrderNumber}. Check Dept/Site/Permissions.`);
@@ -407,7 +407,7 @@ export async function notifyAdminsAboutMobileAction(data: {
     // Explicitly filter again to be absolutely sure
     const adminUsers = adminUsersRaw.filter(u => u.id !== data.triggeredByUserId);
 
-    console.log(`[Notification] Admin Action '${data.actionType}': Notifying ${adminUsers.length} users (Filtered out: ${adminUsersRaw.length - adminUsers.length})`);
+    // console.log(`[Notification] Admin Action '${data.actionType}': Notifying ${adminUsers.length} users (Filtered out: ${adminUsersRaw.length - adminUsers.length})`);
 
     const promises = adminUsers.map(async (user) => {
         await createNotification({
@@ -424,7 +424,7 @@ export async function notifyAdminsAboutMobileAction(data: {
     });
 
     await Promise.all(promises);
-    console.log(`[Notification] Admin notified about mobile action: ${data.actionType} on ${data.workOrderNumber}`);
+    // console.log(`[Notification] Admin notified about mobile action: ${data.actionType} on ${data.workOrderNumber}`);
     return { count: adminUsers.length };
 }
 
@@ -648,7 +648,7 @@ export interface CanvasingNotificationData {
  * Find users with canvasing:verify permission in a specific site
  */
 async function findCanvasingVerifiers(siteId?: string | null): Promise<{ id: string }[]> {
-    console.log(`[NotificationDebug] Finding canvasing verifiers for Site: ${siteId}`);
+    // console.log(`[NotificationDebug] Finding canvasing verifiers for Site: ${siteId}`);
 
     const whereClause: Prisma.UserWhereInput = {
         isActive: true,
@@ -676,7 +676,7 @@ async function findCanvasingVerifiers(siteId?: string | null): Promise<{ id: str
         select: { id: true, name: true }
     });
 
-    console.log(`[NotificationDebug] Found ${users.length} canvasing verifiers`);
+    // console.log(`[NotificationDebug] Found ${users.length} canvasing verifiers`);
     return users;
 }
 
@@ -684,7 +684,7 @@ async function findCanvasingVerifiers(siteId?: string | null): Promise<{ id: str
  * Notify admins/managers about new canvasing request
  */
 export async function notifyNewCanvasing(data: CanvasingNotificationData) {
-    console.log(`[NotificationDebug] Processing New Canvasing Notification for: ${data.customerName}`);
+    // console.log(`[NotificationDebug] Processing New Canvasing Notification for: ${data.customerName}`);
 
     const recipients = await findCanvasingVerifiers(data.siteId);
 
@@ -708,6 +708,6 @@ export async function notifyNewCanvasing(data: CanvasingNotificationData) {
     });
 
     await Promise.all(promises);
-    console.log(`[Notification] New Canvasing: Notified ${recipients.length} verifiers`);
+    // console.log(`[Notification] New Canvasing: Notified ${recipients.length} verifiers`);
     return { count: recipients.length };
 }

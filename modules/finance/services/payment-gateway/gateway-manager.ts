@@ -92,7 +92,7 @@ export class PaymentGatewayManager {
             const fallbackProviders = allProviders.filter(p => p.provider !== providerConfig.provider)
 
             for (const fallback of fallbackProviders) {
-                console.log(`Trying fallback provider: ${fallback.provider}`)
+                // console.log(`Trying fallback provider: ${fallback.provider}`)
 
                 try {
                     const provider = await this.getProviderInstance(fallback.provider)

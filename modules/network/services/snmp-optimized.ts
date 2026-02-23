@@ -123,7 +123,7 @@ const cache = new LRUCache<string, CacheValue>(100, CACHE_TTL)
 setInterval(() => {
   const removed = cache.cleanup()
   if (removed > 0) {
-    console.log(`[SNMP Cache] Cleaned up ${removed} expired entries. Current size: ${cache.size}`)
+    // console.log(`[SNMP Cache] Cleaned up ${removed} expired entries. Current size: ${cache.size}`)
   }
 }, 60000)
 
@@ -169,12 +169,12 @@ export async function snmpWalkOptimized(
   if (useCache) {
     const cached = getFromCache(cacheKey)
     if (cached) {
-      console.log(`[SNMP-Optimized] Cache hit for ${oid} (${Object.keys(cached).length} items)`)
+      // console.log(`[SNMP-Optimized] Cache hit for ${oid} (${Object.keys(cached).length} items)`)
       return cached
     }
   }
 
-  console.log(`[SNMP-Optimized] Starting SNMP GETBULK for ${oid}...`)
+  // console.log(`[SNMP-Optimized] Starting SNMP GETBULK for ${oid}...`)
   const startTime = Date.now()
 
   try {
@@ -186,14 +186,14 @@ export async function snmpWalkOptimized(
       setCache(cacheKey, results)
     }
 
-    const duration = Date.now() - startTime
-    console.log(`[SNMP-Optimized] GETBULK completed for ${oid} (${Object.keys(results).length} items, ${duration}ms)`)
+    const _duration = Date.now() - startTime
+    // console.log(`[SNMP-Optimized] GETBULK completed for ${oid} (${Object.keys(results).length} items, ${duration}ms)`)
 
     return results
   } catch (error) {
     console.error(`[SNMP-Optimized] GETBULK failed for ${oid}:`, error instanceof Error ? error.message : String(error))
     // Fallback ke WALK dengan chunking jika GETBULK gagal
-    console.log(`[SNMP-Optimized] Falling back to WALK with chunking...`)
+    // console.log(`[SNMP-Optimized] Falling back to WALK with chunking...`)
     const session = await connectionPool.getSession(ipAddress, port, community, version)
     try {
       const results = await snmpWalkWithChunking(session, oid, chunkSize, timeout)
@@ -218,7 +218,7 @@ async function snmpWalkWithChunking(
     let resolved = false
     const results: Record<string, string> = {}
     let currentChunk: Record<string, string> = {}
-    let chunkCount = 0
+    // let _chunkCount = 0
 
     const finish = (error?: Error) => {
       if (resolved) return
@@ -238,7 +238,7 @@ async function snmpWalkWithChunking(
 
     const timeoutId = setTimeout(() => {
       if (!resolved) {
-        console.log(`[SNMP-Optimized] Timeout reached, returning ${Object.keys(results).length} results`)
+        // console.log(`[SNMP-Optimized] Timeout reached, returning ${Object.keys(results).length} results`)
         finish()
       }
     }, timeout)
@@ -293,30 +293,30 @@ async function snmpWalkWithChunking(
 
       // Add chunk to results if it reaches chunk size
       if (Object.keys(currentChunk).length >= chunkSize) {
-        chunkCount++
-        console.log(`[SNMP-Optimized] Processing chunk ${chunkCount} (${Object.keys(currentChunk).length} items)`)
+        // chunkCount++
+        // console.log(`[SNMP-Optimized] Processing chunk ${chunkCount} (${Object.keys(currentChunk).length} items)`)
 
         Object.assign(results, currentChunk)
         currentChunk = {}
       }
     }
 
-      const feedCb = (varbinds: snmp.Varbind[]) => {
-        try {
-          processCallback(null, varbinds)
-        } catch (callbackError) {
-          console.error(`[SNMP-Optimized] Callback error:`, callbackError instanceof Error ? callbackError.message : String(callbackError))
-        }
+    const feedCb = (varbinds: snmp.Varbind[]) => {
+      try {
+        processCallback(null, varbinds)
+      } catch (callbackError) {
+        console.error(`[SNMP-Optimized] Callback error:`, callbackError instanceof Error ? callbackError.message : String(callbackError))
       }
+    }
 
-      const doneCb = (error?: Error) => {
-        if (error) {
-           console.error(`[SNMP-Optimized] Subtree error:`, error.message)
-           finish(error)
-        } else {
-           finish()
-        }
+    const doneCb = (error?: Error) => {
+      if (error) {
+        console.error(`[SNMP-Optimized] Subtree error:`, error.message)
+        finish(error)
+      } else {
+        finish()
       }
+    }
 
     try {
       // Use maxRepetitions = 20 for subtree walk
@@ -381,7 +381,7 @@ export async function fetchOnuDataPaginated(
 
   // Jika cache expired atau tidak ada, fetch baru
   if (!statusData) {
-    console.log(`[SNMP-Optimized] Fetching status data (total count) for pagination...`)
+    // console.log(`[SNMP-Optimized] Fetching status data (total count) for pagination...`)
     statusData = await snmpWalkOptimized(ipAddress, port, community, version, oidStatusNew, {
       useCache: false, // Don't use normal cache, we'll cache manually with longer TTL
       timeout: SNMP_TIMEOUT
@@ -401,10 +401,10 @@ export async function fetchOnuDataPaginated(
     // Cache status data
     if (statusData && Object.keys(statusData).length > 0) {
       setCache(statusCacheKey, statusData)
-      console.log(`[SNMP-Optimized] Cached status data (${Object.keys(statusData).length} ONUs)`)
+      // console.log(`[SNMP-Optimized] Cached status data (${Object.keys(statusData).length} ONUs)`)
     }
   } else {
-    console.log(`[SNMP-Optimized] Using cached status data (${Object.keys(statusData).length} ONUs)`)
+    // console.log(`[SNMP-Optimized] Using cached status data (${Object.keys(statusData).length} ONUs)`)
   }
 
   const totalOnus = Object.keys(statusData).length
@@ -427,12 +427,12 @@ export async function fetchOnuDataPaginated(
   const endIndex = Math.min(startIndex + pageSize, totalOnus)
   const indexes = Object.keys(statusData).slice(startIndex, endIndex)
 
-  console.log(`[SNMP-Optimized] Fetching page ${page}/${totalPages} (${indexes.length} ONUs)`)
+  // console.log(`[SNMP-Optimized] Fetching page ${page}/${totalPages} (${indexes.length} ONUs)`)
 
   // Fetch data dengan timeout lebih lama untuk dataset besar
   // Gunakan cache untuk mengurangi beban SNMP
   const dataTimeout = totalOnus > 500 ? SNMP_TIMEOUT : 60000 // 3 min untuk besar, 1 min untuk kecil
-  console.log(`[SNMP-Optimized] Fetching ONU data with timeout ${dataTimeout / 1000}s (total ONUs: ${totalOnus})`)
+  // console.log(`[SNMP-Optimized] Fetching ONU data with timeout ${dataTimeout / 1000}s (total ONUs: ${totalOnus})`)
 
   const [nameData, descData, rxOltData, rxOnuData, snData, actualTypeData, pppoeData] = await Promise.all([
     snmpWalkOptimized(ipAddress, port, community, version, oidName, { useCache: true, timeout: dataTimeout }).catch(() => ({})),
@@ -544,7 +544,7 @@ export async function fetchOnuDataPaginated(
 // Clear cache utility
 export function clearSNMPCache(): void {
   cache.clear()
-  console.log('[SNMP-Optimized] Cache cleared')
+  // console.log('[SNMP-Optimized] Cache cleared')
 }
 
 // Cleanup function untuk connection pool

@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest) {
     const logoInvoice = settingsMap.get('LOGO_INVOICE') || null
     const logoAplikasi = settingsMap.get('LOGO_APLIKASI') || null
 
-    console.log('Public logo settings:', { logoInvoice, logoAplikasi })
+    // console.log('Public logo settings:', { logoInvoice, logoAplikasi })
 
     return NextResponse.json({
       logoInvoice,

@@ -33,7 +33,7 @@ async function autoApproveTukarLibur() {
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
     const tomorrowEnd = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 23, 59, 59, 999)
 
-    console.log(`[Cron Auto-Approve Leave] Checking TUKAR_LIBUR for ${tomorrow.toISOString().split('T')[0]}`)
+    // console.log(`[Cron Auto-Approve Leave] Checking TUKAR_LIBUR for ${tomorrow.toISOString().split('T')[0]}`)
 
     const pendingRequests = await prisma.leaveRequest.findMany({
         where: {
@@ -51,7 +51,7 @@ async function autoApproveTukarLibur() {
         }
     })
 
-    console.log(`[Cron Auto-Approve Leave] Found ${pendingRequests.length} pending TUKAR_LIBUR requests`)
+    // console.log(`[Cron Auto-Approve Leave] Found ${pendingRequests.length} pending TUKAR_LIBUR requests`)
 
     let approvedCount = 0
     const approvedIds: string[] = []
@@ -79,7 +79,7 @@ async function autoApproveTukarLibur() {
 
             approvedCount++
             approvedIds.push(request.id)
-            console.log(`[Cron Auto-Approve Leave] Auto-approved request ${request.id} for user ${request.user?.name}`)
+            // console.log(`[Cron Auto-Approve Leave] Auto-approved request ${request.id} for user ${request.user?.name}`)
         } catch (error) {
             console.error(`[Cron Auto-Approve Leave] Failed to approve request ${request.id}:`, error)
         }

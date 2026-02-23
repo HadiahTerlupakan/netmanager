@@ -238,7 +238,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
                 assignedToId: updatedWO?.assignedToId ?? null,
             }, oldStatus, body.status, user.id);
 
-            console.log(`[Notification] Status change ${oldStatus} → ${body.status} for WO ${updatedWO?.workOrderNumber}`);
+            // console.log(`[Notification] Status change ${oldStatus} → ${body.status} for WO ${updatedWO?.workOrderNumber}`);
         } catch (notifyError) {
             console.error('Failed to send status update notification', notifyError);
         }
@@ -380,7 +380,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
                 assignedToId: existingWO.assignedToId ?? null,
             }, existingWO.status, 'CANCELLED', user.id);
 
-            console.log(`[Notification] Cancel notification sent for WO ${existingWO.workOrderNumber}`);
+            // console.log(`[Notification] Cancel notification sent for WO ${existingWO.workOrderNumber}`);
         }
     } catch (notifyError) {
         console.error('Failed to send cancel notification', notifyError);

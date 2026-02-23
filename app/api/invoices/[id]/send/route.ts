@@ -78,7 +78,7 @@ export const POST = createHandler({
 
     try {
       // TODO: Implement email sending logic
-      console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via EMAIL`)
+      // console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via EMAIL`)
       sentVia.push('EMAIL')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (emailError: any) {
@@ -95,7 +95,7 @@ export const POST = createHandler({
 
     try {
       // TODO: Implement WhatsApp sending logic
-      console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via WHATSAPP`)
+      // console.log(`[Invoice] Sending invoice ${invoice.invoiceNumber} via WHATSAPP`)
       sentVia.push('WHATSAPP')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (whatsappError: any) {

@@ -113,7 +113,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                     }
                 );
             } else {
-                console.log(`Skipping notification for user ${workOrder.assignedTo.id} (On Leave)`);
+                // console.log(`Skipping notification for user ${workOrder.assignedTo.id} (On Leave)`);
             }
 
             // Persist notification (Always create history)

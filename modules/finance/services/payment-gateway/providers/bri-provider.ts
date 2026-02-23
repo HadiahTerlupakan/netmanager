@@ -200,9 +200,9 @@ export class BRIProvider implements PaymentProvider {
         }
     }
 
-    async cancelPayment(orderId: string): Promise<void> {
+    async cancelPayment(_orderId: string): Promise<void> {
         // BRI Virtual Account biasanya tidak support cancel, akan expired otomatis
-        console.log(`BRI VA will auto-expire for order: ${orderId}`)
+        // console.log(`BRI VA will auto-expire for order: ${orderId}`)
     }
 
     verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {

@@ -43,7 +43,7 @@ export async function onWorkOrderCreated(workOrder: WorkOrderData, triggeredByUs
             siteId: workOrder.siteId || undefined,
             triggeredByUserId,
         });
-        console.log(`[Notification] New WO notification triggered for Dept: ${workOrder.departmentId}, Site: ${workOrder.siteId}`);
+        // console.log(`[Notification] New WO notification triggered for Dept: ${workOrder.departmentId}, Site: ${workOrder.siteId}`);
     } catch (error) {
         console.error('[Notification] Error sending new WO notification:', error);
     }
@@ -71,7 +71,7 @@ export async function onWorkOrderAssigned(
             assigneeName,
             triggeredByUserId
         });
-        console.log(`[Notification] Assignment notification processed for WO: ${workOrder.workOrderNumber}`);
+        // console.log(`[Notification] Assignment notification processed for WO: ${workOrder.workOrderNumber}`);
     } catch (error) {
         console.error('[Notification] Error sending assignment notification:', error);
     }
@@ -102,7 +102,7 @@ export async function onWorkOrderStatusChanged(
             newStatus,
             triggeredByUserId
         });
-        console.log(`[Notification] Status change notification processed: ${oldStatus} -> ${newStatus}`);
+        // console.log(`[Notification] Status change notification processed: ${oldStatus} -> ${newStatus}`);
 
         // Notify canvasing sales if this WO is from canvasing
         await notifyCanvasingSalesOnWOStatusChange(workOrder.id, newStatus);
@@ -140,7 +140,7 @@ async function notifyCanvasingSalesOnWOStatusChange(workOrderId: string, newStat
                 sourceType: 'CANVASING',
                 sourceId: canvasing.id,
             });
-            console.log(`[Notification] Canvasing IN_PROGRESS notif sent to sales: ${canvasing.salesId}`);
+            // console.log(`[Notification] Canvasing IN_PROGRESS notif sent to sales: ${canvasing.salesId}`);
         } else if (['COMPLETED', 'VERIFIED', 'CLOSED'].includes(newStatus)) {
             await createNotification({
                 type: 'ANNOUNCEMENT',
@@ -152,7 +152,7 @@ async function notifyCanvasingSalesOnWOStatusChange(workOrderId: string, newStat
                 sourceType: 'CANVASING',
                 sourceId: canvasing.id,
             });
-            console.log(`[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`);
+            // console.log(`[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`);
         }
     } catch (error) {
         console.error('[Notification] Error notifying canvasing sales:', error);
@@ -183,7 +183,7 @@ export async function onWorkOrderUpdated(
             updatedByName,
             triggeredByUserId
         });
-        console.log(`[Notification] Update notification processed for WO: ${workOrder.workOrderNumber}`);
+        // console.log(`[Notification] Update notification processed for WO: ${workOrder.workOrderNumber}`);
     } catch (error) {
         console.error('[Notification] Error sending update notification:', error);
     }
@@ -208,7 +208,7 @@ export async function sendWorkOrderReminder(
 
         // Case 1: WO sudah diambil → Reminder hanya ke teknisi yang mengambil
         if (workOrder.assignedToId) {
-            console.log(`[Push] Sending reminder to assigned user: ${workOrder.assignedToId}`);
+            // console.log(`[Push] Sending reminder to assigned user: ${workOrder.assignedToId}`);
             return await sendPushToUsers(
                 [workOrder.assignedToId],
                 title,
@@ -219,7 +219,7 @@ export async function sendWorkOrderReminder(
 
         // Case 2: WO belum diambil → WAJIB berdasarkan site
         if (!workOrder.siteId) {
-            console.log('[Push] No siteId found for unassigned WO - cannot send reminder');
+            // console.log('[Push] No siteId found for unassigned WO - cannot send reminder');
             return 0;
         }
 
@@ -236,7 +236,7 @@ export async function sendWorkOrderReminder(
         // Jika ada departmentId → tambahkan filter department (opsional, untuk tidak ganggu dept lain)
         if (workOrder.departmentId) {
             whereClause.departmentId = workOrder.departmentId;
-            console.log(`[Push] Filtering by department: ${workOrder.departmentId}`);
+            // console.log(`[Push] Filtering by department: ${workOrder.departmentId}`);
         }
 
         const techniciansInSite = await prisma.user.findMany({
@@ -245,14 +245,14 @@ export async function sendWorkOrderReminder(
         });
 
         if (techniciansInSite.length === 0) {
-            const deptInfo = workOrder.departmentId ? ` in department ${workOrder.departmentId}` : '';
-            console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}${deptInfo}`);
+            const _deptInfo = workOrder.departmentId ? ` in department ${workOrder.departmentId}` : '';
+            // console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}${deptInfo}`);
             return 0;
         }
 
         const userIds = techniciansInSite.map(u => u.id);
-        const deptInfo = workOrder.departmentId ? ` (filtered by dept)` : '';
-        console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${deptInfo}`);
+        const _deptInfo = workOrder.departmentId ? ` (filtered by dept)` : '';
+        // console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${deptInfo}`);
         
         return await sendPushToUsers(
             userIds,

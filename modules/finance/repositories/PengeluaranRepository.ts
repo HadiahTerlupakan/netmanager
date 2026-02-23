@@ -196,14 +196,14 @@ export class PengeluaranRepository implements IPengeluaranRepository {
                         message: `${budgetCategory}: ${message}`,
                       },
                     })
-                    console.log(`[Budget Alert] Created ${type} alert for budget ${budget.id}`)
+                    // console.log(`[Budget Alert] Created ${type} alert for budget ${budget.id}`)
                   }
                   break // Only create the highest severity alert
                 }
               }
             }
 
-            console.log(`[Budget Integration] Linked expense to budget ${budget.id}, updated actual amount`)
+            // console.log(`[Budget Integration] Linked expense to budget ${budget.id}, updated actual amount`)
           }
         }
       } catch (error) {
@@ -272,7 +272,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
               notes: `Auto-created PPN IN from ${data.kategori} vendor purchase - ${data.deskripsi || ''}`.trim(),
             },
           })
-          console.log(`[PPN IN Integration] Created PPN IN record for expense ${created.id} - DPP: ${dpp}, PPN: ${ppnAmount}`)
+          // console.log(`[PPN IN Integration] Created PPN IN record for expense ${created.id} - DPP: ${dpp}, PPN: ${ppnAmount}`)
         }
       } catch (error) {
         console.error('[PPN IN Integration] Failed to create tax record:', error)

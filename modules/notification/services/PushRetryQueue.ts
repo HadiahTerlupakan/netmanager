@@ -35,7 +35,7 @@ export async function enqueuePushRetry(item: Omit<PushRetryItem, 'id' | 'retryCo
             createdAt: Date.now(),
         }
         await redis.lpush(RETRY_QUEUE_KEY, JSON.stringify(retryItem))
-        console.log(`[PushRetry] Enqueued ${item.type} push for user ${item.userId}`)
+        // console.log(`[PushRetry] Enqueued ${item.type} push for user ${item.userId}`)
     } catch (error) {
         console.error('[PushRetry] Failed to enqueue:', error)
     }
@@ -101,7 +101,7 @@ export async function processRetryQueue(): Promise<{ processed: number; succeede
 
             if (success) {
                 stats.succeeded++
-                console.log(`[PushRetry] Retry succeeded for user ${item.userId} on attempt ${item.retryCount}`)
+                // console.log(`[PushRetry] Retry succeeded for user ${item.userId} on attempt ${item.retryCount}`)
             } else {
                 // Re-enqueue for next retry cycle
                 await redis.lpush(RETRY_QUEUE_KEY, JSON.stringify(item))
@@ -112,7 +112,7 @@ export async function processRetryQueue(): Promise<{ processed: number; succeede
     }
 
     if (stats.processed > 0) {
-        console.log(`[PushRetry] Processed: ${stats.processed}, Succeeded: ${stats.succeeded}, Dropped: ${stats.dropped}`)
+        // console.log(`[PushRetry] Processed: ${stats.processed}, Succeeded: ${stats.succeeded}, Dropped: ${stats.dropped}`)
     }
 
     return stats
@@ -181,13 +181,13 @@ export function startPushRetryProcessor(): void {
         }
     }, RETRY_INTERVAL_MS)
 
-    console.log(`[PushRetry] Retry processor started (interval: ${RETRY_INTERVAL_MS / 1000}s)`)
+    // console.log(`[PushRetry] Retry processor started (interval: ${RETRY_INTERVAL_MS / 1000}s)`)
 }
 
 export function stopPushRetryProcessor(): void {
     if (retryIntervalId) {
         clearInterval(retryIntervalId)
         retryIntervalId = null
-        console.log('[PushRetry] Retry processor stopped')
+        // console.log('[PushRetry] Retry processor stopped')
     }
 }

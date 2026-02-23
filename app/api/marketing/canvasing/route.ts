@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const canVerify = permissions.includes('canvasing:verify')
     const canViewOthers = isSuperAdmin || canVerify || canReadAll
 
-    console.log(`[API_CANVASING] User: ${session.email}, isSuperAdmin: ${isSuperAdmin}, canReadAll: ${canReadAll}, canVerify: ${canVerify}, canViewOthers: ${canViewOthers}`)
+    // console.log(`[API_CANVASING] User: ${session.email}, isSuperAdmin: ${isSuperAdmin}, canReadAll: ${canReadAll}, canVerify: ${canVerify}, canViewOthers: ${canViewOthers}`)
 
     if (!canViewOthers) {
         // Absolute restriction for regular Sales/Staff

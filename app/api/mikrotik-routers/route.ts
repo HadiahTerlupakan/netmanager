@@ -115,7 +115,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
         // Auto Provisioning
         if (body.autoConfigure) {
-            console.log('Starting Auto Provisioning...');
+            // console.log('Starting Auto Provisioning...');
             try {
                 const serviceModule = await import('@/modules/network/services/MikroTikProvisioningService');
                 if (serviceModule && serviceModule.MikroTikProvisioningService) {
@@ -138,7 +138,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                         console.warn(`Router created but provisioning failed: ${provisioningResult.logs.join(', ')}`);
                     }
 
-                    console.log('Creating API User...');
+                    // console.log('Creating API User...');
                     const apiUserResult = await provisioningService.createApiUser({
                         ip: ipAddress,
                         port: Number(apiPort),
@@ -154,7 +154,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                                 apiPasswordGenerated: apiUserResult.password,
                             }
                         });
-                        console.log(`API User created and saved: ${apiUserResult.username}`);
+                        // console.log(`API User created and saved: ${apiUserResult.username}`);
                     } else {
                         console.warn(`API User creation failed: ${apiUserResult.logs.join(', ')}`);
                     }

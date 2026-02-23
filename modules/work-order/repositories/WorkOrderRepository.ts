@@ -991,7 +991,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         };
     }
 
-    async assign(id: string, employeeId: string, role?: string, triggeredByUserId?: string): Promise<WorkOrders> {
+    async assign(id: string, employeeId: string, role?: string, _triggeredByUserId?: string): Promise<WorkOrders> {
         await this.prisma.workOrders.update({
             where: { id },
             data: {
@@ -1004,7 +1004,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         
         const wo = await this.findById(id) as WorkOrders;
         
-        console.log(`[RepoDebug] Assigning WO ${id} to ${employeeId} by ${triggeredByUserId}`);
+        // console.log(`[RepoDebug] Assigning WO ${id} to ${employeeId} by ${triggeredByUserId}`);
         
         // NOTE: Notification moved to Service layer
 

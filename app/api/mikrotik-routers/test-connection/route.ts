@@ -60,20 +60,20 @@ async function testMikroTikAPI(
 
           try {
             identity = await conn.write('/system/identity/print')
-          } catch (e) {
-            console.log('Failed to get identity:', e)
+          } catch (_e) {
+            // console.log('Failed to get identity:', e)
           }
 
           try {
             resource = await conn.write('/system/resource/print')
-          } catch (e) {
-            console.log('Failed to get resource:', e)
+          } catch (_e) {
+            // console.log('Failed to get resource:', e)
           }
 
           try {
             pppActive = await conn.write('/ppp/active/print')
-          } catch (e) {
-            console.log('Failed to get ppp active:', e)
+          } catch (_e) {
+            // console.log('Failed to get ppp active:', e)
           }
 
           cleanup()
@@ -145,90 +145,90 @@ async function testMikroTikAPI(
 }
 
 export const POST = createHandler({ auth: true }, async (req, _ctx) => {
-    if (!await hasPermission("mikrotik:read")) {
-        return ApiErrors.forbidden('Akses ditolak')
-    }
+  if (!await hasPermission("mikrotik:read")) {
+    return ApiErrors.forbidden('Akses ditolak')
+  }
 
-    const body = await req.json()
-    const {
-      ipAddress: initialIpAddress,
-      apiPort: initialApiPort = 8728,
-      apiUsername: initialApiUsername,
-      apiPassword: initialApiPassword,
-      routerId,
-    } = body
+  const body = await req.json()
+  const {
+    ipAddress: initialIpAddress,
+    apiPort: initialApiPort = 8728,
+    apiUsername: initialApiUsername,
+    apiPassword: initialApiPassword,
+    routerId,
+  } = body
 
-    let ipAddress = initialIpAddress
-    let apiPort = initialApiPort
-    let apiUsername = initialApiUsername
-    let apiPassword = initialApiPassword
+  let ipAddress = initialIpAddress
+  let apiPort = initialApiPort
+  let apiUsername = initialApiUsername
+  let apiPassword = initialApiPassword
 
-    if (routerId) {
-      try {
-        const routerRepository = getMikroTikRouterRepository()
-        const router = await routerRepository.findById(routerId)
-        if (router) {
-          ipAddress = router.ipAddress
-          apiPort = router.apiPort
-          apiUsername = router.apiUsernameGenerated || router.apiUsername
-          apiPassword = router.apiPasswordGenerated || router.apiPassword
-          console.log(`[Test Connection] Using ${router.apiUsernameGenerated ? 'generated' : 'master'} user for router ${router.name}`)
-        }
-      } catch (e) {
-        console.error('Error fetching router:', e)
+  if (routerId) {
+    try {
+      const routerRepository = getMikroTikRouterRepository()
+      const router = await routerRepository.findById(routerId)
+      if (router) {
+        ipAddress = router.ipAddress
+        apiPort = router.apiPort
+        apiUsername = router.apiUsernameGenerated || router.apiUsername
+        apiPassword = router.apiPasswordGenerated || router.apiPassword
+        // console.log(`[Test Connection] Using ${router.apiUsernameGenerated ? 'generated' : 'master'} user for router ${router.name}`)
       }
+    } catch (_e) {
+      console.error('Error fetching router:', _e)
     }
+  }
 
-    if (!ipAddress) {
-      return apiError('IP Address is required', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+  if (!ipAddress) {
+    return apiError('IP Address is required', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+  }
+
+  const finalApiPort = apiPort && !isNaN(Number(apiPort)) && Number(apiPort) > 0 && Number(apiPort) <= 65535
+    ? Number(apiPort)
+    : 8728
+
+  let apiResult: { success: boolean; message: string; routerInfo?: RouterInfo } | null = null
+  if (apiUsername && apiPassword) {
+    apiResult = await testMikroTikAPI(ipAddress, finalApiPort, apiUsername, apiPassword, 10000)
+  } else {
+    apiResult = {
+      success: false,
+      message: 'Username/Password tidak disediakan untuk test koneksi API',
     }
+  }
 
-    const finalApiPort = apiPort && !isNaN(Number(apiPort)) && Number(apiPort) > 0 && Number(apiPort) <= 65535
-      ? Number(apiPort)
-      : 8728
+  const overallSuccess = apiResult.success
 
-    let apiResult: { success: boolean; message: string; routerInfo?: RouterInfo } | null = null
-    if (apiUsername && apiPassword) {
-      apiResult = await testMikroTikAPI(ipAddress, finalApiPort, apiUsername, apiPassword, 10000)
-    } else {
-      apiResult = {
-        success: false,
-        message: 'Username/Password tidak disediakan untuk test koneksi API',
-      }
+  if (routerId && overallSuccess && apiResult.routerInfo) {
+    try {
+      const routerRepository = getMikroTikRouterRepository()
+      await routerRepository.update(routerId, {
+        pingStatus: 'online',
+        userOnline: apiResult.routerInfo.userOnline || 0,
+        lastStatusCheck: new Date(),
+      })
+    } catch (error: unknown) {
+      console.error('Error updating connection status:', error)
     }
-
-    const overallSuccess = apiResult.success
-
-    if (routerId && overallSuccess && apiResult.routerInfo) {
-      try {
-        const routerRepository = getMikroTikRouterRepository()
-        await routerRepository.update(routerId, {
-          pingStatus: 'online',
-          userOnline: apiResult.routerInfo.userOnline || 0,
-          lastStatusCheck: new Date(),
-        })
-      } catch (error: unknown) {
-        console.error('Error updating connection status:', error)
-      }
-    } else if (routerId) {
-      try {
-        const routerRepository = getMikroTikRouterRepository()
-        await routerRepository.update(routerId, {
-          pingStatus: 'offline',
-          userOnline: 0,
-          lastStatusCheck: new Date(),
-        })
-      } catch (error: unknown) {
-        console.error('Error updating connection status:', error)
-      }
+  } else if (routerId) {
+    try {
+      const routerRepository = getMikroTikRouterRepository()
+      await routerRepository.update(routerId, {
+        pingStatus: 'offline',
+        userOnline: 0,
+        lastStatusCheck: new Date(),
+      })
+    } catch (error: unknown) {
+      console.error('Error updating connection status:', error)
     }
+  }
 
-    return apiSuccess({
-      success: overallSuccess,
-      api: apiResult,
-      routerInfo: apiResult?.routerInfo || null,
-      message: overallSuccess
-        ? 'Koneksi berhasil! API dapat diakses dengan autentikasi yang benar.'
-        : 'Koneksi gagal. Periksa IP Address, port, username, password, and pastikan router dapat dijangkau dari server ini.',
-    })
+  return apiSuccess({
+    success: overallSuccess,
+    api: apiResult,
+    routerInfo: apiResult?.routerInfo || null,
+    message: overallSuccess
+      ? 'Koneksi berhasil! API dapat diakses dengan autentikasi yang benar.'
+      : 'Koneksi gagal. Periksa IP Address, port, username, password, and pastikan router dapat dijangkau dari server ini.',
+  })
 })

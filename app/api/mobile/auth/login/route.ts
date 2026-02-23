@@ -7,12 +7,12 @@ export async function POST(req: Request) {
     try {
         const body = await req.json()
         // DEBUG LOGGING
-        console.log('[MobileAuth] Login Request Body:', JSON.stringify(body, null, 2))
+        // console.log('[MobileAuth] Login Request Body:', JSON.stringify(body, null, 2))
         
         const { email, password, versionCode, loginType } = body 
 
         // IMPORTANT: Log what we received to debug why "loginType" might be wrong
-        console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`)
+        // console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`)
 
         if (!email || !password) {
             return NextResponse.json({ 
@@ -163,19 +163,19 @@ export async function POST(req: Request) {
 
         // EXECUTION FLOW
         let result: LoginResult
-        console.log(`[MobileLogin] Strategy: ${loginType === 'CUSTOMER' ? 'Customer First' : 'Employee First'}`)
+        // console.log(`[MobileLogin] Strategy: ${loginType === 'CUSTOMER' ? 'Customer First' : 'Employee First'}`)
 
         if (loginType === 'CUSTOMER') {
             result = await tryCustomerLogin()
             if (!result.found) {
-                console.log('[MobileLogin] Customer not found, falling back to Employee check...')
+                // console.log('[MobileLogin] Customer not found, falling back to Employee check...')
                 const empResult = await tryEmployeeLogin()
                 if (empResult.found) result = empResult // Override if found as employee
             }
         } else {
             result = await tryEmployeeLogin()
             if (!result.found) {
-                console.log('[MobileLogin] Employee not found, falling back to Customer check...')
+                // console.log('[MobileLogin] Employee not found, falling back to Customer check...')
                 const custResult = await tryCustomerLogin()
                 if (custResult.found) result = custResult // Override if found as customer
             }

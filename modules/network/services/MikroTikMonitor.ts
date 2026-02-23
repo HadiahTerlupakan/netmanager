@@ -15,11 +15,11 @@ class MikroTikMonitor {
 
     public start() {
         if (this.intervalId) {
-            console.log('[MikroTikMonitor] Already running')
+            // console.log('[MikroTikMonitor] Already running')
             return
         }
 
-        console.log('[MikroTikMonitor] Starting monitoring service...')
+        // console.log('[MikroTikMonitor] Starting monitoring service...')
         this.errorCount = 0
 
         // Initial check
@@ -33,7 +33,7 @@ class MikroTikMonitor {
         if (this.intervalId) {
             clearTimeout(this.intervalId)
             this.intervalId = null
-            console.log('[MikroTikMonitor] Stopped')
+            // console.log('[MikroTikMonitor] Stopped')
         }
     }
 
@@ -67,11 +67,11 @@ class MikroTikMonitor {
             const _stats = await routerRepository.getStatistics()
 
             if (this.errorCount > 0) {
-                console.log('[MikroTikMonitor] Connection restored, resuming normal operation')
+                // console.log('[MikroTikMonitor] Connection restored, resuming normal operation')
             }
             this.errorCount = 0
 
-            console.log(`[MikroTikMonitor] Check complete. Updated ${updatedCount} routers.`)
+            // console.log(`[MikroTikMonitor] Check complete. Updated ${updatedCount} routers.`)
 
             if (this.io) {
                 this.io.emit('mikrotik:update', {

@@ -268,7 +268,7 @@ export async function POST(
         // Restore user in RADIUS to enable authentication
         await radiusService.handleStatusChange(id, 'AKTIF')
 
-        console.log(`[ACTIVATE] Restored RADIUS access for user ${pelanggan.username}`)
+        // console.log(`[ACTIVATE] Restored RADIUS access for user ${pelanggan.username}`)
       } catch (radiusError: unknown) {
         console.error('Error handling RADIUS operations during activation:', radiusError)
         // Don't fail the request, but log the error

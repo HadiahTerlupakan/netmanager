@@ -58,7 +58,7 @@ export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, a
       taskPayload.parameterValues.push([passPath, password, "xsd:string"])
     }
 
-    console.log('[WAN Manager] Sending Task:', JSON.stringify(taskPayload))
+    // console.log('[WAN Manager] Sending Task:', JSON.stringify(taskPayload))
 
     const response = await axios.post(baseUrl, taskPayload, {
       timeout: 15000,

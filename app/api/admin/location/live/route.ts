@@ -44,7 +44,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         ...(departmentId ? { departmentId } : {})
     })
 
-    console.log('[API /api/admin/location/live] isSuper:', isSuper, 'filters:', { siteId, departmentId }, 'count:', liveLocations.length)
+    // console.log('[API /api/admin/location/live] isSuper:', isSuper, 'filters:', { siteId, departmentId }, 'count:', liveLocations.length)
 
     return apiSuccess(liveLocations)
 })

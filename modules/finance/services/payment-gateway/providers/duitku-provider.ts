@@ -159,10 +159,10 @@ export class DuitkuProvider implements PaymentProvider {
         }
     }
 
-    async cancelPayment(orderId: string): Promise<void> {
+    async cancelPayment(_orderId: string): Promise<void> {
         // Duitku doesn't have explicit cancel endpoint
         // Transactions automatically expire after expiry period
-        console.log(`Duitku: Payment ${orderId} will auto-expire`)
+        // console.log(`Duitku: Payment ${orderId} will auto-expire`)
     }
 
     verifyWebhook(payload: Record<string, unknown>, _signature?: string): boolean {

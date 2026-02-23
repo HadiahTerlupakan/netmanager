@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
             
             // FIXME: Add pushToken to Pelanggan schema or use PushSubscriptions
             // For now, let's just log it and skip to prevent 500 error
-            console.log(`[PushToken] Skipping push token update for Customer (Schema update needed): ${user.userId}`)
+            // console.log(`[PushToken] Skipping push token update for Customer (Schema update needed): ${user.userId}`)
             
             return NextResponse.json({ success: true, message: 'Push token accepted (Customer)' })
         } else {

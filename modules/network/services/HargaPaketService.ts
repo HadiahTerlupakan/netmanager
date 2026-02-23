@@ -201,7 +201,7 @@ export class HargaPaketService {
             const rateLimit = await getRateLimitFromBandwidth(hargaPaket.profilePPP.id)
 
             if (rateLimit) {
-                console.log('[HargaPaketService] Updating rate limit in MikroTik:', rateLimit)
+                // console.log('[HargaPaketService] Updating rate limit in MikroTik:', rateLimit)
                 const updateResult = await updatePPPProfileInMikroTik(
                     hargaPaket.profilePPP.mikroTikRouterId,
                     hargaPaket.profilePPP.name,

@@ -46,7 +46,7 @@ export async function GET(req: Request) {
                     select: { roleId: true, role: { select: { name: true } } }
                 })
 
-                console.log('[Roles API] Current user role:', currentUser?.role?.name)
+                // console.log('[Roles API] Current user role:', currentUser?.role?.name)
 
                 const roles = await roleService.getAllRoles({
                     filterRestricted: true,
@@ -81,9 +81,9 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json()
-        console.log('[ROLES API] POST received body:', JSON.stringify(body, null, 2))
+        // console.log('[ROLES API] POST received body:', JSON.stringify(body, null, 2))
         const validated = roleSchema.parse(body)
-        console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
+        // console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
 
         // Sanitize permissions based on panel access flags (safety net)
         const sanitizedPermissions = await sanitizePermissionsByPanelAccess(

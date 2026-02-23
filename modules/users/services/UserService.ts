@@ -137,7 +137,7 @@ export class UserService {
         // Invalidate permission cache when role changes
         if (data.roleId !== undefined) {
             await invalidatePermissionCache(id)
-            console.log(`[UserService] Permission cache invalidated for user: ${id}`)
+            // console.log(`[UserService] Permission cache invalidated for user: ${id}`)
         }
 
         return updatedUser

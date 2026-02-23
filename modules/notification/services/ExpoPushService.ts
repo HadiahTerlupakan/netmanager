@@ -35,7 +35,7 @@ export async function sendPushNotification(
         })
 
         if (!user?.pushToken) {
-            console.log(`[Push] No push token for user ${userId}`)
+            // console.log(`[Push] No push token for user ${userId}`)
             return false
         }
 
@@ -89,7 +89,7 @@ export async function sendPushToUsers(
         })
 
         if (users.length === 0) {
-            console.log('[Push] No users with push tokens')
+            // console.log('[Push] No users with push tokens')
             return 0
         }
 
@@ -162,7 +162,7 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<boolean> {
                     })
                 }
 
-                console.log(`[Push] Chunk ${chunkIndex + 1}/${chunks.length} sent (${chunk.length} messages)`)
+                // console.log(`[Push] Chunk ${chunkIndex + 1}/${chunks.length} sent (${chunk.length} messages)`)
             } catch (chunkError) {
                 console.error(`[Push] Failed to send chunk ${chunkIndex + 1}/${chunks.length}:`, chunkError)
                 allSucceeded = false
@@ -216,7 +216,7 @@ export async function sendPushToDepartment(
         })
 
         if (users.length === 0) {
-            console.log(`[Push] No users with push tokens in department ${departmentId}`)
+            // console.log(`[Push] No users with push tokens in department ${departmentId}`)
             return 0
         }
 
@@ -229,7 +229,7 @@ export async function sendPushToDepartment(
         }))
 
         await sendExpoPush(messages)
-        console.log(`[Push] Sent to ${users.length} users in department ${departmentId}`)
+        // console.log(`[Push] Sent to ${users.length} users in department ${departmentId}`)
         return users.length
     } catch (error) {
         console.error('[Push] Error sending to department:', error)

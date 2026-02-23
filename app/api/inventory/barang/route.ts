@@ -220,7 +220,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
           : barang.barangGudang
 
         if (filteredStocks.length > 0) {
-          console.log('DEBUG STOCK ITEM [0]:', JSON.stringify(filteredStocks[0], null, 2))
+          // console.log('DEBUG STOCK ITEM [0]:', JSON.stringify(filteredStocks[0], null, 2))
         }
 
         totalStock = filteredStocks.reduce((sum, stock) => sum + stock.stok, 0)

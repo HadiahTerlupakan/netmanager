@@ -358,7 +358,7 @@ export async function PUT(
     // Alur: 1. Update IP Pool (jika remoteAddress berubah atau ipRange disediakan), 2. Update Profile PPP dengan rate limit dari Bandwidth
     if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
       try {
-        console.log('[API ProfilePPP] Attempting to update profile in MikroTik router:', validation.data.mikroTikRouterId)
+        // console.log('[API ProfilePPP] Attempting to update profile in MikroTik router:', validation.data.mikroTikRouterId)
 
         // Ambil rate limit dari Bandwidth
         // Prioritas: 1. bandwidthId langsung (jika disediakan), 2. HargaPaket yang terkait
@@ -366,9 +366,9 @@ export async function PUT(
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
 
         if (rateLimit) {
-          console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
+          // console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
         } else {
-          console.log('[API ProfilePPP] No rate limit found from Bandwidth, updating profile without rate limit')
+          // console.log('[API ProfilePPP] No rate limit found from Bandwidth, updating profile without rate limit')
         }
 
         // Kirim semua field yang diupdate ke MikroTik untuk memastikan sinkronisasi
@@ -392,7 +392,7 @@ export async function PUT(
           // Jangan gagalkan request, hanya log error
           // Profile sudah diupdate di database, user bisa sync manual nanti jika diperlukan
         } else {
-          console.log('[API ProfilePPP] Successfully updated PPP profile in MikroTik')
+          // console.log('[API ProfilePPP] Successfully updated PPP profile in MikroTik')
         }
       } catch (mikrotikError: unknown) {
         console.error('[API ProfilePPP] Error updating PPP profile in MikroTik:', mikrotikError)
@@ -404,7 +404,7 @@ export async function PUT(
       }
     } else {
       // Jika tidak ada mikroTikRouterId yang dipilih, skip update profile di MikroTik
-      console.log('[API ProfilePPP] No MikroTik router selected, skipping MikroTik profile update')
+      // console.log('[API ProfilePPP] No MikroTik router selected, skipping MikroTik profile update')
     }
 
     return NextResponse.json(profilePPP)

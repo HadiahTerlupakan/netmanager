@@ -31,7 +31,7 @@ export class AutomaticBillingService {
      */
     static async generateDailyInvoices() {
         try {
-            console.log('[Billing] Starting automatic invoice generation...');
+            // console.log('[Billing] Starting automatic invoice generation...');
 
             // 1. Get settings
             const invoiceOtomatisSetting = await prisma.settings.findUnique({
@@ -54,8 +54,8 @@ export class AutomaticBillingService {
             // With >5000 customers, this reduces data transfer from ~5000 rows to ~160 rows
             const BATCH_SIZE = 100;
             let offset = 0;
-            let generatedCount = 0;
-            let processedCount = 0;
+            // let generatedCount = 0;
+            // let processedCount = 0;
             let hasMore = true;
 
             while (hasMore) {
@@ -80,7 +80,7 @@ export class AutomaticBillingService {
                     break;
                 }
 
-                console.log(`[Billing] Processing batch ${Math.floor(offset / BATCH_SIZE) + 1} (${customers.length} eligible customers)`);
+                // console.log(`[Billing] Processing batch ${Math.floor(offset / BATCH_SIZE) + 1} (${customers.length} eligible customers)`);
 
                 // OPTIMIZATION: Batch check existing invoices (instead of N queries)
                 const eligibleIds = customers.map(c => c.id);
@@ -100,7 +100,7 @@ export class AutomaticBillingService {
 
                 for (const row of customers) {
                     try {
-                        processedCount++;
+                        // _processedCount++;
 
                         // Skip if invoice already exists (O(1) lookup)
                         if (existingInvoiceSet.has(row.id)) {
@@ -127,7 +127,7 @@ export class AutomaticBillingService {
 
                         // Generate Invoice
                         await this.createInvoiceForCustomer(customer, invoiceDueDate);
-                        generatedCount++;
+                        // _generatedCount++;
 
                     } catch (err) {
                         console.error(`[Billing] Error processing customer ${row.nama}:`, err);
@@ -142,7 +142,7 @@ export class AutomaticBillingService {
                 }
             }
 
-            console.log(`[Billing] Completed. Processed ${processedCount} customers, generated ${generatedCount} invoices.`);
+            // console.log(`[Billing] Completed. Processed ${processedCount} customers, generated ${generatedCount} invoices.`);
 
         } catch (error) {
             console.error('[Billing] Fatal error in generateDailyInvoices:', error);

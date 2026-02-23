@@ -205,7 +205,7 @@ export class RoleService {
         // Invalidate permission cache for all users with this role
         // This ensures permission changes take effect immediately
         await invalidateRolePermissionCache(id)
-        console.log(`[RoleService] Permission cache invalidated for role: ${id}`)
+        // console.log(`[RoleService] Permission cache invalidated for role: ${id}`)
 
         return updatedRole
     }

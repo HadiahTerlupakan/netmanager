@@ -258,8 +258,8 @@ export async function POST(
         const activeSessions = await radiusService.getCustomerActiveSessions(pelanggan.username)
 
         // Log active sessions that were terminated
-        for (const session of activeSessions) {
-          console.log(`[SUSPEND] Terminated active session ${session.acctSessionId} for user ${pelanggan.username}`)
+        for (const _session of activeSessions) {
+          // console.log(`[SUSPEND] Terminated active session ${_session.acctSessionId} for user ${pelanggan.username}`)
         }
       }
     } catch (radiusError: unknown) {
@@ -285,10 +285,10 @@ export async function POST(
       subject: 'Pelanggan',
       userId: (auth as { user: { id: string } }).user.id,
       details: {
-          id: id,
-          type: suspensionType,
-          reason: reason,
-          suspensionId: result.id
+        id: id,
+        type: suspensionType,
+        reason: reason,
+        suspensionId: result.id
       }
     })
 

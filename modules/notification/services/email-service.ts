@@ -72,7 +72,7 @@ export class EmailService {
         try {
             const config = await this.loadConfig()
 
-            console.log(`[Email] Sending to ${params.to} via ${config.smtpHost}`)
+            // console.log(`[Email] Sending to ${params.to} via ${config.smtpHost}`)
 
             // Create transporter
             const transporter = nodemailer.createTransport({
@@ -94,7 +94,7 @@ export class EmailService {
                 attachments: params.attachments
             })
 
-            console.log(`[Email] Message sent successfully, ID: ${info.messageId}`)
+            // console.log(`[Email] Message sent successfully, ID: ${info.messageId}`)
 
             return {
                 success: true,

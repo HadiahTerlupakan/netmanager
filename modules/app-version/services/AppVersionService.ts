@@ -80,20 +80,20 @@ export class AppVersionService {
         let tempFilePath: string | null = null
 
         try {
-            console.log('[AppVersionService] Starting APK parsing...')
+            // console.log('[AppVersionService] Starting APK parsing...')
 
             // Dynamic import for adbkit-apkreader (CommonJS module)
             const apkReaderModule = await import('adbkit-apkreader')
             const ApkReader = apkReaderModule.default || apkReaderModule
-            console.log('[AppVersionService] APK reader module loaded')
+            // console.log('[AppVersionService] APK reader module loaded')
 
             // Use provided path or write buffer to temp file
             if (input.path) {
                 tempFilePath = input.path
-                console.log(`[AppVersionService] Using provided APK path: ${tempFilePath}`)
+                // console.log(`[AppVersionService] Using provided APK path: ${tempFilePath}`)
             } else if (input.buffer) {
                 tempFilePath = path.join(os.tmpdir(), `apk_${Date.now()}.apk`)
-                console.log(`[AppVersionService] Writing APK buffer to temp file: ${tempFilePath}`)
+                // console.log(`[AppVersionService] Writing APK buffer to temp file: ${tempFilePath}`)
                 await fs.writeFile(tempFilePath, input.buffer)
             } else {
                 console.warn('[AppVersionService] No APK buffer or path provided')
@@ -101,11 +101,11 @@ export class AppVersionService {
             }
 
             // Open and read APK
-            console.log(`[AppVersionService] Opening APK file: ${tempFilePath}`)
+            // console.log(`[AppVersionService] Opening APK file: ${tempFilePath}`)
             const reader = await ApkReader.open(tempFilePath)
-            console.log('[AppVersionService] Reading APK manifest...')
+            // console.log('[AppVersionService] Reading APK manifest...')
             const manifest = await reader.readManifest() as ApkManifest
-            console.log(`[AppVersionService] APK manifest read: versionName=${manifest.versionName}, versionCode=${manifest.versionCode}`)
+            // console.log(`[AppVersionService] APK manifest read: versionName=${manifest.versionName}, versionCode=${manifest.versionCode}`)
 
             // Extract version info
             const versionName = manifest.versionName || ''
@@ -121,7 +121,7 @@ export class AppVersionService {
                 packageName: manifest.package || '',
                 buildNumber
             }
-            console.log(`[AppVersionService] APK parsed successfully: ${JSON.stringify(result)}`)
+            // console.log(`[AppVersionService] APK parsed successfully: ${JSON.stringify(result)}`)
             return result
         } catch (error: unknown) {
             console.error('[AppVersionService] Error parsing APK:', error)
@@ -136,7 +136,7 @@ export class AppVersionService {
             // Only cleanup if we created the temp file from buffer
             if (tempFilePath && !input.path) {
                 try {
-                    console.log(`[AppVersionService] Cleaning up temp file: ${tempFilePath}`)
+                    // console.log(`[AppVersionService] Cleaning up temp file: ${tempFilePath}`)
                     await fs.unlink(tempFilePath)
                 } catch (e: unknown) {
                     const err = e as { message?: string }
@@ -185,7 +185,7 @@ export class AppVersionService {
         try {
             // Auto-parse APK jika ada APK dan version info tidak lengkap (Hanya jika APK diupload via server)
             if ((input.apkBuffer || input.apkPath) && (!version || !buildNumber || !versionCode)) {
-                console.log('[AppVersionService] Parsing APK for version info...')
+                // console.log('[AppVersionService] Parsing APK for version info...')
                 const apkInfo = await this.parseApkInfo({
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
                     ...(input.apkPath ? { path: input.apkPath } : {})
@@ -194,7 +194,7 @@ export class AppVersionService {
                     version = version || apkInfo.versionName
                     buildNumber = buildNumber || apkInfo.buildNumber
                     versionCode = versionCode || apkInfo.versionCode
-                    console.log(`[AppVersionService] Auto-extracted from APK: v${version}, build ${buildNumber}, code ${versionCode}`)
+                    // console.log(`[AppVersionService] Auto-extracted from APK: v${version}, build ${buildNumber}, code ${versionCode}`)
                 } else {
                     console.warn('[AppVersionService] Failed to parse APK info, using manual values if provided')
                 }
@@ -206,7 +206,7 @@ export class AppVersionService {
             }
 
             // Validate version doesn't already exist
-            console.log(`[AppVersionService] Checking if version ${version} (code ${versionCode}) already exists...`)
+            // console.log(`[AppVersionService] Checking if version ${version} (code ${versionCode}) already exists...`)
             const exists = await this.repository.exists(version, versionCode)
             if (exists.versionExists) {
                 throw new Error(`Version ${version} sudah ada`)
@@ -220,7 +220,7 @@ export class AppVersionService {
 
             // Scenario 1: Pre-uploaded file (Direct Upload)
             if (input.uploadedKey) {
-                console.log(`[AppVersionService] Using pre-uploaded file: ${input.uploadedKey}`)
+                // console.log(`[AppVersionService] Using pre-uploaded file: ${input.uploadedKey}`)
 
                 // Construct public URL
                 const settings = await import('@/lib/utils/r2-client').then(m => m.getR2Settings())
@@ -239,7 +239,7 @@ export class AppVersionService {
             }
             // Scenario 2: Server-side Upload (Legacy/Fallback)
             else if ((input.apkBuffer || input.apkPath) && input.apkFilename) {
-                console.log(`[AppVersionService] Uploading APK file: ${input.apkFilename}`)
+                // console.log(`[AppVersionService] Uploading APK file: ${input.apkFilename}`)
                 apkUrl = await this.uploadApkFile({
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
                     ...(input.apkPath ? { path: input.apkPath } : {}),
@@ -247,11 +247,11 @@ export class AppVersionService {
                     version,
                     forceLocal: input.forceLocal
                 })
-                console.log(`[AppVersionService] APK uploaded successfully: ${apkUrl}`)
+                // console.log(`[AppVersionService] APK uploaded successfully: ${apkUrl}`)
             }
 
             // Create version record
-            console.log(`[AppVersionService] Creating version record in database...`)
+            // console.log(`[AppVersionService] Creating version record in database...`)
             const createData: CreateAppVersionDTO = {
                 version,
                 buildNumber,
@@ -268,7 +268,7 @@ export class AppVersionService {
             }
 
             const result = await this.repository.create(createData)
-            console.log(`[AppVersionService] Version created successfully: ${result.id}`)
+            // console.log(`[AppVersionService] Version created successfully: ${result.id}`)
             return result
         } catch (error: unknown) {
             console.error('[AppVersionService] Error in uploadVersion:', error)
@@ -296,15 +296,15 @@ export class AppVersionService {
 
         try {
             // Check if R2 is enabled
-            console.log('[AppVersionService] Checking R2 storage status...')
+            // console.log('[AppVersionService] Checking R2 storage status...')
             const r2Enabled = await isR2Enabled()
-            console.log(`[AppVersionService] R2 enabled: ${r2Enabled}`)
+            // console.log(`[AppVersionService] R2 enabled: ${r2Enabled}`)
 
             if (r2Enabled && !forceLocal) {
                 // Upload to R2
-                console.log('[AppVersionService] Uploading to R2 storage...')
+                // console.log('[AppVersionService] Uploading to R2 storage...')
                 const key = generateR2Key('app-version', sanitizedFilename)
-                console.log(`[AppVersionService] R2 key: ${key}`)
+                // console.log(`[AppVersionService] R2 key: ${key}`)
 
                 // Note: uploadToR2 currently expects buffer, assuming it can handle it or we might need to update it too.
                 // For now, if we have path, read it to buffer (R2 Might limit this, but let's assume R2 client handles small chunks or we optimize later)
@@ -312,7 +312,7 @@ export class AppVersionService {
                 let uploadBuffer = buffer
                 if (!uploadBuffer && filePath) {
                     // Warning: Reading full file for R2 upload if R2 client doesn't support stream
-                    console.log(`[AppVersionService] Reading APK from path: ${filePath}`)
+                    // console.log(`[AppVersionService] Reading APK from path: ${filePath}`)
                     uploadBuffer = await fs.readFile(filePath)
                 }
 
@@ -320,35 +320,35 @@ export class AppVersionService {
                     throw new Error('Konten APK tidak disediakan')
                 }
 
-                console.log(`[AppVersionService] Uploading APK to R2 (${(uploadBuffer.length / 1024 / 1024).toFixed(2)}MB)`)
+                // console.log(`[AppVersionService] Uploading APK to R2 (${(uploadBuffer.length / 1024 / 1024).toFixed(2)}MB)`)
                 const contentDisposition = `attachment; filename="${sanitizedFilename}"`
                 const url = await uploadToR2(uploadBuffer, key, 'application/vnd.android.package-archive', contentDisposition)
-                console.log(`[AppVersionService] R2 upload successful: ${url}`)
+                // console.log(`[AppVersionService] R2 upload successful: ${url}`)
                 return url
             } else {
                 // Save to local storage
                 // Use 'public/uploads/apk' to ensure persistence (mounted volume)
-                console.log('[AppVersionService] Uploading to local storage...')
+                // console.log('[AppVersionService] Uploading to local storage...')
                 const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'apk')
-                console.log(`[AppVersionService] Upload directory: ${uploadDir}`)
+                // console.log(`[AppVersionService] Upload directory: ${uploadDir}`)
                 await fs.mkdir(uploadDir, { recursive: true })
 
                 const destPath = path.join(uploadDir, sanitizedFilename)
-                console.log(`[AppVersionService] Destination path: ${destPath}`)
+                // console.log(`[AppVersionService] Destination path: ${destPath}`)
 
                 if (filePath) {
                     // Efficient copy/move
-                    console.log(`[AppVersionService] Copying file from ${filePath} to ${destPath}`)
+                    // console.log(`[AppVersionService] Copying file from ${filePath} to ${destPath}`)
                     await fs.copyFile(filePath, destPath)
                 } else if (buffer) {
-                    console.log(`[AppVersionService] Writing buffer to ${destPath}`)
+                    // console.log(`[AppVersionService] Writing buffer to ${destPath}`)
                     await fs.writeFile(destPath, buffer)
                 } else {
                     throw new Error('Konten APK tidak disediakan (tidak ada buffer atau path)')
                 }
 
                 const url = `/uploads/apk/${sanitizedFilename}`
-                console.log(`[AppVersionService] Local upload successful: ${url}`)
+                // console.log(`[AppVersionService] Local upload successful: ${url}`)
                 return url
             }
         } catch (error: unknown) {
@@ -402,7 +402,7 @@ export class AppVersionService {
                     const localPath = path.join(process.cwd(), 'public', existing.apkUrl)
                     try {
                         await fs.unlink(localPath)
-                        console.log(`Deleted local APK: ${localPath}`)
+                        // console.log(`Deleted local APK: ${localPath}`)
                     } catch (err: unknown) {
                         const error = err as { message?: string }
                         console.warn(`Failed to delete local APK: ${error.message}`)
@@ -418,7 +418,7 @@ export class AppVersionService {
                         const key = existing.apkUrl.substring(keyIndex)
                         const deleted = await deleteFromR2(key)
                         if (deleted) {
-                            console.log(`Deleted R2 object: ${key}`)
+                            // console.log(`Deleted R2 object: ${key}`)
                         } else {
                             console.warn(`Failed to delete R2 object: ${key}`)
                         }

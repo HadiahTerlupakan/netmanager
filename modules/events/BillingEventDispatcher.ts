@@ -7,8 +7,8 @@ export class BillingEventDispatcher {
    * Mensinkronisasikan data dasar ke database billing jika snapshot diaktifkan kelak,
    * atau bisa digunakan untuk auto-generate invoice pertama.
    */
-  static async onCustomerCreated(customer: Pelanggan) {
-    console.log(`[Hook] Pelanggan baru dibuat: ${customer.id}`);
+  static async onCustomerCreated(_customer: Pelanggan) {
+    // console.log(`[Hook] Pelanggan baru dibuat: ${customer.id}`);
     // Di sini kita bisa menambahkan logika auto-create invoice
     // menggunakan prismaBilling
   }
@@ -18,7 +18,7 @@ export class BillingEventDispatcher {
    * Berguna untuk memberitahu DB Utama (Radius) agar membuka blokir internet
    */
   static async onInvoicePaid(invoiceId: string, pelangganId: string) {
-    console.log(`[Hook] Invoice LUNAS: ${invoiceId} untuk pelanggan ${pelangganId}`);
+    // console.log(`[Hook] Invoice LUNAS: ${invoiceId} untuk pelanggan ${pelangganId}`);
     
     // Import DB utama secara dinamis jika diperlukan
     const { prisma } = await import('@/lib/prisma');
@@ -31,7 +31,7 @@ export class BillingEventDispatcher {
           status: 'AKTIF'
         }
       });
-      console.log(`[Hook] Status pelanggan ${pelangganId} berhasil diubah menjadi AKTIF di DB Utama`);
+      // console.log(`[Hook] Status pelanggan ${pelangganId} berhasil diubah menjadi AKTIF di DB Utama`);
     } catch (error) {
       console.error(`[Hook] Gagal mengubah status pelanggan di DB Utama:`, error);
       // Di sini kita bisa mengimplementasikan Outbox Pattern

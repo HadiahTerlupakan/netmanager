@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     const validationResult = createPelangganSchema.safeParse(rawData)
 
     if (!validationResult.success) {
-      console.log('Validation Error:', JSON.stringify(validationResult.error.flatten(), null, 2));
+      // console.log('Validation Error:', JSON.stringify(validationResult.error.flatten(), null, 2));
       const details = validationResult.error.flatten();
       const firstError = Object.values(details.fieldErrors)[0]?.[0] || 'Periksa kembali input Anda';
       return NextResponse.json(

@@ -32,7 +32,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const { MikroTikProvisioningService } = await import('@/modules/network/services/MikroTikProvisioningService')
     const provisioningService = new MikroTikProvisioningService()
 
-    console.log(`[Generate API User] Creating API user for router ${router.name} (${router.ipAddress})...`)
+    // console.log(`[Generate API User] Creating API user for router ${router.name} (${router.ipAddress})...`)
 
     // Create API user using master credentials
     const result = await provisioningService.createApiUser({
@@ -59,7 +59,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       }
     })
 
-    console.log(`[Generate API User] Success: ${result.username}`)
+    // console.log(`[Generate API User] Success: ${result.username}`)
 
     // System Log
     try {

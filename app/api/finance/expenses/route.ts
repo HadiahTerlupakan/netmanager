@@ -44,7 +44,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const expenseCategoryId = searchParams.get("expenseCategoryId");
     const scope = searchParams.get("scope");
 
-    console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, expenseCategoryId, scope });
+    // console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, expenseCategoryId, scope });
 
     // Build where clause
     const where: Record<string, unknown> = {};
@@ -146,7 +146,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         }
     });
 
-    console.log(`[EXPENSES_GET] Found ${expenses.length} expenses.`);
+    // console.log(`[EXPENSES_GET] Found ${expenses.length} expenses.`);
 
     // Convert BigInt to string for JSON serialization
     const serializedExpenses = expenses.map(expense => ({

@@ -21,7 +21,7 @@ export class MixRadiusSyncService {
       throw new Error("Username diperlukan untuk sinkronisasi")
     }
 
-    console.log(`[MixRadiusSync] Syncing customer: ${data.username} (${data.id})`)
+    // console.log(`[MixRadiusSync] Syncing customer: ${data.username} (${data.id})`)
 
     // Prepare Data
     const customerData = {
@@ -72,7 +72,7 @@ export class MixRadiusSyncService {
           }
         })
         linkedToPelanggan = true
-        console.log(`[MixRadiusSync] Linked customer ${data.username} to Pelanggan table.`)
+        // console.log(`[MixRadiusSync] Linked customer ${data.username} to Pelanggan table.`)
       } else if (pelanggan) {
         // Already linked, just update timestamp
         await prisma.pelanggan.update({
@@ -124,7 +124,7 @@ export class MixRadiusSyncService {
         count++
       }
 
-      console.log(`[MixRadiusSync] Successfully synced ${count} customers`)
+      // console.log(`[MixRadiusSync] Successfully synced ${count} customers`)
       return { success: true, count }
     } catch (error) {
       console.error("[MixRadiusSync] Full customer sync error:", error)
@@ -147,7 +147,7 @@ export class MixRadiusSyncService {
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
       const end = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`
 
-      console.log(`[MixRadiusSync] Syncing invoices from ${start} to ${end}`)
+      // console.log(`[MixRadiusSync] Syncing invoices from ${start} to ${end}`)
 
       const response = await service.fetchIncomeByPeriod({
         startDate: start,
@@ -156,7 +156,7 @@ export class MixRadiusSyncService {
       })
 
       if (!response.data || !Array.isArray(response.data)) {
-        console.log("[MixRadiusSync] No invoices found for period")
+        // console.log("[MixRadiusSync] No invoices found for period")
         return { success: true, count: 0 }
       }
 
@@ -170,7 +170,7 @@ export class MixRadiusSyncService {
         }
       }
 
-      console.log(`[MixRadiusSync] Successfully synced ${syncCount} invoices`)
+      // console.log(`[MixRadiusSync] Successfully synced ${syncCount} invoices`)
       return { success: true, count: syncCount }
     } catch (error) {
       console.error("[MixRadiusSync] Invoice sync error:", error)

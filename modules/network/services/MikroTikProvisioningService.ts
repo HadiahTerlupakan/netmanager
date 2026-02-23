@@ -61,8 +61,8 @@ export class MikroTikProvisioningService {
         
         // Auto-detect IP if not provided
         const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
-        console.log(`[Provisioning] Starting provisioning for Router: ${routerDetails.ip}`);
-        console.log(`[Provisioning] Detected/Used Server IP (RADIUS Address): ${finalServerIp}`);
+        // console.log(`[Provisioning] Starting provisioning for Router: ${routerDetails.ip}`);
+        // console.log(`[Provisioning] Detected/Used Server IP (RADIUS Address): ${finalServerIp}`);
         logs.push(`Using Server IP for RADIUS: ${finalServerIp}`);
 
         const conn = new RouterOSAPI({
@@ -74,9 +74,9 @@ export class MikroTikProvisioningService {
         });
 
         try {
-            console.log(`[Provisioning] Connecting to ${routerDetails.ip}...`);
+            // console.log(`[Provisioning] Connecting to ${routerDetails.ip}...`);
             await conn.connect();
-            console.log(`[Provisioning] Connected.`);
+            // console.log(`[Provisioning] Connected.`);
             logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
 
             // --- 1. RADIUS Provisioning ---
@@ -254,10 +254,10 @@ export class MikroTikProvisioningService {
             }
 
             // --- 5. Web Proxy (Isolir Redirection) ---
-            console.log(`[Provisioning] Isolir URL provided: "${isolirUrl}"`);
+            // console.log(`[Provisioning] Isolir URL provided: "${isolirUrl}"`);
 
             if (isolirUrl) {
-                console.log('[Provisioning] Configuring Web Proxy...');
+                // console.log('[Provisioning] Configuring Web Proxy...');
                 try {
                     const domain = isolirUrl.replace(/^https?:\/\//, '').split('/')[0];
                     if (domain) {
@@ -291,7 +291,7 @@ export class MikroTikProvisioningService {
                     logs.push(`Failed to configure Web Proxy: ${msg}`);
                 }
             } else {
-                 console.log('[Provisioning] No Isolir URL provided, skipping Web Proxy.');
+                 // console.log('[Provisioning] No Isolir URL provided, skipping Web Proxy.');
             }
 
 
@@ -319,7 +319,7 @@ export class MikroTikProvisioningService {
         const logs: string[] = [];
         const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
 
-        console.log(`[Deprovisioning] Starting removal for Router: ${routerDetails.ip}`);
+        // console.log(`[Deprovisioning] Starting removal for Router: ${routerDetails.ip}`);
 
         const conn = new RouterOSAPI({
             host: routerDetails.ip,
@@ -467,7 +467,7 @@ export class MikroTikProvisioningService {
         });
 
         try {
-            console.log(`[API User] Connecting to ${routerDetails.ip}...`);
+            // console.log(`[API User] Connecting to ${routerDetails.ip}...`);
             await conn.connect();
             logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
 
@@ -518,7 +518,7 @@ export class MikroTikProvisioningService {
             logs.push(`Created API user: ${generatedUsername}`);
 
             conn.close();
-            console.log(`[API User] Successfully created API user: ${generatedUsername}`);
+            // console.log(`[API User] Successfully created API user: ${generatedUsername}`);
 
             return {
                 success: true,

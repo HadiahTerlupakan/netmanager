@@ -292,27 +292,27 @@ export class MixRadiusService {
     try {
       const activeConfig = await mixRadiusConfigRepo.getActiveConfig()
       if (activeConfig) {
-        console.log(`[MixRadius] Using active config from DB: ${activeConfig.name}`)
+        // console.log(`[MixRadius] Using active config from DB: ${activeConfig.name}`)
         this.credentials = {
           username: activeConfig.username,
           password: activeConfig.password,
           baseUrl: activeConfig.baseUrl.replace(/\/$/, ''),
         }
       } else {
-        console.log('[MixRadius] No active config in DB, using fallback Env vars')
+        // console.log('[MixRadius] No active config in DB, using fallback Env vars')
         // Fallback to env (already set in constructor, but ensuring update if needed)
         this.credentials = {
           username: process.env.MIXRADIUS_USERNAME || '',
           password: process.env.MIXRADIUS_PASSWORD || '',
           baseUrl: (process.env.MIXRADIUS_URL || '').replace(/\/$/, '')
         }
-        
+
         if (!this.credentials.username || !this.credentials.password || !this.credentials.baseUrl) {
-             console.warn('[MixRadius] Credentials missing in Env vars. MixRadius integration will fail until configured.');
+          console.warn('[MixRadius] Credentials missing in Env vars. MixRadius integration will fail until configured.');
         }
       }
     } catch (_error) {
-       // Silent failure for credential loading, will be caught by login() validation
+      // Silent failure for credential loading, will be caught by login() validation
     }
   }
 
@@ -330,15 +330,15 @@ export class MixRadiusService {
     // 3. The credentials (username & host) match the currently loaded config
     //    (This handles the "Account Switching" case correctly)
     if (this.isLoggedIn && this.loginExpiresAt > Date.now()) {
-       if (this.loggedInCredentials &&
-           this.loggedInCredentials.username === this.credentials.username &&
-           this.loggedInCredentials.baseUrl === this.credentials.baseUrl) {
-           console.log('[MixRadius] Using existing session (Cookies)')
-           return
-       }
-       console.log('[MixRadius] Credentials changed (Account Switch detected), forcing re-login...')
+      if (this.loggedInCredentials &&
+        this.loggedInCredentials.username === this.credentials.username &&
+        this.loggedInCredentials.baseUrl === this.credentials.baseUrl) {
+        // console.log('[MixRadius] Using existing session (Cookies)')
+        return
+      }
+      // console.log('[MixRadius] Credentials changed (Account Switch detected), forcing re-login...')
     } else if (this.isLoggedIn) {
-       console.log('[MixRadius] Session expired, re-logging in...')
+      // console.log('[MixRadius] Session expired, re-logging in...')
     }
 
     // Check for missing configuration
@@ -353,13 +353,13 @@ export class MixRadiusService {
     }
 
     try {
-      console.log('[MixRadius] Logging in...')
-      console.log(`[MixRadius] URL: ${this.credentials.baseUrl}`)
-      console.log(`[MixRadius] Username: ${this.credentials.username}`)
+      // console.log('[MixRadius] Logging in...')
+      // console.log(`[MixRadius] URL: ${this.credentials.baseUrl}`)
+      // console.log(`[MixRadius] Username: ${this.credentials.username}`)
 
       // Step 1: Get login page (to get initial cookies)
       await this.client.get(`${this.credentials.baseUrl}/rad-admin`)
-      console.log('[MixRadius] Got login page')
+      // console.log('[MixRadius] Got login page')
 
       // Simulate human typing delay
       await this.randomDelay(800, 2000)
@@ -383,8 +383,8 @@ export class MixRadiusService {
         }
       )
 
-      console.log(`[MixRadius] Login response status: ${loginResponse.status}`)
-      console.log(`[MixRadius] Login response URL: ${loginResponse.request?.res?.responseUrl || 'N/A'}`)
+      // console.log(`[MixRadius] Login response status: ${loginResponse.status}`)
+      // console.log(`[MixRadius] Login response URL: ${loginResponse.request?.res?.responseUrl || 'N/A'}`)
 
       // Check if login was successful by checking if we're redirected to dashboard
       const responseUrl = loginResponse.request?.res?.responseUrl || ''
@@ -395,11 +395,11 @@ export class MixRadiusService {
 
         // Store the credentials used for this successful login
         this.loggedInCredentials = {
-            username: this.credentials.username,
-            baseUrl: this.credentials.baseUrl
+          username: this.credentials.username,
+          baseUrl: this.credentials.baseUrl
         }
 
-        console.log('[MixRadius] Login successful!')
+        // console.log('[MixRadius] Login successful!')
       } else {
         throw new Error('Login may have failed - unexpected response')
       }
@@ -425,18 +425,18 @@ export class MixRadiusService {
         const errorMsg = loginError instanceof Error ? loginError.message : String(loginError)
         // If it's a configuration error, return empty data instead of crashing
         if (errorMsg.includes('konfigurasi') || errorMsg.includes('valid')) {
-           console.warn(`[MixRadius] Integration not available: ${errorMsg}`)
-           return {
-             draw: 1,
-             recordsTotal: 0,
-             recordsFiltered: 0,
-             data: []
-           }
+          console.warn(`[MixRadius] Integration not available: ${errorMsg}`)
+          return {
+            draw: 1,
+            recordsTotal: 0,
+            recordsFiltered: 0,
+            data: []
+          }
         }
         throw loginError
       }
 
-      console.log(`[MixRadius] Fetching customers: start=${start}, length=${length}, search="${search}", searchType=${searchType}, groupId=${params.groupId}`)
+      // console.log(`[MixRadius] Fetching customers: start=${start}, length=${length}, search="${search}", searchType=${searchType}, groupId=${params.groupId}`)
 
       // STRATEGY:
       // Use the reliable /customers-ppp endpoint which returns all data.
@@ -448,13 +448,13 @@ export class MixRadiusService {
       // Check Cache First (Skip if forceRefresh is true)
       // When searching, we should DEFINITELY use cache to be fast/interactive
       if (!forceRefresh && this.customersCache.data.length > 0 && this.customersCache.expiresAt > Date.now()) {
-        console.log(`[MixRadius] Using cached customer list (${this.customersCache.data.length} records). Expires in ${Math.round((this.customersCache.expiresAt - Date.now())/1000)}s`)
+        // console.log(`[MixRadius] Using cached customer list (${this.customersCache.data.length} records). Expires in ${Math.round((this.customersCache.expiresAt - Date.now())/1000)}s`)
         allData = [...this.customersCache.data] // Use copy
       } else {
         if (forceRefresh) {
-            console.log('[MixRadius] Force refresh requested. Bypassing cache...')
+          // console.log('[MixRadius] Force refresh requested. Bypassing cache...')
         } else {
-            console.log('[MixRadius] Cache miss/expired. Fetching fresh data from upstream...')
+          // console.log('[MixRadius] Cache miss/expired. Fetching fresh data from upstream...')
         }
 
         // Add a small random delay before big fetch
@@ -515,7 +515,7 @@ export class MixRadiusService {
 
         // Check if we got HTML instead of JSON (session expired)
         if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
-          console.log('[MixRadius] Session expired, clearing and retrying...')
+          // console.log('[MixRadius] Session expired, clearing and retrying...')
           this.isLoggedIn = false
           this.jar = new CookieJar()
           // Recreate client with new jar
@@ -534,11 +534,11 @@ export class MixRadiusService {
         const responseData = response.data as MixRadiusCustomerResponse
         const rawData = responseData.data || []
 
-        console.log(`[MixRadius] Upstream returned ${rawData.length} records. Filtering in-memory...`)
+        // console.log(`[MixRadius] Upstream returned ${rawData.length} records. Filtering in-memory...`)
 
         // DEBUG: Inspect first item to verify ID structure
         if (rawData.length > 0) {
-            console.log('[MixRadius] First raw item sample:', JSON.stringify(rawData[0], null, 2))
+          // console.log('[MixRadius] First raw item sample:', JSON.stringify(rawData[0], null, 2))
         }
 
         // Deduplicate data by USERNAME and Fix ID
@@ -548,10 +548,10 @@ export class MixRadiusService {
             // FIX ID: If 'id' looks like a username (len > 10) and DT_RowId exists, use DT_RowId
             const anyItem = item as MixRadiusCustomer & { DT_RowId?: string }
             if (anyItem.id && anyItem.id.length > 8 && anyItem.DT_RowId) {
-                // DT_RowId usually looks like "row_12345"
-                const realId = String(anyItem.DT_RowId).replace('row_', '')
-                // console.log(`[MixRadius] Fixing ID for ${item.username}: ${item.id} -> ${realId}`)
-                item.id = realId
+              // DT_RowId usually looks like "row_12345"
+              const realId = String(anyItem.DT_RowId).replace('row_', '')
+              // console.log(`[MixRadius] Fixing ID for ${item.username}: ${item.id} -> ${realId}`)
+              item.id = realId
             }
             uniqueMap.set(item.username, item)
           }
@@ -579,7 +579,7 @@ export class MixRadiusService {
         // Flatten all owners from these groups AND normalize names
         // Robust split by dash and Lowercase for case-insensitive match
         const allowedOwners = new Set(
-            groups.flatMap(g => g.owners.map(o => o.split(/[—–-]/)[0].trim().toLowerCase()))
+          groups.flatMap(g => g.owners.map(o => o.split(/[—–-]/)[0].trim().toLowerCase()))
         )
 
         // Filter customers who belong to any of these owners
@@ -604,16 +604,16 @@ export class MixRadiusService {
         // Filter where auth_status is Disabled-Users OR (Enabled-Users BUT Expired)
         const now = new Date()
         allData = allData.filter(item => {
-           // Case 1: Explicitly Disabled
-           if (item.auth_status === 'Disabled-Users' || item.auth_status === 'disabled') return true;
+          // Case 1: Explicitly Disabled
+          if (item.auth_status === 'Disabled-Users' || item.auth_status === 'disabled') return true;
 
-           // Case 2: Expired but maybe marked as Enabled in some systems
-           if (item.expired_on) {
-             const expDate = new Date(item.expired_on)
-             if (!isNaN(expDate.getTime()) && expDate < now) return true
-           }
+          // Case 2: Expired but maybe marked as Enabled in some systems
+          if (item.expired_on) {
+            const expDate = new Date(item.expired_on)
+            if (!isNaN(expDate.getTime()) && expDate < now) return true
+          }
 
-           return false
+          return false
         })
       } else if (params.authStatus) {
         // Normal filtering for Enabled-Users (Status Based)
@@ -624,60 +624,60 @@ export class MixRadiusService {
       if (search) {
         const lowerSearch = search.toLowerCase()
         if (searchType === 'all') {
-             // Global search across relevant fields including OWNER
-             allData = allData.filter(item => 
-                 (item.fullname && item.fullname.toLowerCase().includes(lowerSearch)) ||
-                 (item.username && item.username.toLowerCase().includes(lowerSearch)) ||
-                 (item.member_id && item.member_id.toLowerCase().includes(lowerSearch)) ||
-                 (item.address && item.address.toLowerCase().includes(lowerSearch)) ||
-                 (item.phonenumber && item.phonenumber.toLowerCase().includes(lowerSearch)) ||
-                 (item.owner_name && item.owner_name.toLowerCase().includes(lowerSearch))
-             )
+          // Global search across relevant fields including OWNER
+          allData = allData.filter(item =>
+            (item.fullname && item.fullname.toLowerCase().includes(lowerSearch)) ||
+            (item.username && item.username.toLowerCase().includes(lowerSearch)) ||
+            (item.member_id && item.member_id.toLowerCase().includes(lowerSearch)) ||
+            (item.address && item.address.toLowerCase().includes(lowerSearch)) ||
+            (item.phonenumber && item.phonenumber.toLowerCase().includes(lowerSearch)) ||
+            (item.owner_name && item.owner_name.toLowerCase().includes(lowerSearch))
+          )
         } else {
-             // Specific column search
-             allData = allData.filter(item => {
-                 const fieldVal = (item as unknown as Record<string, unknown>)[searchType]
-                 return fieldVal && String(fieldVal).toLowerCase().includes(lowerSearch)
-             })
+          // Specific column search
+          allData = allData.filter(item => {
+            const fieldVal = (item as unknown as Record<string, unknown>)[searchType]
+            return fieldVal && String(fieldVal).toLowerCase().includes(lowerSearch)
+          })
         }
       }
 
       // 3. Filter by Owner OR Group
       if (params.groupId) {
-          // Fetch group owners
-          const group = await prisma.mixRadiusOwnerGroup.findUnique({
-              where: { id: params.groupId },
-              select: { owners: true }
+        // Fetch group owners
+        const group = await prisma.mixRadiusOwnerGroup.findUnique({
+          where: { id: params.groupId },
+          select: { owners: true }
+        })
+
+        if (group && group.owners && group.owners.length > 0) {
+          // Normalize owner names: Include BOTH full name and split prefix
+          const allowedOwners = new Set<string>()
+          group.owners.forEach(o => {
+            const lower = o.toLowerCase().trim()
+            allowedOwners.add(lower) // "mendal - jakarta"
+            allowedOwners.add(lower.split(/[—–-]/)[0].trim()) // "mendal"
           })
 
-          if (group && group.owners && group.owners.length > 0) {
-              // Normalize owner names: Include BOTH full name and split prefix
-              const allowedOwners = new Set<string>()
-              group.owners.forEach(o => {
-                  const lower = o.toLowerCase().trim()
-                  allowedOwners.add(lower) // "mendal - jakarta"
-                  allowedOwners.add(lower.split(/[—–-]/)[0].trim()) // "mendal"
-              })
+          allData = allData.filter(item => {
+            if (!item.owner_name) return false
+            const ownerLower = item.owner_name.toLowerCase().trim()
+            const ownerPrefix = ownerLower.split(/[—–-]/)[0].trim()
 
-              allData = allData.filter(item => {
-                  if (!item.owner_name) return false
-                  const ownerLower = item.owner_name.toLowerCase().trim()
-                  const ownerPrefix = ownerLower.split(/[—–-]/)[0].trim()
-
-                  // Check exact match OR prefix match
-                  return allowedOwners.has(ownerLower) || allowedOwners.has(ownerPrefix)
-              })
-          } else if (group && (!group.owners || group.owners.length === 0)) {
-              // Group exists but no owners - return empty or all? Strictly empty if filtering by group
-              allData = []
-          }
+            // Check exact match OR prefix match
+            return allowedOwners.has(ownerLower) || allowedOwners.has(ownerPrefix)
+          })
+        } else if (group && (!group.owners || group.owners.length === 0)) {
+          // Group exists but no owners - return empty or all? Strictly empty if filtering by group
+          allData = []
+        }
       }
 
       if (params.ownerName) {
-         // Fallback to single owner filter if provided
-         // Normalize owner name & Lowercase
-         const normalizedName = params.ownerName.split(/[—–-]/)[0].trim().toLowerCase()
-         allData = allData.filter(item => item.owner_name && item.owner_name.toLowerCase() === normalizedName)
+        // Fallback to single owner filter if provided
+        // Normalize owner name & Lowercase
+        const normalizedName = params.ownerName.split(/[—–-]/)[0].trim().toLowerCase()
+        allData = allData.filter(item => item.owner_name && item.owner_name.toLowerCase() === normalizedName)
       }
 
       // const recordsFiltered = allData.length
@@ -686,7 +686,7 @@ export class MixRadiusService {
       // DISABLED for searching specific customers to improve performance
       // Only fetch active sessions if we are NOT searching, or if explicit refresh needed
       let activeSessions = new Map<string, { ip: string; uptime: string }>();
-      
+
       // OPTIMIZATION: If searching, only fetch RELEVANT sessions (filter by search query)
       // If not searching, fetch ALL sessions (to populate full list status)
       try {
@@ -699,10 +699,10 @@ export class MixRadiusService {
       }
 
       // Merge online status
-      let onlineCount = 0
+      // let _onlineCount = 0
       allData = allData.map((customer) => {
         const session = activeSessions.get(customer.username)
-        if (session) onlineCount++
+        // if (session) onlineCount++
 
         return {
           ...customer,
@@ -710,13 +710,13 @@ export class MixRadiusService {
           active_session_ip: session ? session.ip : undefined
         }
       })
-      console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
+      // console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
 
       // 4. Online Status Filtering
       if (params.onlineStatus) {
         const isOnline = params.onlineStatus === 'online'
         allData = allData.filter(item => item.online === isOnline)
-        console.log(`[MixRadius] Filtered by onlineStatus: ${params.onlineStatus}. Remaining: ${allData.length}`)
+        // console.log(`[MixRadius] Filtered by onlineStatus: ${params.onlineStatus}. Remaining: ${allData.length}`)
       }
 
       const recordsFilteredCount = allData.length
@@ -731,9 +731,9 @@ export class MixRadiusService {
 
           // Handle dates specifically
           if (sortBy === 'expired_on' || sortBy === 'renewed_on' || sortBy === 'created_at') {
-             const dateA = valA ? new Date(String(valA)).getTime() : 0
-             const dateB = valB ? new Date(String(valB)).getTime() : 0
-             return sortDir === 'asc' ? dateA - dateB : dateB - dateA
+            const dateA = valA ? new Date(String(valA)).getTime() : 0
+            const dateB = valB ? new Date(String(valB)).getTime() : 0
+            return sortDir === 'asc' ? dateA - dateB : dateB - dateA
           }
 
           // Handle string comparison
@@ -789,7 +789,7 @@ export class MixRadiusService {
     try {
       await this.login()
 
-      console.log(`[MixRadius] Fetching income by period: start=${start}, length=${length}, search="${search}", groupId=${groupId}, siteId=${siteId}`)
+      // console.log(`[MixRadius] Fetching income by period: start=${start}, length=${length}, search="${search}", groupId=${groupId}, siteId=${siteId}`)
 
       // STRATEGY:
       // Always fetch ALL records (up to 10000) for the period and perform filtering/sorting/pagination in-memory.
@@ -812,122 +812,122 @@ export class MixRadiusService {
       let upstreamRecordsTotal = 0
       let upstreamRecordsFiltered = 0
 
-      console.log(`[MixRadius] Starting fetch loop. Batch size: ${batchSize}`)
+      // console.log(`[MixRadius] Starting fetch loop. Batch size: ${batchSize}`)
 
       while (hasMore && loopCount < MAX_LOOPS) {
-          loopCount++
-          const formData = new URLSearchParams()
-          formData.append('draw', loopCount.toString())
-          formData.append('start', currentStart.toString())
-          formData.append('length', batchSize.toString())
+        loopCount++
+        const formData = new URLSearchParams()
+        formData.append('draw', loopCount.toString())
+        formData.append('start', currentStart.toString())
+        formData.append('length', batchSize.toString())
 
-          // Filter Params
-          if (startDate) {
-            const fdate = startDate.includes(' ') ? startDate : `${startDate} 00:00:01`
-            formData.append('fdate', fdate)
+        // Filter Params
+        if (startDate) {
+          const fdate = startDate.includes(' ') ? startDate : `${startDate} 00:00:01`
+          formData.append('fdate', fdate)
+        }
+        if (endDate) {
+          const tdate = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
+          formData.append('tdate', tdate)
+        }
+
+        // Ensure all filters are present, use empty string for 'all'
+        formData.append('stype', '')
+        formData.append('payment_method', '')
+        formData.append('owner_id', '')
+        formData.append('usertype', '0') // Default to "SEMUA TIPE"
+
+        const columns = [
+          { data: 'id', searchable: false, orderable: false },
+          { data: 'id', searchable: false, orderable: true },
+          { data: 'invoice', searchable: true, orderable: true },
+          { data: 'member_id', searchable: true, orderable: true },
+          { data: 'username', searchable: true, orderable: true },
+          { data: 'fullname', searchable: true, orderable: true },
+          { data: 'nasporttype', searchable: false, orderable: true },
+          { data: 'plan_name', searchable: true, orderable: true },
+          { data: 'total', searchable: false, orderable: true },
+          { data: 'seller_fee', searchable: false, orderable: true },
+          { data: 'renewed_on', searchable: true, orderable: true },
+          { data: 'owner_name', searchable: true, orderable: true },
+          { data: 'price', searchable: false, orderable: false },
+          { data: 'tax', searchable: false, orderable: false },
+          { data: 'payment_method', searchable: true, orderable: true },
+          { data: 'payment_type', searchable: true, orderable: true },
+          { data: 'type', searchable: true, orderable: true },
+          { data: 'method', searchable: true, orderable: true },
+          { data: 'id', searchable: false, orderable: true }
+        ]
+
+        columns.forEach((col, idx) => {
+          formData.append(`columns[${idx}][data]`, col.data)
+          formData.append(`columns[${idx}][name]`, '')
+          formData.append(`columns[${idx}][searchable]`, col.searchable ? 'true' : 'false')
+          formData.append(`columns[${idx}][orderable]`, col.orderable ? 'true' : 'false')
+          formData.append(`columns[${idx}][search][value]`, '')
+          formData.append(`columns[${idx}][search][regex]`, 'false')
+        })
+
+        // Order (Default renewed_on desc)
+        formData.append('order[0][column]', '10')
+        formData.append('order[0][dir]', 'desc')
+        formData.append('search[value]', '') // Empty search to get everything first
+        formData.append('search[regex]', 'false')
+
+        // EXECUTE REQUEST
+        const response = await this.client.post(
+          `${this.credentials.baseUrl}/rad-get-data/reports-period`,
+          formData.toString(),
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json, text/javascript, */*; q=0.01',
+              'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`,
+              'Origin': this.credentials.baseUrl,
+            },
           }
-          if (endDate) {
-            const tdate = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
-            formData.append('tdate', tdate)
-          }
+        )
 
-          // Ensure all filters are present, use empty string for 'all'
-          formData.append('stype', '')
-          formData.append('payment_method', '')
-          formData.append('owner_id', '')
-          formData.append('usertype', '0') // Default to "SEMUA TIPE"
+        if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+          // console.log('[MixRadius] Session expired during Income Period fetch, retrying...')
+          this.isLoggedIn = false
+          return this.fetchIncomeByPeriod(params)
+        }
 
-          const columns = [
-            { data: 'id', searchable: false, orderable: false },
-            { data: 'id', searchable: false, orderable: true },
-            { data: 'invoice', searchable: true, orderable: true },
-            { data: 'member_id', searchable: true, orderable: true },
-            { data: 'username', searchable: true, orderable: true },
-            { data: 'fullname', searchable: true, orderable: true },
-            { data: 'nasporttype', searchable: false, orderable: true },
-            { data: 'plan_name', searchable: true, orderable: true },
-            { data: 'total', searchable: false, orderable: true },
-            { data: 'seller_fee', searchable: false, orderable: true },
-            { data: 'renewed_on', searchable: true, orderable: true },
-            { data: 'owner_name', searchable: true, orderable: true },
-            { data: 'price', searchable: false, orderable: false },
-            { data: 'tax', searchable: false, orderable: false },
-            { data: 'payment_method', searchable: true, orderable: true },
-            { data: 'payment_type', searchable: true, orderable: true },
-            { data: 'type', searchable: true, orderable: true },
-            { data: 'method', searchable: true, orderable: true },
-            { data: 'id', searchable: false, orderable: true }
-          ]
+        const responseData = response.data as MixRadiusIncomePeriodResponse
+        const pageData = responseData.data || []
 
-          columns.forEach((col, idx) => {
-            formData.append(`columns[${idx}][data]`, col.data)
-            formData.append(`columns[${idx}][name]`, '')
-            formData.append(`columns[${idx}][searchable]`, col.searchable ? 'true' : 'false')
-            formData.append(`columns[${idx}][orderable]`, col.orderable ? 'true' : 'false')
-            formData.append(`columns[${idx}][search][value]`, '')
-            formData.append(`columns[${idx}][search][regex]`, 'false')
-          })
+        if (loopCount === 1) {
+          upstreamRecordsTotal = responseData.recordsTotal
+          upstreamRecordsFiltered = responseData.recordsFiltered
+        }
 
-          // Order (Default renewed_on desc)
-          formData.append('order[0][column]', '10')
-          formData.append('order[0][dir]', 'desc')
-          formData.append('search[value]', '') // Empty search to get everything first
-          formData.append('search[regex]', 'false')
+        if (pageData.length > 0) {
+          allFetchedData = allFetchedData.concat(pageData)
+          currentStart += batchSize
+          // console.log(`[MixRadius] Fetched batch ${loopCount}. Received: ${pageData.length}. Total so far: ${allFetchedData.length}/${upstreamRecordsFiltered}`)
+        } else {
+          // console.log(`[MixRadius] Batch ${loopCount} returned 0 records. Stopping loop.`)
+          hasMore = false
+        }
 
-          // EXECUTE REQUEST
-          const response = await this.client.post(
-            `${this.credentials.baseUrl}/rad-get-data/reports-period`,
-            formData.toString(),
-            {
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json, text/javascript, */*; q=0.01',
-                'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`,
-                'Origin': this.credentials.baseUrl,
-              },
-            }
-          )
-
-          if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
-            console.log('[MixRadius] Session expired during Income Period fetch, retrying...')
-            this.isLoggedIn = false
-            return this.fetchIncomeByPeriod(params)
-          }
-
-          const responseData = response.data as MixRadiusIncomePeriodResponse
-          const pageData = responseData.data || []
-
-          if (loopCount === 1) {
-              upstreamRecordsTotal = responseData.recordsTotal
-              upstreamRecordsFiltered = responseData.recordsFiltered
-          }
-
-          if (pageData.length > 0) {
-              allFetchedData = allFetchedData.concat(pageData)
-              currentStart += batchSize
-              console.log(`[MixRadius] Fetched batch ${loopCount}. Received: ${pageData.length}. Total so far: ${allFetchedData.length}/${upstreamRecordsFiltered}`)
-          } else {
-              console.log(`[MixRadius] Batch ${loopCount} returned 0 records. Stopping loop.`)
-              hasMore = false
-          }
-
-          // Stop if we have fetched all available records
-          if (allFetchedData.length >= upstreamRecordsFiltered && upstreamRecordsFiltered > 0) {
-              console.log(`[MixRadius] All records fetched (${allFetchedData.length}). Stopping loop.`)
-              hasMore = false
-          }
+        // Stop if we have fetched all available records
+        if (allFetchedData.length >= upstreamRecordsFiltered && upstreamRecordsFiltered > 0) {
+          // console.log(`[MixRadius] All records fetched (${allFetchedData.length}). Stopping loop.`)
+          hasMore = false
+        }
       }
 
       const responseData: MixRadiusIncomePeriodResponse = {
-          draw: 1,
-          recordsTotal: upstreamRecordsTotal,
-          recordsFiltered: upstreamRecordsFiltered,
-          data: allFetchedData
+        draw: 1,
+        recordsTotal: upstreamRecordsTotal,
+        recordsFiltered: upstreamRecordsFiltered,
+        data: allFetchedData
       }
 
       if (!useInMemoryFilter) {
-          return responseData
+        return responseData
       }
 
       // IN-MEMORY FILTERING LOGIC
@@ -938,22 +938,22 @@ export class MixRadiusService {
       // Upstream API sometimes ignores date filters or defaults to current month.
       // We strictly filter here to ensure accuracy.
       if (startDate && endDate) {
-          // Parse start date (start of day)
-          const startStr = startDate.includes(' ') ? startDate : `${startDate} 00:00:00`
-          const startTs = new Date(startStr).getTime()
+        // Parse start date (start of day)
+        const startStr = startDate.includes(' ') ? startDate : `${startDate} 00:00:00`
+        const startTs = new Date(startStr).getTime()
 
-          // Parse end date (end of day)
-          const endStr = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
-          const endTs = new Date(endStr).getTime()
+        // Parse end date (end of day)
+        const endStr = endDate.includes(' ') ? endDate : `${endDate} 23:59:59`
+        const endTs = new Date(endStr).getTime()
 
-          if (!isNaN(startTs) && !isNaN(endTs)) {
-              allData = allData.filter(item => {
-                  if (!item.renewed_on) return false
-                  const itemTs = new Date(item.renewed_on).getTime()
-                  return itemTs >= startTs && itemTs <= endTs
-              })
-              console.log(`[MixRadius] Date filtered in-memory. Remaining: ${allData.length} records`)
-          }
+        if (!isNaN(startTs) && !isNaN(endTs)) {
+          allData = allData.filter(item => {
+            if (!item.renewed_on) return false
+            const itemTs = new Date(item.renewed_on).getTime()
+            return itemTs >= startTs && itemTs <= endTs
+          })
+          // console.log(`[MixRadius] Date filtered in-memory. Remaining: ${allData.length} records`)
+        }
       }
 
       // 1. Filter by Site
@@ -966,10 +966,10 @@ export class MixRadiusService {
         // Normalize owner names: Include BOTH full name and split prefix to handle various naming conventions
         const allowedOwners = new Set<string>()
         groups.flatMap(g => g.owners).forEach(o => {
-            if (!o) return
-            const lower = o.toLowerCase().trim()
-            allowedOwners.add(lower) // Add full name "alex - cibubur"
-            allowedOwners.add(lower.split(/[—–-]/)[0].trim()) // Add prefix "alex"
+          if (!o) return
+          const lower = o.toLowerCase().trim()
+          allowedOwners.add(lower) // Add full name "alex - cibubur"
+          allowedOwners.add(lower.split(/[—–-]/)[0].trim()) // Add prefix "alex"
         })
 
         allData = allData.filter(item => item.owner_name && allowedOwners.has(item.owner_name.toLowerCase().trim()))
@@ -984,10 +984,10 @@ export class MixRadiusService {
         if (group && group.owners) {
           const allowedOwners = new Set<string>()
           group.owners.forEach(o => {
-              if (!o) return
-              const lower = o.toLowerCase().trim()
-              allowedOwners.add(lower)
-              allowedOwners.add(lower.split(/[—–-]/)[0].trim())
+            if (!o) return
+            const lower = o.toLowerCase().trim()
+            allowedOwners.add(lower)
+            allowedOwners.add(lower.split(/[—–-]/)[0].trim())
           })
 
           allData = allData.filter(item => item.owner_name && allowedOwners.has(item.owner_name.toLowerCase().trim()))
@@ -998,103 +998,103 @@ export class MixRadiusService {
 
       // 3. Filter by specific Owner ID (if also provided)
       if (ownerId && ownerId !== 'all') {
-         // Optimization: Since getOwnersWithIds now returns name as ID (e.g. "alex"),
-         // we can compare ownerId directly with owner_name in the data.
-         // No need to fetch the owner list again.
+        // Optimization: Since getOwnersWithIds now returns name as ID (e.g. "alex"),
+        // we can compare ownerId directly with owner_name in the data.
+        // No need to fetch the owner list again.
 
-         const lowerId = ownerId.toLowerCase().trim();
-         const prefixId = lowerId.split(/[—–-]/)[0].trim();
+        const lowerId = ownerId.toLowerCase().trim();
+        const prefixId = lowerId.split(/[—–-]/)[0].trim();
 
-         allData = allData.filter(item => {
-             if (!item.owner_name) return false;
-             const itemOwner = item.owner_name.toLowerCase().trim();
+        allData = allData.filter(item => {
+          if (!item.owner_name) return false;
+          const itemOwner = item.owner_name.toLowerCase().trim();
 
-             // Match Exact Name OR Prefix (for flexibility)
-             return itemOwner === lowerId || itemOwner === prefixId;
-         });
+          // Match Exact Name OR Prefix (for flexibility)
+          return itemOwner === lowerId || itemOwner === prefixId;
+        });
       }
 
       // 4. Filter by Service Type (In-Memory)
       if (serviceType) {
-          const typeUpper = serviceType.toUpperCase()
-          allData = allData.filter(item => {
-              const itemType = (item.type || '').toUpperCase()
-              const itemPlan = (item.plan_name || '').toUpperCase()
-              const itemNasPort = (item.nasporttype || '').toUpperCase()
+        const typeUpper = serviceType.toUpperCase()
+        allData = allData.filter(item => {
+          const itemType = (item.type || '').toUpperCase()
+          const itemPlan = (item.plan_name || '').toUpperCase()
+          const itemNasPort = (item.nasporttype || '').toUpperCase()
 
-              // PPP Logic:
-              // 1. Explicitly labeled as PPP/PPPOE
-              // 2. Plan name indicates typical residential/home/dedicated service (not voucher)
-              // 3. NasPort is Ethernet (usually)
-              const isPPP = itemType.includes('PPP') ||
-                            itemType.includes('PPPOE') ||
-                            itemPlan.includes('PPP') ||
-                            itemPlan.includes('HOME') ||
-                            itemPlan.includes('DEDICATED') ||
-                            itemPlan.includes('MB'); // "10MB-RENGAS"
+          // PPP Logic:
+          // 1. Explicitly labeled as PPP/PPPOE
+          // 2. Plan name indicates typical residential/home/dedicated service (not voucher)
+          // 3. NasPort is Ethernet (usually)
+          const isPPP = itemType.includes('PPP') ||
+            itemType.includes('PPPOE') ||
+            itemPlan.includes('PPP') ||
+            itemPlan.includes('HOME') ||
+            itemPlan.includes('DEDICATED') ||
+            itemPlan.includes('MB'); // "10MB-RENGAS"
 
-              // Hotspot Logic:
-              // 1. Explicitly labeled as HOTSPOT/VOUCHER
-              // 2. Plan name indicates Voucher/VC
-              // 3. NasPort is Wireless (AND not identified as PPP above)
-              const isHotspot = itemType.includes('HOTSPOT') ||
-                                itemType.includes('VOUCHER') ||
-                                itemPlan.includes('HOTSPOT') ||
-                                itemPlan.includes('VC') ||
-                                itemPlan.includes('VOUCHER');
+          // Hotspot Logic:
+          // 1. Explicitly labeled as HOTSPOT/VOUCHER
+          // 2. Plan name indicates Voucher/VC
+          // 3. NasPort is Wireless (AND not identified as PPP above)
+          const isHotspot = itemType.includes('HOTSPOT') ||
+            itemType.includes('VOUCHER') ||
+            itemPlan.includes('HOTSPOT') ||
+            itemPlan.includes('VC') ||
+            itemPlan.includes('VOUCHER');
 
-              if (typeUpper === 'PPP') {
-                  // Strict PPP check.
-                  // If it's explicitly PPP, return true.
-                  // If it looks like Hotspot, return false.
-                  // If ambiguous and Ethernet, return true.
-                  if (isPPP) return true;
-                  if (isHotspot) return false;
-                  return itemNasPort.includes('ETHERNET');
-              }
-              if (typeUpper === 'HOTSPOT') {
-                  if (isHotspot) return true;
-                  if (isPPP) return false;
-                  // Fallback: Wireless usually implies hotspot if not explicitly PPP
-                  return itemNasPort.includes('WIRELESS');
-              }
-              return true
-          })
-          console.log(`[MixRadius] Filtered by ServiceType ${serviceType}. Remaining: ${allData.length}`)
+          if (typeUpper === 'PPP') {
+            // Strict PPP check.
+            // If it's explicitly PPP, return true.
+            // If it looks like Hotspot, return false.
+            // If ambiguous and Ethernet, return true.
+            if (isPPP) return true;
+            if (isHotspot) return false;
+            return itemNasPort.includes('ETHERNET');
+          }
+          if (typeUpper === 'HOTSPOT') {
+            if (isHotspot) return true;
+            if (isPPP) return false;
+            // Fallback: Wireless usually implies hotspot if not explicitly PPP
+            return itemNasPort.includes('WIRELESS');
+          }
+          return true
+        })
+        // console.log(`[MixRadius] Filtered by ServiceType ${serviceType}. Remaining: ${allData.length}`)
       }
 
       // 5. Filter by Payment Method (In-Memory)
       if (paymentMethod) {
-          const pm = paymentMethod.toLowerCase()
-          allData = allData.filter(item => {
-              // method and payment_method seem to be used interchangably or one is empty
-              const method = (item.payment_method || item.method || '').toLowerCase().trim()
-              const type = (item.payment_type || '').toLowerCase()
+        const pm = paymentMethod.toLowerCase()
+        allData = allData.filter(item => {
+          // method and payment_method seem to be used interchangably or one is empty
+          const method = (item.payment_method || item.method || '').toLowerCase().trim()
+          const type = (item.payment_type || '').toLowerCase()
 
-              // STRICTER LOGIC based on User Request:
-              // "Pembayaran manual itu yang tidak ada DTK_"
-              // Online = Contains "DTK" (Duitku) or explicit gateway names.
-              // We removed generic terms like 'va', 'qris', 'dana' because admins might type "Bayar via Dana" manually.
-              const onlineKeywords = [
-                  'dtk', // Covers DTK_, DTK-001, etc.
-                  'tripay', 'xendit', 'midtrans', 'doku', 'ipaymu', 'mayar', 'faspay', 'winpay',
-                  'auto' // Sometimes 'payment gateway automatic'
-              ]
+          // STRICTER LOGIC based on User Request:
+          // "Pembayaran manual itu yang tidak ada DTK_"
+          // Online = Contains "DTK" (Duitku) or explicit gateway names.
+          // We removed generic terms like 'va', 'qris', 'dana' because admins might type "Bayar via Dana" manually.
+          const onlineKeywords = [
+            'dtk', // Covers DTK_, DTK-001, etc.
+            'tripay', 'xendit', 'midtrans', 'doku', 'ipaymu', 'mayar', 'faspay', 'winpay',
+            'auto' // Sometimes 'payment gateway automatic'
+          ]
 
-              // Check if it matches any known online gateway keyword
-              const isExplicitOnline = onlineKeywords.some(kw => method.includes(kw) || type.includes(kw))
+          // Check if it matches any known online gateway keyword
+          const isExplicitOnline = onlineKeywords.some(kw => method.includes(kw) || type.includes(kw))
 
-              if (pm === 'online') {
-                  // Only show if explicitly detected as Online Gateway
-                  return isExplicitOnline
-              }
-              if (pm === 'manual') {
-                  // Show everything else (Manual, Cash, Transfer, Voucher, or Generic Inputs)
-                  return !isExplicitOnline
-              }
-              return true
-          })
-          console.log(`[MixRadius] Filtered by PaymentMethod ${paymentMethod}. Remaining: ${allData.length}`)
+          if (pm === 'online') {
+            // Only show if explicitly detected as Online Gateway
+            return isExplicitOnline
+          }
+          if (pm === 'manual') {
+            // Show everything else (Manual, Cash, Transfer, Voucher, or Generic Inputs)
+            return !isExplicitOnline
+          }
+          return true
+        })
+        // console.log(`[MixRadius] Filtered by PaymentMethod ${paymentMethod}. Remaining: ${allData.length}`)
       }
 
       // 6. Filter by Search
@@ -1117,73 +1117,73 @@ export class MixRadiusService {
       let totalPlusPpn = 0
 
       allData.forEach(item => {
-          // Parse numbers from JSON API (usually standard EN format: "10000", "1500.50", "0")
-          const parseValue = (val: string | number | undefined): number => {
-              if (!val) return 0
-              if (typeof val === 'number') return val
+        // Parse numbers from JSON API (usually standard EN format: "10000", "1500.50", "0")
+        const parseValue = (val: string | number | undefined): number => {
+          if (!val) return 0
+          if (typeof val === 'number') return val
 
-              let str = String(val).trim()
-              // Remove Rp
-              str = str.replace(/Rp\.?\s?/i, '')
+          let str = String(val).trim()
+          // Remove Rp
+          str = str.replace(/Rp\.?\s?/i, '')
 
-              // Handle potential EN thousands separator (comma) just in case
-              // e.g. "1,000.00" -> "1000.00"
-              // We assume JSON data does NOT use ID format (dots for thousands) based on "157657.66" sample
-              str = str.replace(/,/g, '')
+          // Handle potential EN thousands separator (comma) just in case
+          // e.g. "1,000.00" -> "1000.00"
+          // We assume JSON data does NOT use ID format (dots for thousands) based on "157657.66" sample
+          str = str.replace(/,/g, '')
 
-              return parseFloat(str) || 0
-          }
+          return parseFloat(str) || 0
+        }
 
-          const total = parseValue(item.total)
-          const fee = parseValue(item.seller_fee)
-          const price = parseValue(item.price)
-          const tax = parseValue(item.tax)
+        const total = parseValue(item.total)
+        const fee = parseValue(item.seller_fee)
+        const price = parseValue(item.price)
+        const tax = parseValue(item.tax)
 
-          totalPlusPpn += total
-          totalFee += fee
+        totalPlusPpn += total
+        totalFee += fee
 
-          // Profit calculation:
-          // Price is Net Revenue (excluding Tax and usually excluding Fee if it's an add-on).
-          // Based on sample: Total (234000) = Price (205810.81) + Tax (23189.19) + Fee (5000).
-          // So Price is the base amount.
-          // Profit = Price.
-          if (price > 0) {
-              totalProfit += price
-          } else {
-              // Fallback: Total - Tax - Fee
-              totalProfit += (total - tax - fee)
-          }
+        // Profit calculation:
+        // Price is Net Revenue (excluding Tax and usually excluding Fee if it's an add-on).
+        // Based on sample: Total (234000) = Price (205810.81) + Tax (23189.19) + Fee (5000).
+        // So Price is the base amount.
+        // Profit = Price.
+        if (price > 0) {
+          totalProfit += price
+        } else {
+          // Fallback: Total - Tax - Fee
+          totalProfit += (total - tax - fee)
+        }
       })
 
       const formatIdr = (val: number) => {
-          return new Intl.NumberFormat('id-ID').format(val)
+        return new Intl.NumberFormat('id-ID').format(val)
       }
 
       const summary: MixRadiusIncomeSummary = {
-          profit: formatIdr(totalProfit),
-          feeSeller: formatIdr(totalFee),
-          totalPlusPpn: formatIdr(totalPlusPpn),
-          totalTransactions: recordsFilteredCount.toString()
+        profit: formatIdr(totalProfit),
+        feeSeller: formatIdr(totalFee),
+        totalPlusPpn: formatIdr(totalPlusPpn),
+        totalTransactions: recordsFilteredCount.toString()
       }
 
       // 4. In-memory Sorting (since we might have changed the dataset)
       if (sortBy) {
-          allData.sort((a, b) => {
-              const valA = (a as unknown as Record<string, unknown>)[sortBy]
-              const valB = (b as unknown as Record<string, unknown>)[sortBy]
+        allData.sort((a, b) => {
+          const valA = (a as unknown as Record<string, unknown>)[sortBy]
+          const valB = (b as unknown as Record<string, unknown>)[sortBy]
 
-              if (sortBy === 'renewed_on' || sortBy === 'invoice_date') {
-                  const dateA = valA ? new Date(valA as string).getTime() : 0
-                  const dateB = valB ? new Date(valB as string).getTime() : 0
-                  return sortDir === 'asc' ? dateA - dateB : dateB - dateA
-              }
+          if (sortBy === 'renewed_on' || sortBy === 'invoice_date') {
+            const dateA = valA ? new Date(valA as string).getTime() : 0
+            const dateB = valB ? new Date(valB as string).getTime() : 0
+            return sortDir === 'asc' ? dateA - dateB : dateB - dateA
+          }
 
-              const strA = String(valA || '').toLowerCase()
-              const strB = String(valB || '').toLowerCase()
-              if (strA < strB) return sortDir === 'asc' ? -1 : 1
-              if (strA > strB) return sortDir === 'asc' ? 1 : -1
-              return 0
-          })
+          const strA = String(valA || '').toLowerCase()
+          const strB = String(valB || '').toLowerCase()
+          if (strA < strB) return sortDir === 'asc' ? -1 : 1
+          if (strA > strB) return sortDir === 'asc' ? 1 : -1
+          return 0
+        })
       }
 
       // 5. Pagination
@@ -1204,16 +1204,16 @@ export class MixRadiusService {
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchIncomeByPeriod): ${message}`)
         return {
-            draw: 1,
-            recordsTotal: 0,
-            recordsFiltered: 0,
-            data: [],
-            summary: {
-                profit: '0',
-                feeSeller: '0',
-                totalPlusPpn: '0',
-                totalTransactions: '0'
-            }
+          draw: 1,
+          recordsTotal: 0,
+          recordsFiltered: 0,
+          data: [],
+          summary: {
+            profit: '0',
+            feeSeller: '0',
+            totalPlusPpn: '0',
+            totalTransactions: '0'
+          }
         }
       }
 
@@ -1235,20 +1235,20 @@ export class MixRadiusService {
     const { startDate: _startDate, endDate: _endDate, serviceType: _serviceType, paymentMethod: _paymentMethod, ownerId: _ownerId, groupId: _groupId, siteId: _siteId } = params
 
     try {
-      console.log(`[MixRadius] Calculating income summary in-memory for consistency.`)
+      // console.log(`[MixRadius] Calculating income summary in-memory for consistency.`)
 
       // Reuse fetchIncomeByPeriod logic to get filtered data (all of it)
       // We fetch a large number to ensure we cover the whole period for accurate summation
       const result = await this.fetchIncomeByPeriod({
-          ...params,
-          start: 0,
-          length: 10000,
-          search: '' // Don't filter by search for global summary, we want the summary of the filtered period/category
+        ...params,
+        start: 0,
+        length: 10000,
+        search: '' // Don't filter by search for global summary, we want the summary of the filtered period/category
       })
 
       if (result.summary) {
-          // If fetchIncomeByPeriod already calculated it (which it does now), reuse it!
-          return result.summary
+        // If fetchIncomeByPeriod already calculated it (which it does now), reuse it!
+        return result.summary
       }
 
       // Fallback calculation (should be covered by fetchIncomeByPeriod now, but safe to keep)
@@ -1257,91 +1257,91 @@ export class MixRadiusService {
       let totalPlusPpn = 0
 
       result.data.forEach(item => {
-          // Parse numbers robustly handling both ID (1.000.000,00) and EN (1000000.00) formats
-          const parseValue = (val: string | number | undefined): number => {
-              if (!val) return 0
-              let str = String(val).trim()
+        // Parse numbers robustly handling both ID (1.000.000,00) and EN (1000000.00) formats
+        const parseValue = (val: string | number | undefined): number => {
+          if (!val) return 0
+          let str = String(val).trim()
 
-              // Remove common currency symbols
-              str = str.replace(/Rp\.?\s?/i, '')
+          // Remove common currency symbols
+          str = str.replace(/Rp\.?\s?/i, '')
 
-              // CASE 1: Contains comma (e.g. "5.000,00" or "5000,00") -> Indication of ID format
-              if (str.includes(',')) {
-                  // Remove thousands separators (dots) and replace decimal comma with dot
-                  str = str.replace(/\./g, '').replace(',', '.')
-              }
-              // CASE 2: Multiple dots (e.g. "1.000.000") -> Indication of ID thousands separators
-              else if ((str.match(/\./g) || []).length > 1) {
-                  str = str.replace(/\./g, '')
-              }
-              // CASE 3: Single dot (Ambiguous: "5.000" vs "157657.66")
-              else if (str.includes('.')) {
-                   // If it looks like a standard thousands grouping (1-3 digits, dot, 3 digits)
-                   // e.g. "5.000", "100.000"
-                   // But NOT "157657.66" (dot followed by 2 digits)
-                   // IDR usually doesn't use 3 decimal places for cents.
-                   if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
-                       str = str.replace(/\./g, '')
-                   }
-                   // Otherwise assume it's a decimal dot (English format)
-              }
-
-              const clean = str.replace(/[^0-9.-]/g, '')
-              return parseFloat(clean) || 0
+          // CASE 1: Contains comma (e.g. "5.000,00" or "5000,00") -> Indication of ID format
+          if (str.includes(',')) {
+            // Remove thousands separators (dots) and replace decimal comma with dot
+            str = str.replace(/\./g, '').replace(',', '.')
+          }
+          // CASE 2: Multiple dots (e.g. "1.000.000") -> Indication of ID thousands separators
+          else if ((str.match(/\./g) || []).length > 1) {
+            str = str.replace(/\./g, '')
+          }
+          // CASE 3: Single dot (Ambiguous: "5.000" vs "157657.66")
+          else if (str.includes('.')) {
+            // If it looks like a standard thousands grouping (1-3 digits, dot, 3 digits)
+            // e.g. "5.000", "100.000"
+            // But NOT "157657.66" (dot followed by 2 digits)
+            // IDR usually doesn't use 3 decimal places for cents.
+            if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+              str = str.replace(/\./g, '')
+            }
+            // Otherwise assume it's a decimal dot (English format)
           }
 
-          const total = parseValue(item.total)
-          // const fee = parseValue(item.seller_fee) // OLD: Use MixRadius Seller Fee
-          const price = parseValue(item.price)
-          const tax = parseValue(item.tax)
+          const clean = str.replace(/[^0-9.-]/g, '')
+          return parseFloat(clean) || 0
+        }
 
-          // NEW: Calculate Estimated Gateway Fee based on Payment Method
-          let estimatedFee = 0
-          const methodCode = normalizePaymentMethod(item.payment_method || '')
-          if (methodCode && DUITKU_DEFAULT_FEES[methodCode]) {
-              const feeConfig = DUITKU_DEFAULT_FEES[methodCode]
-              if (feeConfig.type === 'FIXED') {
-                  estimatedFee = feeConfig.value
-              } else if (feeConfig.type === 'PERCENT') {
-                  estimatedFee = Math.ceil(total * (feeConfig.value / 100))
-              }
+        const total = parseValue(item.total)
+        // const fee = parseValue(item.seller_fee) // OLD: Use MixRadius Seller Fee
+        const price = parseValue(item.price)
+        const tax = parseValue(item.tax)
+
+        // NEW: Calculate Estimated Gateway Fee based on Payment Method
+        let estimatedFee = 0
+        const methodCode = normalizePaymentMethod(item.payment_method || '')
+        if (methodCode && DUITKU_DEFAULT_FEES[methodCode]) {
+          const feeConfig = DUITKU_DEFAULT_FEES[methodCode]
+          if (feeConfig.type === 'FIXED') {
+            estimatedFee = feeConfig.value
+          } else if (feeConfig.type === 'PERCENT') {
+            estimatedFee = Math.ceil(total * (feeConfig.value / 100))
           }
-          // REMOVED: PPN 11% to match Dashboard logic exactly
-          // if (estimatedFee > 0) {
-          //    estimatedFee = Math.ceil(estimatedFee * 1.11)
-          // }
+        }
+        // REMOVED: PPN 11% to match Dashboard logic exactly
+        // if (estimatedFee > 0) {
+        //    estimatedFee = Math.ceil(estimatedFee * 1.11)
+        // }
 
-          totalPlusPpn += total
-          totalFee += estimatedFee // Use estimated fee instead
+        totalPlusPpn += total
+        totalFee += estimatedFee // Use estimated fee instead
 
-          // Profit calculation:
-          // Profit = Total (Gross) - Tax - Estimated Fee
-          if (price > 0) {
-              // If price is available (Net Revenue), use it
-              // But we still subtract the gateway fee because "Price" in MixRadius often doesn't deduct gateway fees yet
-              totalProfit += (price - estimatedFee)
-          } else {
-              // Fallback
-              totalProfit += (total - tax - estimatedFee)
-          }
+        // Profit calculation:
+        // Profit = Total (Gross) - Tax - Estimated Fee
+        if (price > 0) {
+          // If price is available (Net Revenue), use it
+          // But we still subtract the gateway fee because "Price" in MixRadius often doesn't deduct gateway fees yet
+          totalProfit += (price - estimatedFee)
+        } else {
+          // Fallback
+          totalProfit += (total - tax - estimatedFee)
+        }
       })
 
       const formatIdr = (val: number) => {
-          return new Intl.NumberFormat('id-ID').format(val)
+        return new Intl.NumberFormat('id-ID').format(val)
       }
 
       return {
-          profit: formatIdr(totalProfit),
-          feeSeller: formatIdr(totalFee),
-          totalPlusPpn: formatIdr(totalPlusPpn),
-          totalTransactions: result.recordsFiltered.toString()
+        profit: formatIdr(totalProfit),
+        feeSeller: formatIdr(totalFee),
+        totalPlusPpn: formatIdr(totalPlusPpn),
+        totalTransactions: result.recordsFiltered.toString()
       }
 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
-          console.warn(`[MixRadius] Integration not available (fetchIncomeSummary): ${message}`)
-          return { profit: '0', feeSeller: '0', totalPlusPpn: '0', totalTransactions: '0' }
+        console.warn(`[MixRadius] Integration not available (fetchIncomeSummary): ${message}`)
+        return { profit: '0', feeSeller: '0', totalPlusPpn: '0', totalTransactions: '0' }
       }
 
       console.error('[MixRadius] Failed to fetch income summary:', error)
@@ -1357,7 +1357,7 @@ export class MixRadiusService {
     try {
       await this.login()
 
-      console.log('[MixRadius] Fetching owner list from report page...')
+      // console.log('[MixRadius] Fetching owner list from report page...')
 
       const response = await this.client.get(
         `${this.credentials.baseUrl}/rad-reports/income-by-period`,
@@ -1387,12 +1387,12 @@ export class MixRadiusService {
 
           // Skip "All owners" or empty values if any
           if (id && id !== '0' && name) {
-             owners.push({ id, name })
+            owners.push({ id, name })
           }
         }
       }
 
-      console.log(`[MixRadius] Extracted ${owners.length} owners with IDs from HTML`)
+      // console.log(`[MixRadius] Extracted ${owners.length} owners with IDs from HTML`)
       return owners.sort((a, b) => a.name.localeCompare(b.name))
 
     } catch (error) {
@@ -1442,7 +1442,7 @@ export class MixRadiusService {
     try {
       await this.login()
 
-      console.log(`[MixRadius] Deleting income record: ${id}`)
+      // console.log(`[MixRadius] Deleting income record: ${id}`)
 
       // Based on HTML: <button ... name="save">
       const formData = new URLSearchParams()
@@ -1486,13 +1486,13 @@ export class MixRadiusService {
     try {
       await this.login()
 
-      console.log(`[MixRadius] Fetching invoice print (${type}) for ${id}`)
+      // console.log(`[MixRadius] Fetching invoice print (${type}) for ${id}`)
 
       const response = await this.client.get(
         `${this.credentials.baseUrl}/rad-reports/print-invoice/${id}/${type}`,
         {
           headers: {
-             'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`
+            'Referer': `${this.credentials.baseUrl}/rad-reports/income-by-period`
           }
         }
       )
@@ -1525,36 +1525,36 @@ export class MixRadiusService {
   // --- Owner Group Methods ---
 
   async getOwnerGroups() {
-      return prisma.mixRadiusOwnerGroup.findMany({
-          orderBy: { name: 'asc' },
-          include: { site: true }
-      })
+    return prisma.mixRadiusOwnerGroup.findMany({
+      orderBy: { name: 'asc' },
+      include: { site: true }
+    })
   }
 
   async getOwnerGroup(id: string) {
-      return prisma.mixRadiusOwnerGroup.findUnique({
-          where: { id },
-          include: { site: true }
-      })
+    return prisma.mixRadiusOwnerGroup.findUnique({
+      where: { id },
+      include: { site: true }
+    })
   }
 
   async createOwnerGroup(data: { name: string; owners: string[]; siteId?: string; isActive?: boolean }) {
-      return prisma.mixRadiusOwnerGroup.create({
-          data
-      })
+    return prisma.mixRadiusOwnerGroup.create({
+      data
+    })
   }
 
   async updateOwnerGroup(id: string, data: { name?: string; owners?: string[]; siteId?: string; isActive?: boolean }) {
-      return prisma.mixRadiusOwnerGroup.update({
-          where: { id },
-          data
-      })
+    return prisma.mixRadiusOwnerGroup.update({
+      where: { id },
+      data
+    })
   }
 
   async deleteOwnerGroup(id: string) {
-      return prisma.mixRadiusOwnerGroup.delete({
-          where: { id }
-      })
+    return prisma.mixRadiusOwnerGroup.delete({
+      where: { id }
+    })
   }
 
   /**
@@ -1566,7 +1566,7 @@ export class MixRadiusService {
     try {
       if (!this.isLoggedIn) await this.login()
 
-      console.log(`[MixRadius] Fetching active sessions${search ? ` (search: "${search}")` : ''}...`)
+      // console.log(`[MixRadius] Fetching active sessions${search ? ` (search: "${search}")` : ''}...`)
 
       // Standard DataTables request params for Active Sessions
       // Based on typical MixRadius admin panel network requests
@@ -1593,25 +1593,25 @@ export class MixRadiusService {
       )
 
       const activeMap = new Map<string, { ip: string, uptime: string }>()
-      
+
       if (response.data && Array.isArray(response.data.data)) {
         // data usually contains: [id, username, ip_address, start_time, update_time, ... ]
         // OR objects if modern. Let's assume typical MixRadius object array or check log.
         // Usually objects with 'username', 'framedipaddress', 'acctstarttime'
-        
+
         const sessions = response.data.data
-        console.log(`[MixRadius] Found ${sessions.length} active sessions${search ? ` matching "${search}"` : ''}`)
+        // console.log(`[MixRadius] Found ${sessions.length} active sessions${search ? ` matching "${search}"` : ''}`)
         if (sessions.length > 0) {
-            // console.log('[MixRadius] First session sample:', JSON.stringify(sessions[0], null, 2))
+          // console.log('[MixRadius] First session sample:', JSON.stringify(sessions[0], null, 2))
         }
-        
+
         sessions.forEach((session: Record<string, unknown>) => {
           // Normalize fields based on NEW JSON structure:
           // username, nasshortname, acctsessionid, acctsessiontime, acctstarttime, calledstationid, callingstationid, framedipaddress, acctinputoctets, acctoutputoctets, member_id, fullname, expired_on, plan_name, owner_name, type, method
           const username = String(session.username || session.member_id || '')
           const ip = String(session.framedipaddress || '')
           const uptime = String(session.acctsessiontime || '')
-          
+
           if (username) {
             activeMap.set(username, { ip, uptime })
           }
@@ -1640,7 +1640,7 @@ export class MixRadiusService {
    * validationData: map of customerId -> currentRenewedOn to auto-invalidate stale cache
    */
   async fetchInvoiceCounts(
-    customerIds: string[], 
+    customerIds: string[],
     bypassCache: boolean = false,
     validationData: Record<string, string> = {}
   ): Promise<Map<string, { paidCount: number, totalCount: number }>> {
@@ -1656,19 +1656,19 @@ export class MixRadiusService {
     }
 
     const results = new Map<string, { paidCount: number, totalCount: number }>()
-    
+
     // Process one by one to be extremely polite to MixRadius (Limit: 1 concurrent)
     const chunkSize = 1
     for (let i = 0; i < customerIds.length; i += chunkSize) {
       const chunk = customerIds.slice(i, i + chunkSize)
-      
+
       const promises = chunk.map(async (id) => {
         try {
           // Check cache first (skip if bypassCache is true)
           if (!bypassCache) {
             const cached = this.invoiceCountCache.get(id)
             const liveRenewedOn = validationData[id]
-            
+
             // SMART INVALIDATION: Re-fetch if live date is different from cached date
             if (cached && (!liveRenewedOn || cached.lastRenewedOn === liveRenewedOn)) {
               results.set(id, { paidCount: cached.paidCount, totalCount: cached.totalCount })
@@ -1676,18 +1676,18 @@ export class MixRadiusService {
             }
           }
 
-          console.log(`[MixRadius] Cache MISS for invoice count customer ${id}. Fetching detail...`)
+          // console.log(`[MixRadius] Cache MISS for invoice count customer ${id}. Fetching detail...`)
 
           // Random delay to avoid pattern detection
           await this.randomDelay(300, 1000)
 
           const detail = await this.fetchCustomerDetail(id)
           const invoices = detail.invoices || []
-          
+
           const paidCount = invoices.filter(inv => inv.status === 'Paid').length
           const totalCount = invoices.length
           const lastRenewedOn = validationData[id] || detail.renewed_on || ''
-          
+
           const counts = { paidCount, totalCount }
           results.set(id, counts)
           this.invoiceCountCache.set(id, { ...counts, lastRenewedOn })
@@ -1713,55 +1713,55 @@ export class MixRadiusService {
    */
   private parseInvoicesFromHtml(html: string): MixRadiusInvoice[] {
     const invoices: MixRadiusInvoice[] = []
-    
+
     // Find table rows
     const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
     let rowMatch
-    
+
     while ((rowMatch = rowRegex.exec(html)) !== null) {
-        const rowContent = rowMatch[1] ?? ''
-        const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
-        const cols: string[] = []
-        let colMatch
-        while ((colMatch = colRegex.exec(rowContent)) !== null) {
-          cols.push((colMatch[1] ?? '').replace(/<[^>]*>/g, '').trim())
+      const rowContent = rowMatch[1] ?? ''
+      const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
+      const cols: string[] = []
+      let colMatch
+      while ((colMatch = colRegex.exec(rowContent)) !== null) {
+        cols.push((colMatch[1] ?? '').replace(/<[^>]*>/g, '').trim())
+      }
+
+      if (cols.length >= 7) {
+        let status = cols[7] || ''
+        const rowUpper = rowContent.toUpperCase()
+
+        if (!status || status === 'Unknown' || status.trim() === '') {
+          if (rowUpper.includes('UNPAID') || rowUpper.includes('BELUM BAYAR')) status = 'Unpaid'
+          else if (rowUpper.includes('PAID') || rowUpper.includes('LUNAS')) status = 'Paid'
+          else status = 'Unknown'
         }
-        
-        if (cols.length >= 7) {
-           let status = cols[7] || ''
-           const rowUpper = rowContent.toUpperCase()
-           
-           if (!status || status === 'Unknown' || status.trim() === '') {
-              if (rowUpper.includes('UNPAID') || rowUpper.includes('BELUM BAYAR')) status = 'Unpaid'
-              else if (rowUpper.includes('PAID') || rowUpper.includes('LUNAS')) status = 'Paid'
-              else status = 'Unknown'
-           }
 
-           let invoiceNum = cols[1] ?? ''
-           if (invoiceNum.toUpperCase().endsWith('UNPAID')) {
-               invoiceNum = invoiceNum.substring(0, invoiceNum.length - 6)
-               if (!status || status === 'Unknown') status = 'Unpaid'
-           } else if (invoiceNum.toUpperCase().endsWith('PAID')) {
-               invoiceNum = invoiceNum.substring(0, invoiceNum.length - 4)
-               if (!status || status === 'Unknown') status = 'Paid'
-           }
-
-           const col0 = cols[0] ?? ''
-           const col3 = cols[3] ?? ''
-
-           if (/^\d+$/.test(col0) && (col3.includes('Rp') || /[\d,\.]+/.test(col3))) {
-              invoices.push({
-                id: col0,
-                invoice_number: invoiceNum,
-                plan_name: cols[2] ?? '',
-                amount: col3,
-                activation_date: cols[4] ?? '',
-                deadline_date: cols[5] ?? '',
-                owner: cols[6] ?? '',
-                status: status
-              })
-           }
+        let invoiceNum = cols[1] ?? ''
+        if (invoiceNum.toUpperCase().endsWith('UNPAID')) {
+          invoiceNum = invoiceNum.substring(0, invoiceNum.length - 6)
+          if (!status || status === 'Unknown') status = 'Unpaid'
+        } else if (invoiceNum.toUpperCase().endsWith('PAID')) {
+          invoiceNum = invoiceNum.substring(0, invoiceNum.length - 4)
+          if (!status || status === 'Unknown') status = 'Paid'
         }
+
+        const col0 = cols[0] ?? ''
+        const col3 = cols[3] ?? ''
+
+        if (/^\d+$/.test(col0) && (col3.includes('Rp') || /[\d,\.]+/.test(col3))) {
+          invoices.push({
+            id: col0,
+            invoice_number: invoiceNum,
+            plan_name: cols[2] ?? '',
+            amount: col3,
+            activation_date: cols[4] ?? '',
+            deadline_date: cols[5] ?? '',
+            owner: cols[6] ?? '',
+            status: status
+          })
+        }
+      }
     }
     return invoices
   }
@@ -1775,7 +1775,7 @@ export class MixRadiusService {
       // Ensure we're logged in
       await this.login()
 
-      console.log(`[MixRadius] Fetching customer detail: ${customerId}`)
+      // console.log(`[MixRadius] Fetching customer detail: ${customerId}`)
 
       // Random delay
       await this.randomDelay(200, 600)
@@ -1792,7 +1792,7 @@ export class MixRadiusService {
 
       // Parse HTML response to extract customer data
       const html = response.data as string
-      
+
       // Check if we got login page (session expired) OR 404
       if (html.includes('LOGIN</title>') || html.includes('rad-admin/post')) {
         this.isLoggedIn = false
@@ -1800,48 +1800,48 @@ export class MixRadiusService {
       }
 
       if (html.includes('404 - Data Not Found') || html.includes('Data tidak ditemukan')) {
-          console.error(`[MixRadius] 404 Not Found for ID ${customerId}. URL: ${this.credentials.baseUrl}/rad-customers/edit/${customerId}`)
+        console.error(`[MixRadius] 404 Not Found for ID ${customerId}. URL: ${this.credentials.baseUrl}/rad-customers/edit/${customerId}`)
 
-          // ID RESOLUTION FALLBACK:
-          // If the ID looks like a username (e.g. 12 digits or more), try to resolve the REAL ID
-          // by searching for the user first.
-          if (customerId.length > 6 && /^\d+$/.test(customerId)) { // Heuristic: likely a username/member_id
-             console.log(`[MixRadius] Attempting to resolve real ID for username: ${customerId}...`)
-             try {
-                // Fetch user by searching for this "ID" as a username
-                const searchResult = await this.fetchCustomersPPP({
-                    start: 0,
-                    length: 1,
-                    search: customerId,
-                    searchType: 'username'
-                })
+        // ID RESOLUTION FALLBACK:
+        // If the ID looks like a username (e.g. 12 digits or more), try to resolve the REAL ID
+        // by searching for the user first.
+        if (customerId.length > 6 && /^\d+$/.test(customerId)) { // Heuristic: likely a username/member_id
+          // console.log(`[MixRadius] Attempting to resolve real ID for username: ${customerId}...`)
+          try {
+            // Fetch user by searching for this "ID" as a username
+            const searchResult = await this.fetchCustomersPPP({
+              start: 0,
+              length: 1,
+              search: customerId,
+              searchType: 'username'
+            })
 
-                if (searchResult.data && searchResult.data.length > 0) {
-                    const user = searchResult.data[0]
-                    // Check if we have a different ID now (e.g. DT_RowId or just 'id')
-                    // We must assume the search result returns the CORRECT internal ID in the 'id' field
-                    // thanks to our previous fix in fetchCustomersPPP
-                    if (user.id && user.id !== customerId) {
-                        console.log(`[MixRadius] Resolved real ID: ${user.id}. Retrying fetch...`)
-                        return this.fetchCustomerDetail(user.id)
-                    }
-                }
-             } catch (resolveError) {
-                 console.error('[MixRadius] ID resolution failed:', resolveError)
-             }
+            if (searchResult.data && searchResult.data.length > 0) {
+              const user = searchResult.data[0]
+              // Check if we have a different ID now (e.g. DT_RowId or just 'id')
+              // We must assume the search result returns the CORRECT internal ID in the 'id' field
+              // thanks to our previous fix in fetchCustomersPPP
+              if (user.id && user.id !== customerId) {
+                // console.log(`[MixRadius] Resolved real ID: ${user.id}. Retrying fetch...`)
+                return this.fetchCustomerDetail(user.id)
+              }
+            }
+          } catch (resolveError) {
+            console.error('[MixRadius] ID resolution failed:', resolveError)
           }
+        }
 
-          throw new Error('Data pelanggan tidak ditemukan (404). ID mungkin salah atau data telah dihapus.')
+        throw new Error('Data pelanggan tidak ditemukan (404). ID mungkin salah atau data telah dihapus.')
       }
 
       // Scraping Canary: Verify we are on the correct page by checking for known headers or unique markers
       // MixRadius usually has an "Edit Customer" or similar title and common icons
-      const hasCorrectHeader = /<h4>\s*<i[^>]*class="[^"]*fa-edit[^"]*"[^>]*><\/i>[\s\S]*?(Edit|Detail)[\s\S]*?<\/h4>/i.test(html) || 
-                               (html.includes('id_plan') && html.includes('username'))
-      
+      const hasCorrectHeader = /<h4>\s*<i[^>]*class="[^"]*fa-edit[^"]*"[^>]*><\/i>[\s\S]*?(Edit|Detail)[\s\S]*?<\/h4>/i.test(html) ||
+        (html.includes('id_plan') && html.includes('username'))
+
       if (!hasCorrectHeader) {
-          console.warn(`[MixRadius] Page structure check failed for customer ${customerId}. Marker elements not found.`)
-          // We'll still try to proceed, but if core fields fail later, the existing check will catch it.
+        console.warn(`[MixRadius] Page structure check failed for customer ${customerId}. Marker elements not found.`)
+        // We'll still try to proceed, but if core fields fail later, the existing check will catch it.
       }
 
       // Extract customer data from HTML form fields
@@ -1849,13 +1849,13 @@ export class MixRadiusService {
         // Find input tag with specific name
         const inputTagRegex = new RegExp(`<input[^>]*name="${name}"[^>]*>`, 'i')
         const inputMatch = html.match(inputTagRegex)
-        
+
         if (inputMatch) {
-            const inputTag = inputMatch[0]
-            // Extract value attribute from the found tag
-            const valueRegex = /value=['"]([^'"]*)['"]/i
-            const valueMatch = inputTag.match(valueRegex)
-            if (valueMatch) return valueMatch[1] ?? ''
+          const inputTag = inputMatch[0]
+          // Extract value attribute from the found tag
+          const valueRegex = /value=['"]([^'"]*)['"]/i
+          const valueMatch = inputTag.match(valueRegex)
+          if (valueMatch) return valueMatch[1] ?? ''
         }
         return ''
       }
@@ -1881,8 +1881,8 @@ export class MixRadiusService {
           if (match) return (match[1] ?? '').replace(/<[^>]*>/g, '').trim()
 
           // Fallback: looking for value match if possible (assuming value is present)
-           const valueMatch = selectContent.match(/<option[^>]*value="([^"]*)"[^>]*selected[^>]*>([\s\S]*?)<\/option>/i)
-           if (valueMatch) return (valueMatch[2] ?? '').replace(/<[^>]*>/g, '').trim()
+          const valueMatch = selectContent.match(/<option[^>]*value="([^"]*)"[^>]*selected[^>]*>([\s\S]*?)<\/option>/i)
+          if (valueMatch) return (valueMatch[2] ?? '').replace(/<[^>]*>/g, '').trim()
         }
         return ''
       }
@@ -1923,30 +1923,30 @@ export class MixRadiusService {
         phonenumber: extractValue('phonenumber'),
         address: extractTextarea('address'),
         remote_address: extractValue('remote_address') || 'Automatic',
-        
+
         // Plan extraction - text is better for display
-        plan_name: extractSelect('id_plan'), 
-        
+        plan_name: extractSelect('id_plan'),
+
         // Enum values are better for logic
         payment_type: extractSelectValue('payment_type') || 'POSTPAID',
         subscription_type: extractRadio('subscription_type') || 'regular',
         trx_status: extractSelectValue('trx_status') || 'UNPAID',
-        
+
         identity_number: extractValue('identity_number'),
-        
-        created_at: '', 
+
+        created_at: '',
         renewed_on: extractValue('renewed_on'),
         expired_on: extractValue('expired_on'),
-        
+
         auth_status: extractSelectValue('account_status') === 'enabled' ? 'Enabled-Users' : 'Disabled-Users',
-        
-        note: extractValue('note'), 
+
+        note: extractValue('note'),
         bind_mac: extractSelectValue('bindmac'),
         // Try callerid input first, fallback to sniffing the fa-server icon section which often holds the MAC
         mac_address: extractValue('callerid') || (() => {
-             const regex = /<i class="icon fa fa-server"><\/i>\s*([0-9A-Fa-f:]{12,17})/i
-             const match = html.match(regex)
-             return match ? (match[1] ?? '').trim() : ''
+          const regex = /<i class="icon fa fa-server"><\/i>\s*([0-9A-Fa-f:]{12,17})/i
+          const match = html.match(regex)
+          return match ? (match[1] ?? '').trim() : ''
         })(),
         total: '',
         latitude: extractValue('latitude'),
@@ -1978,14 +1978,14 @@ export class MixRadiusService {
         })(),
       }
 
-      console.log(`[MixRadius] Customer detail fetched: ${customerDetail.fullname}`)
-      
+      // console.log(`[MixRadius] Customer detail fetched: ${customerDetail.fullname}`)
+
       // Canary check: Validation for scraping robustness
       // If we got a 200 OK but fail to find username OR member_id, the HTML layout likely changed.
       if (!customerDetail.username && !customerDetail.member_id) {
-          // Log the HTML snippet for debugging (truncate for safety)
-          console.error(`[MixRadius] Scraping Validation Failed for ID ${customerId}. HTML snippet: ${html.substring(0, 500)}...`)
-          throw new Error('Integration Error: MixRadius Admin Panel layout may have changed. Failed to extract core customer data.')
+        // Log the HTML snippet for debugging (truncate for safety)
+        console.error(`[MixRadius] Scraping Validation Failed for ID ${customerId}. HTML snippet: ${html.substring(0, 500)}...`)
+        throw new Error('Integration Error: MixRadius Admin Panel layout may have changed. Failed to extract core customer data.')
       }
 
       return customerDetail
@@ -1996,31 +1996,31 @@ export class MixRadiusService {
         console.warn(`[MixRadius] Integration not available (fetchCustomerDetail): ${message}`)
         // Return dummy object to avoid crashing callers
         return {
-            id: customerId,
-            member_id: '',
-            username: '',
-            password: '',
-            fullname: 'Integration Not Configured',
-            email: '',
-            phonenumber: '',
-            address: '',
-            remote_address: '',
-            plan_name: '',
-            payment_type: '',
-            subscription_type: '',
-            trx_status: '',
-            identity_number: '',
-            created_at: '',
-            renewed_on: '',
-            expired_on: '',
-            auth_status: '',
-            note: '',
-            bind_mac: '',
-            mac_address: '',
-            total: '',
-            latitude: '',
-            longitude: '',
-            invoices: []
+          id: customerId,
+          member_id: '',
+          username: '',
+          password: '',
+          fullname: 'Integration Not Configured',
+          email: '',
+          phonenumber: '',
+          address: '',
+          remote_address: '',
+          plan_name: '',
+          payment_type: '',
+          subscription_type: '',
+          trx_status: '',
+          identity_number: '',
+          created_at: '',
+          renewed_on: '',
+          expired_on: '',
+          auth_status: '',
+          note: '',
+          bind_mac: '',
+          mac_address: '',
+          total: '',
+          latitude: '',
+          longitude: '',
+          invoices: []
         } as MixRadiusCustomerDetail
       }
 
@@ -2037,7 +2037,7 @@ export class MixRadiusService {
     this.loginExpiresAt = 0
     this.customersCache = { data: [], expiresAt: 0 } // Clear local cache too
     this.jar = new CookieJar()
-    console.log('[MixRadius] Session and caches cleared')
+    // console.log('[MixRadius] Session and caches cleared')
   }
 
   /**
@@ -2056,7 +2056,7 @@ export class MixRadiusService {
    */
   private parseDMSToDecimal(dms: string): number | null {
     if (!dms) return null
-    
+
     // Clean up HTML entities and various quote formats
     const cleaned = dms
       .replace(/&#39;/g, "'")
@@ -2067,12 +2067,12 @@ export class MixRadiusService {
       .replace(/'/g, "'")  // Unicode left single quotation mark
       .replace(/′/g, "'")  // Prime symbol
       .replace(/″/g, '"')  // Double prime symbol
-    
+
     // Try to match DMS format: 6°32'56.3 or 107°48'03.1
     // Also handle formats like 6°32'56.3" (with trailing double quote)
     const dmsRegex = /(-?)(\d+)[°](\d+)['](\d+\.?\d*)["'"]?/
     const match = cleaned.match(dmsRegex)
-    
+
     if (match) {
       const sign = match[1] === '-' ? -1 : 1
       const degrees = parseFloat(match[2] ?? '0')
@@ -2082,11 +2082,11 @@ export class MixRadiusService {
       const result = sign * (degrees + minutes / 60 + seconds / 3600)
       return result
     }
-    
+
     // Try parsing as decimal directly
     const decimal = parseFloat(cleaned)
     if (!isNaN(decimal)) return decimal
-    
+
     console.warn(`[MixRadius] Could not parse DMS: "${dms}" -> "${cleaned}"`)
     return null
   }
@@ -2097,33 +2097,33 @@ export class MixRadiusService {
    */
   private parseGoogleMapsCoords(url: string): { lat: number; lng: number } | null {
     if (!url) return null
-    
+
     // Clean up HTML entities
     const cleaned = url
       .replace(/&#39;/g, "'")
       .replace(/&quot;/g, '"')
       .replace(/&#x27;/g, "'")
       .replace(/&apos;/g, "'")
-    
+
     // Match pattern: /maps/place/LAT,LNG
     // LAT and LNG can contain °, ', " and numbers
     // The pattern ends at a space, end of string, or closing quote/tag
     const placeRegex = /maps\/place\/([^,]+),([^<>\s"]+)/
     const match = cleaned.match(placeRegex)
-    
+
     if (match) {
       const latStr = match[1] ?? ''
       const lngStr = match[2] ?? ''
 
       const lat = this.parseDMSToDecimal(latStr)
       const lng = this.parseDMSToDecimal(lngStr)
-      
+
       if (lat !== null && lng !== null) {
         // MixRadius stores latitude as positive but it's actually South (negative)
         // Check if this is Indonesian coords (should be negative latitude)
-        return { 
+        return {
           lat: lat > 0 && lat < 15 ? -lat : lat, // Indonesian latitude is negative
-          lng 
+          lng
         }
       } else {
         console.warn(`[MixRadius] Failed to parse coords: lat="${latStr}" -> ${lat}, lng="${lngStr}" -> ${lng}`)
@@ -2131,7 +2131,7 @@ export class MixRadiusService {
     } else {
       console.warn(`[MixRadius] No coordinate match in URL: ${url.substring(0, 100)}`)
     }
-    
+
     return null
   }
 
@@ -2143,7 +2143,7 @@ export class MixRadiusService {
     try {
       await this.login()
 
-      console.log('[MixRadius] Fetching ODP list via mapping API...')
+      // console.log('[MixRadius] Fetching ODP list via mapping API...')
 
       await this.randomDelay(300, 800)
 
@@ -2160,7 +2160,7 @@ export class MixRadiusService {
 
       // Check if session expired (returned HTML login page)
       if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
-        console.log('[MixRadius] Session expired during ODP fetch, retrying...')
+        // console.log('[MixRadius] Session expired during ODP fetch, retrying...')
         this.isLoggedIn = false
         return this.fetchODPList()
       }
@@ -2177,11 +2177,11 @@ export class MixRadiusService {
       }
 
       if (!Array.isArray(data)) {
-        console.log('[MixRadius] ODP mapping response is not an array')
+        // console.log('[MixRadius] ODP mapping response is not an array')
         return []
       }
 
-      console.log(`[MixRadius] Found ${data.length} ODPs from mapping API`)
+      // console.log(`[MixRadius] Found ${data.length} ODPs from mapping API`)
 
       const odps: MixRadiusODP[] = []
 
@@ -2194,7 +2194,7 @@ export class MixRadiusService {
         } else {
           lat = parseFloat(latStr) || 0
         }
-        
+
         // Parse longitude - check DMS format FIRST (contains ° symbol)
         let lng: number
         const lngStr = String(item.odp_longitude || '')
@@ -2233,7 +2233,7 @@ export class MixRadiusService {
         })
       }
 
-      console.log(`[MixRadius] Parsed ${odps.length} ODPs with valid coordinates`)
+      // console.log(`[MixRadius] Parsed ${odps.length} ODPs with valid coordinates`)
       return odps
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
@@ -2256,7 +2256,7 @@ export class MixRadiusService {
     try {
       await this.login()
 
-      console.log(`[MixRadius] Fetching customers for ODP ${odpId}...`)
+      // console.log(`[MixRadius] Fetching customers for ODP ${odpId}...`)
 
       await this.randomDelay(200, 500)
 
@@ -2284,11 +2284,11 @@ export class MixRadiusService {
 
       // Parse customers from table in tab "Pelanggan"
       const customers: MixRadiusODPCustomer[] = []
-      
+
       // Find the customers table (id="dynamic-table")
       const tableMatch = html.match(/<table[^>]*id="dynamic-table"[^>]*>([\s\S]*?)<\/table>/i)
       if (!tableMatch) {
-        console.log(`[MixRadius] No customer table found for ODP ${odpId}`)
+        // console.log(`[MixRadius] No customer table found for ODP ${odpId}`)
         return customers
       }
 
@@ -2312,7 +2312,7 @@ export class MixRadiusService {
         while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
           cells.push(cellMatch[1] ?? '')
         }
-        
+
         if (cells.length >= 7) {
           // Extract customer ID from checkbox
           const cell0 = cells[0] ?? ''
@@ -2328,7 +2328,7 @@ export class MixRadiusService {
             // Validate coordinates are within Indonesia bounds
             // Indonesia: lat -11 to 6, lng 95 to 141
             const isValidCoord = coords.lat >= -12 && coords.lat <= 8 &&
-                                 coords.lng >= 94 && coords.lng <= 142
+              coords.lng >= 94 && coords.lng <= 142
 
             if (isValidCoord) {
               customers.push({
@@ -2350,7 +2350,7 @@ export class MixRadiusService {
         }
       }
 
-      console.log(`[MixRadius] Found ${customers.length} customers for ODP ${odpId}`)
+      // console.log(`[MixRadius] Found ${customers.length} customers for ODP ${odpId}`)
       return customers
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
@@ -2370,7 +2370,7 @@ export class MixRadiusService {
    */
   clearTopologyCache(): void {
     this.topologyCache = { data: null, expiresAt: 0, ownerFilter: null }
-    console.log('[MixRadius] Topology cache cleared')
+    // console.log('[MixRadius] Topology cache cleared')
   }
 
   /**
@@ -2381,21 +2381,21 @@ export class MixRadiusService {
   async fetchTopologyData(options?: { ownerName?: string, forceRefresh?: boolean }): Promise<MixRadiusTopologyData> {
     try {
       const ownerFilter = options?.ownerName || null
-      
+
       // Check cache (if not force refresh and cache is valid)
-      if (!options?.forceRefresh && 
-          this.topologyCache.data && 
-          this.topologyCache.expiresAt > Date.now() &&
-          this.topologyCache.ownerFilter === ownerFilter) {
-        console.log('[MixRadius] Using cached topology data')
+      if (!options?.forceRefresh &&
+        this.topologyCache.data &&
+        this.topologyCache.expiresAt > Date.now() &&
+        this.topologyCache.ownerFilter === ownerFilter) {
+        // console.log('[MixRadius] Using cached topology data')
         return this.topologyCache.data
       }
-      
-      console.log('[MixRadius] Fetching topology data (cache miss or expired)...')
-      
+
+      // console.log('[MixRadius] Fetching topology data (cache miss or expired)...')
+
       // Get all ODPs (mapping API includes customer counts)
       let odps = await this.fetchODPList()
-      
+
       // Filter by owner if specified
       if (options?.ownerName) {
         odps = odps.filter(odp => odp.ownerName === options.ownerName)
@@ -2403,12 +2403,12 @@ export class MixRadiusService {
 
       // Only fetch customers for ODPs that have customers (customerCount > 0)
       const odpsWithCustomers = odps.filter(odp => (odp.customerCount || 0) > 0)
-      console.log(`[MixRadius] Fetching customers for ${odpsWithCustomers.length} ODPs (with customers)...`)
+      // console.log(`[MixRadius] Fetching customers for ${odpsWithCustomers.length} ODPs (with customers)...`)
 
       // Fetch customers in parallel batches (3 concurrent requests to avoid server overload)
       const BATCH_SIZE = 3
       const allCustomers: MixRadiusODPCustomer[] = []
-      
+
       for (let i = 0; i < odpsWithCustomers.length; i += BATCH_SIZE) {
         const batch = odpsWithCustomers.slice(i, i + BATCH_SIZE)
         const batchResults = await Promise.all(
@@ -2422,28 +2422,28 @@ export class MixRadiusService {
           })
         )
         batchResults.forEach(customers => allCustomers.push(...customers))
-        
+
         // Random pause between batches
         if (i + BATCH_SIZE < odpsWithCustomers.length) {
           await this.randomDelay(500, 1500)
         }
       }
 
-      console.log(`[MixRadius] Topology data complete: ${odps.length} ODPs, ${allCustomers.length} customers`)
+      // console.log(`[MixRadius] Topology data complete: ${odps.length} ODPs, ${allCustomers.length} customers`)
 
       const result: MixRadiusTopologyData = {
         odps,
         customers: allCustomers,
       }
-      
+
       // Update cache
       this.topologyCache = {
         data: result,
         expiresAt: Date.now() + MixRadiusService.TOPOLOGY_CACHE_TTL,
         ownerFilter: ownerFilter
       }
-      console.log(`[MixRadius] Topology data cached (expires in 5 minutes)`)
-      
+      // console.log(`[MixRadius] Topology data cached (expires in 5 minutes)`)
+
       return result
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
@@ -2498,12 +2498,12 @@ export class MixRadiusService {
       try {
         const allArrayVars = [...html.matchAll(/var\s+([a-zA-Z0-9_]+)\s*=\s*\[(.*?)\];/g)];
         if (allArrayVars.length > 0) {
-            console.log('\n=== [MixRadius Debug] All Variables for Fee Gateway Check ===');
-            allArrayVars.forEach(match => {
-                const content = match[2].length > 50 ? match[2].substring(0, 50) + '...' : match[2];
-                console.log(`Variable: ${match[1]} = [${content}]`);
-            });
-            console.log('=============================================================\n');
+          // console.log('\n=== [MixRadius Debug] All Variables for Fee Gateway Check ===');
+          allArrayVars.forEach(match => {
+            const _content = match[2].length > 50 ? match[2].substring(0, 50) + '...' : match[2];
+            // console.log(`Variable: ${match[1]} = [${content}]`);
+          });
+          // console.log('=============================================================\n');
         }
       } catch (e) { console.error(e); }
 

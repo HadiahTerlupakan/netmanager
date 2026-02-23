@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
                 assignedToId: workOrder.assignedToId || null,
                 createdAt: workOrder.createdAt.toISOString()
             }, workOrder.departmentId || undefined, workOrder.siteId || undefined);
-            console.log('[Mobile WO Request] WebSocket broadcast sent to portal admin');
+            // console.log('[Mobile WO Request] WebSocket broadcast sent to portal admin');
         } catch (wsError) {
             console.error('[Mobile WO Request] WebSocket broadcast failed:', wsError);
         }

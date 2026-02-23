@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
                 isPinned: announcement.isPinned,
                 createdAt: announcement.createdAt.toISOString(),
             });
-            console.log('[WS] Broadcast announcement:', announcement.id);
+            // console.log('[WS] Broadcast announcement:', announcement.id);
         }
 
         // Send Push Notifications (Mobile)
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
                         announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : ''),
                         { announcementId: announcement.id, url: '/announcement' }
                     );
-                    console.log(`[PUSH] Sent to ${tokens.length} devices (filtered ${usersOnLeave.length} on leave)`);
+                    // console.log(`[PUSH] Sent to ${tokens.length} devices (filtered ${usersOnLeave.length} on leave)`);
                 }
 
                 // 2. Create In-App Notifications (Database)
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
                     await prisma.notifications.createMany({
                         data: notificationData
                     });
-                    console.log(`[DB] Created ${allTargetedUsers.length} notification records`);
+                    // console.log(`[DB] Created ${allTargetedUsers.length} notification records`);
                 }
             } catch (pushError) {
                 console.error('[PUSH] Failed to send push notifications:', pushError);

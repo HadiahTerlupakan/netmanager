@@ -60,7 +60,7 @@ export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, a
       taskPayload.objectName = parameter
     }
 
-    console.log('[GenieACS Task] Sending:', JSON.stringify(taskPayload))
+    // console.log('[GenieACS Task] Sending:', JSON.stringify(taskPayload))
 
     const response = await axios.post(baseUrl, taskPayload, {
       timeout: 10000,
