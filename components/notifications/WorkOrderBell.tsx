@@ -85,7 +85,7 @@ export function WorkOrderBell() {
                             )}
                         </div>
                         {unreadCount > 0 && (
-                            <Button 
+                            <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={markAllAsRead}
@@ -122,8 +122,8 @@ export function WorkOrderBell() {
                                                         {notification.title}
                                                     </p>
                                                     {!notification.isRead && (
-                                                        <Button onClick={() => markAsRead(notification.id)}
-                                                            className="shrink-0 p-1 text-gray-400 hover:text-blue-600 rounded"
+                                                        <Button variant="ghost" onClick={() => markAsRead(notification.id)}
+                                                            className="shrink-0 p-1 h-auto text-gray-400 hover:text-blue-600 rounded"
                                                             title="Tandai dibaca"
                                                         >
                                                             <HiCheck className="w-4 h-4" />

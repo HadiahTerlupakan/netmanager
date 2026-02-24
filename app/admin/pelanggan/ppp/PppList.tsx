@@ -37,13 +37,13 @@ export default function PelangganPPPPage() {
   const [error, setError] = useState<string | null>(null)
   const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([])
   const [disableDuration, setDisableDuration] = useState<number>(5)
-  
+
   // Filters
   const [siteId, setSiteId] = useState<string | undefined>(undefined)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  
+
   // Pagination
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -103,25 +103,25 @@ export default function PelangganPPPPage() {
           const parsed = JSON.parse(text)
           if (Array.isArray(parsed)) {
             data = parsed
-             setTotalPages(1)
+            setTotalPages(1)
           } else if (parsed && parsed.data && Array.isArray(parsed.data)) {
             data = parsed.data
             if (parsed.meta) {
-               setTotalPages(Math.ceil((parsed.meta.total || 0) / limit))
+              setTotalPages(Math.ceil((parsed.meta.total || 0) / limit))
             }
           } else if (parsed.error) {
-              throw new Error(parsed.error)
-            } else {
-               data = []
-            }
+            throw new Error(parsed.error)
+          } else {
+            data = []
           }
-        } catch (_e) {
-          throw new Error('Gagal memproses data pelanggan')
         }
-  
-        setPelanggans(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data')
+      } catch (_e) {
+        throw new Error('Gagal memproses data pelanggan')
+      }
+
+      setPelanggans(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data')
     } finally {
       setLoading(false)
     }
@@ -208,14 +208,14 @@ export default function PelangganPPPPage() {
       priority: 'secondary'
     },
     {
-        key: 'site.name',
-        header: 'Site Area',
-        render: (item: PelangganPPP) => (
-          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            {item.site?.name || '-'}
-          </span>
-        ),
-        priority: 'tertiary'
+      key: 'site.name',
+      header: 'Site Area',
+      render: (item: PelangganPPP) => (
+        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+          {item.site?.name || '-'}
+        </span>
+      ),
+      priority: 'tertiary'
     },
     {
       key: 'tanggalAktif',
@@ -223,16 +223,16 @@ export default function PelangganPPPPage() {
       render: (item: PelangganPPP) => {
         const dueDate = new Date(item.jatuhTempo)
         const diffDays = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-        
+
         let statusColor = 'text-white bg-emerald-600 dark:bg-emerald-500'
         let statusText = `${diffDays} hari lagi`
-        
+
         if (diffDays < 0) {
-            statusColor = 'text-white bg-rose-600 dark:bg-rose-500'
-            statusText = `Telat ${Math.abs(diffDays)} hari`
+          statusColor = 'text-white bg-rose-600 dark:bg-rose-500'
+          statusText = `Telat ${Math.abs(diffDays)} hari`
         } else if (diffDays <= disableDuration) {
-            statusColor = 'text-white bg-amber-600 dark:bg-amber-500' 
-            statusText = `${diffDays} hari (Akan Habis)`
+          statusColor = 'text-white bg-amber-600 dark:bg-amber-500'
+          statusText = `${diffDays} hari (Akan Habis)`
         }
 
         return (
@@ -319,25 +319,26 @@ export default function PelangganPPPPage() {
             </div>
           </div>
           <div className="w-full md:w-64">
-            <SiteFilter 
-                value={siteId} 
-                onSiteChange={setSiteId}
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Site Area</label>
+            <SiteFilter
+              value={siteId}
+              onSiteChange={setSiteId}
             />
           </div>
           <div className="w-full md:w-48">
-             <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Status</label>
-             <select
-               id="status"
-               className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600 transition-all"
-               value={statusFilter}
-               onChange={(e) => setStatusFilter(e.target.value)}
-             >
-               <option value="">Semua Status</option>
-               <option value="AKTIF">Aktif</option>
-               <option value="NONAKTIF">Nonaktif</option>
-               <option value="ISOLIR">Isolir</option>
-               <option value="DISMANTLE">Dismantle</option>
-             </select>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Status</label>
+            <select
+              id="status"
+              className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600 transition-all"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">Semua Status</option>
+              <option value="AKTIF">Aktif</option>
+              <option value="NONAKTIF">Nonaktif</option>
+              <option value="ISOLIR">Isolir</option>
+              <option value="DISMANTLE">Dismantle</option>
+            </select>
           </div>
         </div>
       </div>
@@ -373,9 +374,9 @@ export default function PelangganPPPPage() {
                     <HiArrowPath className="w-4 h-4" />
                   </button>
                 )}
-                
+
                 <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-                
+
                 {/* Billing & Edit Actions */}
                 <button
                   onClick={() => allowed ? window.location.href = `/admin/pelanggan/ppp/${item.id}/renew` : null}

@@ -56,14 +56,14 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
   useEffect(() => {
     // If input mode (required selection), auto-select single site
     if (isInput && !loading && sites.length === 1 && !selectedSite) {
-        const singleSite = sites[0]
-        if (singleSite) {
-            // Defer state updates to avoid synchronous setState in effect
-            requestAnimationFrame(() => {
-              setSelectedSite(singleSite.id)
-              onSiteChange(singleSite.id)
-            })
-        }
+      const singleSite = sites[0]
+      if (singleSite) {
+        // Defer state updates to avoid synchronous setState in effect
+        requestAnimationFrame(() => {
+          setSelectedSite(singleSite.id)
+          onSiteChange(singleSite.id)
+        })
+      }
     }
     // If filter mode, we usually default to "Semua Site" (''), unless we want to force?
     // Let's leave filter mode as manual selection (default ''), enabling 'Semua Site'.
@@ -82,7 +82,7 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
         <HiOutlineMap className="h-5 w-5 text-gray-400" />
       </div>
-      
+
       {/* 
         Render Static Text ONLY if:
         1. We are in Input Mode (isInput=true)
@@ -90,20 +90,20 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
       */}
       {isInput && sites.length === 1 ? (
         <div className="block w-full pl-10 pr-3 py-2 text-base border border-gray-200 bg-gray-50 text-gray-500 rounded-md sm:text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
-           {sites[0]?.name} <span className='text-xs ml-1 text-gray-400'>(Otomatis)</span>
+          {sites[0]?.name} <span className='text-xs ml-1 text-gray-400'>(Otomatis)</span>
         </div>
       ) : (
         <select
-            value={selectedSite}
-            onChange={handleChange}
-            className="block w-full pl-10 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+          value={selectedSite}
+          onChange={handleChange}
+          className="block w-full rounded-lg border-0 py-2.5 pl-10 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600 transition-all"
         >
-            <option value="">Semua Site</option>
-            {sites.map((site) => (
+          <option value="">Semua Site</option>
+          {sites.map((site) => (
             <option key={site.id} value={site.id}>
-                {site.name}
+              {site.name}
             </option>
-            ))}
+          ))}
         </select>
       )}
     </div>

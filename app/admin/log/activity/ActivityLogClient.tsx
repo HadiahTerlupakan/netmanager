@@ -101,11 +101,11 @@ export function ClientComponent() {
                         <SiteFilter onSiteChange={setSiteId} />
                     </div>
                     <Button onClick={() => fetchLogs(pagination.page)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                    <HiOutlineRefresh className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                    Refresh
-                </Button>
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        <HiOutlineRefresh className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
                 </div>
             </div>
 
@@ -176,8 +176,8 @@ export function ClientComponent() {
                                     header: 'Detail',
                                     priority: 'secondary',
                                     render: (item) => (
-                                        <Button onClick={() => setSelectedLog(item)}
-                                            className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm"
+                                        <Button variant="link" onClick={() => setSelectedLog(item)}
+                                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline text-sm p-0 h-auto"
                                         >
                                             Lihat Detail
                                         </Button>

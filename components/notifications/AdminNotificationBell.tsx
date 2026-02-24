@@ -82,8 +82,11 @@ export function AdminNotificationBell() {
                             )}
                         </div>
                         {unreadCount > 0 && (
-                            <Button onClick={markAllAsRead}
-                                
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={markAllAsRead}
+                                className="text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/40"
                             >
                                 <HiCheck className="w-3.5 h-3.5" />
                                 Tandai semua dibaca
@@ -116,8 +119,8 @@ export function AdminNotificationBell() {
                                                         {notification.title}
                                                     </p>
                                                     {!notification.isRead && (
-                                                        <Button onClick={() => markAsRead(notification.id)}
-                                                            className="shrink-0 p-1 text-gray-400 hover:text-indigo-600 rounded"
+                                                        <Button variant="ghost" onClick={() => markAsRead(notification.id)}
+                                                            className="shrink-0 p-1 h-auto text-gray-400 hover:text-indigo-600 rounded"
                                                             title="Tandai dibaca"
                                                         >
                                                             <HiCheck className="w-4 h-4" />

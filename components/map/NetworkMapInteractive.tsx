@@ -499,7 +499,7 @@ export default function NetworkMapInteractive() {
     // If connecting ODP to Pole/Joinbox, it could be Drop or Distribution.
     // We'll default to Distribution to keep the map clean (Blue lines),
     // unless explicitly connecting to an ONT (Green lines).
-    
+
     // Default to Distribution for everything else (ODC->ODP, ODC->Pole, Pole->Pole, Joinbox, etc.)
     return "distribution";
   };
@@ -826,7 +826,7 @@ export default function NetworkMapInteractive() {
 
     try {
       const res = await fetch(endpoint, { method: "DELETE" });
-      
+
       if (res.ok) {
         showToast("success", `${label} deleted successfully`);
         fetchData();
@@ -834,7 +834,7 @@ export default function NetworkMapInteractive() {
       } else {
         const error = await res.json().catch(() => ({ error: "Unknown error" }));
         console.error(`DELETE ${type} failed:`, error);
-        
+
         if (res.status === 403) {
           showToast("error", "Permission denied: You cannot delete this item");
         } else if (res.status === 404) {
@@ -995,9 +995,9 @@ export default function NetworkMapInteractive() {
 
   const filteredNodes = searchQuery
     ? nodes.filter(n =>
-        n.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      n.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      n.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : nodes;
 
   // ============================================
@@ -1013,10 +1013,9 @@ export default function NetworkMapInteractive() {
   }
 
   const toolButtonClass = (active: boolean) =>
-    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-      active
-        ? "bg-blue-600 text-white shadow-md"
-        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${active
+      ? "bg-blue-600 text-white shadow-md"
+      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
     }`;
 
   return (
@@ -1030,37 +1029,34 @@ export default function NetworkMapInteractive() {
             </h1>
             {/* Left: Tabs */}
             <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-            <Button onClick={() => setActiveTab("map")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === "map"
-                  ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <HiMap className="w-4 h-4" />
-              Map
-            </Button>
-            <Button onClick={() => setActiveTab("list")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === "list"
-                  ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <HiListBullet className="w-4 h-4" />
-              List
-            </Button>
-            <Button onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === "settings"
-                  ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <HiCog6Tooth className="w-4 h-4" />
-              Settings
-            </Button>
-          </div>
+              <Button variant="ghost" onClick={() => setActiveTab("map")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "map"
+                    ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+              >
+                <HiMap className="w-4 h-4" />
+                Map
+              </Button>
+              <Button variant="ghost" onClick={() => setActiveTab("list")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "list"
+                    ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+              >
+                <HiListBullet className="w-4 h-4" />
+                List
+              </Button>
+              <Button variant="ghost" onClick={() => setActiveTab("settings")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "settings"
+                    ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+              >
+                <HiCog6Tooth className="w-4 h-4" />
+                Settings
+              </Button>
+            </div>
           </div>
 
           {/* Right: Tools */}
@@ -1197,27 +1193,27 @@ export default function NetworkMapInteractive() {
           <div className="flex items-center gap-2">
             {(serverTempPosition || odcTempPosition || odpTempPosition || ontTempPosition || poleTempPosition || joinboxTempPosition) && (
               <Button onClick={() => {
-                  if (serverActionMode !== "idle") handleServerPositionSave();
-                  if (odcActionMode !== "idle") handleOdcPositionSave();
-                  if (odpActionMode !== "idle") handleOdpPositionSave();
-                  if (ontActionMode !== "idle") handleOntPositionSave();
-                  if (poleActionMode !== "idle") handlePolePositionSave();
-                  if (joinboxActionMode !== "idle") handleJoinboxPositionSave();
-                }}
+                if (serverActionMode !== "idle") handleServerPositionSave();
+                if (odcActionMode !== "idle") handleOdcPositionSave();
+                if (odpActionMode !== "idle") handleOdpPositionSave();
+                if (ontActionMode !== "idle") handleOntPositionSave();
+                if (poleActionMode !== "idle") handlePolePositionSave();
+                if (joinboxActionMode !== "idle") handleJoinboxPositionSave();
+              }}
                 className="px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-sm font-medium"
               >
                 Save
               </Button>
             )}
             <Button onClick={() => {
-                handleServerPositionCancel();
-                handleOdcPositionCancel();
-                handleOdpPositionCancel();
-                handleOntPositionCancel();
-                handlePolePositionCancel();
-                handleJoinboxPositionCancel();
-                handleFiberLineCancel();
-              }}
+              handleServerPositionCancel();
+              handleOdcPositionCancel();
+              handleOdpPositionCancel();
+              handleOntPositionCancel();
+              handlePolePositionCancel();
+              handleJoinboxPositionCancel();
+              handleFiberLineCancel();
+            }}
               className="p-1 hover:bg-blue-600 rounded"
             >
               <HiXMark className="w-5 h-5" />
@@ -1246,8 +1242,8 @@ export default function NetworkMapInteractive() {
                     // Use a timeout to ensure map is fully initialized before attaching events
                     // This helps prevent "Map container is being reused" issues in some cases
                     setTimeout(() => {
-                        map.off("click");
-                        map.on("click", handleMapClick);
+                      map.off("click");
+                      map.on("click", handleMapClick);
                     }, 0);
                   }
                 }}
@@ -1308,14 +1304,14 @@ export default function NetworkMapInteractive() {
                             </div>
                           </div>
                           <Button onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log("Delete button clicked for edge:", edge.edgeId);
-                              deleteEdge(edge.edgeId);
-                            }}
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("Delete button clicked for edge:", edge.edgeId);
+                            deleteEdge(edge.edgeId);
+                          }}
                             onMouseDown={(e) => {
-                                // Prevent map drag/click propagation
-                                e.stopPropagation();
+                              // Prevent map drag/click propagation
+                              e.stopPropagation();
                             }}
                             className="w-full mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center justify-center gap-2 text-sm"
                           >
@@ -1571,7 +1567,7 @@ export default function NetworkMapInteractive() {
                             {/* Copy Info Button */}
                             <Button variant="secondary" size="sm"
                               onClick={copyInfo}
-                               className="mb-3"
+                              className="mb-3"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -1730,12 +1726,12 @@ export default function NetworkMapInteractive() {
                       <span className="font-medium text-gray-900 dark:text-white">
                         {fiberWaypoints.length > 0
                           ? `${calculateDistance(
-                              fiberSourceNode.latitude!,
-                              fiberSourceNode.longitude!,
-                              fiberWaypoints[fiberWaypoints.length - 1][0],
-                              fiberWaypoints[fiberWaypoints.length - 1][1],
-                              fiberWaypoints.slice(0, -1)
-                            ).toFixed(1)} m`
+                            fiberSourceNode.latitude!,
+                            fiberSourceNode.longitude!,
+                            fiberWaypoints[fiberWaypoints.length - 1][0],
+                            fiberWaypoints[fiberWaypoints.length - 1][1],
+                            fiberWaypoints.slice(0, -1)
+                          ).toFixed(1)} m`
                           : "0 m"
                         }
                       </span>
@@ -1780,7 +1776,7 @@ export default function NetworkMapInteractive() {
                     className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                
+
                 {/* Manual Add Button Group */}
                 <div className="flex bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <Button onClick={() => handleManualAdd("olt")}
@@ -1983,7 +1979,7 @@ export default function NetworkMapInteractive() {
               </Button>
               <Button variant="destructive"
                 onClick={handleConfirmDelete}
-                
+
               >
                 Delete
               </Button>
@@ -2223,7 +2219,7 @@ function NodeFormModal({
                 <p className="text-sm text-gray-600 dark:text-gray-300">The coordinates are automatically set from the marker position on the map.</p>
               </div>
             )}
-            
+
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div>
                 <label className={labelClass}>Input Redaman (dBm)</label>
@@ -2394,21 +2390,19 @@ function NodeFormModal({
               <div className="flex gap-2">
                 <Button type="button"
                   onClick={() => setOntIdentifierType("pppoe")}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    ontIdentifierType === "pppoe"
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${ontIdentifierType === "pppoe"
                       ? "bg-blue-600 text-white"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
+                    }`}
                 >
                   PPPoE
                 </Button>
                 <Button type="button"
                   onClick={() => setOntIdentifierType("serial")}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    ontIdentifierType === "serial"
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${ontIdentifierType === "serial"
                       ? "bg-blue-600 text-white"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
+                    }`}
                 >
                   Serial Number
                 </Button>
@@ -2499,15 +2493,15 @@ function NodeFormModal({
                 className={inputClass}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Pole Size</label>
                 <select
                   value={data.metadata?.poleSize || "7m"}
-                  onChange={(e) => onChange({ 
-                    ...data, 
-                    metadata: { ...(data.metadata as NodeMetadata || {}), poleSize: e.target.value } 
+                  onChange={(e) => onChange({
+                    ...data,
+                    metadata: { ...(data.metadata as NodeMetadata || {}), poleSize: e.target.value }
                   })}
                   className={inputClass}
                 >
@@ -2523,9 +2517,9 @@ function NodeFormModal({
                     <input
                       type="checkbox"
                       checked={data.metadata?.hasSlack || false}
-                      onChange={(e) => onChange({ 
-                        ...data, 
-                        metadata: { ...(data.metadata as NodeMetadata || {}), hasSlack: e.target.checked } 
+                      onChange={(e) => onChange({
+                        ...data,
+                        metadata: { ...(data.metadata as NodeMetadata || {}), hasSlack: e.target.checked }
                       })}
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
@@ -2598,7 +2592,7 @@ function NodeFormModal({
                 className={inputClass}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Capacity (Cores)</label>
@@ -2622,9 +2616,9 @@ function NodeFormModal({
                 <label className={labelClass}>Closure Type</label>
                 <select
                   value={data.metadata?.closureType || "dome"}
-                  onChange={(e) => onChange({ 
-                    ...data, 
-                    metadata: { ...(data.metadata as NodeMetadata || {}), closureType: e.target.value } 
+                  onChange={(e) => onChange({
+                    ...data,
+                    metadata: { ...(data.metadata as NodeMetadata || {}), closureType: e.target.value }
                   })}
                   className={inputClass}
                 >
@@ -2736,11 +2730,11 @@ function FiberFormModal({
   if (data !== prevData) {
     setPrevData(data);
     if (data && sourceNode && targetNode) {
-        setFormData({
-            name: `${sourceNode.name} → ${targetNode.name}`,
-            fiberType: data.fiberType || "distribution",
-            notes: "",
-        });
+      setFormData({
+        name: `${sourceNode.name} → ${targetNode.name}`,
+        fiberType: data.fiberType || "distribution",
+        notes: "",
+      });
     }
   }
 
@@ -2768,15 +2762,15 @@ function FiberFormModal({
         {/* Summary Box */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-4 flex items-center gap-4">
           <div className="p-2 bg-white dark:bg-blue-800 rounded-lg shadow-sm">
-             <svg className="w-6 h-6 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-             </svg>
+            <svg className="w-6 h-6 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
           </div>
           <div>
             <div className="flex items-center gap-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-               <span>{sourceNode?.name}</span>
-               <span>→</span>
-               <span>{targetNode?.name}</span>
+              <span>{sourceNode?.name}</span>
+              <span>→</span>
+              <span>{targetNode?.name}</span>
             </div>
             <p className="text-sm text-blue-700 dark:text-blue-300">
               Distance: {distance} m
@@ -2849,15 +2843,15 @@ function FiberFormModal({
           <Button variant="outline"
             type="button"
             onClick={onClose}
-            
+
           >
             Cancel
           </Button>
           <Button type="submit"
-            
+
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Fiber Line
           </Button>
@@ -2889,21 +2883,21 @@ function SettingsTab({
     maxZoomOut: settings?.maxZoomOut || "5",
     defaultZoom: settings?.defaultZoom || "13",
   });
-  
+
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetPassword, setResetPassword] = useState("");
-  
+
   const [prevSettings, setPrevSettings] = useState(settings);
 
   if (settings !== prevSettings) {
-      setPrevSettings(settings);
-      setFormData({
-        centerLat: settings?.centerLat || "-6.2088",
-        centerLng: settings?.centerLng || "106.8456",
-        maxZoomIn: settings?.maxZoomIn || "22",
-        maxZoomOut: settings?.maxZoomOut || "5",
-        defaultZoom: settings?.defaultZoom || "13",
-      });
+    setPrevSettings(settings);
+    setFormData({
+      centerLat: settings?.centerLat || "-6.2088",
+      centerLng: settings?.centerLng || "106.8456",
+      maxZoomIn: settings?.maxZoomIn || "22",
+      maxZoomOut: settings?.maxZoomOut || "5",
+      defaultZoom: settings?.defaultZoom || "13",
+    });
   }
 
   const inputClass = "w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100";

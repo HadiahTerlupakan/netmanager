@@ -463,7 +463,7 @@ export default function SalaryUsersClient() {
                                 Belum ada karyawan yang ditambahkan ke daftar gaji.
                             </p>
                             <Button onClick={() => setShowAddModal(true)}
-                                className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline"
+                                className="mt-4"
                             >
                                 + Tambah Karyawan Sekarang
                             </Button>
@@ -909,7 +909,7 @@ export default function SalaryUsersClient() {
 
                     <div className="flex gap-3 pt-2">
                         <Button type="submit"
-                             className="flex-1"
+                            className="flex-1"
                         >
                             Tambah
                         </Button>
@@ -1227,7 +1227,7 @@ export default function SalaryUsersClient() {
                                         </div>
                                         <Button type="button"
                                             onClick={handleCreateAndAssignComponent}
-                                             className="col-span-1"
+                                            className="col-span-1"
                                             title="Tambah Komponen"
                                         >
                                             <HiOutlinePlus className="w-5 h-5" />
@@ -1244,7 +1244,7 @@ export default function SalaryUsersClient() {
                         <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <Button type="button"
                                 onClick={handleUpdateUser}
-                                 className="flex-1"
+                                className="flex-1"
                             >
                                 <HiOutlineCheckCircle className="w-5 h-5" />
                                 Simpan Perubahan
