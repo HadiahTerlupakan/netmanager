@@ -163,13 +163,19 @@ export default function CustomerInvoicesPage() {
                 body: JSON.stringify({
                     invoiceIds: pendingInvoices.map(inv => inv.id),
                     couponCode: appliedDiscount?.code || null,
-                    paymentMethod: 'MANUAL', // Default for now
+                    paymentMethod: '', // Kosongkan agar backend gateway manager menentukan provider prioritas
                     notes: 'Payment via Customer Portal'
                 })
             })
             const result = await res.json()
             if (result.success) {
-                alert('Pembayaran berhasil dibuat! Silakan konfirmasi ke admin.')
+                if (result.data?.paymentUrl) {
+                    if (confirm('Anda akan diarahkan ke halaman pembayaran. Lanjutkan?')) {
+                        window.location.href = result.data.paymentUrl;
+                    }
+                } else {
+                    alert('Pembayaran berhasil dibuat! Silakan konfirmasi ke admin.')
+                }
                 setShowPaymentModal(false)
                 fetchInvoices() // Refresh
             } else {

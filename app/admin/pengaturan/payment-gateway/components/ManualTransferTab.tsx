@@ -11,6 +11,7 @@ import {
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import UnmatchedMutationsList from './UnmatchedMutationsList'
 
 interface CompanyBankAccount {
     id: string
@@ -261,6 +262,8 @@ export default function ManualTransferTab() {
                     </div>
                 )}
             </div>
+
+            <UnmatchedMutationsList />
 
             {/* Modal */}
             <Modal

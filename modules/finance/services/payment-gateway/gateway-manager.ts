@@ -130,7 +130,7 @@ export class PaymentGatewayManager {
     /**
      * Process webhook from any provider
      */
-    async processWebhook(providerType: string, payload: Record<string, unknown>, signature?: string) {
+    async processWebhook(providerType: string, payload: Record<string, unknown>, signature?: string, rawBody?: string) {
         const config = await prismaBilling.paymentGatewayConfig.findUnique({
             where: { provider: providerType }
         })
@@ -142,7 +142,7 @@ export class PaymentGatewayManager {
         const provider = await this.getProviderInstance(providerType)
 
         // Verify webhook signature
-        const isValid = provider.verifyWebhook(payload, signature)
+        const isValid = provider.verifyWebhook(payload, signature, rawBody)
         if (!isValid) {
             throw new Error('Invalid webhook signature')
         }

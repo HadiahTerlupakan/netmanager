@@ -41,6 +41,7 @@ const PROVIDERS = [
     { id: 'DANA', name: 'DANA', icon: HiCube, color: 'text-blue-400' },
     { id: 'BRI', name: 'BRI API', icon: HiCube, color: 'text-blue-600' },
     { id: 'BCA', name: 'BCA API', icon: HiCube, color: 'text-blue-700' },
+    { id: 'MOOTA', name: 'Moota.co', icon: HiCube, color: 'text-teal-500' },
 ]
 
 export default function PaymentGatewayTab() {

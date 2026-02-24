@@ -170,7 +170,8 @@ exports.Prisma.PaymentScalarFieldEnum = {
   gatewayProvider: 'gatewayProvider',
   transactionId: 'transactionId',
   paymentUrl: 'paymentUrl',
-  expiresAt: 'expiresAt'
+  expiresAt: 'expiresAt',
+  unmatchedMutationId: 'unmatchedMutationId'
 };
 
 exports.Prisma.PaymentGatewayConfigScalarFieldEnum = {
@@ -192,6 +193,24 @@ exports.Prisma.PaymentGatewayConfigScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   createdBy: 'createdBy'
+};
+
+exports.Prisma.UnmatchedMutationScalarFieldEnum = {
+  id: 'id',
+  provider: 'provider',
+  transactionId: 'transactionId',
+  amount: 'amount',
+  description: 'description',
+  type: 'type',
+  date: 'date',
+  bankId: 'bankId',
+  rawPayload: 'rawPayload',
+  status: 'status',
+  resolvedAt: 'resolvedAt',
+  resolvedById: 'resolvedById',
+  matchedInvoiceId: 'matchedInvoiceId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.TransactionScalarFieldEnum = {
@@ -298,6 +317,12 @@ exports.GatewayPaymentStatus = exports.$Enums.GatewayPaymentStatus = {
   CANCELLED: 'CANCELLED'
 };
 
+exports.UnmatchedStatus = exports.$Enums.UnmatchedStatus = {
+  PENDING: 'PENDING',
+  RESOLVED: 'RESOLVED',
+  IGNORED: 'IGNORED'
+};
+
 exports.TransactionType = exports.$Enums.TransactionType = {
   INCOME: 'INCOME',
   EXPENSE: 'EXPENSE'
@@ -314,6 +339,7 @@ exports.Prisma.ModelName = {
   InvoiceItem: 'InvoiceItem',
   Payment: 'Payment',
   PaymentGatewayConfig: 'PaymentGatewayConfig',
+  UnmatchedMutation: 'UnmatchedMutation',
   Transaction: 'Transaction',
   TransactionCategory: 'TransactionCategory',
   MixRadiusInvoice: 'MixRadiusInvoice'

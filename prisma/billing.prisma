@@ -73,6 +73,9 @@ model Payment {
   paymentUrl      String?
   expiresAt       DateTime?
 
+  unmatchedMutationId String?            @unique
+  unmatchedMutation   UnmatchedMutation? @relation(fields: [unmatchedMutationId], references: [id])
+
   @@index([invoiceId])
   @@index([paymentDate])
   @@index([pelangganId])
@@ -103,6 +106,38 @@ model PaymentGatewayConfig {
   @@index([isEnabled])
   @@index([priority])
   @@index([provider])
+}
+
+model UnmatchedMutation {
+  id              String   @id @default(uuid())
+  provider        String   @default("MOOTA")
+  transactionId   String?  @unique // Mutation ID from provider
+  amount          Decimal  @db.Decimal(19, 2)
+  description     String?
+  type            String?  // CR/DB
+  date            DateTime // Date from provider
+  bankId          String?  // Bank identifier
+  rawPayload      Json?    // Store exact webhook payload
+  
+  status          UnmatchedStatus @default(PENDING)
+  resolvedAt      DateTime?
+  resolvedById    String?
+  matchedInvoiceId String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  payment         Payment? // Relation to the established payment if resolved
+
+  @@index([status])
+  @@index([provider])
+  @@index([amount])
+}
+
+enum UnmatchedStatus {
+  PENDING
+  RESOLVED
+  IGNORED
 }
 
 model Transaction {

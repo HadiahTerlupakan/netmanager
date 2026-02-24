@@ -79,6 +79,14 @@ type Tagihan = {
   createdAt: string
 }
 
+type ExtendedTagihan = Omit<Tagihan, 'status'> & {
+  nomor?: string
+  invoiceNumber?: string
+  issueDate?: string
+  dueDate?: string
+  status?: string
+}
+
 export default function PppPrintClient() {
   const params = useParams()
   const router = useRouter()
@@ -287,8 +295,7 @@ export default function PppPrintClient() {
   // Format nomor invoice untuk konfirmasi pelanggan ke admin
   // Support format lama (TAG-YYYYMM-XXXX) dan format baru (INVXXXXYYYYZZZZ)
   // Menampilkan nomor tagihan tanpa prefix TAG- atau INV
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let invoiceNumber = currentTagihan.noTagihan || (currentTagihan as any).nomor || (currentTagihan as any).invoiceNumber || "-"
+  let invoiceNumber = currentTagihan.noTagihan || (currentTagihan as ExtendedTagihan).nomor || (currentTagihan as ExtendedTagihan).invoiceNumber || "-"
   if (invoiceNumber && invoiceNumber.startsWith('INV')) {
     // Format baru: INVXXXXYYYYZZZZ -> XXXXYYYYZZZZ
     invoiceNumber = invoiceNumber.replace(/^INV/, '')
@@ -435,15 +442,15 @@ export default function PppPrintClient() {
               )}
               <div className="flex justify-between">
                 <span>Issued</span>
-                <span>{formatDateShort((currentTagihan as any).issueDate || currentTagihan.createdAt as string)}</span>
+                <span>{formatDateShort((currentTagihan as ExtendedTagihan).issueDate || currentTagihan.createdAt as string)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Tempo</span>
-                <span>{formatDateShort(currentTagihan.jatuhTempo || (currentTagihan as any).dueDate as string)}</span>
+                <span>{formatDateShort(currentTagihan.jatuhTempo || (currentTagihan as ExtendedTagihan).dueDate as string)}</span>
               </div>
               <div className="flex justify-between font-bold pt-1">
                 <span>Status</span>
-                <span className="uppercase">{currentTagihan.status === 'LUNAS' || (currentTagihan as any).status === 'PAID' ? 'PAID' : 'UNPAID'}</span>
+                <span className="uppercase">{currentTagihan.status === 'LUNAS' || (currentTagihan as ExtendedTagihan).status === 'PAID' ? 'PAID' : 'UNPAID'}</span>
               </div>
             </div>
 
@@ -528,11 +535,11 @@ export default function PppPrintClient() {
                 <h2 className="text-3xl font-light text-gray-900 tracking-tight mb-3">INVOICE</h2>
 
                 <div className="flex justify-end mb-6">
-                  <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${currentTagihan.status === 'LUNAS' || (currentTagihan as any).status === 'PAID'
+                  <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${currentTagihan.status === 'LUNAS' || (currentTagihan as ExtendedTagihan).status === 'PAID'
                     ? 'bg-green-50 text-green-700 ring-green-600/20'
                     : 'bg-red-50 text-red-700 ring-red-600/10'
                     }`}>
-                    {currentTagihan.status === 'LUNAS' || (currentTagihan as any).status === 'PAID' ? 'PAID' : 'UNPAID'}
+                    {currentTagihan.status === 'LUNAS' || (currentTagihan as ExtendedTagihan).status === 'PAID' ? 'PAID' : 'UNPAID'}
                   </span>
                 </div>
 
@@ -543,11 +550,11 @@ export default function PppPrintClient() {
                   </div>
                   <div className="flex justify-end gap-8">
                     <dt className="text-gray-500 min-w-[80px]">Issued</dt>
-                    <dd className="font-medium text-gray-900">{formatDateShort((currentTagihan as any).issueDate || currentTagihan.createdAt as string)}</dd>
+                    <dd className="font-medium text-gray-900">{formatDateShort((currentTagihan as ExtendedTagihan).issueDate || currentTagihan.createdAt as string)}</dd>
                   </div>
                   <div className="flex justify-end gap-8">
                     <dt className="text-gray-500 min-w-[80px]">Due Date</dt>
-                    <dd className="font-medium text-gray-900">{formatDateShort(currentTagihan.jatuhTempo || (currentTagihan as any).dueDate as string)}</dd>
+                    <dd className="font-medium text-gray-900">{formatDateShort(currentTagihan.jatuhTempo || (currentTagihan as ExtendedTagihan).dueDate as string)}</dd>
                   </div>
                 </dl>
               </div>

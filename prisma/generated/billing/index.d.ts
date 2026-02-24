@@ -34,6 +34,11 @@ export type Payment = $Result.DefaultSelection<Prisma.$PaymentPayload>
  */
 export type PaymentGatewayConfig = $Result.DefaultSelection<Prisma.$PaymentGatewayConfigPayload>
 /**
+ * Model UnmatchedMutation
+ * 
+ */
+export type UnmatchedMutation = $Result.DefaultSelection<Prisma.$UnmatchedMutationPayload>
+/**
  * Model Transaction
  * 
  */
@@ -53,7 +58,16 @@ export type MixRadiusInvoice = $Result.DefaultSelection<Prisma.$MixRadiusInvoice
  * Enums
  */
 export namespace $Enums {
-  export const InvoiceStatus: {
+  export const UnmatchedStatus: {
+  PENDING: 'PENDING',
+  RESOLVED: 'RESOLVED',
+  IGNORED: 'IGNORED'
+};
+
+export type UnmatchedStatus = (typeof UnmatchedStatus)[keyof typeof UnmatchedStatus]
+
+
+export const InvoiceStatus: {
   DRAFT: 'DRAFT',
   SENT: 'SENT',
   OVERDUE: 'OVERDUE',
@@ -138,6 +152,10 @@ export const GatewayPaymentStatus: {
 export type GatewayPaymentStatus = (typeof GatewayPaymentStatus)[keyof typeof GatewayPaymentStatus]
 
 }
+
+export type UnmatchedStatus = $Enums.UnmatchedStatus
+
+export const UnmatchedStatus: typeof $Enums.UnmatchedStatus
 
 export type InvoiceStatus = $Enums.InvoiceStatus
 
@@ -327,6 +345,16 @@ export class PrismaClient<
     * ```
     */
   get paymentGatewayConfig(): Prisma.PaymentGatewayConfigDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.unmatchedMutation`: Exposes CRUD operations for the **UnmatchedMutation** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more UnmatchedMutations
+    * const unmatchedMutations = await prisma.unmatchedMutation.findMany()
+    * ```
+    */
+  get unmatchedMutation(): Prisma.UnmatchedMutationDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.transaction`: Exposes CRUD operations for the **Transaction** model.
@@ -795,6 +823,7 @@ export namespace Prisma {
     InvoiceItem: 'InvoiceItem',
     Payment: 'Payment',
     PaymentGatewayConfig: 'PaymentGatewayConfig',
+    UnmatchedMutation: 'UnmatchedMutation',
     Transaction: 'Transaction',
     TransactionCategory: 'TransactionCategory',
     MixRadiusInvoice: 'MixRadiusInvoice'
@@ -813,7 +842,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "invoice" | "invoiceItem" | "payment" | "paymentGatewayConfig" | "transaction" | "transactionCategory" | "mixRadiusInvoice"
+      modelProps: "invoice" | "invoiceItem" | "payment" | "paymentGatewayConfig" | "unmatchedMutation" | "transaction" | "transactionCategory" | "mixRadiusInvoice"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1110,6 +1139,80 @@ export namespace Prisma {
           count: {
             args: Prisma.PaymentGatewayConfigCountArgs<ExtArgs>
             result: $Utils.Optional<PaymentGatewayConfigCountAggregateOutputType> | number
+          }
+        }
+      }
+      UnmatchedMutation: {
+        payload: Prisma.$UnmatchedMutationPayload<ExtArgs>
+        fields: Prisma.UnmatchedMutationFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.UnmatchedMutationFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.UnmatchedMutationFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>
+          }
+          findFirst: {
+            args: Prisma.UnmatchedMutationFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.UnmatchedMutationFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>
+          }
+          findMany: {
+            args: Prisma.UnmatchedMutationFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>[]
+          }
+          create: {
+            args: Prisma.UnmatchedMutationCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>
+          }
+          createMany: {
+            args: Prisma.UnmatchedMutationCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.UnmatchedMutationCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>[]
+          }
+          delete: {
+            args: Prisma.UnmatchedMutationDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>
+          }
+          update: {
+            args: Prisma.UnmatchedMutationUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>
+          }
+          deleteMany: {
+            args: Prisma.UnmatchedMutationDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.UnmatchedMutationUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.UnmatchedMutationUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>[]
+          }
+          upsert: {
+            args: Prisma.UnmatchedMutationUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UnmatchedMutationPayload>
+          }
+          aggregate: {
+            args: Prisma.UnmatchedMutationAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateUnmatchedMutation>
+          }
+          groupBy: {
+            args: Prisma.UnmatchedMutationGroupByArgs<ExtArgs>
+            result: $Utils.Optional<UnmatchedMutationGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.UnmatchedMutationCountArgs<ExtArgs>
+            result: $Utils.Optional<UnmatchedMutationCountAggregateOutputType> | number
           }
         }
       }
@@ -1447,6 +1550,7 @@ export namespace Prisma {
     invoiceItem?: InvoiceItemOmit
     payment?: PaymentOmit
     paymentGatewayConfig?: PaymentGatewayConfigOmit
+    unmatchedMutation?: UnmatchedMutationOmit
     transaction?: TransactionOmit
     transactionCategory?: TransactionCategoryOmit
     mixRadiusInvoice?: MixRadiusInvoiceOmit
@@ -4095,6 +4199,7 @@ export namespace Prisma {
     transactionId: string | null
     paymentUrl: string | null
     expiresAt: Date | null
+    unmatchedMutationId: string | null
   }
 
   export type PaymentMaxAggregateOutputType = {
@@ -4116,6 +4221,7 @@ export namespace Prisma {
     transactionId: string | null
     paymentUrl: string | null
     expiresAt: Date | null
+    unmatchedMutationId: string | null
   }
 
   export type PaymentCountAggregateOutputType = {
@@ -4137,6 +4243,7 @@ export namespace Prisma {
     transactionId: number
     paymentUrl: number
     expiresAt: number
+    unmatchedMutationId: number
     _all: number
   }
 
@@ -4168,6 +4275,7 @@ export namespace Prisma {
     transactionId?: true
     paymentUrl?: true
     expiresAt?: true
+    unmatchedMutationId?: true
   }
 
   export type PaymentMaxAggregateInputType = {
@@ -4189,6 +4297,7 @@ export namespace Prisma {
     transactionId?: true
     paymentUrl?: true
     expiresAt?: true
+    unmatchedMutationId?: true
   }
 
   export type PaymentCountAggregateInputType = {
@@ -4210,6 +4319,7 @@ export namespace Prisma {
     transactionId?: true
     paymentUrl?: true
     expiresAt?: true
+    unmatchedMutationId?: true
     _all?: true
   }
 
@@ -4318,6 +4428,7 @@ export namespace Prisma {
     transactionId: string | null
     paymentUrl: string | null
     expiresAt: Date | null
+    unmatchedMutationId: string | null
     _count: PaymentCountAggregateOutputType | null
     _avg: PaymentAvgAggregateOutputType | null
     _sum: PaymentSumAggregateOutputType | null
@@ -4358,7 +4469,9 @@ export namespace Prisma {
     transactionId?: boolean
     paymentUrl?: boolean
     expiresAt?: boolean
+    unmatchedMutationId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
+    unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -4380,7 +4493,9 @@ export namespace Prisma {
     transactionId?: boolean
     paymentUrl?: boolean
     expiresAt?: boolean
+    unmatchedMutationId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
+    unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -4402,7 +4517,9 @@ export namespace Prisma {
     transactionId?: boolean
     paymentUrl?: boolean
     expiresAt?: boolean
+    unmatchedMutationId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
+    unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectScalar = {
@@ -4424,23 +4541,28 @@ export namespace Prisma {
     transactionId?: boolean
     paymentUrl?: boolean
     expiresAt?: boolean
+    unmatchedMutationId?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt" | "unmatchedMutationId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
+    unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }
   export type PaymentIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
+    unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }
   export type PaymentIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
+    unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }
 
   export type $PaymentPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Payment"
     objects: {
       invoice: Prisma.$InvoicePayload<ExtArgs> | null
+      unmatchedMutation: Prisma.$UnmatchedMutationPayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -4461,6 +4583,7 @@ export namespace Prisma {
       transactionId: string | null
       paymentUrl: string | null
       expiresAt: Date | null
+      unmatchedMutationId: string | null
     }, ExtArgs["result"]["payment"]>
     composites: {}
   }
@@ -4856,6 +4979,7 @@ export namespace Prisma {
   export interface Prisma__PaymentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     invoice<T extends Payment$invoiceArgs<ExtArgs> = {}>(args?: Subset<T, Payment$invoiceArgs<ExtArgs>>): Prisma__InvoiceClient<$Result.GetResult<Prisma.$InvoicePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    unmatchedMutation<T extends Payment$unmatchedMutationArgs<ExtArgs> = {}>(args?: Subset<T, Payment$unmatchedMutationArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4903,6 +5027,7 @@ export namespace Prisma {
     readonly transactionId: FieldRef<"Payment", 'String'>
     readonly paymentUrl: FieldRef<"Payment", 'String'>
     readonly expiresAt: FieldRef<"Payment", 'DateTime'>
+    readonly unmatchedMutationId: FieldRef<"Payment", 'String'>
   }
     
 
@@ -5315,6 +5440,25 @@ export namespace Prisma {
      */
     include?: InvoiceInclude<ExtArgs> | null
     where?: InvoiceWhereInput
+  }
+
+  /**
+   * Payment.unmatchedMutation
+   */
+  export type Payment$unmatchedMutationArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    where?: UnmatchedMutationWhereInput
   }
 
   /**
@@ -6527,6 +6671,1229 @@ export namespace Prisma {
      * Omit specific fields from the PaymentGatewayConfig
      */
     omit?: PaymentGatewayConfigOmit<ExtArgs> | null
+  }
+
+
+  /**
+   * Model UnmatchedMutation
+   */
+
+  export type AggregateUnmatchedMutation = {
+    _count: UnmatchedMutationCountAggregateOutputType | null
+    _avg: UnmatchedMutationAvgAggregateOutputType | null
+    _sum: UnmatchedMutationSumAggregateOutputType | null
+    _min: UnmatchedMutationMinAggregateOutputType | null
+    _max: UnmatchedMutationMaxAggregateOutputType | null
+  }
+
+  export type UnmatchedMutationAvgAggregateOutputType = {
+    amount: Decimal | null
+  }
+
+  export type UnmatchedMutationSumAggregateOutputType = {
+    amount: Decimal | null
+  }
+
+  export type UnmatchedMutationMinAggregateOutputType = {
+    id: string | null
+    provider: string | null
+    transactionId: string | null
+    amount: Decimal | null
+    description: string | null
+    type: string | null
+    date: Date | null
+    bankId: string | null
+    status: $Enums.UnmatchedStatus | null
+    resolvedAt: Date | null
+    resolvedById: string | null
+    matchedInvoiceId: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type UnmatchedMutationMaxAggregateOutputType = {
+    id: string | null
+    provider: string | null
+    transactionId: string | null
+    amount: Decimal | null
+    description: string | null
+    type: string | null
+    date: Date | null
+    bankId: string | null
+    status: $Enums.UnmatchedStatus | null
+    resolvedAt: Date | null
+    resolvedById: string | null
+    matchedInvoiceId: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type UnmatchedMutationCountAggregateOutputType = {
+    id: number
+    provider: number
+    transactionId: number
+    amount: number
+    description: number
+    type: number
+    date: number
+    bankId: number
+    rawPayload: number
+    status: number
+    resolvedAt: number
+    resolvedById: number
+    matchedInvoiceId: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type UnmatchedMutationAvgAggregateInputType = {
+    amount?: true
+  }
+
+  export type UnmatchedMutationSumAggregateInputType = {
+    amount?: true
+  }
+
+  export type UnmatchedMutationMinAggregateInputType = {
+    id?: true
+    provider?: true
+    transactionId?: true
+    amount?: true
+    description?: true
+    type?: true
+    date?: true
+    bankId?: true
+    status?: true
+    resolvedAt?: true
+    resolvedById?: true
+    matchedInvoiceId?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type UnmatchedMutationMaxAggregateInputType = {
+    id?: true
+    provider?: true
+    transactionId?: true
+    amount?: true
+    description?: true
+    type?: true
+    date?: true
+    bankId?: true
+    status?: true
+    resolvedAt?: true
+    resolvedById?: true
+    matchedInvoiceId?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type UnmatchedMutationCountAggregateInputType = {
+    id?: true
+    provider?: true
+    transactionId?: true
+    amount?: true
+    description?: true
+    type?: true
+    date?: true
+    bankId?: true
+    rawPayload?: true
+    status?: true
+    resolvedAt?: true
+    resolvedById?: true
+    matchedInvoiceId?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type UnmatchedMutationAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which UnmatchedMutation to aggregate.
+     */
+    where?: UnmatchedMutationWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UnmatchedMutations to fetch.
+     */
+    orderBy?: UnmatchedMutationOrderByWithRelationInput | UnmatchedMutationOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: UnmatchedMutationWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UnmatchedMutations from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UnmatchedMutations.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned UnmatchedMutations
+    **/
+    _count?: true | UnmatchedMutationCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: UnmatchedMutationAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: UnmatchedMutationSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: UnmatchedMutationMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: UnmatchedMutationMaxAggregateInputType
+  }
+
+  export type GetUnmatchedMutationAggregateType<T extends UnmatchedMutationAggregateArgs> = {
+        [P in keyof T & keyof AggregateUnmatchedMutation]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateUnmatchedMutation[P]>
+      : GetScalarType<T[P], AggregateUnmatchedMutation[P]>
+  }
+
+
+
+
+  export type UnmatchedMutationGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: UnmatchedMutationWhereInput
+    orderBy?: UnmatchedMutationOrderByWithAggregationInput | UnmatchedMutationOrderByWithAggregationInput[]
+    by: UnmatchedMutationScalarFieldEnum[] | UnmatchedMutationScalarFieldEnum
+    having?: UnmatchedMutationScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: UnmatchedMutationCountAggregateInputType | true
+    _avg?: UnmatchedMutationAvgAggregateInputType
+    _sum?: UnmatchedMutationSumAggregateInputType
+    _min?: UnmatchedMutationMinAggregateInputType
+    _max?: UnmatchedMutationMaxAggregateInputType
+  }
+
+  export type UnmatchedMutationGroupByOutputType = {
+    id: string
+    provider: string
+    transactionId: string | null
+    amount: Decimal
+    description: string | null
+    type: string | null
+    date: Date
+    bankId: string | null
+    rawPayload: JsonValue | null
+    status: $Enums.UnmatchedStatus
+    resolvedAt: Date | null
+    resolvedById: string | null
+    matchedInvoiceId: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: UnmatchedMutationCountAggregateOutputType | null
+    _avg: UnmatchedMutationAvgAggregateOutputType | null
+    _sum: UnmatchedMutationSumAggregateOutputType | null
+    _min: UnmatchedMutationMinAggregateOutputType | null
+    _max: UnmatchedMutationMaxAggregateOutputType | null
+  }
+
+  type GetUnmatchedMutationGroupByPayload<T extends UnmatchedMutationGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<UnmatchedMutationGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof UnmatchedMutationGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], UnmatchedMutationGroupByOutputType[P]>
+            : GetScalarType<T[P], UnmatchedMutationGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type UnmatchedMutationSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    provider?: boolean
+    transactionId?: boolean
+    amount?: boolean
+    description?: boolean
+    type?: boolean
+    date?: boolean
+    bankId?: boolean
+    rawPayload?: boolean
+    status?: boolean
+    resolvedAt?: boolean
+    resolvedById?: boolean
+    matchedInvoiceId?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    payment?: boolean | UnmatchedMutation$paymentArgs<ExtArgs>
+  }, ExtArgs["result"]["unmatchedMutation"]>
+
+  export type UnmatchedMutationSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    provider?: boolean
+    transactionId?: boolean
+    amount?: boolean
+    description?: boolean
+    type?: boolean
+    date?: boolean
+    bankId?: boolean
+    rawPayload?: boolean
+    status?: boolean
+    resolvedAt?: boolean
+    resolvedById?: boolean
+    matchedInvoiceId?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["unmatchedMutation"]>
+
+  export type UnmatchedMutationSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    provider?: boolean
+    transactionId?: boolean
+    amount?: boolean
+    description?: boolean
+    type?: boolean
+    date?: boolean
+    bankId?: boolean
+    rawPayload?: boolean
+    status?: boolean
+    resolvedAt?: boolean
+    resolvedById?: boolean
+    matchedInvoiceId?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["unmatchedMutation"]>
+
+  export type UnmatchedMutationSelectScalar = {
+    id?: boolean
+    provider?: boolean
+    transactionId?: boolean
+    amount?: boolean
+    description?: boolean
+    type?: boolean
+    date?: boolean
+    bankId?: boolean
+    rawPayload?: boolean
+    status?: boolean
+    resolvedAt?: boolean
+    resolvedById?: boolean
+    matchedInvoiceId?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type UnmatchedMutationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "provider" | "transactionId" | "amount" | "description" | "type" | "date" | "bankId" | "rawPayload" | "status" | "resolvedAt" | "resolvedById" | "matchedInvoiceId" | "createdAt" | "updatedAt", ExtArgs["result"]["unmatchedMutation"]>
+  export type UnmatchedMutationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    payment?: boolean | UnmatchedMutation$paymentArgs<ExtArgs>
+  }
+  export type UnmatchedMutationIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+  export type UnmatchedMutationIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+
+  export type $UnmatchedMutationPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "UnmatchedMutation"
+    objects: {
+      payment: Prisma.$PaymentPayload<ExtArgs> | null
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      provider: string
+      transactionId: string | null
+      amount: Prisma.Decimal
+      description: string | null
+      type: string | null
+      date: Date
+      bankId: string | null
+      rawPayload: Prisma.JsonValue | null
+      status: $Enums.UnmatchedStatus
+      resolvedAt: Date | null
+      resolvedById: string | null
+      matchedInvoiceId: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["unmatchedMutation"]>
+    composites: {}
+  }
+
+  type UnmatchedMutationGetPayload<S extends boolean | null | undefined | UnmatchedMutationDefaultArgs> = $Result.GetResult<Prisma.$UnmatchedMutationPayload, S>
+
+  type UnmatchedMutationCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<UnmatchedMutationFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: UnmatchedMutationCountAggregateInputType | true
+    }
+
+  export interface UnmatchedMutationDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['UnmatchedMutation'], meta: { name: 'UnmatchedMutation' } }
+    /**
+     * Find zero or one UnmatchedMutation that matches the filter.
+     * @param {UnmatchedMutationFindUniqueArgs} args - Arguments to find a UnmatchedMutation
+     * @example
+     * // Get one UnmatchedMutation
+     * const unmatchedMutation = await prisma.unmatchedMutation.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends UnmatchedMutationFindUniqueArgs>(args: SelectSubset<T, UnmatchedMutationFindUniqueArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one UnmatchedMutation that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {UnmatchedMutationFindUniqueOrThrowArgs} args - Arguments to find a UnmatchedMutation
+     * @example
+     * // Get one UnmatchedMutation
+     * const unmatchedMutation = await prisma.unmatchedMutation.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends UnmatchedMutationFindUniqueOrThrowArgs>(args: SelectSubset<T, UnmatchedMutationFindUniqueOrThrowArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first UnmatchedMutation that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UnmatchedMutationFindFirstArgs} args - Arguments to find a UnmatchedMutation
+     * @example
+     * // Get one UnmatchedMutation
+     * const unmatchedMutation = await prisma.unmatchedMutation.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends UnmatchedMutationFindFirstArgs>(args?: SelectSubset<T, UnmatchedMutationFindFirstArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first UnmatchedMutation that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UnmatchedMutationFindFirstOrThrowArgs} args - Arguments to find a UnmatchedMutation
+     * @example
+     * // Get one UnmatchedMutation
+     * const unmatchedMutation = await prisma.unmatchedMutation.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends UnmatchedMutationFindFirstOrThrowArgs>(args?: SelectSubset<T, UnmatchedMutationFindFirstOrThrowArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more UnmatchedMutations that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UnmatchedMutationFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all UnmatchedMutations
+     * const unmatchedMutations = await prisma.unmatchedMutation.findMany()
+     * 
+     * // Get first 10 UnmatchedMutations
+     * const unmatchedMutations = await prisma.unmatchedMutation.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const unmatchedMutationWithIdOnly = await prisma.unmatchedMutation.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends UnmatchedMutationFindManyArgs>(args?: SelectSubset<T, UnmatchedMutationFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a UnmatchedMutation.
+     * @param {UnmatchedMutationCreateArgs} args - Arguments to create a UnmatchedMutation.
+     * @example
+     * // Create one UnmatchedMutation
+     * const UnmatchedMutation = await prisma.unmatchedMutation.create({
+     *   data: {
+     *     // ... data to create a UnmatchedMutation
+     *   }
+     * })
+     * 
+     */
+    create<T extends UnmatchedMutationCreateArgs>(args: SelectSubset<T, UnmatchedMutationCreateArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many UnmatchedMutations.
+     * @param {UnmatchedMutationCreateManyArgs} args - Arguments to create many UnmatchedMutations.
+     * @example
+     * // Create many UnmatchedMutations
+     * const unmatchedMutation = await prisma.unmatchedMutation.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends UnmatchedMutationCreateManyArgs>(args?: SelectSubset<T, UnmatchedMutationCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many UnmatchedMutations and returns the data saved in the database.
+     * @param {UnmatchedMutationCreateManyAndReturnArgs} args - Arguments to create many UnmatchedMutations.
+     * @example
+     * // Create many UnmatchedMutations
+     * const unmatchedMutation = await prisma.unmatchedMutation.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many UnmatchedMutations and only return the `id`
+     * const unmatchedMutationWithIdOnly = await prisma.unmatchedMutation.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends UnmatchedMutationCreateManyAndReturnArgs>(args?: SelectSubset<T, UnmatchedMutationCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a UnmatchedMutation.
+     * @param {UnmatchedMutationDeleteArgs} args - Arguments to delete one UnmatchedMutation.
+     * @example
+     * // Delete one UnmatchedMutation
+     * const UnmatchedMutation = await prisma.unmatchedMutation.delete({
+     *   where: {
+     *     // ... filter to delete one UnmatchedMutation
+     *   }
+     * })
+     * 
+     */
+    delete<T extends UnmatchedMutationDeleteArgs>(args: SelectSubset<T, UnmatchedMutationDeleteArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one UnmatchedMutation.
+     * @param {UnmatchedMutationUpdateArgs} args - Arguments to update one UnmatchedMutation.
+     * @example
+     * // Update one UnmatchedMutation
+     * const unmatchedMutation = await prisma.unmatchedMutation.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends UnmatchedMutationUpdateArgs>(args: SelectSubset<T, UnmatchedMutationUpdateArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more UnmatchedMutations.
+     * @param {UnmatchedMutationDeleteManyArgs} args - Arguments to filter UnmatchedMutations to delete.
+     * @example
+     * // Delete a few UnmatchedMutations
+     * const { count } = await prisma.unmatchedMutation.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends UnmatchedMutationDeleteManyArgs>(args?: SelectSubset<T, UnmatchedMutationDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more UnmatchedMutations.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UnmatchedMutationUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many UnmatchedMutations
+     * const unmatchedMutation = await prisma.unmatchedMutation.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends UnmatchedMutationUpdateManyArgs>(args: SelectSubset<T, UnmatchedMutationUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more UnmatchedMutations and returns the data updated in the database.
+     * @param {UnmatchedMutationUpdateManyAndReturnArgs} args - Arguments to update many UnmatchedMutations.
+     * @example
+     * // Update many UnmatchedMutations
+     * const unmatchedMutation = await prisma.unmatchedMutation.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more UnmatchedMutations and only return the `id`
+     * const unmatchedMutationWithIdOnly = await prisma.unmatchedMutation.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends UnmatchedMutationUpdateManyAndReturnArgs>(args: SelectSubset<T, UnmatchedMutationUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one UnmatchedMutation.
+     * @param {UnmatchedMutationUpsertArgs} args - Arguments to update or create a UnmatchedMutation.
+     * @example
+     * // Update or create a UnmatchedMutation
+     * const unmatchedMutation = await prisma.unmatchedMutation.upsert({
+     *   create: {
+     *     // ... data to create a UnmatchedMutation
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the UnmatchedMutation we want to update
+     *   }
+     * })
+     */
+    upsert<T extends UnmatchedMutationUpsertArgs>(args: SelectSubset<T, UnmatchedMutationUpsertArgs<ExtArgs>>): Prisma__UnmatchedMutationClient<$Result.GetResult<Prisma.$UnmatchedMutationPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of UnmatchedMutations.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UnmatchedMutationCountArgs} args - Arguments to filter UnmatchedMutations to count.
+     * @example
+     * // Count the number of UnmatchedMutations
+     * const count = await prisma.unmatchedMutation.count({
+     *   where: {
+     *     // ... the filter for the UnmatchedMutations we want to count
+     *   }
+     * })
+    **/
+    count<T extends UnmatchedMutationCountArgs>(
+      args?: Subset<T, UnmatchedMutationCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], UnmatchedMutationCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a UnmatchedMutation.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UnmatchedMutationAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends UnmatchedMutationAggregateArgs>(args: Subset<T, UnmatchedMutationAggregateArgs>): Prisma.PrismaPromise<GetUnmatchedMutationAggregateType<T>>
+
+    /**
+     * Group by UnmatchedMutation.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UnmatchedMutationGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends UnmatchedMutationGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: UnmatchedMutationGroupByArgs['orderBy'] }
+        : { orderBy?: UnmatchedMutationGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, UnmatchedMutationGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetUnmatchedMutationGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the UnmatchedMutation model
+   */
+  readonly fields: UnmatchedMutationFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for UnmatchedMutation.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__UnmatchedMutationClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    payment<T extends UnmatchedMutation$paymentArgs<ExtArgs> = {}>(args?: Subset<T, UnmatchedMutation$paymentArgs<ExtArgs>>): Prisma__PaymentClient<$Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the UnmatchedMutation model
+   */
+  interface UnmatchedMutationFieldRefs {
+    readonly id: FieldRef<"UnmatchedMutation", 'String'>
+    readonly provider: FieldRef<"UnmatchedMutation", 'String'>
+    readonly transactionId: FieldRef<"UnmatchedMutation", 'String'>
+    readonly amount: FieldRef<"UnmatchedMutation", 'Decimal'>
+    readonly description: FieldRef<"UnmatchedMutation", 'String'>
+    readonly type: FieldRef<"UnmatchedMutation", 'String'>
+    readonly date: FieldRef<"UnmatchedMutation", 'DateTime'>
+    readonly bankId: FieldRef<"UnmatchedMutation", 'String'>
+    readonly rawPayload: FieldRef<"UnmatchedMutation", 'Json'>
+    readonly status: FieldRef<"UnmatchedMutation", 'UnmatchedStatus'>
+    readonly resolvedAt: FieldRef<"UnmatchedMutation", 'DateTime'>
+    readonly resolvedById: FieldRef<"UnmatchedMutation", 'String'>
+    readonly matchedInvoiceId: FieldRef<"UnmatchedMutation", 'String'>
+    readonly createdAt: FieldRef<"UnmatchedMutation", 'DateTime'>
+    readonly updatedAt: FieldRef<"UnmatchedMutation", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * UnmatchedMutation findUnique
+   */
+  export type UnmatchedMutationFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * Filter, which UnmatchedMutation to fetch.
+     */
+    where: UnmatchedMutationWhereUniqueInput
+  }
+
+  /**
+   * UnmatchedMutation findUniqueOrThrow
+   */
+  export type UnmatchedMutationFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * Filter, which UnmatchedMutation to fetch.
+     */
+    where: UnmatchedMutationWhereUniqueInput
+  }
+
+  /**
+   * UnmatchedMutation findFirst
+   */
+  export type UnmatchedMutationFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * Filter, which UnmatchedMutation to fetch.
+     */
+    where?: UnmatchedMutationWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UnmatchedMutations to fetch.
+     */
+    orderBy?: UnmatchedMutationOrderByWithRelationInput | UnmatchedMutationOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for UnmatchedMutations.
+     */
+    cursor?: UnmatchedMutationWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UnmatchedMutations from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UnmatchedMutations.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of UnmatchedMutations.
+     */
+    distinct?: UnmatchedMutationScalarFieldEnum | UnmatchedMutationScalarFieldEnum[]
+  }
+
+  /**
+   * UnmatchedMutation findFirstOrThrow
+   */
+  export type UnmatchedMutationFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * Filter, which UnmatchedMutation to fetch.
+     */
+    where?: UnmatchedMutationWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UnmatchedMutations to fetch.
+     */
+    orderBy?: UnmatchedMutationOrderByWithRelationInput | UnmatchedMutationOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for UnmatchedMutations.
+     */
+    cursor?: UnmatchedMutationWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UnmatchedMutations from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UnmatchedMutations.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of UnmatchedMutations.
+     */
+    distinct?: UnmatchedMutationScalarFieldEnum | UnmatchedMutationScalarFieldEnum[]
+  }
+
+  /**
+   * UnmatchedMutation findMany
+   */
+  export type UnmatchedMutationFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * Filter, which UnmatchedMutations to fetch.
+     */
+    where?: UnmatchedMutationWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UnmatchedMutations to fetch.
+     */
+    orderBy?: UnmatchedMutationOrderByWithRelationInput | UnmatchedMutationOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing UnmatchedMutations.
+     */
+    cursor?: UnmatchedMutationWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UnmatchedMutations from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UnmatchedMutations.
+     */
+    skip?: number
+    distinct?: UnmatchedMutationScalarFieldEnum | UnmatchedMutationScalarFieldEnum[]
+  }
+
+  /**
+   * UnmatchedMutation create
+   */
+  export type UnmatchedMutationCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * The data needed to create a UnmatchedMutation.
+     */
+    data: XOR<UnmatchedMutationCreateInput, UnmatchedMutationUncheckedCreateInput>
+  }
+
+  /**
+   * UnmatchedMutation createMany
+   */
+  export type UnmatchedMutationCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many UnmatchedMutations.
+     */
+    data: UnmatchedMutationCreateManyInput | UnmatchedMutationCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * UnmatchedMutation createManyAndReturn
+   */
+  export type UnmatchedMutationCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * The data used to create many UnmatchedMutations.
+     */
+    data: UnmatchedMutationCreateManyInput | UnmatchedMutationCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * UnmatchedMutation update
+   */
+  export type UnmatchedMutationUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * The data needed to update a UnmatchedMutation.
+     */
+    data: XOR<UnmatchedMutationUpdateInput, UnmatchedMutationUncheckedUpdateInput>
+    /**
+     * Choose, which UnmatchedMutation to update.
+     */
+    where: UnmatchedMutationWhereUniqueInput
+  }
+
+  /**
+   * UnmatchedMutation updateMany
+   */
+  export type UnmatchedMutationUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update UnmatchedMutations.
+     */
+    data: XOR<UnmatchedMutationUpdateManyMutationInput, UnmatchedMutationUncheckedUpdateManyInput>
+    /**
+     * Filter which UnmatchedMutations to update
+     */
+    where?: UnmatchedMutationWhereInput
+    /**
+     * Limit how many UnmatchedMutations to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * UnmatchedMutation updateManyAndReturn
+   */
+  export type UnmatchedMutationUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * The data used to update UnmatchedMutations.
+     */
+    data: XOR<UnmatchedMutationUpdateManyMutationInput, UnmatchedMutationUncheckedUpdateManyInput>
+    /**
+     * Filter which UnmatchedMutations to update
+     */
+    where?: UnmatchedMutationWhereInput
+    /**
+     * Limit how many UnmatchedMutations to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * UnmatchedMutation upsert
+   */
+  export type UnmatchedMutationUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * The filter to search for the UnmatchedMutation to update in case it exists.
+     */
+    where: UnmatchedMutationWhereUniqueInput
+    /**
+     * In case the UnmatchedMutation found by the `where` argument doesn't exist, create a new UnmatchedMutation with this data.
+     */
+    create: XOR<UnmatchedMutationCreateInput, UnmatchedMutationUncheckedCreateInput>
+    /**
+     * In case the UnmatchedMutation was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<UnmatchedMutationUpdateInput, UnmatchedMutationUncheckedUpdateInput>
+  }
+
+  /**
+   * UnmatchedMutation delete
+   */
+  export type UnmatchedMutationDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
+    /**
+     * Filter which UnmatchedMutation to delete.
+     */
+    where: UnmatchedMutationWhereUniqueInput
+  }
+
+  /**
+   * UnmatchedMutation deleteMany
+   */
+  export type UnmatchedMutationDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which UnmatchedMutations to delete
+     */
+    where?: UnmatchedMutationWhereInput
+    /**
+     * Limit how many UnmatchedMutations to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * UnmatchedMutation.payment
+   */
+  export type UnmatchedMutation$paymentArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Payment
+     */
+    select?: PaymentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Payment
+     */
+    omit?: PaymentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PaymentInclude<ExtArgs> | null
+    where?: PaymentWhereInput
+  }
+
+  /**
+   * UnmatchedMutation without action
+   */
+  export type UnmatchedMutationDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UnmatchedMutation
+     */
+    select?: UnmatchedMutationSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UnmatchedMutation
+     */
+    omit?: UnmatchedMutationOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UnmatchedMutationInclude<ExtArgs> | null
   }
 
 
@@ -10034,7 +11401,8 @@ export namespace Prisma {
     gatewayProvider: 'gatewayProvider',
     transactionId: 'transactionId',
     paymentUrl: 'paymentUrl',
-    expiresAt: 'expiresAt'
+    expiresAt: 'expiresAt',
+    unmatchedMutationId: 'unmatchedMutationId'
   };
 
   export type PaymentScalarFieldEnum = (typeof PaymentScalarFieldEnum)[keyof typeof PaymentScalarFieldEnum]
@@ -10062,6 +11430,27 @@ export namespace Prisma {
   };
 
   export type PaymentGatewayConfigScalarFieldEnum = (typeof PaymentGatewayConfigScalarFieldEnum)[keyof typeof PaymentGatewayConfigScalarFieldEnum]
+
+
+  export const UnmatchedMutationScalarFieldEnum: {
+    id: 'id',
+    provider: 'provider',
+    transactionId: 'transactionId',
+    amount: 'amount',
+    description: 'description',
+    type: 'type',
+    date: 'date',
+    bankId: 'bankId',
+    rawPayload: 'rawPayload',
+    status: 'status',
+    resolvedAt: 'resolvedAt',
+    resolvedById: 'resolvedById',
+    matchedInvoiceId: 'matchedInvoiceId',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type UnmatchedMutationScalarFieldEnum = (typeof UnmatchedMutationScalarFieldEnum)[keyof typeof UnmatchedMutationScalarFieldEnum]
 
 
   export const TransactionScalarFieldEnum: {
@@ -10296,6 +11685,34 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'Decimal'
+   */
+  export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+  /**
+   * Reference to a field of type 'Decimal[]'
+   */
+  export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'UnmatchedStatus'
+   */
+  export type EnumUnmatchedStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UnmatchedStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'UnmatchedStatus[]'
+   */
+  export type ListEnumUnmatchedStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UnmatchedStatus[]'>
+    
+
+
+  /**
    * Reference to a field of type 'Float'
    */
   export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -10334,20 +11751,6 @@ export namespace Prisma {
    * Reference to a field of type 'ExpenseType[]'
    */
   export type ListEnumExpenseTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExpenseType[]'>
-    
-
-
-  /**
-   * Reference to a field of type 'Decimal'
-   */
-  export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
-    
-
-
-  /**
-   * Reference to a field of type 'Decimal[]'
-   */
-  export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
     
   /**
    * Deep Input Types
@@ -10573,7 +11976,9 @@ export namespace Prisma {
     transactionId?: StringNullableFilter<"Payment"> | string | null
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
+    unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
+    unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
   }
 
   export type PaymentOrderByWithRelationInput = {
@@ -10595,11 +12000,14 @@ export namespace Prisma {
     transactionId?: SortOrderInput | SortOrder
     paymentUrl?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
+    unmatchedMutationId?: SortOrderInput | SortOrder
     invoice?: InvoiceOrderByWithRelationInput
+    unmatchedMutation?: UnmatchedMutationOrderByWithRelationInput
   }
 
   export type PaymentWhereUniqueInput = Prisma.AtLeast<{
     id?: string
+    unmatchedMutationId?: string
     AND?: PaymentWhereInput | PaymentWhereInput[]
     OR?: PaymentWhereInput[]
     NOT?: PaymentWhereInput | PaymentWhereInput[]
@@ -10621,7 +12029,8 @@ export namespace Prisma {
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
-  }, "id">
+    unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
+  }, "id" | "unmatchedMutationId">
 
   export type PaymentOrderByWithAggregationInput = {
     id?: SortOrder
@@ -10642,6 +12051,7 @@ export namespace Prisma {
     transactionId?: SortOrderInput | SortOrder
     paymentUrl?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
+    unmatchedMutationId?: SortOrderInput | SortOrder
     _count?: PaymentCountOrderByAggregateInput
     _avg?: PaymentAvgOrderByAggregateInput
     _max?: PaymentMaxOrderByAggregateInput
@@ -10671,6 +12081,7 @@ export namespace Prisma {
     transactionId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     paymentUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableWithAggregatesFilter<"Payment"> | Date | string | null
+    unmatchedMutationId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
   }
 
   export type PaymentGatewayConfigWhereInput = {
@@ -10790,6 +12201,113 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"PaymentGatewayConfig"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"PaymentGatewayConfig"> | Date | string
     createdBy?: StringNullableWithAggregatesFilter<"PaymentGatewayConfig"> | string | null
+  }
+
+  export type UnmatchedMutationWhereInput = {
+    AND?: UnmatchedMutationWhereInput | UnmatchedMutationWhereInput[]
+    OR?: UnmatchedMutationWhereInput[]
+    NOT?: UnmatchedMutationWhereInput | UnmatchedMutationWhereInput[]
+    id?: StringFilter<"UnmatchedMutation"> | string
+    provider?: StringFilter<"UnmatchedMutation"> | string
+    transactionId?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    amount?: DecimalFilter<"UnmatchedMutation"> | Decimal | DecimalJsLike | number | string
+    description?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    type?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    date?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    bankId?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    rawPayload?: JsonNullableFilter<"UnmatchedMutation">
+    status?: EnumUnmatchedStatusFilter<"UnmatchedMutation"> | $Enums.UnmatchedStatus
+    resolvedAt?: DateTimeNullableFilter<"UnmatchedMutation"> | Date | string | null
+    resolvedById?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    matchedInvoiceId?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    createdAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    updatedAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    payment?: XOR<PaymentNullableScalarRelationFilter, PaymentWhereInput> | null
+  }
+
+  export type UnmatchedMutationOrderByWithRelationInput = {
+    id?: SortOrder
+    provider?: SortOrder
+    transactionId?: SortOrderInput | SortOrder
+    amount?: SortOrder
+    description?: SortOrderInput | SortOrder
+    type?: SortOrderInput | SortOrder
+    date?: SortOrder
+    bankId?: SortOrderInput | SortOrder
+    rawPayload?: SortOrderInput | SortOrder
+    status?: SortOrder
+    resolvedAt?: SortOrderInput | SortOrder
+    resolvedById?: SortOrderInput | SortOrder
+    matchedInvoiceId?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    payment?: PaymentOrderByWithRelationInput
+  }
+
+  export type UnmatchedMutationWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    transactionId?: string
+    AND?: UnmatchedMutationWhereInput | UnmatchedMutationWhereInput[]
+    OR?: UnmatchedMutationWhereInput[]
+    NOT?: UnmatchedMutationWhereInput | UnmatchedMutationWhereInput[]
+    provider?: StringFilter<"UnmatchedMutation"> | string
+    amount?: DecimalFilter<"UnmatchedMutation"> | Decimal | DecimalJsLike | number | string
+    description?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    type?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    date?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    bankId?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    rawPayload?: JsonNullableFilter<"UnmatchedMutation">
+    status?: EnumUnmatchedStatusFilter<"UnmatchedMutation"> | $Enums.UnmatchedStatus
+    resolvedAt?: DateTimeNullableFilter<"UnmatchedMutation"> | Date | string | null
+    resolvedById?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    matchedInvoiceId?: StringNullableFilter<"UnmatchedMutation"> | string | null
+    createdAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    updatedAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    payment?: XOR<PaymentNullableScalarRelationFilter, PaymentWhereInput> | null
+  }, "id" | "transactionId">
+
+  export type UnmatchedMutationOrderByWithAggregationInput = {
+    id?: SortOrder
+    provider?: SortOrder
+    transactionId?: SortOrderInput | SortOrder
+    amount?: SortOrder
+    description?: SortOrderInput | SortOrder
+    type?: SortOrderInput | SortOrder
+    date?: SortOrder
+    bankId?: SortOrderInput | SortOrder
+    rawPayload?: SortOrderInput | SortOrder
+    status?: SortOrder
+    resolvedAt?: SortOrderInput | SortOrder
+    resolvedById?: SortOrderInput | SortOrder
+    matchedInvoiceId?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: UnmatchedMutationCountOrderByAggregateInput
+    _avg?: UnmatchedMutationAvgOrderByAggregateInput
+    _max?: UnmatchedMutationMaxOrderByAggregateInput
+    _min?: UnmatchedMutationMinOrderByAggregateInput
+    _sum?: UnmatchedMutationSumOrderByAggregateInput
+  }
+
+  export type UnmatchedMutationScalarWhereWithAggregatesInput = {
+    AND?: UnmatchedMutationScalarWhereWithAggregatesInput | UnmatchedMutationScalarWhereWithAggregatesInput[]
+    OR?: UnmatchedMutationScalarWhereWithAggregatesInput[]
+    NOT?: UnmatchedMutationScalarWhereWithAggregatesInput | UnmatchedMutationScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"UnmatchedMutation"> | string
+    provider?: StringWithAggregatesFilter<"UnmatchedMutation"> | string
+    transactionId?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
+    amount?: DecimalWithAggregatesFilter<"UnmatchedMutation"> | Decimal | DecimalJsLike | number | string
+    description?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
+    type?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
+    date?: DateTimeWithAggregatesFilter<"UnmatchedMutation"> | Date | string
+    bankId?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
+    rawPayload?: JsonNullableWithAggregatesFilter<"UnmatchedMutation">
+    status?: EnumUnmatchedStatusWithAggregatesFilter<"UnmatchedMutation"> | $Enums.UnmatchedStatus
+    resolvedAt?: DateTimeNullableWithAggregatesFilter<"UnmatchedMutation"> | Date | string | null
+    resolvedById?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
+    matchedInvoiceId?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"UnmatchedMutation"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"UnmatchedMutation"> | Date | string
   }
 
   export type TransactionWhereInput = {
@@ -11303,6 +12821,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
+    unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
 
   export type PaymentUncheckedCreateInput = {
@@ -11324,6 +12843,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    unmatchedMutationId?: string | null
   }
 
   export type PaymentUpdateInput = {
@@ -11345,6 +12865,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
+    unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
 
   export type PaymentUncheckedUpdateInput = {
@@ -11366,6 +12887,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentCreateManyInput = {
@@ -11387,6 +12909,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    unmatchedMutationId?: string | null
   }
 
   export type PaymentUpdateManyMutationInput = {
@@ -11428,6 +12951,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentGatewayConfigCreateInput = {
@@ -11575,6 +13099,136 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdBy?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type UnmatchedMutationCreateInput = {
+    id?: string
+    provider?: string
+    transactionId?: string | null
+    amount: Decimal | DecimalJsLike | number | string
+    description?: string | null
+    type?: string | null
+    date: Date | string
+    bankId?: string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: $Enums.UnmatchedStatus
+    resolvedAt?: Date | string | null
+    resolvedById?: string | null
+    matchedInvoiceId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    payment?: PaymentCreateNestedOneWithoutUnmatchedMutationInput
+  }
+
+  export type UnmatchedMutationUncheckedCreateInput = {
+    id?: string
+    provider?: string
+    transactionId?: string | null
+    amount: Decimal | DecimalJsLike | number | string
+    description?: string | null
+    type?: string | null
+    date: Date | string
+    bankId?: string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: $Enums.UnmatchedStatus
+    resolvedAt?: Date | string | null
+    resolvedById?: string | null
+    matchedInvoiceId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    payment?: PaymentUncheckedCreateNestedOneWithoutUnmatchedMutationInput
+  }
+
+  export type UnmatchedMutationUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    date?: DateTimeFieldUpdateOperationsInput | Date | string
+    bankId?: NullableStringFieldUpdateOperationsInput | string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: EnumUnmatchedStatusFieldUpdateOperationsInput | $Enums.UnmatchedStatus
+    resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    resolvedById?: NullableStringFieldUpdateOperationsInput | string | null
+    matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    payment?: PaymentUpdateOneWithoutUnmatchedMutationNestedInput
+  }
+
+  export type UnmatchedMutationUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    date?: DateTimeFieldUpdateOperationsInput | Date | string
+    bankId?: NullableStringFieldUpdateOperationsInput | string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: EnumUnmatchedStatusFieldUpdateOperationsInput | $Enums.UnmatchedStatus
+    resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    resolvedById?: NullableStringFieldUpdateOperationsInput | string | null
+    matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    payment?: PaymentUncheckedUpdateOneWithoutUnmatchedMutationNestedInput
+  }
+
+  export type UnmatchedMutationCreateManyInput = {
+    id?: string
+    provider?: string
+    transactionId?: string | null
+    amount: Decimal | DecimalJsLike | number | string
+    description?: string | null
+    type?: string | null
+    date: Date | string
+    bankId?: string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: $Enums.UnmatchedStatus
+    resolvedAt?: Date | string | null
+    resolvedById?: string | null
+    matchedInvoiceId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type UnmatchedMutationUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    date?: DateTimeFieldUpdateOperationsInput | Date | string
+    bankId?: NullableStringFieldUpdateOperationsInput | string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: EnumUnmatchedStatusFieldUpdateOperationsInput | $Enums.UnmatchedStatus
+    resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    resolvedById?: NullableStringFieldUpdateOperationsInput | string | null
+    matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type UnmatchedMutationUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    date?: DateTimeFieldUpdateOperationsInput | Date | string
+    bankId?: NullableStringFieldUpdateOperationsInput | string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: EnumUnmatchedStatusFieldUpdateOperationsInput | $Enums.UnmatchedStatus
+    resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    resolvedById?: NullableStringFieldUpdateOperationsInput | string | null
+    matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type TransactionCreateInput = {
@@ -12258,6 +13912,11 @@ export namespace Prisma {
     isNot?: InvoiceWhereInput | null
   }
 
+  export type UnmatchedMutationNullableScalarRelationFilter = {
+    is?: UnmatchedMutationWhereInput | null
+    isNot?: UnmatchedMutationWhereInput | null
+  }
+
   export type PaymentCountOrderByAggregateInput = {
     id?: SortOrder
     invoiceId?: SortOrder
@@ -12277,6 +13936,7 @@ export namespace Prisma {
     transactionId?: SortOrder
     paymentUrl?: SortOrder
     expiresAt?: SortOrder
+    unmatchedMutationId?: SortOrder
   }
 
   export type PaymentAvgOrderByAggregateInput = {
@@ -12302,6 +13962,7 @@ export namespace Prisma {
     transactionId?: SortOrder
     paymentUrl?: SortOrder
     expiresAt?: SortOrder
+    unmatchedMutationId?: SortOrder
   }
 
   export type PaymentMinOrderByAggregateInput = {
@@ -12323,6 +13984,7 @@ export namespace Prisma {
     transactionId?: SortOrder
     paymentUrl?: SortOrder
     expiresAt?: SortOrder
+    unmatchedMutationId?: SortOrder
   }
 
   export type PaymentSumOrderByAggregateInput = {
@@ -12478,6 +14140,115 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedJsonNullableFilter<$PrismaModel>
     _max?: NestedJsonNullableFilter<$PrismaModel>
+  }
+
+  export type DecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+  }
+
+  export type EnumUnmatchedStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.UnmatchedStatus | EnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumUnmatchedStatusFilter<$PrismaModel> | $Enums.UnmatchedStatus
+  }
+
+  export type PaymentNullableScalarRelationFilter = {
+    is?: PaymentWhereInput | null
+    isNot?: PaymentWhereInput | null
+  }
+
+  export type UnmatchedMutationCountOrderByAggregateInput = {
+    id?: SortOrder
+    provider?: SortOrder
+    transactionId?: SortOrder
+    amount?: SortOrder
+    description?: SortOrder
+    type?: SortOrder
+    date?: SortOrder
+    bankId?: SortOrder
+    rawPayload?: SortOrder
+    status?: SortOrder
+    resolvedAt?: SortOrder
+    resolvedById?: SortOrder
+    matchedInvoiceId?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type UnmatchedMutationAvgOrderByAggregateInput = {
+    amount?: SortOrder
+  }
+
+  export type UnmatchedMutationMaxOrderByAggregateInput = {
+    id?: SortOrder
+    provider?: SortOrder
+    transactionId?: SortOrder
+    amount?: SortOrder
+    description?: SortOrder
+    type?: SortOrder
+    date?: SortOrder
+    bankId?: SortOrder
+    status?: SortOrder
+    resolvedAt?: SortOrder
+    resolvedById?: SortOrder
+    matchedInvoiceId?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type UnmatchedMutationMinOrderByAggregateInput = {
+    id?: SortOrder
+    provider?: SortOrder
+    transactionId?: SortOrder
+    amount?: SortOrder
+    description?: SortOrder
+    type?: SortOrder
+    date?: SortOrder
+    bankId?: SortOrder
+    status?: SortOrder
+    resolvedAt?: SortOrder
+    resolvedById?: SortOrder
+    matchedInvoiceId?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type UnmatchedMutationSumOrderByAggregateInput = {
+    amount?: SortOrder
+  }
+
+  export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
+  }
+
+  export type EnumUnmatchedStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.UnmatchedStatus | EnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumUnmatchedStatusWithAggregatesFilter<$PrismaModel> | $Enums.UnmatchedStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumUnmatchedStatusFilter<$PrismaModel>
+    _max?: NestedEnumUnmatchedStatusFilter<$PrismaModel>
   }
 
   export type FloatFilter<$PrismaModel = never> = {
@@ -12651,17 +14422,6 @@ export namespace Prisma {
     _max?: NestedEnumExpenseTypeNullableFilter<$PrismaModel>
   }
 
-  export type DecimalFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-  }
-
   export type MixRadiusInvoiceCountOrderByAggregateInput = {
     id?: SortOrder
     invoiceNumber?: SortOrder
@@ -12716,22 +14476,6 @@ export namespace Prisma {
 
   export type MixRadiusInvoiceSumOrderByAggregateInput = {
     amount?: SortOrder
-  }
-
-  export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedDecimalFilter<$PrismaModel>
-    _sum?: NestedDecimalFilter<$PrismaModel>
-    _min?: NestedDecimalFilter<$PrismaModel>
-    _max?: NestedDecimalFilter<$PrismaModel>
   }
 
   export type InvoiceItemCreateNestedManyWithoutInvoiceInput = {
@@ -12878,6 +14622,12 @@ export namespace Prisma {
     connect?: InvoiceWhereUniqueInput
   }
 
+  export type UnmatchedMutationCreateNestedOneWithoutPaymentInput = {
+    create?: XOR<UnmatchedMutationCreateWithoutPaymentInput, UnmatchedMutationUncheckedCreateWithoutPaymentInput>
+    connectOrCreate?: UnmatchedMutationCreateOrConnectWithoutPaymentInput
+    connect?: UnmatchedMutationWhereUniqueInput
+  }
+
   export type EnumPaymentMethodFieldUpdateOperationsInput = {
     set?: $Enums.PaymentMethod
   }
@@ -12896,8 +14646,62 @@ export namespace Prisma {
     update?: XOR<XOR<InvoiceUpdateToOneWithWhereWithoutPaymentInput, InvoiceUpdateWithoutPaymentInput>, InvoiceUncheckedUpdateWithoutPaymentInput>
   }
 
+  export type UnmatchedMutationUpdateOneWithoutPaymentNestedInput = {
+    create?: XOR<UnmatchedMutationCreateWithoutPaymentInput, UnmatchedMutationUncheckedCreateWithoutPaymentInput>
+    connectOrCreate?: UnmatchedMutationCreateOrConnectWithoutPaymentInput
+    upsert?: UnmatchedMutationUpsertWithoutPaymentInput
+    disconnect?: UnmatchedMutationWhereInput | boolean
+    delete?: UnmatchedMutationWhereInput | boolean
+    connect?: UnmatchedMutationWhereUniqueInput
+    update?: XOR<XOR<UnmatchedMutationUpdateToOneWithWhereWithoutPaymentInput, UnmatchedMutationUpdateWithoutPaymentInput>, UnmatchedMutationUncheckedUpdateWithoutPaymentInput>
+  }
+
   export type BoolFieldUpdateOperationsInput = {
     set?: boolean
+  }
+
+  export type PaymentCreateNestedOneWithoutUnmatchedMutationInput = {
+    create?: XOR<PaymentCreateWithoutUnmatchedMutationInput, PaymentUncheckedCreateWithoutUnmatchedMutationInput>
+    connectOrCreate?: PaymentCreateOrConnectWithoutUnmatchedMutationInput
+    connect?: PaymentWhereUniqueInput
+  }
+
+  export type PaymentUncheckedCreateNestedOneWithoutUnmatchedMutationInput = {
+    create?: XOR<PaymentCreateWithoutUnmatchedMutationInput, PaymentUncheckedCreateWithoutUnmatchedMutationInput>
+    connectOrCreate?: PaymentCreateOrConnectWithoutUnmatchedMutationInput
+    connect?: PaymentWhereUniqueInput
+  }
+
+  export type DecimalFieldUpdateOperationsInput = {
+    set?: Decimal | DecimalJsLike | number | string
+    increment?: Decimal | DecimalJsLike | number | string
+    decrement?: Decimal | DecimalJsLike | number | string
+    multiply?: Decimal | DecimalJsLike | number | string
+    divide?: Decimal | DecimalJsLike | number | string
+  }
+
+  export type EnumUnmatchedStatusFieldUpdateOperationsInput = {
+    set?: $Enums.UnmatchedStatus
+  }
+
+  export type PaymentUpdateOneWithoutUnmatchedMutationNestedInput = {
+    create?: XOR<PaymentCreateWithoutUnmatchedMutationInput, PaymentUncheckedCreateWithoutUnmatchedMutationInput>
+    connectOrCreate?: PaymentCreateOrConnectWithoutUnmatchedMutationInput
+    upsert?: PaymentUpsertWithoutUnmatchedMutationInput
+    disconnect?: PaymentWhereInput | boolean
+    delete?: PaymentWhereInput | boolean
+    connect?: PaymentWhereUniqueInput
+    update?: XOR<XOR<PaymentUpdateToOneWithWhereWithoutUnmatchedMutationInput, PaymentUpdateWithoutUnmatchedMutationInput>, PaymentUncheckedUpdateWithoutUnmatchedMutationInput>
+  }
+
+  export type PaymentUncheckedUpdateOneWithoutUnmatchedMutationNestedInput = {
+    create?: XOR<PaymentCreateWithoutUnmatchedMutationInput, PaymentUncheckedCreateWithoutUnmatchedMutationInput>
+    connectOrCreate?: PaymentCreateOrConnectWithoutUnmatchedMutationInput
+    upsert?: PaymentUpsertWithoutUnmatchedMutationInput
+    disconnect?: PaymentWhereInput | boolean
+    delete?: PaymentWhereInput | boolean
+    connect?: PaymentWhereUniqueInput
+    update?: XOR<XOR<PaymentUpdateToOneWithWhereWithoutUnmatchedMutationInput, PaymentUpdateWithoutUnmatchedMutationInput>, PaymentUncheckedUpdateWithoutUnmatchedMutationInput>
   }
 
   export type TransactionCreateattachmentsInput = {
@@ -12979,14 +14783,6 @@ export namespace Prisma {
     update?: TransactionUpdateWithWhereUniqueWithoutCategoryInput | TransactionUpdateWithWhereUniqueWithoutCategoryInput[]
     updateMany?: TransactionUpdateManyWithWhereWithoutCategoryInput | TransactionUpdateManyWithWhereWithoutCategoryInput[]
     deleteMany?: TransactionScalarWhereInput | TransactionScalarWhereInput[]
-  }
-
-  export type DecimalFieldUpdateOperationsInput = {
-    set?: Decimal | DecimalJsLike | number | string
-    increment?: Decimal | DecimalJsLike | number | string
-    decrement?: Decimal | DecimalJsLike | number | string
-    multiply?: Decimal | DecimalJsLike | number | string
-    divide?: Decimal | DecimalJsLike | number | string
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {
@@ -13281,6 +15077,50 @@ export namespace Prisma {
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
 
+  export type NestedDecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+  }
+
+  export type NestedEnumUnmatchedStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.UnmatchedStatus | EnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumUnmatchedStatusFilter<$PrismaModel> | $Enums.UnmatchedStatus
+  }
+
+  export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
+  }
+
+  export type NestedEnumUnmatchedStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.UnmatchedStatus | EnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.UnmatchedStatus[] | ListEnumUnmatchedStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumUnmatchedStatusWithAggregatesFilter<$PrismaModel> | $Enums.UnmatchedStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumUnmatchedStatusFilter<$PrismaModel>
+    _max?: NestedEnumUnmatchedStatusFilter<$PrismaModel>
+  }
+
   export type NestedEnumTransactionTypeFilter<$PrismaModel = never> = {
     equals?: $Enums.TransactionType | EnumTransactionTypeFieldRefInput<$PrismaModel>
     in?: $Enums.TransactionType[] | ListEnumTransactionTypeFieldRefInput<$PrismaModel>
@@ -13331,33 +15171,6 @@ export namespace Prisma {
     _max?: NestedEnumExpenseTypeNullableFilter<$PrismaModel>
   }
 
-  export type NestedDecimalFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-  }
-
-  export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedDecimalFilter<$PrismaModel>
-    _sum?: NestedDecimalFilter<$PrismaModel>
-    _min?: NestedDecimalFilter<$PrismaModel>
-    _max?: NestedDecimalFilter<$PrismaModel>
-  }
-
   export type InvoiceItemCreateWithoutInvoiceInput = {
     id: string
     description: string
@@ -13404,6 +15217,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
 
   export type PaymentUncheckedCreateWithoutInvoiceInput = {
@@ -13424,6 +15238,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    unmatchedMutationId?: string | null
   }
 
   export type PaymentCreateOrConnectWithoutInvoiceInput = {
@@ -13503,6 +15318,7 @@ export namespace Prisma {
     transactionId?: StringNullableFilter<"Payment"> | string | null
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
+    unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
   }
 
   export type InvoiceCreateWithoutInvoiceItemInput = {
@@ -13664,6 +15480,47 @@ export namespace Prisma {
     create: XOR<InvoiceCreateWithoutPaymentInput, InvoiceUncheckedCreateWithoutPaymentInput>
   }
 
+  export type UnmatchedMutationCreateWithoutPaymentInput = {
+    id?: string
+    provider?: string
+    transactionId?: string | null
+    amount: Decimal | DecimalJsLike | number | string
+    description?: string | null
+    type?: string | null
+    date: Date | string
+    bankId?: string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: $Enums.UnmatchedStatus
+    resolvedAt?: Date | string | null
+    resolvedById?: string | null
+    matchedInvoiceId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type UnmatchedMutationUncheckedCreateWithoutPaymentInput = {
+    id?: string
+    provider?: string
+    transactionId?: string | null
+    amount: Decimal | DecimalJsLike | number | string
+    description?: string | null
+    type?: string | null
+    date: Date | string
+    bankId?: string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: $Enums.UnmatchedStatus
+    resolvedAt?: Date | string | null
+    resolvedById?: string | null
+    matchedInvoiceId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type UnmatchedMutationCreateOrConnectWithoutPaymentInput = {
+    where: UnmatchedMutationWhereUniqueInput
+    create: XOR<UnmatchedMutationCreateWithoutPaymentInput, UnmatchedMutationUncheckedCreateWithoutPaymentInput>
+  }
+
   export type InvoiceUpsertWithoutPaymentInput = {
     update: XOR<InvoiceUpdateWithoutPaymentInput, InvoiceUncheckedUpdateWithoutPaymentInput>
     create: XOR<InvoiceCreateWithoutPaymentInput, InvoiceUncheckedCreateWithoutPaymentInput>
@@ -13719,6 +15576,153 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
     invoiceItem?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput
+  }
+
+  export type UnmatchedMutationUpsertWithoutPaymentInput = {
+    update: XOR<UnmatchedMutationUpdateWithoutPaymentInput, UnmatchedMutationUncheckedUpdateWithoutPaymentInput>
+    create: XOR<UnmatchedMutationCreateWithoutPaymentInput, UnmatchedMutationUncheckedCreateWithoutPaymentInput>
+    where?: UnmatchedMutationWhereInput
+  }
+
+  export type UnmatchedMutationUpdateToOneWithWhereWithoutPaymentInput = {
+    where?: UnmatchedMutationWhereInput
+    data: XOR<UnmatchedMutationUpdateWithoutPaymentInput, UnmatchedMutationUncheckedUpdateWithoutPaymentInput>
+  }
+
+  export type UnmatchedMutationUpdateWithoutPaymentInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    date?: DateTimeFieldUpdateOperationsInput | Date | string
+    bankId?: NullableStringFieldUpdateOperationsInput | string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: EnumUnmatchedStatusFieldUpdateOperationsInput | $Enums.UnmatchedStatus
+    resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    resolvedById?: NullableStringFieldUpdateOperationsInput | string | null
+    matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type UnmatchedMutationUncheckedUpdateWithoutPaymentInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    date?: DateTimeFieldUpdateOperationsInput | Date | string
+    bankId?: NullableStringFieldUpdateOperationsInput | string | null
+    rawPayload?: NullableJsonNullValueInput | InputJsonValue
+    status?: EnumUnmatchedStatusFieldUpdateOperationsInput | $Enums.UnmatchedStatus
+    resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    resolvedById?: NullableStringFieldUpdateOperationsInput | string | null
+    matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PaymentCreateWithoutUnmatchedMutationInput = {
+    id: string
+    pelangganId: string
+    amount: bigint | number
+    paymentDate: Date | string
+    paymentMethod: $Enums.PaymentMethod
+    reference?: string | null
+    notes?: string | null
+    verifiedBy?: string | null
+    verifiedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt: Date | string
+    accountId?: string | null
+    gatewayStatus?: $Enums.GatewayPaymentStatus | null
+    gatewayProvider?: string | null
+    transactionId?: string | null
+    paymentUrl?: string | null
+    expiresAt?: Date | string | null
+    invoice?: InvoiceCreateNestedOneWithoutPaymentInput
+  }
+
+  export type PaymentUncheckedCreateWithoutUnmatchedMutationInput = {
+    id: string
+    invoiceId?: string | null
+    pelangganId: string
+    amount: bigint | number
+    paymentDate: Date | string
+    paymentMethod: $Enums.PaymentMethod
+    reference?: string | null
+    notes?: string | null
+    verifiedBy?: string | null
+    verifiedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt: Date | string
+    accountId?: string | null
+    gatewayStatus?: $Enums.GatewayPaymentStatus | null
+    gatewayProvider?: string | null
+    transactionId?: string | null
+    paymentUrl?: string | null
+    expiresAt?: Date | string | null
+  }
+
+  export type PaymentCreateOrConnectWithoutUnmatchedMutationInput = {
+    where: PaymentWhereUniqueInput
+    create: XOR<PaymentCreateWithoutUnmatchedMutationInput, PaymentUncheckedCreateWithoutUnmatchedMutationInput>
+  }
+
+  export type PaymentUpsertWithoutUnmatchedMutationInput = {
+    update: XOR<PaymentUpdateWithoutUnmatchedMutationInput, PaymentUncheckedUpdateWithoutUnmatchedMutationInput>
+    create: XOR<PaymentCreateWithoutUnmatchedMutationInput, PaymentUncheckedCreateWithoutUnmatchedMutationInput>
+    where?: PaymentWhereInput
+  }
+
+  export type PaymentUpdateToOneWithWhereWithoutUnmatchedMutationInput = {
+    where?: PaymentWhereInput
+    data: XOR<PaymentUpdateWithoutUnmatchedMutationInput, PaymentUncheckedUpdateWithoutUnmatchedMutationInput>
+  }
+
+  export type PaymentUpdateWithoutUnmatchedMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    pelangganId?: StringFieldUpdateOperationsInput | string
+    amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    accountId?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayStatus?: NullableEnumGatewayPaymentStatusFieldUpdateOperationsInput | $Enums.GatewayPaymentStatus | null
+    gatewayProvider?: NullableStringFieldUpdateOperationsInput | string | null
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
+  }
+
+  export type PaymentUncheckedUpdateWithoutUnmatchedMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    invoiceId?: NullableStringFieldUpdateOperationsInput | string | null
+    pelangganId?: StringFieldUpdateOperationsInput | string
+    amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedBy?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    accountId?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayStatus?: NullableEnumGatewayPaymentStatusFieldUpdateOperationsInput | $Enums.GatewayPaymentStatus | null
+    gatewayProvider?: NullableStringFieldUpdateOperationsInput | string | null
+    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
+    paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type TransactionCategoryCreateWithoutTransactionsInput = {
@@ -13883,6 +15887,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    unmatchedMutationId?: string | null
   }
 
   export type InvoiceItemUpdateWithoutInvoiceInput = {
@@ -13930,6 +15935,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
 
   export type PaymentUncheckedUpdateWithoutInvoiceInput = {
@@ -13950,6 +15956,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentUncheckedUpdateManyWithoutInvoiceInput = {
@@ -13970,6 +15977,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type TransactionCreateManyCategoryInput = {

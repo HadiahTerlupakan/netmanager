@@ -8,6 +8,7 @@ import { BRIProvider } from './providers/bri-provider'
 import { BCAProvider } from './providers/bca-provider'
 import { TripayProvider } from './providers/tripay-provider'
 import { DANAProvider } from './providers/dana-provider'
+import { MootaProvider } from './providers/moota-provider'
 
 export class ProviderFactory {
     /**
@@ -38,6 +39,9 @@ export class ProviderFactory {
             case 'DANA':
                 return new DANAProvider()
 
+            case 'MOOTA':
+                return new MootaProvider()
+
             default:
                 throw new Error(`Unknown payment provider: ${type}`)
         }
@@ -47,7 +51,7 @@ export class ProviderFactory {
      * Get list of supported providers
      */
     static getSupportedProviders(): string[] {
-        return ['XENDIT', 'MIDTRANS', 'DUITKU', 'BRI', 'BCA', 'TRIPAY', 'DANA']
+        return ['XENDIT', 'MIDTRANS', 'DUITKU', 'BRI', 'BCA', 'TRIPAY', 'DANA', 'MOOTA']
     }
 
     /**

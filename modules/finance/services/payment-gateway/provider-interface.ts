@@ -16,7 +16,7 @@ export interface PaymentProvider {
     cancelPayment(orderId: string): Promise<void>
 
     // Verify webhook signature
-    verifyWebhook(payload: unknown, signature?: string): boolean
+    verifyWebhook(payload: unknown, signature?: string, rawBody?: string): boolean
 
     // Process webhook notification
     processWebhook(payload: unknown): Promise<WebhookResult>

@@ -17,6 +17,7 @@ const SIGNATURE_HEADERS: Record<string, string> = {
     BRI: 'x-signature',
     BCA: 'x-bca-signature',
     DANA: 'x-dana-signature',
+    MOOTA: 'signature',    // Moota uses Signature header with HMAC SHA-256 string
 }
 
 /**
@@ -58,11 +59,22 @@ export async function POST(
         try {
             payload = JSON.parse(rawBody)
         } catch {
-            console.error(`[Webhook] Invalid JSON body from ${providerType}`)
-            return NextResponse.json(
-                { error: 'Invalid request body' },
-                { status: 400 }
-            )
+            // Fallback for form-urlencoded payloads (e.g. Duitku uses x-www-form-urlencoded)
+            try {
+                const searchParams = new URLSearchParams(rawBody)
+                payload = Object.fromEntries(searchParams.entries())
+
+                // Check if it's completely empty or invalid (empty form decoding still succeeds technically, but with zero keys)
+                if (Object.keys(payload).length === 0 && rawBody.length > 0) {
+                    throw new Error('Fallback URLSearchParams yielded empty result')
+                }
+            } catch {
+                console.error(`[Webhook] Invalid body from ${providerType}: Not JSON or Form-Urlencoded`)
+                return NextResponse.json(
+                    { error: 'Invalid request body' },
+                    { status: 400 }
+                )
+            }
         }
 
         // Extract signature from provider-specific header
@@ -73,7 +85,7 @@ export async function POST(
 
         // Process webhook through gateway manager
         const gatewayManager = new PaymentGatewayManager(prisma as unknown as PrismaClient)
-        const webhookResult = await gatewayManager.processWebhook(providerType, payload, signature)
+        const webhookResult = await gatewayManager.processWebhook(providerType, payload, signature, rawBody)
 
         console.log(`[Webhook] ${providerType} processed:`, {
             orderId: webhookResult.orderId,
@@ -91,14 +103,66 @@ export async function POST(
         }
         const gatewayStatus = gatewayStatusMap[webhookResult.status] || 'FAILED'
 
-        // Find Payment record by reference (orderId = payment.reference)
-        const payment = await prismaBilling.payment.findFirst({
-            where: { reference: webhookResult.orderId },
-        })
+        // Find Payment record
+        let payment = null;
+
+        if (providerType === 'MOOTA' && webhookResult.amount) {
+            // For Moota, find PENDING payment with matching exact amount
+            console.log(`[Webhook] Looking for PENDING payment with amount: ${webhookResult.amount}`)
+            // Parse amount to number (handling string or Decimal)
+            const amountVal = Number(webhookResult.amount)
+
+            payment = await prismaBilling.payment.findFirst({
+                where: {
+                    amount: amountVal,
+                    // gatewayStatus: { in: ['PENDING', 'FAILED'] } // Ideally only pending, but maybe failed retry
+                },
+                orderBy: { createdAt: 'desc' } // Get the most recent one
+            })
+
+            if (payment) {
+                // Attach the found reference to webhookResult so logs are accurate
+                webhookResult.orderId = payment.reference || payment.id
+            }
+        } else {
+            // Standard flow by orderId for Xendit, Midtrans etc
+            payment = await prismaBilling.payment.findFirst({
+                where: { reference: webhookResult.orderId },
+            })
+        }
 
         if (!payment) {
-            console.warn(`[Webhook] Payment not found for orderId: ${webhookResult.orderId}`)
-            // Return 200 to prevent gateway from retrying
+            console.warn(`[Webhook] Payment not found for ${providerType === 'MOOTA' ? 'amount: ' + webhookResult.amount : 'orderId: ' + webhookResult.orderId}`)
+
+            if (providerType === 'MOOTA' && webhookResult.raw) {
+                try {
+                    const rawData = webhookResult.raw as Record<string, unknown>;
+                    // Check if already exists to avoid duplicates
+                    const existing = await prismaBilling.unmatchedMutation.findUnique({
+                        where: { transactionId: rawData.mutation_id as string }
+                    })
+
+                    if (!existing) {
+                        await prismaBilling.unmatchedMutation.create({
+                            data: {
+                                provider: 'MOOTA',
+                                transactionId: rawData.mutation_id as string,
+                                amount: Number(rawData.amount),
+                                description: (rawData.description as string) || 'Mutasi masuk dari Moota',
+                                type: (rawData.type as string) || 'CR',
+                                date: rawData.date ? new Date(rawData.date as string) : new Date(),
+                                bankId: (rawData.bank_id as string) || null,
+                                rawPayload: JSON.parse(JSON.stringify(rawData)),
+                                status: 'PENDING'
+                            }
+                        })
+                        console.log(`[Webhook] Unmatched mutation recorded: ${rawData.mutation_id} (${rawData.amount})`)
+                    }
+                } catch (unmatchedErr) {
+                    console.error('[Webhook] Failed to save unmatched mutation:', unmatchedErr)
+                }
+            }
+
             return NextResponse.json({ status: 'ok', message: 'Payment record not found' })
         }
 
@@ -222,7 +286,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
                 ...(invoiceStatus === 'PAID' ? { paidAt: new Date() } : {}),
             },
         })
-        
+
         if (invoiceStatus === 'PAID') {
             await AutomaticBillingService.handleInvoicePaid(invoiceId);
         }
