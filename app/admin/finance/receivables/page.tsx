@@ -5,13 +5,11 @@ export const dynamic = 'force-dynamic'
 
 export default async function ReceivablesPage() {
   const receivables = await prismaBilling.invoice.findMany({
-    where: {
-      status: {
-        in: ['SENT', 'OVERDUE']
-      }
-    },
     orderBy: {
-      dueDate: 'asc'
+      dueDate: 'desc'
+    },
+    include: {
+      payment: true
     }
   })
 
@@ -23,7 +21,11 @@ export default async function ReceivablesPage() {
     paidAmount: Number(inv.paidAmount),
     subtotal: Number(inv.subtotal),
     taxAmount: Number(inv.taxAmount),
-    discountAmount: Number(inv.discountAmount)
+    discountAmount: Number(inv.discountAmount),
+    payment: inv.payment?.map((p: any) => ({
+      ...p,
+      amount: Number(p.amount)
+    })) || []
   }))
 
   return <ReceivablesClient initialData={formattedData} />

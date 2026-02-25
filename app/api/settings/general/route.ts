@@ -189,6 +189,12 @@ type GeneralSettings = {
   pppConnectionMode?: string
   autoIsolirEnabled?: boolean
   autoIsolirHariToleransi?: string
+  reminderOtomatis: string
+  reminderFrequency: 'ONCE' | 'DAILY'
+  reminderTime: string
+  notifApp: boolean
+  notifWa: boolean
+  notifEmail: boolean
 }
 
 /**
@@ -215,6 +221,12 @@ export const GET = createHandler({ auth: true }, async () => {
           'PPP_CONNECTION_MODE',
           'GENERAL_AUTO_ISOLASI_ENABLED',
           'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
+          'GENERAL_REMINDER_OTOMATIS',
+          'GENERAL_REMINDER_FREQUENCY',
+          'GENERAL_REMINDER_TIME',
+          'GENERAL_NOTIF_APP',
+          'GENERAL_NOTIF_WA',
+          'GENERAL_NOTIF_EMAIL',
         ],
       },
     },
@@ -249,6 +261,12 @@ export const GET = createHandler({ auth: true }, async () => {
     pppConnectionMode: settingsMap.get('PPP_CONNECTION_MODE') || 'RADIUS',
     autoIsolirEnabled: settingsMap.get('GENERAL_AUTO_ISOLASI_ENABLED') !== 'false',
     autoIsolirHariToleransi: settingsMap.get('GENERAL_AUTO_ISOLASI_HARI_TOLERANSI') || '1',
+    reminderOtomatis: settingsMap.get('GENERAL_REMINDER_OTOMATIS') || '3',
+    reminderFrequency: (settingsMap.get('GENERAL_REMINDER_FREQUENCY') as 'ONCE' | 'DAILY') || 'DAILY',
+    reminderTime: settingsMap.get('GENERAL_REMINDER_TIME') || '08:00',
+    notifApp: settingsMap.get('GENERAL_NOTIF_APP') !== 'false',
+    notifWa: settingsMap.get('GENERAL_NOTIF_WA') === 'true',
+    notifEmail: settingsMap.get('GENERAL_NOTIF_EMAIL') === 'true',
   })
 })
 
@@ -279,6 +297,12 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     pppConnectionMode,
     autoIsolirEnabled,
     autoIsolirHariToleransi,
+    reminderOtomatis,
+    reminderFrequency,
+    reminderTime,
+    notifApp,
+    notifWa,
+    notifEmail,
   } = body
 
   // Upsert semua pengaturan
@@ -297,6 +321,12 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     { key: 'PPP_CONNECTION_MODE', value: pppConnectionMode || 'RADIUS', description: 'Mode koneksi PPP: RADIUS atau MIKROTIK_API' },
     { key: 'GENERAL_AUTO_ISOLASI_ENABLED', value: autoIsolirEnabled === false ? 'false' : 'true', description: 'Aktifkan isolir otomatis' },
     { key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI', value: autoIsolirHariToleransi?.trim() || '1', description: 'Hari toleransi sebelum isolir otomatis' },
+    { key: 'GENERAL_REMINDER_OTOMATIS', value: reminderOtomatis?.trim() || '3', description: 'Jumlah hari sebelum jatuh tempo untuk mulai kirim reminder' },
+    { key: 'GENERAL_REMINDER_FREQUENCY', value: reminderFrequency || 'DAILY', description: 'Frekuensi pengiriman reminder (ONCE atau DAILY)' },
+    { key: 'GENERAL_REMINDER_TIME', value: reminderTime?.trim() || '08:00', description: 'Jam pengiriman reminder' },
+    { key: 'GENERAL_NOTIF_APP', value: notifApp === false ? 'false' : 'true', description: 'Toggle push notification app' },
+    { key: 'GENERAL_NOTIF_WA', value: notifWa === true ? 'true' : 'false', description: 'Toggle notification WhatsApp' },
+    { key: 'GENERAL_NOTIF_EMAIL', value: notifEmail === true ? 'true' : 'false', description: 'Toggle notification Email' },
   ]
 
   await Promise.all(

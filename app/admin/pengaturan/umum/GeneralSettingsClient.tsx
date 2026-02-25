@@ -25,6 +25,12 @@ type GeneralSettings = {
   timezone: string
   attendanceTolerance: string
   pppConnectionMode: 'RADIUS' | 'MIKROTIK_API'
+  reminderOtomatis: string
+  reminderFrequency: 'ONCE' | 'DAILY'
+  reminderTime: string
+  notifApp: boolean
+  notifWa: boolean
+  notifEmail: boolean
 }
 
 export function ClientComponent() {
@@ -46,6 +52,12 @@ export function ClientComponent() {
     timezone: 'Asia/Jakarta',
     attendanceTolerance: '0',
     pppConnectionMode: 'RADIUS',
+    reminderOtomatis: '3',
+    reminderFrequency: 'DAILY',
+    reminderTime: '08:00',
+    notifApp: true,
+    notifWa: false,
+    notifEmail: false,
   })
 
   // Update current time every second based on selected timezone
@@ -98,6 +110,12 @@ export function ClientComponent() {
           timezone: data.timezone || 'Asia/Jakarta',
           attendanceTolerance: data.attendanceTolerance || '0',
           pppConnectionMode: data.pppConnectionMode || 'RADIUS',
+          reminderOtomatis: data.reminderOtomatis || '3',
+          reminderFrequency: data.reminderFrequency || 'DAILY',
+          reminderTime: data.reminderTime || '08:00',
+          notifApp: data.notifApp ?? true,
+          notifWa: data.notifWa ?? false,
+          notifEmail: data.notifEmail ?? false,
         })
       } else {
         const errorData = await res.json()
@@ -142,6 +160,13 @@ export function ClientComponent() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setSettings((prev) => ({ ...prev, [name]: value }))
+    setError(null)
+    setSuccess(false)
+  }
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target
+    setSettings((prev) => ({ ...prev, [name]: checked }))
     setError(null)
     setSuccess(false)
   }
@@ -437,6 +462,111 @@ export function ClientComponent() {
               </p>
             </div>
 
+            {/* Pengaturan Reminder & Notifikasi */}
+            <div className="space-y-4 p-4 bg-linear-to-r from-orange-50/50 to-amber-50/50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Pengaturan Reminder Tagihan
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="reminderOtomatis" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Mulai Kirim Reminder (H-X)
+                  </label>
+                  <select
+                    id="reminderOtomatis"
+                    name="reminderOtomatis"
+                    value={settings.reminderOtomatis}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                      <option key={num} value={num.toString()}>
+                        {num} Hari Sebelum Jatuh Tempo
+                      </option>
+                    ))}
+                    <option value="0">Tepat di Hari Jatuh Tempo (H-0)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="reminderFrequency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Frekuensi Reminder
+                  </label>
+                  <select
+                    id="reminderFrequency"
+                    name="reminderFrequency"
+                    value={settings.reminderFrequency}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  >
+                    <option value="ONCE">Kirim Sekali (Tepat H-X)</option>
+                    <option value="DAILY">Kirim Tiap Hari (Mulai H-X s.d Jatuh Tempo)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="reminderTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Jam Pengiriman (Waktu Setempat)
+                </label>
+                <input
+                  type="time"
+                  id="reminderTime"
+                  name="reminderTime"
+                  value={settings.reminderTime}
+                  onChange={handleChange}
+                  className="w-full sm:w-48 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                />
+              </div>
+
+              <div className="border-t border-orange-200 dark:border-orange-800 pt-4 mt-4">
+                <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Channel Pengiriman Notifikasi
+                </span>
+
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="notifApp"
+                      checked={settings.notifApp}
+                      onChange={handleCheckboxChange}
+                      className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Aplikasi Mobile (Push Notification)</span>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="notifWa"
+                      checked={settings.notifWa}
+                      onChange={handleCheckboxChange}
+                      className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">WhatsApp (Akan dikirim jika integrasi aktif)</span>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="notifEmail"
+                      checked={settings.notifEmail}
+                      onChange={handleCheckboxChange}
+                      className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Email (Akan dikirim jika SMTP dikonfigurasi)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             {/* PPP Network Settings */}
             <div className="space-y-4 p-4 bg-linear-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-center gap-2">
@@ -464,7 +594,7 @@ export function ClientComponent() {
                   <option value="MIKROTIK_API">MikroTik API - PPP Secret langsung di Router</option>
                 </select>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {settings.pppConnectionMode === 'RADIUS' 
+                  {settings.pppConnectionMode === 'RADIUS'
                     ? 'Pelanggan diautentikasi via FreeRADIUS. User disimpan di database RADIUS.'
                     : 'RADIUS dinonaktifkan di router. User dibuat langsung sebagai PPP Secret di MikroTik.'
                   }

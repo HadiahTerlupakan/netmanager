@@ -115,6 +115,32 @@ export function ClientComponent() {
     loadData()
   }, [params.id])
 
+  const handleCancelInvoice = async () => {
+    if (!tagihanAktif) return
+    if (!confirm('Apakah Anda yakin ingin membatalkan tagihan ini? Status tagihan akan diubah menjadi CANCELLED.')) return
+
+    try {
+      setSubmitting(true)
+      const res = await fetch(`/api/invoices/${tagihanAktif.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Gagal membatalkan tagihan')
+      }
+
+      alert('Tagihan berhasil dibatalkan.')
+      window.location.reload()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Terjadi kesalahan saat membatalkan tagihan')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   // Check renewal eligibility
   useEffect(() => {
     if (pelanggan && !loading) {
@@ -304,14 +330,26 @@ export function ClientComponent() {
       {/* Summary Box */}
       <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-lg p-6">
         <div className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-bold text-orange-800 dark:text-orange-400 mb-2">
-              {tagihanAktif ? 'BELUM BAYAR' : 'TIDAK ADA TAGIHAN'}
-            </h2>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-orange-800 dark:text-orange-400 mb-2">
+                {tagihanAktif ? 'BELUM BAYAR' : 'TIDAK ADA TAGIHAN'}
+              </h2>
+              {tagihanAktif && (
+                <p className="text-lg text-gray-700 dark:text-gray-300">
+                  {formatRupiah(subtotalTagihan)} (+ PPN {formatRupiah(ppnTagihan)})
+                </p>
+              )}
+            </div>
             {tagihanAktif && (
-              <p className="text-lg text-gray-700 dark:text-gray-300">
-                {formatRupiah(subtotalTagihan)} (+ PPN {formatRupiah(ppnTagihan)})
-              </p>
+              <button
+                type="button"
+                onClick={handleCancelInvoice}
+                disabled={submitting}
+                className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-semibold rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800 disabled:opacity-50"
+              >
+                Batalkan Tagihan
+              </button>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm">

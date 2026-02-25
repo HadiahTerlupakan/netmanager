@@ -18,6 +18,7 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
+        passwordLogin?: string
         hargaPaketId: string
         tanggalAktif: string
         jatuhTempo: string
@@ -31,6 +32,7 @@ export class PelangganFactory {
             tipe: 'HOME' as TipePelanggan,
             status: 'AKTIF' as Status,
             autoIsolir: true,
+            passwordLogin: dto.passwordLogin || dto.password,
         }
     }
 
@@ -42,6 +44,7 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
+        passwordLogin?: string
         hargaPaketId: string
         tanggalAktif: string
         jatuhTempo: string
@@ -58,6 +61,7 @@ export class PelangganFactory {
             status: 'AKTIF' as Status,
             autoIsolir: false, // Business customers typically don't auto-isolate
             usePPN: true,
+            passwordLogin: dto.passwordLogin || dto.password,
         }
     }
 
@@ -68,6 +72,7 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
+        passwordLogin?: string
         hargaPaketId: string
         alamat?: string
         noTelp?: string
@@ -86,6 +91,7 @@ export class PelangganFactory {
             nama: dto.nama,
             username: dto.username,
             password: dto.password,
+            passwordLogin: dto.passwordLogin || dto.password,
             hargaPaketId: dto.hargaPaketId,
             tanggalAktif,
             jatuhTempo,
@@ -107,6 +113,7 @@ export class PelangganFactory {
         nama: string
         username: string
         password: string
+        passwordLogin?: string
         hargaPaketId: string
         tipe: TipePelanggan
         status: Status
@@ -125,6 +132,7 @@ export class PelangganFactory {
             nama: dto.nama,
             username: dto.username,
             password: dto.password,
+            passwordLogin: dto.passwordLogin || dto.password,
             hargaPaketId: dto.hargaPaketId,
             tipe: dto.tipe,
             status: dto.status,

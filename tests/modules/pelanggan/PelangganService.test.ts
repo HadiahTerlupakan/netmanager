@@ -28,6 +28,7 @@ describe('PelangganService', () => {
       nama: 'Test Customer',
       username: 'testuser',
       password: 'pppoe123',
+      passwordLogin: 'portal123',
       hargaPaketId: 'paket-001',
       tipe: 'REGULER',
       tanggalAktif: '2024-01-01',

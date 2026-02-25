@@ -173,9 +173,9 @@ export async function POST(req: NextRequest) {
       if (fileKTP && fileKTP.size > 0) {
         const isValid = await validateFileSignature(fileKTP, ALLOWED_TYPES)
         if (!isValid) {
-            return NextResponse.json({ error: 'File KTP tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
+          return NextResponse.json({ error: 'File KTP tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
         }
-        
+
         if (isImageFile(fileKTP)) {
           fileKTPPath = await convertAndSaveImage(fileKTP, pelangganUploadDir, 'ktp')
         } else {
@@ -185,9 +185,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (fileRumahSekitar && fileRumahSekitar.size > 0) {
-         const isValid = await validateFileSignature(fileRumahSekitar, ALLOWED_TYPES)
+        const isValid = await validateFileSignature(fileRumahSekitar, ALLOWED_TYPES)
         if (!isValid) {
-            return NextResponse.json({ error: 'File Rumah tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
+          return NextResponse.json({ error: 'File Rumah tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
         }
 
         if (isImageFile(fileRumahSekitar)) {
@@ -199,9 +199,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (fileBAST && fileBAST.size > 0) {
-         const isValid = await validateFileSignature(fileBAST, ALLOWED_TYPES)
+        const isValid = await validateFileSignature(fileBAST, ALLOWED_TYPES)
         if (!isValid) {
-            return NextResponse.json({ error: 'File BAST tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
+          return NextResponse.json({ error: 'File BAST tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
         }
 
         if (isImageFile(fileBAST)) {
@@ -239,21 +239,23 @@ export async function POST(req: NextRequest) {
     })
 
     return apiSuccess(pelanggan, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating pelanggan:', error)
-    const err = error as { message: string; code?: string }
+
+    const errorMsg = error?.message || String(error)
+    const errorCode = error?.code
 
     // Handle specific errors from service
-    if (err.message.includes('sudah digunakan')) {
-       return NextResponse.json({ error: err.message }, { status: 409 })
+    if (errorMsg.includes('sudah digunakan')) {
+      return NextResponse.json({ error: errorMsg }, { status: 409 })
     }
 
-    if (err.message === 'Harga Paket tidak ditemukan') {
-      return NextResponse.json({ error: err.message }, { status: 404 })
+    if (errorMsg === 'Harga Paket tidak ditemukan') {
+      return NextResponse.json({ error: errorMsg }, { status: 404 })
     }
 
     // Handle Prisma unique constraint error
-    if (err.code === 'P2002') {
+    if (errorCode === 'P2002') {
       return NextResponse.json(
         { error: 'ID Pelanggan atau Username sudah digunakan.' },
         { status: 409 }
@@ -261,7 +263,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: err.message || 'Terjadi kesalahan server' },
+      { error: errorMsg || 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }

@@ -171,7 +171,8 @@ exports.Prisma.PaymentScalarFieldEnum = {
   transactionId: 'transactionId',
   paymentUrl: 'paymentUrl',
   expiresAt: 'expiresAt',
-  unmatchedMutationId: 'unmatchedMutationId'
+  unmatchedMutationId: 'unmatchedMutationId',
+  receiptUrl: 'receiptUrl'
 };
 
 exports.Prisma.PaymentGatewayConfigScalarFieldEnum = {
@@ -314,7 +315,8 @@ exports.GatewayPaymentStatus = exports.$Enums.GatewayPaymentStatus = {
   PAID: 'PAID',
   FAILED: 'FAILED',
   EXPIRED: 'EXPIRED',
-  CANCELLED: 'CANCELLED'
+  CANCELLED: 'CANCELLED',
+  REFUNDED: 'REFUNDED'
 };
 
 exports.UnmatchedStatus = exports.$Enums.UnmatchedStatus = {

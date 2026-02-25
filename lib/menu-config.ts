@@ -202,6 +202,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'FINANCE.ACCOUNTS', name: 'Kas & Bank', path: '/admin/finance/accounts', icon: 'HiOutlineBuildingLibrary' },
             { code: 'FINANCE.TRANSACTIONS', name: 'Transaksi', path: '/admin/finance/transactions', icon: 'HiOutlineQueueList' },
             { code: 'FINANCE.DEBTS', name: 'Hutang & Piutang', path: '/admin/finance/debts-receivables', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'FINANCE.MANUAL_PAYMENTS', name: 'Verifikasi Manual', path: '/admin/finance/manual-payments', icon: 'HiOutlineShieldCheck' },
             { code: 'FINANCE.CATEGORIES', name: 'Kategori', path: '/admin/finance/categories', icon: 'HiOutlineTag' },
             { code: 'FINANCE.REPORTS', name: 'Laporan', path: '/admin/finance/reports', icon: 'HiOutlineChartPie' }
         ],

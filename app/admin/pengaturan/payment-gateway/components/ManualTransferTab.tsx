@@ -47,8 +47,15 @@ export default function ManualTransferTab() {
             setLoading(true)
             const response = await fetch('/api/admin/company-bank-accounts')
             if (response.ok) {
-                const data = await response.json()
-                setAccounts(data)
+                const result = await response.json()
+                if (result.success && Array.isArray(result.data)) {
+                    setAccounts(result.data)
+                } else if (Array.isArray(result)) {
+                    // Fallback in case it's not wrapped in apiSuccess
+                    setAccounts(result)
+                } else {
+                    console.error('Unexpected API response format:', result)
+                }
             }
         } catch (error) {
             console.error('Error fetching bank accounts:', error)

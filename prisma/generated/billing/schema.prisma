@@ -74,6 +74,7 @@ model Payment {
 
   unmatchedMutationId String?            @unique
   unmatchedMutation   UnmatchedMutation? @relation(fields: [unmatchedMutationId], references: [id])
+  receiptUrl          String?
 
   @@index([invoiceId])
   @@index([paymentDate])
@@ -260,4 +261,5 @@ enum GatewayPaymentStatus {
   FAILED
   EXPIRED
   CANCELLED
+  REFUNDED
 }

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { WorkOrderBell } from '@/components/notifications/WorkOrderBell'
 import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell'
 import { CustomerSupportBell } from '@/components/notifications/CustomerSupportBell'
+import { PaymentApprovalBell } from '@/components/notifications/PaymentApprovalBell'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import CommandPalette from '@/components/layout/CommandPalette'
 
@@ -40,13 +41,13 @@ export default function Navbar() {
         {/* Left: Mobile Toggle */}
         <div className="flex items-center shrink-0 md:hidden">
           <Button onClick={() => {
-              const win = window as Window & {
-                toggleAdminSidebar?: () => void;
-                toggleEmployeeSidebar?: () => void;
-              }
-              win.toggleAdminSidebar?.()
-              win.toggleEmployeeSidebar?.()
-            }}
+            const win = window as Window & {
+              toggleAdminSidebar?: () => void;
+              toggleEmployeeSidebar?: () => void;
+            }
+            win.toggleAdminSidebar?.()
+            win.toggleEmployeeSidebar?.()
+          }}
             className="p-2 -ml-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             aria-label="Toggle Menu"
           >
@@ -82,6 +83,9 @@ export default function Navbar() {
           {/* Customer Support Tickets */}
           <CustomerSupportBell />
 
+          {/* Payment Approvals (NEW) */}
+          <PaymentApprovalBell />
+
           {/* Notifications */}
           <AdminNotificationBell />
 
@@ -103,7 +107,7 @@ export default function Navbar() {
                 <div className="h-8 w-8 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
                   <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                     {session.user.image ? (
-                       
+
                       <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
@@ -165,7 +169,7 @@ export default function Navbar() {
             <div className="sm:hidden h-9 w-9 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
               <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                 {session.user.image ? (
-                   
+
                   <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">

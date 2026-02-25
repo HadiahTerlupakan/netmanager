@@ -24,14 +24,14 @@ export const createPelangganSchema = z.object({
     passwordLogin: z.string().min(6, 'Password login minimal 6 karakter'),
     hargaPaketId: z.string().min(1, 'Paket layanan wajib dipilih'),
     tipe: z.nativeEnum(TipePelanggan).default(TipePelanggan.REGULER),
-    
+
     // Dates need to be strings "YYYY-MM-DD"
     tanggalAktif: z.string().regex(dateRegex, 'Format tanggal harus YYYY-MM-DD'),
     jatuhTempo: z.string().regex(dateRegex, 'Format tanggal harus YYYY-MM-DD'),
-    
+
     status: z.nativeEnum(Status).default(Status.AKTIF),
     autoIsolir: booleanString.default(true),
-    
+
     // Optional contact/address info
     alamat: z.string().optional().nullable(),
     provinsi: z.string().optional().nullable(),
@@ -40,44 +40,47 @@ export const createPelangganSchema = z.object({
     kecamatan: z.string().optional().nullable(),
     noTelp: z.string().optional().nullable(),
     email: z.string().email('Email tidak valid').optional().nullable().or(z.literal('')),
-    
+
     // Geo
     latitude: numberString.optional().nullable(),
     longitude: numberString.optional().nullable(),
-    
+
     // Docs
     jenisDokumen: z.string().optional().nullable(),
     noDokumen: z.string().optional().nullable(),
-    
+
     // Billing Config
     usePPN: booleanString.default(true),
     useDiscount: booleanString.default(false),
     useProrate: booleanString.default(false),
     catatan: z.string().optional().nullable(),
-    
+
     // Discounts
     discountType: z.nativeEnum(DiscountType).optional().nullable(),
     discountValue: numberString.optional().nullable(),
     discountDuration: numberString.optional().nullable(),
     discountDurationUnit: z.nativeEnum(DurasiUnit).optional().nullable(),
-    
+
     // One time fees
     biayaInstalasi: numberString.optional().nullable(),
     biayaInstalasiIsRecurring: booleanString.default(false),
     biayaInstalasiDiskon: numberString.optional().nullable(),
-    
+
     biayaSewaPerangkat: numberString.optional().nullable(),
     biayaSewaPerangkatIsRecurring: booleanString.default(true),
     biayaSewaPerangkatDiskon: numberString.optional().nullable(),
-    
+
     biayaLainnya: numberString.optional().nullable(),
     biayaLainnyaIsRecurring: booleanString.default(false),
     biayaLainnyaDiskon: numberString.optional().nullable(),
     keteranganBiayaLainnya: z.string().optional().nullable(),
-    
+
     // Infrastructure
     odpId: z.string().optional().nullable(),
     siteId: z.string().optional().nullable(),
+
+    // Billing Action
+    billingAction: z.enum(['CREATE_PAID_INVOICE', 'CREATE_UNPAID_INVOICE', 'DO_NOTHING']).default('DO_NOTHING'),
 });
 
 export type CreatePelangganSchema = z.infer<typeof createPelangganSchema>;

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { CustomerInvoiceRepository } from '@/modules/pelanggan/repositories/CustomerInvoiceRepository'
 
+export const dynamic = 'force-dynamic'
+
 const invoiceRepository = new CustomerInvoiceRepository()
 
 /**

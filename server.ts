@@ -32,6 +32,7 @@ app.prepare().then(() => {
     let ioRef: SocketIOServer | null = null
     // Keep reference to billing cron task to stop it later
     let billingCronTask: ScheduledTask | null = null
+    let reminderCronTask: ScheduledTask | null = null
     // Keep reference to MikroTik monitor to stop it later
     let mikroTikMonitorRef: { stop: () => void; setSocketServer: (io: SocketIOServer) => void; start: () => void } | null = null
 
@@ -47,7 +48,7 @@ app.prepare().then(() => {
             // Use system temp directory for uploads to avoid permission issues in Docker
             const os = await import('os')
             const tmpDir = os.tmpdir()
-            
+
             const form = formidable.formidable({
                 maxFileSize: 1024 * 1024 * 1024, // 1GB per file
                 maxTotalFileSize: 1024 * 1024 * 1024, // 1GB total
@@ -58,36 +59,36 @@ app.prepare().then(() => {
 
             try {
                 const [fields, files] = await form.parse(req)
-                
+
                 // Forward to the actual API handler with parsed data
                 const { NextRequest } = await import('next/server')
                 const { verifyAuth } = await import('./lib/auth')
                 const { getAppVersionService } = await import('./modules/app-version')
-                
+
                 // Get auth from cookies
                 const cookieHeader = req.headers.cookie || ''
                 const reqHeaders = new Headers()
                 reqHeaders.set('cookie', cookieHeader)
-                
+
                 // Create a mock request for auth
                 const mockReq = new Request(`http://localhost:${port}${req.url}`, {
                     method: 'GET',
                     headers: reqHeaders
                 })
                 const nextReq = new NextRequest(mockReq)
-                
+
                 const user = await verifyAuth(nextReq)
                 if (!user) {
                     res.writeHead(401, { 'Content-Type': 'application/json' })
                     res.end(JSON.stringify({ error: 'Tidak terautentikasi' }))
                     return
                 }
-                
+
                 // Fetch FRESH user data from database to ensure permissions are up to date
                 // const prisma = getPrisma() // Removed: using imported prisma instance directly
                 const dbUser = await prisma.user.findUnique({
                     where: { id: user.id },
-                    include: { 
+                    include: {
                         role: { include: { permission: true } },
                     }
                 })
@@ -103,25 +104,25 @@ app.prepare().then(() => {
                 const hasAdminPanelAccess = dbUser.role?.accessAdminPanel === true
                 // 'permission' is singular in Prisma schema but holds an array
                 const userPermissions = dbUser.role?.permission?.map((p: { resource: string; action: string }) => `${p.resource}:${p.action}`) || []
-                
+
                 // Allow if:
                 // 1. Role is SUPER_ADMIN (case-insensitive)
                 // 2. Has explicit 'app_version:create' permission
                 // 3. Has admin panel access (for custom admin roles)
-                const hasCreatePermission = 
-                    userRole.toUpperCase() === 'SUPER_ADMIN' || 
+                const hasCreatePermission =
+                    userRole.toUpperCase() === 'SUPER_ADMIN' ||
                     userPermissions.includes('app_version:create') ||
                     hasAdminPanelAccess
-                
+
                 if (!hasCreatePermission) {
                     console.log(`[Upload] Forbidden access by ${dbUser.email}. Role: ${userRole}, AdminPanelAccess: ${hasAdminPanelAccess}, Permissions count: ${userPermissions.length}`)
                     res.writeHead(403, { 'Content-Type': 'application/json' })
                     res.end(JSON.stringify({ error: 'Akses ditolak: Memerlukan izin app_version:create' }))
                     return
                 }
-                
+
                 console.log(`[Upload] Access granted for ${dbUser.email}. Role: ${userRole}, AdminPanelAccess: ${hasAdminPanelAccess}`)
-                
+
                 // Extract form fields
                 const version = fields.version?.[0] || undefined
                 const buildNumberStr = fields.buildNumber?.[0]
@@ -130,32 +131,32 @@ app.prepare().then(() => {
                 const releaseNotes = fields.releaseNotes?.[0] || undefined
                 const isForceUpdate = fields.isForceUpdate?.[0] === 'true'
                 const minVersion = fields.minVersion?.[0] || undefined
-                
+
                 const buildNumber = buildNumberStr ? parseInt(buildNumberStr) : undefined
                 const versionCode = versionCodeStr ? parseInt(versionCodeStr) : undefined
-                
+
                 // Get APK file
                 let apkPath: string | undefined
                 let apkFilename: string | undefined
                 let apkSize: number | undefined
-                
+
                 const apkFile = files.apk?.[0]
                 if (apkFile) {
                     apkPath = apkFile.filepath
                     apkFilename = apkFile.originalFilename || 'app.apk'
                     apkSize = apkFile.size
                 }
-                
+
                 // Validation
                 if (!apkFile && (!version || !buildNumber || !versionCode)) {
 
                     res.writeHead(400, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({ 
-                        error: 'Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode' 
+                    res.end(JSON.stringify({
+                        error: 'Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode'
                     }))
                     return
                 }
-                
+
                 const service = getAppVersionService()
                 const appVersion = await service.uploadVersion({
                     version,
@@ -170,16 +171,16 @@ app.prepare().then(() => {
                     apkSize,
                     createdBy: user.id
                 })
-                
+
                 // Cleanup temp file after successful upload/copy
                 if (apkFile) {
                     try {
                         fs.unlinkSync(apkFile.filepath)
                     } catch (_e) {
-                         // Ignore if file already moved or deleted
+                        // Ignore if file already moved or deleted
                     }
                 }
-                
+
                 // Log activity
                 try {
                     const { logger } = await import('./lib/logger')
@@ -192,7 +193,7 @@ app.prepare().then(() => {
                 } catch (e) {
                     console.error('Logging failed', e)
                 }
-                
+
                 res.writeHead(201, { 'Content-Type': 'application/json' })
                 res.end(JSON.stringify({
                     success: true,
@@ -214,7 +215,7 @@ app.prepare().then(() => {
                     name: err?.name,
                     stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined
                 }
-                
+
                 try {
                     res.writeHead(500, { 'Content-Type': 'application/json' })
                     res.end(JSON.stringify(errorDetails))
@@ -342,8 +343,8 @@ app.prepare().then(() => {
         const subClient = pubClient.duplicate()
 
         // Suppress unhandled error events when Redis is unavailable
-        pubClient.on('error', () => {})
-        subClient.on('error', () => {})
+        pubClient.on('error', () => { })
+        subClient.on('error', () => { })
 
         Promise.all([pubClient.connect(), subClient.connect()])
             .then(() => {
@@ -384,6 +385,11 @@ app.prepare().then(() => {
             AutomaticBillingService.generateDailyInvoices()
         })
         console.log('[Server] Automatic billing cron scheduled')
+
+        reminderCronTask = cron.schedule('* * * * *', () => {
+            AutomaticBillingService.sendDailyReminders()
+        })
+        console.log('[Server] Automatic reminder check cron scheduled (Every minute)')
     }).catch(err => console.error('[Server] Failed to start Automatic Billing Service:', err))
 
     // Start Automatic Isolation Service (Daily at 00:00 AM)
@@ -401,7 +407,7 @@ app.prepare().then(() => {
             console.log('[Cron] Running daily auto-checkout')
             AutoCheckoutService.runAutoCheckout()
         })
-            console.log('[Server] Auto checkout cron scheduled (23:59)')
+        console.log('[Server] Auto checkout cron scheduled (23:59)')
     }).catch(err => console.error('[Server] Failed to start Auto Checkout Service:', err))
 
     // Start Location Cleanup Service (Daily at 02:00 AM)
@@ -417,8 +423,8 @@ app.prepare().then(() => {
     // Start Monthly Asset Depreciation Service (Monthly on 1st at 02:00 AM)
     import('./modules/inventory/services/AssetService').then(({ AssetService }) => {
         cron.schedule('0 2 1 * *', async () => {
-             console.log('[Cron] Running monthly asset depreciation')
-             try {
+            console.log('[Cron] Running monthly asset depreciation')
+            try {
                 // Fetch System Admin for context
                 const systemUser = await prisma.user.findFirst({
                     where: { role: { name: 'SUPER_ADMIN' } }
@@ -431,9 +437,9 @@ app.prepare().then(() => {
                 } else {
                     console.error('[Cron] Failed to run depreciation: No system user found')
                 }
-             } catch (err) {
-                 console.error('[Cron] Depreciation cycle failed:', err)
-             }
+            } catch (err) {
+                console.error('[Cron] Depreciation cycle failed:', err)
+            }
         })
         console.log('[Server] Asset depreciation cron scheduled (Monthly 1st 02:00)')
     }).catch(err => console.error('[Server] Failed to start Asset Service:', err))
@@ -474,6 +480,10 @@ app.prepare().then(() => {
         if (billingCronTask) {
             billingCronTask.stop()
             console.log('[Cron] Billing task stopped')
+        }
+        if (reminderCronTask) {
+            reminderCronTask.stop()
+            console.log('[Cron] Reminder task stopped')
         }
 
         // 2. Stop Monitoring Services

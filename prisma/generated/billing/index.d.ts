@@ -146,7 +146,8 @@ export const GatewayPaymentStatus: {
   PAID: 'PAID',
   FAILED: 'FAILED',
   EXPIRED: 'EXPIRED',
-  CANCELLED: 'CANCELLED'
+  CANCELLED: 'CANCELLED',
+  REFUNDED: 'REFUNDED'
 };
 
 export type GatewayPaymentStatus = (typeof GatewayPaymentStatus)[keyof typeof GatewayPaymentStatus]
@@ -4200,6 +4201,7 @@ export namespace Prisma {
     paymentUrl: string | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
+    receiptUrl: string | null
   }
 
   export type PaymentMaxAggregateOutputType = {
@@ -4222,6 +4224,7 @@ export namespace Prisma {
     paymentUrl: string | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
+    receiptUrl: string | null
   }
 
   export type PaymentCountAggregateOutputType = {
@@ -4244,6 +4247,7 @@ export namespace Prisma {
     paymentUrl: number
     expiresAt: number
     unmatchedMutationId: number
+    receiptUrl: number
     _all: number
   }
 
@@ -4276,6 +4280,7 @@ export namespace Prisma {
     paymentUrl?: true
     expiresAt?: true
     unmatchedMutationId?: true
+    receiptUrl?: true
   }
 
   export type PaymentMaxAggregateInputType = {
@@ -4298,6 +4303,7 @@ export namespace Prisma {
     paymentUrl?: true
     expiresAt?: true
     unmatchedMutationId?: true
+    receiptUrl?: true
   }
 
   export type PaymentCountAggregateInputType = {
@@ -4320,6 +4326,7 @@ export namespace Prisma {
     paymentUrl?: true
     expiresAt?: true
     unmatchedMutationId?: true
+    receiptUrl?: true
     _all?: true
   }
 
@@ -4429,6 +4436,7 @@ export namespace Prisma {
     paymentUrl: string | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
+    receiptUrl: string | null
     _count: PaymentCountAggregateOutputType | null
     _avg: PaymentAvgAggregateOutputType | null
     _sum: PaymentSumAggregateOutputType | null
@@ -4470,6 +4478,7 @@ export namespace Prisma {
     paymentUrl?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
+    receiptUrl?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
@@ -4494,6 +4503,7 @@ export namespace Prisma {
     paymentUrl?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
+    receiptUrl?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
@@ -4518,6 +4528,7 @@ export namespace Prisma {
     paymentUrl?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
+    receiptUrl?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
@@ -4542,9 +4553,10 @@ export namespace Prisma {
     paymentUrl?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
+    receiptUrl?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt" | "unmatchedMutationId", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt" | "unmatchedMutationId" | "receiptUrl", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -4584,6 +4596,7 @@ export namespace Prisma {
       paymentUrl: string | null
       expiresAt: Date | null
       unmatchedMutationId: string | null
+      receiptUrl: string | null
     }, ExtArgs["result"]["payment"]>
     composites: {}
   }
@@ -5028,6 +5041,7 @@ export namespace Prisma {
     readonly paymentUrl: FieldRef<"Payment", 'String'>
     readonly expiresAt: FieldRef<"Payment", 'DateTime'>
     readonly unmatchedMutationId: FieldRef<"Payment", 'String'>
+    readonly receiptUrl: FieldRef<"Payment", 'String'>
   }
     
 
@@ -11402,7 +11416,8 @@ export namespace Prisma {
     transactionId: 'transactionId',
     paymentUrl: 'paymentUrl',
     expiresAt: 'expiresAt',
-    unmatchedMutationId: 'unmatchedMutationId'
+    unmatchedMutationId: 'unmatchedMutationId',
+    receiptUrl: 'receiptUrl'
   };
 
   export type PaymentScalarFieldEnum = (typeof PaymentScalarFieldEnum)[keyof typeof PaymentScalarFieldEnum]
@@ -11977,6 +11992,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
+    receiptUrl?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
   }
@@ -12001,6 +12017,7 @@ export namespace Prisma {
     paymentUrl?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
+    receiptUrl?: SortOrderInput | SortOrder
     invoice?: InvoiceOrderByWithRelationInput
     unmatchedMutation?: UnmatchedMutationOrderByWithRelationInput
   }
@@ -12028,6 +12045,7 @@ export namespace Prisma {
     transactionId?: StringNullableFilter<"Payment"> | string | null
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
+    receiptUrl?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
   }, "id" | "unmatchedMutationId">
@@ -12052,6 +12070,7 @@ export namespace Prisma {
     paymentUrl?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
+    receiptUrl?: SortOrderInput | SortOrder
     _count?: PaymentCountOrderByAggregateInput
     _avg?: PaymentAvgOrderByAggregateInput
     _max?: PaymentMaxOrderByAggregateInput
@@ -12082,6 +12101,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableWithAggregatesFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    receiptUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
   }
 
   export type PaymentGatewayConfigWhereInput = {
@@ -12820,6 +12840,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    receiptUrl?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
@@ -12844,6 +12865,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
+    receiptUrl?: string | null
   }
 
   export type PaymentUpdateInput = {
@@ -12864,6 +12886,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
@@ -12888,6 +12911,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentCreateManyInput = {
@@ -12910,6 +12934,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
+    receiptUrl?: string | null
   }
 
   export type PaymentUpdateManyMutationInput = {
@@ -12930,6 +12955,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentUncheckedUpdateManyInput = {
@@ -12952,6 +12978,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentGatewayConfigCreateInput = {
@@ -13937,6 +13964,7 @@ export namespace Prisma {
     paymentUrl?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
+    receiptUrl?: SortOrder
   }
 
   export type PaymentAvgOrderByAggregateInput = {
@@ -13963,6 +13991,7 @@ export namespace Prisma {
     paymentUrl?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
+    receiptUrl?: SortOrder
   }
 
   export type PaymentMinOrderByAggregateInput = {
@@ -13985,6 +14014,7 @@ export namespace Prisma {
     paymentUrl?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
+    receiptUrl?: SortOrder
   }
 
   export type PaymentSumOrderByAggregateInput = {
@@ -15217,6 +15247,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    receiptUrl?: string | null
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
 
@@ -15239,6 +15270,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
+    receiptUrl?: string | null
   }
 
   export type PaymentCreateOrConnectWithoutInvoiceInput = {
@@ -15319,6 +15351,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
+    receiptUrl?: StringNullableFilter<"Payment"> | string | null
   }
 
   export type InvoiceCreateWithoutInvoiceItemInput = {
@@ -15643,6 +15676,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    receiptUrl?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
   }
 
@@ -15665,6 +15699,7 @@ export namespace Prisma {
     transactionId?: string | null
     paymentUrl?: string | null
     expiresAt?: Date | string | null
+    receiptUrl?: string | null
   }
 
   export type PaymentCreateOrConnectWithoutUnmatchedMutationInput = {
@@ -15701,6 +15736,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
   }
 
@@ -15723,6 +15759,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type TransactionCategoryCreateWithoutTransactionsInput = {
@@ -15888,6 +15925,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
+    receiptUrl?: string | null
   }
 
   export type InvoiceItemUpdateWithoutInvoiceInput = {
@@ -15935,6 +15973,7 @@ export namespace Prisma {
     transactionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
 
@@ -15957,6 +15996,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentUncheckedUpdateManyWithoutInvoiceInput = {
@@ -15978,6 +16018,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type TransactionCreateManyCategoryInput = {

@@ -1,7 +1,7 @@
 import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { prismaBilling } from '@/lib/prisma-billing';
-import {   } from '@prisma/client';
-import { InvoiceStatus  } from '@/prisma/generated/billing';
+import { } from '@prisma/client';
+import { InvoiceStatus } from '@/prisma/generated/billing';
 
 /**
  * Type for invoice with its relations used in this repository
@@ -84,6 +84,11 @@ export class CustomerInvoiceRepository {
                 amount: Number(inv.payment[0].amount),
                 date: inv.payment[0].paymentDate,
                 method: inv.payment[0].paymentMethod,
+                accountId: inv.payment[0].accountId,
+                gatewayStatus: inv.payment[0].gatewayStatus,
+                expiresAt: inv.payment[0].expiresAt,
+                paymentUrl: inv.payment[0].paymentUrl,
+                receiptUrl: inv.payment[0].receiptUrl,
             } : null,
         }))
     }

@@ -101,14 +101,34 @@ export async function POST(request: NextRequest) {
 
                 const currentFinalAmount = Number(invoice.totalAmount) - currentDiscount;
 
+                let currentPaymentMethod = 'OTHER';
+                let currentGatewayStatus = 'PENDING';
+                let currentAccountId = null;
+
+                if (paymentMethod.startsWith('MANUAL_')) {
+                    currentPaymentMethod = 'BANK_TRANSFER';
+                    currentGatewayStatus = 'PENDING'; // Initially pending until confirmed by admin
+                    currentAccountId = paymentMethod.replace('MANUAL_', '');
+                } else if (paymentMethod === 'MANUAL' || paymentMethod === 'MOOTA_MANUAL') {
+                    // Legacy Moota Manual handling
+                    currentPaymentMethod = 'BANK_TRANSFER';
+                    currentGatewayStatus = 'PENDING';
+                } else {
+                    currentPaymentMethod = paymentMethod;
+                    currentGatewayStatus = 'PENDING';
+                }
+
                 const payment = await tx.payment.create({
                     data: {
                         id: crypto.randomUUID(),
                         updatedAt: new Date(),
                         amount: currentFinalAmount,
                         paymentDate: new Date(),
-                        paymentMethod: (paymentMethod === 'MANUAL' ? 'OTHER' : paymentMethod) || 'OTHER',
-                        gatewayStatus: paymentMethod === 'MANUAL' ? 'PAID' : 'PENDING',
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        paymentMethod: currentPaymentMethod as any,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        gatewayStatus: currentGatewayStatus as any,
+                        accountId: currentAccountId,
                         reference: `PAY-${crypto.randomUUID()}`,
                         notes: notes,
                         pelangganId: authResult.session.id,
@@ -130,7 +150,7 @@ export async function POST(request: NextRequest) {
         let paymentUrl = null;
         let transactionId = null;
 
-        if (paymentMethod !== 'MANUAL' && result.length > 0) {
+        if (paymentMethod !== 'MANUAL' && paymentMethod !== 'MOOTA_MANUAL' && !paymentMethod.startsWith('MANUAL_') && result.length > 0) {
             try {
                 const customer = await prisma.pelanggan.findUnique({
                     where: { id: authResult.session.id }
@@ -158,6 +178,14 @@ export async function POST(request: NextRequest) {
                         paymentUrl = gatewayResult.paymentUrl || gatewayResult.qrCodeUrl || null;
                         transactionId = gatewayResult.transactionId || null;
 
+                        let expiresAt = null;
+
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        if ((gatewayResult as any).expiresAt) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            expiresAt = new Date((gatewayResult as any).expiresAt);
+                        }
+
                         if (transactionId || paymentUrl) {
                             const paymentIds = result.map(p => p.id);
                             await prismaBilling.payment.updateMany({
@@ -165,6 +193,7 @@ export async function POST(request: NextRequest) {
                                 data: {
                                     transactionId: transactionId,
                                     paymentUrl: paymentUrl,
+                                    expiresAt: expiresAt,
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     gatewayProvider: (gatewayResult as any).providerName || paymentMethod
                                 }

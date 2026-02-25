@@ -63,13 +63,13 @@ async function main() {
 
   // 1.2 Granular Permissions (resource:action:subaction format)
   const granularPermissionValues = getAllGranularPermissions()
-  
+
   for (const permValue of granularPermissionValues) {
     // Parse format: 'users:update:role' -> resource='users', action='update:role'
     const parts = permValue.split(':')
     const resource = parts[0]
     const action = parts.slice(1).join(':') // 'update:role' or 'assign_super_admin'
-    
+
     const permission = await prisma.permission.upsert({
       where: {
         resource_action: {
@@ -516,10 +516,10 @@ async function main() {
       where: { key: setting.key },
       update: {},
       create: {
-         id: randomUUID(),
-         ...setting,
-         updatedAt: new Date(),
-    },
+        id: randomUUID(),
+        ...setting,
+        updatedAt: new Date(),
+      },
     })
   }
   console.log(`   ✅ Created ${settingsData.length} settings entries`)
@@ -752,56 +752,271 @@ async function main() {
   // STEP 10: TREASURY (Financial Accounts)
   // ========================================================================
   console.log('\n💰 STEP 10: Creating Financial Accounts...')
-  
+
   // Default Cash Account
-  
+
   const existingCash = await prisma.financialAccount.findFirst({ where: { type: 'CASH' } })
   if (!existingCash) {
-      await prisma.financialAccount.create({
-        data: {
-            name: 'Kas Operasional',
-            type: 'CASH',
-            description: 'Kas tunai harian di kantor',
-            balance: 0,
-            isActive: true
-        }
-      })
-      console.log('   ✅ Account: Kas Operasional')
+    await prisma.financialAccount.create({
+      data: {
+        name: 'Kas Operasional',
+        type: 'CASH',
+        description: 'Kas tunai harian di kantor',
+        balance: 0,
+        isActive: true
+      }
+    })
+    console.log('   ✅ Account: Kas Operasional')
   } else {
-      console.log('   ℹ️  Account: Kas Operasional (Already exists)')
+    console.log('   ℹ️  Account: Kas Operasional (Already exists)')
   }
 
   const existingBank = await prisma.financialAccount.findFirst({ where: { type: 'BANK' } })
   if (!existingBank) {
-      await prisma.financialAccount.create({
-        data: {
-            name: 'Bank BCA',
-            type: 'BANK',
-            accountNumber: '1234567890',
-            description: 'Rekening Utama',
-            balance: 0,
-            isActive: true
-        }
-      })
-      console.log('   ✅ Account: Bank BCA')
+    await prisma.financialAccount.create({
+      data: {
+        name: 'Bank BCA',
+        type: 'BANK',
+        accountNumber: '1234567890',
+        description: 'Rekening Utama',
+        balance: 0,
+        isActive: true
+      }
+    })
+    console.log('   ✅ Account: Bank BCA')
   } else {
-      console.log('   ℹ️  Account: Bank BCA (Already exists)')
+    console.log('   ℹ️  Account: Bank BCA (Already exists)')
   }
 
   // ========================================================================
-  // STEP 11: NETWORK MAP (Initial Data)
+  // STEP 11: INTERNET PACKAGES (Bandwidth, ProfilePPP, HargaPaket)
   // ========================================================================
-  console.log('\n🗺️ STEP 11: Seeding Network Map...')
+  console.log('\n🌐 STEP 11: Creating Internet Packages...')
+
+  // 11.1 Bandwidth Profiles
+  const band10Data = {
+    maxLimitDownload: '10M',
+    maxLimitUpload: '2M',
+    burstLimitDownload: '15M',
+    burstLimitUpload: '3M',
+    burstThresholdDownload: '8M',
+    burstThresholdUpload: '1500k',
+    burstTimeDownload: 15,
+    burstTimeUpload: 15,
+    minLimitDownload: '5M',
+    minLimitUpload: '1M',
+    priority: 8,
+    downloadSpeed: 10240,
+    uploadSpeed: 2048,
+    description: 'Paket Basic 10 Mbps',
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  const band10Mbps = await prisma.bandwidth.upsert({
+    where: { name: '10 Mbps' },
+    update: band10Data,
+    create: { id: randomUUID(), name: '10 Mbps', ...band10Data }
+  })
+  console.log('   ✅ Bandwidth: 10 Mbps')
+
+  const band20Data = {
+    maxLimitDownload: '20M',
+    maxLimitUpload: '5M',
+    burstLimitDownload: '25M',
+    burstLimitUpload: '8M',
+    burstThresholdDownload: '15M',
+    burstThresholdUpload: '4M',
+    burstTimeDownload: 15,
+    burstTimeUpload: 15,
+    minLimitDownload: '10M',
+    minLimitUpload: '2M',
+    priority: 8,
+    downloadSpeed: 20480,
+    uploadSpeed: 5120,
+    description: 'Paket Standard 20 Mbps',
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  const band20Mbps = await prisma.bandwidth.upsert({
+    where: { name: '20 Mbps' },
+    update: band20Data,
+    create: { id: randomUUID(), name: '20 Mbps', ...band20Data }
+  })
+  console.log('   ✅ Bandwidth: 20 Mbps')
+
+  const band50Data = {
+    maxLimitDownload: '50M',
+    maxLimitUpload: '10M',
+    burstLimitDownload: '60M',
+    burstLimitUpload: '15M',
+    burstThresholdDownload: '40M',
+    burstThresholdUpload: '8M',
+    burstTimeDownload: 15,
+    burstTimeUpload: 15,
+    minLimitDownload: '25M',
+    minLimitUpload: '5M',
+    priority: 7,
+    downloadSpeed: 51200,
+    uploadSpeed: 10240,
+    description: 'Paket Premium 50 Mbps',
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  const band50Mbps = await prisma.bandwidth.upsert({
+    where: { name: '50 Mbps' },
+    update: band50Data,
+    create: { id: randomUUID(), name: '50 Mbps', ...band50Data }
+  })
+  console.log('   ✅ Bandwidth: 50 Mbps')
+
+  // 11.2 Profile PPP
+  const pppBasicData = {
+    localAddress: '10.10.10.1',
+    remoteAddress: 'pool-basic',
+    dnsServer: '8.8.8.8,1.1.1.1',
+    sessionTimeout: 86400, // 24 hours
+    idleTimeout: 3600, // 1 hour
+    description: 'Profile PPP untuk paket Basic',
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  const pppBasic = await prisma.profilePPP.upsert({
+    where: { name: 'Profile-Basic' },
+    update: pppBasicData,
+    create: { id: randomUUID(), name: 'Profile-Basic', ...pppBasicData }
+  })
+  console.log('   ✅ Profile PPP: Profile-Basic')
+
+  const pppStandardData = {
+    localAddress: '10.10.20.1',
+    remoteAddress: 'pool-standard',
+    dnsServer: '8.8.8.8,1.1.1.1',
+    sessionTimeout: 86400,
+    idleTimeout: 3600,
+    description: 'Profile PPP untuk paket Standard',
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  const pppStandard = await prisma.profilePPP.upsert({
+    where: { name: 'Profile-Standard' },
+    update: pppStandardData,
+    create: { id: randomUUID(), name: 'Profile-Standard', ...pppStandardData }
+  })
+  console.log('   ✅ Profile PPP: Profile-Standard')
+
+  const pppPremiumData = {
+    localAddress: '10.10.50.1',
+    remoteAddress: 'pool-premium',
+    dnsServer: '8.8.8.8,1.1.1.1',
+    sessionTimeout: 0, // unlimited
+    idleTimeout: 3600,
+    description: 'Profile PPP untuk paket Premium',
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  const pppPremium = await prisma.profilePPP.upsert({
+    where: { name: 'Profile-Premium' },
+    update: pppPremiumData,
+    create: { id: randomUUID(), name: 'Profile-Premium', ...pppPremiumData }
+  })
+  console.log('   ✅ Profile PPP: Profile-Premium')
+
+  // 11.3 Harga Paket
+  const pkgBasicData = {
+    bandwidthId: band10Mbps.id,
+    profilePPPId: pppBasic.id,
+    harga: 150000,
+    durasi: 30,
+    durasiUnit: 'HARI' as const,
+    usePPN: true,
+    ppnPercentage: 11,
+    description: 'Paket internet ekonomis 10 Mbps',
+    featured: false,
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  await prisma.hargaPaket.upsert({
+    where: { name_siteId: { name: 'Paket Basic 10 Mbps', siteId: hqSite.id } },
+    update: pkgBasicData,
+    create: {
+      id: randomUUID(),
+      name: 'Paket Basic 10 Mbps',
+      ...pkgBasicData
+    }
+  })
+  console.log('   ✅ Harga Paket: Paket Basic 10 Mbps')
+
+  const pkgStandardData = {
+    bandwidthId: band20Mbps.id,
+    profilePPPId: pppStandard.id,
+    harga: 250000,
+    durasi: 30,
+    durasiUnit: 'HARI' as const,
+    usePPN: true,
+    ppnPercentage: 11,
+    description: 'Paket internet kencang 20 Mbps',
+    featured: true,
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  await prisma.hargaPaket.upsert({
+    where: { name_siteId: { name: 'Paket Standard 20 Mbps', siteId: hqSite.id } },
+    update: pkgStandardData,
+    create: {
+      id: randomUUID(),
+      name: 'Paket Standard 20 Mbps',
+      ...pkgStandardData
+    }
+  })
+  console.log('   ✅ Harga Paket: Paket Standard 20 Mbps')
+
+  const pkgPremiumData = {
+    bandwidthId: band50Mbps.id,
+    profilePPPId: pppPremium.id,
+    harga: 450000,
+    durasi: 30,
+    durasiUnit: 'HARI' as const,
+    usePPN: true,
+    ppnPercentage: 11,
+    description: 'Paket internet super cepat 50 Mbps',
+    featured: true,
+    status: 'AKTIF' as const,
+    siteId: hqSite.id,
+    updatedAt: new Date(),
+  }
+  await prisma.hargaPaket.upsert({
+    where: { name_siteId: { name: 'Paket Premium 50 Mbps', siteId: hqSite.id } },
+    update: pkgPremiumData,
+    create: {
+      id: randomUUID(),
+      name: 'Paket Premium 50 Mbps',
+      ...pkgPremiumData
+    }
+  })
+  console.log('   ✅ Harga Paket: Paket Premium 50 Mbps')
+
+  // ========================================================================
+  // STEP 12: NETWORK MAP (Initial Data)
+  // ========================================================================
+  console.log('\n🗺️ STEP 12: Seeding Network Map...')
 
   // 11.1 Map Settings
   await prisma.mapSettings.upsert({
     where: { id: 1 },
     update: {},
     create: {
-        id: 1,
-        centerLat: '-6.2088',
-        centerLng: '106.8456',
-        defaultZoom: '13',
+      id: 1,
+      centerLat: '-6.2088',
+      centerLng: '106.8456',
+      defaultZoom: '13',
     }
   })
   console.log('   ✅ Map Settings: Default Jakarta')
@@ -811,12 +1026,12 @@ async function main() {
     where: { nodeId: 'ODC-HQ' },
     update: {},
     create: {
-        nodeId: 'ODC-HQ',
-        name: 'ODC Headquarters',
-        type: 'odc',
-        latitude: -6.2088,
-        longitude: 106.8456,
-        capacity: 144
+      nodeId: 'ODC-HQ',
+      name: 'ODC Headquarters',
+      type: 'odc',
+      latitude: -6.2088,
+      longitude: 106.8456,
+      capacity: 144
     }
   })
   console.log('   ✅ Node: ODC-HQ')
@@ -825,12 +1040,12 @@ async function main() {
     where: { nodeId: 'ODP-JKT01-01' },
     update: {},
     create: {
-        nodeId: 'ODP-JKT01-01',
-        name: 'ODP Sudirman 01',
-        type: 'odp',
-        latitude: -6.2100,
-        longitude: 106.8400,
-        capacity: 16
+      nodeId: 'ODP-JKT01-01',
+      name: 'ODP Sudirman 01',
+      type: 'odp',
+      latitude: -6.2100,
+      longitude: 106.8400,
+      capacity: 16
     }
   })
   console.log('   ✅ Node: ODP-JKT01-01')
@@ -839,12 +1054,12 @@ async function main() {
     where: { nodeId: 'ODP-JKT01-02' },
     update: {},
     create: {
-        nodeId: 'ODP-JKT01-02',
-        name: 'ODP Thamrin 02',
-        type: 'odp',
-        latitude: -6.2120,
-        longitude: 106.8480,
-        capacity: 16
+      nodeId: 'ODP-JKT01-02',
+      name: 'ODP Thamrin 02',
+      type: 'odp',
+      latitude: -6.2120,
+      longitude: 106.8480,
+      capacity: 16
     }
   })
   console.log('   ✅ Node: ODP-JKT01-02')
@@ -854,11 +1069,11 @@ async function main() {
     where: { edgeId: 'EDGE-001' },
     update: {},
     create: {
-        edgeId: 'EDGE-001',
-        source: 'ODC-HQ',
-        target: 'ODP-JKT01-01',
-        fiberType: '48 core',
-        distance: 800
+      edgeId: 'EDGE-001',
+      source: 'ODC-HQ',
+      target: 'ODP-JKT01-01',
+      fiberType: '48 core',
+      distance: 800
     }
   })
   console.log('   ✅ Edge: HQ -> ODP 01')
@@ -867,11 +1082,11 @@ async function main() {
     where: { edgeId: 'EDGE-002' },
     update: {},
     create: {
-        edgeId: 'EDGE-002',
-        source: 'ODC-HQ',
-        target: 'ODP-JKT01-02',
-        fiberType: '24 core',
-        distance: 650
+      edgeId: 'EDGE-002',
+      source: 'ODC-HQ',
+      target: 'ODP-JKT01-02',
+      fiberType: '24 core',
+      distance: 650
     }
   })
   console.log('   ✅ Edge: HQ -> ODP 02')

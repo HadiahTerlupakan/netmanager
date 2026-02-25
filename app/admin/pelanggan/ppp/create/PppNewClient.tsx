@@ -61,13 +61,14 @@ export function ClientComponent() {
   const [ktpScanError, setKtpScanError] = useState<string | null>(null)
   const [ktpScanSuccess, setKtpScanSuccess] = useState(false)
   const [showMapPicker, setShowMapPicker] = useState(false)
+  const [jatuhTempoManuallyEdited, setJatuhTempoManuallyEdited] = useState(false)
 
   const [formData, setFormData] = useState({
     idPelanggan: '',
     nama: '',
     username: '',
-    password: '12345', // Default password PPPoE
-    passwordLogin: '12345', // Default password untuk login portal pelanggan
+    password: '123456', // Default password PPPoE
+    passwordLogin: '123456', // Default password untuk login portal pelanggan
     hargaPaketId: '',
     tipe: 'REGULER' as 'REGULER' | 'NON_REGULER',
     tanggalAktif: new Date().toISOString().split('T')[0] ?? '', // Default: hari ini
@@ -110,6 +111,7 @@ export function ClientComponent() {
     keteranganBiayaLainnya: '',
     odpId: '', // ODP yang digunakan pelanggan
     siteId: undefined as string | undefined,
+    billingAction: 'DO_NOTHING' as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING',
   })
 
   // Generate ID pelanggan otomatis (angka unik 8 digit) - sync version (fallback)
@@ -179,7 +181,7 @@ export function ClientComponent() {
       const params = new URLSearchParams()
       params.append('status', 'AKTIF')
       if (formData.siteId) {
-          params.append('siteId', formData.siteId)
+        params.append('siteId', formData.siteId)
       }
 
       const res = await fetchWithHandling<HargaPaket[]>(`/api/hargapakets?${params.toString()}`)
@@ -200,7 +202,7 @@ export function ClientComponent() {
     try {
       const params = new URLSearchParams()
       if (formData.siteId) {
-          params.append('siteId', formData.siteId)
+        params.append('siteId', formData.siteId)
       }
 
       const res = await fetchWithHandling<{ odps: Odp[] }>(`/api/odps?${params.toString()}`)
@@ -312,9 +314,9 @@ export function ClientComponent() {
 
         // Handle rate limit
         if (res.status === 429) {
-             const retryAfter = res.headers.get('Retry-After')
-             showToast('error', `Terlalu banyak permintaan. Coba lagi dalam ${retryAfter || 60} detik.`)
-             return
+          const retryAfter = res.headers.get('Retry-After')
+          showToast('error', `Terlalu banyak permintaan. Coba lagi dalam ${retryAfter || 60} detik.`)
+          return
         }
 
         // Jika error karena ID duplikat, generate ID baru dan retry
@@ -401,8 +403,15 @@ export function ClientComponent() {
     setFormData((prev) => {
       const updated = { ...prev, [name]: type === 'checkbox' ? checked : value }
 
-      // Jika yang berubah adalah tanggal aktif atau harga paket, hitung ulang jatuh tempo
+      // Jika yang berubah adalah jatuh tempo secara manual, tandai sebagai manual edit
+      if (name === 'jatuhTempo') {
+        setJatuhTempoManuallyEdited(true)
+      }
+
+      // Jika yang berubah adalah tanggal aktif atau harga paket, reset flag manual edit
+      // dan hitung ulang jatuh tempo (karena perubahan ini mempengaruhi jatuh tempo)
       if (name === 'tanggalAktif' || name === 'hargaPaketId') {
+        setJatuhTempoManuallyEdited(false)
         updated.jatuhTempo = calculateJatuhTempo(
           name === 'tanggalAktif' ? value : updated.tanggalAktif,
           name === 'hargaPaketId' ? value : updated.hargaPaketId
@@ -452,14 +461,15 @@ export function ClientComponent() {
   }, [formData.idPelanggan])
 
   // Update jatuh tempo saat harga paket atau tanggal aktif berubah
+  // TAPI hanya jika user belum mengubah jatuh tempo secara manual
   useEffect(() => {
-    if (formData.tanggalAktif && formData.hargaPaketId && hargaPakets.length > 0) {
+    if (!jatuhTempoManuallyEdited && formData.tanggalAktif && formData.hargaPaketId && hargaPakets.length > 0) {
       const jatuhTempo = calculateJatuhTempo(formData.tanggalAktif, formData.hargaPaketId)
       if (jatuhTempo) {
         setFormData((prev) => ({ ...prev, jatuhTempo }))
       }
     }
-  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo, hargaPakets.length])
+  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo, jatuhTempoManuallyEdited, hargaPakets.length])
 
   // Fungsi untuk menghitung total tagihan menggunakan useMemo untuk menghindari hydration mismatch
   const totalInfo = useMemo(() => {
@@ -837,19 +847,19 @@ export function ClientComponent() {
                   {/* Site Selection */}
                   <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Pilih Site <span className="text-red-500">*</span>
+                      Pilih Site <span className="text-red-500">*</span>
                     </label>
                     <div className="mb-2">
-                         <SiteFilter 
-                            isInput={true}
-                            onSiteChange={(siteId) => {
-                                setFormData(prev => ({ ...prev, siteId, hargaPaketId: '', odpId: '' }))
-                            }} 
-                         />
+                      <SiteFilter
+                        isInput={true}
+                        onSiteChange={(siteId) => {
+                          setFormData(prev => ({ ...prev, siteId, hargaPaketId: '', odpId: '' }))
+                        }}
+                      />
                     </div>
-                     <p className="text-xs text-gray-500">
-                        Pilih site terlebih dahulu untuk melihat Paket dan ODP yang tersedia.
-                     </p>
+                    <p className="text-xs text-gray-500">
+                      Pilih site terlebih dahulu untuk melihat Paket dan ODP yang tersedia.
+                    </p>
                   </div>
 
                   {/* Status dan Tipe Pelanggan */}
@@ -1043,6 +1053,62 @@ export function ClientComponent() {
                         <p className="text-xs text-gray-500 dark:text-gray-500">
                           Jatuh tempo dihitung otomatis, namun bisa diubah manual jika diperlukan
                         </p>
+                      </div>
+                    </div>
+
+                    {/* Opsi Penagihan (Billing Action) */}
+                    <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Opsi Penagihan Awal
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Tentukan bagaimana tagihan pertama untuk pelanggan ini akan ditangani.
+                      </p>
+                      <div className="space-y-3">
+                        <label className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === 'CREATE_PAID_INVOICE' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                          <input
+                            type="radio"
+                            name="billingAction"
+                            value="CREATE_PAID_INVOICE"
+                            checked={formData.billingAction === 'CREATE_PAID_INVOICE'}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as any }))}
+                            className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">Prepaid: Buat & Lunas <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Disarankan</span></span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tagihan langsung dibuat dan statusnya <b>LUNAS</b>. Disarankan untuk pendaftaran baru yang pelanggan sudah langsung membayar. Pemasukan akan langsung dicatat.</span>
+                          </div>
+                        </label>
+
+                        <label className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === 'CREATE_UNPAID_INVOICE' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                          <input
+                            type="radio"
+                            name="billingAction"
+                            value="CREATE_UNPAID_INVOICE"
+                            checked={formData.billingAction === 'CREATE_UNPAID_INVOICE'}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as any }))}
+                            className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">Prepaid: Buat & Belum Lunas</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tagihan langsung dibuat dengan status <b>BELUM LUNAS</b>. Pelanggan dapat melihat tagihan ini di aplikasi dan harus membayarnya.</span>
+                          </div>
+                        </label>
+
+                        <label className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === 'DO_NOTHING' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                          <input
+                            type="radio"
+                            name="billingAction"
+                            value="DO_NOTHING"
+                            checked={formData.billingAction === 'DO_NOTHING'}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as any }))}
+                            className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">Postpaid: Jangan Buat Tagihan</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tagihan pertama akan otomatis dibuat <b>mendekati tanggal jatuh tempo berikutnya</b>.</span>
+                          </div>
+                        </label>
                       </div>
                     </div>
 
@@ -1820,7 +1886,7 @@ export function ClientComponent() {
                         placeholder="Password untuk koneksi PPPoE"
                       />
                       <p className="text-xs text-gray-500 dark:text-gray-500">
-                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
+                        Default: 123456, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
                       </p>
                     </div>
 
@@ -1853,7 +1919,7 @@ export function ClientComponent() {
                         </button>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-500">
-                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/login).
+                        Default: 123456, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/login).
                       </p>
                     </div>
                   </div>

@@ -70,6 +70,44 @@ export async function sendPushNotification(
 }
 
 /**
+ * Send push notification to a specific customer via Expo Push API
+ */
+export async function sendCustomerPushNotification(
+    pelangganId: string,
+    title: string,
+    body: string,
+    data?: Record<string, unknown>
+): Promise<boolean> {
+    try {
+        // Get customer's push token
+        const pelanggan = await prisma.pelanggan.findUnique({
+            where: { id: pelangganId },
+            select: { pushToken: true }
+        })
+
+        if (!pelanggan?.pushToken) {
+            // console.log(`[Push] No push token for customer ${pelangganId}`)
+            return false
+        }
+
+        return await sendExpoPush([{
+            to: pelanggan.pushToken,
+            title,
+            body,
+            data: data || {},
+            sound: 'default'
+        }])
+
+    } catch (error) {
+        console.error('[Push] Error sending customer notification:', error)
+        // Ensure retry enqueue logic works for Pelanggan as well if needed.
+        // The current PushRetryQueue seems bounded to `userId`. We might just skip retry or adapt it.
+        // For now, logging the error is sufficient.
+        return false
+    }
+}
+
+/**
  * Send push notification to multiple users
  */
 export async function sendPushToUsers(
@@ -81,7 +119,7 @@ export async function sendPushToUsers(
     try {
         // Get all users' push tokens
         const users = await prisma.user.findMany({
-            where: { 
+            where: {
                 id: { in: userIds },
                 pushToken: { not: null }
             },
@@ -207,7 +245,7 @@ export async function sendPushToDepartment(
     try {
         // Get all users in department with push tokens
         const users = await prisma.user.findMany({
-            where: { 
+            where: {
                 departmentId,
                 isActive: true,
                 pushToken: { not: null }

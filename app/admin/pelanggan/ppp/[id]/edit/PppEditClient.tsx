@@ -74,8 +74,8 @@ export function ClientComponent() {
     idPelanggan: '',
     nama: '',
     username: '',
-    password: '12345', // Default password PPPoE
-    passwordLogin: '12345', // Default password untuk login portal pelanggan
+    password: '123456', // Default password PPPoE
+    passwordLogin: '123456', // Default password untuk login portal pelanggan
     hargaPaketId: '',
     tipe: 'REGULER' as 'REGULER' | 'NON_REGULER',
     tanggalAktif: new Date().toISOString().split('T')[0] ?? '', // Default: hari ini
@@ -118,6 +118,7 @@ export function ClientComponent() {
     keteranganBiayaLainnya: '',
     odpId: '', // ODP yang digunakan pelanggan
     siteId: '',
+    invoiceAction: 'UPDATE_ONLY' as 'UPDATE_ONLY' | 'VOID_AND_CREATE_NEW',
   })
 
   // Load data existing pelanggan
@@ -138,9 +139,9 @@ export function ClientComponent() {
 
       if (!res.ok) {
         if (res.status === 429) {
-             const retryAfter = res.headers.get('Retry-After')
-             showToast('error', `Terlalu banyak permintaan. Tunggu ${retryAfter || 60} detik.`)
-             return
+          const retryAfter = res.headers.get('Retry-After')
+          showToast('error', `Terlalu banyak permintaan. Tunggu ${retryAfter || 60} detik.`)
+          return
         }
         throw new Error('Gagal memuat data pelanggan')
       }
@@ -193,6 +194,7 @@ export function ClientComponent() {
         keteranganBiayaLainnya: data.keteranganBiayaLainnya || '',
         odpId: data.odpId || '',
         siteId: data.siteId || '',
+        invoiceAction: 'UPDATE_ONLY',
       })
 
       // Set existing file paths
@@ -348,9 +350,9 @@ export function ClientComponent() {
 
         // Handle rate limit
         if (res.status === 429) {
-             const retryAfter = res.headers.get('Retry-After')
-             showToast('error', `Terlalu banyak permintaan. Tunggu ${retryAfter || 60} detik.`)
-             return
+          const retryAfter = res.headers.get('Retry-After')
+          showToast('error', `Terlalu banyak permintaan. Tunggu ${retryAfter || 60} detik.`)
+          return
         }
 
         throw new Error(errorData.error || 'Gagal menyimpan pelanggan PPP')
@@ -898,24 +900,24 @@ export function ClientComponent() {
               {/* Tab Content */}
               {activeTab === 'paket' && (
                 <div className="space-y-5">
-                  
+
                   {/* Site Selection */}
                   <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Pilih Site <span className="text-red-500">*</span>
+                      Pilih Site <span className="text-red-500">*</span>
                     </label>
                     <div className="mb-2">
-                         <SiteFilter 
-                            isInput={true}
-                            value={formData.siteId || ''}
-                            onSiteChange={(siteId) => {
-                                setFormData(prev => ({ ...prev, siteId: siteId || '', hargaPaketId: '', odpId: '' }))
-                            }} 
-                         />
+                      <SiteFilter
+                        isInput={true}
+                        value={formData.siteId || ''}
+                        onSiteChange={(siteId) => {
+                          setFormData(prev => ({ ...prev, siteId: siteId || '', hargaPaketId: '', odpId: '' }))
+                        }}
+                      />
                     </div>
-                     <p className="text-xs text-gray-500">
-                        Ubah site jika ada pemindahan pelanggan. Akan mereset paket & ODP yang dipilih.
-                     </p>
+                    <p className="text-xs text-gray-500">
+                      Ubah site jika ada pemindahan pelanggan. Akan mereset paket & ODP yang dipilih.
+                    </p>
                   </div>
 
                   {/* Status dan Tipe Pelanggan */}
@@ -1141,6 +1143,53 @@ export function ClientComponent() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Tindakan Tagihan (Hanya muncul jika jatuh tempo diubah) */}
+                    {jatuhTempoManuallyEdited && (
+                      <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                          Tindakan Tagihan <span className="text-red-500">*</span>
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Karena tanggal jatuh tempo diubah, pilih tindakan yang akan dilakukan terhadap tagihan pelanggan.
+                        </p>
+                        <div className="space-y-3 mt-2">
+                          <label className="flex items-start gap-3 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-gray-200 dark:border-gray-700">
+                            <input
+                              type="radio"
+                              name="invoiceAction"
+                              value="UPDATE_ONLY"
+                              checked={formData.invoiceAction === 'UPDATE_ONLY'}
+                              onChange={(e) => setFormData(prev => ({ ...prev, invoiceAction: e.target.value as 'UPDATE_ONLY' | 'VOID_AND_CREATE_NEW' }))}
+                              className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
+                            />
+                            <div>
+                              <span className="block text-sm font-medium text-gray-900 dark:text-white">Hanya Ubah Tanggal</span>
+                              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                Tagihan bulan ini akan dibiarkan, tagihan baru akan digenerate otomatis pada tanggal jatuh tempo yang baru. Cocok untuk pelanggan pascabayar reguler.
+                              </span>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start gap-3 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-gray-200 dark:border-gray-700">
+                            <input
+                              type="radio"
+                              name="invoiceAction"
+                              value="VOID_AND_CREATE_NEW"
+                              checked={formData.invoiceAction === 'VOID_AND_CREATE_NEW'}
+                              onChange={(e) => setFormData(prev => ({ ...prev, invoiceAction: e.target.value as 'UPDATE_ONLY' | 'VOID_AND_CREATE_NEW' }))}
+                              className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
+                            />
+                            <div>
+                              <span className="block text-sm font-medium text-gray-900 dark:text-white">Batalkan & Buat Tagihan Baru</span>
+                              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                Batalkan tagihan bulan ini yang belum lunas, dan langsung buat tagihan baru sesuai dengan tanggal jatuh tempo yang baru.
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    )}
 
                     {/* PPN & Diskon */}
                     <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
@@ -1916,7 +1965,7 @@ export function ClientComponent() {
                         placeholder="Password untuk koneksi PPPoE"
                       />
                       <p className="text-xs text-gray-500 dark:text-gray-500">
-                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
+                        Default: 123456, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
                       </p>
                     </div>
 
@@ -1949,7 +1998,7 @@ export function ClientComponent() {
                         </button>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-500">
-                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/login).
+                        Default: 123456, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/login).
                       </p>
                     </div>
                   </div>

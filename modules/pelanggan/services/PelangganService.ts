@@ -4,12 +4,14 @@ import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit } from 
 import { hash } from 'bcryptjs'
 import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
 import { prisma } from '@/lib/prisma'
+import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 
 export interface CreatePelangganInput {
     idPelanggan: string
     nama: string
     username: string
     password: string // PPPoE password
+    passwordLogin: string // Portal login password
     hargaPaketId: string
     tipe: TipePelanggan
     tanggalAktif: string // YYYY-MM-DD format
@@ -50,6 +52,7 @@ export interface CreatePelangganInput {
     keteranganBiayaLainnya?: string | null
     odpId?: string | null
     siteId?: string | null
+    billingAction?: 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING'
 }
 
 export class PelangganService {
@@ -100,7 +103,7 @@ export class PelangganService {
         }
 
         // Hash passwordLogin
-        const passwordHash = await hash(data.password.trim(), 12)
+        const passwordHash = await hash(data.passwordLogin.trim(), 12)
 
         // Parse dates
         const parseLocalDate = (dateStr: string): Date => {
@@ -165,14 +168,28 @@ export class PelangganService {
                 // Update DB with failure
                 await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'FAILED', syncResult.error)
             } else {
-                 // Update DB with success
-                 await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'SYNCED', null)
+                // Update DB with success
+                await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'SYNCED', null)
             }
         } catch (syncError: unknown) {
             console.error('[RADIUS] Auto-sync error:', syncError)
             // Update DB with failure
             const errorMessage = syncError instanceof Error ? syncError.message : 'Terjadi kesalahan'
             await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'FAILED', errorMessage)
+        }
+
+        // Handle Invoice Generation based on billingAction
+        try {
+            if (data.billingAction === 'CREATE_PAID_INVOICE' || data.billingAction === 'CREATE_UNPAID_INVOICE') {
+                const isPaid = data.billingAction === 'CREATE_PAID_INVOICE';
+                await AutomaticBillingService.generateImmediateInvoice(pelanggan.id, isPaid);
+            } else {
+                // Postpaid: DO_NOTHING initially, but trigger realtime check 
+                // in case the jatuhTempo is somehow within the normal billing window
+                await AutomaticBillingService.checkAndGenerateRealtimeInvoice(pelanggan.id);
+            }
+        } catch (billingErr) {
+            console.error('[Billing] Failed to trigger invoice generation for new customer:', billingErr);
         }
 
         return pelanggan
@@ -327,7 +344,7 @@ export class PelangganService {
      */
     async getInvoices(customerId: string, page: number = 1, limit: number = 10, status?: string[]) {
         const { invoices, total } = await this.pelangganRepository.getInvoices(
-            customerId, 
+            customerId,
             { page, limit, status }
         )
 
@@ -347,8 +364,8 @@ export class PelangganService {
      */
     async validateInvoicesForPayment(invoiceIds: string[], customerId: string) {
         const validInvoices = await this.pelangganRepository.getInvoicesByIds(
-            invoiceIds, 
-            customerId, 
+            invoiceIds,
+            customerId,
             ['SENT', 'OVERDUE']
         )
 
@@ -357,7 +374,7 @@ export class PelangganService {
         }
 
         const totalAmount = validInvoices.reduce(
-            (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)), 
+            (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)),
             0
         )
 

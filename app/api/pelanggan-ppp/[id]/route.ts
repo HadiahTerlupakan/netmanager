@@ -5,11 +5,11 @@ import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import { promises as fs } from 'fs'
 import path from 'path'
-import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
 import { logActivitySafe } from '@/lib/logger'
-
+import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
+import { Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client'
 interface ExtendedUser {
   id: string;
   role: string;
@@ -618,6 +618,7 @@ export async function PUT(
     const statusValue = parseEnumValue(status, Status) ?? Status.AKTIF
     const discountTypeValue = parseEnumValue(discountType, DiscountType)
     const discountDurationUnitValue = parseEnumValue(discountDurationUnit, DurasiUnit)
+    const invoiceAction = formData.get('invoiceAction') as string | null
 
     // Validasi required fields
     if (!idPelanggan || !nama || !username || !password || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
@@ -812,10 +813,12 @@ export async function PUT(
         usePPN: usePPN ?? true,
         useDiscount: useDiscount ?? false,
         useProrate: useProrate ?? false,
-        discountType: discountTypeValue,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        discountType: discountTypeValue as any,
         discountValue: discountValue || null,
         discountDuration: discountDuration || null,
-        discountDurationUnit: discountDurationUnitValue,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        discountDurationUnit: discountDurationUnitValue as any,
         biayaInstalasi: biayaInstalasi || null,
         biayaInstalasiIsRecurring: biayaInstalasiIsRecurring ?? false,
         biayaInstalasiDiskon: useDiskonBiayaInstalasi ? (biayaInstalasiDiskon || null) : null,
@@ -846,6 +849,51 @@ export async function PUT(
       userId: session?.user?.id,
       details: { id: pelanggan.id, changes: Object.fromEntries(formData) } // Logging formData keys for simplicity or just ID
     })
+
+    // Handle invoice actions if jatuh tempo changed
+    const oldJatuhTempoStr = `${existingPelanggan.jatuhTempo.getFullYear()}-${String(existingPelanggan.jatuhTempo.getMonth() + 1).padStart(2, '0')}-${String(existingPelanggan.jatuhTempo.getDate()).padStart(2, '0')}`;
+    const newJatuhTempoStr = `${pelanggan.jatuhTempo.getFullYear()}-${String(pelanggan.jatuhTempo.getMonth() + 1).padStart(2, '0')}-${String(pelanggan.jatuhTempo.getDate()).padStart(2, '0')}`;
+
+    if (oldJatuhTempoStr !== newJatuhTempoStr) {
+      if (invoiceAction === 'VOID_AND_CREATE_NEW') {
+        const { prismaBilling } = await import('@/lib/prisma-billing');
+        // 1. Find unpaid invoices
+        const unpaidInvoices = await prismaBilling.invoice.findMany({
+          where: {
+            pelangganId: pelanggan.id,
+            status: { notIn: ['PAID', 'CANCELLED'] }
+          }
+        });
+
+        // 2. Void them
+        for (const inv of unpaidInvoices) {
+          await prismaBilling.invoice.update({
+            where: { id: inv.id },
+            data: { status: 'CANCELLED' }
+          });
+          console.log(`[Billing] Voided invoice ${inv.invoiceNumber} due to jatuh_tempo change.`);
+        }
+
+        // 3. Generate new replacement invoice for the new date
+        // We use generateImmediateInvoice so it displays right away
+        await AutomaticBillingService.generateImmediateInvoice(pelanggan.id, false);
+      } else {
+        // Just UPDATE_ONLY behavior. We might still check if it's close to due date
+        // to generate it if no invoice exists.
+        try {
+          await AutomaticBillingService.checkAndGenerateRealtimeInvoice(pelanggan.id);
+        } catch (billingErr) {
+          console.error('[Billing] Failed to trigger realtime invoice generation:', billingErr);
+        }
+      }
+    } else {
+      // Normal realtime check if date didn't change (e.g., status changed or package changed)
+      try {
+        await AutomaticBillingService.checkAndGenerateRealtimeInvoice(pelanggan.id);
+      } catch (billingErr) {
+        console.error('[Billing] Failed to trigger realtime invoice generation:', billingErr);
+      }
+    }
 
     // Debug: Log data yang dikembalikan
     console.log('[PUT Pelanggan] Data yang dikembalikan:', {

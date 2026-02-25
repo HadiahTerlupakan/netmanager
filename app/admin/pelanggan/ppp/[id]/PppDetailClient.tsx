@@ -3,6 +3,7 @@ import Link from 'next/link'
 import React from 'react'
 import MapPreview from '@/components/common/MapPreview'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import CustomerInvoiceHistory from './CustomerInvoiceHistory'
 
 import {
   HiPencil,
@@ -235,6 +236,11 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 </div>
               </section>
             </div>
+          </div>
+
+          {/* VI. RIWAYAT TAGIHAN & PEMBAYARAN */}
+          <div className="p-8 pt-0">
+            <CustomerInvoiceHistory pelangganId={pelanggan.id} />
           </div>
 
           {/* Footer - Signature / Validation placeholder */}

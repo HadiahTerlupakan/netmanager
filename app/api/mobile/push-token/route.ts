@@ -25,9 +25,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Push token wajib diisi' }, { status: 400 })
         }
 
-        // Unique Token Enforcement: Remove this token from any other users
+        // Unique Token Enforcement: Remove this token from any other users/customers
         // This prevents "Shared Device" notification leaks
         await prisma.user.updateMany({
+            where: {
+                pushToken: pushToken,
+                id: { not: user.id as string }
+            },
+            data: {
+                pushToken: null,
+                pushTokenUpdatedAt: null
+            }
+        })
+        await prisma.pelanggan.updateMany({
             where: {
                 pushToken: pushToken,
                 id: { not: user.id as string }
@@ -40,17 +50,13 @@ export async function POST(request: NextRequest) {
 
         // Update user (or customer) with push token
         if (user.role === 'CUSTOMER') {
-            // Update Pelanggan Table (requires adding pushToken column to Pelanggan)
-            // For now, let's create a PushSubscription record if the table exists, OR skip updating user table
-            // But since we want to store it, we might need to update the schema
-            // Let's assume we want to store it in PushSubscriptions table which links to User...
-            // Wait, Pelanggan doesn't have pushToken column yet. 
-            
-            // FIXME: Add pushToken to Pelanggan schema or use PushSubscriptions
-            // For now, let's just log it and skip to prevent 500 error
-            // console.log(`[PushToken] Skipping push token update for Customer (Schema update needed): ${user.userId}`)
-            
-            return NextResponse.json({ success: true, message: 'Push token accepted (Customer)' })
+            await prisma.pelanggan.update({
+                where: { id: user.id as string },
+                data: {
+                    pushToken: pushToken,
+                    pushTokenUpdatedAt: new Date()
+                }
+            })
         } else {
             // Update User Table (Employees)
             await prisma.user.update({

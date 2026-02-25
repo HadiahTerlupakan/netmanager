@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
-import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiNoSymbol, HiXMark, HiMagnifyingGlass } from 'react-icons/hi2'
+import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiNoSymbol, HiXMark, HiMagnifyingGlass, HiOutlineEye } from 'react-icons/hi2'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
@@ -389,6 +389,9 @@ export default function PelangganPPPPage() {
                 <button onClick={() => window.open(`/admin/pelanggan/ppp/${item.id}/print`, '_blank')} title="Cetak Tagihan" className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 dark:text-purple-400 rounded-lg transition-colors">
                   <HiPrinter className="w-4 h-4" />
                 </button>
+                <Link href={`/admin/pelanggan/ppp/${item.id}`} title="Detail Pelanggan" className="p-2 text-teal-600 bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/10 dark:hover:bg-teal-500/20 dark:text-teal-400 rounded-lg transition-colors">
+                  <HiOutlineEye className="w-4 h-4" />
+                </Link>
                 <Link href={`/admin/pelanggan/ppp/${item.id}/edit`} title="Edit Pelanggan" className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 dark:text-blue-400 rounded-lg transition-colors">
                   <HiPencil className="w-4 h-4" />
                 </Link>

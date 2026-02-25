@@ -3023,3 +3023,19 @@ model AcsWifiSecurity {
 
   @@map("acs_wifi_security")
 }
+
+model CompanyBankAccount {
+  id            String   @id @default(uuid())
+  bankName      String
+  accountNumber String
+  accountName   String
+  isActive      Boolean  @default(true)
+  priority      Int      @default(1)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([priority])
+  @@map("company_bank_accounts")
+}
