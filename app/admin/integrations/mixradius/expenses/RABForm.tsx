@@ -179,7 +179,8 @@ function calculateRealisticBEP(
     arpu: number,
     targetSubscribers: number,
     growthType: GrowthType,
-    growthSettings: GrowthSettings | null
+    growthSettings: GrowthSettings | null,
+    paymentType: 'PREPAID' | 'POSTPAID' = 'PREPAID'
 ): number {
     if (!targetSubscribers || !arpu || !growthSettings) {
         return Infinity
@@ -189,16 +190,19 @@ function calculateRealisticBEP(
     const monthlySubscribers = calculateMonthlySubscribers(targetSubscribers, growthType, growthSettings, maxMonths)
 
     let cumulativeProfit = 0
+    let previousMonthSubs = 0
 
     for (let month = 0; month < maxMonths; month++) {
         const subs = monthlySubscribers[month] || 0
-        const revenue = subs * arpu
+        const billingSubs = paymentType === 'POSTPAID' ? previousMonthSubs : subs
+        const revenue = billingSubs * arpu
         const profit = revenue - monthlyOpex
         cumulativeProfit += profit
 
         if (cumulativeProfit >= totalCapex) {
             return month + 1
         }
+        previousMonthSubs = subs
     }
 
     return Infinity
@@ -214,12 +218,17 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
         mixRadiusGroupId: '',
         siteId: '',
         status: 'DRAFT',
-        startDate: ''
+        startDate: '',
+        investmentDurationMonths: 12,
+        investmentRecoveryType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED',
+        investmentRecoveryValue: 50,
+        investorProfitSharePercent: 50
     })
 
     // Target & Revenue state
     const [targetSubscribers, setTargetSubscribers] = useState(0)
     const [arpu, setArpu] = useState(0)
+    const [paymentType, setPaymentType] = useState<'PREPAID' | 'POSTPAID'>('PREPAID')
 
     // Growth period state
     const [growthType, setGrowthType] = useState<GrowthType>('LINEAR')
@@ -259,12 +268,17 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     mixRadiusGroupId: initialData.mixRadiusGroupId || '',
                     siteId: initialData.siteId || '',
                     status: initialData.status,
-                    startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : ''
+                    startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : '',
+                    investmentDurationMonths: initialData.investmentDurationMonths || 12,
+                    investmentRecoveryType: initialData.investmentRecoveryType || 'PERCENTAGE',
+                    investmentRecoveryValue: initialData.investmentRecoveryValue || 50,
+                    investorProfitSharePercent: initialData.investorProfitSharePercent || 50
                 })
 
                 // Load target & arpu
                 if (initialData.targetSubscribers) setTargetSubscribers(initialData.targetSubscribers)
                 if (initialData.arpu) setArpu(Number(initialData.arpu))
+                if (initialData.paymentType) setPaymentType(initialData.paymentType as 'PREPAID' | 'POSTPAID')
 
                 // Load growth settings
                 if (initialData.growthType) setGrowthType(initialData.growthType as GrowthType)
@@ -296,10 +310,15 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     mixRadiusGroupId: '',
                     siteId: '',
                     status: 'DRAFT',
-                    startDate: ''
+                    startDate: '',
+                    investmentDurationMonths: 12,
+                    investmentRecoveryType: 'PERCENTAGE',
+                    investmentRecoveryValue: 50,
+                    investorProfitSharePercent: 50
                 })
                 setTargetSubscribers(0)
                 setArpu(0)
+                setPaymentType('PREPAID')
                 setGrowthType('LINEAR')
                 setLinearSettings({ subscribersPerMonth: 10 })
                 setPercentageSettings({ initialPercent: 10, monthlyGrowthPercent: 15 })
@@ -378,9 +397,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
             arpu,
             targetSubscribers,
             growthType,
-            currentGrowthSettings
+            currentGrowthSettings,
+            paymentType
         )
-    }, [totalCapex, totalOpex, arpu, targetSubscribers, growthType, currentGrowthSettings])
+    }, [totalCapex, totalOpex, arpu, targetSubscribers, growthType, currentGrowthSettings, paymentType])
 
     // Months to reach full capacity
     const monthsToFullCapacity = useMemo(() => {
@@ -438,15 +458,20 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
             const payload = {
                 name: formData.name,
                 description: formData.description,
-                mixRadiusGroupId: formData.mixRadiusGroupId || undefined,
-                siteId: finalSiteId || undefined,
+                mixRadiusGroupId: formData.mixRadiusGroupId || null,
+                siteId: finalSiteId || null,
                 projectedRevenue: projectedRevenue,
                 projectedOpex: totalOpex,
                 targetSubscribers,
                 arpu,
+                paymentType,
                 growthType,
                 growthSettings: currentGrowthSettings,
                 startDate: formData.startDate || undefined,
+                investmentDurationMonths: formData.investmentDurationMonths,
+                investmentRecoveryType: formData.investmentRecoveryType,
+                investmentRecoveryValue: formData.investmentRecoveryValue,
+                investorProfitSharePercent: formData.investorProfitSharePercent,
                 items: items.map(({ id: _id, ...rest }) => rest)
             }
 
@@ -499,7 +524,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 <div className="flex items-center justify-between mb-8 px-4 relative">
                     {/* Background Line */}
                     <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 z-0 hidden sm:block"></div>
-                    
+
                     {mainTabs.map((tab, idx) => (
                         <button
                             key={tab.id}
@@ -507,22 +532,20 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                             onClick={() => setMainTab(tab.id)}
                             className="relative z-10 flex flex-col items-center group"
                         >
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                                mainTab === tab.id
-                                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-110'
-                                    : mainTabs.findIndex(t => t.id === mainTab) > idx
-                                        ? 'bg-green-500 border-green-500 text-white'
-                                        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 group-hover:border-blue-400'
-                            }`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${mainTab === tab.id
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-110'
+                                : mainTabs.findIndex(t => t.id === mainTab) > idx
+                                    ? 'bg-green-500 border-green-500 text-white'
+                                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 group-hover:border-blue-400'
+                                }`}>
                                 {mainTabs.findIndex(t => t.id === mainTab) > idx ? (
                                     <HiOutlineCheck className="w-6 h-6" />
                                 ) : (
                                     <tab.icon className="w-5 h-5" />
                                 )}
                             </div>
-                            <span className={`mt-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
-                                mainTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'
-                            }`}>
+                            <span className={`mt-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${mainTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'
+                                }`}>
                                 {tab.label.split(' ')[0]}
                             </span>
                         </button>
@@ -554,7 +577,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                     type="text"
                                                     required
                                                     value={formData.name}
-                                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                                                     className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-3 dark:text-white transition-all"
                                                     placeholder="e.g., Ekspansi Jaringan Cluster Wijaya - Tahap 1"
                                                 />
@@ -567,7 +590,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                         <HiOutlineBuildingOffice className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                                         <select
                                                             value={formData.mixRadiusGroupId}
-                                                            onChange={e => setFormData({...formData, mixRadiusGroupId: e.target.value})}
+                                                            onChange={e => setFormData({ ...formData, mixRadiusGroupId: e.target.value })}
                                                             className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white appearance-none"
                                                         >
                                                             <option value="">-- Pilih Lokasi --</option>
@@ -585,18 +608,94 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                         <input
                                                             type="date"
                                                             value={formData.startDate}
-                                                            onChange={e => setFormData({...formData, startDate: e.target.value})}
+                                                            onChange={e => setFormData({ ...formData, startDate: e.target.value })}
                                                             className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
                                                         />
                                                     </div>
                                                 </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                                        Durasi Kontrak (Bulan)
+                                                    </label>
+                                                    <div className="relative">
+                                                        <HiOutlineChartBar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="240"
+                                                            value={formData.investmentDurationMonths}
+                                                            onChange={e => setFormData({ ...formData, investmentDurationMonths: parseInt(e.target.value) || 1 })}
+                                                            className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                                            placeholder="12"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                                                        <HiOutlineBanknotes className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                                    </div>
+                                                    <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Investor & Profit Sharing</h3>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Komitmen Pengembalian Modal</label>
+                                                        <select
+                                                            value={formData.investmentRecoveryType}
+                                                            onChange={e => setFormData({ ...formData, investmentRecoveryType: e.target.value as 'PERCENTAGE' | 'FIXED' })}
+                                                            className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                                        >
+                                                            <option value="PERCENTAGE">Persentase dari Profit</option>
+                                                            <option value="FIXED">Nilai Tetap per Bulan</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                                            {formData.investmentRecoveryType === 'PERCENTAGE' ? 'Persen Pengembalian dari Profit (%)' : 'Nilai Pengembalian per Bulan (IDR)'}
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            value={formData.investmentRecoveryValue}
+                                                            onChange={e => setFormData({ ...formData, investmentRecoveryValue: Number(e.target.value) })}
+                                                            className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                                            placeholder={formData.investmentRecoveryType === 'PERCENTAGE' ? "50" : "1.000.000"}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Bagi Hasil Investor (%)</label>
+                                                        <input
+                                                            type="number"
+                                                            max="100"
+                                                            min="0"
+                                                            value={formData.investorProfitSharePercent}
+                                                            onChange={e => setFormData({ ...formData, investorProfitSharePercent: Number(e.target.value) })}
+                                                            className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Bagi Hasil Perusahaan (%)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={100 - formData.investorProfitSharePercent}
+                                                            readOnly
+                                                            className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-sm py-3 text-gray-500 dark:text-gray-400"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="mt-3 text-[10px] text-gray-500 italic leading-relaxed">
+                                                    * Seluruh modal (CAPEX) dianggap dari Investor. Angsuran modal (Recovery) akan diprioritaskan diambil dari profit kotor setiap bulan sebelum sisa profit dibagi antara Investor dan Perusahaan.
+                                                </p>
                                             </div>
 
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Deskripsi Proyek</label>
                                                 <textarea
                                                     value={formData.description}
-                                                    onChange={e => setFormData({...formData, description: e.target.value})}
+                                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
                                                     className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white py-3"
                                                     rows={3}
                                                     placeholder="Jelaskan cakupan atau tujuan proyek..."
@@ -612,7 +711,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                         <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
                                             <HiOutlineCalculator className="w-32 h-32" />
                                         </div>
-                                        
+
                                         <h4 className="text-xs font-bold uppercase tracking-widest text-blue-100 mb-4">Financial Overview</h4>
                                         <div className="space-y-4 relative z-10">
                                             <div>
@@ -641,12 +740,11 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                 <button
                                                     key={status}
                                                     type="button"
-                                                    onClick={() => setFormData({...formData, status})}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                                        formData.status === status
-                                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                                                            : 'bg-gray-50 text-gray-400 dark:bg-gray-700/50 border border-transparent hover:bg-gray-100'
-                                                    }`}
+                                                    onClick={() => setFormData({ ...formData, status })}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${formData.status === status
+                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                                        : 'bg-gray-50 text-gray-400 dark:bg-gray-700/50 border border-transparent hover:bg-gray-100'
+                                                        }`}
                                                 >
                                                     {status}
                                                 </button>
@@ -728,18 +826,48 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                     key={type}
                                                     type="button"
                                                     onClick={() => setGrowthType(type)}
-                                                    className={`py-3 px-2 text-[10px] sm:text-xs font-black rounded-xl border transition-all duration-300 ${
-                                                        growthType === type
-                                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20'
-                                                            : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-indigo-300'
-                                                    }`}
+                                                    className={`py-3 px-2 text-[10px] sm:text-xs font-black rounded-xl border transition-all duration-300 ${growthType === type
+                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20'
+                                                        : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-indigo-300'
+                                                        }`}
                                                 >
                                                     {type === 'LINEAR' ? 'LINEAR' : type === 'PERCENTAGE' ? 'PERSENTASE' : 'KUSTOM'}
                                                 </button>
                                             ))}
                                         </div>
 
-                                        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-inner min-h-[140px]">
+                                        <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                                                    <HiOutlineBanknotes className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                                </div>
+                                                <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Sistem Pembayaran</h4>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {(['PREPAID', 'POSTPAID'] as const).map(type => (
+                                                    <button
+                                                        key={type}
+                                                        type="button"
+                                                        onClick={() => setPaymentType(type)}
+                                                        className={`p-3 text-left rounded-xl border transition-all duration-300 ${paymentType === type
+                                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-500 shadow-sm'
+                                                            : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-green-300'
+                                                            }`}
+                                                    >
+                                                        <div className={`font-bold text-sm mb-1 ${paymentType === type ? 'text-green-700 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                            {type === 'PREPAID' ? 'Prabayar (Prepaid)' : 'Pascabayar (Postpaid)'}
+                                                        </div>
+                                                        <div className="text-[10px] leading-tight opacity-80">
+                                                            {type === 'PREPAID'
+                                                                ? 'Bayar di awal bulan sebelum pemakaian.'
+                                                                : 'Tagihan muncul di akhir bulan (Pake dulu baru bayar).'}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-inner mt-5 min-h-[140px]">
                                             {growthType === 'LINEAR' && (
                                                 <div className="animate-in fade-in zoom-in-95 duration-300">
                                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Penambahan Pelanggan / Bulan</label>
@@ -767,7 +895,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                                 <input
                                                                     type="number"
                                                                     value={percentageSettings.initialPercent}
-                                                                    onChange={e => setPercentageSettings({...percentageSettings, initialPercent: Number(e.target.value)})}
+                                                                    onChange={e => setPercentageSettings({ ...percentageSettings, initialPercent: Number(e.target.value) })}
                                                                     className="block w-full py-3 px-4 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-700"
                                                                 />
                                                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
@@ -779,7 +907,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                                 <input
                                                                     type="number"
                                                                     value={percentageSettings.monthlyGrowthPercent}
-                                                                    onChange={e => setPercentageSettings({...percentageSettings, monthlyGrowthPercent: Number(e.target.value)})}
+                                                                    onChange={e => setPercentageSettings({ ...percentageSettings, monthlyGrowthPercent: Number(e.target.value) })}
                                                                     className="block w-full py-3 px-4 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-700"
                                                                 />
                                                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
@@ -867,13 +995,12 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                 return (
                                                     <div
                                                         key={idx}
-                                                        className={`flex-1 rounded-t-md transition-all duration-500 ease-out hover:brightness-110 relative ${
-                                                            isBepMonth
-                                                                ? 'bg-green-500 shadow-lg shadow-green-500/20 z-10 scale-y-105'
-                                                                : idx + 1 < realisticBepMonths
-                                                                    ? 'bg-red-400/80'
-                                                                    : 'bg-indigo-500/90'
-                                                        }`}
+                                                        className={`flex-1 rounded-t-md transition-all duration-500 ease-out hover:brightness-110 relative ${isBepMonth
+                                                            ? 'bg-green-500 shadow-lg shadow-green-500/20 z-10 scale-y-105'
+                                                            : idx + 1 < realisticBepMonths
+                                                                ? 'bg-red-400/80'
+                                                                : 'bg-indigo-500/90'
+                                                            }`}
                                                         style={{ height: `${Math.max(height, 4)}%` }}
                                                     >
                                                         {/* Tooltip on hover */}
@@ -904,13 +1031,12 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                         </div>
                                     </div>
 
-                                    <div className={`rounded-2xl p-6 border transition-colors duration-500 ${
-                                        margin > 20
-                                            ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
-                                            : margin > 0
-                                                ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800'
-                                                : 'bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
-                                    }`}>
+                                    <div className={`rounded-2xl p-6 border transition-colors duration-500 ${margin > 20
+                                        ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
+                                        : margin > 0
+                                            ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800'
+                                            : 'bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
+                                        }`}>
                                         <div className="flex items-center gap-2 mb-6">
                                             <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
                                                 <HiOutlineCalculator className={`w-5 h-5 ${margin > 0 ? 'text-blue-500' : 'text-red-500'}`} />
@@ -1008,11 +1134,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                     <button
                                         type="button"
                                         onClick={() => setExpenseTab('CAPEX')}
-                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 ${
-                                            expenseTab === 'CAPEX'
-                                                ? 'bg-white dark:bg-gray-800 text-purple-600 shadow-sm border border-purple-100 dark:border-purple-900/50'
-                                                : 'text-gray-400 hover:text-gray-600'
-                                        }`}
+                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 ${expenseTab === 'CAPEX'
+                                            ? 'bg-white dark:bg-gray-800 text-purple-600 shadow-sm border border-purple-100 dark:border-purple-900/50'
+                                            : 'text-gray-400 hover:text-gray-600'
+                                            }`}
                                     >
                                         <HiOutlineCube className="w-4 h-4" />
                                         INVESTASI AWAL (CAPEX)
@@ -1020,11 +1145,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                     <button
                                         type="button"
                                         onClick={() => setExpenseTab('OPEX')}
-                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 ${
-                                            expenseTab === 'OPEX'
-                                                ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm border border-orange-100 dark:border-orange-900/50'
-                                                : 'text-gray-400 hover:text-gray-600'
-                                        }`}
+                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 ${expenseTab === 'OPEX'
+                                            ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm border border-orange-100 dark:border-orange-900/50'
+                                            : 'text-gray-400 hover:text-gray-600'
+                                            }`}
                                     >
                                         <HiOutlineBanknotes className="w-4 h-4" />
                                         OPERASIONAL (OPEX)
@@ -1044,11 +1168,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                     <button
                                         type="button"
                                         onClick={handleAddItem}
-                                        className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black text-white transition-all shadow-lg active:scale-95 ${
-                                            expenseTab === 'CAPEX'
-                                                ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
-                                                : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
-                                        }`}
+                                        className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black text-white transition-all shadow-lg active:scale-95 ${expenseTab === 'CAPEX'
+                                            ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
+                                            : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
+                                            }`}
                                     >
                                         <HiOutlinePlus className="w-4 h-4" /> TAMBAH ITEM
                                     </button>

@@ -1,6 +1,7 @@
 import { prismaBilling } from './lib/prisma-billing'
 
 // Serialize BigInt for JSON.stringify
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (BigInt.prototype as any).toJSON = function () {
   return this.toString();
 };

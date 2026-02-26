@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const axios = require('axios');
 axios.get('http://localhost:3000/api/customer/payment-methods')
   .then(res => console.log("DATA:", JSON.stringify(res.data, null, 2)))

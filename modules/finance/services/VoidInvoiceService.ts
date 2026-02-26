@@ -17,7 +17,7 @@ export class VoidInvoiceService {
             })
 
             if (!invoice) throw new Error('NOT_FOUND: Invoice tidak ditemukan')
-            
+
             // Validate payable status
             if (invoice.status !== 'PAID' && invoice.status !== 'PARTIAL_PAID') {
                 throw new Error('FORBIDDEN: Hanya invoice PAID atau PARTIAL_PAID yang dapat dibatalkan melalui fitur ini')
@@ -28,12 +28,12 @@ export class VoidInvoiceService {
             await prismaBilling.$transaction(async (tx) => {
                 // Update ALL associated payments with gatewayStatus 'PAID' -> 'REFUNDED'
                 await tx.payment.updateMany({
-                    where: { 
-                        invoiceId, 
-                        gatewayStatus: 'PAID' 
+                    where: {
+                        invoiceId,
+                        gatewayStatus: 'PAID'
                     },
-                    data: { 
-                        gatewayStatus: 'REFUNDED' 
+                    data: {
+                        gatewayStatus: 'REFUNDED'
                     }
                 })
 
@@ -43,8 +43,8 @@ export class VoidInvoiceService {
                     data: {
                         status: 'CANCELLED' as InvoiceStatus,
                         paidAmount: 0,
-                        notes: invoice.notes 
-                            ? `${invoice.notes}\n[VOID] Reason: ${reason}` 
+                        notes: invoice.notes
+                            ? `${invoice.notes}\n[VOID] Reason: ${reason}`
                             : `[VOID] Reason: ${reason}`
                     }
                 })
@@ -76,7 +76,7 @@ export class VoidInvoiceService {
             const currentJatuhTempo = pelanggan.jatuhTempo
             const newJatuhTempo = new Date(currentJatuhTempo)
             newJatuhTempo.setMonth(newJatuhTempo.getMonth() - 1)
-            
+
             // Check for status change
             const statusChanged = pelanggan.status === 'AKTIF'
             const newStatus = statusChanged ? 'ISOLIR' : pelanggan.status
@@ -86,6 +86,7 @@ export class VoidInvoiceService {
                 where: { id: pelanggan.id },
                 data: {
                     jatuhTempo: newJatuhTempo,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     status: newStatus as any
                 }
             })
@@ -150,7 +151,7 @@ export class VoidInvoiceService {
                 }
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[VoidInvoiceService] Fatal error:', error)
             throw error
         }

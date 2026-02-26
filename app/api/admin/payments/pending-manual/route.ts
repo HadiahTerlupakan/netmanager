@@ -13,7 +13,7 @@ export async function GET(request: Request) {
         const siteId = searchParams.get('siteId')
         const status = searchParams.get('status')
 
-        const whereClause: any = {
+        const whereClause: Record<string, unknown> = {
             receiptUrl: {
                 not: null
             }

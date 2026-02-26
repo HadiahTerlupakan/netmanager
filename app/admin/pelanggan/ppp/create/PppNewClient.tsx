@@ -1071,7 +1071,7 @@ export function ClientComponent() {
                             name="billingAction"
                             value="CREATE_PAID_INVOICE"
                             checked={formData.billingAction === 'CREATE_PAID_INVOICE'}
-                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as any }))}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING' }))}
                             className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                           />
                           <div className="flex flex-col">
@@ -1086,7 +1086,7 @@ export function ClientComponent() {
                             name="billingAction"
                             value="CREATE_UNPAID_INVOICE"
                             checked={formData.billingAction === 'CREATE_UNPAID_INVOICE'}
-                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as any }))}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING' }))}
                             className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                           />
                           <div className="flex flex-col">
@@ -1101,7 +1101,7 @@ export function ClientComponent() {
                             name="billingAction"
                             value="DO_NOTHING"
                             checked={formData.billingAction === 'DO_NOTHING'}
-                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as any }))}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billingAction: e.target.value as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING' }))}
                             className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                           />
                           <div className="flex flex-col">

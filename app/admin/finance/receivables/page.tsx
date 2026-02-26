@@ -22,6 +22,7 @@ export default async function ReceivablesPage() {
     subtotal: Number(inv.subtotal),
     taxAmount: Number(inv.taxAmount),
     discountAmount: Number(inv.discountAmount),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     payment: inv.payment?.map((p: any) => ({
       ...p,
       amount: Number(p.amount)

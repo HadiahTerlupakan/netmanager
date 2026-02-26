@@ -48,8 +48,8 @@ export default function ReceivablesClient({ initialData, hideHeader = false }: R
       setVoidingInvoice(null)
       // Reload page to get fresh data
       window.location.reload()
-    } catch (error: any) {
-      toast.error(error.message || 'Terjadi kesalahan')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Terjadi kesalahan')
     } finally {
       setIsVoiding(false)
     }
@@ -161,7 +161,7 @@ export default function ReceivablesClient({ initialData, hideHeader = false }: R
             ].map(tab => (
               <button
                 key={tab.key}
-                onClick={() => setStatusFilter(tab.key as any)}
+                onClick={() => setStatusFilter(tab.key as 'ALL' | 'UNPAID' | 'PAID' | 'CANCELLED')}
                 className={clsx(
                   "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
                   statusFilter === tab.key

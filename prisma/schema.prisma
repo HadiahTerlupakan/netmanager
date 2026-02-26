@@ -2896,6 +2896,16 @@ model MapSettings {
   @@map("map_settings")
 }
 
+enum RabPaymentType {
+  PREPAID
+  POSTPAID
+}
+
+enum RabRecoveryType {
+  PERCENTAGE
+  FIXED
+}
+
 model RabProject {
   id               String  @id @default(cuid())
   name             String
@@ -2911,6 +2921,7 @@ model RabProject {
   targetSubscribers Int? // Target number of subscribers
   arpu              BigInt? // Average Revenue Per User
   growthType        RabGrowthType @default(LINEAR)
+  paymentType       RabPaymentType @default(PREPAID)
 
   // LINEAR: subscribersPerMonth (how many new subs per month)
   // PERCENTAGE: initialPercent (starting %), monthlyGrowthPercent (% increase per month)
@@ -2921,12 +2932,20 @@ model RabProject {
   startDate DateTime? // When the project starts
 
   status RabStatus @default(DRAFT)
+  investmentDurationMonths Int @default(12)
+  
+  // Profit Sharing & Recovery
+  investmentRecoveryType   RabRecoveryType @default(PERCENTAGE)
+  investmentRecoveryValue  Float           @default(50) // e.g. 50% or fixed amount
+  investorProfitSharePercent Float         @default(50) // Share of remaining profit
 
   items RabItem[]
 
   createdBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  actualAchievements RabActualAchievement[]
 
   site           Sites?               @relation(fields: [siteId], references: [id])
   mixRadiusGroup MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
@@ -3038,4 +3057,31 @@ model CompanyBankAccount {
   @@index([isActive])
   @@index([priority])
   @@map("company_bank_accounts")
+}
+
+model RabActualAchievement {
+  id              String      @id @default(cuid())
+  rabProjectId    String
+  rabProject      RabProject  @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  
+  month           Int         // Bulan berjalan proyek (Misal: 1, 2, 3...)
+  year            Int         // Tahun untuk referensi
+  
+  actualSubscribers Int
+  actualRevenue     BigInt
+  actualOpex        BigInt    @default(0)
+  
+  // Manual Overrides for Profit Sharing
+  manualRecoveryInstallment BigInt?
+  manualInvestorShare       BigInt?
+  manualCompanyShare        BigInt?
+  manualInvestorProfitSharePercent Float?
+
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([rabProjectId, month, year])
+  @@index([rabProjectId])
+  @@map("rab_actual_achievements")
 }

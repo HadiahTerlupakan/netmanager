@@ -1,0 +1,287 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { toast } from 'react-hot-toast'
+import { formatCurrency } from '@/lib/utils'
+import { Modal } from '@/components/ui/Modal'
+import {
+    HiOutlineDocumentText,
+    HiOutlineCube,
+    HiOutlineCalculator,
+    HiOutlineBuildingOffice,
+    HiOutlineArrowTrendingUp,
+    HiOutlineCalendar,
+    HiOutlineUsers,
+    HiOutlineChartBar,
+    HiOutlinePencilSquare,
+    HiOutlineCheck,
+    HiOutlineXMark
+} from 'react-icons/hi2'
+import type { RABProject, GrowthSettings, LinearGrowthSettings, PercentageGrowthSettings, CustomGrowthSettings } from './RABList'
+import { calculateRealisticBEP } from './RABList'
+
+interface RABViewProps {
+    isOpen: boolean
+    data: RABProject | null
+    onClose: () => void
+}
+
+function calculateMonthlySubscribers(
+    targetSubscribers: number,
+    growthType: string,
+    growthSettings: GrowthSettings | null,
+    months: number
+): number[] {
+    const result: number[] = []
+    if (!growthSettings) return Array(months).fill(0)
+
+    for (let month = 1; month <= months; month++) {
+        let subs = 0
+
+        if (growthType === 'LINEAR') {
+            const settings = growthSettings as LinearGrowthSettings
+            subs = Math.min(settings.subscribersPerMonth * month, targetSubscribers)
+        } else if (growthType === 'PERCENTAGE') {
+            const settings = growthSettings as PercentageGrowthSettings
+            const initialSubs = (settings.initialPercent / 100) * targetSubscribers
+            if (month === 1) {
+                subs = initialSubs
+            } else {
+                const addPerMonth = (settings.monthlyGrowthPercent / 100) * targetSubscribers
+                subs = Math.min(initialSubs + (addPerMonth * (month - 1)), targetSubscribers)
+            }
+        } else if (growthType === 'CUSTOM') {
+            const settings = growthSettings as CustomGrowthSettings
+            const sortedMilestones = [...settings.milestones].sort((a, b) => a.month - b.month)
+
+            let prevMilestone = { month: 0, percent: 0 }
+            let nextMilestone = sortedMilestones[sortedMilestones.length - 1] || { month: 1, percent: 100 }
+
+            for (const m of sortedMilestones) {
+                if (m.month <= month) prevMilestone = m
+                if (m.month >= month && m.month < nextMilestone.month) nextMilestone = m
+            }
+
+            if (prevMilestone.month === month) {
+                subs = (prevMilestone.percent / 100) * targetSubscribers
+            } else if (nextMilestone.month === month) {
+                subs = (nextMilestone.percent / 100) * targetSubscribers
+            } else {
+                const range = nextMilestone.month - prevMilestone.month
+                const progress = range > 0 ? (month - prevMilestone.month) / range : 0
+                const percentAtMonth = prevMilestone.percent + (nextMilestone.percent - prevMilestone.percent) * progress
+                subs = (percentAtMonth / 100) * targetSubscribers
+            }
+        }
+        result.push(Math.round(subs))
+    }
+    return result
+}
+
+export default function RABView({ isOpen, data, onClose }: RABViewProps) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [actuals, setActuals] = useState<any[]>([])
+    const [editingMonth, setEditingMonth] = useState<number | null>(null)
+    const [editForm, setEditForm] = useState({ actualSubscribers: 0, actualRevenue: '' })
+    const [isSavingActual, setIsSavingActual] = useState(false)
+
+    useEffect(() => {
+        if (data) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setActuals((data as any).actualAchievements || [])
+        }
+    }, [data])
+
+    if (!data) return null
+
+    const capexItems = data.items.filter(i => !i.expenseType || i.expenseType === 'CAPEX')
+
+    const totalCapex = capexItems.reduce((sum, item) => sum + Number(item.totalPrice), 0)
+    const totalOpex = Number(data.projectedOpex || 0)
+
+    const projectedRevenue = Number(data.projectedRevenue || 0)
+    const { bepMonth, simpleBep, monthsToFullCapacity, roiPerYear } = calculateRealisticBEP(data)
+
+    const getGrowthTypeLabel = (type?: string) => {
+        switch (type) {
+            case 'LINEAR': return 'Linear'
+            case 'PERCENTAGE': return 'Persentase'
+            case 'CUSTOM': return 'Kustom'
+            default: return '-'
+        }
+    }
+
+    const startYear = data.startDate ? new Date(data.startDate).getFullYear() : new Date().getFullYear()
+    const maxMonthsToShow = Math.max(monthsToFullCapacity, 12, bepMonth !== Infinity ? bepMonth : 12)
+    const monthlySubsTargets = calculateMonthlySubscribers(
+        data.targetSubscribers || 0,
+        data.growthType || 'LINEAR',
+        data.growthSettings || null,
+        maxMonthsToShow
+    )
+    const arpu = Number(data.arpu || 0)
+
+    const handleEditClick = (monthIndex: number, defaultSubs: number, defaultRev: number) => {
+        const existing = actuals.find(a => a.month === monthIndex)
+        setEditingMonth(monthIndex)
+        setEditForm({
+            actualSubscribers: existing ? Number(existing.actualSubscribers) : defaultSubs,
+            actualRevenue: existing ? String(existing.actualRevenue) : String(defaultRev)
+        })
+    }
+
+    const handleSaveActual = async (monthIndex: number) => {
+        setIsSavingActual(true)
+        try {
+            const res = await fetch(`/api/finance/rab-projects/${data.id}/actuals`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    month: monthIndex,
+                    year: startYear + Math.floor((monthIndex - 1) / 12),
+                    actualSubscribers: editForm.actualSubscribers,
+                    actualRevenue: editForm.actualRevenue.replace(/[^0-9]/g, '')
+                })
+            })
+            const json = await res.json()
+            if (json.success) {
+                setActuals(prev => {
+                    const filtered = prev.filter(a => a.month !== monthIndex)
+                    return [...filtered, json.data].sort((a, b) => a.month - b.month)
+                })
+                setEditingMonth(null)
+                toast.success('Pencapaian aktual berhasil disimpan!')
+            } else {
+                toast.error(json.error || 'Gagal menyimpan data')
+            }
+        } catch (_error) {
+            toast.error('Gagal terhubung ke server')
+        } finally {
+            setIsSavingActual(false)
+        }
+    }
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Detail RAB Proyek"
+            size="4xl"
+        >
+            <div className="space-y-6">
+                {/* Header Information */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                <HiOutlineDocumentText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Identitas Proyek</h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold mb-1">Nama Proyek</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.name}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold mb-1">Status</p>
+                                <span className={`px-2 py-1 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded text-xs font-bold uppercase`}>
+                                    {data.status || 'DRAFT'}
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold mb-1 flex items-center gap-1">
+                                    <HiOutlineBuildingOffice className="w-4 h-4" /> Site / Group
+                                </p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    {data.mixRadiusGroup?.name || data.site?.name || '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold mb-1 flex items-center gap-1">
+                                    <HiOutlineCalendar className="w-4 h-4" /> Tanggal Mulai
+                                </p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    {data.startDate ? new Date(data.startDate).toLocaleDateString('id-ID') : '-'}
+                                </p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-xs text-gray-500 font-semibold mb-1">Deskripsi Proyek</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700 min-h-[60px]">
+                                    {data.description || '-'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
+                            <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
+                                <HiOutlineCalculator className="w-24 h-24" />
+                            </div>
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-blue-100 mb-4">Financial Overview</h4>
+                            <div className="space-y-3 relative z-10">
+                                <div>
+                                    <div className="text-[10px] text-blue-100 uppercase font-medium">Total CAPEX</div>
+                                    <div className="text-xl font-black">{formatCurrency(totalCapex)}</div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+                                    <div>
+                                        <div className="text-[10px] text-blue-100 uppercase font-medium">OPEX/Bln</div>
+                                        <div className="text-sm font-bold">{formatCurrency(totalOpex)}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-blue-100 uppercase font-medium">ROI (Saat Penuh)</div>
+                                        <div className="text-sm font-bold">
+                                            {roiPerYear.toFixed(1)}% / Tahun
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-blue-100 uppercase font-medium">Est. BEP Keseluruhan</div>
+                                        <div className="text-sm font-bold">
+                                            {bepMonth === Infinity ? '∞' : `${bepMonth} Bln`}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-blue-100 uppercase font-medium">BEP Pasca Target</div>
+                                        <div className="text-sm font-bold" title={`Terhitung setelah kapasitas penuh di bulan ke-${monthsToFullCapacity}`}>
+                                            {simpleBep === Infinity ? '∞' : `${simpleBep.toFixed(1)} Bln`}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-md">
+                                    <HiOutlineArrowTrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <h4 className="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">Model Growth</h4>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                                    <span className="text-gray-500">Tipe Pertumbuhan</span>
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100">{getGrowthTypeLabel(data.growthType)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                                    <span className="text-gray-500">Sistem Pembayaran</span>
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                        {data.paymentType === 'POSTPAID' ? 'Pascabayar (Postpaid)' : 'Prabayar (Prepaid)'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                                    <span className="text-gray-500">Target Pelanggan</span>
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1">
+                                        <HiOutlineUsers className="w-3.5 h-3.5" /> {data.targetSubscribers || 0}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm pb-1">
+                                    <span className="text-gray-500">Max. Revenue / Bln</span>
+                                    <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(projectedRevenue)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+

@@ -239,11 +239,11 @@ export async function POST(req: NextRequest) {
     })
 
     return apiSuccess(pelanggan, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating pelanggan:', error)
 
-    const errorMsg = error?.message || String(error)
-    const errorCode = error?.code
+    const errorMsg = (error as Error)?.message || String(error)
+    const errorCode = (error as { code?: string })?.code
 
     // Handle specific errors from service
     if (errorMsg.includes('sudah digunakan')) {

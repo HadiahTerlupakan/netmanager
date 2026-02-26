@@ -92,6 +92,7 @@ export default function ManualPaymentClient() {
 
     useEffect(() => {
         fetchPendingPayments()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const handleAction = async (action: 'APPROVE' | 'REJECT') => {

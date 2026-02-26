@@ -28,6 +28,7 @@ import { formatCurrency } from '@/lib/utils'
 import { usePermission } from '@/hooks/use-permission'
 import RABList, { type RABProject } from './RABList'
 import RABForm from './RABForm'
+import RABView from './RABView'
 import CategoryList from './CategoryList'
 
 interface Expense {
@@ -152,6 +153,8 @@ export default function ExpensesClient() {
     const [activeTab, setActiveTab] = useState<'daily' | 'rab' | 'coa'>('daily')
     const [isRABModalOpen, setIsRABModalOpen] = useState(false)
     const [editingRAB, setEditingRAB] = useState<RABProject | null>(null)
+    const [isRABViewOpen, setIsRABViewOpen] = useState(false)
+    const [viewingRAB, setViewingRAB] = useState<RABProject | null>(null)
     const [rabRefreshKey, setRabRefreshKey] = useState(0)
 
     const [search, setSearch] = useState('')
@@ -587,6 +590,11 @@ export default function ExpensesClient() {
         setIsRABModalOpen(true)
     }
 
+    const handleViewRAB = (project: RABProject) => {
+        setViewingRAB(project)
+        setIsRABViewOpen(true)
+    }
+
     const handleRABSaved = () => {
         setRabRefreshKey(prev => prev + 1)
         setIsRABModalOpen(false)
@@ -825,8 +833,8 @@ export default function ExpensesClient() {
                                     header: 'Tipe',
                                     render: (item) => (
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${item.category === 'CAPEX'
-                                                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
-                                                : 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+                                            ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
+                                            : 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
                                             }`}>
                                             {item.category}
                                         </span>
@@ -918,8 +926,8 @@ export default function ExpensesClient() {
                                     <div
                                         key={s}
                                         className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-500 ${step >= s
-                                                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 scale-110"
-                                                : "bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-gray-400"
+                                            ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 scale-110"
+                                            : "bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-gray-400"
                                             }`}
                                     >
                                         {step > s ? <HiOutlineCheckCircle className="w-6 h-6" /> : s}
@@ -1027,8 +1035,8 @@ export default function ExpensesClient() {
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, category: 'OPEX', expenseCategoryId: '' })}
                                                 className={`relative p-3 rounded-xl border-2 text-left transition-all group ${formData.category === 'OPEX'
-                                                        ? 'bg-orange-50/50 border-orange-500 shadow-sm dark:bg-orange-900/20 dark:border-orange-500'
-                                                        : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                                    ? 'bg-orange-50/50 border-orange-500 shadow-sm dark:bg-orange-900/20 dark:border-orange-500'
+                                                    : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
                                                     }`}
                                             >
                                                 <div className="font-bold text-gray-900 dark:text-white text-sm">OPEX</div>
@@ -1038,8 +1046,8 @@ export default function ExpensesClient() {
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, category: 'CAPEX', expenseCategoryId: '' })}
                                                 className={`relative p-3 rounded-xl border-2 text-left transition-all group ${formData.category === 'CAPEX'
-                                                        ? 'bg-purple-50/50 border-purple-500 shadow-sm dark:bg-purple-900/20 dark:border-purple-500'
-                                                        : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                                    ? 'bg-purple-50/50 border-purple-500 shadow-sm dark:bg-purple-900/20 dark:border-purple-500'
+                                                    : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
                                                     }`}
                                             >
                                                 <div className="font-bold text-gray-900 dark:text-white text-sm">CAPEX</div>
@@ -1174,6 +1182,7 @@ export default function ExpensesClient() {
                     <RABList
                         refreshKey={rabRefreshKey}
                         onEdit={handleEditRAB}
+                        onView={handleViewRAB}
                     />
 
                     <RABForm
@@ -1182,6 +1191,12 @@ export default function ExpensesClient() {
                         onSaved={handleRABSaved}
                         initialData={editingRAB}
                         sites={sites} // Pass existing sites/groups data
+                    />
+
+                    <RABView
+                        isOpen={isRABViewOpen}
+                        data={viewingRAB}
+                        onClose={() => setIsRABViewOpen(false)}
                     />
                 </div>
             ) : (

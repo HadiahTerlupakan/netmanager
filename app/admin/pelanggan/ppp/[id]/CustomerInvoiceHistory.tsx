@@ -103,6 +103,7 @@ export default function CustomerInvoiceHistory({ pelangganId }: { pelangganId: s
                     <div className="text-gray-500 text-center py-6">Belum ada riwayat tagihan.</div>
                 ) : (
                     <div className="space-y-6">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {invoices.map((invoice: any) => (
                             <div key={invoice.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -122,10 +123,10 @@ export default function CustomerInvoiceHistory({ pelangganId }: { pelangganId: s
                                             </div>
                                         </div>
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${invoice.status === 'PAID' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' :
-                                                invoice.status === 'OVERDUE' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800' :
-                                                    invoice.status === 'SENT' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800' :
-                                                        invoice.status === 'CANCELLED' ? 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-600' :
-                                                            'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                                            invoice.status === 'OVERDUE' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800' :
+                                                invoice.status === 'SENT' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800' :
+                                                    invoice.status === 'CANCELLED' ? 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-600' :
+                                                        'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
                                             }`}>
                                             {invoice.status === 'SENT' ? 'Terkirim' :
                                                 invoice.status === 'OVERDUE' ? 'Jatuh Tempo' :

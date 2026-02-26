@@ -21,6 +21,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         ...ctx.session!,
         user: { ...user, permissions }
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const siteWhere = buildMultiSiteWhereClause(sessionWithPermissions as any, 'support') || {}
 
     // base where with site restriction if any
