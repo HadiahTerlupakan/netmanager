@@ -52,7 +52,7 @@ export const GET = createHandler({
   const result = await service.getTickets(serviceFilters, {
     id: session.user.id,
     role: session.user.role || '',
-    siteId: session.user.id, // Service expects siteId of the user if needed
+    siteId: siteId, // Fix: Use the actual restricted siteId, not session.user.id
   }, hasSiteRestriction)
 
   if (!result.success) {

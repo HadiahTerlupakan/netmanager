@@ -99,11 +99,15 @@ export function ClientComponent() {
         try {
             const res = await fetch(`/api/admin/support-tickets/${ticketId}`)
             if (res.ok) {
-                const data = await res.json()
-                setTicket(data.ticket)
-                setStatus(data.ticket.status)
-                // Update replies for WebSocket hook
-                setReplies(data.ticket.replies || [])
+                const responseData = await res.json()
+                const ticketData = responseData.data || responseData.ticket
+
+                if (ticketData) {
+                    setTicket(ticketData)
+                    setStatus(ticketData.status)
+                    // Update replies for WebSocket hook
+                    setReplies(ticketData.replies || [])
+                }
             }
         } catch (error) {
             console.error('Error loading ticket:', error)
@@ -476,7 +480,7 @@ export function ClientComponent() {
                             <Button size="lg"
                                 onClick={handleSendReply}
                                 disabled={(!message.trim() && attachments.length === 0) || sending || uploading}
-                                 className="h-[46px]"
+                                className="h-[46px]"
                             >
                                 {sending || uploading ? (
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -577,15 +581,15 @@ export function ClientComponent() {
                                 Lihat Profil Pelanggan
                             </Link>
                             <Button onClick={() => {
-                                    const params = new URLSearchParams({
-                                        ticketId: ticket.id,
-                                        pelangganId: ticket.pelanggan.id,
-                                        title: `[TIKET-${ticket.ticketNumber}] ${ticket.subject}`,
-                                        description: ticket.description,
-                                        priority: ticket.priority,
-                                    })
-                                    router.push(`/admin/workorders/new?${params.toString()}`)
-                                }}
+                                const params = new URLSearchParams({
+                                    ticketId: ticket.id,
+                                    pelangganId: ticket.pelanggan.id,
+                                    title: `[TIKET-${ticket.ticketNumber}] ${ticket.subject}`,
+                                    description: ticket.description,
+                                    priority: ticket.priority,
+                                })
+                                router.push(`/admin/workorders/new?${params.toString()}`)
+                            }}
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors border border-indigo-200 dark:border-indigo-800"
                             >
                                 <MdAssignment className="text-xl" />
@@ -594,24 +598,24 @@ export function ClientComponent() {
                             {/* Send Closing Message Button */}
                             {status !== 'CLOSED' && (
                                 <Button onClick={async () => {
-                                        setSendingClosingMsg(true)
-                                        try {
-                                            const closingMessage = `Hai ${ticket.pelanggan.nama} 👋\n\nTerima kasih telah menghubungi kami. Jika masalah Anda sudah teratasi dan tidak ada kendala lagi, silakan tutup tiket ini dengan menekan tombol "Tutup Tiket" di halaman detail tiket.\n\nJika masih ada kendala, silakan balas pesan ini. Kami siap membantu! 🙏`
-                                            const res = await fetch(`/api/admin/support-tickets/${ticketId}/reply`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ message: closingMessage }),
-                                            })
-                                            if (res.ok) {
-                                                await handleStatusChange('RESOLVED')
-                                                loadTicket(false)
-                                            }
-                                        } catch (error) {
-                                            console.error('Error sending closing message:', error)
-                                        } finally {
-                                            setSendingClosingMsg(false)
+                                    setSendingClosingMsg(true)
+                                    try {
+                                        const closingMessage = `Hai ${ticket.pelanggan.nama} 👋\n\nTerima kasih telah menghubungi kami. Jika masalah Anda sudah teratasi dan tidak ada kendala lagi, silakan tutup tiket ini dengan menekan tombol "Tutup Tiket" di halaman detail tiket.\n\nJika masih ada kendala, silakan balas pesan ini. Kami siap membantu! 🙏`
+                                        const res = await fetch(`/api/admin/support-tickets/${ticketId}/reply`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ message: closingMessage }),
+                                        })
+                                        if (res.ok) {
+                                            await handleStatusChange('RESOLVED')
+                                            loadTicket(false)
                                         }
-                                    }}
+                                    } catch (error) {
+                                        console.error('Error sending closing message:', error)
+                                    } finally {
+                                        setSendingClosingMsg(false)
+                                    }
+                                }}
                                     disabled={sendingClosingMsg}
                                     className="block w-full px-4 py-2 text-sm text-center bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors border border-teal-200 dark:border-teal-800 disabled:opacity-50"
                                 >
@@ -630,32 +634,32 @@ export function ClientComponent() {
                 title="Tutup Tiket?"
                 size="md"
             >
-                        <div className="flex items-center gap-3 mb-4 text-amber-600">
-                            <HiOutlineEnvelope className="w-8 h-8" />
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Setelah ditutup, pelanggan tidak dapat membalas lagi. Pastikan masalah sudah terselesaikan.
-                            </p>
-                        </div>
-                        <textarea
-                            value={closingNote}
-                            onChange={(e) => setClosingNote(e.target.value)}
-                            placeholder="Catatan penutup (opsional)..."
-                            rows={3}
-                            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 mb-4"
-                        />
+                <div className="flex items-center gap-3 mb-4 text-amber-600">
+                    <HiOutlineEnvelope className="w-8 h-8" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Setelah ditutup, pelanggan tidak dapat membalas lagi. Pastikan masalah sudah terselesaikan.
+                    </p>
+                </div>
+                <textarea
+                    value={closingNote}
+                    onChange={(e) => setClosingNote(e.target.value)}
+                    placeholder="Catatan penutup (opsional)..."
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 mb-4"
+                />
                 <ModalFooter>
-                            <Button onClick={() => setShowCloseModal(false)}
-                                className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            >
-                                Batal
-                            </Button>
-                            <Button variant="destructive"
-                                onClick={handleCloseTicket}
-                                disabled={closing}
-                                 className="flex-1"
-                            >
-                                {closing ? 'Menutup...' : 'Tutup Tiket'}
-                            </Button>
+                    <Button onClick={() => setShowCloseModal(false)}
+                        className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        Batal
+                    </Button>
+                    <Button variant="destructive"
+                        onClick={handleCloseTicket}
+                        disabled={closing}
+                        className="flex-1"
+                    >
+                        {closing ? 'Menutup...' : 'Tutup Tiket'}
+                    </Button>
                 </ModalFooter>
             </Modal>
         </div>
