@@ -18,7 +18,7 @@ import {
     HiOutlineXMark,
     HiOutlineBanknotes
 } from 'react-icons/hi2'
-import type { RABProject, RABActualAchievement } from './RABList'
+import type { RABProject } from './RABList'
 import { calculateRealisticBEP, calculateMonthlySubscribers } from './RABList'
 
 interface RABViewProps {

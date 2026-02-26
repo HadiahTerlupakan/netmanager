@@ -256,7 +256,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
             item.totalPrice.toString()
         ])
 
-        const { bepMonth, simpleBep, monthsToFullCapacity, roiPerYear } = calculateRealisticBEP(project)
+        const { bepMonth, monthsToFullCapacity } = calculateRealisticBEP(project)
 
         let growthModelDesc = '-'
         if (project.growthType === 'LINEAR') {
@@ -393,7 +393,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
     const handleExportPDF = (project: RABProject) => {
         try {
             const doc = new jsPDF()
-            const { bepMonth, simpleBep, monthsToFullCapacity, roiPerYear } = calculateRealisticBEP(project)
+            const { bepMonth } = calculateRealisticBEP(project)
 
             // Header
             doc.setFontSize(16)

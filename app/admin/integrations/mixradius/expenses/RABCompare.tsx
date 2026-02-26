@@ -51,7 +51,71 @@ export default function RABCompare({ projects, isOpen, onClose }: RABCompareProp
     }
 
     // Calculate BEP specific data for all projects once
-    const bepData = projects.map(p => calculateRealisticBEP(p))
+    const bepData = projects.map(p => {
+        const result = calculateRealisticBEP(p)
+        return { bepMonth: result.bepMonth, monthsToFullCapacity: result.monthsToFullCapacity }
+    })
+
+    // Calculate Final Return Summary for each project based on its max duration
+    const getFinalSummary = (project: RABProject) => {
+        const arpuVal = Number(project.arpu || 0)
+        const totalOpex = Number(project.projectedOpex || 0)
+        const totalCapex = getCapex(project)
+        const maxMonths = project.investmentDurationMonths || 12
+        const recoveryType = project.investmentRecoveryType || 'PERCENTAGE'
+        const recoveryValue = project.investmentRecoveryValue || 50
+        const investorSharePercent = project.investorProfitSharePercent || 50
+
+        let accumulatedInvestor = 0
+        let accumulatedCompany = 0
+        let currentBalance = totalCapex
+        let previousSubs = 0
+
+        // Use standard growth calculator (or simplified iteration)
+        for (let i = 0; i < maxMonths; i++) {
+            let subs = 0
+            if (project.growthType === 'LINEAR') {
+                const s = project.growthSettings as LinearGrowthSettings
+                subs = Math.min(project.targetSubscribers || 0, previousSubs + (s?.subscribersPerMonth || 0))
+            } else if (project.growthType === 'PERCENTAGE') {
+                const s = project.growthSettings as PercentageGrowthSettings
+                if (i === 0) subs = Math.min(project.targetSubscribers || 0, (s?.initialPercent || 0) * (project.targetSubscribers || 0) / 100)
+                else subs = Math.min(project.targetSubscribers || 0, previousSubs + (previousSubs * (s?.monthlyGrowthPercent || 0) / 100))
+            } else {
+                subs = project.targetSubscribers || 0 // Fallback for simple display, exact logic relies on calculateMonthlySubscribers
+            }
+
+            const billingSubs = project.paymentType === 'POSTPAID' ? previousSubs : subs
+            const grossProfit = (billingSubs * arpuVal) - totalOpex
+
+            let recoveryInstallment = 0
+            if (currentBalance > 0 && grossProfit > 0) {
+                if (recoveryType === 'PERCENTAGE') {
+                    recoveryInstallment = (recoveryValue / 100) * grossProfit
+                } else {
+                    recoveryInstallment = recoveryValue
+                }
+                recoveryInstallment = Math.min(recoveryInstallment, currentBalance, grossProfit)
+            }
+
+            currentBalance -= recoveryInstallment
+            const netProfit = Math.max(0, grossProfit - recoveryInstallment)
+            const investorShare = (investorSharePercent / 100) * netProfit
+            const companyShare = netProfit - investorShare
+
+            accumulatedInvestor += investorShare + recoveryInstallment
+            accumulatedCompany += companyShare
+
+            previousSubs = subs
+        }
+
+        return {
+            totalInvestor: accumulatedInvestor,
+            totalCompany: accumulatedCompany
+        }
+    }
+
+    const finalSummaries = projects.map(p => getFinalSummary(p))
 
     return (
         <Modal
@@ -91,8 +155,8 @@ export default function RABCompare({ projects, isOpen, onClose }: RABCompareProp
                             {projects.map(p => (
                                 <td key={p.id} className="px-4 py-3 border-l border-gray-100 dark:border-gray-700">
                                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${p.status === 'APPROVED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                            p.status === 'REJECTED' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                        p.status === 'REJECTED' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                         }`}>
                                         {p.status}
                                     </span>
@@ -232,6 +296,29 @@ export default function RABCompare({ projects, isOpen, onClose }: RABCompareProp
                                             Bulan {b.bepMonth}
                                         </span>
                                     )}
+                                </td>
+                            ))}
+                        </tr>
+
+                        {/* --- RINGKASAN PEMBAGIAN AKHIR --- */}
+                        <tr className="bg-gray-50/50 dark:bg-gray-800/50">
+                            <td colSpan={projects.length + 1} className="px-4 py-2 mt-4 text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                                Ringkasan Pembagian Akhir (Hingga Kontrak Berakhir)
+                            </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Total Diterima Investor (Modal + Profit)</td>
+                            {projects.map((p, i) => (
+                                <td key={`total-inv-${p.id}`} className="px-4 py-3 border-l border-gray-100 dark:border-gray-700 text-indigo-700 dark:text-indigo-400 font-bold">
+                                    {formatCurrency(finalSummaries[i].totalInvestor)}
+                                </td>
+                            ))}
+                        </tr>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Total Diterima Perusahaan (Profit Bersih)</td>
+                            {projects.map((p, i) => (
+                                <td key={`total-comp-${p.id}`} className="px-4 py-3 border-l border-gray-100 dark:border-gray-700 text-emerald-700 dark:text-emerald-400 font-bold">
+                                    {formatCurrency(finalSummaries[i].totalCompany)}
                                 </td>
                             ))}
                         </tr>
