@@ -779,6 +779,7 @@ model Role {
   isRestricted        Boolean      @default(false)
   isTechnical         Boolean      @default(false)
   isSuperAdmin        Boolean      @default(false)
+  canApproveRab       Boolean      @default(false)
   user                User[]
   permission          Permission[] @relation("PermissionToRole")
 
@@ -920,6 +921,7 @@ model User {
   salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
   userSalaryComponents                       UserSalaryComponent[]
   createdRabProjects                         RabProject[]
+  rabApprovals                               RabApproval[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -2946,6 +2948,7 @@ model RabProject {
   updatedAt DateTime @updatedAt
 
   actualAchievements RabActualAchievement[]
+  approvals          RabApproval[]
 
   site           Sites?               @relation(fields: [siteId], references: [id])
   mixRadiusGroup MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
@@ -2954,6 +2957,23 @@ model RabProject {
   @@index([siteId])
   @@index([status])
   @@map("rab_projects")
+}
+
+model RabApproval {
+  id           String     @id @default(cuid())
+  rabProjectId String
+  userId       String
+  status       String     @default("APPROVED") // e.g. "APPROVED", "REJECTED"
+  notes        String?
+  createdAt    DateTime   @default(now())
+
+  rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([rabProjectId, userId])
+  @@index([rabProjectId])
+  @@index([userId])
+  @@map("rab_approvals")
 }
 
 model RabItem {

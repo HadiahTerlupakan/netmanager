@@ -86,7 +86,21 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             items: true,
             site: { select: { name: true } },
             mixRadiusGroup: { select: { name: true } },
-            creator: { select: { name: true } }
+            creator: { select: { name: true } },
+            approvals: {
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            role: {
+                                select: { name: true }
+                            }
+                        }
+                    }
+                }
+            }
         },
         orderBy: { createdAt: 'desc' }
     });

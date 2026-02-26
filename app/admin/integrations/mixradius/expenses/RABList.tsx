@@ -63,6 +63,22 @@ export interface RABActualAchievement {
     notes?: string
 }
 
+export interface RABApproval {
+    id: string
+    rabProjectId: string
+    userId: string
+    status: string
+    createdAt: string
+    user: {
+        id: string
+        name: string | null
+        email: string
+        role: {
+            name: string
+        } | null
+    }
+}
+
 export interface RABProject {
     id: string
     name: string
@@ -86,6 +102,7 @@ export interface RABProject {
     investorProfitSharePercent?: number
     status: string
     items: RABItem[]
+    approvals?: RABApproval[]
     createdAt: string
     updatedAt: string
 }
@@ -762,6 +779,55 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 showFoot: 'lastPage',
                 margin: { bottom: 20 }
             })
+
+            // Signature Section for APPROVED RABs
+            if (project.status === 'APPROVED' && project.approvals && project.approvals.length >= 2) {
+                let sigY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY + 15 || currentTableY + 20
+
+                if (sigY > 240) {
+                    doc.addPage()
+                    sigY = 30
+                }
+
+                doc.setFontSize(10)
+                doc.setFont('helvetica', 'normal')
+                doc.setTextColor(0, 0, 0)
+                doc.text('Mengetahui & Menyetujui,', 14, sigY)
+
+                // Get the first two approvers
+                const approver1 = project.approvals[0]
+                const approver2 = project.approvals[1]
+
+                const sigYPos = sigY + 10
+                const sigHeight = 25
+
+                // First Approver (Left)
+                doc.setFontSize(9)
+                doc.text('Disetujui Oleh:', 20, sigYPos)
+                doc.setFont('helvetica', 'bold')
+                doc.setTextColor(79, 70, 229) // Indigo text for signature proxy
+                doc.text('Telah Disetujui Secara Digital', 20, sigYPos + 12)
+                doc.setTextColor(0, 0, 0)
+                doc.setFont('helvetica', 'bold')
+                doc.text(approver1.user.name || 'Unknown', 20, sigYPos + sigHeight)
+                doc.setFontSize(8)
+                doc.setFont('helvetica', 'normal')
+                doc.text(approver1.user.role?.name || '-', 20, sigYPos + sigHeight + 5)
+
+                // Second Approver (Right)
+                const rightX = 120
+                doc.setFontSize(9)
+                doc.text('Disetujui Oleh:', rightX, sigYPos)
+                doc.setFont('helvetica', 'bold')
+                doc.setTextColor(79, 70, 229)
+                doc.text('Telah Disetujui Secara Digital', rightX, sigYPos + 12)
+                doc.setTextColor(0, 0, 0)
+                doc.setFont('helvetica', 'bold')
+                doc.text(approver2.user.name || 'Unknown', rightX, sigYPos + sigHeight)
+                doc.setFontSize(8)
+                doc.setFont('helvetica', 'normal')
+                doc.text(approver2.user.role?.name || '-', rightX, sigYPos + sigHeight + 5)
+            }
 
             // Save PDF
             doc.save(`RAB-${project.name.replace(/\\s+/g, '-')}.pdf`)

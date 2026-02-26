@@ -18,6 +18,7 @@ import {
     HiOutlineXMark,
     HiOutlineBanknotes
 } from 'react-icons/hi2'
+import { useSession } from 'next-auth/react'
 import type { RABProject } from './RABList'
 import { calculateRealisticBEP, calculateMonthlySubscribers } from './RABList'
 
@@ -29,6 +30,8 @@ interface RABViewProps {
 
 
 export default function RABView({ isOpen, data, onClose }: RABViewProps) {
+    const { data: session } = useSession()
+    const currentUser = session?.user
     const [actuals, setActuals] = useState<RABProject['actualAchievements']>([])
     const [editingMonth, setEditingMonth] = useState<number | null>(null)
     const [editForm, setEditForm] = useState({
@@ -40,6 +43,7 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
         manualInvestorProfitSharePercent: ''
     })
     const [isSavingActual, setIsSavingActual] = useState(false)
+    const [isApproving, setIsApproving] = useState(false)
 
     useEffect(() => {
         if (data) {
@@ -135,11 +139,48 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                 {/* Header Information */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
-                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                                <HiOutlineDocumentText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                    <HiOutlineDocumentText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Identitas Proyek</h3>
                             </div>
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Identitas Proyek</h3>
+
+                            {/* APPROVAL ACTION BUTTON */}
+                            {(data.status === 'DRAFT' || data.status === 'PENDING_APPROVAL') && ((currentUser as unknown as { canApproveRab?: boolean })?.canApproveRab || (currentUser as unknown as { isSuperAdmin?: boolean })?.isSuperAdmin) && !data.approvals?.some(a => a.userId === currentUser.id) && (
+                                <button
+                                    onClick={async () => {
+                                        setIsApproving(true)
+                                        try {
+                                            const res = await fetch(`/api/integrations/mixradius/expenses/rab/${data.id}/approve`, { method: 'POST' })
+                                            const json = await res.json()
+                                            if (res.ok) {
+                                                toast.success(json.message)
+                                                // Ideally trigger a refresh to parent component, but we can optimistically update data or just rely on parent's refreshKey
+                                                if (json.data) {
+                                                    Object.assign(data, json.data)
+                                                }
+                                            } else {
+                                                toast.error(json.error || 'Gagal menyetujui RAB')
+                                            }
+                                        } catch (_e) {
+                                            toast.error('Gagal menghubungi server')
+                                        } finally {
+                                            setIsApproving(false)
+                                        }
+                                    }}
+                                    disabled={isApproving}
+                                    className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                                >
+                                    {isApproving ? 'Memproses...' : (
+                                        <>
+                                            <HiOutlineCheck className="w-4 h-4" />
+                                            Setujui RAB
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -732,6 +773,40 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                         </div>
                     </div>
                 </div>
+
+                {/* APPROVER LIST SECTION */}
+                {data.approvals && data.approvals.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-indigo-200 dark:border-indigo-900/50 shadow-sm overflow-hidden mt-6">
+                        <div className="p-4 border-b border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-900/20 flex items-center gap-2">
+                            <HiOutlineCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 p-0.5" />
+                            <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">Status Persetujuan</h3>
+                        </div>
+                        <div className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+                            <div className="flex gap-4">
+                                {data.approvals.map((approval) => (
+                                    <div key={approval.id} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700 min-w-[200px]">
+                                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold uppercase shrink-0">
+                                            {approval.user.name?.charAt(0) || 'U'}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900 dark:text-white">{approval.user.name}</p>
+                                            <p className="text-[10px] text-gray-500 font-medium uppercase">{approval.user.role?.name || 'Authorized'}</p>
+                                            <p className="text-[9px] text-emerald-600 mt-0.5">Disetujui pada {new Date(approval.createdAt).toLocaleDateString('id-ID')}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {data.status === 'APPROVED' && (
+                                <div className="text-right">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full text-xs font-bold uppercase">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></div>
+                                        RAB Telah Disahkan
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="mt-8 flex justify-end">

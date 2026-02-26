@@ -135,15 +135,15 @@ export const authConfig: NextAuthOptions = {
           // SKIP RATE LIMITING FOR TESTING
           // Only apply rate limiting in production or if explicitly enabled
           if (process.env.NODE_ENV === 'production' && process.env.ENABLE_RATE_LIMIT === 'true') {
-             const redisConnected = await validateRedisConnection()
-             if (redisConnected) {
-                // Rate limit percobaan login per identifier (mis. 500x per 5 menit untuk dev)
-                const allowed = await checkRateLimit(`login:${identifier}`, 500, 300)
-                if (!allowed) {
-                  console.log('[AUTH] Rate limit exceeded for:', identifier)
-                  throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
-                }
-             }
+            const redisConnected = await validateRedisConnection()
+            if (redisConnected) {
+              // Rate limit percobaan login per identifier (mis. 500x per 5 menit untuk dev)
+              const allowed = await checkRateLimit(`login:${identifier}`, 500, 300)
+              if (!allowed) {
+                console.log('[AUTH] Rate limit exceeded for:', identifier)
+                throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
+              }
+            }
           }
 
           const userRepository = getUserRepository()
@@ -244,6 +244,7 @@ export const authConfig: NextAuthOptions = {
           token.accessAdminPanel = dbUser?.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser?.role?.accessEmployeePanel ?? false
           token.isSuperAdmin = dbUser?.role?.isSuperAdmin ?? false
+          token.canApproveRab = (dbUser?.role as unknown as { canApproveRab?: boolean })?.canApproveRab ?? false
           // IMPORTANT: Don't store permissions in token to reduce cookie size
           // Permissions will be loaded at runtime when needed
           // token.permissions = dbUser?.role?.permission.map(p => `${p.resource}:${p.action}`) || []
@@ -264,11 +265,11 @@ export const authConfig: NextAuthOptions = {
           const userSites = dbUser?.userSites || []
           token.siteIds = userSites.map(us => us.siteId)
           token.primarySiteId = userSites.find(us => us.isPrimary)?.siteId || userSites[0]?.siteId || null
-          
+
           // Legacy support - keep siteId for backward compatibility
           token.departmentId = dbUser?.departmentId
           token.siteId = token.primarySiteId || dbUser?.siteId // Prefer primary site
-          
+
           // Token version for force logout feature
           token.tokenVersion = dbUser?.tokenVersion ?? 0
 
@@ -328,6 +329,7 @@ export const authConfig: NextAuthOptions = {
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser.role?.accessEmployeePanel ?? false
           token.isSuperAdmin = dbUser.role?.isSuperAdmin ?? false
+          token.canApproveRab = (dbUser.role as unknown as { canApproveRab?: boolean })?.canApproveRab ?? false
 
           if (token.isSuperAdmin || token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
             token.accessAdminPanel = true
@@ -362,6 +364,7 @@ export const authConfig: NextAuthOptions = {
               accessAdminPanel: boolean;
               accessEmployeePanel: boolean;
               isSuperAdmin: boolean;
+              canApproveRab?: boolean;
               permission: { id: string }[];
             } | null;
             departments: { name: string } | null;
@@ -392,6 +395,7 @@ export const authConfig: NextAuthOptions = {
                     accessAdminPanel: true,
                     accessEmployeePanel: true,
                     isSuperAdmin: true,
+                    canApproveRab: true,
                     permission: { select: { id: true } } // Just count
                   }
                 },
@@ -404,7 +408,7 @@ export const authConfig: NextAuthOptions = {
                   take: 1
                 }
               }
-            });
+            }) as unknown as typeof dbUser;
 
             // Cache the result in Redis (non-blocking)
             if (dbUser) {
@@ -446,9 +450,11 @@ export const authConfig: NextAuthOptions = {
           if (isSuperAdmin) {
             sessionUser.accessAdminPanel = true;
             sessionUser.accessEmployeePanel = true;
+            sessionUser.canApproveRab = true;
           } else {
             sessionUser.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false;
             sessionUser.accessEmployeePanel = dbUser.role?.accessEmployeePanel ?? false;
+            sessionUser.canApproveRab = dbUser.role?.canApproveRab ?? false;
           }
 
           // Don't include permissions in session - they will be loaded at runtime
@@ -489,7 +495,7 @@ export const authConfig: NextAuthOptions = {
         })
         roleName = dbUser?.role?.name || 'No Role'
         portal = dbUser?.role?.accessAdminPanel ? 'Admin Portal' :
-                 dbUser?.role?.accessEmployeePanel ? 'Employee Portal' : 'Unknown'
+          dbUser?.role?.accessEmployeePanel ? 'Employee Portal' : 'Unknown'
 
         // Update lastLoginAt
         await prisma.user.update({
@@ -547,6 +553,7 @@ export interface UserSession {
   primarySiteId: string | undefined
   permissions: string[] | undefined
   isSuperAdmin?: boolean
+  canApproveRab?: boolean
 }
 
 export async function verifyAuth(request: NextRequest): Promise<UserSession | null> {
@@ -577,7 +584,8 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
           siteIds: (mp.siteIds as string[]) || (mp.siteId ? [mp.siteId as string] : []),
           primarySiteId: mp.primarySiteId as string | undefined,
           permissions: mp.permissions as string[] | undefined,
-          isSuperAdmin: mobilePayload.isSuperAdmin as boolean | undefined
+          isSuperAdmin: mobilePayload.isSuperAdmin as boolean | undefined,
+          canApproveRab: mobilePayload.canApproveRab as boolean | undefined
         }
       } else {
         console.warn('[AUTH_VERIFY] Mobile token verification failed')
@@ -605,7 +613,8 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
       siteIds: (token.siteIds as string[]) || (token.siteId ? [token.siteId as string] : []),
       primarySiteId: token.primarySiteId as string | undefined,
       permissions: token.permissions as string[] | undefined,
-      isSuperAdmin: (token.isSuperAdmin as boolean) || false
+      isSuperAdmin: (token.isSuperAdmin as boolean) || false,
+      canApproveRab: (token.canApproveRab as boolean) || false
     }
   } catch (error) {
     console.error('[AUTH_VERIFY] Error verifying auth:', error)
@@ -624,7 +633,7 @@ const PERMISSION_CACHE_PREFIX = 'permissions:'
 // Includes Redis caching for performance optimization
 export async function getUserPermissions(userId: string): Promise<string[]> {
   const cacheKey = `${PERMISSION_CACHE_PREFIX}${userId}`
-  
+
   // Try cache first
   try {
     const cached = await redis.get(cacheKey)
@@ -669,7 +678,7 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
     }
 
     const permissions = user.role.permission.map(p => `${p.resource}:${p.action}`)
-    
+
     // Cache permissions (non-blocking)
     try {
       await redis.setex(cacheKey, PERMISSION_CACHE_TTL, JSON.stringify(permissions))
@@ -715,11 +724,11 @@ export async function invalidateRolePermissionCache(roleId: string): Promise<voi
       where: { roleId },
       select: { id: true }
     })
-    
-    const invalidationPromises = users.map(user => 
+
+    const invalidationPromises = users.map(user =>
       invalidatePermissionCache(user.id)
     )
-    
+
     await Promise.all(invalidationPromises)
     console.debug('[AUTH] Role permission cache invalidated', { roleId, userCount: users.length })
   } catch (e) {

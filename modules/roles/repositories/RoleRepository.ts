@@ -11,6 +11,7 @@ export interface CreateRoleDTO {
     isRestricted?: boolean
     isTechnical?: boolean
     isSuperAdmin?: boolean
+    canApproveRab?: boolean
     permissionIds?: string[]
 }
 
@@ -22,6 +23,7 @@ export interface UpdateRoleDTO {
     isRestricted?: boolean
     isTechnical?: boolean
     isSuperAdmin?: boolean
+    canApproveRab?: boolean
     permissionIds?: string[]
 }
 
@@ -75,9 +77,9 @@ export class RoleRepository {
             where: { id },
             include: { permission: true }
         })
-        
+
         if (!role) return null
-        
+
         return {
             ...role,
             permissions: role.permission
@@ -104,6 +106,7 @@ export class RoleRepository {
                 isRestricted: data.isRestricted ?? false,
                 isTechnical: data.isTechnical ?? false,
                 isSuperAdmin: data.isSuperAdmin ?? false,
+                canApproveRab: data.canApproveRab ?? false,
                 permission: {
                     connect: permissionConnections
                 }
@@ -121,6 +124,7 @@ export class RoleRepository {
         if (data.isRestricted !== undefined) updateData.isRestricted = data.isRestricted
         if (data.isTechnical !== undefined) updateData.isTechnical = data.isTechnical
         if (data.isSuperAdmin !== undefined) updateData.isSuperAdmin = data.isSuperAdmin
+        if (data.canApproveRab !== undefined) updateData.canApproveRab = data.canApproveRab
 
         if (data.permissionIds !== undefined) {
             updateData.permission = {

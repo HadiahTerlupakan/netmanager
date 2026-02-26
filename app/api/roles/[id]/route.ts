@@ -15,7 +15,8 @@ const roleUpdateSchema = z.object({
     accessEmployeePanel: z.boolean().optional(),
     isRestricted: z.boolean().optional(),
     isTechnical: z.boolean().optional(),
-    isSuperAdmin: z.boolean().optional()
+    isSuperAdmin: z.boolean().optional(),
+    canApproveRab: z.boolean().optional()
 })
 
 // Fix for Next.js App Router params type
@@ -81,6 +82,7 @@ export async function PUT(req: Request, { params }: Params) {
             isRestricted?: boolean;
             isTechnical?: boolean;
             isSuperAdmin?: boolean;
+            canApproveRab?: boolean;
         } = {
             name: validated.name,
             permissions: sanitizedPermissions,
@@ -91,6 +93,7 @@ export async function PUT(req: Request, { params }: Params) {
         if (validated.isRestricted !== undefined) updateData.isRestricted = validated.isRestricted
         if (validated.isTechnical !== undefined) updateData.isTechnical = validated.isTechnical
         if (validated.isSuperAdmin !== undefined) updateData.isSuperAdmin = validated.isSuperAdmin
+        if (validated.canApproveRab !== undefined) updateData.canApproveRab = validated.canApproveRab
 
         const updatedRole = await roleService.updateRole(id, updateData)
 

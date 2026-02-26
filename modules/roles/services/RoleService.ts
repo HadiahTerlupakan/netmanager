@@ -33,6 +33,7 @@ export class RoleService {
         isRestricted?: boolean
         isTechnical?: boolean
         isSuperAdmin?: boolean
+        canApproveRab?: boolean
     }): Promise<Role> {
         // Check if role already exists
         const existingRole = await this.roleRepository.findByName(data.name)
@@ -107,6 +108,7 @@ export class RoleService {
             isRestricted: data.isRestricted,
             isTechnical: data.isTechnical,
             isSuperAdmin: data.isSuperAdmin,
+            canApproveRab: data.canApproveRab,
             permissionIds: finalPermissions.map(p => p.id)
         })
     }
@@ -120,6 +122,7 @@ export class RoleService {
         isRestricted?: boolean
         isTechnical?: boolean
         isSuperAdmin?: boolean
+        canApproveRab?: boolean
     }): Promise<Role> {
         // Check if role exists
         const currentRole = await this.roleRepository.findById(id)
@@ -199,6 +202,7 @@ export class RoleService {
             isRestricted: data.isRestricted,
             isTechnical: data.isTechnical,
             isSuperAdmin: data.isSuperAdmin,
+            canApproveRab: data.canApproveRab,
             permissionIds: finalPermissions.map(p => p.id)
         })
 

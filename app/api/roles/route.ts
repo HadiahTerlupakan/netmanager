@@ -16,7 +16,8 @@ const roleSchema = z.object({
     accessEmployeePanel: z.boolean().optional().default(false),
     isRestricted: z.boolean().optional().default(false),
     isTechnical: z.boolean().optional().default(false),
-    isSuperAdmin: z.boolean().optional().default(false)
+    isSuperAdmin: z.boolean().optional().default(false),
+    canApproveRab: z.boolean().optional().default(false)
 })
 
 export async function GET(req: Request) {
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
         if (validated.isRestricted !== undefined) roleData.isRestricted = validated.isRestricted
         if (validated.isTechnical !== undefined) roleData.isTechnical = validated.isTechnical
         if (validated.isSuperAdmin !== undefined) roleData.isSuperAdmin = validated.isSuperAdmin
+        if (validated.canApproveRab !== undefined) roleData.canApproveRab = validated.canApproveRab
 
         const newRole = await roleService.createRole(roleData as {
             name: string;
@@ -117,6 +119,7 @@ export async function POST(req: Request) {
             isRestricted?: boolean;
             isTechnical?: boolean;
             isSuperAdmin?: boolean;
+            canApproveRab?: boolean;
         })
 
         // System Log
