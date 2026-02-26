@@ -26,6 +26,21 @@ const customGrowthSchema = z.object({
     milestones: z.array(customMilestoneSchema).min(1),
 });
 
+const wbsSchema = z.object({
+    id: z.string().optional(), // Frontend temp ID
+    name: z.string().min(1),
+    order: z.number().default(0),
+});
+
+const disbursementSchema = z.object({
+    id: z.string().optional(), // Frontend temp ID
+    name: z.string().min(1),
+    percentage: z.number().min(0).max(100),
+    amount: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
+    estimatedDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
+    isPaid: z.boolean().default(false),
+});
+
 const itemSchema = z.object({
     name: z.string().min(1),
     description: z.string().optional(),
@@ -33,6 +48,9 @@ const itemSchema = z.object({
     unitPrice: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
     category: z.nativeEnum(RabItemCategory).default(RabItemCategory.HARDWARE),
     expenseType: z.nativeEnum(RabExpenseType).default(RabExpenseType.CAPEX),
+    expenseCategoryId: z.string().optional(),
+    wbsGroupId: z.string().optional(),
+    disbursements: z.array(disbursementSchema).default([]),
 });
 
 const rabSchema = z.object({
@@ -54,6 +72,12 @@ const rabSchema = z.object({
     investmentRecoveryType: z.enum(["PERCENTAGE", "FIXED"]).default("PERCENTAGE"),
     investmentRecoveryValue: z.number().default(50),
     investorProfitSharePercent: z.number().default(50),
+
+    // Enterprise features
+    contingencyPercent: z.number().min(0).max(100).default(0),
+    contingencyAmount: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(v)),
+    hasDisbursementPlan: z.boolean().default(false),
+    wbsGroups: z.array(wbsSchema).default([]),
 
     items: z.array(itemSchema).default([]),
 });
@@ -83,7 +107,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const projects = await prisma.rabProject.findMany({
         where,
         include: {
-            items: true,
+            items: {
+                include: {
+                    disbursements: true
+                }
+            },
+            wbsGroups: true,
             site: { select: { name: true } },
             mixRadiusGroup: { select: { name: true } },
             creator: { select: { name: true } },
@@ -102,7 +131,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
                 }
             }
         },
-        orderBy: { createdAt: 'desc' }
     });
 
     // Serialize BigInt and new fields
@@ -114,7 +142,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         items: p.items.map(i => ({
             ...i,
             unitPrice: i.unitPrice.toString(),
-            totalPrice: i.totalPrice.toString()
+            totalPrice: i.totalPrice.toString(),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            disbursements: (i.disbursements || []).map((d: any) => ({
+                ...d,
+                amount: d.amount.toString()
+            }))
         }))
     }));
 
@@ -141,47 +174,96 @@ export const POST = createHandler({
         name, description, siteId, mixRadiusGroupId,
         projectedRevenue, projectedOpex, items,
         targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
-        investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent
+        investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
+        contingencyPercent, contingencyAmount, hasDisbursementPlan, wbsGroups
     } = ctx.validated;
 
     // Calculate item totals - category and expenseType already validated by Zod as proper enums
-    const itemsWithTotal = items.map(item => ({
-        name: item.name,
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        category: item.category,
-        expenseType: item.expenseType,
-        totalPrice: BigInt(item.quantity) * item.unitPrice
-    }));
+    // Items mapped but never used
+    // Removed unused itemsWithTotal
 
-    const project = await prisma.rabProject.create({
-        data: {
-            name,
-            description,
-            site: siteId ? { connect: { id: siteId } } : undefined,
-            mixRadiusGroup: mixRadiusGroupId ? { connect: { id: mixRadiusGroupId } } : undefined,
-            projectedRevenue,
-            projectedOpex,
-            targetSubscribers,
-            arpu,
-            growthType,
-            paymentType,
-            growthSettings: growthSettings || undefined,
-            startDate,
-            investmentDurationMonths,
-            investmentRecoveryType,
-            investmentRecoveryValue,
-            investorProfitSharePercent,
-            createdBy: user.id,
-            items: {
-                create: itemsWithTotal
+    const project = await prisma.$transaction(async (tx) => {
+        // Create base project
+        const p = await tx.rabProject.create({
+            data: {
+                name,
+                description,
+                siteId,
+                mixRadiusGroupId,
+                projectedRevenue,
+                projectedOpex,
+                targetSubscribers,
+                arpu,
+                growthType,
+                paymentType,
+                growthSettings: growthSettings || undefined,
+                startDate,
+                investmentDurationMonths,
+                investmentRecoveryType,
+                investmentRecoveryValue,
+                investorProfitSharePercent,
+                contingencyPercent,
+                contingencyAmount,
+                hasDisbursementPlan,
+                createdBy: user.id
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any
+        });
+
+        // WBS mapping
+        const wbsMap = new Map<string, string>(); // tempId -> dbId
+        for (const wbs of wbsGroups) {
+            const createdWbs = await tx.rabWbs.create({
+                data: {
+                    rabProjectId: p.id,
+                    name: wbs.name,
+                    order: wbs.order,
+                }
+            });
+            if (wbs.id) {
+                wbsMap.set(wbs.id, createdWbs.id);
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any,
-        include: {
-            items: true
         }
+
+        // Items and their nested disbursements
+        if (items.length > 0) {
+            for (const item of items) {
+                const createdItem = await tx.rabItem.create({
+                    data: {
+                        rabProjectId: p.id,
+                        name: item.name,
+                        description: item.description,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        category: item.category,
+                        expenseType: item.expenseType,
+                        expenseCategoryId: item.expenseCategoryId,
+                        totalPrice: BigInt(item.quantity) * item.unitPrice,
+                        wbsId: item.wbsGroupId ? wbsMap.get(item.wbsGroupId) : undefined,
+                    }
+                });
+
+                if (item.disbursements && item.disbursements.length > 0) {
+                    const disbData = item.disbursements.map(d => ({
+                        rabItemId: createdItem.id,
+                        name: d.name,
+                        percentage: d.percentage,
+                        amount: d.amount,
+                        estimatedDate: d.estimatedDate,
+                        isPaid: d.isPaid,
+                    }));
+                    await tx.rabDisbursement.createMany({ data: disbData });
+                }
+            }
+        }
+
+        return tx.rabProject.findUnique({
+            where: { id: p.id },
+            include: {
+                items: { include: { disbursements: true } },
+                wbsGroups: true
+            }
+        });
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -195,8 +277,14 @@ export const POST = createHandler({
         items: (proj.items || []).map((i: any) => ({
             ...i,
             unitPrice: i.unitPrice.toString(),
-            totalPrice: i.totalPrice.toString()
-        }))
+            totalPrice: i.totalPrice.toString(),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            disbursements: (i.disbursements || []).map((d: any) => ({
+                ...d,
+                amount: d.amount.toString()
+            }))
+        })),
+        contingencyAmount: proj.contingencyAmount?.toString()
     };
 
     return apiSuccess(serialized, { status: 201 });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -24,11 +25,29 @@ import RABCompare from './RABCompare'
 interface RABItem {
     id: string
     name: string
-    category: string
+    category?: string
+    expenseCategory?: { name: string }
     quantity: number
     unitPrice: number
     totalPrice: number
     expenseType?: 'CAPEX' | 'OPEX'
+    wbsGroupId?: string
+    disbursements?: RABDisbursement[]
+}
+
+export interface RABWbs {
+    id: string
+    name: string
+    order: number
+}
+
+export interface RABDisbursement {
+    id: string
+    name: string
+    percentage: number
+    amount: number
+    estimatedDate?: string
+    isPaid: boolean
 }
 
 export interface LinearGrowthSettings {
@@ -100,6 +119,11 @@ export interface RABProject {
     investmentRecoveryType?: 'PERCENTAGE' | 'FIXED'
     investmentRecoveryValue?: number
     investorProfitSharePercent?: number
+    contingencyPercent?: number
+    contingencyAmount?: string | number
+    hasDisbursementPlan?: boolean
+    wbsGroups?: RABWbs[]
+    disbursements?: RABDisbursement[]
     status: string
     items: RABItem[]
     approvals?: RABApproval[]
@@ -266,7 +290,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
         const headers = ['Nama Item', 'Kategori', 'Tipe', 'Kuantitas', 'Harga Satuan', 'Total Harga']
         const rows = project.items.map(item => [
             `"${item.name.replace(/"/g, '""')}"`,
-            item.category,
+            (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
             item.expenseType || 'CAPEX',
             item.quantity.toString(),
             item.unitPrice.toString(),
@@ -440,9 +464,11 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
             doc.setFontSize(10)
             doc.setFont('helvetica', 'normal')
 
-            const totalCapex = project.items
+            const capexItems = project.items
                 .filter(item => !item.expenseType || item.expenseType === 'CAPEX')
-                .reduce((sum, item) => sum + Number(item.totalPrice), 0)
+            const totalCapex = capexItems.reduce((sum, item) => sum + Number(item.totalPrice), 0)
+            const contingencyAmount = Number(project.contingencyAmount || 0)
+            const totalInvestment = totalCapex + contingencyAmount
 
             let growthModelDesc = '-'
             if (project.growthType === 'LINEAR') {
@@ -456,7 +482,9 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
             }
 
             const metrics = [
-                ['Total CAPEX', formatCurrency(totalCapex)],
+                ['Total CAPEX Dasar', formatCurrency(totalCapex)],
+                [`Contingency (${project.contingencyPercent || 0}%)`, formatCurrency(contingencyAmount)],
+                ['Total Investasi', formatCurrency(totalInvestment)],
                 ['OPEX / Bulan', formatCurrency(Number(project.projectedOpex))],
                 ['Target Pelanggan', `${project.targetSubscribers || 0} Pelanggan`],
                 ['Model Pertumbuhan', growthModelDesc],
@@ -743,14 +771,66 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
             doc.text('Daftar Item & Biaya', 14, itemsY)
 
             const tableHeaders = [['Nama Item', 'Kategori', 'Tipe', 'Qty', 'Harga Satuan', 'Total Harga']]
-            const tableData = project.items.map(item => [
-                item.name,
-                item.category,
-                item.expenseType || 'CAPEX',
-                item.quantity.toString(),
-                formatCurrency(Number(item.unitPrice)),
-                formatCurrency(Number(item.totalPrice))
-            ])
+
+            // Generate rows with WBS grouping if applicable
+            const tableData: any[] = []
+            const hasWbs = project.wbsGroups && project.wbsGroups.length > 0
+
+            if (!hasWbs) {
+                project.items.forEach(item => {
+                    tableData.push([
+                        item.name,
+                        (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
+                        item.expenseType || 'CAPEX',
+                        item.quantity.toString(),
+                        formatCurrency(Number(item.unitPrice)),
+                        formatCurrency(Number(item.totalPrice))
+                    ])
+                })
+            } else {
+                const groups = [...(project.wbsGroups || [])].sort((a, b) => a.order - b.order)
+                const ungrouppedItems = project.items.filter(i => !(i as any).wbsId && !i.wbsGroupId)
+
+                groups.forEach(wbs => {
+                    const groupItems = project.items.filter(i => (i as any).wbsId === wbs.id || i.wbsGroupId === wbs.id)
+                    if (groupItems.length === 0) return
+                    const groupSubtotal = groupItems.reduce((sum, item) => sum + Number(item.totalPrice), 0)
+
+                    tableData.push([
+                        { content: wbs.name.toUpperCase(), colSpan: 5, styles: { fontStyle: 'bold', fillColor: [243, 244, 246] } },
+                        { content: formatCurrency(groupSubtotal), styles: { fontStyle: 'bold', halign: 'right', fillColor: [243, 244, 246] } }
+                    ])
+
+                    groupItems.forEach(item => {
+                        tableData.push([
+                            `  ${item.name}`, // Indent slightly
+                            (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
+                            item.expenseType || 'CAPEX',
+                            item.quantity.toString(),
+                            formatCurrency(Number(item.unitPrice)),
+                            formatCurrency(Number(item.totalPrice))
+                        ])
+                    })
+                })
+
+                if (ungrouppedItems.length > 0) {
+                    const groupSubtotal = ungrouppedItems.reduce((sum, item) => sum + Number(item.totalPrice), 0)
+                    tableData.push([
+                        { content: 'LAIN-LAIN (BELUM DIGRUP)', colSpan: 5, styles: { fontStyle: 'bold', fillColor: [243, 244, 246] } },
+                        { content: formatCurrency(groupSubtotal), styles: { fontStyle: 'bold', halign: 'right', fillColor: [243, 244, 246] } }
+                    ])
+                    ungrouppedItems.forEach(item => {
+                        tableData.push([
+                            `  ${item.name}`,
+                            (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
+                            item.expenseType || 'CAPEX',
+                            item.quantity.toString(),
+                            formatCurrency(Number(item.unitPrice)),
+                            formatCurrency(Number(item.totalPrice))
+                        ])
+                    })
+                }
+            }
 
             const totalItemsPrice = project.items.reduce((sum, item) => sum + Number(item.totalPrice), 0)
 
@@ -779,6 +859,64 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 showFoot: 'lastPage',
                 margin: { bottom: 20 }
             })
+
+            // Disbursements Table
+            const allDisbursements = project.items.reduce((acc, item) => {
+                if (item.disbursements && item.disbursements.length > 0) {
+                    item.disbursements.forEach(d => {
+                        acc.push({
+                            ...d,
+                            itemName: item.name
+                        })
+                    })
+                }
+                return acc
+            }, [] as any[])
+
+            if (allDisbursements.length > 0) {
+                // Sort by date chronologically
+                allDisbursements.sort((a, b) => {
+                    if (!a.estimatedDate) return 1
+                    if (!b.estimatedDate) return -1
+                    return new Date(a.estimatedDate).getTime() - new Date(b.estimatedDate).getTime()
+                })
+
+                let disbY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15
+                if (disbY > 250) {
+                    doc.addPage()
+                    disbY = 20
+                }
+
+                doc.setFontSize(12)
+                doc.setFont('helvetica', 'bold')
+                doc.text('Jadwal Pencairan (Termin)', 14, disbY)
+
+                const disbHeaders = [['No', 'Item', 'Keterangan Termin', 'Estimasi Tanggal', 'Persentase', 'Nominal Pencairan', 'Status']]
+                const disbData = allDisbursements.map((d, i) => [
+                    (i + 1).toString(),
+                    d.itemName,
+                    d.name || `Termin ${i + 1}`,
+                    d.estimatedDate ? new Date(d.estimatedDate).toLocaleDateString('id-ID') : '-',
+                    `${d.percentage}%`,
+                    formatCurrency(Number(d.amount)),
+                    d.isPaid ? 'Cair' : 'Menunggu'
+                ])
+
+                autoTable(doc, {
+                    startY: disbY + 6,
+                    head: disbHeaders,
+                    body: disbData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [79, 70, 229], fontStyle: 'bold' },
+                    styles: { fontSize: 8, cellPadding: 3 },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 10 },
+                        4: { halign: 'right' },
+                        5: { halign: 'right', fontStyle: 'bold' },
+                        6: { halign: 'center' }
+                    }
+                })
+            }
 
             // Signature Section for APPROVED RABs
             if (project.status === 'APPROVED' && project.approvals && project.approvals.length >= 2) {

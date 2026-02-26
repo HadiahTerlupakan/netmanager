@@ -3,6 +3,7 @@ import { requireCustomerAuth } from '@/lib/customer-auth'
 import { prismaBilling } from '@/lib/prisma-billing'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { analyzeReceiptWithOCR } from '@/lib/services/receipt-ocr'
 
 export async function POST(request: NextRequest) {
     try {
@@ -46,6 +47,36 @@ export async function POST(request: NextRequest) {
 
         // Upload The File using convertAndSaveImage ensuring R2 / Local consistency based on env
         try {
+            // Lakukan OCR pada struk sebelum menyimpan bukti
+            const arrayBuffer = await file.arrayBuffer()
+            const ocrResult = await analyzeReceiptWithOCR(arrayBuffer, file.type)
+
+            let aiNotes = payment.notes ? payment.notes + '\n---\n' : ''
+            const expectedAmount = Number(payment.amount)
+
+            if (ocrResult.is_potentially_fake) {
+                aiNotes += `⚠️ [AI Peringatan] Terindikasi palsu/editan. ${ocrResult.catatan_analisis}`
+            } else if (!ocrResult.is_valid_receipt) {
+                aiNotes += `⚠️ [AI Peringatan] Bukan gambar struk transfer/E-Wallet yang valid. ${ocrResult.catatan_analisis}`
+            } else {
+                let warnings = []
+
+                // Cek Kesesuaian Nominal
+                if (ocrResult.nominal) {
+                    if (ocrResult.nominal !== expectedAmount) {
+                        warnings.push(`Nominal di struk (Rp${ocrResult.nominal.toLocaleString('id-ID')}) BEDA dengan tagihan (Rp${expectedAmount.toLocaleString('id-ID')})`)
+                    }
+                } else {
+                    warnings.push(`Nominal tidak terbaca`)
+                }
+
+                let statusText = warnings.length > 0
+                    ? `⚠️ [AI Peringatan] ${warnings.join(', ')}.`
+                    : `✅ [AI Validasi] Nominal sesuai (Rp${expectedAmount.toLocaleString('id-ID')}).`
+
+                aiNotes += `${statusText} ${ocrResult.catatan_analisis}`
+            }
+
             const receiptUrl = await convertAndSaveImage(
                 file,
                 'public/receipts',
@@ -58,7 +89,8 @@ export async function POST(request: NextRequest) {
             const updatedPayment = await prismaBilling.payment.update({
                 where: { id: payment.id },
                 data: {
-                    receiptUrl: receiptUrl
+                    receiptUrl: receiptUrl,
+                    notes: aiNotes.trim()
                 }
             })
 

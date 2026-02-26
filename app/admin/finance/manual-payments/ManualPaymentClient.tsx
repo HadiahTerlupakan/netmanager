@@ -262,8 +262,11 @@ export default function ManualPaymentClient() {
                                                     <div className="font-bold text-gray-900 dark:text-white" title={payment.customerName || payment.invoice?.pelangganId}>
                                                         {payment.customerName || payment.invoice?.pelangganId}
                                                     </div>
-                                                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                                                        {payment.invoice?.invoiceNumber}
+                                                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
+                                                        <span>{payment.invoice?.invoiceNumber}</span>
+                                                        {payment.notes?.includes('⚠️ [AI Peringatan]') && isPending && (
+                                                            <span title="Terdapat Peringatan AI pada Bukti Pembayaran" className="text-red-500 cursor-help">⚠️</span>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600 dark:text-indigo-400">
@@ -359,7 +362,18 @@ export default function ManualPaymentClient() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Catatan Verifikasi</label>
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Catatan Verifikasi / AI Analisis</label>
+
+                            {/* Menampilkan Analisis AI sebelumnya jika ada */}
+                            {selectedPayment.notes && selectedPayment.notes !== notes && (
+                                <div className={`p-3 rounded-md text-sm border font-medium ${selectedPayment.notes.includes('⚠️ [AI Peringatan]')
+                                        ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+                                        : 'bg-green-50 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+                                    }`}>
+                                    {selectedPayment.notes}
+                                </div>
+                            )}
+
                             {selectedPayment.gatewayStatus === 'PENDING' ? (
                                 <textarea
                                     className="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:ring-indigo-500 focus:border-indigo-500 dark:text-white"
@@ -369,9 +383,11 @@ export default function ManualPaymentClient() {
                                     onChange={(e) => setNotes(e.target.value)}
                                 />
                             ) : (
-                                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                                    {selectedPayment.notes || <i>Tidak ada catatan.</i>}
-                                </div>
+                                !selectedPayment.notes && (
+                                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                                        <i>Tidak ada catatan.</i>
+                                    </div>
+                                )
                             )}
                         </div>
 

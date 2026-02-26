@@ -215,6 +215,7 @@ model ExpenseCategory {
   parent    ExpenseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children  ExpenseCategory[] @relation("CategoryHierarchy")
   expenses  Expense[]
+  rabItems  RabItem[]
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
@@ -2941,7 +2942,12 @@ model RabProject {
   investmentRecoveryValue  Float           @default(50) // e.g. 50% or fixed amount
   investorProfitSharePercent Float         @default(50) // Share of remaining profit
 
+  contingencyPercent Float @default(0) // 0-100
+  contingencyAmount  BigInt @default(0)
+  hasDisbursementPlan Boolean @default(false)
+
   items RabItem[]
+  wbsGroups RabWbs[]
 
   createdBy String?
   createdAt DateTime @default(now())
@@ -2984,12 +2990,47 @@ model RabItem {
   quantity     Int             @default(1)
   unitPrice    BigInt
   totalPrice   BigInt
-  category     RabItemCategory @default(HARDWARE)
-  expenseType  RabExpenseType  @default(CAPEX)
+  category          RabItemCategory @default(HARDWARE)
+  expenseType       RabExpenseType  @default(CAPEX)
+  expenseCategoryId String?
+  expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id], onDelete: SetNull)
+
+  wbsId        String?
 
   rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  wbs        RabWbs?    @relation(fields: [wbsId], references: [id], onDelete: SetNull)
+  disbursements RabDisbursement[]
 
+  @@index([wbsId])
   @@map("rab_items")
+}
+
+model RabWbs {
+  id           String     @id @default(cuid())
+  rabProjectId String
+  name         String
+  order        Int        @default(0)
+  
+  rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  items      RabItem[]
+
+  @@index([rabProjectId])
+  @@map("rab_wbs")
+}
+
+model RabDisbursement {
+  id           String     @id @default(cuid())
+  rabItemId    String
+  name         String
+  percentage   Float
+  amount       BigInt
+  estimatedDate DateTime?
+  isPaid       Boolean    @default(false)
+
+  rabItem    RabItem @relation(fields: [rabItemId], references: [id], onDelete: Cascade)
+
+  @@index([rabItemId])
+  @@map("rab_disbursements")
 }
 
 enum RabExpenseType {

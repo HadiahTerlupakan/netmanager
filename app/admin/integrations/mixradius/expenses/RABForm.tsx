@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
 import type { RABProject } from './RABList'
 import { Modal } from '@/components/ui/Modal'
+import { Combobox } from '@/components/ui/Combobox'
 
 interface SiteOption {
     id: string
@@ -84,7 +86,7 @@ const CurrencyInput = ({
     </div>
 )
 
-type MainTab = 'info' | 'growth' | 'items'
+type MainTab = 'info' | 'growth' | 'items' | 'disbursement'
 type ExpenseType = 'CAPEX' | 'OPEX'
 type GrowthType = 'LINEAR' | 'PERCENTAGE' | 'CUSTOM'
 
@@ -92,9 +94,33 @@ interface LocalItem {
     id: string
     name: string
     category: string
+    expenseCategoryId?: string
     quantity: number
     unitPrice: number
     expenseType: ExpenseType
+    wbsGroupId?: string
+    disbursements: LocalDisbursement[]
+}
+
+interface LocalWbs {
+    id: string
+    name: string
+    order: number
+}
+
+interface Category {
+    id: string
+    name: string
+    type: string
+}
+
+interface LocalDisbursement {
+    id: string
+    name: string
+    percentage: number
+    amount: number
+    estimatedDate: string
+    isPaid: boolean
 }
 
 interface LinearGrowthSettings {
@@ -221,9 +247,13 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
         startDate: '',
         investmentDurationMonths: 12,
         investmentRecoveryType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED',
-        investmentRecoveryValue: 50,
-        investorProfitSharePercent: 50
+        investmentRecoveryValue: 50, // Defaults to 50%
+        investorProfitSharePercent: 50,
+        contingencyPercent: 0,
+        hasDisbursementPlan: false
     })
+
+    const [activeTerminItemId, setActiveTerminItemId] = useState<string | null>(null)
 
     // Target & Revenue state
     const [targetSubscribers, setTargetSubscribers] = useState(0)
@@ -244,7 +274,23 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     ])
 
     const [items, setItems] = useState<LocalItem[]>([])
+    const [wbsGroups, setWbsGroups] = useState<LocalWbs[]>([])
+    const [categories, setCategories] = useState<Category[]>([])
+
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await fetch("/api/finance/categories")
+                const data = await res.json()
+                setCategories(Array.isArray(data) ? data.filter((c: Category) => c.type === 'EXPENSE') : [])
+            } catch (error) {
+                console.error("Failed fetching categories", error)
+            }
+        }
+        fetchCategories()
+    }, [])
 
     // Get current growth settings based on type
     const currentGrowthSettings = useMemo((): GrowthSettings => {
@@ -272,7 +318,9 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     investmentDurationMonths: initialData.investmentDurationMonths || 12,
                     investmentRecoveryType: initialData.investmentRecoveryType || 'PERCENTAGE',
                     investmentRecoveryValue: initialData.investmentRecoveryValue || 50,
-                    investorProfitSharePercent: initialData.investorProfitSharePercent || 50
+                    investorProfitSharePercent: initialData.investorProfitSharePercent || 50,
+                    contingencyPercent: initialData.contingencyPercent || 0,
+                    hasDisbursementPlan: initialData.hasDisbursementPlan || false
                 })
 
                 // Load target & arpu
@@ -298,9 +346,26 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     id: item.id,
                     name: item.name,
                     category: item.category,
+                    expenseCategoryId: (item as any).expenseCategoryId || undefined,
                     quantity: Number(item.quantity),
                     unitPrice: Number(item.unitPrice),
-                    expenseType: item.expenseType || 'CAPEX'
+                    expenseType: item.expenseType || 'CAPEX',
+                    wbsGroupId: (item as any).wbsId || item.wbsGroupId || undefined,
+                    disbursements: (item.disbursements || []).map((d: any) => ({
+                        id: d.id,
+                        name: d.name,
+                        percentage: d.percentage,
+                        amount: Number(d.amount),
+                        estimatedDate: d.estimatedDate ? new Date(d.estimatedDate).toISOString().split('T')[0] : '',
+                        isPaid: d.isPaid || false
+                    }))
+                })))
+
+                // Load WBS
+                setWbsGroups((initialData.wbsGroups || []).map((w: any) => ({
+                    id: w.id,
+                    name: w.name,
+                    order: w.order
                 })))
             } else {
                 // Reset form
@@ -314,7 +379,9 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     investmentDurationMonths: 12,
                     investmentRecoveryType: 'PERCENTAGE',
                     investmentRecoveryValue: 50,
-                    investorProfitSharePercent: 50
+                    investorProfitSharePercent: 50,
+                    contingencyPercent: 0,
+                    hasDisbursementPlan: false
                 })
                 setTargetSubscribers(0)
                 setArpu(0)
@@ -328,8 +395,9 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     { month: 12, percent: 100 }
                 ])
                 setItems([
-                    { id: crypto.randomUUID(), name: '', category: 'DEVICE', quantity: 1, unitPrice: 0, expenseType: 'CAPEX' }
+                    { id: crypto.randomUUID(), name: '', category: 'DEVICE', quantity: 1, unitPrice: 0, expenseType: 'CAPEX', disbursements: [] }
                 ])
+                setWbsGroups([])
             }
             setMainTab('info')
             setExpenseTab('CAPEX')
@@ -343,7 +411,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
             category: expenseTab === 'CAPEX' ? 'DEVICE' : 'OPERATIONAL',
             quantity: 1,
             unitPrice: 0,
-            expenseType: expenseTab
+            expenseType: expenseTab,
+            disbursements: []
         }])
     }
 
@@ -351,11 +420,12 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
         setItems(items.filter(i => i.id !== id))
     }
 
-    const updateItem = (id: string, field: string, value: string | number) => {
+    const updateItem = (id: string, field: string, value: string | number | string[] | LocalDisbursement[]) => {
         setItems(items.map(item =>
             item.id === id ? { ...item, [field]: value } : item
         ))
     }
+
 
     const handleAddMilestone = () => {
         const lastMonth = customMilestones.length > 0
@@ -381,6 +451,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     const totalCapex = capexItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
     const totalOpex = opexItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
 
+    // Calculate Contingency
+    const contingencyAmount = (totalCapex * formData.contingencyPercent) / 100
+    const totalInvestment = totalCapex + contingencyAmount
+
     // Projected revenue at full capacity
     const projectedRevenue = targetSubscribers * arpu
 
@@ -392,7 +466,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     // Realistic BEP with growth
     const realisticBepMonths = useMemo(() => {
         return calculateRealisticBEP(
-            totalCapex,
+            totalInvestment,
             totalOpex,
             arpu,
             targetSubscribers,
@@ -400,7 +474,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
             currentGrowthSettings,
             paymentType
         )
-    }, [totalCapex, totalOpex, arpu, targetSubscribers, growthType, currentGrowthSettings, paymentType])
+    }, [totalInvestment, totalOpex, arpu, targetSubscribers, growthType, currentGrowthSettings, paymentType])
 
     // Months to reach full capacity
     const monthsToFullCapacity = useMemo(() => {
@@ -435,6 +509,16 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
         if (zeroItems.length > 0) {
             validationErrors.push(`${zeroItems.length} item memiliki harga Rp 0`)
         }
+
+        // Validate Item Disbursements
+        items.forEach((item, index) => {
+            if (item.disbursements && item.disbursements.length > 0) {
+                const totalPercent = item.disbursements.reduce((sum, d) => sum + d.percentage, 0)
+                if (Math.abs(totalPercent - 100) > 0.01) {
+                    validationErrors.push(`Item "${item.name || `Baris ${index + 1}`}" memiliki total persentase termin tidak 100% (saat ini ${totalPercent}%)`)
+                }
+            }
+        })
 
         if (validationErrors.length > 0) {
             toast.error(
@@ -472,7 +556,17 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 investmentRecoveryType: formData.investmentRecoveryType,
                 investmentRecoveryValue: formData.investmentRecoveryValue,
                 investorProfitSharePercent: formData.investorProfitSharePercent,
-                items: items.map(({ id: _id, ...rest }) => rest)
+                contingencyPercent: formData.contingencyPercent,
+                contingencyAmount,
+                hasDisbursementPlan: formData.hasDisbursementPlan,
+                wbsGroups: wbsGroups.map(({ id, name, order }) => ({ id, name, order })),
+                items: items.map(({ id: _id, ...rest }) => ({
+                    ...rest,
+                    disbursements: rest.disbursements.map(d => ({
+                        ...d,
+                        amount: ((rest.unitPrice * rest.quantity) * d.percentage) / 100
+                    })).map(({ id: _did, ...drest }) => drest)
+                }))
             }
 
             const url = initialData
@@ -505,7 +599,6 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     // Render items for current expense tab
     const currentTabItems = expenseTab === 'CAPEX' ? capexItems : opexItems
 
-    // Main tab configuration
     const mainTabs = [
         { id: 'info' as MainTab, label: 'Informasi Proyek', icon: HiOutlineDocumentText },
         { id: 'growth' as MainTab, label: 'Periode Pertumbuhan', icon: HiOutlineArrowTrendingUp },
@@ -686,6 +779,35 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                         />
                                                     </div>
                                                 </div>
+
+                                                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Biaya Tak Terduga / Contingency (%)</label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    value={formData.contingencyPercent}
+                                                                    onChange={e => setFormData({ ...formData, contingencyPercent: Number(e.target.value) })}
+                                                                    className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 pr-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                                                    placeholder="5"
+                                                                />
+                                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Estimasi Nominal Contingency</label>
+                                                            <input
+                                                                type="text"
+                                                                value={formatCurrency(contingencyAmount)}
+                                                                readOnly
+                                                                className="block w-full rounded-xl border-transparent bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 font-bold text-sm py-3"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <p className="mt-3 text-[10px] text-gray-500 italic leading-relaxed">
                                                     * Seluruh modal (CAPEX) dianggap dari Investor. Angsuran modal (Recovery) akan diprioritaskan diambil dari profit kotor setiap bulan sebelum sisa profit dibagi antara Investor dan Perusahaan.
                                                 </p>
@@ -715,8 +837,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                         <h4 className="text-xs font-bold uppercase tracking-widest text-blue-100 mb-4">Financial Overview</h4>
                                         <div className="space-y-4 relative z-10">
                                             <div>
-                                                <div className="text-[10px] text-blue-100 uppercase font-medium">Total Investasi (CAPEX)</div>
-                                                <div className="text-2xl font-black">{formatCurrency(totalCapex)}</div>
+                                                <div className="text-[10px] text-blue-100 uppercase font-medium">Total Investasi (CAPEX + Contingency)</div>
+                                                <div className="text-2xl font-black">{formatCurrency(totalInvestment)}</div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div>
@@ -1156,8 +1278,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                 </div>
 
                                 {/* Header Table Tool */}
-                                <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-700">
-                                    <div className="flex flex-col">
+                                <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/20">
+                                    <div className="flex flex-col w-full sm:w-auto">
                                         <span className="text-sm font-black text-gray-800 dark:text-gray-200">
                                             {expenseTab === 'CAPEX' ? 'Komponen Modal & Aset' : 'Estimasi Biaya Bulanan'}
                                         </span>
@@ -1165,17 +1287,74 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                             Total {expenseTab}: {formatCurrency(expenseTab === 'CAPEX' ? totalCapex : totalOpex)}
                                         </span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleAddItem}
-                                        className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black text-white transition-all shadow-lg active:scale-95 ${expenseTab === 'CAPEX'
-                                            ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
-                                            : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
-                                            }`}
-                                    >
-                                        <HiOutlinePlus className="w-4 h-4" /> TAMBAH ITEM
-                                    </button>
+                                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                                        {/* WBS UI Manager */}
+                                        <div className="flex-1 flex gap-2">
+                                            <input
+                                                type="text"
+                                                id="wbsInput"
+                                                placeholder="Tambah Tahap WBS (Opsional)"
+                                                className="w-full sm:w-48 px-3 py-1.5 text-xs rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        const el = e.currentTarget;
+                                                        if (el.value.trim()) {
+                                                            setWbsGroups([...wbsGroups, { id: crypto.randomUUID(), name: el.value.trim(), order: wbsGroups.length }]);
+                                                            el.value = '';
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const el = document.getElementById('wbsInput') as HTMLInputElement;
+                                                    if (el && el.value.trim()) {
+                                                        setWbsGroups([...wbsGroups, { id: crypto.randomUUID(), name: el.value.trim(), order: wbsGroups.length }]);
+                                                        el.value = '';
+                                                    }
+                                                }}
+                                                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-bold transition-colors"
+                                            >
+                                                Tambah WBS
+                                            </button>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleAddItem}
+                                            className={`flex items-center justify-center gap-2 px-5 py-2 rounded-xl text-xs font-black text-white transition-all shadow-lg active:scale-95 whitespace-nowrap ${expenseTab === 'CAPEX'
+                                                ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
+                                                : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
+                                                }`}
+                                        >
+                                            <HiOutlinePlus className="w-4 h-4" /> TAMBAH ITEM
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {wbsGroups.length > 0 && (
+                                    <div className="px-5 py-2 flex flex-wrap gap-2 border-b border-gray-100 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                        <span className="text-xs font-bold text-gray-500 mr-2 flex items-center">Grup WBS Tersedia:</span>
+                                        {wbsGroups.map(wbs => (
+                                            <div key={wbs.id} className="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full text-[10px] font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                <span>{wbs.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setWbsGroups(wbsGroups.filter(w => w.id !== wbs.id))
+                                                        // clear item assoc
+                                                        setItems(items.map(i => i.wbsGroupId === wbs.id ? { ...i, wbsGroupId: undefined } : i))
+                                                    }}
+                                                    className="ml-1 text-red-400 hover:text-red-600"
+                                                >
+                                                    <HiOutlineTrash className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
                                 {/* Items Interactive List */}
                                 <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
@@ -1207,23 +1386,46 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                                     type="text"
                                                                     value={item.name}
                                                                     onChange={e => updateItem(item.id, 'name', e.target.value)}
-                                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-semibold placeholder-gray-300 dark:text-white"
+                                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-semibold placeholder-gray-300 dark:text-white mb-2"
                                                                     placeholder="e.g., Mikrotik RB4011..."
                                                                 />
+                                                                {wbsGroups.length > 0 && expenseTab === 'CAPEX' && (
+                                                                    <select
+                                                                        value={item.wbsGroupId || ''}
+                                                                        onChange={e => updateItem(item.id, 'wbsGroupId', e.target.value)}
+                                                                        className="w-full sm:w-11/12 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-1 text-[10px] text-gray-500"
+                                                                    >
+                                                                        <option value="">-- Tidak Digrup (Opsional) --</option>
+                                                                        {wbsGroups.map(wbs => (
+                                                                            <option key={wbs.id} value={wbs.id}>{wbs.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                )}
                                                             </td>
                                                             <td className="px-4 py-4">
-                                                                <select
-                                                                    value={item.category}
-                                                                    onChange={e => updateItem(item.id, 'category', e.target.value)}
-                                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-xs font-bold text-gray-500 dark:text-gray-400 appearance-none cursor-pointer hover:text-blue-500"
-                                                                >
-                                                                    <option value="DEVICE">Perangkat</option>
-                                                                    <option value="CABLE">Kabel/FO</option>
-                                                                    <option value="ACCESSORIES">Aksesoris</option>
-                                                                    <option value="SERVICE">Jasa/Skill</option>
-                                                                    <option value="OPERATIONAL">Operasional</option>
-                                                                    <option value="OTHER">Lainnya</option>
-                                                                </select>
+                                                                <Combobox
+                                                                    options={categories.map(c => ({ value: c.id, label: c.name }))}
+                                                                    value={item.expenseCategoryId || ""}
+                                                                    onChange={val => {
+                                                                        updateItem(item.id, 'expenseCategoryId', val);
+                                                                        // also find category type to map back to generic category enum if possible
+                                                                        const selectedCat = categories.find(c => c.id === val);
+                                                                        if (selectedCat) {
+                                                                            // Attempt basic mapping, defaults to OTHER
+                                                                            const nameLower = selectedCat.name.toLowerCase();
+                                                                            let enumVal = "OTHER";
+                                                                            if (nameLower.includes("perangkat") || nameLower.includes("device") || nameLower.includes("alat") || nameLower.includes("server") || nameLower.includes("router") || nameLower.includes("switch")) enumVal = "DEVICE";
+                                                                            else if (nameLower.includes("kabel") || nameLower.includes("fo") || nameLower.includes("fiber")) enumVal = "CABLE";
+                                                                            else if (nameLower.includes("aksesoris") || nameLower.includes("accessories") || nameLower.includes("material")) enumVal = "ACCESSORIES";
+                                                                            else if (nameLower.includes("jasa") || nameLower.includes("service") || nameLower.includes("tukang") || nameLower.includes("instalasi")) enumVal = "SERVICE";
+                                                                            else if (nameLower.includes("operasional") || nameLower.includes("bensin") || nameLower.includes("makan") || nameLower.includes("pulsa") || nameLower.includes("listrik")) enumVal = "OPERATIONAL";
+
+                                                                            updateItem(item.id, 'category', enumVal);
+                                                                        }
+                                                                    }}
+                                                                    placeholder="Pilih Kategori COA..."
+                                                                />
+                                                                {/* Hidden legacy select for backward compatibility if needed, but UI is using Combobox */}
                                                             </td>
                                                             <td className="px-4 py-4">
                                                                 <input
@@ -1246,6 +1448,21 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                                         {formatCurrency(item.quantity * item.unitPrice)}
                                                                     </span>
                                                                 </div>
+                                                                <div className="mt-2 text-right">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setActiveTerminItemId(item.id)}
+                                                                        className={`text-[10px] px-2 py-1 rounded-md font-bold transition-all border ${item.disbursements && item.disbursements.length > 0
+                                                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400'
+                                                                            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700'
+                                                                            }`}
+                                                                    >
+                                                                        {item.disbursements && item.disbursements.length > 0
+                                                                            ? `Termin Aktif (${item.disbursements.length})`
+                                                                            : '+ Set Termin'
+                                                                        }
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
                                                                 <button
@@ -1265,7 +1482,6 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                 </div>
                             </div>
 
-                            {/* Navigation */}
                             <div className="flex justify-between items-center pt-6 border-t border-gray-100 dark:border-gray-800">
                                 <button
                                     type="button"
@@ -1278,7 +1494,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                     Kembali ke Pertumbuhan
                                 </button>
                                 <div className="text-xs font-black text-gray-400 italic">
-                                    Semua perubahan tersimpan secara lokal saat Anda berpindah tab.
+                                    Silahkan Simpan RAB setelah semua item & termin valid.
                                 </div>
                             </div>
                         </div>
@@ -1314,6 +1530,235 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     </button>
                 </div>
             </form>
+
+            <ItemDisbursementModal
+                isOpen={!!activeTerminItemId}
+                onClose={() => setActiveTerminItemId(null)}
+                item={items.find(i => i.id === activeTerminItemId)}
+                onUpdate={(newDisbursements) => {
+                    if (activeTerminItemId) {
+                        updateItem(activeTerminItemId, 'disbursements', newDisbursements)
+                    }
+                }}
+            />
         </Modal>
+    )
+}
+
+function ItemDisbursementModal({
+    isOpen,
+    onClose,
+    item,
+    onUpdate
+}: {
+    isOpen: boolean
+    onClose: () => void
+    item?: LocalItem
+    onUpdate: (d: LocalDisbursement[]) => void
+}) {
+    // Need to have safe values when conditionally rendering in nested structure
+    const [disbursements, setDisbursements] = useState<LocalDisbursement[]>([])
+
+    useEffect(() => {
+        if (isOpen && item) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setDisbursements(item.disbursements || [])
+        }
+    }, [isOpen, item])
+
+    if (!isOpen || !item) return null
+
+    const totalAmount = item.quantity * item.unitPrice
+
+    // Recalculate amounts based on percentage whenever disbursements or totalAmount changes
+    const calculatedDisbursements = disbursements.map(d => ({
+        ...d,
+        amount: Math.round((d.percentage / 100) * totalAmount)
+    }))
+
+    const totalPercentage = calculatedDisbursements.reduce((sum, d) => sum + (Number(d.percentage) || 0), 0)
+    const isValid = totalPercentage === 100
+
+    const handleAdd = () => {
+        setDisbursements([
+            ...disbursements,
+            {
+                id: crypto.randomUUID(),
+                name: `Termin ${disbursements.length + 1}`,
+                percentage: 0,
+                amount: 0,
+                estimatedDate: '',
+                isPaid: false
+            }
+        ])
+    }
+
+    const handleUpdate = (id: string, field: keyof LocalDisbursement, value: any) => {
+        setDisbursements(prev => prev.map(d => {
+            if (d.id === id) {
+                return { ...d, [field]: value }
+            }
+            return d
+        }))
+    }
+
+    const handleRemove = (id: string) => {
+        setDisbursements(prev => prev.filter(d => d.id !== id))
+    }
+
+    const handleSave = () => {
+        if (!isValid && disbursements.length > 0) {
+            toast.error('Total persentase termin harus persis 100%')
+            return
+        }
+        onUpdate(calculatedDisbursements)
+        onClose()
+    }
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Jadwal Termin: {item.name}</h3>
+                        <p className="text-sm text-gray-500">Total Harga: <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(totalAmount)}</span></p>
+                    </div>
+                </div>
+
+                <div className="p-6 overflow-y-auto flex-1">
+                    {disbursements.length === 0 ? (
+                        <div className="text-center py-8">
+                            <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">Belum ada termin pencairan untuk item ini.</p>
+                            <button
+                                type="button"
+                                onClick={handleAdd}
+                                className="px-4 py-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 font-bold rounded-lg text-sm hover:bg-indigo-100 transition-colors"
+                            >
+                                + Tambah Termin
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end mb-2">
+                                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">Daftar Termin</h4>
+                                <button
+                                    type="button"
+                                    onClick={handleAdd}
+                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-900/20"
+                                >
+                                    + Tambah Baris
+                                </button>
+                            </div>
+
+                            <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-xl">
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead className="bg-gray-50 dark:bg-gray-800">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Keterangan</th>
+                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Est. Tanggal</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase w-24">Persentase</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase w-40">Nominal</th>
+                                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase w-16">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                        {calculatedDisbursements.map((d, idx) => (
+                                            <tr key={d.id} className="bg-white dark:bg-gray-900 group">
+                                                <td className="px-4 py-2">
+                                                    <input
+                                                        type="text"
+                                                        value={d.name}
+                                                        onChange={e => handleUpdate(d.id, 'name', e.target.value)}
+                                                        className="w-full bg-transparent border border-transparent focus:border-indigo-300 rounded p-1.5 text-sm font-medium dark:text-white"
+                                                        placeholder={`Termin ${idx + 1}`}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input
+                                                        type="date"
+                                                        value={d.estimatedDate ? new Date(d.estimatedDate).toISOString().split('T')[0] : ''}
+                                                        onChange={e => handleUpdate(d.id, 'estimatedDate', e.target.value)}
+                                                        className="w-full bg-transparent border border-transparent focus:border-indigo-300 rounded p-1.5 text-sm dark:text-white"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <div className="flex items-center justify-end">
+                                                        <input
+                                                            type="number"
+                                                            min="0" max="100"
+                                                            value={d.percentage}
+                                                            onChange={e => handleUpdate(d.id, 'percentage', Number(e.target.value))}
+                                                            className="w-16 bg-transparent border border-transparent focus:border-indigo-300 rounded p-1 text-sm text-right font-bold dark:text-white"
+                                                        />
+                                                        <span className="text-gray-400 ml-1 text-xs">%</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-2 text-right border-l border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
+                                                    <span className="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400 block px-2">
+                                                        {formatCurrency(d.amount)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-2 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemove(d.id)}
+                                                        title="Hapus Termin"
+                                                        className="text-gray-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100 mx-auto block"
+                                                    >
+                                                        <HiOutlineTrash className="w-5 h-5" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className={`p-4 rounded-xl flex flex-col sm:flex-row shadow-inner items-start sm:items-center justify-between gap-4 mt-8 ${isValid || disbursements.length === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'}`}>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Persentase</span>
+                                    <span className={`text-2xl font-black ${isValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                        {totalPercentage}%
+                                    </span>
+                                </div>
+                                <div className="text-left sm:text-right flex flex-col">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Nominal Pencairan</span>
+                                    <span className={`text-2xl font-mono font-black ${isValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                        {formatCurrency(calculatedDisbursements.reduce((sum, d) => sum + (d.amount || 0), 0))}
+                                    </span>
+                                </div>
+                            </div>
+                            {!isValid && disbursements.length > 0 && (
+                                <p className="text-sm text-red-600 mt-2 font-bold px-4 py-3 bg-red-100 rounded-lg flex items-center gap-2 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    Validasi Error: Total persentase termin harus persis 100%. Saat ini {totalPercentage}%.
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3 rounded-b-2xl shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-6 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSave}
+                        className="px-8 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                        disabled={!isValid && disbursements.length > 0}
+                    >
+                        <HiOutlineCheck className="w-5 h-5" />
+                        Terapkan Termin
+                    </button>
+                </div>
+            </div>
+        </div>
     )
 }
