@@ -652,6 +652,63 @@ async function main() {
   console.log('   ✅ User: finance@example.com (Role: FINANCE)')
 
   // ========================================================================
+  // STEP 8.5: MITRA PARTNERS
+  // ========================================================================
+  console.log('\n🤝 STEP 8.5: Creating Mitra Partners...')
+
+  const mitraTeknisiHash = await hash('mitratech123', 10)
+  await prisma.mitra.upsert({
+    where: { email: 'mitrateknisi@example.com' },
+    update: {},
+    create: {
+      name: 'Budi Mitra Teknisi',
+      email: 'mitrateknisi@example.com',
+      passwordHash: mitraTeknisiHash,
+      phone: '081234567891',
+      isActive: true,
+      siteId: hqSite.id,
+      mitraType: 'MITRA_TEKNISI',
+      mitraRateWo: 50000,
+      bankName: 'BCA',
+      bankAccountNo: '1234567890',
+      bankAccountName: 'Budi Mitra Teknisi',
+      mitraWallet: {
+        create: {
+          balance: 0,
+          currency: 'IDR'
+        }
+      }
+    }
+  })
+  console.log('   ✅ Mitra: mitrateknisi@example.com (Type: MITRA_TEKNISI)')
+
+  const mitraSalesHash = await hash('mitrasales123', 10)
+  await prisma.mitra.upsert({
+    where: { email: 'mitrasales@example.com' },
+    update: {},
+    create: {
+      name: 'Andi Mitra Sales',
+      email: 'mitrasales@example.com',
+      passwordHash: mitraSalesHash,
+      phone: '081234567892',
+      isActive: true,
+      siteId: jkt01Site.id,
+      mitraType: 'MITRA_SALES',
+      mitraRateCanvasing: 25000,
+      bankName: 'Mandiri',
+      bankAccountNo: '0987654321',
+      bankAccountName: 'Andi Mitra Sales',
+      mitraWallet: {
+        create: {
+          balance: 0,
+          currency: 'IDR'
+        }
+      }
+    }
+  })
+  console.log('   ✅ Mitra: mitrasales@example.com (Type: MITRA_SALES)')
+
+  // ========================================================================
   // STEP 9: VALIDATION
   // ========================================================================
   console.log('\n✅ STEP 9: Validating Authentication Data...')
@@ -737,6 +794,8 @@ async function main() {
   console.log('   │ TEKNISI:     teknisi@example.com / tech123        │')
   console.log('   │ SALES:       sales@example.com / sales123         │')
   console.log('   │ FINANCE:     finance@example.com / finance123     │')
+  console.log('   │ MITRA TECH:  mitrateknisi@example.com/ mitratech123│')
+  console.log('   │ MITRA SALES: mitrasales@example.com/ mitrasales123 │')
   console.log('   └────────────────────────────────────────────────────┘')
   console.log('\n📝 Portal Access:')
   console.log('   ┌────────────────────────────────────────────────────┐')
@@ -745,6 +804,7 @@ async function main() {
   console.log('   │ TEKNISI:      Admin Panel ✗  Employee Panel ✓     │')
   console.log('   │ SALES:        Admin Panel ✗  Employee Panel ✓     │')
   console.log('   │ FINANCE:      Admin Panel ✓  Employee Panel ✗     │')
+  console.log('   │ MITRA:        Admin Panel ✗  Mitra App ✓          │')
   console.log('   └────────────────────────────────────────────────────┘')
   console.log('\n✅ All authentication data is ready for login!\n')
 

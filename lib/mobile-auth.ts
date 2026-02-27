@@ -10,11 +10,17 @@ export async function signMobileToken(payload: Record<string, unknown>) {
     let tokenVersion = 0
     try {
         const id = (payload.id || payload.sub) as string
-        const user = await prisma.user.findUnique({
-            where: { id },
-            select: { tokenVersion: true }
-        })
-        tokenVersion = user?.tokenVersion ?? 0
+        const role = payload.role as string | undefined
+
+        // Mitra users are in a separate table, they don't have tokenVersion
+        if (role !== 'MITRA') {
+            const user = await prisma.user.findUnique({
+                where: { id },
+                select: { tokenVersion: true }
+            })
+            tokenVersion = user?.tokenVersion ?? 0
+        }
+        // Mitra doesn't have tokenVersion, so we keep it at 0
     } catch (error) {
         console.error('[MOBILE_AUTH] Error fetching tokenVersion:', error)
     }
@@ -55,8 +61,8 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
         // Validate tokenVersion against database
         const dbUser = await prisma.user.findUnique({
             where: { id: userId as string },
-            select: { 
-                tokenVersion: true, 
+            select: {
+                tokenVersion: true,
                 isActive: true,
                 isSales: true,
                 siteId: true,
@@ -70,7 +76,7 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
 
         if (!dbUser) {
             console.log('[MOBILE_AUTH] User not found in User table, checking Pelanggan...', userId)
-            
+
             // Fallback: Check if it's a Customer
             const customer = await prisma.pelanggan.findUnique({
                 where: { id: userId as string },
@@ -85,7 +91,7 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
 
             if (customer) {
                 console.log('[MOBILE_AUTH] Customer found:', customer.nama)
-                
+
                 // Customer permission mapping
                 return {
                     ...payload,
@@ -98,7 +104,38 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
                 } as unknown as MobileTokenPayload
             }
 
-            console.log('[MOBILE_AUTH] User/Customer not found in DB:', userId)
+            console.log('[MOBILE_AUTH] Customer not found, checking Mitra...', userId)
+            const mitra = await prisma.mitra.findUnique({
+                where: { id: userId as string },
+                select: {
+                    id: true,
+                    name: true,
+                    isActive: true,
+                    mitraType: true,
+                    siteId: true
+                }
+            })
+
+            if (mitra) {
+                console.log('[MOBILE_AUTH] Mitra found:', mitra.name)
+
+                if (!mitra.isActive) {
+                    console.log('[MOBILE_AUTH] Mitra is inactive:', userId)
+                    return null
+                }
+
+                return {
+                    ...payload,
+                    sub: mitra.id,
+                    userId: mitra.id,
+                    role: 'MITRA',
+                    permissions: [], // Will be handled by features in token or logic
+                    isSales: mitra.mitraType === 'MITRA_SALES',
+                    siteId: mitra.siteId
+                } as unknown as MobileTokenPayload
+            }
+
+            console.log('[MOBILE_AUTH] User/Customer/Mitra not found in DB:', userId)
             return null
         }
 

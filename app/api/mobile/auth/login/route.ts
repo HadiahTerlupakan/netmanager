@@ -7,17 +7,17 @@ export async function POST(req: Request) {
     try {
         const body = await req.json()
         // DEBUG LOGGING
-        // console.log('[MobileAuth] Login Request Body:', JSON.stringify(body, null, 2))
-        
-        const { email, password, versionCode, loginType } = body 
+        console.log('[MobileAuth] Login Request Body:', JSON.stringify(body, null, 2))
+
+        const { email, password, versionCode, loginType } = body
 
         // IMPORTANT: Log what we received to debug why "loginType" might be wrong
-        // console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`)
+        console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`)
 
         if (!email || !password) {
-            return NextResponse.json({ 
+            return NextResponse.json({
                 success: false,
-                error: 'Email/Username dan password harus diisi' 
+                error: 'Email/Username dan password harus diisi'
             }, { status: 400 })
         }
 
@@ -36,13 +36,13 @@ export async function POST(req: Request) {
         // ATTEMPT 1: Primary Target
         // ==========================================
         if (targetType === 'CUSTOMER') {
-             // ... Customer Logic ...
-             // If not found -> try employee
+            // ... Customer Logic ...
+            // If not found -> try employee
         } else {
-             // ... Employee Logic ...
-             // If not found -> try customer
+            // ... Employee Logic ...
+            // If not found -> try customer
         }
-        
+
         // Helper Types
         type LoginResult =
             | { found: false }
@@ -61,9 +61,9 @@ export async function POST(req: Request) {
                 },
                 include: { hargaPaket: true }
             })
-            
+
             if (!customer) return { found: false }
-            
+
             // User found, check password
             let isPasswordValid = false
             if (customer.password && customer.password === password) isPasswordValid = true
@@ -152,6 +152,7 @@ export async function POST(req: Request) {
                         name: user.name,
                         email: user.email,
                         role: user.role?.name,
+                        employeeType: user.employeeType,
                         workDays: user.workDays,
                         workingHourMode: user.workingHourMode,
                         isSales: user.isSales,
@@ -161,23 +162,79 @@ export async function POST(req: Request) {
             }
         }
 
+        // Helper: Try Login as Mitra
+        const tryMitraLogin = async (): Promise<LoginResult> => {
+            const mitra = await prisma.mitra.findUnique({
+                where: { email }
+            })
+
+            if (!mitra) return { found: false }
+            if (!mitra.passwordHash) return { found: false }
+            if (!mitra.isActive) return { found: true, success: false, error: 'Akun mitra tidak aktif', status: 403 }
+
+            const isValid = await compare(password, mitra.passwordHash)
+            if (!isValid) return { found: true, success: false, error: 'Password salah' }
+
+            const tokenPayload = {
+                id: mitra.id,
+                email: mitra.email,
+                name: mitra.name,
+                role: 'MITRA',
+                mitraType: mitra.mitraType
+            }
+            const token = await signMobileToken(tokenPayload)
+
+            // Features for Mitra (Array of feature strings, matching karyawan format)
+            const features: string[] = [
+                'm_dashboard',
+                'm_mitra_wallet',
+                'm_mitra_withdraw',
+                ...(mitra.mitraType === 'MITRA_SALES' ? ['m_canvasing'] : []),
+                ...(mitra.mitraType === 'MITRA_TEKNISI' ? ['m_work_order'] : []),
+            ]
+
+            return {
+                found: true,
+                success: true,
+                data: {
+                    token,
+                    user: {
+                        id: mitra.id,
+                        name: mitra.name,
+                        email: mitra.email,
+                        role: 'MITRA',
+                        employeeType: mitra.mitraType,
+                        isSales: mitra.mitraType === 'MITRA_SALES',
+                        features
+                    }
+                }
+            }
+        }
+
         // EXECUTION FLOW
         let result: LoginResult
-        // console.log(`[MobileLogin] Strategy: ${loginType === 'CUSTOMER' ? 'Customer First' : 'Employee First'}`)
 
         if (loginType === 'CUSTOMER') {
             result = await tryCustomerLogin()
             if (!result.found) {
-                // console.log('[MobileLogin] Customer not found, falling back to Employee check...')
                 const empResult = await tryEmployeeLogin()
-                if (empResult.found) result = empResult // Override if found as employee
+                if (empResult.found) {
+                    result = empResult
+                } else {
+                    const mitraResult = await tryMitraLogin()
+                    if (mitraResult.found) result = mitraResult
+                }
             }
         } else {
             result = await tryEmployeeLogin()
             if (!result.found) {
-                // console.log('[MobileLogin] Employee not found, falling back to Customer check...')
-                const custResult = await tryCustomerLogin()
-                if (custResult.found) result = custResult // Override if found as customer
+                const mitraResult = await tryMitraLogin()
+                if (mitraResult.found) {
+                    result = mitraResult
+                } else {
+                    const custResult = await tryCustomerLogin()
+                    if (custResult.found) result = custResult
+                }
             }
         }
 
@@ -198,9 +255,9 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error('Mobile Login Error:', error)
-        return NextResponse.json({ 
+        return NextResponse.json({
             success: false,
-            error: 'Terjadi kesalahan server. Silakan coba lagi.' 
+            error: 'Terjadi kesalahan server. Silakan coba lagi.'
         }, { status: 500 })
     }
 }

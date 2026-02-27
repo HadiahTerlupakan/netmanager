@@ -52,5 +52,6 @@ export async function getUserFeaturesWithCanvasing(userId: string): Promise<stri
       .filter(resource => resource.startsWith('m_'))
   )]
 
+  // Return all mobile features (Karyawan)
   return roleFeatures
 }

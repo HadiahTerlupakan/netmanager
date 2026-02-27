@@ -8,11 +8,11 @@ const actualSchema = z.object({
     month: z.number().min(1).max(120),
     year: z.number().min(2000),
     actualSubscribers: z.number().min(0),
-    actualRevenue: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
-    actualOpex: z.union([z.string(), z.number()]).optional().default(0).transform(v => BigInt(v)),
-    manualRecoveryInstallment: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(v) : null),
-    manualInvestorShare: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(v) : null),
-    manualCompanyShare: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(v) : null),
+    actualRevenue: z.union([z.string(), z.number()]).transform(v => BigInt(Math.round(Number(v)))),
+    actualOpex: z.union([z.string(), z.number()]).optional().default(0).transform(v => BigInt(Math.round(Number(v)))),
+    manualRecoveryInstallment: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(Math.round(Number(v))) : null),
+    manualInvestorShare: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(Math.round(Number(v))) : null),
+    manualCompanyShare: z.union([z.string(), z.number()]).optional().transform(v => v ? BigInt(Math.round(Number(v))) : null),
     manualInvestorProfitSharePercent: z.number().optional().nullable(),
     notes: z.string().optional()
 });

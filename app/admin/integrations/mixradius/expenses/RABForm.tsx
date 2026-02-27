@@ -112,6 +112,69 @@ interface Category {
     id: string
     name: string
     type: string
+    parentId?: string | null
+}
+
+// Buat opsi berjenjang: parent sebagai header (disabled), children di-indent
+function buildHierarchicalOptions(categories: Category[], expenseType: string) {
+    const filtered = categories.filter(c => c.type === expenseType)
+    const parents = filtered.filter(c => !c.parentId)
+    const children = filtered.filter(c => !!c.parentId)
+
+    const options: { value: string; label: React.ReactNode; searchLabel: string; disabled?: boolean }[] = []
+
+    // Kategori yang tidak punya parent sama sekali (standalone)
+    const standaloneChildren = children.filter(
+        c => !parents.some(p => p.id === c.parentId)
+    )
+
+    // Parent-parent yang punya anak
+    parents.forEach(parent => {
+        const kids = children.filter(c => c.parentId === parent.id)
+        if (kids.length > 0) {
+            // Tampilkan parent sebagai header (disabled)
+            options.push({
+                value: `__header__${parent.id}`,
+                label: (
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {parent.name}
+                    </span>
+                ),
+                searchLabel: parent.name,
+                disabled: true,
+            })
+            kids.forEach(kid => {
+                options.push({
+                    value: kid.id,
+                    label: (
+                        <span className="pl-2 flex items-center gap-1.5 text-gray-700 dark:text-gray-200">
+                            <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                            {kid.name}
+                        </span>
+                    ),
+                    searchLabel: kid.name,
+                })
+            })
+        } else {
+            // Parent tanpa anak → bisa dipilih langsung
+            options.push({
+                value: parent.id,
+                label: <span className="text-gray-700 dark:text-gray-200">{parent.name}</span>,
+                searchLabel: parent.name,
+            })
+        }
+    })
+
+    // Anak yang parentId-nya tidak ada di list (orphan)
+    standaloneChildren.forEach(c => {
+        options.push({
+            value: c.id,
+            label: <span className="text-gray-700 dark:text-gray-200">{c.name}</span>,
+            searchLabel: c.name,
+        })
+    })
+
+    return options
 }
 
 interface LocalDisbursement {
@@ -249,6 +312,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
         investmentRecoveryType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED',
         investmentRecoveryValue: 50, // Defaults to 50%
         investorProfitSharePercent: 50,
+        nplTolerancePercent: 0,
         contingencyPercent: 0,
         hasDisbursementPlan: false
     })
@@ -282,9 +346,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const res = await fetch("/api/finance/categories")
+                const res = await fetch("/api/finance/expense-categories")
                 const data = await res.json()
-                setCategories(Array.isArray(data) ? data.filter((c: Category) => c.type === 'EXPENSE') : [])
+                // expense-categories sudah memiliki type CAPEX/OPEX — simpan semua
+                setCategories(Array.isArray(data?.data ?? data) ? (data?.data ?? data) : [])
             } catch (error) {
                 console.error("Failed fetching categories", error)
             }
@@ -319,6 +384,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     investmentRecoveryType: initialData.investmentRecoveryType || 'PERCENTAGE',
                     investmentRecoveryValue: initialData.investmentRecoveryValue || 50,
                     investorProfitSharePercent: initialData.investorProfitSharePercent || 50,
+                    nplTolerancePercent: (initialData as any).nplTolerancePercent || 0,
                     contingencyPercent: initialData.contingencyPercent || 0,
                     hasDisbursementPlan: initialData.hasDisbursementPlan || false
                 })
@@ -380,6 +446,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     investmentRecoveryType: 'PERCENTAGE',
                     investmentRecoveryValue: 50,
                     investorProfitSharePercent: 50,
+                    nplTolerancePercent: 0,
                     contingencyPercent: 0,
                     hasDisbursementPlan: false
                 })
@@ -421,7 +488,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     }
 
     const updateItem = (id: string, field: string, value: string | number | string[] | LocalDisbursement[]) => {
-        setItems(items.map(item =>
+        setItems(prevItems => prevItems.map(item =>
             item.id === id ? { ...item, [field]: value } : item
         ))
     }
@@ -457,11 +524,12 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
 
     // Projected revenue at full capacity
     const projectedRevenue = targetSubscribers * arpu
+    const realisticRevenue = projectedRevenue * (1 - (formData.nplTolerancePercent / 100))
 
     // Profit Calculation (simple - at full capacity)
-    const profitPerMonth = projectedRevenue - totalOpex
+    const profitPerMonth = realisticRevenue - totalOpex
     const simpleBepMonths = profitPerMonth > 0 ? totalCapex / profitPerMonth : Infinity
-    const margin = projectedRevenue > 0 ? (profitPerMonth / projectedRevenue) * 100 : 0
+    const margin = realisticRevenue > 0 ? (profitPerMonth / realisticRevenue) * 100 : 0
 
     // Realistic BEP with growth
     const realisticBepMonths = useMemo(() => {
@@ -556,6 +624,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 investmentRecoveryType: formData.investmentRecoveryType,
                 investmentRecoveryValue: formData.investmentRecoveryValue,
                 investorProfitSharePercent: formData.investorProfitSharePercent,
+                nplTolerancePercent: formData.nplTolerancePercent,
                 contingencyPercent: formData.contingencyPercent,
                 contingencyAmount,
                 hasDisbursementPlan: formData.hasDisbursementPlan,
@@ -808,6 +877,37 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Toleransi NPL / Bad Debt (%)</label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    value={formData.nplTolerancePercent || 0}
+                                                                    onChange={e => setFormData({ ...formData, nplTolerancePercent: Number(e.target.value) })}
+                                                                    className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 pr-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                                                    placeholder="Misal: 5"
+                                                                />
+                                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+                                                            </div>
+                                                            <p className="mt-2 text-xs text-gray-500">Pemotongan estimasi Pendapatan Realistis untuk antisipasi NPL pelangggan secara keseluruhan.</p>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Pendapatan Realistis / Bulan</label>
+                                                            <input
+                                                                type="text"
+                                                                value={formatCurrency(projectedRevenue * (1 - ((formData.nplTolerancePercent || 0) / 100)))}
+                                                                readOnly
+                                                                className="block w-full rounded-xl border-transparent bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-bold text-sm py-3"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
                                                 <p className="mt-3 text-[10px] text-gray-500 italic leading-relaxed">
                                                     * Seluruh modal (CAPEX) dianggap dari Investor. Angsuran modal (Recovery) akan diprioritaskan diambil dari profit kotor setiap bulan sebelum sisa profit dibagi antara Investor dan Perusahaan.
                                                 </p>
@@ -1222,30 +1322,42 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     {mainTab === 'items' && (
                         <div className="space-y-6 p-4 animate-in fade-in slide-in-from-left-4 duration-500">
                             {/* Summary Metris */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 p-4 rounded-2xl border border-green-100 dark:border-green-900/30 group">
-                                    <div className="flex items-center gap-2 mb-2 text-green-600 dark:text-green-400">
+                                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                                         <HiOutlineCurrencyDollar className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Est. Pendapatan</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Est. Pendapatan Realistis</span>
                                     </div>
-                                    <div className="text-xl font-black text-green-800 dark:text-green-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left">{formatCurrency(projectedRevenue)}</div>
-                                    <div className="text-[10px] text-green-600/60 font-bold uppercase mt-1">/Bulan (Kapasitas Penuh)</div>
+                                    <div className="text-lg sm:text-xl font-black text-green-800 dark:text-green-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left my-1">
+                                        {formatCurrency(projectedRevenue * (1 - (formData.nplTolerancePercent / 100)))}
+                                    </div>
+                                    <div className="text-[9px] text-green-600/60 font-bold uppercase leading-tight">
+                                        /Bulan (Dipotong NPL {formData.nplTolerancePercent}%)
+                                    </div>
                                 </div>
                                 <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/10 dark:to-fuchsia-900/10 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/30 group">
-                                    <div className="flex items-center gap-2 mb-2 text-purple-600 dark:text-purple-400">
+                                    <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
                                         <HiOutlineCube className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Total Capex</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Capex Dasar</span>
                                     </div>
-                                    <div className="text-xl font-black text-purple-800 dark:text-purple-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left">{formatCurrency(totalCapex)}</div>
-                                    <div className="text-[10px] text-purple-600/60 font-bold uppercase mt-1">{capexItems.length} Komponen Investasi</div>
+                                    <div className="text-lg sm:text-xl font-black text-purple-800 dark:text-purple-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left my-1">{formatCurrency(totalCapex)}</div>
+                                    <div className="text-[9px] text-purple-600/60 font-bold uppercase leading-tight">{capexItems.length} Komponen Investasi</div>
+                                </div>
+                                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/10 dark:to-blue-900/10 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 group">
+                                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                                        <HiOutlineCalculator className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Total Investasi</span>
+                                    </div>
+                                    <div className="text-lg sm:text-xl font-black text-indigo-800 dark:text-indigo-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left my-1">{formatCurrency(totalInvestment)}</div>
+                                    <div className="text-[9px] text-indigo-600/60 font-bold uppercase leading-tight">Inc. Contingency {formData.contingencyPercent}%</div>
                                 </div>
                                 <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 group">
-                                    <div className="flex items-center gap-2 mb-2 text-orange-600 dark:text-orange-400">
+                                    <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
                                         <HiOutlineBanknotes className="w-4 h-4" />
                                         <span className="text-[10px] font-black uppercase tracking-widest">Total Opex</span>
                                     </div>
-                                    <div className="text-xl font-black text-orange-800 dark:text-orange-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left">{formatCurrency(totalOpex)}</div>
-                                    <div className="text-[10px] text-orange-600/60 font-bold uppercase mt-1">{opexItems.length} Biaya Operasional/Bln</div>
+                                    <div className="text-lg sm:text-xl font-black text-orange-800 dark:text-orange-400 font-mono tracking-tighter group-hover:scale-105 transition-transform origin-left my-1">{formatCurrency(totalOpex)}</div>
+                                    <div className="text-[9px] text-orange-600/60 font-bold uppercase leading-tight">{opexItems.length} Biaya Operasional/Bln</div>
                                 </div>
                             </div>
 
@@ -1404,14 +1516,12 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                             </td>
                                                             <td className="px-4 py-4">
                                                                 <Combobox
-                                                                    options={categories.map(c => ({ value: c.id, label: c.name }))}
+                                                                    options={buildHierarchicalOptions(categories, item.expenseType)}
                                                                     value={item.expenseCategoryId || ""}
                                                                     onChange={val => {
                                                                         updateItem(item.id, 'expenseCategoryId', val);
-                                                                        // also find category type to map back to generic category enum if possible
                                                                         const selectedCat = categories.find(c => c.id === val);
                                                                         if (selectedCat) {
-                                                                            // Attempt basic mapping, defaults to OTHER
                                                                             const nameLower = selectedCat.name.toLowerCase();
                                                                             let enumVal = "OTHER";
                                                                             if (nameLower.includes("perangkat") || nameLower.includes("device") || nameLower.includes("alat") || nameLower.includes("server") || nameLower.includes("router") || nameLower.includes("switch")) enumVal = "DEVICE";
@@ -1419,7 +1529,6 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                                             else if (nameLower.includes("aksesoris") || nameLower.includes("accessories") || nameLower.includes("material")) enumVal = "ACCESSORIES";
                                                                             else if (nameLower.includes("jasa") || nameLower.includes("service") || nameLower.includes("tukang") || nameLower.includes("instalasi")) enumVal = "SERVICE";
                                                                             else if (nameLower.includes("operasional") || nameLower.includes("bensin") || nameLower.includes("makan") || nameLower.includes("pulsa") || nameLower.includes("listrik")) enumVal = "OPERATIONAL";
-
                                                                             updateItem(item.id, 'category', enumVal);
                                                                         }
                                                                     }}
@@ -1541,7 +1650,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     }
                 }}
             />
-        </Modal>
+        </Modal >
     )
 }
 

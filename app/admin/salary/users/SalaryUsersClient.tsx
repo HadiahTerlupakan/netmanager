@@ -615,7 +615,8 @@ export default function SalaryUsersClient() {
                                 required
                             >
                                 <option value="KARYAWAN">Karyawan</option>
-                                <option value="MITRA">Mitra</option>
+                                <option value="MITRA_TEKNISI">Mitra Teknisi</option>
+                                <option value="MITRA_SALES">Mitra Sales</option>
                             </select>
                         </div>
                     </div>
@@ -944,9 +945,8 @@ export default function SalaryUsersClient() {
                                     className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 >
                                     <option value="KARYAWAN">Karyawan</option>
-                                    <option value="MITRA">Mitra</option>
-                                    <option value="MAGANG">Magang</option>
-                                    <option value="FREELANCE">Freelance</option>
+                                    <option value="MITRA_TEKNISI">Mitra Teknisi</option>
+                                    <option value="MITRA_SALES">Mitra Sales</option>
                                 </select>
                             </div>
                             <div>

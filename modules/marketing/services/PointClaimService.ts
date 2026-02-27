@@ -1,8 +1,8 @@
 import type { PointClaim, PointClaimStatus } from '@prisma/client'
 import type { PrismaClient } from '@prisma/client'
-import type { 
-  IPointClaimRepository, 
-  CreatePointClaimInput, 
+import type {
+  IPointClaimRepository,
+  CreatePointClaimInput,
   PointClaimWithRelations,
   PointSummary
 } from '../repositories/IPointClaimRepository'
@@ -12,7 +12,7 @@ export class PointClaimService {
   constructor(
     private readonly repository: IPointClaimRepository,
     private readonly db: PrismaClient
-  ) {}
+  ) { }
 
   /**
    * Submit claim poin oleh sales
@@ -26,7 +26,8 @@ export class PointClaimService {
       include: {
         workOrder: true,
         pointClaims: true,
-        sales: { select: { name: true } },
+        user: { select: { name: true } },
+        mitra: { select: { name: true } },
       },
     })
 
@@ -34,7 +35,7 @@ export class PointClaimService {
       throw new Error('Canvasing tidak ditemukan')
     }
 
-    if (canvasing.salesId !== data.salesId) {
+    if (canvasing.salesId !== data.salesId && canvasing.mitraId !== data.salesId) {
       throw new Error('Anda tidak memiliki akses ke canvasing ini')
     }
 
@@ -65,7 +66,7 @@ export class PointClaimService {
     })
 
     // 4. Notify admins about new claim
-    const salesName = canvasing.sales?.name || 'Sales'
+    const salesName = canvasing.user?.name || canvasing.mitra?.name || 'Sales'
     createNotification({
       type: 'ANNOUNCEMENT',
       priority: 'NORMAL',
@@ -87,9 +88,9 @@ export class PointClaimService {
     return this.repository.findByCanvasingId(canvasingId)
   }
 
-  async getAllClaims(filters?: { 
+  async getAllClaims(filters?: {
     status?: PointClaimStatus
-    salesId?: string 
+    salesId?: string
   }): Promise<PointClaimWithRelations[]> {
     return this.repository.findAll(filters)
   }

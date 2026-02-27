@@ -7,7 +7,7 @@ export class CanvasingService {
   constructor(
     private readonly repository: ICanvasingRepository,
     private readonly woRepository: IWorkOrderRepository
-  ) {}
+  ) { }
 
   async createRequest(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo> {
     const canvasing = await this.repository.create(data)
@@ -17,8 +17,8 @@ export class CanvasingService {
       canvasingId: canvasing.id,
       customerName: canvasing.nama,
       salesId: canvasing.salesId,
-      salesName: canvasing.sales?.name || undefined,
-      siteId: canvasing.sales?.siteId,
+      salesName: canvasing.user?.name || canvasing.mitra?.name || undefined,
+      siteId: canvasing.user?.siteId || canvasing.mitra?.siteId,
     }).catch(err => console.error('[Canvasing Notif] Error:', err))
 
     return canvasing
@@ -61,7 +61,7 @@ export class CanvasingService {
       priority: 'NORMAL',
       type: 'INSTALLATION',
       // Site from sales user
-      ...(request.sales?.siteId ? { siteId: request.sales.siteId } : {}),
+      ...(request.user?.siteId ? { siteId: request.user.siteId } : request.mitra?.siteId ? { siteId: request.mitra.siteId } : {}),
       // Contact info
       contactName: request.nama,
       contactPhone: request.noTelpon,
@@ -125,7 +125,7 @@ export class CanvasingService {
   async rejectRequest(id: string): Promise<Canvasing> {
     // Get request to notify sales
     const request = await this.repository.findById(id)
-    
+
     const rejected = await this.repository.update(id, { status: 'REJECTED' })
 
     // Notify sales that canvasing was rejected

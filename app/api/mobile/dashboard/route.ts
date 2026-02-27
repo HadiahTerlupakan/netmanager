@@ -21,29 +21,101 @@ export async function GET(req: NextRequest) {
         }
 
         const userId = payload.id as string
-        
+
+        // Handle Mitra users - they are in a separate table
+        if (payload.role === 'MITRA') {
+            const mitra = await prisma.mitra.findUnique({
+                where: { id: userId },
+                select: { siteId: true, mitraType: true }
+            })
+
+            if (!mitra) {
+                return NextResponse.json({ error: 'Mitra tidak ditemukan' }, { status: 404 })
+            }
+
+            const now = new Date()
+            const today = new Date(now)
+            today.setHours(0, 0, 0, 0)
+            const weekStart = new Date(now)
+            const dayOfWeek = weekStart.getDay()
+            const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+            weekStart.setDate(weekStart.getDate() - diff)
+            weekStart.setHours(0, 0, 0, 0)
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+            monthStart.setHours(0, 0, 0, 0)
+
+            // Mitra work orders are assigned via mitraId field in WorkOrderAssignments
+            const workOrdersAssigned = await prisma.workOrderAssignments.count({
+                where: {
+                    mitraId: userId,
+                    workOrders: { status: { in: ['ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'] } }
+                }
+            })
+
+            const woCompletedToday = await prisma.workOrderAssignments.count({
+                where: {
+                    mitraId: userId,
+                    workOrders: {
+                        status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
+                        completedAt: { gte: today }
+                    }
+                }
+            })
+
+            const woCompletedWeek = await prisma.workOrderAssignments.count({
+                where: {
+                    mitraId: userId,
+                    workOrders: {
+                        status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
+                        completedAt: { gte: weekStart }
+                    }
+                }
+            })
+
+            const woCompletedMonth = await prisma.workOrderAssignments.count({
+                where: {
+                    mitraId: userId,
+                    workOrders: {
+                        status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
+                        completedAt: { gte: monthStart }
+                    }
+                }
+            })
+
+            return NextResponse.json({
+                workOrdersAssigned,
+                workOrdersPending: 0, // Mitra don't see pending pool
+                woCompletedToday,
+                woCompletedWeek,
+                woCompletedMonth,
+                barangKeluarToday: 0,
+                barangMasukToday: 0
+            })
+        }
+
+        // Handle regular User (Karyawan)
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { 
-                siteId: true, 
+            select: {
+                siteId: true,
                 departmentId: true,
                 userSites: {
                     select: { siteId: true }
                 }
             }
         })
-        
+
         if (!user) {
             return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
         }
-        
+
         const userSiteIds: string[] = [];
         if (user.userSites && user.userSites.length > 0) {
             userSiteIds.push(...user.userSites.map(us => us.siteId));
         } else if (user.siteId) {
             userSiteIds.push(user.siteId);
         }
-        
+
         const now = new Date()
 
         // Today start
@@ -76,7 +148,7 @@ export async function GET(req: NextRequest) {
                 status: 'PENDING',
                 assignedToId: null,
                 AND: [
-                    user.departmentId 
+                    user.departmentId
                         ? { OR: [{ departmentId: null }, { departmentId: user.departmentId }] }
                         : { departmentId: null },
                     userSiteIds.length > 0

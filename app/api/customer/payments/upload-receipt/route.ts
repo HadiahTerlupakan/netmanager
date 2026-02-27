@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             } else if (!ocrResult.is_valid_receipt) {
                 aiNotes += `⚠️ [AI Peringatan] Bukan gambar struk transfer/E-Wallet yang valid. ${ocrResult.catatan_analisis}`
             } else {
-                let warnings = []
+                const warnings = []
 
                 // Cek Kesesuaian Nominal
                 if (ocrResult.nominal) {
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
                     warnings.push(`Nominal tidak terbaca`)
                 }
 
-                let statusText = warnings.length > 0
+                const statusText = warnings.length > 0
                     ? `⚠️ [AI Peringatan] ${warnings.join(', ')}.`
                     : `✅ [AI Validasi] Nominal sesuai (Rp${expectedAmount.toLocaleString('id-ID')}).`
 

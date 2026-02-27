@@ -243,6 +243,10 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                         </p>
                                     </div>
                                     <div>
+                                        <p className="text-[10px] text-gray-500 font-semibold mb-0.5">Toleransi NPL (%)</p>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.nplTolerancePercent || 0}%</p>
+                                    </div>
+                                    <div>
                                         <p className="text-[10px] text-gray-500 font-semibold mb-0.5">Bagi Hasil Investor (%)</p>
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.investorProfitSharePercent || 50}%</p>
                                     </div>
@@ -386,6 +390,7 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                 <tr>
                                     <th scope="col" className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Periode</th>
                                     <th scope="col" className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase">Revenue</th>
+                                    <th scope="col" className="px-4 py-3 text-right text-[10px] font-bold text-red-500 uppercase">Potensi NPL</th>
                                     <th scope="col" className="px-4 py-3 text-right text-[10px] font-bold text-blue-600 uppercase">Profit Kotor</th>
                                     <th scope="col" className="px-4 py-3 text-right text-[10px] font-bold text-amber-600 uppercase">Angsuran Modal</th>
                                     <th scope="col" className="px-4 py-3 text-right text-[10px] font-bold text-orange-600 uppercase border-l border-gray-200 dark:border-gray-700">Sisa Investasi</th>
@@ -407,7 +412,8 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
 
                                         const targetSubs = monthlySubsTargets[i] || 0
                                         const activeTargetSubs = data.paymentType === 'POSTPAID' ? (monthlySubsTargets[i - 1] || 0) : targetSubs
-                                        const targetRevenue = activeTargetSubs * arpu
+                                        const grossTargetRev = activeTargetSubs * arpu
+                                        const targetRevenue = grossTargetRev * (1 - ((data.nplTolerancePercent || 0) / 100))
 
                                         const actualRecord = actuals.find(a => a.month === monthIndex)
                                         const isAutoAssumed = !actualRecord
@@ -470,6 +476,10 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                                             <span className="text-[9px] text-gray-400">{actualRecord ? 'Aktual' : 'Proyeksi'}</span>
                                                         </div>
                                                     )}
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium text-red-500">
+                                                    {formatCurrency(grossTargetRev - targetRevenue)}
+                                                    <div className="text-[9px] text-gray-400 font-normal">({data.nplTolerancePercent || 0}%)</div>
                                                 </td>
                                                 <td className={`px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium ${grossProfit >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
                                                     {formatCurrency(grossProfit)}
@@ -570,15 +580,17 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                 {(() => {
                                     let runningBalance = totalCapex
 
-                                    const totals = Array.from({ length: maxMonthsToShow }).reduce((acc: { rev: number; gross: number; rec: number; inv: number; comp: number; lastBalance: number }, _, i) => {
+                                    const totals = Array.from({ length: maxMonthsToShow }).reduce((acc: { rev: number; npl: number; gross: number; rec: number; inv: number; comp: number; lastBalance: number }, _, i) => {
                                         const monthIndex = i + 1
                                         const actualRecord = actuals.find(a => a.month === monthIndex)
 
                                         const targetSubs = monthlySubsTargets[i] || 0
                                         const activeTargetSubs = data.paymentType === 'POSTPAID' ? (monthlySubsTargets[i - 1] || 0) : targetSubs
-                                        const targetRevenue = activeTargetSubs * arpu
+                                        const grossTargetRev = activeTargetSubs * arpu
+                                        const targetRevenue = grossTargetRev * (1 - ((data.nplTolerancePercent || 0) / 100))
 
                                         const displayRev = actualRecord ? Number(actualRecord.actualRevenue) : targetRevenue
+                                        const nplAmount = grossTargetRev - targetRevenue;
                                         const grossProfit = displayRev - totalOpex
 
                                         // Recovery Calculation
@@ -606,19 +618,23 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
 
                                         return {
                                             rev: acc.rev + displayRev,
+                                            npl: acc.npl + nplAmount,
                                             gross: acc.gross + grossProfit,
                                             rec: acc.rec + recovery,
                                             inv: acc.inv + invShare,
                                             comp: acc.comp + compShare,
                                             lastBalance: runningBalance
                                         }
-                                    }, { rev: 0, gross: 0, rec: 0, inv: 0, comp: 0, lastBalance: totalCapex })
+                                    }, { rev: 0, npl: 0, gross: 0, rec: 0, inv: 0, comp: 0, lastBalance: totalCapex })
 
                                     return (
                                         <tr className="bg-gray-100 dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-600">
                                             <td className="px-4 py-4 text-[10px] text-gray-700 dark:text-gray-300 font-bold uppercase">TOTAL AKUMULASI</td>
                                             <td className="px-4 py-4 text-right text-[11px] text-gray-900 dark:text-white border-l border-gray-200/50">
                                                 {formatCurrency(totals.rev)}
+                                            </td>
+                                            <td className="px-4 py-4 text-right text-[11px] text-red-500 font-bold">
+                                                {formatCurrency(totals.npl)}
                                             </td>
                                             <td className="px-4 py-4 text-right text-[11px] text-blue-600 font-bold">
                                                 {formatCurrency(totals.gross)}
@@ -803,7 +819,13 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                                                     </span>
                                                                 </td>
                                                                 <td className="px-6 py-3 text-sm text-gray-900 dark:text-white font-medium">{item.name}</td>
-                                                                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.category}</td>
+                                                                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                                    {(() => {
+                                                                        const cat = (item as any).expenseCategory;
+                                                                        if (!cat) return item.category || '-';
+                                                                        return cat.parent ? `${cat.parent.name} - ${cat.name}` : cat.name;
+                                                                    })()}
+                                                                </td>
                                                                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right font-medium">{item.quantity}</td>
                                                                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">{formatCurrency(Number(item.unitPrice))}</td>
                                                                 <td className="px-6 py-3 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white text-right">{formatCurrency(Number(item.totalPrice))}</td>
@@ -882,7 +904,13 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                                                                     </span>
                                                                                 </td>
                                                                                 <td className="px-6 py-2.5 text-sm text-gray-900 dark:text-white font-medium pl-8">{item.name}</td>
-                                                                                <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{(item as any).expenseCategory?.name || item.category}</td>
+                                                                                <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                                                    {(() => {
+                                                                                        const cat = (item as any).expenseCategory;
+                                                                                        if (!cat) return item.category || '-';
+                                                                                        return cat.parent ? `${cat.parent.name} - ${cat.name}` : cat.name;
+                                                                                    })()}
+                                                                                </td>
                                                                                 <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right font-medium">{item.quantity}</td>
                                                                                 <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">{formatCurrency(Number(item.unitPrice))}</td>
                                                                                 <td className="px-6 py-2.5 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white text-right">{formatCurrency(Number(item.totalPrice))}</td>
@@ -951,7 +979,13 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                                                                 </span>
                                                                             </td>
                                                                             <td className="px-6 py-2.5 text-sm text-gray-900 dark:text-white font-medium pl-8">{item.name}</td>
-                                                                            <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.category}</td>
+                                                                            <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                                                {(() => {
+                                                                                    const cat = (item as any).expenseCategory;
+                                                                                    if (!cat) return item.category || '-';
+                                                                                    return cat.parent ? `${cat.parent.name} - ${cat.name}` : cat.name;
+                                                                                })()}
+                                                                            </td>
                                                                             <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right font-medium">{item.quantity}</td>
                                                                             <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">{formatCurrency(Number(item.unitPrice))}</td>
                                                                             <td className="px-6 py-2.5 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white text-right">{formatCurrency(Number(item.totalPrice))}</td>

@@ -677,7 +677,9 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       return []
     }
 
-    const permissions = user.role.permission.map(p => `${p.resource}:${p.action}`)
+    const validPermissions = user.role.permission;
+
+    const permissions = validPermissions.map(p => `${p.resource}:${p.action}`)
 
     // Cache permissions (non-blocking)
     try {

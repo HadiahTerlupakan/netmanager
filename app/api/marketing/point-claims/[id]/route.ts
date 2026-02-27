@@ -3,6 +3,7 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { prisma } from '@/lib/prisma'
 
 // GET - Get detail claim
 export async function GET(
@@ -48,8 +49,8 @@ export async function PUT(
 
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
-    const canManage = isSuperAdmin || 
-      permissions.includes('point_claims:update') || 
+    const canManage = isSuperAdmin ||
+      permissions.includes('point_claims:update') ||
       permissions.includes('canvasing:update') ||
       permissions.includes('marketing:update')
 
@@ -64,6 +65,35 @@ export async function PUT(
     let result
     if (body.action === 'approve') {
       result = await service.approveClaim(id, session.id, body.notes)
+
+      // ==========================================
+      // MITRA COMMISSION: Auto-add earning for MITRA_SALES on claim approval
+      // ==========================================
+      try {
+        // Get the claim to find the salesId
+        const claim = await service.getClaimById(id)
+        if (claim?.salesId) {
+          const salesMitra = await prisma.mitra.findUnique({
+            where: { id: claim.salesId },
+            select: { mitraType: true, mitraRateCanvasing: true },
+          })
+          if (salesMitra?.mitraType === 'MITRA_SALES' && salesMitra.mitraRateCanvasing && salesMitra.mitraRateCanvasing > 0) {
+            const { getMitraWalletService } = await import('@/modules/mitra')
+            const walletService = getMitraWalletService()
+            await walletService.addEarning(
+              claim.salesId,
+              salesMitra.mitraRateCanvasing,
+              `Komisi Canvasing #${claim.canvasingId || id}`,
+              claim.canvasingId || id,
+              'CANVASING'
+            )
+          }
+        }
+      } catch (mitraErr) {
+        // Non-blocking: log but don't fail the claim approval
+        console.error('[MitraCommission] Failed to add canvasing earning:', mitraErr)
+      }
+
     } else if (body.action === 'reject') {
       if (!body.notes) {
         return apiError('Alasan penolakan wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })

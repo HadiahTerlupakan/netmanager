@@ -67,6 +67,7 @@ import {
   HiOutlineCloud,
   HiOutlineArrowsRightLeft,
   HiOutlineNoSymbol,
+  HiOutlineBanknotes,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
@@ -150,6 +151,7 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlineCloud,
   HiOutlineArrowsRightLeft,
   HiOutlineNoSymbol,
+  HiOutlineBanknotes,
 }
 
 const getIcon = (name: string | undefined, className: string) => {
@@ -353,64 +355,64 @@ export default function Sidebar() {
                     <div key={item.code}>
                       {SectionHeader}
                       <div className="space-y-1 mb-1">
-                      <button
-                        onClick={() => toggleMenu(item.code)}
-                        className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
-                          ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
-                          }`}
-                      >
-                        {/* Active Indicator Line */}
-                        {(isActive || hasActiveChild) && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
-                        )}
+                        <button
+                          onClick={() => toggleMenu(item.code)}
+                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
+                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
+                            }`}
+                        >
+                          {/* Active Indicator Line */}
+                          {(isActive || hasActiveChild) && (
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
+                          )}
 
-                        <div className="flex items-center gap-3.5 z-10">
-                          <span className={`transition-colors duration-200 ${isActive || hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                            {getIcon(item.icon, "w-5 h-5")}
-                          </span>
-                          <span>{item.name}</span>
-                        </div>
-                        <HiChevronDown
-                          className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180 text-indigo-500' : ''}`}
-                        />
-                      </button>
+                          <div className="flex items-center gap-3.5 z-10">
+                            <span className={`transition-colors duration-200 ${isActive || hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                              {getIcon(item.icon, "w-5 h-5")}
+                            </span>
+                            <span>{item.name}</span>
+                          </div>
+                          <HiChevronDown
+                            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180 text-indigo-500' : ''}`}
+                          />
+                        </button>
 
-                      <div
-                        className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 translate-y-0' : 'grid-rows-[0fr] opacity-0 -translate-y-2'}`}
-                      >
-                        <div className="overflow-hidden">
-                          <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-6 my-1 pl-3 space-y-1">
-                            {item.children!.map((child) => {
-                              const childPath = child.path || '#'
-                              const isChildActive = child.exact
-                                ? pathname === childPath
-                                : pathname === childPath || pathname?.startsWith(childPath + '/')
+                        <div
+                          className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 translate-y-0' : 'grid-rows-[0fr] opacity-0 -translate-y-2'}`}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-6 my-1 pl-3 space-y-1">
+                              {item.children!.map((child) => {
+                                const childPath = child.path || '#'
+                                const isChildActive = child.exact
+                                  ? pathname === childPath
+                                  : pathname === childPath || pathname?.startsWith(childPath + '/')
 
-                              return (
-                                <Link
-                                  key={childPath}
-                                  href={childPath}
-                                  className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group/child ${isChildActive
-                                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
-                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/40'
-                                    }`}
-                                >
-                                  {child.icon ? (
-                                    <span className={`transition-colors duration-200 ${isChildActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                                      {getIcon(child.icon, "w-4 h-4")}
-                                    </span>
-                                  ) : (
-                                    <span className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${isChildActive ? 'bg-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30' : 'bg-gray-300 dark:bg-gray-600 group-hover/child:bg-gray-400'
-                                      }`} />
-                                  )}
-                                  <span>{child.name}</span>
-                                </Link>
-                              )
-                            })}
+                                return (
+                                  <Link
+                                    key={childPath}
+                                    href={childPath}
+                                    className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group/child ${isChildActive
+                                      ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
+                                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/40'
+                                      }`}
+                                  >
+                                    {child.icon ? (
+                                      <span className={`transition-colors duration-200 ${isChildActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                                        {getIcon(child.icon, "w-4 h-4")}
+                                      </span>
+                                    ) : (
+                                      <span className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${isChildActive ? 'bg-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30' : 'bg-gray-300 dark:bg-gray-600 group-hover/child:bg-gray-400'
+                                        }`} />
+                                    )}
+                                    <span>{child.name}</span>
+                                  </Link>
+                                )
+                              })}
+                            </div>
                           </div>
                         </div>
-                      </div>
                       </div>
                     </div>
                   )
@@ -422,20 +424,20 @@ export default function Sidebar() {
                     <Link
                       href={itemPath}
                       className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1 ${isActive
-                      ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10 shadow-sm shadow-indigo-100/50 dark:shadow-none'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
-                      }`}
-                  >
-                    {/* Active Indicator Line */}
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
-                    )}
+                        ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10 shadow-sm shadow-indigo-100/50 dark:shadow-none'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                    >
+                      {/* Active Indicator Line */}
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
+                      )}
 
-                    <div className={`transition-colors duration-200 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                      {getIcon(item.icon, "w-5 h-5")}
-                    </div>
-                    <span>{item.name}</span>
-                  </Link>
+                      <div className={`transition-colors duration-200 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                        {getIcon(item.icon, "w-5 h-5")}
+                      </div>
+                      <span>{item.name}</span>
+                    </Link>
                   </div>
                 )
               })}
@@ -447,7 +449,7 @@ export default function Sidebar() {
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm">
               <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-100 to-violet-100 dark:from-indigo-900 dark:to-violet-900 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm shrink-0">
                 {session?.user?.image ? (
-                   
+
                   <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={session.user.image} alt={session.user.name || 'User'} className="w-full h-full rounded-full object-cover" />
                 ) : (
                   <span className="text-lg font-bold text-indigo-600 dark:text-indigo-300">

@@ -26,7 +26,7 @@ interface RABItem {
     id: string
     name: string
     category?: string
-    expenseCategory?: { name: string }
+    expenseCategory?: { name: string, parent?: { name: string } }
     quantity: number
     unitPrice: number
     totalPrice: number
@@ -121,6 +121,7 @@ export interface RABProject {
     investorProfitSharePercent?: number
     contingencyPercent?: number
     contingencyAmount?: string | number
+    nplTolerancePercent?: number
     hasDisbursementPlan?: boolean
     wbsGroups?: RABWbs[]
     disbursements?: RABDisbursement[]
@@ -150,8 +151,11 @@ export function calculateRealisticBEP(project: RABProject): { bepMonth: number; 
     const paymentType = project.paymentType || 'PREPAID'
     const growthSettings = project.growthSettings
 
+    const nplTolerancePercent = project.nplTolerancePercent || 0
+
     // Simple BEP (old calculation)
-    const fullRevenue = Number(project.projectedRevenue)
+    const grossRevenue = Number(project.projectedRevenue)
+    const fullRevenue = grossRevenue * (1 - (nplTolerancePercent / 100))
     const simpleProfit = fullRevenue - monthlyOpex
 
     let simpleBep = Infinity
@@ -184,7 +188,8 @@ export function calculateRealisticBEP(project: RABProject): { bepMonth: number; 
     for (let month = 1; month <= maxMonths; month++) {
         const subs = monthlySubsTargets[month - 1]
         const billingSubs = paymentType === 'POSTPAID' ? previousMonthSubs : subs
-        const revenue = billingSubs * arpu
+        const grossRev = billingSubs * arpu
+        const revenue = grossRev * (1 - (nplTolerancePercent / 100))
         const profit = revenue - monthlyOpex
         cumulativeProfit += profit
 
@@ -290,7 +295,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
         const headers = ['Nama Item', 'Kategori', 'Tipe', 'Kuantitas', 'Harga Satuan', 'Total Harga']
         const rows = project.items.map(item => [
             `"${item.name.replace(/"/g, '""')}"`,
-            (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
+            (item.expenseCategory && typeof item.expenseCategory === 'object') ? (item.expenseCategory.parent ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}` : item.expenseCategory.name) : (item.category || '-'),
             item.expenseType || 'CAPEX',
             item.quantity.toString(),
             item.unitPrice.toString(),
@@ -322,7 +327,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
             `Durasi Kontrak: ${project.investmentDurationMonths || 12} Bulan`,
             `Investor Profit Share: ${project.investorProfitSharePercent}%`,
             '',
-            ['Bulan ke', 'Revenue', 'Profit Kotor', 'Angsuran Modal', 'Sisa Investasi', 'Investor Share', 'Company Share'].join(','),
+            ['Bulan ke', 'Revenue', 'Potensi NPL', 'Profit Kotor', 'Angsuran Modal', 'Sisa Investasi', 'Investor Share', 'Company Share'].join(','),
             ...(() => {
                 let currentBalance = project.items
                     .filter(item => !item.expenseType || item.expenseType === 'CAPEX')
@@ -347,7 +352,8 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                     const monthIndex = i + 1
                     const subs = monthlySubsTargets[i]
                     const billingSubs = project.paymentType === 'POSTPAID' ? previousMonthSubs : subs
-                    const targetRevenue = billingSubs * arpu
+                    const grossTargetRev = billingSubs * arpu
+                    const targetRevenue = grossTargetRev * (1 - ((project.nplTolerancePercent || 0) / 100))
 
                     const actualRecord = (project.actualAchievements || []).find(a => a.month === monthIndex)
                     const rev = actualRecord ? Number(actualRecord.actualRevenue) : targetRevenue
@@ -387,6 +393,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                     results.push([
                         monthIndex,
                         rev,
+                        grossTargetRev - targetRevenue,
                         grossProfit,
                         recoveryInstallment,
                         Math.max(0, currentBalance),
@@ -400,17 +407,18 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 const finalTotals = results.reduce((acc, row) => {
                     const parts = row.split(',').map(Number)
                     return {
-                        rev: acc.rev + parts[1],
-                        gross: acc.gross + parts[2],
-                        rec: acc.rec + parts[3],
-                        inv: acc.inv + parts[5],
-                        comp: acc.comp + parts[6]
+                        rev: acc.rev + (isNaN(parts[1]) ? 0 : parts[1]),
+                        npl: acc.npl + (isNaN(parts[2]) ? 0 : parts[2]),
+                        gross: acc.gross + (isNaN(parts[3]) ? 0 : parts[3]),
+                        rec: acc.rec + (isNaN(parts[4]) ? 0 : parts[4]),
+                        inv: acc.inv + (isNaN(parts[6]) ? 0 : parts[6]),
+                        comp: acc.comp + (isNaN(parts[7]) ? 0 : parts[7])
                     }
-                }, { rev: 0, gross: 0, rec: 0, inv: 0, comp: 0 })
+                }, { rev: 0, npl: 0, gross: 0, rec: 0, inv: 0, comp: 0 })
 
-                results.push(['TOTAL AKUMULASI', finalTotals.rev, finalTotals.gross, finalTotals.rec, '', finalTotals.inv, finalTotals.comp].join(','))
-                results.push(['TOTAL DITERIMA INVESTOR (Modal+Profit)', '', '', '', '', finalTotals.rec + finalTotals.inv, ''].join(','))
-                results.push(['TOTAL DITERIMA PERUSAHAAN (Profit)', '', '', '', '', '', finalTotals.comp].join(','))
+                results.push(['TOTAL AKUMULASI', finalTotals.rev, finalTotals.npl, finalTotals.gross, finalTotals.rec, '', finalTotals.inv, finalTotals.comp].join(','))
+                results.push(['TOTAL DITERIMA INVESTOR (Modal+Profit)', '', '', '', '', '', finalTotals.rec + finalTotals.inv, ''].join(','))
+                results.push(['TOTAL DITERIMA PERUSAHAAN (Profit)', '', '', '', '', '', '', finalTotals.comp].join(','))
 
                 return results
             })(),
@@ -489,6 +497,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 ['Target Pelanggan', `${project.targetSubscribers || 0} Pelanggan`],
                 ['Model Pertumbuhan', growthModelDesc],
                 ['Sistem Pembayaran', project.paymentType === 'POSTPAID' ? 'Pascabayar (Postpaid)' : 'Prabayar (Prepaid)'],
+                ['Toleransi NPL (%)', `${project.nplTolerancePercent || 0}%`],
                 ['Pengembalian Modal', project.investmentRecoveryType === 'PERCENTAGE' ? `${project.investmentRecoveryValue}% dari Profit/Bulan` : `${formatCurrency(project.investmentRecoveryValue || 0)}/Bulan`],
                 ['Durasi Kontrak', `${project.investmentDurationMonths || 12} Bulan`],
                 ['Bagi Hasil Investor', `${project.investorProfitSharePercent}%`],
@@ -525,7 +534,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
 
             // Tracking Pencapaian Table
             const actuals = project.actualAchievements || []
-            const trackingHeaders = [['Bulan', 'Revenue', 'Profit Kotor', 'Angsuran Modal', 'Sisa Investasi', 'Investor', 'Company']]
+            const trackingHeaders = [['Bulan', 'Revenue', 'Potensi NPL', 'Profit Kotor', 'Angsuran Modal', 'Sisa Investasi', 'Investor', 'Company']]
             const trackingData: string[][] = []
             const maxTrackMonths = project.investmentDurationMonths || 12
             const recoveryType = project.investmentRecoveryType || 'PERCENTAGE'
@@ -545,11 +554,19 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
 
             let previousSubs = 0
 
+            let totalRev = 0
+            let totalNpl = 0
+            let totalGross = 0
+            let totalRec = 0
+            let totalInv = 0
+            let totalComp = 0
+
             for (let i = 0; i < maxTrackMonths; i++) {
                 const monthIndex = i + 1
                 const subs = monthlySubsTargets[i]
                 const billingSubs = project.paymentType === 'POSTPAID' ? previousSubs : subs
-                const targetRevenue = billingSubs * arpuVal
+                const grossTargetRev = billingSubs * arpuVal
+                const targetRevenue = grossTargetRev * (1 - ((project.nplTolerancePercent || 0) / 100))
 
                 const actualRecord = actuals.find(a => a.month === monthIndex)
                 const rev = actualRecord ? Number(actualRecord.actualRevenue) : targetRevenue
@@ -586,9 +603,12 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                     ? Number(actualRecord.manualCompanyShare)
                     : (netProfit - investorShare)
 
+                const nplAmount = actualRecord ? 0 : (grossTargetRev - targetRevenue)
+
                 trackingData.push([
                     monthIndex.toString(),
                     formatCurrency(rev),
+                    formatCurrency(nplAmount),
                     formatCurrency(grossProfit),
                     formatCurrency(recoveryInstallment),
                     formatCurrency(Math.max(0, currentBalance)),
@@ -596,92 +616,14 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                     formatCurrency(companyShare)
                 ])
                 previousSubs = subs
+
+                totalRev += rev
+                totalNpl += nplAmount
+                totalGross += grossProfit
+                totalRec += recoveryInstallment
+                totalInv += investorShare
+                totalComp += companyShare
             }
-
-            const totalRev = trackingData.reduce((s: number, _r, i) => {
-                const monthIndex = i + 1
-                const actualRecord = actuals.find(a => a.month === monthIndex)
-                const targetSubs = project.targetSubscribers || 0
-                const activeTargetSubs = project.paymentType === 'POSTPAID' ? (i === 0 ? 0 : targetSubs) : targetSubs
-                const targetRevenue = activeTargetSubs * arpuVal
-                return s + (actualRecord ? Number(actualRecord.actualRevenue) : targetRevenue)
-            }, 0)
-
-            const totalGross = trackingData.reduce((s: number, _r, i) => {
-                const monthIdx = i + 1
-                const act = actuals.find(a => a.month === monthIdx)
-                const targetSubs = project.targetSubscribers || 0
-                const activeTargetSubs = project.paymentType === 'POSTPAID' ? (i === 0 ? 0 : targetSubs) : targetSubs
-                const rev = act ? Number(act.actualRevenue) : (activeTargetSubs * arpuVal)
-                return s + (rev - totalOpex)
-            }, 0)
-
-            let runningBalForTotal = totalCapex
-            const totalRec = trackingData.reduce((s: number, _r, i) => {
-                const monthIdx = i + 1
-                const act = actuals.find(a => a.month === monthIdx)
-                const targetSubs = project.targetSubscribers || 0
-                const activeTargetSubs = project.paymentType === 'POSTPAID' ? (i === 0 ? 0 : targetSubs) : targetSubs
-                const rev = act ? Number(act.actualRevenue) : (activeTargetSubs * arpuVal)
-                const gross = rev - totalOpex
-
-                let rec = 0
-                if (act?.manualRecoveryInstallment !== undefined && act?.manualRecoveryInstallment !== null) {
-                    rec = Number(act.manualRecoveryInstallment)
-                } else if (runningBalForTotal > 0 && gross > 0) {
-                    rec = recoveryType === 'PERCENTAGE' ? (recoveryValue / 100) * gross : recoveryValue
-                    rec = Math.min(rec, runningBalForTotal, gross)
-                }
-                runningBalForTotal -= rec
-                return s + rec
-            }, 0)
-
-            let runningBalForShares = totalCapex
-            const totalInv = trackingData.reduce((s: number, _r, i) => {
-                const monthIdx = i + 1
-                const act = actuals.find(a => a.month === monthIdx)
-                const targetSubs = project.targetSubscribers || 0
-                const activeTargetSubs = project.paymentType === 'POSTPAID' ? (i === 0 ? 0 : targetSubs) : targetSubs
-                const rev = act ? Number(act.actualRevenue) : (activeTargetSubs * arpuVal)
-                const gross = rev - totalOpex
-
-                let rec = 0
-                if (act?.manualRecoveryInstallment !== undefined && act?.manualRecoveryInstallment !== null) {
-                    rec = Number(act.manualRecoveryInstallment)
-                } else if (runningBalForShares > 0 && gross > 0) {
-                    rec = recoveryType === 'PERCENTAGE' ? (recoveryValue / 100) * gross : recoveryValue
-                    rec = Math.min(rec, runningBalForShares, gross)
-                }
-                runningBalForShares -= rec
-                const net = Math.max(0, gross - rec)
-                const invPct = act?.manualInvestorProfitSharePercent ?? investorSharePercent
-                const invS = act?.manualInvestorShare !== undefined && act?.manualInvestorShare !== null ? Number(act.manualInvestorShare) : (invPct / 100) * net
-                return s + invS
-            }, 0)
-
-            let runningBalForComp = totalCapex
-            const totalComp = trackingData.reduce((s: number, _r, i) => {
-                const monthIdx = i + 1
-                const act = actuals.find(a => a.month === monthIdx)
-                const targetSubs = project.targetSubscribers || 0
-                const activeTargetSubs = project.paymentType === 'POSTPAID' ? (i === 0 ? 0 : targetSubs) : targetSubs
-                const rev = act ? Number(act.actualRevenue) : (activeTargetSubs * arpuVal)
-                const gross = rev - totalOpex
-
-                let rec = 0
-                if (act?.manualRecoveryInstallment !== undefined && act?.manualRecoveryInstallment !== null) {
-                    rec = Number(act.manualRecoveryInstallment)
-                } else if (runningBalForComp > 0 && gross > 0) {
-                    rec = recoveryType === 'PERCENTAGE' ? (recoveryValue / 100) * gross : recoveryValue
-                    rec = Math.min(rec, runningBalForComp, gross)
-                }
-                runningBalForComp -= rec
-                const net = Math.max(0, gross - rec)
-                const invPct = act?.manualInvestorProfitSharePercent ?? investorSharePercent
-                const invS = act?.manualInvestorShare !== undefined && act?.manualInvestorShare !== null ? Number(act.manualInvestorShare) : (invPct / 100) * net
-                const compS = act?.manualCompanyShare !== undefined && act?.manualCompanyShare !== null ? Number(act.manualCompanyShare) : (net - invS)
-                return s + compS
-            }, 0)
 
             const docAsJspdf = doc as jsPDF & { lastAutoTable?: { finalY: number } }
 
@@ -736,6 +678,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 foot: [[
                     'TOTAL',
                     formatCurrency(totalRev),
+                    formatCurrency(totalNpl),
                     formatCurrency(totalGross),
                     formatCurrency(totalRec),
                     '',
@@ -746,14 +689,16 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 headStyles: { fillColor: [79, 70, 229], fontStyle: 'bold' }, // Indigo-600
                 footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: 'bold' },
                 alternateRowStyles: { fillColor: [249, 250, 251] },
-                styles: { fontSize: 8, cellPadding: 3 },
+                styles: { fontSize: 7, cellPadding: 2 },
                 columnStyles: {
-                    1: { halign: 'right' },
-                    2: { halign: 'right' },
-                    3: { halign: 'right' },
-                    4: { halign: 'right' },
-                    5: { halign: 'right' },
-                    6: { halign: 'right' }
+                    0: { cellWidth: 10 },
+                    1: { halign: 'right', cellWidth: 23 },
+                    2: { halign: 'right', cellWidth: 23 },
+                    3: { halign: 'right', cellWidth: 24 },
+                    4: { halign: 'right', cellWidth: 24 },
+                    5: { halign: 'right', cellWidth: 25 },
+                    6: { halign: 'right', cellWidth: 24 },
+                    7: { halign: 'right', cellWidth: 25 }
                 },
                 showFoot: 'lastPage',
                 margin: { bottom: 20 }
@@ -780,7 +725,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 project.items.forEach(item => {
                     tableData.push([
                         item.name,
-                        (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
+                        (item.expenseCategory && typeof item.expenseCategory === 'object') ? (item.expenseCategory.parent ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}` : item.expenseCategory.name) : (item.category || '-'),
                         item.expenseType || 'CAPEX',
                         item.quantity.toString(),
                         formatCurrency(Number(item.unitPrice)),
@@ -804,7 +749,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                     groupItems.forEach(item => {
                         tableData.push([
                             `  ${item.name}`, // Indent slightly
-                            (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
+                            (item.expenseCategory && typeof item.expenseCategory === 'object') ? (item.expenseCategory.parent ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}` : item.expenseCategory.name) : (item.category || '-'),
                             item.expenseType || 'CAPEX',
                             item.quantity.toString(),
                             formatCurrency(Number(item.unitPrice)),
@@ -822,7 +767,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                     ungrouppedItems.forEach(item => {
                         tableData.push([
                             `  ${item.name}`,
-                            (item.expenseCategory && typeof item.expenseCategory === 'object') ? item.expenseCategory.name : (item.category || '-'),
+                            (item.expenseCategory && typeof item.expenseCategory === 'object') ? (item.expenseCategory.parent ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}` : item.expenseCategory.name) : (item.category || '-'),
                             item.expenseType || 'CAPEX',
                             item.quantity.toString(),
                             formatCurrency(Number(item.unitPrice)),

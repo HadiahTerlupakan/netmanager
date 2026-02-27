@@ -143,7 +143,7 @@ export function Combobox({
             </div>
 
             {isOpen && !disabled && typeof document !== 'undefined' && createPortal(
-                <div 
+                <div
                     ref={dropdownRef}
                     className="bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-60 flex flex-col overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
@@ -184,26 +184,39 @@ export function Combobox({
                             <div className="p-3 text-center text-sm text-gray-500">Tidak ditemukan</div>
                         ) : (
                             <>
-                                {filteredOptions.slice(0, 50).map((option) => (
-                                    <button
-                                        key={option.value}
-                                        className={`
-                                        w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors
-                                        ${option.value === value
-                                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
-                                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                            }
-                                        ${option.disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                                    `}
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            if (!option.disabled) handleSelect(option.value)
-                                        }}
-                                        disabled={option.disabled}
-                                    >
-                                        {option.label}
-                                    </button>
-                                ))}
+                                {filteredOptions.slice(0, 50).map((option) => {
+                                    const isGroupHeader = option.value.startsWith('__header__')
+                                    if (isGroupHeader) {
+                                        return (
+                                            <div
+                                                key={option.value}
+                                                className="px-3 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 select-none"
+                                            >
+                                                {option.label}
+                                            </div>
+                                        )
+                                    }
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            className={`
+                                            w-full text-left px-3 py-2 rounded-lg text-sm transition-colors
+                                            ${option.value === value
+                                                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                }
+                                            ${option.disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                                        `}
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (!option.disabled) handleSelect(option.value)
+                                            }}
+                                            disabled={option.disabled}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    )
+                                })}
                                 {filteredOptions.length > 50 && (
                                     <div className="p-2 text-center text-xs text-gray-400 border-t border-gray-100 dark:border-gray-700">
                                         Menampilkan 50 dari {filteredOptions.length} opsi. Ketik untuk mencari lainnya.

@@ -16,6 +16,56 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
+        // Handle Mitra users - separate table
+        if (user.role === 'MITRA') {
+            const mitra = await prisma.mitra.findUnique({
+                where: { id: user.id as string },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    isActive: true,
+                    mitraType: true,
+                    siteId: true,
+                    sites: { select: { id: true, name: true } },
+                }
+            })
+
+            if (!mitra) {
+                return NextResponse.json({ error: 'Mitra tidak ditemukan' }, { status: 404 })
+            }
+
+            // Mitra features are hardcoded based on mitraType
+            const features = [
+                ...(mitra.mitraType === 'MITRA_SALES' ? ['m_canvasing'] : []),
+                ...(mitra.mitraType === 'MITRA_TEKNISI' ? ['m_work_order'] : []),
+            ]
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    id: mitra.id,
+                    name: mitra.name,
+                    email: mitra.email,
+                    phone: mitra.phone,
+                    image: null,
+                    workingHourMode: null,
+                    startWorkTime: null,
+                    endWorkTime: null,
+                    workDays: null,
+                    canvasingTarget: null,
+                    isSales: mitra.mitraType === 'MITRA_SALES',
+                    departments: null,
+                    sites: mitra.sites,
+                    role: { id: 'mitra', name: 'MITRA' },
+                    features,
+                    isOnLeave: false, // Mitra don't have leave system
+                }
+            })
+        }
+
+        // Handle regular User (Karyawan)
         const profile = await prisma.user.findUnique({
             where: { id: user.id as string },
             select: {
@@ -37,8 +87,8 @@ export async function GET(request: Request) {
                     select: { id: true, name: true }
                 },
                 role: {
-                    select: { 
-                        id: true, 
+                    select: {
+                        id: true,
                         name: true,
                         permission: {
                             select: {

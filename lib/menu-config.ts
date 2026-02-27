@@ -141,6 +141,16 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         section: 'SDM'
     },
     {
+        code: 'MITRA',
+        name: 'Mitra',
+        path: '/admin/mitra',
+        icon: 'HiOutlineUserGroup',
+        children: [
+            { code: 'MITRA.LIST', name: 'Daftar Mitra', path: '/admin/mitra', icon: 'HiOutlineUsers', exact: true },
+            { code: 'MITRA.WITHDRAWALS', name: 'Penarikan Komisi', path: '/admin/mitra/withdrawals', icon: 'HiOutlineBanknotes' },
+        ],
+    },
+    {
         code: 'KEHADIRAN',
         name: 'Kehadiran',
         path: '/admin/kehadiran',

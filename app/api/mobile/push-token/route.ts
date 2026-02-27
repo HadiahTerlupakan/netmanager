@@ -47,10 +47,28 @@ export async function POST(request: NextRequest) {
                 pushTokenUpdatedAt: null
             }
         })
+        await prisma.mitra.updateMany({
+            where: {
+                pushToken: pushToken,
+                id: { not: user.id as string }
+            },
+            data: {
+                pushToken: null,
+                pushTokenUpdatedAt: null
+            }
+        })
 
         // Update user (or customer) with push token
         if (user.role === 'CUSTOMER') {
             await prisma.pelanggan.update({
+                where: { id: user.id as string },
+                data: {
+                    pushToken: pushToken,
+                    pushTokenUpdatedAt: new Date()
+                }
+            })
+        } else if (user.role === 'MITRA') {
+            await prisma.mitra.update({
                 where: { id: user.id as string },
                 data: {
                     pushToken: pushToken,
@@ -95,6 +113,14 @@ export async function DELETE(request: NextRequest) {
         // Remove push token from correct table
         if (user.role === 'CUSTOMER') {
             await prisma.pelanggan.update({
+                where: { id: user.id as string },
+                data: {
+                    pushToken: null,
+                    pushTokenUpdatedAt: null
+                }
+            })
+        } else if (user.role === 'MITRA') {
+            await prisma.mitra.update({
                 where: { id: user.id as string },
                 data: {
                     pushToken: null,

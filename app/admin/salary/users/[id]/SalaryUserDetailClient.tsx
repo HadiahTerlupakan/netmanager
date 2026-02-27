@@ -34,20 +34,20 @@ interface SalaryUser {
     name: string
     email: string
     image?: string
-    employeeType: 'KARYAWAN' | 'MITRA'
+    employeeType: 'KARYAWAN' | 'MITRA_TEKNISI' | 'MITRA_SALES'
     basicSalary: number
-    
+
     overtimeRateNormal: number
     overtimeCalcTypeNormal: string
     overtimeRateHoliday: number
     overtimeCalcTypeHoliday: string
     overtimeRateNational: number
     overtimeCalcTypeNational: string
-    
+
     woIncentiveRate: number
     lateDeductionRate: number
     absentDeductionRate: number
-    
+
     departments?: { name: string }
     userSalaryComponents: UserSalaryComponent[]
 }
@@ -152,7 +152,7 @@ export default function SalaryUserDetailClient() {
                             <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold border-4 border-white dark:border-gray-900 shadow-sm mb-4 bg-white ${avatarBg} ${avatarText}`}>
                                 {user.name.substring(0, 2).toUpperCase()}
                             </div>
-                            
+
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{user.name}</h2>
                             <p className="text-sm text-gray-500 mb-4">{user.email}</p>
 
@@ -161,11 +161,10 @@ export default function SalaryUserDetailClient() {
                                     <HiOutlineBriefcase className="w-3 h-3 mr-1" />
                                     {user.departments?.name || 'No Dept'}
                                 </span>
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    user.employeeType === 'KARYAWAN' 
-                                        ? 'bg-green-100 text-green-800' 
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.employeeType === 'KARYAWAN'
+                                        ? 'bg-green-100 text-green-800'
                                         : 'bg-amber-100 text-amber-800'
-                                }`}>
+                                    }`}>
                                     <HiOutlineUser className="w-3 h-3 mr-1" />
                                     {user.employeeType}
                                 </span>
@@ -188,27 +187,27 @@ export default function SalaryUserDetailClient() {
                                     {formatCurrency(user.basicSalary)}
                                 </div>
                             </div>
-                            
+
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
                                 <label className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-3 block">Rate Lembur</label>
                                 <div className="space-y-3 text-sm">
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-600 dark:text-gray-400">Hari Biasa</span>
                                         <div className="flex items-center gap-2">
-                                           <span className="font-mono">
-                                                {user.overtimeCalcTypeNormal === 'PERCENTAGE' 
-                                                    ? `${user.overtimeRateNormal}%` 
+                                            <span className="font-mono">
+                                                {user.overtimeCalcTypeNormal === 'PERCENTAGE'
+                                                    ? `${user.overtimeRateNormal}%`
                                                     : formatCurrency(user.overtimeRateNormal)}
-                                           </span> 
-                                           <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{user.overtimeCalcTypeNormal}</span>
+                                            </span>
+                                            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{user.overtimeCalcTypeNormal}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-600 dark:text-gray-400">Hari Libur</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-mono">
-                                                {user.overtimeCalcTypeHoliday === 'PERCENTAGE' 
-                                                    ? `${user.overtimeRateHoliday}%` 
+                                                {user.overtimeCalcTypeHoliday === 'PERCENTAGE'
+                                                    ? `${user.overtimeRateHoliday}%`
                                                     : formatCurrency(user.overtimeRateHoliday)}
                                             </span>
                                             <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{user.overtimeCalcTypeHoliday}</span>
@@ -218,8 +217,8 @@ export default function SalaryUserDetailClient() {
                                         <span className="text-gray-600 dark:text-gray-400">Libur Nasional</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-mono">
-                                                {user.overtimeCalcTypeNational === 'PERCENTAGE' 
-                                                    ? `${user.overtimeRateNational}%` 
+                                                {user.overtimeCalcTypeNational === 'PERCENTAGE'
+                                                    ? `${user.overtimeRateNational}%`
                                                     : formatCurrency(user.overtimeRateNational)}
                                             </span>
                                             <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{user.overtimeCalcTypeNational}</span>
@@ -252,7 +251,7 @@ export default function SalaryUserDetailClient() {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Active Salary Components */}
                     <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
-                         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 dark:border-gray-800">
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 dark:border-gray-800">
                             <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <HiOutlineDocumentText className="w-5 h-5 text-gray-400" />
                                 Komponen Gaji Aktif
@@ -269,11 +268,10 @@ export default function SalaryUserDetailClient() {
                                     {user.userSalaryComponents.map((comp) => (
                                         <div key={comp.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                                    comp.component.type === 'EARNING' 
-                                                        ? 'bg-green-100 text-green-600' 
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${comp.component.type === 'EARNING'
+                                                        ? 'bg-green-100 text-green-600'
                                                         : 'bg-red-100 text-red-600'
-                                                }`}>
+                                                    }`}>
                                                     {comp.component.type === 'EARNING' ? '+' : '-'}
                                                 </div>
                                                 <div>
@@ -287,11 +285,10 @@ export default function SalaryUserDetailClient() {
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className={`font-medium ${
-                                                    comp.component.type === 'EARNING' 
-                                                        ? 'text-green-600' 
+                                                <div className={`font-medium ${comp.component.type === 'EARNING'
+                                                        ? 'text-green-600'
                                                         : 'text-red-600'
-                                                }`}>
+                                                    }`}>
                                                     {comp.component.rateType === 'PERCENTAGE' ? (
                                                         <div className="flex flex-col items-end">
                                                             <span>{comp.component.type === 'EARNING' ? '+' : '-'} {comp.amount}%</span>
@@ -318,7 +315,7 @@ export default function SalaryUserDetailClient() {
 
                     {/* Payroll History (Placeholder) */}
                     <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
-                         <CardHeader className="border-b border-gray-100 dark:border-gray-800">
+                        <CardHeader className="border-b border-gray-100 dark:border-gray-800">
                             <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <HiOutlineClock className="w-5 h-5 text-gray-400" />
                                 Riwayat Slip Gaji

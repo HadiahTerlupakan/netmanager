@@ -45,6 +45,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         investmentRecoveryType: 'PERCENTAGE' | 'FIXED';
         investmentRecoveryValue: number;
         investorProfitSharePercent: number;
+        nplTolerancePercent: number;
         items: RabItem[];
         status: 'DRAFT' | 'ACTIVE' | 'PENDING' | 'COMPLETED' | 'CANCELLED';
     }
@@ -81,6 +82,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
             investmentRecoveryType: sourceProject.investmentRecoveryType,
             investmentRecoveryValue: sourceProject.investmentRecoveryValue,
             investorProfitSharePercent: sourceProject.investorProfitSharePercent,
+            nplTolerancePercent: sourceProject.nplTolerancePercent,
             status: 'DRAFT',
             createdBy: user.id,
             items: {

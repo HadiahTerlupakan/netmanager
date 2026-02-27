@@ -96,7 +96,7 @@ export function createHandler<T = unknown>(
     ): Promise<NextResponse> => {
         // Resolve params if it's a Promise (Next.js 15+)
         const params = await routeContext.params
-        
+
         try {
             // Create context object
             const ctx: HandlerContext<T> = {
@@ -110,11 +110,11 @@ export function createHandler<T = unknown>(
             // 1. Authentication check
             if (options.auth) {
                 const session = await getServerSession(authOptions)
-                
+
                 if (!session?.user) {
                     return ApiErrors.unauthorized('Session tidak valid')
                 }
-                
+
                 ctx.session = {
                     user: {
                         id: session.user.id || '',
@@ -149,18 +149,19 @@ export function createHandler<T = unknown>(
             // 3. Request body validation
             if (options.schema) {
                 const contentType = request.headers.get('content-type') || ''
-                
+
                 if (contentType.includes('application/json')) {
                     try {
                         const body = await request.json()
                         const result = options.schema.safeParse(body)
-                        
+
                         if (!result.success) {
                             return formatValidationError(result.error)
                         }
-                        
+
                         ctx.validated = result.data
-                    } catch {
+                    } catch (e) {
+                        console.error("[API Middleware] JSON Parsing/Validation Error:", e)
                         return apiError(
                             'Invalid JSON body',
                             ErrorCodes.VALIDATION_ERROR,
@@ -185,12 +186,12 @@ export function createHandler<T = unknown>(
  */
 function formatValidationError(error: ZodError): NextResponse<ErrorResponse> {
     const details: Record<string, string> = {}
-    
+
     for (const issue of error.issues) {
         const path = issue.path.join('.') || 'general'
         details[path] = issue.message
     }
-    
+
     return apiError(
         'Validasi gagal',
         ErrorCodes.VALIDATION_ERROR,
@@ -208,7 +209,7 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
         method: request.method,
         error,
     })
-    
+
     // Handle known error types
     if (error instanceof Error) {
         // Business logic errors
@@ -221,7 +222,7 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
         if (error.message.startsWith('FORBIDDEN:')) {
             return ApiErrors.forbidden(error.message.replace('FORBIDDEN:', ''))
         }
-        
+
         // Prisma errors
         if (error.message.includes('Unique constraint')) {
             return ApiErrors.conflict('Data sudah ada')
@@ -230,7 +231,7 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
             return ApiErrors.notFound('Data tidak ditemukan')
         }
     }
-    
+
     // Default internal error
     return ApiErrors.internalError('Terjadi kesalahan pada server')
 }

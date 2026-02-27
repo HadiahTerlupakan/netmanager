@@ -36,7 +36,7 @@ const disbursementSchema = z.object({
     id: z.string().optional(), // Frontend temp ID
     name: z.string().min(1),
     percentage: z.number().min(0).max(100),
-    amount: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
+    amount: z.union([z.string(), z.number()]).transform(v => BigInt(Math.round(Number(v)))),
     estimatedDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
     isPaid: z.boolean().default(false),
 });
@@ -45,7 +45,7 @@ const itemSchema = z.object({
     name: z.string().min(1),
     description: z.string().optional(),
     quantity: z.number().min(1),
-    unitPrice: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
+    unitPrice: z.union([z.string(), z.number()]).transform(v => BigInt(Math.round(Number(v)))),
     category: z.nativeEnum(RabItemCategory).default(RabItemCategory.HARDWARE),
     expenseType: z.nativeEnum(RabExpenseType).default(RabExpenseType.CAPEX),
     expenseCategoryId: z.string().optional(),
@@ -58,12 +58,12 @@ const rabSchema = z.object({
     description: z.string().optional(),
     siteId: z.string().optional(),
     mixRadiusGroupId: z.string().optional(),
-    projectedRevenue: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(v)),
-    projectedOpex: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(v)),
+    projectedRevenue: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(Math.round(Number(v)))),
+    projectedOpex: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(Math.round(Number(v)))),
 
     // Growth period fields
     targetSubscribers: z.number().optional(),
-    arpu: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null) ? BigInt(v) : undefined),
+    arpu: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
     growthType: z.nativeEnum(RabGrowthType).default(RabGrowthType.LINEAR),
     paymentType: z.nativeEnum(RabPaymentType).default(RabPaymentType.PREPAID),
     growthSettings: z.union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema]).optional(),
@@ -75,7 +75,8 @@ const rabSchema = z.object({
 
     // Enterprise features
     contingencyPercent: z.number().min(0).max(100).default(0),
-    contingencyAmount: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(v)),
+    contingencyAmount: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(Math.round(Number(v)))),
+    nplTolerancePercent: z.number().min(0).max(100).default(0),
     hasDisbursementPlan: z.boolean().default(false),
     wbsGroups: z.array(wbsSchema).default([]),
 
@@ -109,7 +110,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         include: {
             items: {
                 include: {
-                    disbursements: true
+                    disbursements: true,
+                    expenseCategory: {
+                        include: {
+                            parent: true
+                        }
+                    }
                 }
             },
             wbsGroups: true,
@@ -175,7 +181,7 @@ export const POST = createHandler({
         projectedRevenue, projectedOpex, items,
         targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
         investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
-        contingencyPercent, contingencyAmount, hasDisbursementPlan, wbsGroups
+        contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups
     } = ctx.validated;
 
     // Calculate item totals - category and expenseType already validated by Zod as proper enums
@@ -204,6 +210,7 @@ export const POST = createHandler({
                 investorProfitSharePercent,
                 contingencyPercent,
                 contingencyAmount,
+                nplTolerancePercent,
                 hasDisbursementPlan,
                 createdBy: user.id
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any

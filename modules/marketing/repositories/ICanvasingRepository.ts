@@ -14,7 +14,8 @@ export interface CreateCanvasingInput {
   longitude?: number | null
   foto?: string | null
   fotoKtp?: string | null
-  salesId: string
+  mitraId?: string | null
+  salesId?: string | null
 }
 
 export interface UpdateCanvasingInput {
@@ -33,7 +34,7 @@ export interface UpdateCanvasingInput {
 }
 
 export interface CanvasingWithSalesSite extends Canvasing {
-  sales: {
+  user: {
     id: string
     name: string | null
     email: string | null
@@ -42,14 +43,32 @@ export interface CanvasingWithSalesSite extends Canvasing {
       id: string
       name: string
     } | null
-  }
-}
-
-export interface CanvasingWithSalesInfo extends Canvasing {
-  sales: {
+  } | null
+  mitra: {
     id: string
     name: string | null
     email: string | null
+    mitraType: string | null
+    siteId: string | null
+    sites: {
+      id: string
+      name: string
+    } | null
+  } | null
+}
+
+export interface CanvasingWithSalesInfo extends Canvasing {
+  user: {
+    id: string
+    name: string | null
+    email: string | null
+    siteId: string | null
+  } | null
+  mitra: {
+    id: string
+    name: string | null
+    email: string | null
+    mitraType: string | null
     siteId: string | null
   } | null
 }
@@ -58,7 +77,7 @@ export interface ICanvasingRepository {
   create(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo>
   findById(id: string): Promise<Canvasing | null>
   findByIdWithSales(id: string): Promise<CanvasingWithSalesSite | null>
-  findAll(filters?: { status?: CanvasingStatus; salesId?: string; siteId?: string }): Promise<Canvasing[]>
+  findAll(filters?: { status?: CanvasingStatus; salesId?: string; mitraId?: string; siteId?: string }): Promise<Canvasing[]>
   update(id: string, data: UpdateCanvasingInput): Promise<Canvasing>
   delete(id: string): Promise<void>
 }

@@ -98,7 +98,7 @@ export async function POST(
         let timestampStr: string | undefined;
 
         const contentType = request.headers.get('content-type') || '';
-        
+
         if (contentType.includes('application/json')) {
             const body = await request.json();
             action = body.action;
@@ -119,11 +119,11 @@ export async function POST(
             longitude = formData.get('longitude') as string;
             locationName = formData.get('locationName') as string;
             timestampStr = formData.get('timestamp') as string;
-            
+
             // Extract multiple photos for COMPLETE action
             const photosFromForm = formData.getAll('photos') as File[];
             photos = photosFromForm.filter(p => p instanceof File);
-            
+
             // Also include single photo if provided separately
             if (photo instanceof File && !photos.some(p => p.name === photo!.name)) {
                 photos.push(photo);
@@ -134,8 +134,8 @@ export async function POST(
         // 4. BUILD LOCATION STRING
         // ============================================
         let locationStr = 'Loc: Unknown';
-        const coords = (latitude && longitude) 
-            ? `(${String(latitude).slice(0, 8)}, ${String(longitude).slice(0, 8)})` 
+        const coords = (latitude && longitude)
+            ? `(${String(latitude).slice(0, 8)}, ${String(longitude).slice(0, 8)})`
             : '';
 
         if (locationName && coords) {
@@ -215,9 +215,9 @@ export async function POST(
 
             // Assign to self
             await repository.assign(workOrderId, userId, 'Lead', userId);
-            
 
-            
+
+
             // System Log
             await logger.logActivity({
                 action: 'UPDATE',
@@ -256,11 +256,11 @@ export async function POST(
             // Handle photos from FormData (need processing)
             else if (photos.length > 0) {
                 const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-                
+
                 for (let i = 0; i < photos.length; i++) {
                     const p = photos[i];
                     if (!(p instanceof File)) continue;
-                    
+
                     const watermarkLines = [
                         format(new Date(), 'dd MMM yyyy HH:mm'),
                         `#${ticketNumber}`,
@@ -268,11 +268,11 @@ export async function POST(
                         locationStr,
                         `[COMPLETED] ${i + 1}/${photos.length}`
                     ];
-                    
+
                     const dateStr = new Date().toISOString().split('T')[0];
                     const uploadDir = `public/uploads/workorders/${dateStr}`;
                     const fileName = `${workOrderId}_complete_${Date.now()}_${i}`;
-                    
+
                     const filePath = await convertAndSaveImage(
                         p,
                         uploadDir,
@@ -281,7 +281,7 @@ export async function POST(
                         workOrderId,
                         watermarkLines
                     );
-                    
+
                     await repository.addAttachment(
                         workOrderId,
                         p.name,
@@ -295,6 +295,30 @@ export async function POST(
             }
 
             await repository.complete(workOrderId, notes, userId, timestamp);
+
+            // ==========================================
+            // MITRA COMMISSION: Auto-add earning for MITRA_TEKNISI
+            // ==========================================
+            try {
+                const mitra = await prisma.mitra.findUnique({
+                    where: { id: userId },
+                    select: { mitraType: true, mitraRateWo: true },
+                });
+                if (mitra?.mitraType === 'MITRA_TEKNISI' && mitra.mitraRateWo && mitra.mitraRateWo > 0) {
+                    const { getMitraWalletService } = await import('@/modules/mitra');
+                    const walletService = getMitraWalletService();
+                    await walletService.addEarning(
+                        userId,
+                        mitra.mitraRateWo,
+                        `Komisi WO #${ticketNumber}`,
+                        workOrderId,
+                        'WORK_ORDER'
+                    );
+                }
+            } catch (mitraErr) {
+                // Non-blocking: log but don't fail the WO completion
+                console.error('[MitraCommission] Failed to add WO earning:', mitraErr);
+            }
 
             // Notify Admins
             await notifyAdminsAboutMobileAction({
@@ -503,7 +527,7 @@ export async function POST(
                 message: notes || (photo || photoUrl ? 'Mengunggah foto' : ''),
                 createdById: userId
             });
-            
+
             // Notify Admins
             await notifyAdminsAboutMobileAction({
                 workOrderId,

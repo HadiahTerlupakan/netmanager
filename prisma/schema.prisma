@@ -871,6 +871,9 @@ model User {
   woIncentiveRate                            Float?
   lateDeductionRate                          Float?
   absentDeductionRate                        Float?
+  bankName                                   String? // Nama bank untuk withdraw
+  bankAccountNo                              String? // Nomor rekening bank
+  bankAccountName                            String? // Nama pemilik rekening
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]
@@ -891,7 +894,7 @@ model User {
   barang_keluar                              BarangKeluar[]
   barang_masuk                               BarangMasuk[]
   approverCanvasing                          Canvasing[]               @relation("ApproverCanvasing")
-  salesCanvasing                             Canvasing[]               @relation("SalesCanvasing")
+  salesCanvasing                             Canvasing[]               @relation("UserSalesCanvasing")
   employeeLocations                          EmployeeLocation[]
   notifications                              Notifications[]
   pointClaimsReviewed                        PointClaim[]              @relation("ReviewerPointClaim")
@@ -923,6 +926,7 @@ model User {
   userSalaryComponents                       UserSalaryComponent[]
   createdRabProjects                         RabProject[]
   rabApprovals                               RabApproval[]
+  withdrawalsProcessed                       WithdrawRequest[]         @relation("WithdrawProcessor")
 
   @@index([departmentId])
   @@index([isActive])
@@ -1640,6 +1644,7 @@ model Sites {
   kmzFiles             KmzFile[]
   mixRadiusOwnerGroups MixRadiusOwnerGroup[]
   rabProjects          RabProject[]
+  mitras               Mitra[]
 
   @@index([isActive])
   @@map("sites")
@@ -1803,16 +1808,19 @@ model UsageAnalytics {
 model WorkOrderAssignments {
   id           String     @id
   workOrderId  String
-  userId       String
+  userId       String?
+  mitraId      String?
   role         String?
   status       String     @default("PENDING")
   assignedAt   DateTime   @default(now())
   respondedAt  DateTime?
   assignedById String?
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mitra        Mitra?     @relation("MitraWoAssignments", fields: [mitraId], references: [id])
   workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([mitraId])
   @@index([workOrderId])
   @@map("work_order_assignments")
 }
@@ -2149,7 +2157,7 @@ model Canvasing {
   longitude Float?
   foto      String?
   status    CanvasingStatus @default(PENDING)
-  salesId   String
+  salesId   String?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
@@ -2159,11 +2167,14 @@ model Canvasing {
   fotoKtp     String?
   isLocked    Boolean     @default(false)
   approver    User?       @relation("ApproverCanvasing", fields: [approvedBy], references: [id])
-  sales       User        @relation("SalesCanvasing", fields: [salesId], references: [id])
+  user        User?       @relation("UserSalesCanvasing", fields: [salesId], references: [id])
+  mitraId     String? // Tambahan untuk entitas Mitra
+  mitra       Mitra?      @relation("MitraSalesCanvasing", fields: [mitraId], references: [id])
   workOrder   WorkOrders? @relation(fields: [workOrderId], references: [id])
   pointClaims PointClaim?
 
   @@index([salesId])
+  @@index([mitraId])
   @@index([status])
   @@map("canvasing")
 }
@@ -2194,7 +2205,11 @@ model PointClaim {
 
 enum EmployeeType {
   KARYAWAN
-  MITRA
+}
+
+enum MitraType {
+  MITRA_TEKNISI
+  MITRA_SALES
 }
 
 enum RateType {
@@ -2923,7 +2938,7 @@ model RabProject {
   // Growth Period Settings
   targetSubscribers Int? // Target number of subscribers
   arpu              BigInt? // Average Revenue Per User
-  growthType        RabGrowthType @default(LINEAR)
+  growthType        RabGrowthType  @default(LINEAR)
   paymentType       RabPaymentType @default(PREPAID)
 
   // LINEAR: subscribersPerMonth (how many new subs per month)
@@ -2934,19 +2949,20 @@ model RabProject {
   // Project Timeline
   startDate DateTime? // When the project starts
 
-  status RabStatus @default(DRAFT)
-  investmentDurationMonths Int @default(12)
-  
-  // Profit Sharing & Recovery
-  investmentRecoveryType   RabRecoveryType @default(PERCENTAGE)
-  investmentRecoveryValue  Float           @default(50) // e.g. 50% or fixed amount
-  investorProfitSharePercent Float         @default(50) // Share of remaining profit
+  status                   RabStatus @default(DRAFT)
+  investmentDurationMonths Int       @default(12)
 
-  contingencyPercent Float @default(0) // 0-100
-  contingencyAmount  BigInt @default(0)
+  // Profit Sharing & Recovery
+  investmentRecoveryType     RabRecoveryType @default(PERCENTAGE)
+  investmentRecoveryValue    Float           @default(50) // e.g. 50% or fixed amount
+  investorProfitSharePercent Float           @default(50) // Share of remaining profit
+  nplTolerancePercent        Float           @default(0) // Toleransi NPL / Bad Debt (%)
+
+  contingencyPercent  Float   @default(0) // 0-100
+  contingencyAmount   BigInt  @default(0)
   hasDisbursementPlan Boolean @default(false)
 
-  items RabItem[]
+  items     RabItem[]
   wbsGroups RabWbs[]
 
   createdBy String?
@@ -2966,12 +2982,12 @@ model RabProject {
 }
 
 model RabApproval {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   rabProjectId String
   userId       String
-  status       String     @default("APPROVED") // e.g. "APPROVED", "REJECTED"
+  status       String   @default("APPROVED") // e.g. "APPROVED", "REJECTED"
   notes        String?
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
   rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2983,22 +2999,22 @@ model RabApproval {
 }
 
 model RabItem {
-  id           String          @id @default(cuid())
-  rabProjectId String
-  name         String
-  description  String?
-  quantity     Int             @default(1)
-  unitPrice    BigInt
-  totalPrice   BigInt
-  category          RabItemCategory @default(HARDWARE)
-  expenseType       RabExpenseType  @default(CAPEX)
+  id                String           @id @default(cuid())
+  rabProjectId      String
+  name              String
+  description       String?
+  quantity          Int              @default(1)
+  unitPrice         BigInt
+  totalPrice        BigInt
+  category          RabItemCategory  @default(HARDWARE)
+  expenseType       RabExpenseType   @default(CAPEX)
   expenseCategoryId String?
   expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id], onDelete: SetNull)
 
-  wbsId        String?
+  wbsId String?
 
-  rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
-  wbs        RabWbs?    @relation(fields: [wbsId], references: [id], onDelete: SetNull)
+  rabProject    RabProject        @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  wbs           RabWbs?           @relation(fields: [wbsId], references: [id], onDelete: SetNull)
   disbursements RabDisbursement[]
 
   @@index([wbsId])
@@ -3006,11 +3022,11 @@ model RabItem {
 }
 
 model RabWbs {
-  id           String     @id @default(cuid())
+  id           String @id @default(cuid())
   rabProjectId String
   name         String
-  order        Int        @default(0)
-  
+  order        Int    @default(0)
+
   rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
   items      RabItem[]
 
@@ -3019,15 +3035,15 @@ model RabWbs {
 }
 
 model RabDisbursement {
-  id           String     @id @default(cuid())
-  rabItemId    String
-  name         String
-  percentage   Float
-  amount       BigInt
+  id            String    @id @default(cuid())
+  rabItemId     String
+  name          String
+  percentage    Float
+  amount        BigInt
   estimatedDate DateTime?
-  isPaid       Boolean    @default(false)
+  isPaid        Boolean   @default(false)
 
-  rabItem    RabItem @relation(fields: [rabItemId], references: [id], onDelete: Cascade)
+  rabItem RabItem @relation(fields: [rabItemId], references: [id], onDelete: Cascade)
 
   @@index([rabItemId])
   @@map("rab_disbursements")
@@ -3073,33 +3089,33 @@ enum PaymentStatus {
 }
 
 model AcsVendor {
-  id                    String   @id @default(cuid())
-  name                  String   @unique
-  manufacturerPatterns  String
-  productPatterns       String
-  parameterPrefix       String?
-  serviceListPath       String?
-  lanBindingPath        String?
-  vlanIdPath            String?
-  httpWanEnablePath     String?
-  firewallLevelPath     String?
-  priority              Int      @default(10)
-  enabled               Boolean  @default(true)
-  description           String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String   @unique
+  manufacturerPatterns String
+  productPatterns      String
+  parameterPrefix      String?
+  serviceListPath      String?
+  lanBindingPath       String?
+  vlanIdPath           String?
+  httpWanEnablePath    String?
+  firewallLevelPath    String?
+  priority             Int      @default(10)
+  enabled              Boolean  @default(true)
+  description          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@map("acs_vendors")
 }
 
 model AcsWifiSecurity {
-  id              String   @id @default(cuid())
-  productClass    String   @unique
-  parameterPath   String
-  wpaTypes        String?
-  encryptTypes    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  productClass  String   @unique
+  parameterPath String
+  wpaTypes      String?
+  encryptTypes  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("acs_wifi_security")
 }
@@ -3114,35 +3130,153 @@ model CompanyBankAccount {
   description   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   @@index([isActive])
   @@index([priority])
   @@map("company_bank_accounts")
 }
 
 model RabActualAchievement {
-  id              String      @id @default(cuid())
-  rabProjectId    String
-  rabProject      RabProject  @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
-  
-  month           Int         // Bulan berjalan proyek (Misal: 1, 2, 3...)
-  year            Int         // Tahun untuk referensi
-  
+  id           String     @id @default(cuid())
+  rabProjectId String
+  rabProject   RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+
+  month Int // Bulan berjalan proyek (Misal: 1, 2, 3...)
+  year  Int // Tahun untuk referensi
+
   actualSubscribers Int
   actualRevenue     BigInt
-  actualOpex        BigInt    @default(0)
-  
+  actualOpex        BigInt @default(0)
+
   // Manual Overrides for Profit Sharing
-  manualRecoveryInstallment BigInt?
-  manualInvestorShare       BigInt?
-  manualCompanyShare        BigInt?
+  manualRecoveryInstallment        BigInt?
+  manualInvestorShare              BigInt?
+  manualCompanyShare               BigInt?
   manualInvestorProfitSharePercent Float?
 
-  notes             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([rabProjectId, month, year])
   @@index([rabProjectId])
   @@map("rab_actual_achievements")
+}
+
+// =====================================================
+// MITRA SYSTEM
+// =====================================================// MITRA SYSTEM
+
+model Mitra {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String?
+  phone        String?
+  isActive     Boolean   @default(true)
+  siteId       String?
+  mitraType    MitraType @default(MITRA_TEKNISI)
+
+  pushToken          String?
+  pushTokenUpdatedAt DateTime?
+
+  // Mitra configuration fields
+  mitraRateWo        Float? // Rate komisi per WO selesai (customizable per mitra)
+  mitraRateCanvasing Float? // Rate komisi per canvasing installed
+  bankName           String? // Nama bank untuk withdraw
+  bankAccountNo      String? // Nomor rekening bank
+  bankAccountName    String? // Nama pemilik rekening
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sites                  Sites?                 @relation(fields: [siteId], references: [id])
+  mitraWallet            MitraWallet?
+  withdrawalsRequested   WithdrawRequest[]      @relation("WithdrawRequester")
+  salesCanvasing         Canvasing[]            @relation("MitraSalesCanvasing")
+  work_order_assignments WorkOrderAssignments[] @relation("MitraWoAssignments")
+
+  @@index([siteId])
+  @@index([mitraType])
+  @@index([isActive])
+}
+
+model MitraWallet {
+  id             String             @id @default(uuid())
+  mitraId        String             @unique
+  balance        Float              @default(0)
+  totalEarnings  Float              @default(0)
+  totalWithdrawn Float              @default(0)
+  currency       String             @default("IDR")
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  mitra          Mitra              @relation(fields: [mitraId], references: [id], onDelete: Cascade)
+  transactions   MitraTransaction[]
+  withdrawals    WithdrawRequest[]
+
+  @@index([mitraId])
+  @@map("mitra_wallets")
+}
+
+model MitraTransaction {
+  id            String               @id @default(uuid())
+  walletId      String
+  amount        Float
+  type          MitraTransactionType
+  description   String
+  referenceId   String? // WO ID atau Canvasing ID
+  referenceType String? // "WORK_ORDER" atau "CANVASING"
+  createdAt     DateTime             @default(now())
+  wallet        MitraWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([createdAt])
+  @@index([referenceId])
+  @@map("mitra_transactions")
+}
+
+model WithdrawRequest {
+  id              String         @id @default(cuid())
+  mitraId         String
+  amount          Float
+  bankName        String
+  bankAccountNo   String
+  bankAccountName String
+  status          WithdrawStatus @default(PENDING)
+  method          WithdrawMethod @default(TRANSFER)
+  notes           String?
+  processedById   String?
+  processedAt     DateTime?
+  rejectionReason String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  mitra           Mitra          @relation("WithdrawRequester", fields: [mitraId], references: [id])
+  processedBy     User?          @relation("WithdrawProcessor", fields: [processedById], references: [id])
+  mitraWallet     MitraWallet?   @relation(fields: [mitraWalletId], references: [id])
+  mitraWalletId   String?
+
+  @@index([mitraId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("withdraw_requests")
+}
+
+enum MitraTransactionType {
+  EARNING // Komisi masuk dari WO/Canvasing
+  WITHDRAW // Penarikan saldo
+  ADJUSTMENT // Penyesuaian manual oleh admin
+}
+
+enum WithdrawStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+enum WithdrawMethod {
+  TRANSFER // Transfer ke rekening bank
+  CASH // Ambil tunai di kantor
 }

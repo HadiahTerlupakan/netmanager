@@ -1,9 +1,9 @@
-import { PrismaClient, CanvasingStatus } from '@prisma/client'
-import type { Canvasing } from '@prisma/client'
+import type { PrismaClient, CanvasingStatus, Canvasing } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput, CanvasingWithSalesSite, CanvasingWithSalesInfo } from './ICanvasingRepository'
 
 export class CanvasingRepository implements ICanvasingRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(private readonly db: PrismaClient) { }
 
   async create(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo> {
     return this.db.canvasing.create({
@@ -11,56 +11,72 @@ export class CanvasingRepository implements ICanvasingRepository {
         ...data,
       },
       include: {
-          sales: {
-              select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  siteId: true
-              }
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            siteId: true
           }
+        },
+        mitra: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            mitraType: true,
+            siteId: true
+          }
+        }
       }
-    }) as Promise<CanvasingWithSalesInfo>
+    }) as unknown as Promise<CanvasingWithSalesInfo>
   }
 
   async findById(id: string): Promise<Canvasing | null> {
     return this.db.canvasing.findUnique({
       where: { id },
       include: {
-          sales: {
-              select: {
-                  name: true,
-                  email: true
-              }
-          },
-          approver: {
-              select: {
-                  name: true
-              }
-          },
-          workOrder: {
-              select: {
-                  workOrderNumber: true,
-                  status: true
-              }
-          },
-          pointClaims: {
-              select: {
-                  id: true,
-                  status: true,
-                  buktiUrls: true,
-                  keterangan: true,
-                  pointValue: true,
-                  reviewNotes: true,
-                  reviewedAt: true,
-                  reviewedBy: {
-                      select: {
-                          name: true
-                      }
-                  },
-                  createdAt: true
-              }
+        user: {
+          select: {
+            name: true,
+            email: true
           }
+        },
+        mitra: {
+          select: {
+            name: true,
+            email: true,
+            mitraType: true
+          }
+        },
+        approver: {
+          select: {
+            name: true
+          }
+        },
+        workOrder: {
+          select: {
+            workOrderNumber: true,
+            status: true
+          }
+        },
+        pointClaims: {
+          select: {
+            id: true,
+            status: true,
+            buktiUrls: true,
+            keterangan: true,
+            pointValue: true,
+            reviewNotes: true,
+            reviewedAt: true,
+            reviewedBy: {
+              select: {
+                name: true
+              }
+            },
+            createdAt: true
+          }
+        }
       }
     })
   }
@@ -69,7 +85,7 @@ export class CanvasingRepository implements ICanvasingRepository {
     return this.db.canvasing.findUnique({
       where: { id },
       include: {
-        sales: {
+        user: {
           select: {
             id: true,
             name: true,
@@ -82,50 +98,78 @@ export class CanvasingRepository implements ICanvasingRepository {
               }
             }
           }
+        },
+        mitra: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            mitraType: true,
+            siteId: true,
+            sites: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
         }
       }
-    }) as Promise<CanvasingWithSalesSite | null>
+    }) as unknown as Promise<CanvasingWithSalesSite>
   }
 
-  async findAll(filters?: { status?: CanvasingStatus; salesId?: string; siteId?: string }): Promise<Canvasing[]> {
+  async findAll(filters?: { status?: CanvasingStatus; salesId?: string; mitraId?: string; siteId?: string }): Promise<Canvasing[]> {
     return this.db.canvasing.findMany({
       where: {
         AND: [
           filters?.status ? { status: filters.status } : {},
           filters?.salesId ? { salesId: filters.salesId } : {},
-          filters?.siteId ? { sales: { siteId: filters.siteId } } : {},
+          filters?.mitraId ? { mitraId: filters.mitraId } : {},
+          filters?.siteId ? {
+            OR: [
+              { user: { siteId: filters.siteId } },
+              { mitra: { siteId: filters.siteId } }
+            ]
+          } as Prisma.CanvasingWhereInput : {},
         ],
       },
       include: {
-          sales: {
-              select: {
-                  name: true,
-                  email: true
-              }
-          },
-          workOrder: {
-              select: {
-                  status: true
-              }
-          },
-          pointClaims: {
-              select: {
-                  id: true,
-                  status: true,
-                  buktiUrls: true,
-                  keterangan: true,
-                  pointValue: true,
-                  reviewNotes: true,
-                  reviewedAt: true,
-                  reviewedBy: {
-                      select: {
-                          name: true
-                      }
-                  },
-                  createdAt: true
-              },
-
+        user: {
+          select: {
+            name: true,
+            email: true
           }
+        },
+        mitra: {
+          select: {
+            name: true,
+            email: true,
+            mitraType: true
+          }
+        },
+        workOrder: {
+          select: {
+            status: true
+          }
+        },
+        pointClaims: {
+          select: {
+            id: true,
+            status: true,
+            buktiUrls: true,
+            keterangan: true,
+            pointValue: true,
+            reviewNotes: true,
+            reviewedAt: true,
+            reviewedBy: {
+              select: {
+                name: true
+              }
+            },
+            createdAt: true
+          },
+
+        }
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -136,13 +180,20 @@ export class CanvasingRepository implements ICanvasingRepository {
       where: { id },
       data,
       include: {
-          sales: {
-              select: {
-                  name: true,
-                  email: true
-              }
+        user: {
+          select: {
+            name: true,
+            email: true
           }
-      }
+        },
+        mitra: {
+          select: {
+            name: true,
+            email: true,
+            mitraType: true
+          }
+        }
+      } as Prisma.CanvasingInclude
     })
   }
 

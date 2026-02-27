@@ -34,6 +34,16 @@ export async function GET(request: NextRequest) {
             })
         }
 
+        // Ensure user is in the User table (Mitra and Customer cannot join)
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.id as string },
+            select: { id: true }
+        })
+
+        if (!dbUser) {
+            return NextResponse.json({ error: 'Fitur chat hanya tersedia untuk karyawan.' }, { status: 403 })
+        }
+
         // Ensure user is a participant
         const isParticipant = await prisma.conversationParticipant.findUnique({
             where: {

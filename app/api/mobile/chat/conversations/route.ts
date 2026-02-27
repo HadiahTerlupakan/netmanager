@@ -112,6 +112,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
+        // Validate that user exists in the User table (Mitra and Customer cannot create conversations)
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.id as string },
+            select: { id: true }
+        })
+
+        if (!dbUser) {
+            return NextResponse.json({ error: 'Fitur chat hanya tersedia untuk karyawan.' }, { status: 403 })
+        }
+
         const body = await request.json()
         const { participantIds, name } = body
 

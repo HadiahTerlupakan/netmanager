@@ -36,7 +36,7 @@ const disbursementSchema = z.object({
     id: z.string().optional(),
     name: z.string().min(1),
     percentage: z.number().min(0).max(100),
-    amount: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
+    amount: z.union([z.string(), z.number()]).transform(v => BigInt(Math.round(Number(v)))),
     estimatedDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
     isPaid: z.boolean().default(false),
 });
@@ -59,7 +59,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         include: {
             items: {
                 include: {
-                    disbursements: true
+                    disbursements: true,
+                    expenseCategory: {
+                        include: {
+                            parent: true
+                        }
+                    }
                 }
             },
             wbsGroups: true,
@@ -112,12 +117,12 @@ const updateSchema = z.object({
     siteId: z.string().nullable().optional(),
     mixRadiusGroupId: z.string().nullable().optional(),
     status: z.enum(["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
-    projectedRevenue: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null) ? BigInt(v) : undefined),
-    projectedOpex: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null) ? BigInt(v) : undefined),
+    projectedRevenue: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
+    projectedOpex: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
 
     // Growth period fields
     targetSubscribers: z.number().optional(),
-    arpu: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null) ? BigInt(v) : undefined),
+    arpu: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
     growthType: z.nativeEnum(RabGrowthType).optional(),
     paymentType: z.nativeEnum(RabPaymentType).optional(),
     growthSettings: z.union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema]).optional(),
@@ -129,7 +134,8 @@ const updateSchema = z.object({
 
     // Enterprise features
     contingencyPercent: z.number().min(0).max(100).optional(),
-    contingencyAmount: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null) ? BigInt(v) : undefined),
+    contingencyAmount: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
+    nplTolerancePercent: z.number().min(0).max(100).optional(),
     hasDisbursementPlan: z.boolean().optional(),
     wbsGroups: z.array(wbsSchema).optional(),
 
@@ -137,7 +143,7 @@ const updateSchema = z.object({
         name: z.string(),
         description: z.string().optional(),
         quantity: z.number(),
-        unitPrice: z.union([z.string(), z.number()]).transform(v => BigInt(v)),
+        unitPrice: z.union([z.string(), z.number()]).transform(v => BigInt(Math.round(Number(v)))),
         category: z.nativeEnum(RabItemCategory),
         expenseType: z.nativeEnum(RabExpenseType).default(RabExpenseType.CAPEX),
         expenseCategoryId: z.string().optional(),
@@ -166,7 +172,7 @@ export const PATCH = createHandler({
         name, description, status, siteId, mixRadiusGroupId, projectedRevenue, projectedOpex, items,
         targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
         investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
-        contingencyPercent, contingencyAmount, hasDisbursementPlan, wbsGroups
+        contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups
     } = ctx.validated;
 
     const updateData: Record<string, unknown> = {};
@@ -198,13 +204,14 @@ export const PATCH = createHandler({
     if (investorProfitSharePercent !== undefined) updateData.investorProfitSharePercent = investorProfitSharePercent;
     if (contingencyPercent !== undefined) updateData.contingencyPercent = contingencyPercent;
     if (contingencyAmount !== undefined) updateData.contingencyAmount = contingencyAmount;
+    if (nplTolerancePercent !== undefined) updateData.nplTolerancePercent = nplTolerancePercent;
     if (hasDisbursementPlan !== undefined) updateData.hasDisbursementPlan = hasDisbursementPlan;
 
     const project = await prisma.$transaction(async (tx) => {
         // 1. Update basic fields first
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await tx.rabProject.update({
             where: { id },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: updateData as any
         });
 

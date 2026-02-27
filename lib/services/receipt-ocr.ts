@@ -135,7 +135,7 @@ export async function analyzeReceiptWithOCR(
                     const receiptData = JSON.parse(result.candidates[0].content.parts[0].text) as ReceiptOCRResult
                     console.log(`[ReceiptOCR] Successfully analyzed using model: ${model}`)
                     return receiptData
-                } catch (e) {
+                } catch (_e) {
                     if (model !== models[models.length - 1]) continue
                     throw new Error('Gagal memparse hasil data OCR')
                 }
