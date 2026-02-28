@@ -112,6 +112,7 @@ export default function MitraListClient() {
         bankName: '',
         bankAccountNo: '',
         bankAccountName: '',
+        targetHarian: '',
     })
 
     // Wallet state
@@ -171,6 +172,7 @@ export default function MitraListClient() {
             employeeType: 'MITRA_TEKNISI', siteId: '',
             mitraRateWo: '', mitraRateCanvasing: '',
             bankName: '', bankAccountNo: '', bankAccountName: '',
+            targetHarian: '',
         })
     }
 
@@ -189,6 +191,7 @@ export default function MitraListClient() {
                     siteId: form.siteId || undefined,
                     mitraRateWo: form.mitraRateWo ? parseFloat(form.mitraRateWo) : undefined,
                     mitraRateCanvasing: form.mitraRateCanvasing ? parseFloat(form.mitraRateCanvasing) : undefined,
+                    targetHarian: form.targetHarian ? parseInt(form.targetHarian, 10) : undefined,
                 }),
             })
             const data = await res.json()
@@ -217,6 +220,7 @@ export default function MitraListClient() {
                 body: JSON.stringify({
                     name: form.name,
                     email: form.email,
+                    password: form.password || undefined,
                     phone: form.phone || undefined,
                     employeeType: form.employeeType,
                     siteId: form.siteId || null,
@@ -225,6 +229,7 @@ export default function MitraListClient() {
                     bankName: form.bankName || undefined,
                     bankAccountNo: form.bankAccountNo || undefined,
                     bankAccountName: form.bankAccountName || undefined,
+                    targetHarian: form.targetHarian ? parseInt(form.targetHarian, 10) : undefined,
                 }),
             })
             const data = await res.json()
@@ -276,6 +281,7 @@ export default function MitraListClient() {
             bankName: mitra.bankName || '',
             bankAccountNo: mitra.bankAccountNo || '',
             bankAccountName: mitra.bankAccountName || '',
+            targetHarian: (mitra as Mitra & { targetHarian?: number }).targetHarian?.toString() || '',
         })
         setShowEditModal(true)
     }
@@ -471,18 +477,16 @@ export default function MitraListClient() {
                     placeholder="email@contoh.com"
                 />
             </div>
-            {!isEdit && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password *</label>
-                    <input
-                        type="password"
-                        value={form.password}
-                        onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="••••••••"
-                    />
-                </div>
-            )}
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+                <input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder={isEdit ? "Kosongkan jika tidak ingin diubah" : "••••••••"}
+                />
+            </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telepon</label>
                 <input
@@ -573,6 +577,23 @@ export default function MitraListClient() {
                     placeholder="Nama sesuai rekening"
                 />
             </div>
+
+            {form.employeeType === 'MITRA_SALES' && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Harian</label>
+                    <input
+                        type="number"
+                        min="0"
+                        value={form.targetHarian}
+                        onChange={(e) => setForm(f => ({ ...f, targetHarian: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="Contoh: 5"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Target jumlah closing yang harus dicapai setiap hari.
+                    </p>
+                </div>
+            )}
         </div>
     )
 
@@ -857,6 +878,7 @@ export default function MitraListClient() {
                     </button>
                 </ModalFooter>
             </Modal>
+
         </div>
     )
 }

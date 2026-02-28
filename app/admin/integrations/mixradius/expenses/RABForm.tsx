@@ -15,7 +15,8 @@ import {
     HiOutlineBanknotes,
     HiOutlineArrowTrendingUp,
     HiOutlineCalendar,
-    HiOutlineChartBar
+    HiOutlineChartBar,
+    HiOutlineChevronDown
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
@@ -314,7 +315,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
         investorProfitSharePercent: 50,
         nplTolerancePercent: 0,
         contingencyPercent: 0,
-        hasDisbursementPlan: false
+        hasDisbursementPlan: false,
+        investorIds: [] as string[]
     })
 
     const [activeTerminItemId, setActiveTerminItemId] = useState<string | null>(null)
@@ -340,8 +342,10 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     const [items, setItems] = useState<LocalItem[]>([])
     const [wbsGroups, setWbsGroups] = useState<LocalWbs[]>([])
     const [categories, setCategories] = useState<Category[]>([])
+    const [investorsList, setInvestorsList] = useState<{ id: string, namaLengkap: string }[]>([])
 
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isInvestorDropdownOpen, setIsInvestorDropdownOpen] = useState(false)
 
     useEffect(() => {
         const fetchCategories = async () => {
@@ -354,7 +358,21 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 console.error("Failed fetching categories", error)
             }
         }
+
+        const fetchInvestors = async () => {
+            try {
+                const res = await fetch("/api/admin/investors")
+                if (res.ok) {
+                    const data = await res.json()
+                    setInvestorsList(data || [])
+                }
+            } catch (error) {
+                console.error("Failed fetching investors", error)
+            }
+        }
+
         fetchCategories()
+        fetchInvestors()
     }, [])
 
     // Get current growth settings based on type
@@ -386,7 +404,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     investorProfitSharePercent: initialData.investorProfitSharePercent || 50,
                     nplTolerancePercent: (initialData as any).nplTolerancePercent || 0,
                     contingencyPercent: initialData.contingencyPercent || 0,
-                    hasDisbursementPlan: initialData.hasDisbursementPlan || false
+                    hasDisbursementPlan: initialData.hasDisbursementPlan || false,
+                    investorIds: (initialData as any).investors?.map((i: any) => i.investorId) || []
                 })
 
                 // Load target & arpu
@@ -448,7 +467,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     investorProfitSharePercent: 50,
                     nplTolerancePercent: 0,
                     contingencyPercent: 0,
-                    hasDisbursementPlan: false
+                    hasDisbursementPlan: false,
+                    investorIds: []
                 })
                 setTargetSubscribers(0)
                 setArpu(0)
@@ -628,6 +648,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 contingencyPercent: formData.contingencyPercent,
                 contingencyAmount,
                 hasDisbursementPlan: formData.hasDisbursementPlan,
+                investorIds: formData.investorIds,
                 wbsGroups: wbsGroups.map(({ id, name, order }) => ({ id, name, order })),
                 items: items.map(({ id: _id, ...rest }) => ({
                     ...rest,
@@ -801,6 +822,65 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                                         <HiOutlineBanknotes className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                                                     </div>
                                                     <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Investor & Profit Sharing</h3>
+                                                </div>
+
+                                                <div className="mb-4">
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Investor</label>
+                                                    <p className="text-xs text-gray-500 mb-2">Pilih investor yang mendanai proyek ini (Bisa multipel)</p>
+                                                    <div className="relative">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsInvestorDropdownOpen(!isInvestorDropdownOpen)}
+                                                            className="w-full text-left bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl py-3 px-4 text-sm flex justify-between items-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                                                        >
+                                                            <span className="truncate text-gray-700 dark:text-gray-200">
+                                                                {formData.investorIds.length > 0
+                                                                    ? `${formData.investorIds.length} Investor Dipilih`
+                                                                    : 'Pilih Investor...'}
+                                                            </span>
+                                                            <HiOutlineChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isInvestorDropdownOpen ? 'rotate-180' : ''}`} />
+                                                        </button>
+
+                                                        {isInvestorDropdownOpen && (
+                                                            <>
+                                                                <div className="fixed inset-0 z-[50]" onClick={() => setIsInvestorDropdownOpen(false)} />
+                                                                <div className="absolute z-[60] mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                                                    {investorsList.length === 0 ? (
+                                                                        <div className="p-4 text-xs text-gray-500 text-center italic">Belum ada investor terdaftar.</div>
+                                                                    ) : (
+                                                                        <div className="p-2 space-y-1">
+                                                                            {investorsList.map(inf => {
+                                                                                const isSelected = formData.investorIds.includes(inf.id)
+                                                                                return (
+                                                                                    <label key={inf.id} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            <input
+                                                                                                type="checkbox"
+                                                                                                checked={isSelected}
+                                                                                                onChange={() => {
+                                                                                                    setFormData(prev => ({
+                                                                                                        ...prev,
+                                                                                                        investorIds: isSelected
+                                                                                                            ? prev.investorIds.filter(id => id !== inf.id)
+                                                                                                            : [...prev.investorIds, inf.id]
+                                                                                                    }))
+                                                                                                }}
+                                                                                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                                            />
+                                                                                            <span className={`text-sm ${isSelected ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                                                                {inf.namaLengkap}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        {isSelected && <HiOutlineCheck className="w-4 h-4 text-blue-600" />}
+                                                                                    </label>
+                                                                                )
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

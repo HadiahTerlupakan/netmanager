@@ -151,6 +151,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         ],
     },
     {
+        code: 'INVESTORS',
+        name: 'Investor',
+        path: '/admin/investors',
+        icon: 'HiOutlineBriefcase',
+    },
+    {
         code: 'KEHADIRAN',
         name: 'Kehadiran',
         path: '/admin/kehadiran',

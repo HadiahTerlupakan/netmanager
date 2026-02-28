@@ -14,11 +14,13 @@ export interface CreateMitraDTO {
     bankName?: string
     bankAccountNo?: string
     bankAccountName?: string
+    targetHarian?: number
 }
 
 export interface UpdateMitraDTO {
     name?: string
     email?: string
+    password?: string
     phone?: string
     employeeType?: 'MITRA_TEKNISI' | 'MITRA_SALES'
     departmentId?: string
@@ -29,6 +31,7 @@ export interface UpdateMitraDTO {
     bankName?: string
     bankAccountNo?: string
     bankAccountName?: string
+    targetHarian?: number
     isActive?: boolean
 }
 
@@ -61,6 +64,7 @@ export interface MitraWithDetails {
     bankName: string | null
     bankAccountNo: string | null
     bankAccountName: string | null
+    targetHarian: number | null
     departments: { name: string } | null
     sites: { name: string } | null
     role: { name: string } | null

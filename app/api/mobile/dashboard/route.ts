@@ -26,7 +26,12 @@ export async function GET(req: NextRequest) {
         if (payload.role === 'MITRA') {
             const mitra = await prisma.mitra.findUnique({
                 where: { id: userId },
-                select: { siteId: true, mitraType: true }
+                select: {
+                    siteId: true,
+                    mitraType: true,
+                    targetHarian: true,
+                    mitraWallet: { select: { balance: true } }
+                }
             })
 
             if (!mitra) {
@@ -82,6 +87,24 @@ export async function GET(req: NextRequest) {
                 }
             })
 
+            // Additional Stats specifically for MITRA_SALES
+            let targetHarian = 0;
+            let suksesClosingMonth = 0;
+            let saldoKomisi = 0;
+
+            if (mitra.mitraType === 'MITRA_SALES') {
+                targetHarian = mitra.targetHarian || 0;
+                saldoKomisi = mitra.mitraWallet?.balance || 0;
+
+                suksesClosingMonth = await prisma.canvasing.count({
+                    where: {
+                        mitraId: userId,
+                        status: 'APPROVED',
+                        createdAt: { gte: monthStart }
+                    }
+                })
+            }
+
             return NextResponse.json({
                 workOrdersAssigned,
                 workOrdersPending: 0, // Mitra don't see pending pool
@@ -89,7 +112,11 @@ export async function GET(req: NextRequest) {
                 woCompletedWeek,
                 woCompletedMonth,
                 barangKeluarToday: 0,
-                barangMasukToday: 0
+                barangMasukToday: 0,
+                // Extra payload for Sales Mode
+                targetHarian,
+                suksesClosingMonth,
+                saldoKomisi
             })
         }
 

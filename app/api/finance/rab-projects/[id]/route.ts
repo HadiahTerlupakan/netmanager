@@ -76,7 +76,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             },
             site: { select: { name: true } },
             mixRadiusGroup: { select: { name: true, owners: true } },
-            creator: { select: { name: true } }
+            creator: { select: { name: true } },
+            investors: true
         }
     });
 
@@ -138,6 +139,7 @@ const updateSchema = z.object({
     nplTolerancePercent: z.number().min(0).max(100).optional(),
     hasDisbursementPlan: z.boolean().optional(),
     wbsGroups: z.array(wbsSchema).optional(),
+    investorIds: z.array(z.string()).optional(),
 
     items: z.array(z.object({
         name: z.string(),
@@ -172,7 +174,7 @@ export const PATCH = createHandler({
         name, description, status, siteId, mixRadiusGroupId, projectedRevenue, projectedOpex, items,
         targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
         investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
-        contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups
+        contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups, investorIds
     } = ctx.validated;
 
     const updateData: Record<string, unknown> = {};
@@ -265,6 +267,29 @@ export const PATCH = createHandler({
                         await tx.rabDisbursement.createMany({ data: disbData });
                     }
                 }
+            }
+        }
+
+        // 3. Update Investors
+        if (investorIds !== undefined) {
+            await tx.rabInvestor.deleteMany({ where: { rabProjectId: id } });
+
+            if (investorIds.length > 0) {
+                // If investorProfitSharePercent was updated, use it, else get it from existing project
+                let currentProfitShare = investorProfitSharePercent;
+                if (currentProfitShare === undefined) {
+                    const existing = await tx.rabProject.findUnique({ where: { id }, select: { investorProfitSharePercent: true } });
+                    currentProfitShare = existing?.investorProfitSharePercent || 50;
+                }
+
+                await tx.rabInvestor.createMany({
+                    data: investorIds.map(investorId => ({
+                        rabProjectId: id,
+                        investorId,
+                        investmentAmount: 0,
+                        profitSharePercent: currentProfitShare
+                    }))
+                });
             }
         }
 

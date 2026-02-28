@@ -78,9 +78,9 @@ export class MitraService {
                         siteId: data.siteId,
                         mitraRateWo: data.mitraRateWo,
                         mitraRateCanvasing: data.mitraRateCanvasing,
-                        bankName: data.bankName,
                         bankAccountNo: data.bankAccountNo,
                         bankAccountName: data.bankAccountName,
+                        targetHarian: data.targetHarian,
                         isActive: true,
                     },
                 })
@@ -125,19 +125,25 @@ export class MitraService {
 
             const mitraType = data.employeeType === 'MITRA_SALES' ? 'MITRA_SALES' : (data.employeeType === 'MITRA_TEKNISI' ? 'MITRA_TEKNISI' : undefined);
 
+            let passwordHash = undefined;
+            if (data.password) {
+                passwordHash = await hash(data.password, 12);
+            }
+
             await prisma.mitra.update({
                 where: { id },
                 data: {
                     ...(data.name && { name: data.name }),
                     ...(data.email && { email: data.email }),
+                    ...(passwordHash && { passwordHash }),
                     ...(data.phone !== undefined && { phone: data.phone }),
                     ...(mitraType && { mitraType }),
                     ...(data.siteId !== undefined && { siteId: data.siteId }),
                     ...(data.mitraRateWo !== undefined && { mitraRateWo: data.mitraRateWo }),
                     ...(data.mitraRateCanvasing !== undefined && { mitraRateCanvasing: data.mitraRateCanvasing }),
                     ...(data.bankName !== undefined && { bankName: data.bankName }),
-                    ...(data.bankAccountNo !== undefined && { bankAccountNo: data.bankAccountNo }),
                     ...(data.bankAccountName !== undefined && { bankAccountName: data.bankAccountName }),
+                    ...(data.targetHarian !== undefined && { targetHarian: data.targetHarian }),
                     ...(data.isActive !== undefined && { isActive: data.isActive }),
                 },
             })

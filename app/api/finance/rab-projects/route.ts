@@ -79,6 +79,7 @@ const rabSchema = z.object({
     nplTolerancePercent: z.number().min(0).max(100).default(0),
     hasDisbursementPlan: z.boolean().default(false),
     wbsGroups: z.array(wbsSchema).default([]),
+    investorIds: z.array(z.string()).optional().default([]),
 
     items: z.array(itemSchema).default([]),
 });
@@ -181,7 +182,7 @@ export const POST = createHandler({
         projectedRevenue, projectedOpex, items,
         targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
         investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
-        contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups
+        contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups, investorIds
     } = ctx.validated;
 
     // Calculate item totals - category and expenseType already validated by Zod as proper enums
@@ -262,6 +263,20 @@ export const POST = createHandler({
                     await tx.rabDisbursement.createMany({ data: disbData });
                 }
             }
+        }
+
+        if (investorIds && investorIds.length > 0) {
+            const splitAmount = 0; // We'll just define 0 for now as the user didn't specify per-investor amount.
+            // investorProfitSharePercent might need to be splitted or applied to all
+
+            await tx.rabInvestor.createMany({
+                data: investorIds.map(id => ({
+                    rabProjectId: p.id,
+                    investorId: id,
+                    investmentAmount: splitAmount,
+                    profitSharePercent: p.investorProfitSharePercent
+                }))
+            });
         }
 
         return tx.rabProject.findUnique({

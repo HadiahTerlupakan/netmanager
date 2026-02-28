@@ -709,6 +709,28 @@ async function main() {
   console.log('   ✅ Mitra: mitrasales@example.com (Type: MITRA_SALES)')
 
   // ========================================================================
+  // STEP 8.6: INVESTOR PARTNERS
+  // ========================================================================
+  console.log('\n📈 STEP 8.6: Creating Investor Partners...')
+
+  const investorHash = await hash('investor123', 10)
+  await prisma.investor.upsert({
+    where: { username: 'investordemo' },
+    update: {},
+    create: {
+      username: 'investordemo',
+      password: 'investor123',
+      passwordHash: investorHash,
+      namaLengkap: 'Bapak Investor',
+      perusahaan: 'PT Dana Mandiri',
+      noTelp: '081234567899',
+      email: 'investor@example.com',
+      isActive: true,
+    }
+  })
+  console.log('   ✅ Investor: investordemo (Type: INVESTOR)')
+
+  // ========================================================================
   // STEP 9: VALIDATION
   // ========================================================================
   console.log('\n✅ STEP 9: Validating Authentication Data...')
@@ -787,6 +809,7 @@ async function main() {
   console.log(`   Positions: ${await prisma.positions.count()}`)
   console.log(`   Gudang: ${await prisma.gudang.count()}`)
   console.log(`   Users: ${userCount}`)
+  console.log(`   Investors: ${await prisma.investor.count()}`)
   console.log('\n🔑 Login Credentials:')
   console.log('   ┌────────────────────────────────────────────────────┐')
   console.log('   │ SUPER_ADMIN: admin@example.com / admin123         │')
@@ -796,6 +819,7 @@ async function main() {
   console.log('   │ FINANCE:     finance@example.com / finance123     │')
   console.log('   │ MITRA TECH:  mitrateknisi@example.com/ mitratech123│')
   console.log('   │ MITRA SALES: mitrasales@example.com/ mitrasales123 │')
+  console.log('   │ INVESTOR:    investordemo / investor123            │')
   console.log('   └────────────────────────────────────────────────────┘')
   console.log('\n📝 Portal Access:')
   console.log('   ┌────────────────────────────────────────────────────┐')
@@ -805,6 +829,7 @@ async function main() {
   console.log('   │ SALES:        Admin Panel ✗  Employee Panel ✓     │')
   console.log('   │ FINANCE:      Admin Panel ✓  Employee Panel ✗     │')
   console.log('   │ MITRA:        Admin Panel ✗  Mitra App ✓          │')
+  console.log('   │ INVESTOR:     Admin Panel ✗  Investor Portal ✓    │')
   console.log('   └────────────────────────────────────────────────────┘')
   console.log('\n✅ All authentication data is ready for login!\n')
 

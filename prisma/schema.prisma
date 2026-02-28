@@ -288,6 +288,35 @@ model HargaPaket {
   @@index([status])
 }
 
+model Investor {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  password     String
+  passwordHash String?
+  namaLengkap  String
+  perusahaan   String?
+  noTelp       String?
+  email        String?  @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rabProjects RabInvestor[]
+}
+
+model RabInvestor {
+  id                 String @id @default(uuid())
+  rabProjectId       String
+  investorId         String
+  investmentAmount   BigInt @default(0) // Berapa banyak dana dari investor ini
+  profitSharePercent Float  @default(0) // Berapa persen bagi hasil untuk investor ini
+
+  rabProject RabProject @relation(fields: [rabProjectId], references: [id])
+  investor   Investor   @relation(fields: [investorId], references: [id])
+
+  @@unique([rabProjectId, investorId])
+}
+
 model Holiday {
   id          String   @id
   date        DateTime @unique
@@ -2971,6 +3000,7 @@ model RabProject {
 
   actualAchievements RabActualAchievement[]
   approvals          RabApproval[]
+  investors          RabInvestor[]
 
   site           Sites?               @relation(fields: [siteId], references: [id])
   mixRadiusGroup MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
@@ -3186,6 +3216,7 @@ model Mitra {
   bankName           String? // Nama bank untuk withdraw
   bankAccountNo      String? // Nomor rekening bank
   bankAccountName    String? // Nama pemilik rekening
+  targetHarian       Int? // Target harian khusus mitra sales
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
