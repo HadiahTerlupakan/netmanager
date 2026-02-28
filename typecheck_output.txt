@@ -1,0 +1,24 @@
+
+> web@1.0.0 typecheck
+> tsc --noEmit
+
+app/api/investor/dashboard/route.ts(92,17): error TS2322: Type 'MixRadiusCustomer[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'MixRadiusCustomer' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'MixRadiusCustomer'.
+app/api/investor/dashboard/route.ts(116,54): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+app/api/investor/projects/route.ts(42,9): error TS2578: Unused '@ts-expect-error' directive.
+app/api/investor/projects/route.ts(45,13): error TS2578: Unused '@ts-expect-error' directive.
+app/api/investor/projects/route.ts(47,13): error TS2578: Unused '@ts-expect-error' directive.
+app/api/investor/projects/route.ts(68,17): error TS2322: Type 'MixRadiusCustomer[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'MixRadiusCustomer' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'MixRadiusCustomer'.
+app/api/investor/projects/route.ts(75,13): error TS2578: Unused '@ts-expect-error' directive.
+app/api/investor/projects/route.ts(82,42): error TS2345: Argument of type '(ach: { actualRevenue: string | number; actualOpex: string | number | null; }) => void' is not assignable to parameter of type '(value: { id: string; createdAt: Date; updatedAt: Date; notes: string; year: number; month: number; rabProjectId: string; actualSubscribers: number; actualRevenue: bigint; actualOpex: bigint; manualRecoveryInstallment: bigint; manualInvestorShare: bigint; manualCompanyShare: bigint; manualInvestorProfitSharePercent:...'.
+  Types of parameters 'ach' and 'value' are incompatible.
+    Type '{ id: string; createdAt: Date; updatedAt: Date; notes: string; year: number; month: number; rabProjectId: string; actualSubscribers: number; actualRevenue: bigint; actualOpex: bigint; manualRecoveryInstallment: bigint; manualInvestorShare: bigint; manualCompanyShare: bigint; manualInvestorProfitSharePercent: number; }' is not assignable to type '{ actualRevenue: string | number; actualOpex: string | number; }'.
+      Types of property 'actualRevenue' are incompatible.
+        Type 'bigint' is not assignable to type 'string | number'.

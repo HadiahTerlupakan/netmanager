@@ -85,6 +85,11 @@ interface CategoryOption {
     _count?: { children: number }
 }
 
+interface InvestorSiteOption {
+    id: string
+    name: string
+}
+
 export default function ExpensesClient() {
     const { hasPermission } = usePermission()
     console.log("DEBUG: Menggunakan ExpensesClient dari MixRadius (Wizard Stepper)");
@@ -118,6 +123,7 @@ export default function ExpensesClient() {
 
     // Options
     const [sites, setSites] = useState<SiteOption[]>([])
+    const [investorSites, setInvestorSites] = useState<InvestorSiteOption[]>([])
     const [categories, setCategories] = useState<CategoryOption[]>([])
     // const [coaCategories, setCoaCategories] = useState<CategoryOption[]>([]) // Deprecated
     // const [accounts, setAccounts] = useState<AccountOption[]>([]) // Deprecated
@@ -172,7 +178,7 @@ export default function ExpensesClient() {
         return () => clearTimeout(timer)
     }, [search])
 
-    // Fetch Sites for Dropdown (MixRadius Groups)
+    // Fetch Sites for Dropdown (MixRadius Groups) and Investor Sites
     useEffect(() => {
         const fetchSites = async () => {
             try {
@@ -189,7 +195,24 @@ export default function ExpensesClient() {
                 console.error('Failed to fetch sites', e)
             }
         }
+
+        const fetchInvestorSites = async () => {
+            try {
+                const res = await fetch('/api/integrations/mixradius/investor-sites')
+                const json = await res.json()
+                if (json.success && Array.isArray(json.data)) {
+                    setInvestorSites(json.data.map((s: { id: string; name: string }) => ({
+                        id: s.id,
+                        name: s.name
+                    })))
+                }
+            } catch (e) {
+                console.error('Failed to fetch investor sites', e)
+            }
+        }
+
         fetchSites()
+        fetchInvestorSites()
     }, [])
 
     // Fetch Metadata (None needed initially for now, categories fetched on demand)
@@ -1191,6 +1214,7 @@ export default function ExpensesClient() {
                         onSaved={handleRABSaved}
                         initialData={editingRAB}
                         sites={sites} // Pass existing sites/groups data
+                        investorSites={investorSites} // Pass new investor sites data
                     />
 
                     <RABView

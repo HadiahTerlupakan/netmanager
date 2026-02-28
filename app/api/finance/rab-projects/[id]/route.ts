@@ -54,19 +54,16 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read");
     }
 
-    const project = await prisma.rabProject.findUnique({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const project = await (prisma as any).rabProject.findUnique({
         where: { id },
         include: {
             items: {
                 include: {
-                    disbursements: true,
-                    expenseCategory: {
-                        include: {
-                            parent: true
-                        }
-                    }
+                    disbursements: true
                 }
             },
+            fundingSources: true,
             wbsGroups: true,
             actualAchievements: {
                 orderBy: [
@@ -76,6 +73,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             },
             site: { select: { name: true } },
             mixRadiusGroup: { select: { name: true, owners: true } },
+            mixRadiusInvestorSite: { select: { name: true } },
             creator: { select: { name: true } },
             investors: true
         }
@@ -91,7 +89,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         projectedOpex: project.projectedOpex.toString(),
         arpu: project.arpu?.toString() || null,
         contingencyAmount: project.contingencyAmount?.toString() || "0",
-        items: project.items.map(i => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        items: project.items.map((i: any) => ({
             ...i,
             unitPrice: i.unitPrice.toString(),
             totalPrice: i.totalPrice.toString(),
@@ -117,6 +116,7 @@ const updateSchema = z.object({
     description: z.string().optional(),
     siteId: z.string().nullable().optional(),
     mixRadiusGroupId: z.string().nullable().optional(),
+    mixRadiusInvestorSiteId: z.string().nullable().optional(),
     status: z.enum(["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
     projectedRevenue: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
     projectedOpex: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
@@ -171,7 +171,7 @@ export const PATCH = createHandler({
     }
 
     const {
-        name, description, status, siteId, mixRadiusGroupId, projectedRevenue, projectedOpex, items,
+        name, description, status, siteId, mixRadiusGroupId, mixRadiusInvestorSiteId, projectedRevenue, projectedOpex, items,
         targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
         investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
         contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups, investorIds
@@ -187,6 +187,10 @@ export const PATCH = createHandler({
 
     if (mixRadiusGroupId !== undefined) {
         updateData.mixRadiusGroup = mixRadiusGroupId ? { connect: { id: mixRadiusGroupId } } : { disconnect: true };
+    }
+
+    if (mixRadiusInvestorSiteId !== undefined) {
+        updateData.mixRadiusInvestorSite = mixRadiusInvestorSiteId ? { connect: { id: mixRadiusInvestorSiteId } } : { disconnect: true };
     }
 
     if (status) updateData.status = status;
@@ -283,12 +287,19 @@ export const PATCH = createHandler({
                 }
 
                 await tx.rabInvestor.createMany({
-                    data: investorIds.map(investorId => ({
-                        rabProjectId: id,
-                        investorId,
-                        investmentAmount: 0,
-                        profitSharePercent: currentProfitShare
-                    }))
+                    data: investorIds.map(investorId => {
+                        const totalCapex = items
+                            ? items.filter(i => i.expenseType === 'CAPEX').reduce((acc, i) => acc + (Number(i.quantity) * Number(i.unitPrice)), 0)
+                            : 0;
+                        const splitAmount = investorIds.length > 0 ? Math.floor(totalCapex / investorIds.length) : 0;
+
+                        return {
+                            rabProjectId: id,
+                            investorId,
+                            investmentAmount: splitAmount,
+                            profitSharePercent: currentProfitShare
+                        };
+                    })
                 });
             }
         }

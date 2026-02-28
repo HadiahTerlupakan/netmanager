@@ -2734,6 +2734,17 @@ model MixRadiusOwnerGroup {
   @@index([siteId])
 }
 
+model MixRadiusInvestorSite {
+  id          String   @id @default(uuid())
+  name        String   // Nama Site Investor (misal: "Proyek Cimenyan - Investor A")
+  owners      String[] // Daftar owner MixRadius yang pendapatannya masuk ke site ini
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rabProjects RabProject[]
+}
+
 model MixRadiusConfig {
   id       String  @id @default(uuid())
   name     String
@@ -2956,9 +2967,10 @@ enum RabRecoveryType {
 model RabProject {
   id               String  @id @default(cuid())
   name             String
-  description      String?
-  siteId           String?
-  mixRadiusGroupId String?
+  description             String?
+  siteId                  String?
+  mixRadiusGroupId        String?
+  mixRadiusInvestorSiteId String?
 
   // Financial Projections (Monthly)
   projectedRevenue BigInt @default(0)
@@ -3002,9 +3014,10 @@ model RabProject {
   approvals          RabApproval[]
   investors          RabInvestor[]
 
-  site           Sites?               @relation(fields: [siteId], references: [id])
-  mixRadiusGroup MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
-  creator        User?                @relation(fields: [createdBy], references: [id])
+  site                  Sites?                 @relation(fields: [siteId], references: [id])
+  mixRadiusGroup        MixRadiusOwnerGroup?   @relation(fields: [mixRadiusGroupId], references: [id])
+  mixRadiusInvestorSite MixRadiusInvestorSite? @relation(fields: [mixRadiusInvestorSiteId], references: [id])
+  creator               User?                  @relation(fields: [createdBy], references: [id])
 
   @@index([siteId])
   @@index([status])

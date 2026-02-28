@@ -1,0 +1,7 @@
+
+> web@1.0.0 typecheck
+> tsc --noEmit
+
+app/api/investor/projects/route.ts(49,13): error TS2322: Type '{ hargaPaket: { harga: number; }; siteId: string; status: Status; idPelanggan: string; jatuhTempo: Date; }[]' is not assignable to type '({ id: string; createdAt: Date; userId: string; email: string; passwordHash: string; updatedAt: Date; siteId: string; pushToken: string; pushTokenUpdatedAt: Date; tokenVersion: number; ... 52 more ...; lastSyncedAt: Date; } & { ...; })[]'.
+  Type '{ hargaPaket: { harga: number; }; siteId: string; status: Status; idPelanggan: string; jatuhTempo: Date; }' is not assignable to type '{ id: string; createdAt: Date; userId: string; email: string; passwordHash: string; updatedAt: Date; siteId: string; pushToken: string; pushTokenUpdatedAt: Date; tokenVersion: number; ... 52 more ...; lastSyncedAt: Date; } & { ...; }'.
+    Type '{ hargaPaket: { harga: number; }; siteId: string; status: Status; idPelanggan: string; jatuhTempo: Date; }' is missing the following properties from type '{ id: string; createdAt: Date; userId: string; email: string; passwordHash: string; updatedAt: Date; siteId: string; pushToken: string; pushTokenUpdatedAt: Date; tokenVersion: number; ... 52 more ...; lastSyncedAt: Date; }': id, createdAt, userId, email, and 55 more.

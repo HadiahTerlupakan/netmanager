@@ -56,8 +56,9 @@ const itemSchema = z.object({
 const rabSchema = z.object({
     name: z.string().min(1),
     description: z.string().optional(),
-    siteId: z.string().optional(),
-    mixRadiusGroupId: z.string().optional(),
+    siteId: z.string().optional().nullable(),
+    mixRadiusGroupId: z.string().optional().nullable(),
+    mixRadiusInvestorSiteId: z.string().optional().nullable(),
     projectedRevenue: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(Math.round(Number(v)))),
     projectedOpex: z.union([z.string(), z.number()]).default(0).transform(v => BigInt(Math.round(Number(v)))),
 
@@ -99,11 +100,13 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { searchParams } = req.nextUrl;
     const siteId = searchParams.get("siteId");
     const mixRadiusGroupId = searchParams.get("mixRadiusGroupId");
+    const mixRadiusInvestorSiteId = searchParams.get("mixRadiusInvestorSiteId");
     const status = searchParams.get("status");
 
     const where: Record<string, string> = {};
     if (siteId) where.siteId = siteId;
     if (mixRadiusGroupId) where.mixRadiusGroupId = mixRadiusGroupId;
+    if (mixRadiusInvestorSiteId) where.mixRadiusInvestorSiteId = mixRadiusInvestorSiteId;
     if (status) where.status = status;
 
     const projects = await prisma.rabProject.findMany({
@@ -176,9 +179,8 @@ export const POST = createHandler({
         return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create");
     }
 
-    // Validation already handled by createHandler + schema
     const {
-        name, description, siteId, mixRadiusGroupId,
+        name, description, siteId, mixRadiusGroupId, mixRadiusInvestorSiteId,
         projectedRevenue, projectedOpex, items,
         targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
         investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
@@ -197,6 +199,7 @@ export const POST = createHandler({
                 description,
                 siteId,
                 mixRadiusGroupId,
+                mixRadiusInvestorSiteId,
                 projectedRevenue,
                 projectedOpex,
                 targetSubscribers,
@@ -266,8 +269,11 @@ export const POST = createHandler({
         }
 
         if (investorIds && investorIds.length > 0) {
-            const splitAmount = 0; // We'll just define 0 for now as the user didn't specify per-investor amount.
-            // investorProfitSharePercent might need to be splitted or applied to all
+            const totalCapex = items
+                .filter(i => i.expenseType === 'CAPEX')
+                .reduce((acc, i) => acc + (Number(i.quantity) * Number(i.unitPrice)), 0);
+
+            const splitAmount = Math.floor(totalCapex / investorIds.length);
 
             await tx.rabInvestor.createMany({
                 data: investorIds.map(id => ({

@@ -31,10 +31,16 @@ interface SiteOption {
     siteId?: string
 }
 
+interface InvestorSiteOption {
+    id: string
+    name: string
+}
+
 interface RABFormProps {
     isOpen: boolean
     initialData?: RABProject | null
     sites: SiteOption[]
+    investorSites?: InvestorSiteOption[]
     onSaved: () => void
     onClose: () => void
 }
@@ -298,14 +304,17 @@ function calculateRealisticBEP(
     return Infinity
 }
 
-export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }: RABFormProps) {
+export default function RABForm({ isOpen, initialData, sites, investorSites = [], onSaved, onClose }: RABFormProps) {
     const [mainTab, setMainTab] = useState<MainTab>('info')
     const [expenseTab, setExpenseTab] = useState<ExpenseType>('CAPEX')
+
+    const [billingSource, setBillingSource] = useState<'MIXRADIUS' | 'INTERNAL'>('MIXRADIUS')
 
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        mixRadiusGroupId: '',
+        mixRadiusGroupId: '', // legacy
+        mixRadiusInvestorSiteId: '',
         siteId: '',
         status: 'DRAFT',
         startDate: '',
@@ -391,10 +400,14 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
+                if (initialData.siteId) setBillingSource('INTERNAL')
+                else if (initialData.mixRadiusInvestorSiteId) setBillingSource('MIXRADIUS')
+
                 setFormData({
                     name: initialData.name,
                     description: initialData.description || '',
                     mixRadiusGroupId: initialData.mixRadiusGroupId || '',
+                    mixRadiusInvestorSiteId: (initialData as any).mixRadiusInvestorSiteId || '',
                     siteId: initialData.siteId || '',
                     status: initialData.status,
                     startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : '',
@@ -458,6 +471,7 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                     name: '',
                     description: '',
                     mixRadiusGroupId: '',
+                    mixRadiusInvestorSiteId: '',
                     siteId: '',
                     status: 'DRAFT',
                     startDate: '',
@@ -631,7 +645,8 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                 name: formData.name,
                 description: formData.description,
                 mixRadiusGroupId: formData.mixRadiusGroupId || null,
-                siteId: finalSiteId || null,
+                mixRadiusInvestorSiteId: billingSource === 'MIXRADIUS' ? (formData.mixRadiusInvestorSiteId || null) : null,
+                siteId: billingSource === 'INTERNAL' ? (formData.siteId || finalSiteId || null) : (finalSiteId || null),
                 projectedRevenue: projectedRevenue,
                 projectedOpex: totalOpex,
                 targetSubscribers,
@@ -767,21 +782,65 @@ export default function RABForm({ isOpen, initialData, sites, onSaved, onClose }
                                             </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="sm:col-span-2">
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Sumber Pendapatan Biling (Tracking)</label>
+                                                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setBillingSource('MIXRADIUS')}
+                                                            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${billingSource === 'MIXRADIUS'
+                                                                ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                                        >
+                                                            MixRadius API
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setBillingSource('INTERNAL')}
+                                                            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${billingSource === 'INTERNAL'
+                                                                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                                        >
+                                                            Internal APP (Pelanggan PPP)
+                                                        </button>
+                                                    </div>
+                                                </div>
+
                                                 <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Lokasi / Site</label>
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                                        {billingSource === 'MIXRADIUS' ? 'Pilih Site Investor MixRadius' : 'Pilih Area/Site Internal'}
+                                                    </label>
                                                     <div className="relative">
                                                         <HiOutlineBuildingOffice className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                                        <select
-                                                            value={formData.mixRadiusGroupId}
-                                                            onChange={e => setFormData({ ...formData, mixRadiusGroupId: e.target.value })}
-                                                            className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white appearance-none"
-                                                        >
-                                                            <option value="">-- Pilih Lokasi --</option>
-                                                            {sites.map(s => (
-                                                                <option key={s.id} value={s.id}>{s.name}</option>
-                                                            ))}
-                                                        </select>
+                                                        {billingSource === 'MIXRADIUS' ? (
+                                                            <select
+                                                                value={formData.mixRadiusInvestorSiteId}
+                                                                onChange={e => setFormData({ ...formData, mixRadiusInvestorSiteId: e.target.value })}
+                                                                className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white appearance-none"
+                                                            >
+                                                                <option value="">-- Pilih Site Investor MixRadius --</option>
+                                                                {investorSites.map(s => (
+                                                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            <select
+                                                                value={formData.siteId}
+                                                                onChange={e => setFormData({ ...formData, siteId: e.target.value })}
+                                                                className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white appearance-none"
+                                                            >
+                                                                <option value="">-- Pilih Site Internal --</option>
+                                                                {sites.map(s => (
+                                                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        )}
                                                     </div>
+                                                    <p className="mt-1 text-[10px] text-gray-500 italic">
+                                                        {billingSource === 'MIXRADIUS'
+                                                            ? 'Otomatis kalkulasi pendapatan riil berdasar status lunas Owner dari MixRadius.'
+                                                            : 'Otomatis kalkulasi dari pelanggan internet yang berstatus AKTIF di wilayah ini.'}
+                                                    </p>
                                                 </div>
 
                                                 <div>

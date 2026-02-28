@@ -104,8 +104,10 @@ export interface RABProject {
     description?: string
     siteId?: string
     mixRadiusGroupId?: string
+    mixRadiusInvestorSiteId?: string
     site?: { name: string }
     mixRadiusGroup?: { name: string }
+    mixRadiusInvestorSite?: { name: string }
     projectedRevenue: number
     projectedOpex: number
     targetSubscribers?: number

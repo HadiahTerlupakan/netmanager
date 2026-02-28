@@ -78,7 +78,14 @@ export default function InvestorProjectDetail() {
                     <HiOutlineArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </button>
                 <div className="flex-1 truncate pr-4">
-                    <h1 className="text-sm font-black text-gray-900 dark:text-white truncate">{String(project.name || '')}</h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-sm font-black text-gray-900 dark:text-white truncate">{String(project.name || '')}</h1>
+                        {project.billingSource === 'MIXRADIUS' ? (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-md font-bold uppercase">MixRadius</span>
+                        ) : project.billingSource === 'INTERNAL' ? (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-md font-bold uppercase">Internal</span>
+                        ) : null}
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">{String(project.siteName || 'Lokasi Global')}</p>
                 </div>
             </div>
@@ -112,6 +119,13 @@ export default function InvestorProjectDetail() {
 
                     <div className="space-y-4">
                         <div>
+                            <div className="flex justify-between text-xs mb-1">
+                                <span className="text-gray-500 font-medium tracking-wide">Estimasi Pendapatan Berjalan (Gross)</span>
+                                <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(Number(project.estimatedCurrentRevenue || 0))}</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-50 dark:border-neutral-800">
                             <div className="flex justify-between text-xs mb-1">
                                 <span className="text-gray-500 font-medium tracking-wide">Rata-rata Profit Aktual/Bln</span>
                                 <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(averageActualProfitShare)}</span>

@@ -254,6 +254,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'INTEGRATION.MIXRADIUS', name: 'MixRadius', path: '/admin/integrations/mixradius', icon: 'HiOutlineCloud' },
             { code: 'INTEGRATION.MIXRADIUS_ISOLIR', name: 'Isolir', path: '/admin/integrations/mixradius/isolir', icon: 'HiOutlineNoSymbol' },
             { code: 'INTEGRATION.MIXRADIUS_SITES', name: 'Sites', path: '/admin/integrations/mixradius/groups', icon: 'HiOutlineBuildingOffice' },
+            { code: 'INTEGRATION.MIXRADIUS_INVESTOR_SITES', name: 'Site Investor', path: '/admin/integrations/mixradius/investor-sites', icon: 'HiOutlineCurrencyDollar' },
             { code: 'INTEGRATION.MIXRADIUS_ACCOUNTS', name: 'Akun', path: '/admin/integrations/mixradius/accounts', icon: 'HiOutlineServer' },
             { code: 'INTEGRATION.MIXRADIUS_INCOME', name: 'Pendapatan', path: '/admin/integrations/mixradius/income-period', icon: 'HiOutlineCurrencyDollar' },
             { code: 'INTEGRATION.MIXRADIUS_EXPENSES', name: 'Pengeluaran', path: '/admin/integrations/mixradius/expenses', icon: 'HiOutlineCreditCard' },
