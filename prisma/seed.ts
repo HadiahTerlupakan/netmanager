@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma'
+import { prismaMitra } from '../lib/prisma-mitra'
 import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
 
@@ -650,14 +651,13 @@ async function main() {
     },
   })
   console.log('   ✅ User: finance@example.com (Role: FINANCE)')
-
   // ========================================================================
   // STEP 8.5: MITRA PARTNERS
   // ========================================================================
   console.log('\n🤝 STEP 8.5: Creating Mitra Partners...')
 
   const mitraTeknisiHash = await hash('mitratech123', 10)
-  await prisma.mitra.upsert({
+  await prismaMitra.mitra.upsert({
     where: { email: 'mitrateknisi@example.com' },
     update: {},
     create: {
@@ -684,7 +684,7 @@ async function main() {
   console.log('   ✅ Mitra: mitrateknisi@example.com (Type: MITRA_TEKNISI)')
 
   const mitraSalesHash = await hash('mitrasales123', 10)
-  await prisma.mitra.upsert({
+  await prismaMitra.mitra.upsert({
     where: { email: 'mitrasales@example.com' },
     update: {},
     create: {
@@ -708,7 +708,6 @@ async function main() {
     }
   })
   console.log('   ✅ Mitra: mitrasales@example.com (Type: MITRA_SALES)')
-
   // ========================================================================
   // STEP 8.6: INVESTOR PARTNERS
   // ========================================================================
@@ -818,8 +817,7 @@ async function main() {
   console.log('   │ TEKNISI:     teknisi@example.com / tech123        │')
   console.log('   │ SALES:       sales@example.com / sales123         │')
   console.log('   │ FINANCE:     finance@example.com / finance123     │')
-  console.log('   │ MITRA TECH:  mitrateknisi@example.com/ mitratech123│')
-  console.log('   │ MITRA SALES: mitrasales@example.com/ mitrasales123 │')
+
   console.log('   │ INVESTOR:    investordemo / investor123            │')
   console.log('   └────────────────────────────────────────────────────┘')
   console.log('\n📝 Portal Access:')
@@ -1186,5 +1184,6 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect()
+    await prismaMitra.$disconnect()
     process.exit(0)
   })

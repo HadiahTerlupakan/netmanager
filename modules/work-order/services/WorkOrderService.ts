@@ -8,6 +8,7 @@
 
 import type { PrismaClient, WorkOrderStatus, WorkOrderPriority, WorkOrderType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { WorkOrderRepository } from '../repositories/WorkOrderRepository'
 import type { WorkOrderFilters, WorkOrderWithRelations, CreateWorkOrderData } from '../repositories/IWorkOrderRepository'
 import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } from './WorkOrderNotifications'
@@ -289,30 +290,34 @@ export class WorkOrderService {
                         completedAt: { not: null }
                     },
                     orderBy: { completedAt: 'desc' },
-                    include: { assignedMitra: true }
                 });
 
-                if (lastCompletedWo && lastCompletedWo.assignedMitra && lastCompletedWo.completedAt) {
-                    const mitra = lastCompletedWo.assignedMitra;
-                    const garansiHari = mitra.garansiHari || 0;
+                if (lastCompletedWo && lastCompletedWo.assignedMitraId && lastCompletedWo.completedAt) {
+                    const mitra = await prismaMitra.mitra.findUnique({
+                        where: { id: lastCompletedWo.assignedMitraId }
+                    });
 
-                    if (garansiHari > 0) {
-                        const garansiMs = garansiHari * 24 * 60 * 60 * 1000;
-                        const expirationDate = new Date(lastCompletedWo.completedAt.getTime() + garansiMs);
+                    if (mitra) {
+                        const garansiHari = mitra.garansiHari || 0;
 
-                        // Check if currently still within warranty duration
-                        if (new Date() <= expirationDate) {
-                            const slaJam = mitra.slaGaransiJam || 24;
-                            const slaMs = slaJam * 60 * 60 * 1000;
+                        if (garansiHari > 0) {
+                            const garansiMs = garansiHari * 24 * 60 * 60 * 1000;
+                            const expirationDate = new Date(lastCompletedWo.completedAt.getTime() + garansiMs);
 
-                            createData = {
-                                ...createData,
-                                isWarranty: true,
-                                warrantyOwnerId: mitra.id,
-                                warrantySla: new Date(Date.now() + slaMs)
-                            };
+                            // Check if currently still within warranty duration
+                            if (new Date() <= expirationDate) {
+                                const slaJam = mitra.slaGaransiJam || 24;
+                                const slaMs = slaJam * 60 * 60 * 1000;
 
-                            logger.info(`[Warranty] Auto-assigned Warranty ticket to Mitra ${mitra.id} (SLA: ${slaJam}h) for Pelanggan ${input.pelangganId}`);
+                                createData = {
+                                    ...createData,
+                                    isWarranty: true,
+                                    warrantyOwnerId: mitra.id,
+                                    warrantySla: new Date(Date.now() + slaMs)
+                                };
+
+                                logger.info(`[Warranty] Auto-assigned Warranty ticket to Mitra ${mitra.id} (SLA: ${slaJam}h) for Pelanggan ${input.pelangganId}`);
+                            }
                         }
                     }
                 }

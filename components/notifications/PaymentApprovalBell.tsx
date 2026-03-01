@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { HiOutlineReceiptRefund } from 'react-icons/hi2'
+import { HiOutlineReceiptRefund, HiOutlineCheckCircle } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
+
+const LAST_READ_KEY = 'payment-approval-last-read'
 
 interface PendingPayment {
     id: string
@@ -28,8 +30,31 @@ export function PaymentApprovalBell() {
     const [payments, setPayments] = useState<PendingPayment[]>([])
     const [loading, setLoading] = useState(true)
     const [isOpen, setIsOpen] = useState(false)
+    const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0)
     const dropdownRef = useRef<HTMLDivElement>(null)
     const prevMaxDateRef = useRef<number>(0)
+
+    // Load last-read timestamp from localStorage on mount
+    useEffect(() => {
+        const stored = localStorage.getItem(LAST_READ_KEY)
+        if (stored) {
+            setLastReadTimestamp(Number(stored))
+        }
+    }, [])
+
+    // Calculate unread count — only payments newer than lastReadTimestamp
+    const unreadCount = useMemo(() => {
+        if (lastReadTimestamp === 0) return payments.length
+        return payments.filter(p => new Date(p.createdAt).getTime() > lastReadTimestamp).length
+    }, [payments, lastReadTimestamp])
+
+    // Mark all as read
+    const handleMarkAllRead = useCallback(() => {
+        if (payments.length === 0) return
+        const maxDate = Math.max(...payments.map(p => new Date(p.createdAt).getTime()))
+        setLastReadTimestamp(maxDate)
+        localStorage.setItem(LAST_READ_KEY, String(maxDate))
+    }, [payments])
 
     // Close dropdown when clicking outside
     const closeDropdown = useCallback(() => setIsOpen(false), [])
@@ -92,9 +117,9 @@ export function PaymentApprovalBell() {
                 title="Persetujuan Pembayaran"
             >
                 <HiOutlineReceiptRefund className="w-6 h-6" />
-                {!loading && payments.length > 0 && (
+                {!loading && unreadCount > 0 && (
                     <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-orange-500 rounded-full border-2 border-white dark:border-gray-900 group-hover:scale-110 transition-transform px-1">
-                        {payments.length > 99 ? '99+' : payments.length}
+                        {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
             </Button>
@@ -107,6 +132,15 @@ export function PaymentApprovalBell() {
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Persetujuan Pembayaran</h3>
                         </div>
+                        {unreadCount > 0 && (
+                            <button
+                                onClick={handleMarkAllRead}
+                                className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors font-medium"
+                            >
+                                <HiOutlineCheckCircle className="w-4 h-4" />
+                                Tandai Sudah Dibaca
+                            </button>
+                        )}
                     </div>
 
                     {/* Notification List */}
@@ -122,43 +156,49 @@ export function PaymentApprovalBell() {
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                                {payments.map((payment) => (
-                                    <div
-                                        key={payment.id}
-                                        className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-900/10"
-                                    >
-                                        <div className="flex gap-3">
-                                            <div className="shrink-0 mt-0.5">
-                                                <HiOutlineReceiptRefund className="w-5 h-5 text-orange-500" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-col gap-0.5">
-                                                    <p className="text-sm font-semibold truncate text-gray-900 dark:text-white">
-                                                        {payment.customerName}
-                                                    </p>
-                                                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                                        {payment.invoice?.invoiceNumber || 'Tagihan'}
-                                                    </p>
+                                {payments.map((payment) => {
+                                    const isUnread = lastReadTimestamp === 0 || new Date(payment.createdAt).getTime() > lastReadTimestamp
+                                    return (
+                                        <div
+                                            key={payment.id}
+                                            className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${isUnread
+                                                    ? 'border-l-orange-500 bg-orange-50/30 dark:bg-orange-900/10'
+                                                    : 'border-l-gray-200 dark:border-l-gray-700 bg-white dark:bg-gray-900'
+                                                }`}
+                                        >
+                                            <div className="flex gap-3">
+                                                <div className="shrink-0 mt-0.5">
+                                                    <HiOutlineReceiptRefund className={`w-5 h-5 ${isUnread ? 'text-orange-500' : 'text-gray-400'}`} />
                                                 </div>
-                                                <p className="text-xs text-gray-700 dark:text-gray-300 mt-1 font-semibold">
-                                                    {formatCurrency(payment.amount)}
-                                                </p>
-                                                <div className="flex items-center justify-between mt-2">
-                                                    <span className="text-[10px] text-gray-400">
-                                                        {formatDistanceToNow(new Date(payment.createdAt), { addSuffix: true, locale: id })}
-                                                    </span>
-                                                    <Link
-                                                        href="/admin/finance/manual-payments"
-                                                        onClick={() => setIsOpen(false)}
-                                                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                                                    >
-                                                        Review Struk →
-                                                    </Link>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <p className={`text-sm font-semibold truncate ${isUnread ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                            {payment.customerName}
+                                                        </p>
+                                                        <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                                            {payment.invoice?.invoiceNumber || 'Tagihan'}
+                                                        </p>
+                                                    </div>
+                                                    <p className={`text-xs mt-1 font-semibold ${isUnread ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
+                                                        {formatCurrency(payment.amount)}
+                                                    </p>
+                                                    <div className="flex items-center justify-between mt-2">
+                                                        <span className="text-[10px] text-gray-400">
+                                                            {formatDistanceToNow(new Date(payment.createdAt), { addSuffix: true, locale: id })}
+                                                        </span>
+                                                        <Link
+                                                            href="/admin/finance/manual-payments"
+                                                            onClick={() => setIsOpen(false)}
+                                                            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                                                        >
+                                                            Review Struk →
+                                                        </Link>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         )}
                     </div>

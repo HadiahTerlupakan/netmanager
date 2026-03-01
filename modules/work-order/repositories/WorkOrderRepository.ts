@@ -164,13 +164,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         email: true,
                     },
                 },
-                assignedMitra: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    }
-                },
                 tasks: {
                     orderBy: { order: 'asc' },
                 },
@@ -260,13 +253,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         name: true,
                         email: true,
                     },
-                },
-                assignedMitra: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    }
                 },
                 tasks: {
                     orderBy: { order: 'asc' },
@@ -456,13 +442,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                             name: true,
                             email: true,
                         },
-                    },
-                    assignedMitra: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                        }
                     },
                     tasks: true,
                     assignments: {
@@ -677,12 +656,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                             id: true,
                             name: true,
                         },
-                    },
-                    assignedMitra: {
-                        select: {
-                            id: true,
-                            name: true,
-                        }
                     },
                     createdBy: {
                         select: {

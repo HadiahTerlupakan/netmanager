@@ -27,7 +27,6 @@ export class PointClaimService {
         workOrder: true,
         pointClaims: true,
         user: { select: { name: true } },
-        mitra: { select: { name: true } },
       },
     })
 
@@ -35,7 +34,7 @@ export class PointClaimService {
       throw new Error('Canvasing tidak ditemukan')
     }
 
-    if (canvasing.salesId !== data.salesId && canvasing.mitraId !== data.salesId) {
+    if (canvasing.salesId !== data.salesId) {
       throw new Error('Anda tidak memiliki akses ke canvasing ini')
     }
 
@@ -66,7 +65,7 @@ export class PointClaimService {
     })
 
     // 4. Notify admins about new claim
-    const salesName = canvasing.user?.name || canvasing.mitra?.name || 'Sales'
+    const salesName = canvasing.user?.name || 'Sales'
     createNotification({
       type: 'ANNOUNCEMENT',
       priority: 'NORMAL',

@@ -118,9 +118,42 @@ services:
     networks:
       - internal
 
-  networks:
+  # ==========================================================================
+  # DATABASE MITRA - PostgreSQL
+  # ==========================================================================
+  db_mitra:
+    image: postgres:16-alpine
+    container_name: netmanager-db-mitra
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-netmgr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
+      POSTGRES_DB: ${POSTGRES_DB_MITRA:-mitra}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_mitra_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
       - internal
 
+  # ==========================================================================
   # CACHE - Redis
   # ==========================================================================
   redis:
@@ -220,8 +253,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
       DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
       RADIUS_DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_radius:5432/${POSTGRES_DB_RADIUS:-radius}
-      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
-      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
+      DATABASE_URL_MITRA: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_mitra:5432/${POSTGRES_DB_MITRA:-mitra}?schema=public&connection_limit=20&pool_timeout=10
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
       # Auth Configuration

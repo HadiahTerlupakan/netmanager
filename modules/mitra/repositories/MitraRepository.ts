@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma'
-import { Prisma, WithdrawStatus } from '@prisma/client'
+import { prismaMitra } from '@/lib/prisma-mitra'
+import { Prisma, WithdrawStatus } from '@/prisma/generated/mitra'
 import type { MitraFilters, MitraWithDetails } from '../dto/MitraDTO'
 
 export class MitraRepository {
@@ -24,7 +24,7 @@ export class MitraRepository {
         }
 
         const [mitras, total] = await Promise.all([
-            prisma.mitra.findMany({
+            prismaMitra.mitra.findMany({
                 where,
                 select: {
                     id: true,
@@ -57,8 +57,7 @@ export class MitraRepository {
                     requiresFaceVerification: true,
                     lastFaceVerification: true,
                     siteId: true,
-                    createdAt: true,
-                    sites: { select: { name: true } },
+                    // sites: { select: { name: true } }, // Removed due to Cross-DB
                     mitraWallet: {
                         select: {
                             id: true,
@@ -72,7 +71,7 @@ export class MitraRepository {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
             }),
-            prisma.mitra.count({ where }),
+            prismaMitra.mitra.count({ where }),
         ])
 
         return { mitras: mitras as unknown as MitraWithDetails[], total, page, totalPages: Math.ceil(total / limit) }
@@ -82,10 +81,10 @@ export class MitraRepository {
      * Get single mitra by ID
      */
     async findById(id: string) {
-        return prisma.mitra.findUnique({
+        return prismaMitra.mitra.findUnique({
             where: { id },
             include: {
-                sites: { select: { id: true, name: true } },
+                // sites: { select: { id: true, name: true } }, // Cross-DB relation removed
                 mitraWallet: {
                     select: {
                         id: true,
@@ -107,10 +106,10 @@ export class MitraRepository {
      */
     async getStats() {
         const [totalTeknisi, totalSales, totalActive, totalWalletBalance] = await Promise.all([
-            prisma.mitra.count({ where: { mitraType: 'MITRA_TEKNISI' } }),
-            prisma.mitra.count({ where: { mitraType: 'MITRA_SALES' } }),
-            prisma.mitra.count({ where: { isActive: true } }),
-            prisma.mitraWallet.aggregate({ _sum: { balance: true } }),
+            prismaMitra.mitra.count({ where: { mitraType: 'MITRA_TEKNISI' } }),
+            prismaMitra.mitra.count({ where: { mitraType: 'MITRA_SALES' } }),
+            prismaMitra.mitra.count({ where: { isActive: true } }),
+            prismaMitra.mitraWallet.aggregate({ _sum: { balance: true } }),
         ])
 
         return {
@@ -125,7 +124,7 @@ export class MitraRepository {
      * Create mitra wallet for a mitra
      */
     async createWallet(mitraId: string) {
-        return prisma.mitraWallet.create({
+        return prismaMitra.mitraWallet.create({
             data: { mitraId },
         })
     }
@@ -134,7 +133,7 @@ export class MitraRepository {
      * Get wallet by mitra ID
      */
     async getWalletByUserId(mitraId: string) {
-        return prisma.mitraWallet.findUnique({
+        return prismaMitra.mitraWallet.findUnique({
             where: { mitraId },
             include: {
                 transactions: {
@@ -156,13 +155,13 @@ export class MitraRepository {
         const skip = (page - 1) * limit
 
         const [transactions, total] = await Promise.all([
-            prisma.mitraTransaction.findMany({
+            prismaMitra.mitraTransaction.findMany({
                 where: { walletId },
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
             }),
-            prisma.mitraTransaction.count({ where: { walletId } }),
+            prismaMitra.mitraTransaction.count({ where: { walletId } }),
         ])
 
         return { transactions, total, page, totalPages: Math.ceil(total / limit) }
@@ -186,21 +185,19 @@ export class MitraRepository {
         }
 
         const [requests, total] = await Promise.all([
-            prisma.withdrawRequest.findMany({
+            prismaMitra.withdrawRequest.findMany({
                 where,
                 include: {
                     mitra: {
                         select: { id: true, name: true, email: true, mitraType: true }
                     },
-                    processedBy: {
-                        select: { id: true, name: true }
-                    },
+                    // processedBy: { select: { id: true, name: true } }, // Cross-DB relation removed
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
             }),
-            prisma.withdrawRequest.count({ where }),
+            prismaMitra.withdrawRequest.count({ where }),
         ])
 
         return { requests, total, page, totalPages: Math.ceil(total / limit) }
@@ -213,13 +210,13 @@ export class MitraRepository {
         const skip = (page - 1) * limit
 
         const [logs, total] = await Promise.all([
-            prisma.faceVerificationLog.findMany({
+            prismaMitra.faceVerificationLog.findMany({
                 where: { mitraId },
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
             }),
-            prisma.faceVerificationLog.count({ where: { mitraId } }),
+            prismaMitra.faceVerificationLog.count({ where: { mitraId } }),
         ])
 
         return { logs, total, page, totalPages: Math.ceil(total / limit) }

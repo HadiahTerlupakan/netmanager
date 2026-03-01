@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { isSuperAdmin } from '@/lib/auth'
 
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
         })
 
         // If not a User, check if it's a Mitra
-        const mitra = !user ? await prisma.mitra.findUnique({
+        const mitra = !user ? await prismaMitra.mitra.findUnique({
             where: { id: userId },
             select: { id: true, name: true, siteId: true, mitraType: true }
         }) : null

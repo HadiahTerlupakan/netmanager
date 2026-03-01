@@ -221,10 +221,6 @@ export interface WorkOrderListItem {
         id: string;
         name: string | null;
     } | null;
-    assignedMitra: {
-        id: string;
-        name: string;
-    } | null;
     createdBy: {
         id: string;
         name: string | null;

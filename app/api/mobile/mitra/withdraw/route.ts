@@ -3,6 +3,7 @@ import { verifyAuth } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWithdrawService } from '@/modules/mitra'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 const withdrawService = getMitraWithdrawService()
 
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
             return ApiErrors.forbidden('Bukan akun mitra')
         }
 
-        const mitra = await prisma.mitra.findUnique({
+        const mitra = await prismaMitra.mitra.findUnique({
             where: { id: session.id },
             select: {
                 id: true,
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
         if (!mitra) return ApiErrors.notFound('Mitra tidak ditemukan')
 
-        const wallet = await prisma.mitraWallet.findUnique({
+        const wallet = await prismaMitra.mitraWallet.findUnique({
             where: { mitraId: mitra.id },
         })
 
@@ -47,14 +48,14 @@ export async function GET(req: NextRequest) {
         const skip = (page - 1) * limit
 
         const [withdrawals, total] = await Promise.all([
-            prisma.withdrawRequest.findMany({
+            prismaMitra.withdrawRequest.findMany({
                 where: { mitraWalletId: wallet.id },
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
-                include: { processedBy: { select: { name: true } } },
+                // include: { processedBy: { select: { name: true } } }, // Cross-DB removed
             }),
-            prisma.withdrawRequest.count({ where: { mitraWalletId: wallet.id } }),
+            prismaMitra.withdrawRequest.count({ where: { mitraWalletId: wallet.id } }),
         ])
 
         return apiSuccess({
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
             return ApiErrors.forbidden('Bukan akun mitra')
         }
 
-        const mitra = await prisma.mitra.findUnique({
+        const mitra = await prismaMitra.mitra.findUnique({
             where: { id: session.id },
             select: { id: true, mitraType: true },
         })

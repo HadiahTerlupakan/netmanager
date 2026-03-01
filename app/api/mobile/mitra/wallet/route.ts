@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWalletService } from '@/modules/mitra'
-import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 const walletService = getMitraWalletService()
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
             return ApiErrors.forbidden('Bukan akun mitra');
         }
 
-        const mitra = await prisma.mitra.findUnique({
+        const mitra = await prismaMitra.mitra.findUnique({
             where: { id: session.id },
             select: { id: true, mitraType: true, isActive: true },
         })

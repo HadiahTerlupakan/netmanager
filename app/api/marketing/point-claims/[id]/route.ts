@@ -4,6 +4,7 @@ import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 // GET - Get detail claim
 export async function GET(
@@ -73,7 +74,7 @@ export async function PUT(
         // Get the claim to find the salesId
         const claim = await service.getClaimById(id)
         if (claim?.salesId) {
-          const salesMitra = await prisma.mitra.findUnique({
+          const salesMitra = await prismaMitra.mitra.findUnique({
             where: { id: claim.salesId },
             select: { mitraType: true, mitraRateCanvasing: true },
           })

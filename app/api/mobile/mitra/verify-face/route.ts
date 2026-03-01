@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
+import { prismaMitra } from '@/lib/prisma-mitra';
 import fs from 'fs';
 import path from 'path';
 
@@ -53,8 +54,8 @@ export async function POST(request: NextRequest) {
         fs.writeFileSync(filepath, buffer);
 
         // 4. Update Database — also log the verification event
-        await prisma.$transaction([
-            prisma.mitra.update({
+        await prismaMitra.$transaction([
+            prismaMitra.mitra.update({
                 where: { id: payload.id as string },
                 data: {
                     requiresFaceVerification: false,
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
                     fotoDiri: fileUrl
                 }
             }),
-            prisma.faceVerificationLog.create({
+            prismaMitra.faceVerificationLog.create({
                 data: {
                     mitraId: payload.id as string,
                     photoUrl: fileUrl,

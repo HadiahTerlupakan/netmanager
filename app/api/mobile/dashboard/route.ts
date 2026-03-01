@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 export async function GET(req: NextRequest) {
     try {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 
         // Handle Mitra users - they are in a separate table
         if (payload.role === 'MITRA') {
-            const mitra = await prisma.mitra.findUnique({
+            const mitra = await prismaMitra.mitra.findUnique({
                 where: { id: userId },
                 select: {
                     siteId: true,

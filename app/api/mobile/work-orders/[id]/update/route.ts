@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
+import { prismaMitra } from '@/lib/prisma-mitra';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { convertAndSaveImage } from '@/lib/utils/image-upload';
 import { format } from 'date-fns';
@@ -306,7 +307,7 @@ export async function POST(
             // MITRA COMMISSION: Auto-add earning for MITRA_TEKNISI
             // ==========================================
             try {
-                const mitra = await prisma.mitra.findUnique({
+                const mitra = await prismaMitra.mitra.findUnique({
                     where: { id: userId },
                     select: { mitraType: true, mitraRateWoPsb: true, mitraRateWoMaintenance: true },
                 });
@@ -346,7 +347,7 @@ export async function POST(
 
                             // 2. Penalty deduction for the original owner
                             try {
-                                const originalOwner = await prisma.mitra.findUnique({
+                                const originalOwner = await prismaMitra.mitra.findUnique({
                                     where: { id: workOrder.warrantyOwnerId },
                                     select: { penaltyPsb: true, penaltyMaintenance: true }
                                 });

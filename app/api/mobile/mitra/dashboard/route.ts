@@ -3,6 +3,7 @@ import { verifyAuth } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWalletService } from '@/modules/mitra'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 const walletService = getMitraWalletService()
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
             return ApiErrors.forbidden('Bukan akun mitra')
         }
 
-        const mitra = await prisma.mitra.findUnique({
+        const mitra = await prismaMitra.mitra.findUnique({
             where: { id: session.id },
             select: {
                 id: true,
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
                 mitraRateCanvasing: true,
                 minWithdrawal: true,
             },
-        }) as unknown as MitraUser | null
+        })
 
         if (!mitra) return ApiErrors.notFound('Mitra tidak ditemukan')
 
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
         const monthlyEarnings = monthlyResult.success ? monthlyResult.data : null
 
         // Get pending withdrawals count
-        const pendingWithdrawals = await (prisma as unknown as Record<string, { count: (args: Record<string, unknown>) => Promise<number> }>).withdrawRequest.count({
+        const pendingWithdrawals = await prismaMitra.withdrawRequest.count({
             where: {
                 mitraId: mitra.id,
                 status: 'PENDING',
@@ -63,10 +64,9 @@ export async function GET(req: NextRequest) {
         const now = new Date()
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-        const mitraTx = (prisma as unknown as Record<string, { count: (args: Record<string, unknown>) => Promise<number> }>).mitraTransaction
         let completedJobs = 0
         if (mitra.mitraType === 'MITRA_TEKNISI') {
-            completedJobs = await mitraTx.count({
+            completedJobs = await prismaMitra.mitraTransaction.count({
                 where: {
                     wallet: { mitraId: mitra.id },
                     type: 'EARNING',
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
                 },
             })
         } else {
-            completedJobs = await mitraTx.count({
+            completedJobs = await prismaMitra.mitraTransaction.count({
                 where: {
                     wallet: { mitraId: mitra.id },
                     type: 'EARNING',

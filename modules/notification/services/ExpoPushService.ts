@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { enqueuePushRetry } from './PushRetryQueue'
 
 interface ExpoPushMessage {
@@ -29,18 +30,30 @@ export async function sendPushNotification(
 ): Promise<boolean> {
     try {
         // Get user's push token
+        let pushToken: string | null = null;
+
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { pushToken: true }
         })
+        pushToken = user?.pushToken || null;
 
-        if (!user?.pushToken) {
-            // console.log(`[Push] No push token for user ${userId}`)
+        // Fallback to checking Mitra table
+        if (!pushToken) {
+            const mitra = await prismaMitra.mitra.findUnique({
+                where: { id: userId },
+                select: { pushToken: true }
+            })
+            pushToken = mitra?.pushToken || null;
+        }
+
+        if (!pushToken) {
+            // console.log(`[Push] No push token for user/mitra ${userId}`)
             return false
         }
 
         return await sendExpoPush([{
-            to: user.pushToken,
+            to: pushToken,
             title,
             body,
             data: data || {},
@@ -126,13 +139,32 @@ export async function sendPushToUsers(
             select: { id: true, pushToken: true }
         })
 
-        if (users.length === 0) {
-            // console.log('[Push] No users with push tokens')
+        const foundUserIds = users.map(u => u.id);
+        const missingUserIds = userIds.filter(id => !foundUserIds.includes(id));
+        let mitras: { id: string, pushToken: string | null }[] = [];
+
+        if (missingUserIds.length > 0) {
+            mitras = await prismaMitra.mitra.findMany({
+                where: {
+                    id: { in: missingUserIds },
+                    pushToken: { not: null }
+                },
+                select: { id: true, pushToken: true }
+            })
+        }
+
+        const allTokens = [
+            ...users.map(u => u.pushToken!),
+            ...mitras.map(m => m.pushToken!)
+        ].filter(Boolean); // Ensure no nulls
+
+        if (allTokens.length === 0) {
+            // console.log('[Push] No users/mitras with push tokens')
             return 0
         }
 
-        const messages: ExpoPushMessage[] = users.map(user => ({
-            to: user.pushToken!,
+        const messages: ExpoPushMessage[] = allTokens.map(token => ({
+            to: token,
             title,
             body,
             data: data || {},
@@ -140,7 +172,7 @@ export async function sendPushToUsers(
         }))
 
         await sendExpoPush(messages)
-        return users.length
+        return allTokens.length
     } catch (error) {
         console.error('[Push] Error sending notifications:', error)
         return 0

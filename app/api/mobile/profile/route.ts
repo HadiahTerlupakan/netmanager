@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 export async function GET(request: Request) {
     try {
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
 
         // Handle Mitra users - separate table
         if (user.role === 'MITRA') {
-            const mitra = await prisma.mitra.findUnique({
+            const mitra = await prismaMitra.mitra.findUnique({
                 where: { id: user.id as string },
                 select: {
                     id: true,
@@ -32,13 +33,18 @@ export async function GET(request: Request) {
                     createdAt: true,
                     siteId: true,
                     requiresFaceVerification: true,
-                    sites: { select: { id: true, name: true } },
                 }
             })
 
             if (!mitra) {
                 return NextResponse.json({ error: 'Mitra tidak ditemukan' }, { status: 404 })
             }
+
+            // Fetch site from main DB
+            const sites = mitra.siteId ? await prisma.sites.findUnique({
+                where: { id: mitra.siteId },
+                select: { id: true, name: true }
+            }) : null
 
             // Mitra features are hardcoded based on mitraType
             const features = [
@@ -66,7 +72,7 @@ export async function GET(request: Request) {
                     canvasingTarget: null,
                     isSales: mitra.mitraType === 'MITRA_SALES',
                     departments: null,
-                    sites: mitra.sites,
+                    sites: sites ? [sites] : [],
                     role: { id: 'mitra', name: 'MITRA' },
                     features,
                     isOnLeave: false, // Mitra don't have leave system

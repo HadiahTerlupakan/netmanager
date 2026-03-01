@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { compare } from 'bcryptjs'
 import { signMobileToken } from '@/lib/mobile-auth'
 
@@ -164,7 +165,7 @@ export async function POST(req: Request) {
 
         // Helper: Try Login as Mitra
         const tryMitraLogin = async (): Promise<LoginResult> => {
-            const mitra = await prisma.mitra.findUnique({
+            const mitra = await prismaMitra.mitra.findUnique({
                 where: { email }
             })
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 // POST - Register push token
 export async function POST(request: NextRequest) {
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
                 pushTokenUpdatedAt: null
             }
         })
-        await prisma.mitra.updateMany({
+        await prismaMitra.mitra.updateMany({
             where: {
                 pushToken: pushToken,
                 id: { not: user.id as string }
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
                 }
             })
         } else if (user.role === 'MITRA') {
-            await prisma.mitra.update({
+            await prismaMitra.mitra.update({
                 where: { id: user.id as string },
                 data: {
                     pushToken: pushToken,
@@ -120,7 +121,7 @@ export async function DELETE(request: NextRequest) {
                 }
             })
         } else if (user.role === 'MITRA') {
-            await prisma.mitra.update({
+            await prismaMitra.mitra.update({
                 where: { id: user.id as string },
                 data: {
                     pushToken: null,

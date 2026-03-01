@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { logger } from '@/lib/logger'
 import bcrypt from 'bcryptjs'
 
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
         let dbUserPasswordHash: string | null = null
 
         if (role === 'MITRA') {
-            const dbMitra = await prisma.mitra.findUnique({
+            const dbMitra = await prismaMitra.mitra.findUnique({
                 where: { id: user.id as string },
                 select: { passwordHash: true }
             })
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
 
         // Update password bergantung pada role
         if (role === 'MITRA') {
-            await prisma.mitra.update({
+            await prismaMitra.mitra.update({
                 where: { id: user.id as string },
                 data: { passwordHash: newPasswordHash }
             })

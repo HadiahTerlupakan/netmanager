@@ -18,15 +18,6 @@ export class CanvasingRepository implements ICanvasingRepository {
             email: true,
             siteId: true
           }
-        },
-        mitra: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            mitraType: true,
-            siteId: true
-          }
         }
       }
     }) as unknown as Promise<CanvasingWithSalesInfo>
@@ -40,13 +31,6 @@ export class CanvasingRepository implements ICanvasingRepository {
           select: {
             name: true,
             email: true
-          }
-        },
-        mitra: {
-          select: {
-            name: true,
-            email: true,
-            mitraType: true
           }
         },
         approver: {
@@ -98,21 +82,6 @@ export class CanvasingRepository implements ICanvasingRepository {
               }
             }
           }
-        },
-        mitra: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            mitraType: true,
-            siteId: true,
-            sites: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
         }
       }
     }) as unknown as Promise<CanvasingWithSalesSite>
@@ -127,8 +96,7 @@ export class CanvasingRepository implements ICanvasingRepository {
           filters?.mitraId ? { mitraId: filters.mitraId } : {},
           filters?.siteId ? {
             OR: [
-              { user: { siteId: filters.siteId } },
-              { mitra: { siteId: filters.siteId } }
+              { user: { siteId: filters.siteId } }
             ]
           } as Prisma.CanvasingWhereInput : {},
         ],
@@ -138,13 +106,6 @@ export class CanvasingRepository implements ICanvasingRepository {
           select: {
             name: true,
             email: true
-          }
-        },
-        mitra: {
-          select: {
-            name: true,
-            email: true,
-            mitraType: true
           }
         },
         workOrder: {
@@ -184,13 +145,6 @@ export class CanvasingRepository implements ICanvasingRepository {
           select: {
             name: true,
             email: true
-          }
-        },
-        mitra: {
-          select: {
-            name: true,
-            email: true,
-            mitraType: true
           }
         }
       } as Prisma.CanvasingInclude

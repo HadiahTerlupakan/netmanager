@@ -1,5 +1,6 @@
-import { SignJWT, jwtVerify } from 'jose'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 
 const secret = new TextEncoder().encode(
     process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
@@ -105,7 +106,7 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
             }
 
             console.log('[MOBILE_AUTH] Customer not found, checking Mitra...', userId)
-            const mitra = await prisma.mitra.findUnique({
+            const mitra = await prismaMitra.mitra.findUnique({
                 where: { id: userId as string },
                 select: {
                     id: true,

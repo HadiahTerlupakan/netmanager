@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
+import { prismaMitra } from '@/lib/prisma-mitra';
 import { getInventoryRepository } from '@/lib/repositories';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { logger } from '@/lib/logger';
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Fallback: check Mitra table
-        const mitra = !user ? await prisma.mitra.findUnique({
+        const mitra = !user ? await prismaMitra.mitra.findUnique({
             where: { id: userId },
             select: { id: true, siteId: true }
         }) : null;

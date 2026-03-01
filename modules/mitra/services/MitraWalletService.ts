@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma'
-import { MitraTransactionType } from '@prisma/client'
+import { prismaMitra } from '@/lib/prisma-mitra'
+import { MitraTransactionType } from '@/prisma/generated/mitra'
 import { logger } from '@/lib/logger'
 
 interface ServiceResult<T = void> {
@@ -19,19 +19,19 @@ export class MitraWalletService {
         totalWithdrawn: number
     }>> {
         try {
-            let wallet = await prisma.mitraWallet.findUnique({
+            let wallet = await prismaMitra.mitraWallet.findUnique({
                 where: { mitraId: userId },
             })
 
             // Auto-create wallet if user is mitra but doesn't have one
             if (!wallet) {
-                const user = await prisma.mitra.findUnique({
+                const user = await prismaMitra.mitra.findUnique({
                     where: { id: userId },
                     select: { mitraType: true },
                 })
 
                 if (user && ['MITRA_TEKNISI', 'MITRA_SALES'].includes(user.mitraType)) {
-                    wallet = await prisma.mitraWallet.create({
+                    wallet = await prismaMitra.mitraWallet.create({
                         data: { mitraId: userId },
                     })
                 } else {
@@ -68,7 +68,7 @@ export class MitraWalletService {
                 return { success: false, error: 'Jumlah harus lebih dari 0' }
             }
 
-            await prisma.$transaction(async (tx) => {
+            await prismaMitra.$transaction(async (tx) => {
                 // Ensure wallet exists
                 let wallet = await tx.mitraWallet.findUnique({
                     where: { mitraId: userId },
@@ -136,7 +136,7 @@ export class MitraWalletService {
                 return { success: false, error: 'Jumlah harus lebih dari 0' }
             }
 
-            await prisma.$transaction(async (tx) => {
+            await prismaMitra.$transaction(async (tx) => {
                 // Ensure wallet exists
                 let wallet = await tx.mitraWallet.findUnique({
                     where: { mitraId: userId },
@@ -198,7 +198,7 @@ export class MitraWalletService {
         adminId: string
     ): Promise<ServiceResult> {
         try {
-            await prisma.$transaction(async (tx) => {
+            await prismaMitra.$transaction(async (tx) => {
                 const wallet = await tx.mitraWallet.findUnique({
                     where: { mitraId: userId },
                 })
@@ -246,7 +246,7 @@ export class MitraWalletService {
      */
     async getTransactions(userId: string, page: number = 1, limit: number = 20) {
         try {
-            const wallet = await prisma.mitraWallet.findUnique({
+            const wallet = await prismaMitra.mitraWallet.findUnique({
                 where: { mitraId: userId },
             })
 
@@ -257,13 +257,13 @@ export class MitraWalletService {
             const skip = (page - 1) * limit
 
             const [transactions, total] = await Promise.all([
-                prisma.mitraTransaction.findMany({
+                prismaMitra.mitraTransaction.findMany({
                     where: { walletId: wallet.id },
                     orderBy: { createdAt: 'desc' },
                     skip,
                     take: limit,
                 }),
-                prisma.mitraTransaction.count({ where: { walletId: wallet.id } }),
+                prismaMitra.mitraTransaction.count({ where: { walletId: wallet.id } }),
             ])
 
             return {
@@ -286,7 +286,7 @@ export class MitraWalletService {
      */
     async getEarningsSummary(userId: string, month?: number, year?: number) {
         try {
-            const wallet = await prisma.mitraWallet.findUnique({
+            const wallet = await prismaMitra.mitraWallet.findUnique({
                 where: { mitraId: userId },
             })
 
@@ -305,7 +305,7 @@ export class MitraWalletService {
             const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59)
 
             const [monthlyEarnings, monthlyCount] = await Promise.all([
-                prisma.mitraTransaction.aggregate({
+                prismaMitra.mitraTransaction.aggregate({
                     where: {
                         walletId: wallet.id,
                         type: 'EARNING',
@@ -313,7 +313,7 @@ export class MitraWalletService {
                     },
                     _sum: { amount: true },
                 }),
-                prisma.mitraTransaction.count({
+                prismaMitra.mitraTransaction.count({
                     where: {
                         walletId: wallet.id,
                         type: 'EARNING',

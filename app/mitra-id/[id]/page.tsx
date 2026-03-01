@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import IdCardClient from './IdCardClient'
 import type { Metadata } from 'next'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
     const { id } = await params
-    const mitra = await prisma.mitra.findUnique({
+    const mitra = await prismaMitra.mitra.findUnique({
         where: { id },
         select: { name: true }
     })
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function MitraIdPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
-    const mitra = await prisma.mitra.findFirst({
+    const mitra = await prismaMitra.mitra.findFirst({
         where: { id, isActive: true },
         select: {
             id: true,
@@ -27,14 +28,24 @@ export default async function MitraIdPage({ params }: { params: Promise<{ id: st
             fotoDiri: true,
             phone: true,
             createdAt: true,
-            sites: { select: { name: true } }
+            siteId: true
         }
     })
+
+    let mitraSites = null
+    if (mitra?.siteId) {
+        mitraSites = await prisma.sites.findUnique({
+            where: { id: mitra.siteId },
+            select: { name: true }
+        })
+    }
 
     if (!mitra) {
         notFound()
     }
 
-    // Pass data stringified to survive boundary constraint on server component date objects
-    return <IdCardClient mitra={JSON.parse(JSON.stringify(mitra))} />
+    return <IdCardClient mitra={JSON.parse(JSON.stringify({
+        ...mitra,
+        sites: mitraSites ? [mitraSites] : [] // Format compatibility with IdCardClient
+    }))} />
 }

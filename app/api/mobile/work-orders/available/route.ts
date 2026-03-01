@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
+import { prismaMitra } from '@/lib/prisma-mitra';
 import { randomUUID } from 'crypto';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 import { logActivitySafe } from '@/lib/logger';
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
         if (payload.role === 'MITRA') {
             const mitraId = currentViewerId;
             // Fetch Mitra's true siteId from DB in case it's not in token
-            const mitra = await prisma.mitra.findUnique({
+            const mitra = await prismaMitra.mitra.findUnique({
                 where: { id: mitraId },
                 select: { siteId: true }
             });
@@ -234,7 +235,7 @@ export async function POST(request: NextRequest) {
         if (payload.role === 'MITRA') {
             const mitraId = (payload.sub || payload.id) as string;
             // Fetch Mitra for site authorization
-            const mitra = await prisma.mitra.findUnique({
+            const mitra = await prismaMitra.mitra.findUnique({
                 where: { id: mitraId },
                 select: { name: true, siteId: true }
             });

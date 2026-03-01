@@ -1,0 +1,167 @@
+generator client_mitra {
+  provider = "prisma-client-js"
+  output   = "./generated/mitra"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MitraType {
+  MITRA_SALES
+  MITRA_TEKNISI
+}
+
+model Mitra {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String?
+  phone        String?
+  isActive     Boolean   @default(true)
+  siteId       String?   // Soft relation to main DB Sites.id
+  mitraType    MitraType @default(MITRA_TEKNISI)
+
+  pushToken          String?
+  pushTokenUpdatedAt DateTime?
+
+  // Mitra configuration fields
+  mitraRateWoPsb         Float? // Rate komisi per WO Instalasi/PSB
+  mitraRateWoMaintenance Float? // Rate komisi per WO Maintenance/Gangguan
+  mitraRateCanvasing     Float? // Rate komisi per canvasing installed
+  bankName               String? // Nama bank untuk withdraw
+  bankAccountNo          String? // Nomor rekening bank
+  bankAccountName        String? // Nama pemilik rekening
+  targetHarian           Int? // Target harian khusus mitra sales
+  minWithdrawal          Int? // Target minimum pencairan dana
+  
+  // KYC & Data Diri
+  nik                      String?   @unique
+  tempatLahir              String?
+  tanggalLahir             DateTime?
+  alamat                   String?
+  latitudeRumah            Float?
+  longitudeRumah           Float?
+  
+  // Dokumen Pendukung (URL)
+  fotoDiri                 String?
+  fotoKtp                  String?
+  fotoSim                  String?
+  fotoKk                   String?
+
+  // Liveness & Face Verification
+  requiresFaceVerification Boolean   @default(false)
+  lastFaceVerification     DateTime?
+  
+  // Warranty settings
+  garansiHari            Int? @default(7) // Masa Berlaku Garansi (hari)
+  slaGaransiJam          Int? @default(24) // Batas Waktu Respon/SLA (jam) eksklusif
+  penaltyPsb             Float? @default(0) // Denda garansi ex-PSB
+  penaltyMaintenance     Float? @default(0) // Denda garansi ex-Maintenance
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  mitraWallet            MitraWallet?
+  withdrawalsRequested   WithdrawRequest[]      @relation("WithdrawRequester")
+  faceVerificationLogs   FaceVerificationLog[]
+
+  @@index([siteId])
+  @@index([mitraType])
+  @@index([isActive])
+}
+
+model MitraWallet {
+  id             String             @id @default(uuid())
+  mitraId        String             @unique
+  balance        Float              @default(0)
+  totalEarnings  Float              @default(0)
+  totalWithdrawn Float              @default(0)
+  currency       String             @default("IDR")
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  mitra          Mitra              @relation(fields: [mitraId], references: [id], onDelete: Cascade)
+  transactions   MitraTransaction[]
+  withdrawals    WithdrawRequest[]
+
+  @@index([mitraId])
+  @@map("mitra_wallets")
+}
+
+model MitraTransaction {
+  id            String               @id @default(uuid())
+  walletId      String
+  amount        Float
+  type          MitraTransactionType
+  description   String
+  referenceId   String? // WO ID atau Canvasing ID
+  referenceType String? // "WORK_ORDER" atau "CANVASING"
+  createdAt     DateTime             @default(now())
+  wallet        MitraWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([createdAt])
+  @@index([referenceId])
+  @@map("mitra_transactions")
+}
+
+model WithdrawRequest {
+  id              String         @id @default(cuid())
+  mitraId         String
+  amount          Float
+  bankName        String
+  bankAccountNo   String
+  bankAccountName String
+  status          WithdrawStatus @default(PENDING)
+  method          WithdrawMethod @default(TRANSFER)
+  notes           String?
+  processedById   String?        // Soft relation to main DB User.id
+  processedAt     DateTime?
+  rejectionReason String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  mitra           Mitra          @relation("WithdrawRequester", fields: [mitraId], references: [id])
+  mitraWallet     MitraWallet?   @relation(fields: [mitraWalletId], references: [id])
+  mitraWalletId   String?
+
+  @@index([mitraId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("withdraw_requests")
+}
+
+enum MitraTransactionType {
+  EARNING // Komisi masuk dari WO/Canvasing
+  WITHDRAW // Penarikan saldo
+  ADJUSTMENT // Penyesuaian manual oleh admin
+}
+
+enum WithdrawStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+enum WithdrawMethod {
+  TRANSFER // Transfer ke rekening bank
+  CASH // Ambil tunai di kantor
+}
+
+model FaceVerificationLog {
+  id         String   @id @default(cuid())
+  mitraId    String
+  photoUrl   String   // URL foto hasil verifikasi
+  latitude   Float?   // GPS saat verifikasi (opsional)
+  longitude  Float?
+  deviceInfo String?  // Info device (opsional)
+  createdAt  DateTime @default(now())
+
+  mitra Mitra @relation(fields: [mitraId], references: [id], onDelete: Cascade)
+
+  @@index([mitraId])
+  @@index([createdAt])
+  @@map("face_verification_logs")
+}

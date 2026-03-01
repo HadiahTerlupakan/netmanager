@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { hash } from 'bcryptjs'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { MitraRepository, getMitraRepository } from '../repositories/MitraRepository'
@@ -52,8 +52,7 @@ export class MitraService {
      */
     async createMitra(data: CreateMitraDTO, createdById: string): Promise<ServiceResult<{ id: string }>> {
         try {
-            // Check if email already exists
-            const existing = await prisma.mitra.findUnique({ where: { email: data.email } })
+            const existing = await prismaMitra.mitra.findUnique({ where: { email: data.email } })
             if (existing) {
                 return { success: false, error: 'Email sudah digunakan' }
             }
@@ -65,7 +64,7 @@ export class MitraService {
             const id = crypto.randomUUID()
 
             // Create user + wallet in transaction
-            await prisma.$transaction(async (tx) => {
+            await prismaMitra.$transaction(async (tx) => {
                 // Create the mitra user
                 await tx.mitra.create({
                     data: {
@@ -127,14 +126,14 @@ export class MitraService {
      */
     async updateMitra(id: string, data: UpdateMitraDTO, updatedById: string): Promise<ServiceResult> {
         try {
-            const existing = await prisma.mitra.findUnique({ where: { id } })
+            const existing = await prismaMitra.mitra.findUnique({ where: { id } })
             if (!existing) {
                 return { success: false, error: 'Mitra tidak ditemukan' }
             }
 
             // Check email uniqueness if changing
             if (data.email && data.email !== existing.email) {
-                const emailTaken = await prisma.mitra.findUnique({ where: { email: data.email } })
+                const emailTaken = await prismaMitra.mitra.findUnique({ where: { email: data.email } })
                 if (emailTaken) {
                     return { success: false, error: 'Email sudah digunakan' }
                 }
@@ -147,7 +146,7 @@ export class MitraService {
                 passwordHash = await hash(data.password, 12);
             }
 
-            await prisma.mitra.update({
+            await prismaMitra.mitra.update({
                 where: { id },
                 data: {
                     ...(data.name && { name: data.name }),
@@ -183,9 +182,9 @@ export class MitraService {
             })
 
             // Ensure wallet exists
-            const wallet = await prisma.mitraWallet.findUnique({ where: { mitraId: id } })
+            const wallet = await prismaMitra.mitraWallet.findUnique({ where: { mitraId: id } })
             if (!wallet) {
-                await prisma.mitraWallet.create({ data: { mitraId: id } })
+                await prismaMitra.mitraWallet.create({ data: { mitraId: id } })
             }
 
             logActivitySafe({
@@ -207,7 +206,7 @@ export class MitraService {
      */
     async deleteMitra(id: string, deletedById: string): Promise<ServiceResult> {
         try {
-            await prisma.mitra.update({
+            await prismaMitra.mitra.update({
                 where: { id },
                 data: { isActive: false },
             })
@@ -239,7 +238,7 @@ export class MitraService {
      */
     async getFaceVerificationLogs(mitraId: string, page: number = 1, limit: number = 20) {
         try {
-            const mitra = await prisma.mitra.findUnique({ where: { id: mitraId }, select: { id: true } })
+            const mitra = await prismaMitra.mitra.findUnique({ where: { id: mitraId }, select: { id: true } })
             if (!mitra) {
                 return { success: false, error: 'Mitra tidak ditemukan' }
             }

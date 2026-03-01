@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getUserRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     // Handle Mitra users - they are in a separate table
     if (session.role === 'MITRA') {
-      const mitra = await prisma.mitra.findUnique({
+      const mitra = await prismaMitra.mitra.findUnique({
         where: { id: session.id },
         select: {
           id: true,
