@@ -1,14 +1,13 @@
-
-import { prisma } from '@/lib/prisma'
-import type { MixRadiusConfig } from '@prisma/client'
+import { prismaBilling } from '@/lib/prisma-billing'
+import type { MixRadiusConfig } from '@/prisma/generated/billing'
 
 export class MixRadiusConfigRepository {
   /**
    * Get the currently active configuration
    */
   async getActiveConfig() {
-    return prisma.mixRadiusConfig.findFirst({
-      where: { isActive: true },
+    return prismaBilling.mixRadiusConfig.findFirst({
+      where: { isDefault: true },
     })
   }
 
@@ -16,7 +15,7 @@ export class MixRadiusConfigRepository {
    * Get all configurations
    */
   async getAllConfigs() {
-    return prisma.mixRadiusConfig.findMany({
+    return prismaBilling.mixRadiusConfig.findMany({
       orderBy: { createdAt: 'desc' },
     })
   }
@@ -25,7 +24,7 @@ export class MixRadiusConfigRepository {
    * Get config by ID
    */
   async getConfigById(id: string) {
-    return prisma.mixRadiusConfig.findUnique({
+    return prismaBilling.mixRadiusConfig.findUnique({
       where: { id },
     })
   }
@@ -35,12 +34,15 @@ export class MixRadiusConfigRepository {
    */
   async createConfig(data: Omit<MixRadiusConfig, 'id' | 'createdAt' | 'updatedAt'>) {
     // If setting as active, deactivate others
-    if (data.isActive) {
+    if (data.isDefault) {
       await this.deactivateAll()
     }
 
-    return prisma.mixRadiusConfig.create({
-      data,
+    return prismaBilling.mixRadiusConfig.create({
+      data: {
+        ...data,
+        name: data.name || 'Default'
+      },
     })
   }
 
@@ -49,11 +51,11 @@ export class MixRadiusConfigRepository {
    */
   async updateConfig(id: string, data: Partial<Omit<MixRadiusConfig, 'id' | 'createdAt' | 'updatedAt'>>) {
     // If setting as active, deactivate others
-    if (data.isActive === true) {
+    if (data.isDefault === true) {
       await this.deactivateAll(id)
     }
 
-    return prisma.mixRadiusConfig.update({
+    return prismaBilling.mixRadiusConfig.update({
       where: { id },
       data,
     })
@@ -63,7 +65,7 @@ export class MixRadiusConfigRepository {
    * Delete a configuration
    */
   async deleteConfig(id: string) {
-    return prisma.mixRadiusConfig.delete({
+    return prismaBilling.mixRadiusConfig.delete({
       where: { id },
     })
   }
@@ -73,9 +75,9 @@ export class MixRadiusConfigRepository {
    */
   async setActive(id: string) {
     await this.deactivateAll(id)
-    return prisma.mixRadiusConfig.update({
+    return prismaBilling.mixRadiusConfig.update({
       where: { id },
-      data: { isActive: true },
+      data: { isDefault: true },
     })
   }
 
@@ -83,12 +85,12 @@ export class MixRadiusConfigRepository {
    * Helper to deactivate all configs except one (optional)
    */
   private async deactivateAll(exceptId?: string) {
-    await prisma.mixRadiusConfig.updateMany({
+    await prismaBilling.mixRadiusConfig.updateMany({
       where: {
         ...(exceptId ? { id: { not: exceptId } } : {}),
-        isActive: true,
+        isDefault: true,
       },
-      data: { isActive: false },
+      data: { isDefault: false },
     })
   }
 }

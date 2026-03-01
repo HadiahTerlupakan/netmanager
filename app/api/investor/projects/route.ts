@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 
 const secret = new TextEncoder().encode(
@@ -27,8 +28,7 @@ export async function GET() {
                 rabProject: {
                     include: {
                         actualAchievements: true,
-                        site: { select: { name: true } },
-                        mixRadiusInvestorSite: { select: { name: true, owners: true } }
+                        site: { select: { name: true } }
                     }
                 }
             },
@@ -39,10 +39,20 @@ export async function GET() {
             }
         })
 
+        // Gather all mixRadiusInvestorSiteId for fetching from billing DB
+        const investorSiteIds = [...new Set(rabInvestors.map(ri => ri.rabProject.mixRadiusInvestorSiteId).filter(Boolean))] as string[]
+
+        // Fetch MixRadiusInvestorSite details from billing DB
+        const investorSites = investorSiteIds.length > 0
+            ? await prismaBilling.mixRadiusInvestorSite.findMany({
+                where: { id: { in: investorSiteIds } }
+            })
+            : []
+
+        const investorSiteMap = new Map(investorSites.map(is => [is.id, is]))
+
         const siteIds = [...new Set(rabInvestors.map(ri => ri.rabProject.siteId).filter(Boolean))] as string[]
-        const mixRadiusOwners = [...new Set(rabInvestors
-            .filter(ri => ri.rabProject.mixRadiusInvestorSiteId && ri.rabProject.mixRadiusInvestorSite)
-            .flatMap(ri => ri.rabProject.mixRadiusInvestorSite?.owners || []))]
+        const mixRadiusOwners = [...new Set(investorSites.flatMap(is => is.owners || []))]
 
         let internalCustomers: {
             siteId: string | null;
@@ -76,6 +86,7 @@ export async function GET() {
 
         const projects = rabInvestors.map(ri => {
             const p = ri.rabProject
+            const invSite = p.mixRadiusInvestorSiteId ? investorSiteMap.get(p.mixRadiusInvestorSiteId) : null
 
             let totalActualRevenue = 0;
             let totalActualOpex = 0;
@@ -93,8 +104,8 @@ export async function GET() {
                 const payingInternal = internalCustomers.filter(c => c.siteId === p.siteId && c.status === 'AKTIF' && new Date(c.jatuhTempo) > now)
                 totalActualRevenue += payingInternal.reduce((acc, c) => acc + Number(c.hargaPaket?.harga || 0), 0)
 
-            } else if (p.mixRadiusInvestorSiteId && p.mixRadiusInvestorSite) {
-                const owners = p.mixRadiusInvestorSite.owners || []
+            } else if (p.mixRadiusInvestorSiteId && invSite) {
+                const owners = invSite.owners || []
                 const activeMixRadius = mixRadiusCustomers.filter(c => {
                     const ownerLower = (c.owner_name || '').toLowerCase().trim()
                     const isOwnerMatch = owners.some((allowed: unknown) => {

@@ -257,6 +257,54 @@ exports.Prisma.MixRadiusInvoiceScalarFieldEnum = {
   syncedAt: 'syncedAt'
 };
 
+exports.Prisma.MixRadiusCustomerScalarFieldEnum = {
+  id: 'id',
+  mixRadiusId: 'mixRadiusId',
+  username: 'username',
+  fullName: 'fullName',
+  address: 'address',
+  phoneNumber: 'phoneNumber',
+  planName: 'planName',
+  status: 'status',
+  ownerName: 'ownerName',
+  expiredOn: 'expiredOn',
+  lastSyncedAt: 'lastSyncedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.MixRadiusOwnerGroupScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  owners: 'owners',
+  siteId: 'siteId',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.MixRadiusInvestorSiteScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  owners: 'owners',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.MixRadiusConfigScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  apiUrl: 'apiUrl',
+  username: 'username',
+  password: 'password',
+  apiKey: 'apiKey',
+  isDefault: 'isDefault',
+  lastSyncedAt: 'lastSyncedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -344,7 +392,11 @@ exports.Prisma.ModelName = {
   UnmatchedMutation: 'UnmatchedMutation',
   Transaction: 'Transaction',
   TransactionCategory: 'TransactionCategory',
-  MixRadiusInvoice: 'MixRadiusInvoice'
+  MixRadiusInvoice: 'MixRadiusInvoice',
+  MixRadiusCustomer: 'MixRadiusCustomer',
+  MixRadiusOwnerGroup: 'MixRadiusOwnerGroup',
+  MixRadiusInvestorSite: 'MixRadiusInvestorSite',
+  MixRadiusConfig: 'MixRadiusConfig'
 };
 
 /**

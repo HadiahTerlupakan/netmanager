@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing'
 import { createHandler, ApiErrors, apiSuccess } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
 import { isSuperAdmin } from '@/lib/auth'
@@ -15,8 +15,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const site = await (prisma as any).mixRadiusInvestorSite.findUnique({
+        const site = await prismaBilling.mixRadiusInvestorSite.findUnique({
             where: { id }
         })
 
@@ -47,8 +46,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
             return ApiErrors.badRequest('Nama belum diisi')
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const updated = await (prisma as any).mixRadiusInvestorSite.update({
+        const updated = await prismaBilling.mixRadiusInvestorSite.update({
             where: { id },
             data: {
                 name,
@@ -76,8 +74,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (prisma as any).mixRadiusInvestorSite.delete({
+        await prismaBilling.mixRadiusInvestorSite.delete({
             where: { id }
         })
 
@@ -87,3 +84,4 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         return ApiErrors.internalError('Gagal menghapus Site Investor. Mungkin data sedang digunakan.')
     }
 })
+

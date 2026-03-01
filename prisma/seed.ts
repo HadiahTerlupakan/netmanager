@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma'
 import { prismaMitra } from '../lib/prisma-mitra'
+import { prismaBilling } from '../lib/prisma-billing'
+import { prismaRadius } from '../lib/prisma-radius'
 import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
 
@@ -1175,6 +1177,49 @@ async function main() {
   })
   console.log('   ✅ Edge: HQ -> ODP 02')
 
+  // ========================================================================
+  // STEP 13: BILLING CONFIGS (Payment Gateway)
+  // ========================================================================
+  console.log('\n💳 STEP 13: Seeding Billing Configs...')
+
+  // NOTE: MixRadius config tidak di-seed karena harus dikonfigurasi manual
+  // melalui Admin Panel -> Integrasi -> MixRadius -> Akun MixRadius
+
+  await prismaBilling.paymentGatewayConfig.upsert({
+    where: { provider: 'MIDTRANS' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      provider: 'MIDTRANS',
+      providerName: 'Midtrans Payment Gateway',
+      isEnabled: true,
+      isProduction: false,
+      priority: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  })
+  console.log('   ✅ Payment Gateway: Midtrans Config created')
+
+  // ========================================================================
+  // STEP 14: RADIUS (NAS)
+  // ========================================================================
+  console.log('\n📡 STEP 14: Seeding Radius (NAS)...')
+
+  await prismaRadius.nas.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      nasname: '127.0.0.1',
+      shortname: 'localhost',
+      type: 'other',
+      secret: 'testing123',
+      description: 'Default Local NAS'
+    }
+  })
+  console.log('   ✅ Radius: Default NAS created')
+
 }
 
 main()
@@ -1185,5 +1230,7 @@ main()
   .finally(async () => {
     await prisma.$disconnect()
     await prismaMitra.$disconnect()
+    await prismaBilling.$disconnect()
+    await prismaRadius.$disconnect()
     process.exit(0)
   })

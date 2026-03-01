@@ -53,6 +53,26 @@ export type TransactionCategory = $Result.DefaultSelection<Prisma.$TransactionCa
  * 
  */
 export type MixRadiusInvoice = $Result.DefaultSelection<Prisma.$MixRadiusInvoicePayload>
+/**
+ * Model MixRadiusCustomer
+ * 
+ */
+export type MixRadiusCustomer = $Result.DefaultSelection<Prisma.$MixRadiusCustomerPayload>
+/**
+ * Model MixRadiusOwnerGroup
+ * 
+ */
+export type MixRadiusOwnerGroup = $Result.DefaultSelection<Prisma.$MixRadiusOwnerGroupPayload>
+/**
+ * Model MixRadiusInvestorSite
+ * 
+ */
+export type MixRadiusInvestorSite = $Result.DefaultSelection<Prisma.$MixRadiusInvestorSitePayload>
+/**
+ * Model MixRadiusConfig
+ * 
+ */
+export type MixRadiusConfig = $Result.DefaultSelection<Prisma.$MixRadiusConfigPayload>
 
 /**
  * Enums
@@ -386,6 +406,46 @@ export class PrismaClient<
     * ```
     */
   get mixRadiusInvoice(): Prisma.MixRadiusInvoiceDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.mixRadiusCustomer`: Exposes CRUD operations for the **MixRadiusCustomer** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more MixRadiusCustomers
+    * const mixRadiusCustomers = await prisma.mixRadiusCustomer.findMany()
+    * ```
+    */
+  get mixRadiusCustomer(): Prisma.MixRadiusCustomerDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.mixRadiusOwnerGroup`: Exposes CRUD operations for the **MixRadiusOwnerGroup** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more MixRadiusOwnerGroups
+    * const mixRadiusOwnerGroups = await prisma.mixRadiusOwnerGroup.findMany()
+    * ```
+    */
+  get mixRadiusOwnerGroup(): Prisma.MixRadiusOwnerGroupDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.mixRadiusInvestorSite`: Exposes CRUD operations for the **MixRadiusInvestorSite** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more MixRadiusInvestorSites
+    * const mixRadiusInvestorSites = await prisma.mixRadiusInvestorSite.findMany()
+    * ```
+    */
+  get mixRadiusInvestorSite(): Prisma.MixRadiusInvestorSiteDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.mixRadiusConfig`: Exposes CRUD operations for the **MixRadiusConfig** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more MixRadiusConfigs
+    * const mixRadiusConfigs = await prisma.mixRadiusConfig.findMany()
+    * ```
+    */
+  get mixRadiusConfig(): Prisma.MixRadiusConfigDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -827,7 +887,11 @@ export namespace Prisma {
     UnmatchedMutation: 'UnmatchedMutation',
     Transaction: 'Transaction',
     TransactionCategory: 'TransactionCategory',
-    MixRadiusInvoice: 'MixRadiusInvoice'
+    MixRadiusInvoice: 'MixRadiusInvoice',
+    MixRadiusCustomer: 'MixRadiusCustomer',
+    MixRadiusOwnerGroup: 'MixRadiusOwnerGroup',
+    MixRadiusInvestorSite: 'MixRadiusInvestorSite',
+    MixRadiusConfig: 'MixRadiusConfig'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -843,7 +907,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "invoice" | "invoiceItem" | "payment" | "paymentGatewayConfig" | "unmatchedMutation" | "transaction" | "transactionCategory" | "mixRadiusInvoice"
+      modelProps: "invoice" | "invoiceItem" | "payment" | "paymentGatewayConfig" | "unmatchedMutation" | "transaction" | "transactionCategory" | "mixRadiusInvoice" | "mixRadiusCustomer" | "mixRadiusOwnerGroup" | "mixRadiusInvestorSite" | "mixRadiusConfig"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1439,6 +1503,302 @@ export namespace Prisma {
           }
         }
       }
+      MixRadiusCustomer: {
+        payload: Prisma.$MixRadiusCustomerPayload<ExtArgs>
+        fields: Prisma.MixRadiusCustomerFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.MixRadiusCustomerFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.MixRadiusCustomerFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>
+          }
+          findFirst: {
+            args: Prisma.MixRadiusCustomerFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.MixRadiusCustomerFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>
+          }
+          findMany: {
+            args: Prisma.MixRadiusCustomerFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>[]
+          }
+          create: {
+            args: Prisma.MixRadiusCustomerCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>
+          }
+          createMany: {
+            args: Prisma.MixRadiusCustomerCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.MixRadiusCustomerCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>[]
+          }
+          delete: {
+            args: Prisma.MixRadiusCustomerDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>
+          }
+          update: {
+            args: Prisma.MixRadiusCustomerUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>
+          }
+          deleteMany: {
+            args: Prisma.MixRadiusCustomerDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.MixRadiusCustomerUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.MixRadiusCustomerUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>[]
+          }
+          upsert: {
+            args: Prisma.MixRadiusCustomerUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusCustomerPayload>
+          }
+          aggregate: {
+            args: Prisma.MixRadiusCustomerAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateMixRadiusCustomer>
+          }
+          groupBy: {
+            args: Prisma.MixRadiusCustomerGroupByArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusCustomerGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.MixRadiusCustomerCountArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusCustomerCountAggregateOutputType> | number
+          }
+        }
+      }
+      MixRadiusOwnerGroup: {
+        payload: Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>
+        fields: Prisma.MixRadiusOwnerGroupFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.MixRadiusOwnerGroupFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.MixRadiusOwnerGroupFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>
+          }
+          findFirst: {
+            args: Prisma.MixRadiusOwnerGroupFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.MixRadiusOwnerGroupFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>
+          }
+          findMany: {
+            args: Prisma.MixRadiusOwnerGroupFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>[]
+          }
+          create: {
+            args: Prisma.MixRadiusOwnerGroupCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>
+          }
+          createMany: {
+            args: Prisma.MixRadiusOwnerGroupCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.MixRadiusOwnerGroupCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>[]
+          }
+          delete: {
+            args: Prisma.MixRadiusOwnerGroupDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>
+          }
+          update: {
+            args: Prisma.MixRadiusOwnerGroupUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>
+          }
+          deleteMany: {
+            args: Prisma.MixRadiusOwnerGroupDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.MixRadiusOwnerGroupUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.MixRadiusOwnerGroupUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>[]
+          }
+          upsert: {
+            args: Prisma.MixRadiusOwnerGroupUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusOwnerGroupPayload>
+          }
+          aggregate: {
+            args: Prisma.MixRadiusOwnerGroupAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateMixRadiusOwnerGroup>
+          }
+          groupBy: {
+            args: Prisma.MixRadiusOwnerGroupGroupByArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusOwnerGroupGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.MixRadiusOwnerGroupCountArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusOwnerGroupCountAggregateOutputType> | number
+          }
+        }
+      }
+      MixRadiusInvestorSite: {
+        payload: Prisma.$MixRadiusInvestorSitePayload<ExtArgs>
+        fields: Prisma.MixRadiusInvestorSiteFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.MixRadiusInvestorSiteFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.MixRadiusInvestorSiteFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>
+          }
+          findFirst: {
+            args: Prisma.MixRadiusInvestorSiteFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.MixRadiusInvestorSiteFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>
+          }
+          findMany: {
+            args: Prisma.MixRadiusInvestorSiteFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>[]
+          }
+          create: {
+            args: Prisma.MixRadiusInvestorSiteCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>
+          }
+          createMany: {
+            args: Prisma.MixRadiusInvestorSiteCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.MixRadiusInvestorSiteCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>[]
+          }
+          delete: {
+            args: Prisma.MixRadiusInvestorSiteDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>
+          }
+          update: {
+            args: Prisma.MixRadiusInvestorSiteUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>
+          }
+          deleteMany: {
+            args: Prisma.MixRadiusInvestorSiteDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.MixRadiusInvestorSiteUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.MixRadiusInvestorSiteUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>[]
+          }
+          upsert: {
+            args: Prisma.MixRadiusInvestorSiteUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusInvestorSitePayload>
+          }
+          aggregate: {
+            args: Prisma.MixRadiusInvestorSiteAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateMixRadiusInvestorSite>
+          }
+          groupBy: {
+            args: Prisma.MixRadiusInvestorSiteGroupByArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusInvestorSiteGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.MixRadiusInvestorSiteCountArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusInvestorSiteCountAggregateOutputType> | number
+          }
+        }
+      }
+      MixRadiusConfig: {
+        payload: Prisma.$MixRadiusConfigPayload<ExtArgs>
+        fields: Prisma.MixRadiusConfigFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.MixRadiusConfigFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.MixRadiusConfigFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>
+          }
+          findFirst: {
+            args: Prisma.MixRadiusConfigFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.MixRadiusConfigFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>
+          }
+          findMany: {
+            args: Prisma.MixRadiusConfigFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>[]
+          }
+          create: {
+            args: Prisma.MixRadiusConfigCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>
+          }
+          createMany: {
+            args: Prisma.MixRadiusConfigCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.MixRadiusConfigCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>[]
+          }
+          delete: {
+            args: Prisma.MixRadiusConfigDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>
+          }
+          update: {
+            args: Prisma.MixRadiusConfigUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>
+          }
+          deleteMany: {
+            args: Prisma.MixRadiusConfigDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.MixRadiusConfigUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.MixRadiusConfigUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>[]
+          }
+          upsert: {
+            args: Prisma.MixRadiusConfigUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MixRadiusConfigPayload>
+          }
+          aggregate: {
+            args: Prisma.MixRadiusConfigAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateMixRadiusConfig>
+          }
+          groupBy: {
+            args: Prisma.MixRadiusConfigGroupByArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusConfigGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.MixRadiusConfigCountArgs<ExtArgs>
+            result: $Utils.Optional<MixRadiusConfigCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -1555,6 +1915,10 @@ export namespace Prisma {
     transaction?: TransactionOmit
     transactionCategory?: TransactionCategoryOmit
     mixRadiusInvoice?: MixRadiusInvoiceOmit
+    mixRadiusCustomer?: MixRadiusCustomerOmit
+    mixRadiusOwnerGroup?: MixRadiusOwnerGroupOmit
+    mixRadiusInvestorSite?: MixRadiusInvestorSiteOmit
+    mixRadiusConfig?: MixRadiusConfigOmit
   }
 
   /* Types for Logging */
@@ -11346,6 +11710,4186 @@ export namespace Prisma {
 
 
   /**
+   * Model MixRadiusCustomer
+   */
+
+  export type AggregateMixRadiusCustomer = {
+    _count: MixRadiusCustomerCountAggregateOutputType | null
+    _min: MixRadiusCustomerMinAggregateOutputType | null
+    _max: MixRadiusCustomerMaxAggregateOutputType | null
+  }
+
+  export type MixRadiusCustomerMinAggregateOutputType = {
+    id: string | null
+    mixRadiusId: string | null
+    username: string | null
+    fullName: string | null
+    address: string | null
+    phoneNumber: string | null
+    planName: string | null
+    status: string | null
+    ownerName: string | null
+    expiredOn: Date | null
+    lastSyncedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusCustomerMaxAggregateOutputType = {
+    id: string | null
+    mixRadiusId: string | null
+    username: string | null
+    fullName: string | null
+    address: string | null
+    phoneNumber: string | null
+    planName: string | null
+    status: string | null
+    ownerName: string | null
+    expiredOn: Date | null
+    lastSyncedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusCustomerCountAggregateOutputType = {
+    id: number
+    mixRadiusId: number
+    username: number
+    fullName: number
+    address: number
+    phoneNumber: number
+    planName: number
+    status: number
+    ownerName: number
+    expiredOn: number
+    lastSyncedAt: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type MixRadiusCustomerMinAggregateInputType = {
+    id?: true
+    mixRadiusId?: true
+    username?: true
+    fullName?: true
+    address?: true
+    phoneNumber?: true
+    planName?: true
+    status?: true
+    ownerName?: true
+    expiredOn?: true
+    lastSyncedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusCustomerMaxAggregateInputType = {
+    id?: true
+    mixRadiusId?: true
+    username?: true
+    fullName?: true
+    address?: true
+    phoneNumber?: true
+    planName?: true
+    status?: true
+    ownerName?: true
+    expiredOn?: true
+    lastSyncedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusCustomerCountAggregateInputType = {
+    id?: true
+    mixRadiusId?: true
+    username?: true
+    fullName?: true
+    address?: true
+    phoneNumber?: true
+    planName?: true
+    status?: true
+    ownerName?: true
+    expiredOn?: true
+    lastSyncedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type MixRadiusCustomerAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusCustomer to aggregate.
+     */
+    where?: MixRadiusCustomerWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusCustomers to fetch.
+     */
+    orderBy?: MixRadiusCustomerOrderByWithRelationInput | MixRadiusCustomerOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: MixRadiusCustomerWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusCustomers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusCustomers.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned MixRadiusCustomers
+    **/
+    _count?: true | MixRadiusCustomerCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: MixRadiusCustomerMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: MixRadiusCustomerMaxAggregateInputType
+  }
+
+  export type GetMixRadiusCustomerAggregateType<T extends MixRadiusCustomerAggregateArgs> = {
+        [P in keyof T & keyof AggregateMixRadiusCustomer]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateMixRadiusCustomer[P]>
+      : GetScalarType<T[P], AggregateMixRadiusCustomer[P]>
+  }
+
+
+
+
+  export type MixRadiusCustomerGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MixRadiusCustomerWhereInput
+    orderBy?: MixRadiusCustomerOrderByWithAggregationInput | MixRadiusCustomerOrderByWithAggregationInput[]
+    by: MixRadiusCustomerScalarFieldEnum[] | MixRadiusCustomerScalarFieldEnum
+    having?: MixRadiusCustomerScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: MixRadiusCustomerCountAggregateInputType | true
+    _min?: MixRadiusCustomerMinAggregateInputType
+    _max?: MixRadiusCustomerMaxAggregateInputType
+  }
+
+  export type MixRadiusCustomerGroupByOutputType = {
+    id: string
+    mixRadiusId: string
+    username: string
+    fullName: string | null
+    address: string | null
+    phoneNumber: string | null
+    planName: string | null
+    status: string | null
+    ownerName: string | null
+    expiredOn: Date | null
+    lastSyncedAt: Date
+    createdAt: Date
+    updatedAt: Date
+    _count: MixRadiusCustomerCountAggregateOutputType | null
+    _min: MixRadiusCustomerMinAggregateOutputType | null
+    _max: MixRadiusCustomerMaxAggregateOutputType | null
+  }
+
+  type GetMixRadiusCustomerGroupByPayload<T extends MixRadiusCustomerGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<MixRadiusCustomerGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof MixRadiusCustomerGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], MixRadiusCustomerGroupByOutputType[P]>
+            : GetScalarType<T[P], MixRadiusCustomerGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type MixRadiusCustomerSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    mixRadiusId?: boolean
+    username?: boolean
+    fullName?: boolean
+    address?: boolean
+    phoneNumber?: boolean
+    planName?: boolean
+    status?: boolean
+    ownerName?: boolean
+    expiredOn?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusCustomer"]>
+
+  export type MixRadiusCustomerSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    mixRadiusId?: boolean
+    username?: boolean
+    fullName?: boolean
+    address?: boolean
+    phoneNumber?: boolean
+    planName?: boolean
+    status?: boolean
+    ownerName?: boolean
+    expiredOn?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusCustomer"]>
+
+  export type MixRadiusCustomerSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    mixRadiusId?: boolean
+    username?: boolean
+    fullName?: boolean
+    address?: boolean
+    phoneNumber?: boolean
+    planName?: boolean
+    status?: boolean
+    ownerName?: boolean
+    expiredOn?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusCustomer"]>
+
+  export type MixRadiusCustomerSelectScalar = {
+    id?: boolean
+    mixRadiusId?: boolean
+    username?: boolean
+    fullName?: boolean
+    address?: boolean
+    phoneNumber?: boolean
+    planName?: boolean
+    status?: boolean
+    ownerName?: boolean
+    expiredOn?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type MixRadiusCustomerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mixRadiusId" | "username" | "fullName" | "address" | "phoneNumber" | "planName" | "status" | "ownerName" | "expiredOn" | "lastSyncedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusCustomer"]>
+
+  export type $MixRadiusCustomerPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "MixRadiusCustomer"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      mixRadiusId: string
+      username: string
+      fullName: string | null
+      address: string | null
+      phoneNumber: string | null
+      planName: string | null
+      status: string | null
+      ownerName: string | null
+      expiredOn: Date | null
+      lastSyncedAt: Date
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["mixRadiusCustomer"]>
+    composites: {}
+  }
+
+  type MixRadiusCustomerGetPayload<S extends boolean | null | undefined | MixRadiusCustomerDefaultArgs> = $Result.GetResult<Prisma.$MixRadiusCustomerPayload, S>
+
+  type MixRadiusCustomerCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<MixRadiusCustomerFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: MixRadiusCustomerCountAggregateInputType | true
+    }
+
+  export interface MixRadiusCustomerDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['MixRadiusCustomer'], meta: { name: 'MixRadiusCustomer' } }
+    /**
+     * Find zero or one MixRadiusCustomer that matches the filter.
+     * @param {MixRadiusCustomerFindUniqueArgs} args - Arguments to find a MixRadiusCustomer
+     * @example
+     * // Get one MixRadiusCustomer
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends MixRadiusCustomerFindUniqueArgs>(args: SelectSubset<T, MixRadiusCustomerFindUniqueArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one MixRadiusCustomer that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {MixRadiusCustomerFindUniqueOrThrowArgs} args - Arguments to find a MixRadiusCustomer
+     * @example
+     * // Get one MixRadiusCustomer
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends MixRadiusCustomerFindUniqueOrThrowArgs>(args: SelectSubset<T, MixRadiusCustomerFindUniqueOrThrowArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusCustomer that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusCustomerFindFirstArgs} args - Arguments to find a MixRadiusCustomer
+     * @example
+     * // Get one MixRadiusCustomer
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends MixRadiusCustomerFindFirstArgs>(args?: SelectSubset<T, MixRadiusCustomerFindFirstArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusCustomer that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusCustomerFindFirstOrThrowArgs} args - Arguments to find a MixRadiusCustomer
+     * @example
+     * // Get one MixRadiusCustomer
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends MixRadiusCustomerFindFirstOrThrowArgs>(args?: SelectSubset<T, MixRadiusCustomerFindFirstOrThrowArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more MixRadiusCustomers that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusCustomerFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all MixRadiusCustomers
+     * const mixRadiusCustomers = await prisma.mixRadiusCustomer.findMany()
+     * 
+     * // Get first 10 MixRadiusCustomers
+     * const mixRadiusCustomers = await prisma.mixRadiusCustomer.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const mixRadiusCustomerWithIdOnly = await prisma.mixRadiusCustomer.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends MixRadiusCustomerFindManyArgs>(args?: SelectSubset<T, MixRadiusCustomerFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a MixRadiusCustomer.
+     * @param {MixRadiusCustomerCreateArgs} args - Arguments to create a MixRadiusCustomer.
+     * @example
+     * // Create one MixRadiusCustomer
+     * const MixRadiusCustomer = await prisma.mixRadiusCustomer.create({
+     *   data: {
+     *     // ... data to create a MixRadiusCustomer
+     *   }
+     * })
+     * 
+     */
+    create<T extends MixRadiusCustomerCreateArgs>(args: SelectSubset<T, MixRadiusCustomerCreateArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many MixRadiusCustomers.
+     * @param {MixRadiusCustomerCreateManyArgs} args - Arguments to create many MixRadiusCustomers.
+     * @example
+     * // Create many MixRadiusCustomers
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends MixRadiusCustomerCreateManyArgs>(args?: SelectSubset<T, MixRadiusCustomerCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many MixRadiusCustomers and returns the data saved in the database.
+     * @param {MixRadiusCustomerCreateManyAndReturnArgs} args - Arguments to create many MixRadiusCustomers.
+     * @example
+     * // Create many MixRadiusCustomers
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many MixRadiusCustomers and only return the `id`
+     * const mixRadiusCustomerWithIdOnly = await prisma.mixRadiusCustomer.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends MixRadiusCustomerCreateManyAndReturnArgs>(args?: SelectSubset<T, MixRadiusCustomerCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a MixRadiusCustomer.
+     * @param {MixRadiusCustomerDeleteArgs} args - Arguments to delete one MixRadiusCustomer.
+     * @example
+     * // Delete one MixRadiusCustomer
+     * const MixRadiusCustomer = await prisma.mixRadiusCustomer.delete({
+     *   where: {
+     *     // ... filter to delete one MixRadiusCustomer
+     *   }
+     * })
+     * 
+     */
+    delete<T extends MixRadiusCustomerDeleteArgs>(args: SelectSubset<T, MixRadiusCustomerDeleteArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one MixRadiusCustomer.
+     * @param {MixRadiusCustomerUpdateArgs} args - Arguments to update one MixRadiusCustomer.
+     * @example
+     * // Update one MixRadiusCustomer
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends MixRadiusCustomerUpdateArgs>(args: SelectSubset<T, MixRadiusCustomerUpdateArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more MixRadiusCustomers.
+     * @param {MixRadiusCustomerDeleteManyArgs} args - Arguments to filter MixRadiusCustomers to delete.
+     * @example
+     * // Delete a few MixRadiusCustomers
+     * const { count } = await prisma.mixRadiusCustomer.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends MixRadiusCustomerDeleteManyArgs>(args?: SelectSubset<T, MixRadiusCustomerDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusCustomers.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusCustomerUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many MixRadiusCustomers
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends MixRadiusCustomerUpdateManyArgs>(args: SelectSubset<T, MixRadiusCustomerUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusCustomers and returns the data updated in the database.
+     * @param {MixRadiusCustomerUpdateManyAndReturnArgs} args - Arguments to update many MixRadiusCustomers.
+     * @example
+     * // Update many MixRadiusCustomers
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more MixRadiusCustomers and only return the `id`
+     * const mixRadiusCustomerWithIdOnly = await prisma.mixRadiusCustomer.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends MixRadiusCustomerUpdateManyAndReturnArgs>(args: SelectSubset<T, MixRadiusCustomerUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one MixRadiusCustomer.
+     * @param {MixRadiusCustomerUpsertArgs} args - Arguments to update or create a MixRadiusCustomer.
+     * @example
+     * // Update or create a MixRadiusCustomer
+     * const mixRadiusCustomer = await prisma.mixRadiusCustomer.upsert({
+     *   create: {
+     *     // ... data to create a MixRadiusCustomer
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the MixRadiusCustomer we want to update
+     *   }
+     * })
+     */
+    upsert<T extends MixRadiusCustomerUpsertArgs>(args: SelectSubset<T, MixRadiusCustomerUpsertArgs<ExtArgs>>): Prisma__MixRadiusCustomerClient<$Result.GetResult<Prisma.$MixRadiusCustomerPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of MixRadiusCustomers.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusCustomerCountArgs} args - Arguments to filter MixRadiusCustomers to count.
+     * @example
+     * // Count the number of MixRadiusCustomers
+     * const count = await prisma.mixRadiusCustomer.count({
+     *   where: {
+     *     // ... the filter for the MixRadiusCustomers we want to count
+     *   }
+     * })
+    **/
+    count<T extends MixRadiusCustomerCountArgs>(
+      args?: Subset<T, MixRadiusCustomerCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], MixRadiusCustomerCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a MixRadiusCustomer.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusCustomerAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends MixRadiusCustomerAggregateArgs>(args: Subset<T, MixRadiusCustomerAggregateArgs>): Prisma.PrismaPromise<GetMixRadiusCustomerAggregateType<T>>
+
+    /**
+     * Group by MixRadiusCustomer.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusCustomerGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends MixRadiusCustomerGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: MixRadiusCustomerGroupByArgs['orderBy'] }
+        : { orderBy?: MixRadiusCustomerGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, MixRadiusCustomerGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetMixRadiusCustomerGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the MixRadiusCustomer model
+   */
+  readonly fields: MixRadiusCustomerFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for MixRadiusCustomer.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__MixRadiusCustomerClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the MixRadiusCustomer model
+   */
+  interface MixRadiusCustomerFieldRefs {
+    readonly id: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly mixRadiusId: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly username: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly fullName: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly address: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly phoneNumber: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly planName: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly status: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly ownerName: FieldRef<"MixRadiusCustomer", 'String'>
+    readonly expiredOn: FieldRef<"MixRadiusCustomer", 'DateTime'>
+    readonly lastSyncedAt: FieldRef<"MixRadiusCustomer", 'DateTime'>
+    readonly createdAt: FieldRef<"MixRadiusCustomer", 'DateTime'>
+    readonly updatedAt: FieldRef<"MixRadiusCustomer", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * MixRadiusCustomer findUnique
+   */
+  export type MixRadiusCustomerFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusCustomer to fetch.
+     */
+    where: MixRadiusCustomerWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusCustomer findUniqueOrThrow
+   */
+  export type MixRadiusCustomerFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusCustomer to fetch.
+     */
+    where: MixRadiusCustomerWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusCustomer findFirst
+   */
+  export type MixRadiusCustomerFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusCustomer to fetch.
+     */
+    where?: MixRadiusCustomerWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusCustomers to fetch.
+     */
+    orderBy?: MixRadiusCustomerOrderByWithRelationInput | MixRadiusCustomerOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusCustomers.
+     */
+    cursor?: MixRadiusCustomerWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusCustomers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusCustomers.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusCustomers.
+     */
+    distinct?: MixRadiusCustomerScalarFieldEnum | MixRadiusCustomerScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusCustomer findFirstOrThrow
+   */
+  export type MixRadiusCustomerFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusCustomer to fetch.
+     */
+    where?: MixRadiusCustomerWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusCustomers to fetch.
+     */
+    orderBy?: MixRadiusCustomerOrderByWithRelationInput | MixRadiusCustomerOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusCustomers.
+     */
+    cursor?: MixRadiusCustomerWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusCustomers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusCustomers.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusCustomers.
+     */
+    distinct?: MixRadiusCustomerScalarFieldEnum | MixRadiusCustomerScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusCustomer findMany
+   */
+  export type MixRadiusCustomerFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusCustomers to fetch.
+     */
+    where?: MixRadiusCustomerWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusCustomers to fetch.
+     */
+    orderBy?: MixRadiusCustomerOrderByWithRelationInput | MixRadiusCustomerOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing MixRadiusCustomers.
+     */
+    cursor?: MixRadiusCustomerWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusCustomers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusCustomers.
+     */
+    skip?: number
+    distinct?: MixRadiusCustomerScalarFieldEnum | MixRadiusCustomerScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusCustomer create
+   */
+  export type MixRadiusCustomerCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * The data needed to create a MixRadiusCustomer.
+     */
+    data: XOR<MixRadiusCustomerCreateInput, MixRadiusCustomerUncheckedCreateInput>
+  }
+
+  /**
+   * MixRadiusCustomer createMany
+   */
+  export type MixRadiusCustomerCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many MixRadiusCustomers.
+     */
+    data: MixRadiusCustomerCreateManyInput | MixRadiusCustomerCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusCustomer createManyAndReturn
+   */
+  export type MixRadiusCustomerCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * The data used to create many MixRadiusCustomers.
+     */
+    data: MixRadiusCustomerCreateManyInput | MixRadiusCustomerCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusCustomer update
+   */
+  export type MixRadiusCustomerUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * The data needed to update a MixRadiusCustomer.
+     */
+    data: XOR<MixRadiusCustomerUpdateInput, MixRadiusCustomerUncheckedUpdateInput>
+    /**
+     * Choose, which MixRadiusCustomer to update.
+     */
+    where: MixRadiusCustomerWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusCustomer updateMany
+   */
+  export type MixRadiusCustomerUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update MixRadiusCustomers.
+     */
+    data: XOR<MixRadiusCustomerUpdateManyMutationInput, MixRadiusCustomerUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusCustomers to update
+     */
+    where?: MixRadiusCustomerWhereInput
+    /**
+     * Limit how many MixRadiusCustomers to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusCustomer updateManyAndReturn
+   */
+  export type MixRadiusCustomerUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * The data used to update MixRadiusCustomers.
+     */
+    data: XOR<MixRadiusCustomerUpdateManyMutationInput, MixRadiusCustomerUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusCustomers to update
+     */
+    where?: MixRadiusCustomerWhereInput
+    /**
+     * Limit how many MixRadiusCustomers to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusCustomer upsert
+   */
+  export type MixRadiusCustomerUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * The filter to search for the MixRadiusCustomer to update in case it exists.
+     */
+    where: MixRadiusCustomerWhereUniqueInput
+    /**
+     * In case the MixRadiusCustomer found by the `where` argument doesn't exist, create a new MixRadiusCustomer with this data.
+     */
+    create: XOR<MixRadiusCustomerCreateInput, MixRadiusCustomerUncheckedCreateInput>
+    /**
+     * In case the MixRadiusCustomer was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<MixRadiusCustomerUpdateInput, MixRadiusCustomerUncheckedUpdateInput>
+  }
+
+  /**
+   * MixRadiusCustomer delete
+   */
+  export type MixRadiusCustomerDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+    /**
+     * Filter which MixRadiusCustomer to delete.
+     */
+    where: MixRadiusCustomerWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusCustomer deleteMany
+   */
+  export type MixRadiusCustomerDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusCustomers to delete
+     */
+    where?: MixRadiusCustomerWhereInput
+    /**
+     * Limit how many MixRadiusCustomers to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusCustomer without action
+   */
+  export type MixRadiusCustomerDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusCustomer
+     */
+    select?: MixRadiusCustomerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusCustomer
+     */
+    omit?: MixRadiusCustomerOmit<ExtArgs> | null
+  }
+
+
+  /**
+   * Model MixRadiusOwnerGroup
+   */
+
+  export type AggregateMixRadiusOwnerGroup = {
+    _count: MixRadiusOwnerGroupCountAggregateOutputType | null
+    _min: MixRadiusOwnerGroupMinAggregateOutputType | null
+    _max: MixRadiusOwnerGroupMaxAggregateOutputType | null
+  }
+
+  export type MixRadiusOwnerGroupMinAggregateOutputType = {
+    id: string | null
+    name: string | null
+    siteId: string | null
+    isActive: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusOwnerGroupMaxAggregateOutputType = {
+    id: string | null
+    name: string | null
+    siteId: string | null
+    isActive: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusOwnerGroupCountAggregateOutputType = {
+    id: number
+    name: number
+    owners: number
+    siteId: number
+    isActive: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type MixRadiusOwnerGroupMinAggregateInputType = {
+    id?: true
+    name?: true
+    siteId?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusOwnerGroupMaxAggregateInputType = {
+    id?: true
+    name?: true
+    siteId?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusOwnerGroupCountAggregateInputType = {
+    id?: true
+    name?: true
+    owners?: true
+    siteId?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type MixRadiusOwnerGroupAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusOwnerGroup to aggregate.
+     */
+    where?: MixRadiusOwnerGroupWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusOwnerGroups to fetch.
+     */
+    orderBy?: MixRadiusOwnerGroupOrderByWithRelationInput | MixRadiusOwnerGroupOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: MixRadiusOwnerGroupWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusOwnerGroups from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusOwnerGroups.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned MixRadiusOwnerGroups
+    **/
+    _count?: true | MixRadiusOwnerGroupCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: MixRadiusOwnerGroupMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: MixRadiusOwnerGroupMaxAggregateInputType
+  }
+
+  export type GetMixRadiusOwnerGroupAggregateType<T extends MixRadiusOwnerGroupAggregateArgs> = {
+        [P in keyof T & keyof AggregateMixRadiusOwnerGroup]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateMixRadiusOwnerGroup[P]>
+      : GetScalarType<T[P], AggregateMixRadiusOwnerGroup[P]>
+  }
+
+
+
+
+  export type MixRadiusOwnerGroupGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MixRadiusOwnerGroupWhereInput
+    orderBy?: MixRadiusOwnerGroupOrderByWithAggregationInput | MixRadiusOwnerGroupOrderByWithAggregationInput[]
+    by: MixRadiusOwnerGroupScalarFieldEnum[] | MixRadiusOwnerGroupScalarFieldEnum
+    having?: MixRadiusOwnerGroupScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: MixRadiusOwnerGroupCountAggregateInputType | true
+    _min?: MixRadiusOwnerGroupMinAggregateInputType
+    _max?: MixRadiusOwnerGroupMaxAggregateInputType
+  }
+
+  export type MixRadiusOwnerGroupGroupByOutputType = {
+    id: string
+    name: string
+    owners: string[]
+    siteId: string | null
+    isActive: boolean
+    createdAt: Date
+    updatedAt: Date
+    _count: MixRadiusOwnerGroupCountAggregateOutputType | null
+    _min: MixRadiusOwnerGroupMinAggregateOutputType | null
+    _max: MixRadiusOwnerGroupMaxAggregateOutputType | null
+  }
+
+  type GetMixRadiusOwnerGroupGroupByPayload<T extends MixRadiusOwnerGroupGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<MixRadiusOwnerGroupGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof MixRadiusOwnerGroupGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], MixRadiusOwnerGroupGroupByOutputType[P]>
+            : GetScalarType<T[P], MixRadiusOwnerGroupGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type MixRadiusOwnerGroupSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    siteId?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
+
+  export type MixRadiusOwnerGroupSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    siteId?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
+
+  export type MixRadiusOwnerGroupSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    siteId?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
+
+  export type MixRadiusOwnerGroupSelectScalar = {
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    siteId?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type MixRadiusOwnerGroupOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "owners" | "siteId" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusOwnerGroup"]>
+
+  export type $MixRadiusOwnerGroupPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "MixRadiusOwnerGroup"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      name: string
+      owners: string[]
+      siteId: string | null
+      isActive: boolean
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
+    composites: {}
+  }
+
+  type MixRadiusOwnerGroupGetPayload<S extends boolean | null | undefined | MixRadiusOwnerGroupDefaultArgs> = $Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload, S>
+
+  type MixRadiusOwnerGroupCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<MixRadiusOwnerGroupFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: MixRadiusOwnerGroupCountAggregateInputType | true
+    }
+
+  export interface MixRadiusOwnerGroupDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['MixRadiusOwnerGroup'], meta: { name: 'MixRadiusOwnerGroup' } }
+    /**
+     * Find zero or one MixRadiusOwnerGroup that matches the filter.
+     * @param {MixRadiusOwnerGroupFindUniqueArgs} args - Arguments to find a MixRadiusOwnerGroup
+     * @example
+     * // Get one MixRadiusOwnerGroup
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends MixRadiusOwnerGroupFindUniqueArgs>(args: SelectSubset<T, MixRadiusOwnerGroupFindUniqueArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one MixRadiusOwnerGroup that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {MixRadiusOwnerGroupFindUniqueOrThrowArgs} args - Arguments to find a MixRadiusOwnerGroup
+     * @example
+     * // Get one MixRadiusOwnerGroup
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends MixRadiusOwnerGroupFindUniqueOrThrowArgs>(args: SelectSubset<T, MixRadiusOwnerGroupFindUniqueOrThrowArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusOwnerGroup that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusOwnerGroupFindFirstArgs} args - Arguments to find a MixRadiusOwnerGroup
+     * @example
+     * // Get one MixRadiusOwnerGroup
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends MixRadiusOwnerGroupFindFirstArgs>(args?: SelectSubset<T, MixRadiusOwnerGroupFindFirstArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusOwnerGroup that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusOwnerGroupFindFirstOrThrowArgs} args - Arguments to find a MixRadiusOwnerGroup
+     * @example
+     * // Get one MixRadiusOwnerGroup
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends MixRadiusOwnerGroupFindFirstOrThrowArgs>(args?: SelectSubset<T, MixRadiusOwnerGroupFindFirstOrThrowArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more MixRadiusOwnerGroups that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusOwnerGroupFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all MixRadiusOwnerGroups
+     * const mixRadiusOwnerGroups = await prisma.mixRadiusOwnerGroup.findMany()
+     * 
+     * // Get first 10 MixRadiusOwnerGroups
+     * const mixRadiusOwnerGroups = await prisma.mixRadiusOwnerGroup.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const mixRadiusOwnerGroupWithIdOnly = await prisma.mixRadiusOwnerGroup.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends MixRadiusOwnerGroupFindManyArgs>(args?: SelectSubset<T, MixRadiusOwnerGroupFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a MixRadiusOwnerGroup.
+     * @param {MixRadiusOwnerGroupCreateArgs} args - Arguments to create a MixRadiusOwnerGroup.
+     * @example
+     * // Create one MixRadiusOwnerGroup
+     * const MixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.create({
+     *   data: {
+     *     // ... data to create a MixRadiusOwnerGroup
+     *   }
+     * })
+     * 
+     */
+    create<T extends MixRadiusOwnerGroupCreateArgs>(args: SelectSubset<T, MixRadiusOwnerGroupCreateArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many MixRadiusOwnerGroups.
+     * @param {MixRadiusOwnerGroupCreateManyArgs} args - Arguments to create many MixRadiusOwnerGroups.
+     * @example
+     * // Create many MixRadiusOwnerGroups
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends MixRadiusOwnerGroupCreateManyArgs>(args?: SelectSubset<T, MixRadiusOwnerGroupCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many MixRadiusOwnerGroups and returns the data saved in the database.
+     * @param {MixRadiusOwnerGroupCreateManyAndReturnArgs} args - Arguments to create many MixRadiusOwnerGroups.
+     * @example
+     * // Create many MixRadiusOwnerGroups
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many MixRadiusOwnerGroups and only return the `id`
+     * const mixRadiusOwnerGroupWithIdOnly = await prisma.mixRadiusOwnerGroup.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends MixRadiusOwnerGroupCreateManyAndReturnArgs>(args?: SelectSubset<T, MixRadiusOwnerGroupCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a MixRadiusOwnerGroup.
+     * @param {MixRadiusOwnerGroupDeleteArgs} args - Arguments to delete one MixRadiusOwnerGroup.
+     * @example
+     * // Delete one MixRadiusOwnerGroup
+     * const MixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.delete({
+     *   where: {
+     *     // ... filter to delete one MixRadiusOwnerGroup
+     *   }
+     * })
+     * 
+     */
+    delete<T extends MixRadiusOwnerGroupDeleteArgs>(args: SelectSubset<T, MixRadiusOwnerGroupDeleteArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one MixRadiusOwnerGroup.
+     * @param {MixRadiusOwnerGroupUpdateArgs} args - Arguments to update one MixRadiusOwnerGroup.
+     * @example
+     * // Update one MixRadiusOwnerGroup
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends MixRadiusOwnerGroupUpdateArgs>(args: SelectSubset<T, MixRadiusOwnerGroupUpdateArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more MixRadiusOwnerGroups.
+     * @param {MixRadiusOwnerGroupDeleteManyArgs} args - Arguments to filter MixRadiusOwnerGroups to delete.
+     * @example
+     * // Delete a few MixRadiusOwnerGroups
+     * const { count } = await prisma.mixRadiusOwnerGroup.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends MixRadiusOwnerGroupDeleteManyArgs>(args?: SelectSubset<T, MixRadiusOwnerGroupDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusOwnerGroups.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusOwnerGroupUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many MixRadiusOwnerGroups
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends MixRadiusOwnerGroupUpdateManyArgs>(args: SelectSubset<T, MixRadiusOwnerGroupUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusOwnerGroups and returns the data updated in the database.
+     * @param {MixRadiusOwnerGroupUpdateManyAndReturnArgs} args - Arguments to update many MixRadiusOwnerGroups.
+     * @example
+     * // Update many MixRadiusOwnerGroups
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more MixRadiusOwnerGroups and only return the `id`
+     * const mixRadiusOwnerGroupWithIdOnly = await prisma.mixRadiusOwnerGroup.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends MixRadiusOwnerGroupUpdateManyAndReturnArgs>(args: SelectSubset<T, MixRadiusOwnerGroupUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one MixRadiusOwnerGroup.
+     * @param {MixRadiusOwnerGroupUpsertArgs} args - Arguments to update or create a MixRadiusOwnerGroup.
+     * @example
+     * // Update or create a MixRadiusOwnerGroup
+     * const mixRadiusOwnerGroup = await prisma.mixRadiusOwnerGroup.upsert({
+     *   create: {
+     *     // ... data to create a MixRadiusOwnerGroup
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the MixRadiusOwnerGroup we want to update
+     *   }
+     * })
+     */
+    upsert<T extends MixRadiusOwnerGroupUpsertArgs>(args: SelectSubset<T, MixRadiusOwnerGroupUpsertArgs<ExtArgs>>): Prisma__MixRadiusOwnerGroupClient<$Result.GetResult<Prisma.$MixRadiusOwnerGroupPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of MixRadiusOwnerGroups.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusOwnerGroupCountArgs} args - Arguments to filter MixRadiusOwnerGroups to count.
+     * @example
+     * // Count the number of MixRadiusOwnerGroups
+     * const count = await prisma.mixRadiusOwnerGroup.count({
+     *   where: {
+     *     // ... the filter for the MixRadiusOwnerGroups we want to count
+     *   }
+     * })
+    **/
+    count<T extends MixRadiusOwnerGroupCountArgs>(
+      args?: Subset<T, MixRadiusOwnerGroupCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], MixRadiusOwnerGroupCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a MixRadiusOwnerGroup.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusOwnerGroupAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends MixRadiusOwnerGroupAggregateArgs>(args: Subset<T, MixRadiusOwnerGroupAggregateArgs>): Prisma.PrismaPromise<GetMixRadiusOwnerGroupAggregateType<T>>
+
+    /**
+     * Group by MixRadiusOwnerGroup.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusOwnerGroupGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends MixRadiusOwnerGroupGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: MixRadiusOwnerGroupGroupByArgs['orderBy'] }
+        : { orderBy?: MixRadiusOwnerGroupGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, MixRadiusOwnerGroupGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetMixRadiusOwnerGroupGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the MixRadiusOwnerGroup model
+   */
+  readonly fields: MixRadiusOwnerGroupFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for MixRadiusOwnerGroup.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__MixRadiusOwnerGroupClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the MixRadiusOwnerGroup model
+   */
+  interface MixRadiusOwnerGroupFieldRefs {
+    readonly id: FieldRef<"MixRadiusOwnerGroup", 'String'>
+    readonly name: FieldRef<"MixRadiusOwnerGroup", 'String'>
+    readonly owners: FieldRef<"MixRadiusOwnerGroup", 'String[]'>
+    readonly siteId: FieldRef<"MixRadiusOwnerGroup", 'String'>
+    readonly isActive: FieldRef<"MixRadiusOwnerGroup", 'Boolean'>
+    readonly createdAt: FieldRef<"MixRadiusOwnerGroup", 'DateTime'>
+    readonly updatedAt: FieldRef<"MixRadiusOwnerGroup", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * MixRadiusOwnerGroup findUnique
+   */
+  export type MixRadiusOwnerGroupFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusOwnerGroup to fetch.
+     */
+    where: MixRadiusOwnerGroupWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusOwnerGroup findUniqueOrThrow
+   */
+  export type MixRadiusOwnerGroupFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusOwnerGroup to fetch.
+     */
+    where: MixRadiusOwnerGroupWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusOwnerGroup findFirst
+   */
+  export type MixRadiusOwnerGroupFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusOwnerGroup to fetch.
+     */
+    where?: MixRadiusOwnerGroupWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusOwnerGroups to fetch.
+     */
+    orderBy?: MixRadiusOwnerGroupOrderByWithRelationInput | MixRadiusOwnerGroupOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusOwnerGroups.
+     */
+    cursor?: MixRadiusOwnerGroupWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusOwnerGroups from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusOwnerGroups.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusOwnerGroups.
+     */
+    distinct?: MixRadiusOwnerGroupScalarFieldEnum | MixRadiusOwnerGroupScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusOwnerGroup findFirstOrThrow
+   */
+  export type MixRadiusOwnerGroupFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusOwnerGroup to fetch.
+     */
+    where?: MixRadiusOwnerGroupWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusOwnerGroups to fetch.
+     */
+    orderBy?: MixRadiusOwnerGroupOrderByWithRelationInput | MixRadiusOwnerGroupOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusOwnerGroups.
+     */
+    cursor?: MixRadiusOwnerGroupWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusOwnerGroups from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusOwnerGroups.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusOwnerGroups.
+     */
+    distinct?: MixRadiusOwnerGroupScalarFieldEnum | MixRadiusOwnerGroupScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusOwnerGroup findMany
+   */
+  export type MixRadiusOwnerGroupFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusOwnerGroups to fetch.
+     */
+    where?: MixRadiusOwnerGroupWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusOwnerGroups to fetch.
+     */
+    orderBy?: MixRadiusOwnerGroupOrderByWithRelationInput | MixRadiusOwnerGroupOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing MixRadiusOwnerGroups.
+     */
+    cursor?: MixRadiusOwnerGroupWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusOwnerGroups from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusOwnerGroups.
+     */
+    skip?: number
+    distinct?: MixRadiusOwnerGroupScalarFieldEnum | MixRadiusOwnerGroupScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusOwnerGroup create
+   */
+  export type MixRadiusOwnerGroupCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * The data needed to create a MixRadiusOwnerGroup.
+     */
+    data: XOR<MixRadiusOwnerGroupCreateInput, MixRadiusOwnerGroupUncheckedCreateInput>
+  }
+
+  /**
+   * MixRadiusOwnerGroup createMany
+   */
+  export type MixRadiusOwnerGroupCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many MixRadiusOwnerGroups.
+     */
+    data: MixRadiusOwnerGroupCreateManyInput | MixRadiusOwnerGroupCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusOwnerGroup createManyAndReturn
+   */
+  export type MixRadiusOwnerGroupCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * The data used to create many MixRadiusOwnerGroups.
+     */
+    data: MixRadiusOwnerGroupCreateManyInput | MixRadiusOwnerGroupCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusOwnerGroup update
+   */
+  export type MixRadiusOwnerGroupUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * The data needed to update a MixRadiusOwnerGroup.
+     */
+    data: XOR<MixRadiusOwnerGroupUpdateInput, MixRadiusOwnerGroupUncheckedUpdateInput>
+    /**
+     * Choose, which MixRadiusOwnerGroup to update.
+     */
+    where: MixRadiusOwnerGroupWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusOwnerGroup updateMany
+   */
+  export type MixRadiusOwnerGroupUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update MixRadiusOwnerGroups.
+     */
+    data: XOR<MixRadiusOwnerGroupUpdateManyMutationInput, MixRadiusOwnerGroupUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusOwnerGroups to update
+     */
+    where?: MixRadiusOwnerGroupWhereInput
+    /**
+     * Limit how many MixRadiusOwnerGroups to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusOwnerGroup updateManyAndReturn
+   */
+  export type MixRadiusOwnerGroupUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * The data used to update MixRadiusOwnerGroups.
+     */
+    data: XOR<MixRadiusOwnerGroupUpdateManyMutationInput, MixRadiusOwnerGroupUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusOwnerGroups to update
+     */
+    where?: MixRadiusOwnerGroupWhereInput
+    /**
+     * Limit how many MixRadiusOwnerGroups to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusOwnerGroup upsert
+   */
+  export type MixRadiusOwnerGroupUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * The filter to search for the MixRadiusOwnerGroup to update in case it exists.
+     */
+    where: MixRadiusOwnerGroupWhereUniqueInput
+    /**
+     * In case the MixRadiusOwnerGroup found by the `where` argument doesn't exist, create a new MixRadiusOwnerGroup with this data.
+     */
+    create: XOR<MixRadiusOwnerGroupCreateInput, MixRadiusOwnerGroupUncheckedCreateInput>
+    /**
+     * In case the MixRadiusOwnerGroup was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<MixRadiusOwnerGroupUpdateInput, MixRadiusOwnerGroupUncheckedUpdateInput>
+  }
+
+  /**
+   * MixRadiusOwnerGroup delete
+   */
+  export type MixRadiusOwnerGroupDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+    /**
+     * Filter which MixRadiusOwnerGroup to delete.
+     */
+    where: MixRadiusOwnerGroupWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusOwnerGroup deleteMany
+   */
+  export type MixRadiusOwnerGroupDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusOwnerGroups to delete
+     */
+    where?: MixRadiusOwnerGroupWhereInput
+    /**
+     * Limit how many MixRadiusOwnerGroups to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusOwnerGroup without action
+   */
+  export type MixRadiusOwnerGroupDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusOwnerGroup
+     */
+    select?: MixRadiusOwnerGroupSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusOwnerGroup
+     */
+    omit?: MixRadiusOwnerGroupOmit<ExtArgs> | null
+  }
+
+
+  /**
+   * Model MixRadiusInvestorSite
+   */
+
+  export type AggregateMixRadiusInvestorSite = {
+    _count: MixRadiusInvestorSiteCountAggregateOutputType | null
+    _min: MixRadiusInvestorSiteMinAggregateOutputType | null
+    _max: MixRadiusInvestorSiteMaxAggregateOutputType | null
+  }
+
+  export type MixRadiusInvestorSiteMinAggregateOutputType = {
+    id: string | null
+    name: string | null
+    isActive: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusInvestorSiteMaxAggregateOutputType = {
+    id: string | null
+    name: string | null
+    isActive: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusInvestorSiteCountAggregateOutputType = {
+    id: number
+    name: number
+    owners: number
+    isActive: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type MixRadiusInvestorSiteMinAggregateInputType = {
+    id?: true
+    name?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusInvestorSiteMaxAggregateInputType = {
+    id?: true
+    name?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusInvestorSiteCountAggregateInputType = {
+    id?: true
+    name?: true
+    owners?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type MixRadiusInvestorSiteAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusInvestorSite to aggregate.
+     */
+    where?: MixRadiusInvestorSiteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusInvestorSites to fetch.
+     */
+    orderBy?: MixRadiusInvestorSiteOrderByWithRelationInput | MixRadiusInvestorSiteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: MixRadiusInvestorSiteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusInvestorSites from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusInvestorSites.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned MixRadiusInvestorSites
+    **/
+    _count?: true | MixRadiusInvestorSiteCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: MixRadiusInvestorSiteMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: MixRadiusInvestorSiteMaxAggregateInputType
+  }
+
+  export type GetMixRadiusInvestorSiteAggregateType<T extends MixRadiusInvestorSiteAggregateArgs> = {
+        [P in keyof T & keyof AggregateMixRadiusInvestorSite]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateMixRadiusInvestorSite[P]>
+      : GetScalarType<T[P], AggregateMixRadiusInvestorSite[P]>
+  }
+
+
+
+
+  export type MixRadiusInvestorSiteGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MixRadiusInvestorSiteWhereInput
+    orderBy?: MixRadiusInvestorSiteOrderByWithAggregationInput | MixRadiusInvestorSiteOrderByWithAggregationInput[]
+    by: MixRadiusInvestorSiteScalarFieldEnum[] | MixRadiusInvestorSiteScalarFieldEnum
+    having?: MixRadiusInvestorSiteScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: MixRadiusInvestorSiteCountAggregateInputType | true
+    _min?: MixRadiusInvestorSiteMinAggregateInputType
+    _max?: MixRadiusInvestorSiteMaxAggregateInputType
+  }
+
+  export type MixRadiusInvestorSiteGroupByOutputType = {
+    id: string
+    name: string
+    owners: string[]
+    isActive: boolean
+    createdAt: Date
+    updatedAt: Date
+    _count: MixRadiusInvestorSiteCountAggregateOutputType | null
+    _min: MixRadiusInvestorSiteMinAggregateOutputType | null
+    _max: MixRadiusInvestorSiteMaxAggregateOutputType | null
+  }
+
+  type GetMixRadiusInvestorSiteGroupByPayload<T extends MixRadiusInvestorSiteGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<MixRadiusInvestorSiteGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof MixRadiusInvestorSiteGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], MixRadiusInvestorSiteGroupByOutputType[P]>
+            : GetScalarType<T[P], MixRadiusInvestorSiteGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type MixRadiusInvestorSiteSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusInvestorSite"]>
+
+  export type MixRadiusInvestorSiteSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusInvestorSite"]>
+
+  export type MixRadiusInvestorSiteSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusInvestorSite"]>
+
+  export type MixRadiusInvestorSiteSelectScalar = {
+    id?: boolean
+    name?: boolean
+    owners?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type MixRadiusInvestorSiteOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "owners" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusInvestorSite"]>
+
+  export type $MixRadiusInvestorSitePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "MixRadiusInvestorSite"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      name: string
+      owners: string[]
+      isActive: boolean
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["mixRadiusInvestorSite"]>
+    composites: {}
+  }
+
+  type MixRadiusInvestorSiteGetPayload<S extends boolean | null | undefined | MixRadiusInvestorSiteDefaultArgs> = $Result.GetResult<Prisma.$MixRadiusInvestorSitePayload, S>
+
+  type MixRadiusInvestorSiteCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<MixRadiusInvestorSiteFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: MixRadiusInvestorSiteCountAggregateInputType | true
+    }
+
+  export interface MixRadiusInvestorSiteDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['MixRadiusInvestorSite'], meta: { name: 'MixRadiusInvestorSite' } }
+    /**
+     * Find zero or one MixRadiusInvestorSite that matches the filter.
+     * @param {MixRadiusInvestorSiteFindUniqueArgs} args - Arguments to find a MixRadiusInvestorSite
+     * @example
+     * // Get one MixRadiusInvestorSite
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends MixRadiusInvestorSiteFindUniqueArgs>(args: SelectSubset<T, MixRadiusInvestorSiteFindUniqueArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one MixRadiusInvestorSite that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {MixRadiusInvestorSiteFindUniqueOrThrowArgs} args - Arguments to find a MixRadiusInvestorSite
+     * @example
+     * // Get one MixRadiusInvestorSite
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends MixRadiusInvestorSiteFindUniqueOrThrowArgs>(args: SelectSubset<T, MixRadiusInvestorSiteFindUniqueOrThrowArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusInvestorSite that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusInvestorSiteFindFirstArgs} args - Arguments to find a MixRadiusInvestorSite
+     * @example
+     * // Get one MixRadiusInvestorSite
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends MixRadiusInvestorSiteFindFirstArgs>(args?: SelectSubset<T, MixRadiusInvestorSiteFindFirstArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusInvestorSite that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusInvestorSiteFindFirstOrThrowArgs} args - Arguments to find a MixRadiusInvestorSite
+     * @example
+     * // Get one MixRadiusInvestorSite
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends MixRadiusInvestorSiteFindFirstOrThrowArgs>(args?: SelectSubset<T, MixRadiusInvestorSiteFindFirstOrThrowArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more MixRadiusInvestorSites that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusInvestorSiteFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all MixRadiusInvestorSites
+     * const mixRadiusInvestorSites = await prisma.mixRadiusInvestorSite.findMany()
+     * 
+     * // Get first 10 MixRadiusInvestorSites
+     * const mixRadiusInvestorSites = await prisma.mixRadiusInvestorSite.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const mixRadiusInvestorSiteWithIdOnly = await prisma.mixRadiusInvestorSite.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends MixRadiusInvestorSiteFindManyArgs>(args?: SelectSubset<T, MixRadiusInvestorSiteFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a MixRadiusInvestorSite.
+     * @param {MixRadiusInvestorSiteCreateArgs} args - Arguments to create a MixRadiusInvestorSite.
+     * @example
+     * // Create one MixRadiusInvestorSite
+     * const MixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.create({
+     *   data: {
+     *     // ... data to create a MixRadiusInvestorSite
+     *   }
+     * })
+     * 
+     */
+    create<T extends MixRadiusInvestorSiteCreateArgs>(args: SelectSubset<T, MixRadiusInvestorSiteCreateArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many MixRadiusInvestorSites.
+     * @param {MixRadiusInvestorSiteCreateManyArgs} args - Arguments to create many MixRadiusInvestorSites.
+     * @example
+     * // Create many MixRadiusInvestorSites
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends MixRadiusInvestorSiteCreateManyArgs>(args?: SelectSubset<T, MixRadiusInvestorSiteCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many MixRadiusInvestorSites and returns the data saved in the database.
+     * @param {MixRadiusInvestorSiteCreateManyAndReturnArgs} args - Arguments to create many MixRadiusInvestorSites.
+     * @example
+     * // Create many MixRadiusInvestorSites
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many MixRadiusInvestorSites and only return the `id`
+     * const mixRadiusInvestorSiteWithIdOnly = await prisma.mixRadiusInvestorSite.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends MixRadiusInvestorSiteCreateManyAndReturnArgs>(args?: SelectSubset<T, MixRadiusInvestorSiteCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a MixRadiusInvestorSite.
+     * @param {MixRadiusInvestorSiteDeleteArgs} args - Arguments to delete one MixRadiusInvestorSite.
+     * @example
+     * // Delete one MixRadiusInvestorSite
+     * const MixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.delete({
+     *   where: {
+     *     // ... filter to delete one MixRadiusInvestorSite
+     *   }
+     * })
+     * 
+     */
+    delete<T extends MixRadiusInvestorSiteDeleteArgs>(args: SelectSubset<T, MixRadiusInvestorSiteDeleteArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one MixRadiusInvestorSite.
+     * @param {MixRadiusInvestorSiteUpdateArgs} args - Arguments to update one MixRadiusInvestorSite.
+     * @example
+     * // Update one MixRadiusInvestorSite
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends MixRadiusInvestorSiteUpdateArgs>(args: SelectSubset<T, MixRadiusInvestorSiteUpdateArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more MixRadiusInvestorSites.
+     * @param {MixRadiusInvestorSiteDeleteManyArgs} args - Arguments to filter MixRadiusInvestorSites to delete.
+     * @example
+     * // Delete a few MixRadiusInvestorSites
+     * const { count } = await prisma.mixRadiusInvestorSite.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends MixRadiusInvestorSiteDeleteManyArgs>(args?: SelectSubset<T, MixRadiusInvestorSiteDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusInvestorSites.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusInvestorSiteUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many MixRadiusInvestorSites
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends MixRadiusInvestorSiteUpdateManyArgs>(args: SelectSubset<T, MixRadiusInvestorSiteUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusInvestorSites and returns the data updated in the database.
+     * @param {MixRadiusInvestorSiteUpdateManyAndReturnArgs} args - Arguments to update many MixRadiusInvestorSites.
+     * @example
+     * // Update many MixRadiusInvestorSites
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more MixRadiusInvestorSites and only return the `id`
+     * const mixRadiusInvestorSiteWithIdOnly = await prisma.mixRadiusInvestorSite.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends MixRadiusInvestorSiteUpdateManyAndReturnArgs>(args: SelectSubset<T, MixRadiusInvestorSiteUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one MixRadiusInvestorSite.
+     * @param {MixRadiusInvestorSiteUpsertArgs} args - Arguments to update or create a MixRadiusInvestorSite.
+     * @example
+     * // Update or create a MixRadiusInvestorSite
+     * const mixRadiusInvestorSite = await prisma.mixRadiusInvestorSite.upsert({
+     *   create: {
+     *     // ... data to create a MixRadiusInvestorSite
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the MixRadiusInvestorSite we want to update
+     *   }
+     * })
+     */
+    upsert<T extends MixRadiusInvestorSiteUpsertArgs>(args: SelectSubset<T, MixRadiusInvestorSiteUpsertArgs<ExtArgs>>): Prisma__MixRadiusInvestorSiteClient<$Result.GetResult<Prisma.$MixRadiusInvestorSitePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of MixRadiusInvestorSites.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusInvestorSiteCountArgs} args - Arguments to filter MixRadiusInvestorSites to count.
+     * @example
+     * // Count the number of MixRadiusInvestorSites
+     * const count = await prisma.mixRadiusInvestorSite.count({
+     *   where: {
+     *     // ... the filter for the MixRadiusInvestorSites we want to count
+     *   }
+     * })
+    **/
+    count<T extends MixRadiusInvestorSiteCountArgs>(
+      args?: Subset<T, MixRadiusInvestorSiteCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], MixRadiusInvestorSiteCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a MixRadiusInvestorSite.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusInvestorSiteAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends MixRadiusInvestorSiteAggregateArgs>(args: Subset<T, MixRadiusInvestorSiteAggregateArgs>): Prisma.PrismaPromise<GetMixRadiusInvestorSiteAggregateType<T>>
+
+    /**
+     * Group by MixRadiusInvestorSite.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusInvestorSiteGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends MixRadiusInvestorSiteGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: MixRadiusInvestorSiteGroupByArgs['orderBy'] }
+        : { orderBy?: MixRadiusInvestorSiteGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, MixRadiusInvestorSiteGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetMixRadiusInvestorSiteGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the MixRadiusInvestorSite model
+   */
+  readonly fields: MixRadiusInvestorSiteFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for MixRadiusInvestorSite.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__MixRadiusInvestorSiteClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the MixRadiusInvestorSite model
+   */
+  interface MixRadiusInvestorSiteFieldRefs {
+    readonly id: FieldRef<"MixRadiusInvestorSite", 'String'>
+    readonly name: FieldRef<"MixRadiusInvestorSite", 'String'>
+    readonly owners: FieldRef<"MixRadiusInvestorSite", 'String[]'>
+    readonly isActive: FieldRef<"MixRadiusInvestorSite", 'Boolean'>
+    readonly createdAt: FieldRef<"MixRadiusInvestorSite", 'DateTime'>
+    readonly updatedAt: FieldRef<"MixRadiusInvestorSite", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * MixRadiusInvestorSite findUnique
+   */
+  export type MixRadiusInvestorSiteFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusInvestorSite to fetch.
+     */
+    where: MixRadiusInvestorSiteWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusInvestorSite findUniqueOrThrow
+   */
+  export type MixRadiusInvestorSiteFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusInvestorSite to fetch.
+     */
+    where: MixRadiusInvestorSiteWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusInvestorSite findFirst
+   */
+  export type MixRadiusInvestorSiteFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusInvestorSite to fetch.
+     */
+    where?: MixRadiusInvestorSiteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusInvestorSites to fetch.
+     */
+    orderBy?: MixRadiusInvestorSiteOrderByWithRelationInput | MixRadiusInvestorSiteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusInvestorSites.
+     */
+    cursor?: MixRadiusInvestorSiteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusInvestorSites from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusInvestorSites.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusInvestorSites.
+     */
+    distinct?: MixRadiusInvestorSiteScalarFieldEnum | MixRadiusInvestorSiteScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusInvestorSite findFirstOrThrow
+   */
+  export type MixRadiusInvestorSiteFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusInvestorSite to fetch.
+     */
+    where?: MixRadiusInvestorSiteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusInvestorSites to fetch.
+     */
+    orderBy?: MixRadiusInvestorSiteOrderByWithRelationInput | MixRadiusInvestorSiteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusInvestorSites.
+     */
+    cursor?: MixRadiusInvestorSiteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusInvestorSites from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusInvestorSites.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusInvestorSites.
+     */
+    distinct?: MixRadiusInvestorSiteScalarFieldEnum | MixRadiusInvestorSiteScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusInvestorSite findMany
+   */
+  export type MixRadiusInvestorSiteFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusInvestorSites to fetch.
+     */
+    where?: MixRadiusInvestorSiteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusInvestorSites to fetch.
+     */
+    orderBy?: MixRadiusInvestorSiteOrderByWithRelationInput | MixRadiusInvestorSiteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing MixRadiusInvestorSites.
+     */
+    cursor?: MixRadiusInvestorSiteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusInvestorSites from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusInvestorSites.
+     */
+    skip?: number
+    distinct?: MixRadiusInvestorSiteScalarFieldEnum | MixRadiusInvestorSiteScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusInvestorSite create
+   */
+  export type MixRadiusInvestorSiteCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * The data needed to create a MixRadiusInvestorSite.
+     */
+    data: XOR<MixRadiusInvestorSiteCreateInput, MixRadiusInvestorSiteUncheckedCreateInput>
+  }
+
+  /**
+   * MixRadiusInvestorSite createMany
+   */
+  export type MixRadiusInvestorSiteCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many MixRadiusInvestorSites.
+     */
+    data: MixRadiusInvestorSiteCreateManyInput | MixRadiusInvestorSiteCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusInvestorSite createManyAndReturn
+   */
+  export type MixRadiusInvestorSiteCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * The data used to create many MixRadiusInvestorSites.
+     */
+    data: MixRadiusInvestorSiteCreateManyInput | MixRadiusInvestorSiteCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusInvestorSite update
+   */
+  export type MixRadiusInvestorSiteUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * The data needed to update a MixRadiusInvestorSite.
+     */
+    data: XOR<MixRadiusInvestorSiteUpdateInput, MixRadiusInvestorSiteUncheckedUpdateInput>
+    /**
+     * Choose, which MixRadiusInvestorSite to update.
+     */
+    where: MixRadiusInvestorSiteWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusInvestorSite updateMany
+   */
+  export type MixRadiusInvestorSiteUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update MixRadiusInvestorSites.
+     */
+    data: XOR<MixRadiusInvestorSiteUpdateManyMutationInput, MixRadiusInvestorSiteUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusInvestorSites to update
+     */
+    where?: MixRadiusInvestorSiteWhereInput
+    /**
+     * Limit how many MixRadiusInvestorSites to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusInvestorSite updateManyAndReturn
+   */
+  export type MixRadiusInvestorSiteUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * The data used to update MixRadiusInvestorSites.
+     */
+    data: XOR<MixRadiusInvestorSiteUpdateManyMutationInput, MixRadiusInvestorSiteUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusInvestorSites to update
+     */
+    where?: MixRadiusInvestorSiteWhereInput
+    /**
+     * Limit how many MixRadiusInvestorSites to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusInvestorSite upsert
+   */
+  export type MixRadiusInvestorSiteUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * The filter to search for the MixRadiusInvestorSite to update in case it exists.
+     */
+    where: MixRadiusInvestorSiteWhereUniqueInput
+    /**
+     * In case the MixRadiusInvestorSite found by the `where` argument doesn't exist, create a new MixRadiusInvestorSite with this data.
+     */
+    create: XOR<MixRadiusInvestorSiteCreateInput, MixRadiusInvestorSiteUncheckedCreateInput>
+    /**
+     * In case the MixRadiusInvestorSite was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<MixRadiusInvestorSiteUpdateInput, MixRadiusInvestorSiteUncheckedUpdateInput>
+  }
+
+  /**
+   * MixRadiusInvestorSite delete
+   */
+  export type MixRadiusInvestorSiteDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+    /**
+     * Filter which MixRadiusInvestorSite to delete.
+     */
+    where: MixRadiusInvestorSiteWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusInvestorSite deleteMany
+   */
+  export type MixRadiusInvestorSiteDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusInvestorSites to delete
+     */
+    where?: MixRadiusInvestorSiteWhereInput
+    /**
+     * Limit how many MixRadiusInvestorSites to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusInvestorSite without action
+   */
+  export type MixRadiusInvestorSiteDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusInvestorSite
+     */
+    select?: MixRadiusInvestorSiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusInvestorSite
+     */
+    omit?: MixRadiusInvestorSiteOmit<ExtArgs> | null
+  }
+
+
+  /**
+   * Model MixRadiusConfig
+   */
+
+  export type AggregateMixRadiusConfig = {
+    _count: MixRadiusConfigCountAggregateOutputType | null
+    _min: MixRadiusConfigMinAggregateOutputType | null
+    _max: MixRadiusConfigMaxAggregateOutputType | null
+  }
+
+  export type MixRadiusConfigMinAggregateOutputType = {
+    id: string | null
+    name: string | null
+    apiUrl: string | null
+    username: string | null
+    password: string | null
+    apiKey: string | null
+    isDefault: boolean | null
+    lastSyncedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusConfigMaxAggregateOutputType = {
+    id: string | null
+    name: string | null
+    apiUrl: string | null
+    username: string | null
+    password: string | null
+    apiKey: string | null
+    isDefault: boolean | null
+    lastSyncedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MixRadiusConfigCountAggregateOutputType = {
+    id: number
+    name: number
+    apiUrl: number
+    username: number
+    password: number
+    apiKey: number
+    isDefault: number
+    lastSyncedAt: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type MixRadiusConfigMinAggregateInputType = {
+    id?: true
+    name?: true
+    apiUrl?: true
+    username?: true
+    password?: true
+    apiKey?: true
+    isDefault?: true
+    lastSyncedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusConfigMaxAggregateInputType = {
+    id?: true
+    name?: true
+    apiUrl?: true
+    username?: true
+    password?: true
+    apiKey?: true
+    isDefault?: true
+    lastSyncedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MixRadiusConfigCountAggregateInputType = {
+    id?: true
+    name?: true
+    apiUrl?: true
+    username?: true
+    password?: true
+    apiKey?: true
+    isDefault?: true
+    lastSyncedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type MixRadiusConfigAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusConfig to aggregate.
+     */
+    where?: MixRadiusConfigWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusConfigs to fetch.
+     */
+    orderBy?: MixRadiusConfigOrderByWithRelationInput | MixRadiusConfigOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: MixRadiusConfigWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusConfigs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusConfigs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned MixRadiusConfigs
+    **/
+    _count?: true | MixRadiusConfigCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: MixRadiusConfigMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: MixRadiusConfigMaxAggregateInputType
+  }
+
+  export type GetMixRadiusConfigAggregateType<T extends MixRadiusConfigAggregateArgs> = {
+        [P in keyof T & keyof AggregateMixRadiusConfig]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateMixRadiusConfig[P]>
+      : GetScalarType<T[P], AggregateMixRadiusConfig[P]>
+  }
+
+
+
+
+  export type MixRadiusConfigGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MixRadiusConfigWhereInput
+    orderBy?: MixRadiusConfigOrderByWithAggregationInput | MixRadiusConfigOrderByWithAggregationInput[]
+    by: MixRadiusConfigScalarFieldEnum[] | MixRadiusConfigScalarFieldEnum
+    having?: MixRadiusConfigScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: MixRadiusConfigCountAggregateInputType | true
+    _min?: MixRadiusConfigMinAggregateInputType
+    _max?: MixRadiusConfigMaxAggregateInputType
+  }
+
+  export type MixRadiusConfigGroupByOutputType = {
+    id: string
+    name: string
+    apiUrl: string
+    username: string
+    password: string
+    apiKey: string
+    isDefault: boolean
+    lastSyncedAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+    _count: MixRadiusConfigCountAggregateOutputType | null
+    _min: MixRadiusConfigMinAggregateOutputType | null
+    _max: MixRadiusConfigMaxAggregateOutputType | null
+  }
+
+  type GetMixRadiusConfigGroupByPayload<T extends MixRadiusConfigGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<MixRadiusConfigGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof MixRadiusConfigGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], MixRadiusConfigGroupByOutputType[P]>
+            : GetScalarType<T[P], MixRadiusConfigGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type MixRadiusConfigSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    apiUrl?: boolean
+    username?: boolean
+    password?: boolean
+    apiKey?: boolean
+    isDefault?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusConfig"]>
+
+  export type MixRadiusConfigSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    apiUrl?: boolean
+    username?: boolean
+    password?: boolean
+    apiKey?: boolean
+    isDefault?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusConfig"]>
+
+  export type MixRadiusConfigSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    apiUrl?: boolean
+    username?: boolean
+    password?: boolean
+    apiKey?: boolean
+    isDefault?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["mixRadiusConfig"]>
+
+  export type MixRadiusConfigSelectScalar = {
+    id?: boolean
+    name?: boolean
+    apiUrl?: boolean
+    username?: boolean
+    password?: boolean
+    apiKey?: boolean
+    isDefault?: boolean
+    lastSyncedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type MixRadiusConfigOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "apiUrl" | "username" | "password" | "apiKey" | "isDefault" | "lastSyncedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusConfig"]>
+
+  export type $MixRadiusConfigPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "MixRadiusConfig"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      name: string
+      apiUrl: string
+      username: string
+      password: string
+      apiKey: string
+      isDefault: boolean
+      lastSyncedAt: Date | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["mixRadiusConfig"]>
+    composites: {}
+  }
+
+  type MixRadiusConfigGetPayload<S extends boolean | null | undefined | MixRadiusConfigDefaultArgs> = $Result.GetResult<Prisma.$MixRadiusConfigPayload, S>
+
+  type MixRadiusConfigCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<MixRadiusConfigFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: MixRadiusConfigCountAggregateInputType | true
+    }
+
+  export interface MixRadiusConfigDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['MixRadiusConfig'], meta: { name: 'MixRadiusConfig' } }
+    /**
+     * Find zero or one MixRadiusConfig that matches the filter.
+     * @param {MixRadiusConfigFindUniqueArgs} args - Arguments to find a MixRadiusConfig
+     * @example
+     * // Get one MixRadiusConfig
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends MixRadiusConfigFindUniqueArgs>(args: SelectSubset<T, MixRadiusConfigFindUniqueArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one MixRadiusConfig that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {MixRadiusConfigFindUniqueOrThrowArgs} args - Arguments to find a MixRadiusConfig
+     * @example
+     * // Get one MixRadiusConfig
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends MixRadiusConfigFindUniqueOrThrowArgs>(args: SelectSubset<T, MixRadiusConfigFindUniqueOrThrowArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusConfig that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusConfigFindFirstArgs} args - Arguments to find a MixRadiusConfig
+     * @example
+     * // Get one MixRadiusConfig
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends MixRadiusConfigFindFirstArgs>(args?: SelectSubset<T, MixRadiusConfigFindFirstArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MixRadiusConfig that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusConfigFindFirstOrThrowArgs} args - Arguments to find a MixRadiusConfig
+     * @example
+     * // Get one MixRadiusConfig
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends MixRadiusConfigFindFirstOrThrowArgs>(args?: SelectSubset<T, MixRadiusConfigFindFirstOrThrowArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more MixRadiusConfigs that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusConfigFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all MixRadiusConfigs
+     * const mixRadiusConfigs = await prisma.mixRadiusConfig.findMany()
+     * 
+     * // Get first 10 MixRadiusConfigs
+     * const mixRadiusConfigs = await prisma.mixRadiusConfig.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const mixRadiusConfigWithIdOnly = await prisma.mixRadiusConfig.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends MixRadiusConfigFindManyArgs>(args?: SelectSubset<T, MixRadiusConfigFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a MixRadiusConfig.
+     * @param {MixRadiusConfigCreateArgs} args - Arguments to create a MixRadiusConfig.
+     * @example
+     * // Create one MixRadiusConfig
+     * const MixRadiusConfig = await prisma.mixRadiusConfig.create({
+     *   data: {
+     *     // ... data to create a MixRadiusConfig
+     *   }
+     * })
+     * 
+     */
+    create<T extends MixRadiusConfigCreateArgs>(args: SelectSubset<T, MixRadiusConfigCreateArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many MixRadiusConfigs.
+     * @param {MixRadiusConfigCreateManyArgs} args - Arguments to create many MixRadiusConfigs.
+     * @example
+     * // Create many MixRadiusConfigs
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends MixRadiusConfigCreateManyArgs>(args?: SelectSubset<T, MixRadiusConfigCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many MixRadiusConfigs and returns the data saved in the database.
+     * @param {MixRadiusConfigCreateManyAndReturnArgs} args - Arguments to create many MixRadiusConfigs.
+     * @example
+     * // Create many MixRadiusConfigs
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many MixRadiusConfigs and only return the `id`
+     * const mixRadiusConfigWithIdOnly = await prisma.mixRadiusConfig.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends MixRadiusConfigCreateManyAndReturnArgs>(args?: SelectSubset<T, MixRadiusConfigCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a MixRadiusConfig.
+     * @param {MixRadiusConfigDeleteArgs} args - Arguments to delete one MixRadiusConfig.
+     * @example
+     * // Delete one MixRadiusConfig
+     * const MixRadiusConfig = await prisma.mixRadiusConfig.delete({
+     *   where: {
+     *     // ... filter to delete one MixRadiusConfig
+     *   }
+     * })
+     * 
+     */
+    delete<T extends MixRadiusConfigDeleteArgs>(args: SelectSubset<T, MixRadiusConfigDeleteArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one MixRadiusConfig.
+     * @param {MixRadiusConfigUpdateArgs} args - Arguments to update one MixRadiusConfig.
+     * @example
+     * // Update one MixRadiusConfig
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends MixRadiusConfigUpdateArgs>(args: SelectSubset<T, MixRadiusConfigUpdateArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more MixRadiusConfigs.
+     * @param {MixRadiusConfigDeleteManyArgs} args - Arguments to filter MixRadiusConfigs to delete.
+     * @example
+     * // Delete a few MixRadiusConfigs
+     * const { count } = await prisma.mixRadiusConfig.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends MixRadiusConfigDeleteManyArgs>(args?: SelectSubset<T, MixRadiusConfigDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusConfigs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusConfigUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many MixRadiusConfigs
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends MixRadiusConfigUpdateManyArgs>(args: SelectSubset<T, MixRadiusConfigUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MixRadiusConfigs and returns the data updated in the database.
+     * @param {MixRadiusConfigUpdateManyAndReturnArgs} args - Arguments to update many MixRadiusConfigs.
+     * @example
+     * // Update many MixRadiusConfigs
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more MixRadiusConfigs and only return the `id`
+     * const mixRadiusConfigWithIdOnly = await prisma.mixRadiusConfig.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends MixRadiusConfigUpdateManyAndReturnArgs>(args: SelectSubset<T, MixRadiusConfigUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one MixRadiusConfig.
+     * @param {MixRadiusConfigUpsertArgs} args - Arguments to update or create a MixRadiusConfig.
+     * @example
+     * // Update or create a MixRadiusConfig
+     * const mixRadiusConfig = await prisma.mixRadiusConfig.upsert({
+     *   create: {
+     *     // ... data to create a MixRadiusConfig
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the MixRadiusConfig we want to update
+     *   }
+     * })
+     */
+    upsert<T extends MixRadiusConfigUpsertArgs>(args: SelectSubset<T, MixRadiusConfigUpsertArgs<ExtArgs>>): Prisma__MixRadiusConfigClient<$Result.GetResult<Prisma.$MixRadiusConfigPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of MixRadiusConfigs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusConfigCountArgs} args - Arguments to filter MixRadiusConfigs to count.
+     * @example
+     * // Count the number of MixRadiusConfigs
+     * const count = await prisma.mixRadiusConfig.count({
+     *   where: {
+     *     // ... the filter for the MixRadiusConfigs we want to count
+     *   }
+     * })
+    **/
+    count<T extends MixRadiusConfigCountArgs>(
+      args?: Subset<T, MixRadiusConfigCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], MixRadiusConfigCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a MixRadiusConfig.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusConfigAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends MixRadiusConfigAggregateArgs>(args: Subset<T, MixRadiusConfigAggregateArgs>): Prisma.PrismaPromise<GetMixRadiusConfigAggregateType<T>>
+
+    /**
+     * Group by MixRadiusConfig.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MixRadiusConfigGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends MixRadiusConfigGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: MixRadiusConfigGroupByArgs['orderBy'] }
+        : { orderBy?: MixRadiusConfigGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, MixRadiusConfigGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetMixRadiusConfigGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the MixRadiusConfig model
+   */
+  readonly fields: MixRadiusConfigFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for MixRadiusConfig.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__MixRadiusConfigClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the MixRadiusConfig model
+   */
+  interface MixRadiusConfigFieldRefs {
+    readonly id: FieldRef<"MixRadiusConfig", 'String'>
+    readonly name: FieldRef<"MixRadiusConfig", 'String'>
+    readonly apiUrl: FieldRef<"MixRadiusConfig", 'String'>
+    readonly username: FieldRef<"MixRadiusConfig", 'String'>
+    readonly password: FieldRef<"MixRadiusConfig", 'String'>
+    readonly apiKey: FieldRef<"MixRadiusConfig", 'String'>
+    readonly isDefault: FieldRef<"MixRadiusConfig", 'Boolean'>
+    readonly lastSyncedAt: FieldRef<"MixRadiusConfig", 'DateTime'>
+    readonly createdAt: FieldRef<"MixRadiusConfig", 'DateTime'>
+    readonly updatedAt: FieldRef<"MixRadiusConfig", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * MixRadiusConfig findUnique
+   */
+  export type MixRadiusConfigFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusConfig to fetch.
+     */
+    where: MixRadiusConfigWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusConfig findUniqueOrThrow
+   */
+  export type MixRadiusConfigFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusConfig to fetch.
+     */
+    where: MixRadiusConfigWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusConfig findFirst
+   */
+  export type MixRadiusConfigFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusConfig to fetch.
+     */
+    where?: MixRadiusConfigWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusConfigs to fetch.
+     */
+    orderBy?: MixRadiusConfigOrderByWithRelationInput | MixRadiusConfigOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusConfigs.
+     */
+    cursor?: MixRadiusConfigWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusConfigs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusConfigs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusConfigs.
+     */
+    distinct?: MixRadiusConfigScalarFieldEnum | MixRadiusConfigScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusConfig findFirstOrThrow
+   */
+  export type MixRadiusConfigFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusConfig to fetch.
+     */
+    where?: MixRadiusConfigWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusConfigs to fetch.
+     */
+    orderBy?: MixRadiusConfigOrderByWithRelationInput | MixRadiusConfigOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MixRadiusConfigs.
+     */
+    cursor?: MixRadiusConfigWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusConfigs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusConfigs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusConfigs.
+     */
+    distinct?: MixRadiusConfigScalarFieldEnum | MixRadiusConfigScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusConfig findMany
+   */
+  export type MixRadiusConfigFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * Filter, which MixRadiusConfigs to fetch.
+     */
+    where?: MixRadiusConfigWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MixRadiusConfigs to fetch.
+     */
+    orderBy?: MixRadiusConfigOrderByWithRelationInput | MixRadiusConfigOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing MixRadiusConfigs.
+     */
+    cursor?: MixRadiusConfigWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MixRadiusConfigs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MixRadiusConfigs.
+     */
+    skip?: number
+    distinct?: MixRadiusConfigScalarFieldEnum | MixRadiusConfigScalarFieldEnum[]
+  }
+
+  /**
+   * MixRadiusConfig create
+   */
+  export type MixRadiusConfigCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * The data needed to create a MixRadiusConfig.
+     */
+    data: XOR<MixRadiusConfigCreateInput, MixRadiusConfigUncheckedCreateInput>
+  }
+
+  /**
+   * MixRadiusConfig createMany
+   */
+  export type MixRadiusConfigCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many MixRadiusConfigs.
+     */
+    data: MixRadiusConfigCreateManyInput | MixRadiusConfigCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusConfig createManyAndReturn
+   */
+  export type MixRadiusConfigCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * The data used to create many MixRadiusConfigs.
+     */
+    data: MixRadiusConfigCreateManyInput | MixRadiusConfigCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MixRadiusConfig update
+   */
+  export type MixRadiusConfigUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * The data needed to update a MixRadiusConfig.
+     */
+    data: XOR<MixRadiusConfigUpdateInput, MixRadiusConfigUncheckedUpdateInput>
+    /**
+     * Choose, which MixRadiusConfig to update.
+     */
+    where: MixRadiusConfigWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusConfig updateMany
+   */
+  export type MixRadiusConfigUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update MixRadiusConfigs.
+     */
+    data: XOR<MixRadiusConfigUpdateManyMutationInput, MixRadiusConfigUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusConfigs to update
+     */
+    where?: MixRadiusConfigWhereInput
+    /**
+     * Limit how many MixRadiusConfigs to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusConfig updateManyAndReturn
+   */
+  export type MixRadiusConfigUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * The data used to update MixRadiusConfigs.
+     */
+    data: XOR<MixRadiusConfigUpdateManyMutationInput, MixRadiusConfigUncheckedUpdateManyInput>
+    /**
+     * Filter which MixRadiusConfigs to update
+     */
+    where?: MixRadiusConfigWhereInput
+    /**
+     * Limit how many MixRadiusConfigs to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusConfig upsert
+   */
+  export type MixRadiusConfigUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * The filter to search for the MixRadiusConfig to update in case it exists.
+     */
+    where: MixRadiusConfigWhereUniqueInput
+    /**
+     * In case the MixRadiusConfig found by the `where` argument doesn't exist, create a new MixRadiusConfig with this data.
+     */
+    create: XOR<MixRadiusConfigCreateInput, MixRadiusConfigUncheckedCreateInput>
+    /**
+     * In case the MixRadiusConfig was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<MixRadiusConfigUpdateInput, MixRadiusConfigUncheckedUpdateInput>
+  }
+
+  /**
+   * MixRadiusConfig delete
+   */
+  export type MixRadiusConfigDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+    /**
+     * Filter which MixRadiusConfig to delete.
+     */
+    where: MixRadiusConfigWhereUniqueInput
+  }
+
+  /**
+   * MixRadiusConfig deleteMany
+   */
+  export type MixRadiusConfigDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MixRadiusConfigs to delete
+     */
+    where?: MixRadiusConfigWhereInput
+    /**
+     * Limit how many MixRadiusConfigs to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * MixRadiusConfig without action
+   */
+  export type MixRadiusConfigDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MixRadiusConfig
+     */
+    select?: MixRadiusConfigSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MixRadiusConfig
+     */
+    omit?: MixRadiusConfigOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -11518,6 +16062,66 @@ export namespace Prisma {
   };
 
   export type MixRadiusInvoiceScalarFieldEnum = (typeof MixRadiusInvoiceScalarFieldEnum)[keyof typeof MixRadiusInvoiceScalarFieldEnum]
+
+
+  export const MixRadiusCustomerScalarFieldEnum: {
+    id: 'id',
+    mixRadiusId: 'mixRadiusId',
+    username: 'username',
+    fullName: 'fullName',
+    address: 'address',
+    phoneNumber: 'phoneNumber',
+    planName: 'planName',
+    status: 'status',
+    ownerName: 'ownerName',
+    expiredOn: 'expiredOn',
+    lastSyncedAt: 'lastSyncedAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type MixRadiusCustomerScalarFieldEnum = (typeof MixRadiusCustomerScalarFieldEnum)[keyof typeof MixRadiusCustomerScalarFieldEnum]
+
+
+  export const MixRadiusOwnerGroupScalarFieldEnum: {
+    id: 'id',
+    name: 'name',
+    owners: 'owners',
+    siteId: 'siteId',
+    isActive: 'isActive',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type MixRadiusOwnerGroupScalarFieldEnum = (typeof MixRadiusOwnerGroupScalarFieldEnum)[keyof typeof MixRadiusOwnerGroupScalarFieldEnum]
+
+
+  export const MixRadiusInvestorSiteScalarFieldEnum: {
+    id: 'id',
+    name: 'name',
+    owners: 'owners',
+    isActive: 'isActive',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type MixRadiusInvestorSiteScalarFieldEnum = (typeof MixRadiusInvestorSiteScalarFieldEnum)[keyof typeof MixRadiusInvestorSiteScalarFieldEnum]
+
+
+  export const MixRadiusConfigScalarFieldEnum: {
+    id: 'id',
+    name: 'name',
+    apiUrl: 'apiUrl',
+    username: 'username',
+    password: 'password',
+    apiKey: 'apiKey',
+    isDefault: 'isDefault',
+    lastSyncedAt: 'lastSyncedAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type MixRadiusConfigScalarFieldEnum = (typeof MixRadiusConfigScalarFieldEnum)[keyof typeof MixRadiusConfigScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -12591,6 +17195,294 @@ export namespace Prisma {
     syncedAt?: DateTimeWithAggregatesFilter<"MixRadiusInvoice"> | Date | string
   }
 
+  export type MixRadiusCustomerWhereInput = {
+    AND?: MixRadiusCustomerWhereInput | MixRadiusCustomerWhereInput[]
+    OR?: MixRadiusCustomerWhereInput[]
+    NOT?: MixRadiusCustomerWhereInput | MixRadiusCustomerWhereInput[]
+    id?: StringFilter<"MixRadiusCustomer"> | string
+    mixRadiusId?: StringFilter<"MixRadiusCustomer"> | string
+    username?: StringFilter<"MixRadiusCustomer"> | string
+    fullName?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    address?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    phoneNumber?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    planName?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    status?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    ownerName?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    expiredOn?: DateTimeNullableFilter<"MixRadiusCustomer"> | Date | string | null
+    lastSyncedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+    createdAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+  }
+
+  export type MixRadiusCustomerOrderByWithRelationInput = {
+    id?: SortOrder
+    mixRadiusId?: SortOrder
+    username?: SortOrder
+    fullName?: SortOrderInput | SortOrder
+    address?: SortOrderInput | SortOrder
+    phoneNumber?: SortOrderInput | SortOrder
+    planName?: SortOrderInput | SortOrder
+    status?: SortOrderInput | SortOrder
+    ownerName?: SortOrderInput | SortOrder
+    expiredOn?: SortOrderInput | SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusCustomerWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    mixRadiusId?: string
+    username?: string
+    AND?: MixRadiusCustomerWhereInput | MixRadiusCustomerWhereInput[]
+    OR?: MixRadiusCustomerWhereInput[]
+    NOT?: MixRadiusCustomerWhereInput | MixRadiusCustomerWhereInput[]
+    fullName?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    address?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    phoneNumber?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    planName?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    status?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    ownerName?: StringNullableFilter<"MixRadiusCustomer"> | string | null
+    expiredOn?: DateTimeNullableFilter<"MixRadiusCustomer"> | Date | string | null
+    lastSyncedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+    createdAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+  }, "id" | "mixRadiusId" | "username">
+
+  export type MixRadiusCustomerOrderByWithAggregationInput = {
+    id?: SortOrder
+    mixRadiusId?: SortOrder
+    username?: SortOrder
+    fullName?: SortOrderInput | SortOrder
+    address?: SortOrderInput | SortOrder
+    phoneNumber?: SortOrderInput | SortOrder
+    planName?: SortOrderInput | SortOrder
+    status?: SortOrderInput | SortOrder
+    ownerName?: SortOrderInput | SortOrder
+    expiredOn?: SortOrderInput | SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: MixRadiusCustomerCountOrderByAggregateInput
+    _max?: MixRadiusCustomerMaxOrderByAggregateInput
+    _min?: MixRadiusCustomerMinOrderByAggregateInput
+  }
+
+  export type MixRadiusCustomerScalarWhereWithAggregatesInput = {
+    AND?: MixRadiusCustomerScalarWhereWithAggregatesInput | MixRadiusCustomerScalarWhereWithAggregatesInput[]
+    OR?: MixRadiusCustomerScalarWhereWithAggregatesInput[]
+    NOT?: MixRadiusCustomerScalarWhereWithAggregatesInput | MixRadiusCustomerScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"MixRadiusCustomer"> | string
+    mixRadiusId?: StringWithAggregatesFilter<"MixRadiusCustomer"> | string
+    username?: StringWithAggregatesFilter<"MixRadiusCustomer"> | string
+    fullName?: StringNullableWithAggregatesFilter<"MixRadiusCustomer"> | string | null
+    address?: StringNullableWithAggregatesFilter<"MixRadiusCustomer"> | string | null
+    phoneNumber?: StringNullableWithAggregatesFilter<"MixRadiusCustomer"> | string | null
+    planName?: StringNullableWithAggregatesFilter<"MixRadiusCustomer"> | string | null
+    status?: StringNullableWithAggregatesFilter<"MixRadiusCustomer"> | string | null
+    ownerName?: StringNullableWithAggregatesFilter<"MixRadiusCustomer"> | string | null
+    expiredOn?: DateTimeNullableWithAggregatesFilter<"MixRadiusCustomer"> | Date | string | null
+    lastSyncedAt?: DateTimeWithAggregatesFilter<"MixRadiusCustomer"> | Date | string
+    createdAt?: DateTimeWithAggregatesFilter<"MixRadiusCustomer"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusCustomer"> | Date | string
+  }
+
+  export type MixRadiusOwnerGroupWhereInput = {
+    AND?: MixRadiusOwnerGroupWhereInput | MixRadiusOwnerGroupWhereInput[]
+    OR?: MixRadiusOwnerGroupWhereInput[]
+    NOT?: MixRadiusOwnerGroupWhereInput | MixRadiusOwnerGroupWhereInput[]
+    id?: StringFilter<"MixRadiusOwnerGroup"> | string
+    name?: StringFilter<"MixRadiusOwnerGroup"> | string
+    owners?: StringNullableListFilter<"MixRadiusOwnerGroup">
+    siteId?: StringNullableFilter<"MixRadiusOwnerGroup"> | string | null
+    isActive?: BoolFilter<"MixRadiusOwnerGroup"> | boolean
+    createdAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
+  }
+
+  export type MixRadiusOwnerGroupOrderByWithRelationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    owners?: SortOrder
+    siteId?: SortOrderInput | SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusOwnerGroupWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: MixRadiusOwnerGroupWhereInput | MixRadiusOwnerGroupWhereInput[]
+    OR?: MixRadiusOwnerGroupWhereInput[]
+    NOT?: MixRadiusOwnerGroupWhereInput | MixRadiusOwnerGroupWhereInput[]
+    name?: StringFilter<"MixRadiusOwnerGroup"> | string
+    owners?: StringNullableListFilter<"MixRadiusOwnerGroup">
+    siteId?: StringNullableFilter<"MixRadiusOwnerGroup"> | string | null
+    isActive?: BoolFilter<"MixRadiusOwnerGroup"> | boolean
+    createdAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
+  }, "id">
+
+  export type MixRadiusOwnerGroupOrderByWithAggregationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    owners?: SortOrder
+    siteId?: SortOrderInput | SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: MixRadiusOwnerGroupCountOrderByAggregateInput
+    _max?: MixRadiusOwnerGroupMaxOrderByAggregateInput
+    _min?: MixRadiusOwnerGroupMinOrderByAggregateInput
+  }
+
+  export type MixRadiusOwnerGroupScalarWhereWithAggregatesInput = {
+    AND?: MixRadiusOwnerGroupScalarWhereWithAggregatesInput | MixRadiusOwnerGroupScalarWhereWithAggregatesInput[]
+    OR?: MixRadiusOwnerGroupScalarWhereWithAggregatesInput[]
+    NOT?: MixRadiusOwnerGroupScalarWhereWithAggregatesInput | MixRadiusOwnerGroupScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"MixRadiusOwnerGroup"> | string
+    name?: StringWithAggregatesFilter<"MixRadiusOwnerGroup"> | string
+    owners?: StringNullableListFilter<"MixRadiusOwnerGroup">
+    siteId?: StringNullableWithAggregatesFilter<"MixRadiusOwnerGroup"> | string | null
+    isActive?: BoolWithAggregatesFilter<"MixRadiusOwnerGroup"> | boolean
+    createdAt?: DateTimeWithAggregatesFilter<"MixRadiusOwnerGroup"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusOwnerGroup"> | Date | string
+  }
+
+  export type MixRadiusInvestorSiteWhereInput = {
+    AND?: MixRadiusInvestorSiteWhereInput | MixRadiusInvestorSiteWhereInput[]
+    OR?: MixRadiusInvestorSiteWhereInput[]
+    NOT?: MixRadiusInvestorSiteWhereInput | MixRadiusInvestorSiteWhereInput[]
+    id?: StringFilter<"MixRadiusInvestorSite"> | string
+    name?: StringFilter<"MixRadiusInvestorSite"> | string
+    owners?: StringNullableListFilter<"MixRadiusInvestorSite">
+    isActive?: BoolFilter<"MixRadiusInvestorSite"> | boolean
+    createdAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
+  }
+
+  export type MixRadiusInvestorSiteOrderByWithRelationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    owners?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusInvestorSiteWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: MixRadiusInvestorSiteWhereInput | MixRadiusInvestorSiteWhereInput[]
+    OR?: MixRadiusInvestorSiteWhereInput[]
+    NOT?: MixRadiusInvestorSiteWhereInput | MixRadiusInvestorSiteWhereInput[]
+    name?: StringFilter<"MixRadiusInvestorSite"> | string
+    owners?: StringNullableListFilter<"MixRadiusInvestorSite">
+    isActive?: BoolFilter<"MixRadiusInvestorSite"> | boolean
+    createdAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
+  }, "id">
+
+  export type MixRadiusInvestorSiteOrderByWithAggregationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    owners?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: MixRadiusInvestorSiteCountOrderByAggregateInput
+    _max?: MixRadiusInvestorSiteMaxOrderByAggregateInput
+    _min?: MixRadiusInvestorSiteMinOrderByAggregateInput
+  }
+
+  export type MixRadiusInvestorSiteScalarWhereWithAggregatesInput = {
+    AND?: MixRadiusInvestorSiteScalarWhereWithAggregatesInput | MixRadiusInvestorSiteScalarWhereWithAggregatesInput[]
+    OR?: MixRadiusInvestorSiteScalarWhereWithAggregatesInput[]
+    NOT?: MixRadiusInvestorSiteScalarWhereWithAggregatesInput | MixRadiusInvestorSiteScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"MixRadiusInvestorSite"> | string
+    name?: StringWithAggregatesFilter<"MixRadiusInvestorSite"> | string
+    owners?: StringNullableListFilter<"MixRadiusInvestorSite">
+    isActive?: BoolWithAggregatesFilter<"MixRadiusInvestorSite"> | boolean
+    createdAt?: DateTimeWithAggregatesFilter<"MixRadiusInvestorSite"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusInvestorSite"> | Date | string
+  }
+
+  export type MixRadiusConfigWhereInput = {
+    AND?: MixRadiusConfigWhereInput | MixRadiusConfigWhereInput[]
+    OR?: MixRadiusConfigWhereInput[]
+    NOT?: MixRadiusConfigWhereInput | MixRadiusConfigWhereInput[]
+    id?: StringFilter<"MixRadiusConfig"> | string
+    name?: StringFilter<"MixRadiusConfig"> | string
+    apiUrl?: StringFilter<"MixRadiusConfig"> | string
+    username?: StringFilter<"MixRadiusConfig"> | string
+    password?: StringFilter<"MixRadiusConfig"> | string
+    apiKey?: StringFilter<"MixRadiusConfig"> | string
+    isDefault?: BoolFilter<"MixRadiusConfig"> | boolean
+    lastSyncedAt?: DateTimeNullableFilter<"MixRadiusConfig"> | Date | string | null
+    createdAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
+  }
+
+  export type MixRadiusConfigOrderByWithRelationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    apiUrl?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
+    apiKey?: SortOrder
+    isDefault?: SortOrder
+    lastSyncedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusConfigWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: MixRadiusConfigWhereInput | MixRadiusConfigWhereInput[]
+    OR?: MixRadiusConfigWhereInput[]
+    NOT?: MixRadiusConfigWhereInput | MixRadiusConfigWhereInput[]
+    name?: StringFilter<"MixRadiusConfig"> | string
+    apiUrl?: StringFilter<"MixRadiusConfig"> | string
+    username?: StringFilter<"MixRadiusConfig"> | string
+    password?: StringFilter<"MixRadiusConfig"> | string
+    apiKey?: StringFilter<"MixRadiusConfig"> | string
+    isDefault?: BoolFilter<"MixRadiusConfig"> | boolean
+    lastSyncedAt?: DateTimeNullableFilter<"MixRadiusConfig"> | Date | string | null
+    createdAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
+    updatedAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
+  }, "id">
+
+  export type MixRadiusConfigOrderByWithAggregationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    apiUrl?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
+    apiKey?: SortOrder
+    isDefault?: SortOrder
+    lastSyncedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: MixRadiusConfigCountOrderByAggregateInput
+    _max?: MixRadiusConfigMaxOrderByAggregateInput
+    _min?: MixRadiusConfigMinOrderByAggregateInput
+  }
+
+  export type MixRadiusConfigScalarWhereWithAggregatesInput = {
+    AND?: MixRadiusConfigScalarWhereWithAggregatesInput | MixRadiusConfigScalarWhereWithAggregatesInput[]
+    OR?: MixRadiusConfigScalarWhereWithAggregatesInput[]
+    NOT?: MixRadiusConfigScalarWhereWithAggregatesInput | MixRadiusConfigScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"MixRadiusConfig"> | string
+    name?: StringWithAggregatesFilter<"MixRadiusConfig"> | string
+    apiUrl?: StringWithAggregatesFilter<"MixRadiusConfig"> | string
+    username?: StringWithAggregatesFilter<"MixRadiusConfig"> | string
+    password?: StringWithAggregatesFilter<"MixRadiusConfig"> | string
+    apiKey?: StringWithAggregatesFilter<"MixRadiusConfig"> | string
+    isDefault?: BoolWithAggregatesFilter<"MixRadiusConfig"> | boolean
+    lastSyncedAt?: DateTimeNullableWithAggregatesFilter<"MixRadiusConfig"> | Date | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"MixRadiusConfig"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusConfig"> | Date | string
+  }
+
   export type InvoiceCreateInput = {
     id: string
     invoiceNumber: string
@@ -13562,6 +18454,342 @@ export namespace Prisma {
     syncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type MixRadiusCustomerCreateInput = {
+    id: string
+    mixRadiusId: string
+    username: string
+    fullName?: string | null
+    address?: string | null
+    phoneNumber?: string | null
+    planName?: string | null
+    status?: string | null
+    ownerName?: string | null
+    expiredOn?: Date | string | null
+    lastSyncedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusCustomerUncheckedCreateInput = {
+    id: string
+    mixRadiusId: string
+    username: string
+    fullName?: string | null
+    address?: string | null
+    phoneNumber?: string | null
+    planName?: string | null
+    status?: string | null
+    ownerName?: string | null
+    expiredOn?: Date | string | null
+    lastSyncedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusCustomerUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    mixRadiusId?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    planName?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
+    expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusCustomerUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    mixRadiusId?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    planName?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
+    expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusCustomerCreateManyInput = {
+    id: string
+    mixRadiusId: string
+    username: string
+    fullName?: string | null
+    address?: string | null
+    phoneNumber?: string | null
+    planName?: string | null
+    status?: string | null
+    ownerName?: string | null
+    expiredOn?: Date | string | null
+    lastSyncedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusCustomerUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    mixRadiusId?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    planName?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
+    expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusCustomerUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    mixRadiusId?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    planName?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
+    expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusOwnerGroupCreateInput = {
+    id?: string
+    name: string
+    owners?: MixRadiusOwnerGroupCreateownersInput | string[]
+    siteId?: string | null
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusOwnerGroupUncheckedCreateInput = {
+    id?: string
+    name: string
+    owners?: MixRadiusOwnerGroupCreateownersInput | string[]
+    siteId?: string | null
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusOwnerGroupUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusOwnerGroupUpdateownersInput | string[]
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusOwnerGroupUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusOwnerGroupUpdateownersInput | string[]
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusOwnerGroupCreateManyInput = {
+    id?: string
+    name: string
+    owners?: MixRadiusOwnerGroupCreateownersInput | string[]
+    siteId?: string | null
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusOwnerGroupUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusOwnerGroupUpdateownersInput | string[]
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusOwnerGroupUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusOwnerGroupUpdateownersInput | string[]
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusInvestorSiteCreateInput = {
+    id?: string
+    name: string
+    owners?: MixRadiusInvestorSiteCreateownersInput | string[]
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusInvestorSiteUncheckedCreateInput = {
+    id?: string
+    name: string
+    owners?: MixRadiusInvestorSiteCreateownersInput | string[]
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusInvestorSiteUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusInvestorSiteUpdateownersInput | string[]
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusInvestorSiteUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusInvestorSiteUpdateownersInput | string[]
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusInvestorSiteCreateManyInput = {
+    id?: string
+    name: string
+    owners?: MixRadiusInvestorSiteCreateownersInput | string[]
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusInvestorSiteUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusInvestorSiteUpdateownersInput | string[]
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusInvestorSiteUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    owners?: MixRadiusInvestorSiteUpdateownersInput | string[]
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusConfigCreateInput = {
+    id?: string
+    name?: string
+    apiUrl: string
+    username: string
+    password: string
+    apiKey: string
+    isDefault?: boolean
+    lastSyncedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusConfigUncheckedCreateInput = {
+    id?: string
+    name?: string
+    apiUrl: string
+    username: string
+    password: string
+    apiKey: string
+    isDefault?: boolean
+    lastSyncedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusConfigUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    apiUrl?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
+    apiKey?: StringFieldUpdateOperationsInput | string
+    isDefault?: BoolFieldUpdateOperationsInput | boolean
+    lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusConfigUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    apiUrl?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
+    apiKey?: StringFieldUpdateOperationsInput | string
+    isDefault?: BoolFieldUpdateOperationsInput | boolean
+    lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusConfigCreateManyInput = {
+    id?: string
+    name?: string
+    apiUrl: string
+    username: string
+    password: string
+    apiKey: string
+    isDefault?: boolean
+    lastSyncedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MixRadiusConfigUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    apiUrl?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
+    apiKey?: StringFieldUpdateOperationsInput | string
+    isDefault?: BoolFieldUpdateOperationsInput | boolean
+    lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MixRadiusConfigUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    apiUrl?: StringFieldUpdateOperationsInput | string
+    username?: StringFieldUpdateOperationsInput | string
+    password?: StringFieldUpdateOperationsInput | string
+    apiKey?: StringFieldUpdateOperationsInput | string
+    isDefault?: BoolFieldUpdateOperationsInput | boolean
+    lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -14508,6 +19736,146 @@ export namespace Prisma {
     amount?: SortOrder
   }
 
+  export type MixRadiusCustomerCountOrderByAggregateInput = {
+    id?: SortOrder
+    mixRadiusId?: SortOrder
+    username?: SortOrder
+    fullName?: SortOrder
+    address?: SortOrder
+    phoneNumber?: SortOrder
+    planName?: SortOrder
+    status?: SortOrder
+    ownerName?: SortOrder
+    expiredOn?: SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusCustomerMaxOrderByAggregateInput = {
+    id?: SortOrder
+    mixRadiusId?: SortOrder
+    username?: SortOrder
+    fullName?: SortOrder
+    address?: SortOrder
+    phoneNumber?: SortOrder
+    planName?: SortOrder
+    status?: SortOrder
+    ownerName?: SortOrder
+    expiredOn?: SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusCustomerMinOrderByAggregateInput = {
+    id?: SortOrder
+    mixRadiusId?: SortOrder
+    username?: SortOrder
+    fullName?: SortOrder
+    address?: SortOrder
+    phoneNumber?: SortOrder
+    planName?: SortOrder
+    status?: SortOrder
+    ownerName?: SortOrder
+    expiredOn?: SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusOwnerGroupCountOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    owners?: SortOrder
+    siteId?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusOwnerGroupMaxOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    siteId?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusOwnerGroupMinOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    siteId?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusInvestorSiteCountOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    owners?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusInvestorSiteMaxOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusInvestorSiteMinOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusConfigCountOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    apiUrl?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
+    apiKey?: SortOrder
+    isDefault?: SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusConfigMaxOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    apiUrl?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
+    apiKey?: SortOrder
+    isDefault?: SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MixRadiusConfigMinOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    apiUrl?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
+    apiKey?: SortOrder
+    isDefault?: SortOrder
+    lastSyncedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
   export type InvoiceItemCreateNestedManyWithoutInvoiceInput = {
     create?: XOR<InvoiceItemCreateWithoutInvoiceInput, InvoiceItemUncheckedCreateWithoutInvoiceInput> | InvoiceItemCreateWithoutInvoiceInput[] | InvoiceItemUncheckedCreateWithoutInvoiceInput[]
     connectOrCreate?: InvoiceItemCreateOrConnectWithoutInvoiceInput | InvoiceItemCreateOrConnectWithoutInvoiceInput[]
@@ -14813,6 +20181,24 @@ export namespace Prisma {
     update?: TransactionUpdateWithWhereUniqueWithoutCategoryInput | TransactionUpdateWithWhereUniqueWithoutCategoryInput[]
     updateMany?: TransactionUpdateManyWithWhereWithoutCategoryInput | TransactionUpdateManyWithWhereWithoutCategoryInput[]
     deleteMany?: TransactionScalarWhereInput | TransactionScalarWhereInput[]
+  }
+
+  export type MixRadiusOwnerGroupCreateownersInput = {
+    set: string[]
+  }
+
+  export type MixRadiusOwnerGroupUpdateownersInput = {
+    set?: string[]
+    push?: string | string[]
+  }
+
+  export type MixRadiusInvestorSiteCreateownersInput = {
+    set: string[]
+  }
+
+  export type MixRadiusInvestorSiteUpdateownersInput = {
+    set?: string[]
+    push?: string | string[]
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {

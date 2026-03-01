@@ -1,10 +1,4 @@
-/**
- * IntegrationMapper
- *
- * Transforms Prisma entities to DTOs for API responses.
- */
-
-import type { MixRadiusConfig, MixRadiusCustomer } from '@prisma/client'
+import type { MixRadiusConfig, MixRadiusCustomer } from '@/prisma/generated/billing'
 import type {
     IntegrationConfigListItemDTO,
     IntegrationConfigDetailDTO,
@@ -19,10 +13,10 @@ export class IntegrationMapper {
     static toConfigListItem(entity: MixRadiusConfig): IntegrationConfigListItemDTO {
         return {
             id: entity.id,
-            name: entity.name,
+            name: 'MixRadius Default', // New schema doesn't have name, using placeholder or could add tag
             type: 'MIXRADIUS',
-            isActive: entity.isActive,
-            lastSyncAt: null, // Would need to join with sync logs
+            isActive: entity.isDefault,
+            lastSyncAt: entity.lastSyncedAt?.toISOString() ?? null,
         }
     }
 
@@ -42,10 +36,10 @@ export class IntegrationMapper {
     ): IntegrationConfigDetailDTO {
         return {
             id: entity.id,
-            name: entity.name,
+            name: 'MixRadius Default',
             type: 'MIXRADIUS',
-            baseUrl: entity.baseUrl,
-            isActive: entity.isActive,
+            baseUrl: entity.apiUrl,
+            isActive: entity.isDefault,
             createdAt: entity.createdAt.toISOString(),
             updatedAt: entity.updatedAt.toISOString(),
             syncStatus: syncStatus ?? null,

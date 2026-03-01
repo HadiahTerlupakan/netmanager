@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
-import { prisma } from '@/lib/prisma';
 import { prismaMitra } from '@/lib/prisma-mitra';
 import fs from 'fs';
 import path from 'path';

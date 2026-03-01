@@ -1031,8 +1031,8 @@ export default function NetworkMapInteractive() {
             <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               <Button variant="ghost" onClick={() => setActiveTab("map")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "map"
-                    ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                   }`}
               >
                 <HiMap className="w-4 h-4" />
@@ -1040,8 +1040,8 @@ export default function NetworkMapInteractive() {
               </Button>
               <Button variant="ghost" onClick={() => setActiveTab("list")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "list"
-                    ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                   }`}
               >
                 <HiListBullet className="w-4 h-4" />
@@ -1049,8 +1049,8 @@ export default function NetworkMapInteractive() {
               </Button>
               <Button variant="ghost" onClick={() => setActiveTab("settings")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "settings"
-                    ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                   }`}
               >
                 <HiCog6Tooth className="w-4 h-4" />
@@ -2391,8 +2391,8 @@ function NodeFormModal({
                 <Button type="button"
                   onClick={() => setOntIdentifierType("pppoe")}
                   className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${ontIdentifierType === "pppoe"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                     }`}
                 >
                   PPPoE
@@ -2400,8 +2400,8 @@ function NodeFormModal({
                 <Button type="button"
                   onClick={() => setOntIdentifierType("serial")}
                   className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${ontIdentifierType === "serial"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                     }`}
                 >
                   Serial Number

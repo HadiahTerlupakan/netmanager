@@ -5,7 +5,6 @@ generator client_billing {
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 model Invoice {
@@ -263,4 +262,64 @@ enum GatewayPaymentStatus {
   EXPIRED
   CANCELLED
   REFUNDED
+}
+
+
+model MixRadiusCustomer {
+  id           String    @id
+  mixRadiusId  String    @unique
+  username     String    @unique
+  fullName     String?
+  address      String?
+  phoneNumber  String?
+  planName     String?
+  status       String?
+  ownerName    String?
+  expiredOn    DateTime?
+  lastSyncedAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("mix_radius_customers")
+}
+
+model MixRadiusOwnerGroup {
+  id          String       @id @default(uuid())
+  name        String
+  owners      String[]
+  siteId      String?      // Soft-relation to Sites in main DB
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Note: expenses and rabProjects are managed via repository layer (soft-relations)
+
+  @@index([siteId])
+  @@map("mix_radius_owner_groups")
+}
+
+model MixRadiusInvestorSite {
+  id          String   @id @default(uuid())
+  name        String   // Nama Site Investor (misal: "Proyek Cimenyan - Investor A")
+  owners      String[] // Daftar owner MixRadius yang pendapatannya masuk ke site ini
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mix_radius_investor_sites")
+}
+
+model MixRadiusConfig {
+  id           String   @id @default(uuid())
+  name         String   @default("Default")
+  apiUrl       String
+  username     String
+  password     String
+  apiKey       String
+  isDefault    Boolean  @default(false)
+  lastSyncedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("mix_radius_configs")
 }

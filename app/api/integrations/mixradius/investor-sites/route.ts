@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing'
 import { createHandler, ApiErrors, apiSuccess } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
 import { isSuperAdmin } from '@/lib/auth'
@@ -9,14 +9,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user)
     const canRead = await hasPermission('mixradius_sites:read')
 
-    // As in MixRadiusOwnerGroup, we check basic admin permissions
     if (!isSuper && !canRead) {
         return ApiErrors.forbidden('Akses ditolak')
     }
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sites = await (prisma as any).mixRadiusInvestorSite.findMany({
+        const sites = await prismaBilling.mixRadiusInvestorSite.findMany({
             orderBy: { createdAt: 'desc' }
         })
 
@@ -45,8 +43,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
             return ApiErrors.badRequest('Nama belum diisi')
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const newSite = await (prisma as any).mixRadiusInvestorSite.create({
+        const newSite = await prismaBilling.mixRadiusInvestorSite.create({
             data: {
                 name,
                 owners: Array.isArray(owners) ? owners : [],

@@ -124,7 +124,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             },
             wbsGroups: true,
             site: { select: { name: true } },
-            mixRadiusGroup: { select: { name: true } },
             creator: { select: { name: true } },
             approvals: {
                 include: {

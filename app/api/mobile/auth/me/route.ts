@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getUserRepository } from '@/lib/repositories'
-import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 

@@ -242,9 +242,9 @@ model Expense {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime
   siteId           String?
-  mixRadiusGroupId String?
   site             Sites?               @relation(fields: [siteId], references: [id])
-  mixRadiusGroup   MixRadiusOwnerGroup? @relation(fields: [mixRadiusGroupId], references: [id])
+  mixRadiusGroupId String?
+  // Soft-relation to MixRadiusOwnerGroup in billing DB
   user             User?                @relation(fields: [userId], references: [id])
 
   @@index([category])
@@ -1237,21 +1237,6 @@ model Gudang {
   @@map("gudang")
 }
 
-model Nas {
-  id          Int      @id @default(autoincrement())
-  nasname     String   @unique
-  shortname   String?
-  type        String   @default("other")
-  ports       Int?
-  secret      String   @default("secret")
-  community   String?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime
-
-  @@map("nas")
-}
-
 model NetworkAlerts {
   id              String         @id
   deviceId        String
@@ -1407,143 +1392,6 @@ model PushSubscriptions {
   @@map("push_subscriptions")
 }
 
-model Radacct {
-  radAcctId           BigInt    @id @default(autoincrement())
-  acctSessionId       String
-  acctUniqueId        String    @unique
-  username            String?
-  groupname           String?
-  realm               String?
-  nasIpAddress        String
-  nasPortId           String?
-  nasPortType         String?
-  acctStartTime       DateTime?
-  acctUpdateTime      DateTime?
-  acctStopTime        DateTime?
-  acctInterval        BigInt?
-  acctSessionTime     BigInt?
-  acctAuthentic       String?
-  connectInfoStart    String?
-  connectInfoStop     String?
-  acctInputOctets     BigInt?
-  acctOutputOctets    BigInt?
-  calledStationId     String?
-  callingStationId    String?
-  acctTerminateCause  String?
-  serviceType         String?
-  framedProtocol      String?
-  framedIpAddress     String?
-  framedIpv6Address   String?
-  framedIpv6Prefix    String?
-  framedInterfaceId   String?
-  delegatedIpv6Prefix String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime
-
-  @@index([acctSessionId])
-  @@index([acctStartTime])
-  @@index([acctStopTime])
-  @@index([acctUniqueId])
-  @@index([nasIpAddress])
-  @@index([username, acctStartTime])
-  @@index([username])
-  @@map("radacct")
-}
-
-model Radcheck {
-  id        Int      @id @default(autoincrement())
-  username  String
-  attribute String
-  op        String   @default("==") @db.VarChar(2)
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-
-  @@index([username, attribute])
-  @@index([username])
-  @@map("radcheck")
-}
-
-model Radgroupcheck {
-  id        Int      @id @default(autoincrement())
-  groupname String
-  attribute String
-  op        String   @default("==") @db.VarChar(2)
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-
-  @@index([groupname, attribute])
-  @@index([groupname])
-  @@map("radgroupcheck")
-}
-
-model Radgroupreply {
-  id        Int      @id @default(autoincrement())
-  groupname String
-  attribute String
-  op        String   @default("=") @db.VarChar(2)
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-
-  @@index([groupname, attribute])
-  @@index([groupname])
-  @@map("radgroupreply")
-}
-
-model Radippool {
-  id              Int      @id @default(autoincrement())
-  pool_name       String
-  framedipaddress String   @unique @db.Inet
-  nasipaddress    String?  @db.Inet
-  pool_key        String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime
-
-  @@index([nasipaddress])
-  @@index([pool_name])
-  @@map("radippool")
-}
-
-model Radpostauth {
-  id       BigInt   @id @default(autoincrement())
-  username String
-  pass     String
-  reply    String
-  authDate DateTime @default(now())
-
-  @@index([authDate])
-  @@index([username])
-  @@map("radpostauth")
-}
-
-model Radreply {
-  id        Int      @id @default(autoincrement())
-  username  String
-  attribute String
-  op        String   @default("=") @db.VarChar(2)
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-
-  @@index([username, attribute])
-  @@index([username])
-  @@map("radreply")
-}
-
-model Radusergroup {
-  username  String
-  groupname String
-  priority  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-
-  @@id([username, groupname])
-  @@index([groupname])
-  @@index([username])
-  @@map("radusergroup")
-}
 
 model Registrations {
   id              String             @id
@@ -1670,7 +1518,6 @@ model Sites {
   hargaPakets          HargaPaket[]
   joinboxes            Joinbox[]
   kmzFiles             KmzFile[]
-  mixRadiusOwnerGroups MixRadiusOwnerGroup[]
   rabProjects          RabProject[]
 
   @@index([isActive])
@@ -2246,10 +2093,7 @@ enum EmployeeType {
   KARYAWAN
 }
 
-enum MitraType {
-  MITRA_TEKNISI
-  MITRA_SALES
-}
+
 
 enum RateType {
   FIXED
@@ -2713,60 +2557,6 @@ model AssetDepreciationLog {
   @@map("asset_depreciation_logs")
 }
 
-model MixRadiusCustomer {
-  id           String    @id
-  mixRadiusId  String    @unique
-  username     String    @unique
-  fullName     String?
-  address      String?
-  phoneNumber  String?
-  planName     String?
-  status       String?
-  ownerName    String?
-  expiredOn    DateTime?
-  lastSyncedAt DateTime  @default(now())
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-model MixRadiusOwnerGroup {
-  id          String       @id @default(uuid())
-  name        String
-  owners      String[]
-  siteId      String?
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  site        Sites?       @relation(fields: [siteId], references: [id])
-  expenses    Expense[]
-  rabProjects RabProject[]
-
-  @@index([siteId])
-}
-
-model MixRadiusInvestorSite {
-  id          String   @id @default(uuid())
-  name        String   // Nama Site Investor (misal: "Proyek Cimenyan - Investor A")
-  owners      String[] // Daftar owner MixRadius yang pendapatannya masuk ke site ini
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  rabProjects RabProject[]
-}
-
-model MixRadiusConfig {
-  id       String  @id @default(uuid())
-  name     String
-  baseUrl  String
-  username String
-  password String
-  isActive Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 // ==================== SALARY MODELS ====================
 
 model Salary {
@@ -3025,8 +2815,9 @@ model RabProject {
   investors          RabInvestor[]
 
   site                  Sites?                 @relation(fields: [siteId], references: [id])
-  mixRadiusGroup        MixRadiusOwnerGroup?   @relation(fields: [mixRadiusGroupId], references: [id])
-  mixRadiusInvestorSite MixRadiusInvestorSite? @relation(fields: [mixRadiusInvestorSiteId], references: [id])
+  // Soft-relation to Sites in main DB
+  // Soft-relation to MixRadiusOwnerGroup in billing DB
+  // Soft-relation to MixRadiusInvestorSite in billing DB
   creator               User?                  @relation(fields: [createdBy], references: [id])
 
   @@index([siteId])

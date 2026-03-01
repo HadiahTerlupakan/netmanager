@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWithdrawService } from '@/modules/mitra'
-import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 
 const withdrawService = getMitraWithdrawService()

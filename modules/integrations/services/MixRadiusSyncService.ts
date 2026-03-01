@@ -38,7 +38,7 @@ export class MixRadiusSyncService {
     }
 
     // Upsert into MixRadiusCustomer using mixRadiusId as the unique key
-    const result = await prisma.mixRadiusCustomer.upsert({
+    const result = await prismaBilling.mixRadiusCustomer.upsert({
       where: { mixRadiusId: data.id },
       update: customerData,
       create: {
@@ -66,7 +66,7 @@ export class MixRadiusSyncService {
       if (pelanggan && pelanggan.mixRadiusId !== data.id) {
         await prisma.pelanggan.update({
           where: { id: pelanggan.id },
-          data: { 
+          data: {
             mixRadiusId: data.id,
             lastSyncedAt: new Date()
           }
@@ -113,7 +113,7 @@ export class MixRadiusSyncService {
           lastSyncedAt: new Date(),
         }
 
-        await prisma.mixRadiusCustomer.upsert({
+        await prismaBilling.mixRadiusCustomer.upsert({
           where: { mixRadiusId: customer.id }, // Use mixRadiusId for reliability
           update: customerData,
           create: {
@@ -139,11 +139,11 @@ export class MixRadiusSyncService {
   async syncInvoices(startDate?: string, endDate?: string) {
     try {
       const service = getMixRadiusService()
-      
+
       // Default to current month if not provided
       const now = new Date()
       const start = startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-      
+
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
       const end = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`
 
@@ -180,12 +180,12 @@ export class MixRadiusSyncService {
 
   private async upsertInvoice(record: MixRadiusIncomePeriodRecord) {
     const mixRadiusId = record.customer_id || record.username;
-    
+
     // Ensure customer exists to satisfy foreign key constraint
     // Use mixRadiusId as primary key for upsert to handle username changes
-    await prisma.mixRadiusCustomer.upsert({
+    await prismaBilling.mixRadiusCustomer.upsert({
       where: { mixRadiusId: mixRadiusId },
-      update: { 
+      update: {
         username: record.username,
         fullName: record.fullname,
         ownerName: record.owner_name,
@@ -241,7 +241,7 @@ export class MixRadiusSyncService {
     // 1. Resolve groupId to owners list
     let owners: string[] | null = null;
     if (groupId && groupId !== "all") {
-      const group = await prisma.mixRadiusOwnerGroup.findUnique({
+      const group = await prismaBilling.mixRadiusOwnerGroup.findUnique({
         where: { id: groupId },
       });
       if (group && group.owners && group.owners.length > 0) {

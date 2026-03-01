@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma'
-import type { MixRadiusOwnerGroup } from '@prisma/client'
+import { prismaBilling } from '@/lib/prisma-billing'
+import type { MixRadiusOwnerGroup } from '@/prisma/generated/billing'
 import axios, { type AxiosInstance } from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import { CookieJar } from 'tough-cookie'
@@ -292,11 +292,11 @@ export class MixRadiusService {
     try {
       const activeConfig = await mixRadiusConfigRepo.getActiveConfig()
       if (activeConfig) {
-        // console.log(`[MixRadius] Using active config from DB: ${activeConfig.name}`)
+        // console.log(`[MixRadius] Using active config from DB`)
         this.credentials = {
           username: activeConfig.username,
           password: activeConfig.password,
-          baseUrl: activeConfig.baseUrl.replace(/\/$/, ''),
+          baseUrl: activeConfig.apiUrl.replace(/\/$/, ''),
         }
       } else {
         // console.log('[MixRadius] No active config in DB, using fallback Env vars')
@@ -571,7 +571,7 @@ export class MixRadiusService {
       // 0. Filter by Management Site
       if (params.siteId) {
         // Find owner groups for this site
-        const groups = await prisma.mixRadiusOwnerGroup.findMany({
+        const groups = await prismaBilling.mixRadiusOwnerGroup.findMany({
           where: { siteId: params.siteId },
           select: { owners: true }
         })
@@ -645,7 +645,7 @@ export class MixRadiusService {
       // 3. Filter by Owner OR Group
       if (params.groupId) {
         // Fetch group owners
-        const group = await prisma.mixRadiusOwnerGroup.findUnique({
+        const group = await prismaBilling.mixRadiusOwnerGroup.findUnique({
           where: { id: params.groupId },
           select: { owners: true }
         })
@@ -958,14 +958,14 @@ export class MixRadiusService {
 
       // 1. Filter by Site
       if (siteId) {
-        const groups = await prisma.mixRadiusOwnerGroup.findMany({
+        const groups = await prismaBilling.mixRadiusOwnerGroup.findMany({
           where: { siteId: siteId },
           select: { owners: true }
         })
 
         // Normalize owner names: Include BOTH full name and split prefix to handle various naming conventions
         const allowedOwners = new Set<string>()
-        groups.flatMap(g => g.owners).forEach(o => {
+        groups.flatMap((g: { owners: string[] }) => g.owners).forEach((o: string) => {
           if (!o) return
           const lower = o.toLowerCase().trim()
           allowedOwners.add(lower) // Add full name "alex - cibubur"
@@ -977,13 +977,13 @@ export class MixRadiusService {
 
       // 2. Filter by Group
       if (groupId) {
-        const group = await prisma.mixRadiusOwnerGroup.findUnique({
+        const group = await prismaBilling.mixRadiusOwnerGroup.findUnique({
           where: { id: groupId },
           select: { owners: true }
         })
         if (group && group.owners) {
           const allowedOwners = new Set<string>()
-          group.owners.forEach(o => {
+          group.owners.forEach((o: string) => {
             if (!o) return
             const lower = o.toLowerCase().trim()
             allowedOwners.add(lower)
@@ -1525,34 +1525,32 @@ export class MixRadiusService {
   // --- Owner Group Methods ---
 
   async getOwnerGroups() {
-    return prisma.mixRadiusOwnerGroup.findMany({
-      orderBy: { name: 'asc' },
-      include: { site: true }
+    return prismaBilling.mixRadiusOwnerGroup.findMany({
+      orderBy: { name: 'asc' }
     })
   }
 
   async getOwnerGroup(id: string) {
-    return prisma.mixRadiusOwnerGroup.findUnique({
-      where: { id },
-      include: { site: true }
+    return prismaBilling.mixRadiusOwnerGroup.findUnique({
+      where: { id }
     })
   }
 
   async createOwnerGroup(data: { name: string; owners: string[]; siteId?: string; isActive?: boolean }) {
-    return prisma.mixRadiusOwnerGroup.create({
+    return prismaBilling.mixRadiusOwnerGroup.create({
       data
     })
   }
 
   async updateOwnerGroup(id: string, data: { name?: string; owners?: string[]; siteId?: string; isActive?: boolean }) {
-    return prisma.mixRadiusOwnerGroup.update({
+    return prismaBilling.mixRadiusOwnerGroup.update({
       where: { id },
       data
     })
   }
 
   async deleteOwnerGroup(id: string) {
-    return prisma.mixRadiusOwnerGroup.delete({
+    return prismaBilling.mixRadiusOwnerGroup.delete({
       where: { id }
     })
   }

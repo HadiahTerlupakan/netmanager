@@ -2,19 +2,9 @@ import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWalletService } from '@/modules/mitra'
-import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 
 const walletService = getMitraWalletService()
-
-interface MitraUser {
-    id: string
-    mitraType: string
-    mitraRateWoPsb: number | null
-    mitraRateWoMaintenance: number | null
-    mitraRateCanvasing: number | null
-    minWithdrawal: number | null
-}
 
 // GET /api/mobile/mitra/dashboard — Mitra dashboard stats
 export async function GET(req: NextRequest) {

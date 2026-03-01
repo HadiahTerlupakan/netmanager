@@ -63,7 +63,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Delete RADIUS user and all related records
      */
     async deleteRadiusUser(username: string): Promise<void> {
-        await this.prisma.$transaction([
+        await prismaRadius.$transaction([
             prismaRadius.radcheck.deleteMany({ where: { username } }),
             prismaRadius.radreply.deleteMany({ where: { username } }),
             prismaRadius.radusergroup.deleteMany({ where: { username } }),

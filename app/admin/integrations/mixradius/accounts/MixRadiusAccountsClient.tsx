@@ -58,7 +58,15 @@ export default function MixRadiusAccountsClient() {
       }
       const data = await res.json()
       // Handle both { data: [...] } and direct array response
-      setConfigs(Array.isArray(data) ? data : (data.data || []))
+      const rawConfigs = Array.isArray(data) ? data : (data.data || [])
+
+      // Map API fields (apiUrl) to UI fields (baseUrl)
+      const mapped = rawConfigs.map((c: any) => ({
+        ...c,
+        baseUrl: c.baseUrl || c.apiUrl || '',
+        name: c.name || 'Default Account'
+      }))
+      setConfigs(mapped)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Gagal mengambil daftar akun')
     } finally {
@@ -68,7 +76,7 @@ export default function MixRadiusAccountsClient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name.trim() || !formData.baseUrl.trim() || !formData.username.trim()) {
       const missing: string[] = []
       if (!formData.name.trim()) missing.push('Nama Akun')
@@ -85,15 +93,15 @@ export default function MixRadiusAccountsClient() {
 
     // Basic URL validation
     if (!formData.baseUrl.startsWith('http')) {
-       toast.error('URL harus dimulai dengan http:// atau https://')
-       return
+      toast.error('URL harus dimulai dengan http:// atau https://')
+      return
     }
 
     try {
-      const url = editingId 
+      const url = editingId
         ? `/api/integrations/mixradius/accounts/${editingId}`
         : '/api/integrations/mixradius/accounts'
-      
+
       const method = editingId ? 'PUT' : 'POST'
 
       const res = await fetch(url, {
@@ -136,28 +144,28 @@ export default function MixRadiusAccountsClient() {
   }
 
   const handleActivate = async (id: string, name: string) => {
-      // Optimistic update
-      const previousConfigs = [...configs];
-      setConfigs(prev => prev.map(c => ({ ...c, isActive: c.id === id })));
-      
-      try {
-          // We can use PUT to set isActive=true. The backend logic handles deactivating others.
-          const res = await fetch(`/api/integrations/mixradius/accounts/${id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ isActive: true })
-          })
+    // Optimistic update
+    const previousConfigs = [...configs];
+    setConfigs(prev => prev.map(c => ({ ...c, isActive: c.id === id })));
 
-          if (!res.ok) {
-              const errData = await res.json().catch(() => ({}))
-              throw new Error(errData.error || 'Gagal mengaktifkan akun')
-          }
-          toast.success(`Akun "${name}" diaktifkan`);
-          fetchData(); // Refresh to ensure sync
-      } catch (error) {
-          setConfigs(previousConfigs); // Revert on error
-          toast.error(error instanceof Error ? error.message : 'Gagal mengaktifkan akun');
+    try {
+      // We can use PUT to set isActive=true. The backend logic handles deactivating others.
+      const res = await fetch(`/api/integrations/mixradius/accounts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: true })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Gagal mengaktifkan akun')
       }
+      toast.success(`Akun "${name}" diaktifkan`);
+      fetchData(); // Refresh to ensure sync
+    } catch (error) {
+      setConfigs(previousConfigs); // Revert on error
+      toast.error(error instanceof Error ? error.message : 'Gagal mengaktifkan akun');
+    }
   }
 
   const openEdit = (config: MixRadiusConfig) => {
@@ -189,10 +197,10 @@ export default function MixRadiusAccountsClient() {
       header: 'Nama Akun',
       key: 'name',
       render: (item) => (
-          <div className="flex flex-col">
-              <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
-              <span className="text-xs text-gray-500">{item.baseUrl}</span>
-          </div>
+        <div className="flex flex-col">
+          <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
+          <span className="text-xs text-gray-500">{item.baseUrl}</span>
+        </div>
       )
     },
     {
@@ -204,8 +212,8 @@ export default function MixRadiusAccountsClient() {
       key: 'isActive',
       render: (item) => item.isActive
         ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-            <HiOutlineCheckCircle className="mr-1" /> Aktif
-          </span>
+          <HiOutlineCheckCircle className="mr-1" /> Aktif
+        </span>
         : <span className="text-gray-500 text-sm">Tidak Aktif</span>
     },
     ...((canUpdate || canDelete) ? [{
@@ -214,47 +222,47 @@ export default function MixRadiusAccountsClient() {
       render: (item: MixRadiusConfig) => (
         <div className="flex gap-2 items-center">
           {!item.isActive && canUpdate && (
-              <button
-                onClick={() => handleActivate(item.id, item.name)}
-                className="px-2 py-1 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 transition"
-                title="Aktifkan Akun Ini"
-              >
-                  Aktifkan
-              </button>
+            <button
+              onClick={() => handleActivate(item.id, item.name)}
+              className="px-2 py-1 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 transition"
+              title="Aktifkan Akun Ini"
+            >
+              Aktifkan
+            </button>
           )}
           {canUpdate && (
-              <button
-                onClick={() => openEdit(item)}
-                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-900/30"
-                title="Edit"
-              >
-                <HiOutlinePencil className="text-lg" />
-              </button>
+            <button
+              onClick={() => openEdit(item)}
+              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-900/30"
+              title="Edit"
+            >
+              <HiOutlinePencil className="text-lg" />
+            </button>
           )}
           {canDelete && (
-              <button
-                onClick={() => handleDelete(item.id, item.name)}
-                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-900/30"
-                title="Hapus"
-              >
-                <HiOutlineTrash className="text-lg" />
-              </button>
+            <button
+              onClick={() => handleDelete(item.id, item.name)}
+              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-900/30"
+              title="Hapus"
+            >
+              <HiOutlineTrash className="text-lg" />
+            </button>
           )}
         </div>
       )
     }] : [])
   ]
 
-  const filteredConfigs = configs.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.baseUrl.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredConfigs = configs.filter(c =>
+    (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.baseUrl || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
     <div className="p-6">
       <Toaster />
-      
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -279,23 +287,23 @@ export default function MixRadiusAccountsClient() {
 
       <div className="bg-white dark:bg-[#1c2936] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-           <div className="relative max-w-md">
-             <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-             <input
-               type="text"
-               placeholder="Cari Akun..."
-               className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-               value={searchTerm}
-               onChange={e => setSearchTerm(e.target.value)}
-             />
-           </div>
+          <div className="relative max-w-md">
+            <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+            <input
+              type="text"
+              placeholder="Cari Akun..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
 
-        <ResponsiveTable 
-           data={filteredConfigs}
-           columns={columns}
-           keyField="id"
-           loading={loading}
+        <ResponsiveTable
+          data={filteredConfigs}
+          columns={columns}
+          keyField="id"
+          loading={loading}
         />
       </div>
 
@@ -306,7 +314,7 @@ export default function MixRadiusAccountsClient() {
         size="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Nama Akun (Label)

@@ -28,8 +28,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     // Check for either generic expense permission OR mixradius expense permission
     const hasAccess = isSuper ||
-                     (await hasPermission("expense:read")) ||
-                     (await hasPermission("mixradius_expenses:read"));
+        (await hasPermission("expense:read")) ||
+        (await hasPermission("mixradius_expenses:read"));
 
     if (!hasAccess) {
         return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:read ATAU mixradius_expenses:read");
@@ -88,30 +88,30 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         // This is a limitation of `createHandler` current implementation.
         // I should probably fix `createHandler` later to include `...session.user` to pass through custom fields.
         // For now, I will use `prisma.user.findUnique` to be safe.
-        
+
         const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
             select: { siteId: true }
         });
-        
+
         const userSiteId = dbUser?.siteId;
 
         if (userSiteId) {
             where.siteId = userSiteId;
         } else {
-             // If user is restricted but has no site, return empty
-             return apiSuccess([]);
+            // If user is restricted but has no site, return empty
+            return apiSuccess([]);
         }
     } else if (scope === 'general') {
-         // Explicitly fetch expenses with NO site association (Shared/General)
-         where.siteId = null;
-         where.mixRadiusGroupId = null;
+        // Explicitly fetch expenses with NO site association (Shared/General)
+        where.siteId = null;
+        where.mixRadiusGroupId = null;
     } else if (mixRadiusGroupId) {
-         // Precise filtering by Group ID if provided
-         where.mixRadiusGroupId = mixRadiusGroupId;
+        // Precise filtering by Group ID if provided
+        where.mixRadiusGroupId = mixRadiusGroupId;
     } else if (siteId) {
-         // Fallback to physical site ID if no specific group requested
-         where.siteId = siteId;
+        // Fallback to physical site ID if no specific group requested
+        where.siteId = siteId;
     }
 
     const expenses = await prisma.expense.findMany({
@@ -127,12 +127,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             },
             site: {
                 select: {
-                    name: true
-                }
-            },
-            mixRadiusGroup: {
-                select: {
-                    id: true,
                     name: true
                 }
             },
@@ -159,9 +153,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return apiSuccess(serializedExpenses);
 });
 
-export const POST = createHandler({ 
-    auth: true, 
-    schema: expenseSchema 
+export const POST = createHandler({
+    auth: true,
+    schema: expenseSchema
 }, async (req, ctx) => {
     const user = ctx.session!.user;
     const userId = user.id;
@@ -171,8 +165,8 @@ export const POST = createHandler({
 
     // Check for either generic expense permission OR mixradius expense permission
     const hasAccess = isSuper ||
-                     (await hasPermission("expense:create")) ||
-                     (await hasPermission("mixradius_expenses:create"));
+        (await hasPermission("expense:create")) ||
+        (await hasPermission("mixradius_expenses:create"));
 
     if (!hasAccess) {
         return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create");
@@ -193,17 +187,17 @@ export const POST = createHandler({
 
     let finalSiteId = siteId;
     if ((await hasPermission("expense:site_only")) && !isSuper) {
-         // Fetch user again to get siteId (see GET comment)
-         const dbUser = await prisma.user.findUnique({
+        // Fetch user again to get siteId (see GET comment)
+        const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
             select: { siteId: true }
         });
-         const userSiteId = dbUser?.siteId;
-         
-         if (!userSiteId) {
-             return ApiErrors.forbidden("User terikat site namun belum memiliki site");
-         }
-         finalSiteId = userSiteId;
+        const userSiteId = dbUser?.siteId;
+
+        if (!userSiteId) {
+            return ApiErrors.forbidden("User terikat site namun belum memiliki site");
+        }
+        finalSiteId = userSiteId;
     }
 
     // Simpan record Expense (Stand-alone mode)
