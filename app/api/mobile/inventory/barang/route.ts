@@ -45,15 +45,21 @@ export async function GET(req: NextRequest) {
             }
         })
 
-        if (!user) {
+        // Fallback: check Mitra table
+        const mitra = !user ? await prisma.mitra.findUnique({
+            where: { id: userId },
+            select: { id: true, siteId: true }
+        }) : null
+
+        if (!user && !mitra) {
             return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
         }
 
-        // Check for Site-Based Restriction Policy
-        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || []
-        const roleName = (user.role?.name || '').trim().toUpperCase().replace(/\s+/g, '_');
-        const isSuperAdmin = roleName === 'SUPER_ADMIN';
-        const isSiteRestricted = !isSuperAdmin && userPermissions.includes('k_barang:site_only')
+        // Check for Site-Based Restriction Policy (only for User, not Mitra)
+        const userPermissions = user?.role?.permission.map(p => `${p.resource}:${p.action}`) || []
+        const roleName = (user?.role?.name || '').trim().toUpperCase().replace(/\s+/g, '_');
+        const isSuperAdmin = user ? roleName === 'SUPER_ADMIN' : false;
+        const isSiteRestricted = user ? (!isSuperAdmin && userPermissions.includes('k_barang:site_only')) : false
 
         // MODE: MASUK - Return ALL master barang (for receiving new stock)
         if (mode === 'masuk') {

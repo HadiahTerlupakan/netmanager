@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         // Fetch user to check permissions and site access (Multi-site support)
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { 
+            include: {
                 role: { include: { permission: true } },
                 sites: true,
                 userSites: {
@@ -35,36 +35,25 @@ export async function GET(req: NextRequest) {
             }
         })
 
-        if (!user) {
+        // If not a User, check if it's a Mitra
+        const mitra = !user ? await prisma.mitra.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, siteId: true, mitraType: true }
+        }) : null
+
+        if (!user && !mitra) {
             return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
         }
 
-        // Check for Site-Based Restriction Policy
-        // Mobile users are restricted to their site by default unless SUPER_ADMIN or "Super Admin"
-        // This fixes the issue where users see Gudang outside their site
-        const isSuper = isSuperAdmin({ role: user.role?.name });
-
-        // Strict default: Restricted unless Super Admin
-        const isSiteRestricted = !isSuper;
-
         const whereClause: Record<string, unknown> = { isActive: true }
 
-        if (isSiteRestricted) {
+        if (mitra) {
+            // Mitra: always site-restricted based on their siteId + WO's siteId
+            const allowedSiteIds: string[] = []
+            if (mitra.siteId) allowedSiteIds.push(mitra.siteId)
+
             const { searchParams } = new URL(req.url)
             const workOrderId = searchParams.get('workOrderId')
-
-            // Collect user's site IDs (multi-site + legacy)
-            const allowedSiteIds: string[] = []
-            
-            // Multi-site: from userSites relation
-            if (user.userSites && user.userSites.length > 0) {
-                allowedSiteIds.push(...user.userSites.map(us => us.siteId));
-            }
-            // Legacy: from sites relation
-            else if (user.sites?.id) {
-                allowedSiteIds.push(user.sites.id)
-            }
-
             if (workOrderId) {
                 const wo = await prisma.workOrders.findUnique({
                     where: { id: workOrderId },
@@ -75,22 +64,52 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            if (allowedSiteIds.length === 0) {
-                // console.log(`[Mobile Gudang] Access Denied: User ${user.email} (Role: ${user.role?.name}) has no site assigned.`);
-                return NextResponse.json({ 
-                    error: `Halo ${user.name}, akun Anda belum memiliki Site yang ditentukan. Silakan hubungi admin untuk assign Site ke akun Anda agar dapat melihat daftar Gudang.`,
-                    code: 'NO_SITE_ASSIGNED',
-                    debug: {
-                        userId: user.id,
-                        role: user.role?.name
-                    }
-                }, { status: 403 })
+            if (allowedSiteIds.length > 0) {
+                whereClause.sites = {
+                    some: { id: { in: allowedSiteIds } }
+                }
             }
+        } else if (user) {
+            // Check for Site-Based Restriction Policy
+            // Mobile users are restricted to their site by default unless SUPER_ADMIN or "Super Admin"
+            const isSuper = isSuperAdmin({ role: user.role?.name });
+            const isSiteRestricted = !isSuper;
 
-            // Filter by Site (User's sites OR WorkOrder's site) using many-to-many relation
-            whereClause.sites = {
-                some: {
-                    id: { in: allowedSiteIds }
+            if (isSiteRestricted) {
+                const { searchParams } = new URL(req.url)
+                const workOrderId = searchParams.get('workOrderId')
+
+                const allowedSiteIds: string[] = []
+
+                if (user.userSites && user.userSites.length > 0) {
+                    allowedSiteIds.push(...user.userSites.map(us => us.siteId));
+                } else if (user.sites?.id) {
+                    allowedSiteIds.push(user.sites.id)
+                }
+
+                if (workOrderId) {
+                    const wo = await prisma.workOrders.findUnique({
+                        where: { id: workOrderId },
+                        select: { siteId: true }
+                    })
+                    if (wo?.siteId && !allowedSiteIds.includes(wo.siteId)) {
+                        allowedSiteIds.push(wo.siteId)
+                    }
+                }
+
+                if (allowedSiteIds.length === 0) {
+                    return NextResponse.json({
+                        error: `Halo ${user.name}, akun Anda belum memiliki Site yang ditentukan. Silakan hubungi admin untuk assign Site ke akun Anda agar dapat melihat daftar Gudang.`,
+                        code: 'NO_SITE_ASSIGNED',
+                        debug: {
+                            userId: user.id,
+                            role: user.role?.name
+                        }
+                    }, { status: 403 })
+                }
+
+                whereClause.sites = {
+                    some: { id: { in: allowedSiteIds } }
                 }
             }
         }

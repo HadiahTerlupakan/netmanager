@@ -43,7 +43,7 @@ export async function GET(request: Request) {
             // Mitra features are hardcoded based on mitraType
             const features = [
                 ...(mitra.mitraType === 'MITRA_SALES' ? ['m_canvasing'] : []),
-                ...(mitra.mitraType === 'MITRA_TEKNISI' ? ['m_work_order'] : []),
+                ...(mitra.mitraType === 'MITRA_TEKNISI' ? ['m_work_order', 'm_barang', 'm_barang_masuk', 'm_barang_keluar'] : []),
             ]
 
             return NextResponse.json({

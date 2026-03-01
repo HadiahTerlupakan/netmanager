@@ -3277,9 +3277,10 @@ model Mitra {
   mitraWallet            MitraWallet?
   withdrawalsRequested   WithdrawRequest[]      @relation("WithdrawRequester")
   salesCanvasing         Canvasing[]            @relation("MitraSalesCanvasing")
-  work_order_assignments WorkOrderAssignments[] @relation("MitraWoAssignments")
-  warranty_work_orders   WorkOrders[]           @relation("MitraWarrantyOwner")
-  assigned_work_orders   WorkOrders[]           @relation("MitraWoAssigned")
+  work_order_assignments  WorkOrderAssignments[]    @relation("MitraWoAssignments")
+  warranty_work_orders    WorkOrders[]              @relation("MitraWarrantyOwner")
+  assigned_work_orders    WorkOrders[]              @relation("MitraWoAssigned")
+  faceVerificationLogs    FaceVerificationLog[]
 
   @@index([siteId])
   @@index([mitraType])
@@ -3363,4 +3364,20 @@ enum WithdrawStatus {
 enum WithdrawMethod {
   TRANSFER // Transfer ke rekening bank
   CASH // Ambil tunai di kantor
+}
+
+model FaceVerificationLog {
+  id         String   @id @default(cuid())
+  mitraId    String
+  photoUrl   String   // URL foto hasil verifikasi
+  latitude   Float?   // GPS saat verifikasi (opsional)
+  longitude  Float?
+  deviceInfo String?  // Info device (opsional)
+  createdAt  DateTime @default(now())
+
+  mitra Mitra @relation(fields: [mitraId], references: [id], onDelete: Cascade)
+
+  @@index([mitraId])
+  @@index([createdAt])
+  @@map("face_verification_logs")
 }

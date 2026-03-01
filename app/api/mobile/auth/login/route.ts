@@ -190,7 +190,7 @@ export async function POST(req: Request) {
                 'm_mitra_wallet',
                 'm_mitra_withdraw',
                 ...(mitra.mitraType === 'MITRA_SALES' ? ['m_canvasing'] : []),
-                ...(mitra.mitraType === 'MITRA_TEKNISI' ? ['m_work_order'] : []),
+                ...(mitra.mitraType === 'MITRA_TEKNISI' ? ['m_work_order', 'm_barang', 'm_barang_masuk', 'm_barang_keluar'] : []),
             ]
 
             return {

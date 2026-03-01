@@ -18,6 +18,7 @@ import {
     HiOutlinePencilSquare,
     HiOutlineWallet,
     HiOutlineCheckCircle,
+    HiOutlineEye,
 } from 'react-icons/hi2'
 
 interface Site {
@@ -586,6 +587,13 @@ export default function MitraListClient() {
 
     const renderActions = (mitra: Mitra) => (
         <>
+            <button
+                onClick={() => window.location.href = `/admin/mitra/${mitra.id}`}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Lihat Detail"
+            >
+                <HiOutlineEye className="w-4 h-4" />
+            </button>
             <button
                 onClick={() => handleRequestFaceVerification(mitra.id)}
                 className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md transition-colors ${mitra.requiresFaceVerification ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400'}`}

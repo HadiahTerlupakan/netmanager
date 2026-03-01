@@ -34,13 +34,19 @@ export async function POST(request: NextRequest) {
         // Fetch user to check permissions
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { 
+            include: {
                 role: { include: { permission: true } },
                 sites: true
             }
         });
 
-        if (!user) {
+        // Fallback: check Mitra table
+        const mitra = !user ? await prisma.mitra.findUnique({
+            where: { id: userId },
+            select: { id: true, siteId: true }
+        }) : null;
+
+        if (!user && !mitra) {
             return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
         }
 
@@ -59,17 +65,17 @@ export async function POST(request: NextRequest) {
         const availableStock = barangGudang ? (barangGudang as unknown as Record<string, number>)[stockField] || 0 : 0;
 
         if (!barangGudang || availableStock < jumlah) {
-            return NextResponse.json({ 
-                error: `Stok ${kondisi || 'BARU'} tidak mencukupi. Tersedia: ${availableStock}` 
+            return NextResponse.json({
+                error: `Stok ${kondisi || 'BARU'} tidak mencukupi. Tersedia: ${availableStock}`
             }, { status: 400 });
         }
 
-        // Check for Site-Based Restriction Policy
-        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
-        const isSuper = user.role?.name === 'SUPER_ADMIN' || user.role?.name === 'Super Admin';
-        const isSiteRestricted = !isSuper && userPermissions.includes('k_barang:site_only');
+        // Check for Site-Based Restriction Policy (only for User, Mitra skips)
+        const userPermissions = user?.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
+        const isSuper = user ? (user.role?.name === 'SUPER_ADMIN' || user.role?.name === 'Super Admin') : false;
+        const isSiteRestricted = user ? (!isSuper && userPermissions.includes('k_barang:site_only')) : false;
 
-        if (isSiteRestricted) {
+        if (isSiteRestricted && user) {
             if (!user.sites?.id) {
                 return NextResponse.json({ error: 'Akses ditolak: Tidak ada site yang ditugaskan' }, { status: 403 });
             }

@@ -33,22 +33,28 @@ export async function POST(request: NextRequest) {
         // Fetch user to check permissions
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { 
+            include: {
                 role: { include: { permission: true } },
                 sites: true
             }
         });
 
-        if (!user) {
+        // Fallback: check Mitra table
+        const mitra = !user ? await prisma.mitra.findUnique({
+            where: { id: userId },
+            select: { id: true, siteId: true }
+        }) : null;
+
+        if (!user && !mitra) {
             return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
         }
 
-        // Check for Site-Based Restriction Policy
-        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
-        const isSuper = isSuperAdmin({ role: user.role?.name });
-        const isSiteRestricted = !isSuper && userPermissions.includes('k_barang:site_only');
+        // Check for Site-Based Restriction Policy (only for User, Mitra skips)
+        const userPermissions = user?.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
+        const isSuper = user ? isSuperAdmin({ role: user.role?.name }) : false;
+        const isSiteRestricted = user ? (!isSuper && userPermissions.includes('k_barang:site_only')) : false;
 
-        if (isSiteRestricted) {
+        if (isSiteRestricted && user) {
             if (!user.sites?.id) {
                 return NextResponse.json({ error: 'Akses ditolak: Tidak ada site yang ditugaskan' }, { status: 403 });
             }
@@ -122,9 +128,9 @@ export async function POST(request: NextRequest) {
             jumlah
         });
 
-        return NextResponse.json({ 
-            success: true, 
-            data: result 
+        return NextResponse.json({
+            success: true,
+            data: result
         });
     } catch (error) {
         console.error('Mobile Barang Masuk Error:', error);

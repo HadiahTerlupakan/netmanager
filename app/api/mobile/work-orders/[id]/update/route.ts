@@ -47,10 +47,15 @@ export async function POST(
         const repository = new WorkOrderRepository(prisma);
 
         // Fetch User to get Name (for notifications)
+        // NOTE: Mitra users do NOT exist in the User table, so user will be null
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { name: true }
         });
+
+        // For DB operations with FK to User table (e.g. work_order_updates.createdById),
+        // use null for Mitra users since their ID is not in the User table
+        const userIdForDb = user ? userId : undefined;
 
         // ============================================
         // 2. FETCH WORK ORDER & AUTHORIZATION CHECK
@@ -71,12 +76,13 @@ export async function POST(
 
         // Check if user is authorized to update this WO
         const isAssignedTo = workOrder.assignedToId === userId;
+        const isAssignedMitra = workOrder.assignedMitraId === userId;
         const isAssignmentMember = workOrder.assignments.some(
             (a) => a.userId === userId && a.status !== 'REJECTED'
         );
         const isCreator = workOrder.createdById === userId;
 
-        if (!isAssignedTo && !isAssignmentMember && !isCreator) {
+        if (!isAssignedTo && !isAssignedMitra && !isAssignmentMember && !isCreator) {
             return NextResponse.json(
                 { error: 'Anda tidak memiliki akses untuk mengubah Work Order ini' },
                 { status: 403 }
@@ -168,14 +174,14 @@ export async function POST(
                 );
             }
 
-            await repository.start(workOrderId, userId, timestamp);
+            await repository.start(workOrderId, userIdForDb, timestamp);
 
             if (notes) {
                 await repository.addUpdate({
                     workOrderId,
                     updateType: 'NOTE',
                     message: notes,
-                    createdById: userId
+                    createdById: userIdForDb
                 });
             }
 
@@ -249,7 +255,7 @@ export async function POST(
                         0,
                         'image/jpeg',
                         `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
-                        userId
+                        userIdForDb
                     );
                 }
             }
@@ -289,12 +295,12 @@ export async function POST(
                         p.size,
                         p.type,
                         `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
-                        userId
+                        userIdForDb
                     );
                 }
             }
 
-            await repository.complete(workOrderId, notes, userId, timestamp);
+            await repository.complete(workOrderId, notes, userIdForDb, timestamp);
 
             // ==========================================
             // MITRA COMMISSION: Auto-add earning for MITRA_TEKNISI
@@ -420,14 +426,14 @@ export async function POST(
                 );
             }
 
-            await repository.updateStatus(workOrderId, 'ON_HOLD', userId, timestamp);
+            await repository.updateStatus(workOrderId, 'ON_HOLD', userIdForDb, timestamp);
 
             if (notes) {
                 await repository.addUpdate({
                     workOrderId,
                     updateType: 'NOTE',
                     message: `Work Order Paused: ${notes}`,
-                    createdById: userId
+                    createdById: userIdForDb
                 });
             }
 
@@ -470,7 +476,7 @@ export async function POST(
                     0,
                     'image/jpeg',
                     notes || 'Photo Comment',
-                    userId
+                    userIdForDb
                 );
             }
             // Handle photo from FormData
@@ -500,7 +506,7 @@ export async function POST(
                     photo.size,
                     photo.type,
                     notes || 'Photo Comment',
-                    userId
+                    userIdForDb
                 );
             }
 
@@ -510,7 +516,7 @@ export async function POST(
                     workOrderId,
                     updateType: 'COMMENT',
                     message: notes || '',
-                    createdById: userId
+                    createdById: userIdForDb
                 });
             }
 
@@ -553,7 +559,7 @@ export async function POST(
                     0,
                     'image/jpeg',
                     notes || 'Update Foto',
-                    userId
+                    userIdForDb
                 );
             }
             // Handle photo from FormData
@@ -583,7 +589,7 @@ export async function POST(
                     photo.size,
                     photo.type,
                     notes || 'Update Foto',
-                    userId
+                    userIdForDb
                 );
             }
 
@@ -591,7 +597,7 @@ export async function POST(
                 workOrderId,
                 updateType: 'NOTE',
                 message: notes || (photo || photoUrl ? 'Mengunggah foto' : ''),
-                createdById: userId
+                createdById: userIdForDb
             });
 
             // Notify Admins

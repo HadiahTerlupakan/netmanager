@@ -233,6 +233,23 @@ export class MitraService {
             return { success: false, error: 'Gagal mengambil statistik mitra' }
         }
     }
+
+    /**
+     * Get face verification logs for a mitra
+     */
+    async getFaceVerificationLogs(mitraId: string, page: number = 1, limit: number = 20) {
+        try {
+            const mitra = await prisma.mitra.findUnique({ where: { id: mitraId }, select: { id: true } })
+            if (!mitra) {
+                return { success: false, error: 'Mitra tidak ditemukan' }
+            }
+            const result = await this.repository.getFaceVerificationLogs(mitraId, page, limit)
+            return { success: true, data: result }
+        } catch (error) {
+            logger.error('[MitraService] Error fetching face verification logs:', error as Error)
+            return { success: false, error: 'Gagal mengambil history verifikasi wajah' }
+        }
+    }
 }
 
 // Singleton

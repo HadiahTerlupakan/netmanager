@@ -52,15 +52,23 @@ export async function POST(request: NextRequest) {
         // Save to /public/uploads/mitra/
         fs.writeFileSync(filepath, buffer);
 
-        // 4. Update Database
-        await prisma.mitra.update({
-            where: { id: payload.id as string },
-            data: {
-                requiresFaceVerification: false,
-                lastFaceVerification: new Date(),
-                fotoDiri: fileUrl
-            }
-        });
+        // 4. Update Database — also log the verification event
+        await prisma.$transaction([
+            prisma.mitra.update({
+                where: { id: payload.id as string },
+                data: {
+                    requiresFaceVerification: false,
+                    lastFaceVerification: new Date(),
+                    fotoDiri: fileUrl
+                }
+            }),
+            prisma.faceVerificationLog.create({
+                data: {
+                    mitraId: payload.id as string,
+                    photoUrl: fileUrl,
+                }
+            }),
+        ]);
 
         // 5. Response
         return NextResponse.json({

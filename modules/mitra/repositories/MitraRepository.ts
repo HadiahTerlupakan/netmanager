@@ -84,37 +84,7 @@ export class MitraRepository {
     async findById(id: string) {
         return prisma.mitra.findUnique({
             where: { id },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                mitraType: true,
-                isActive: true,
-                mitraRateWoPsb: true,
-                mitraRateWoMaintenance: true,
-                mitraRateCanvasing: true,
-                bankName: true,
-                bankAccountName: true,
-                targetHarian: true,
-                minWithdrawal: true,
-                garansiHari: true,
-                slaGaransiJam: true,
-                penaltyPsb: true,
-                penaltyMaintenance: true,
-                nik: true,
-                tempatLahir: true,
-                tanggalLahir: true,
-                alamat: true,
-                latitudeRumah: true,
-                longitudeRumah: true,
-                fotoDiri: true,
-                fotoKtp: true,
-                fotoSim: true,
-                fotoKk: true,
-                requiresFaceVerification: true,
-                lastFaceVerification: true,
-                createdAt: true,
+            include: {
                 sites: { select: { id: true, name: true } },
                 mitraWallet: {
                     select: {
@@ -123,6 +93,10 @@ export class MitraRepository {
                         totalEarnings: true,
                         totalWithdrawn: true,
                     }
+                },
+                faceVerificationLogs: {
+                    orderBy: { createdAt: 'desc' as const },
+                    take: 5,
                 },
             },
         })
@@ -230,6 +204,25 @@ export class MitraRepository {
         ])
 
         return { requests, total, page, totalPages: Math.ceil(total / limit) }
+    }
+
+    /**
+     * Get face verification logs for a mitra with pagination
+     */
+    async getFaceVerificationLogs(mitraId: string, page: number = 1, limit: number = 20) {
+        const skip = (page - 1) * limit
+
+        const [logs, total] = await Promise.all([
+            prisma.faceVerificationLog.findMany({
+                where: { mitraId },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.faceVerificationLog.count({ where: { mitraId } }),
+        ])
+
+        return { logs, total, page, totalPages: Math.ceil(total / limit) }
     }
 }
 
