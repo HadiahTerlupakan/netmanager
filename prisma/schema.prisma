@@ -2022,6 +2022,11 @@ model WorkOrders {
   approvedById             String? // Admin yang approve/reject
   approvedAt               DateTime? // Waktu approve/reject
   rejectionReason          String? // Alasan reject (jika ditolak)
+  
+  // Warranty fields
+  isWarranty               Boolean                   @default(false)
+  warrantyOwnerId          String?
+  warrantySla              DateTime?
   canvasing                Canvasing[]
   assignments              WorkOrderAssignments[]
   attachments              WorkOrderAttachments[]
@@ -2037,10 +2042,17 @@ model WorkOrders {
   ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
   requestedBy              User?                     @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
   approvedBy               User?                     @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
+  
+  // NEW: Support for Mitra Assignment
+  assignedMitraId          String?
+  assignedMitra            Mitra?                    @relation("MitraWoAssigned", fields: [assignedMitraId], references: [id])
+  warrantyOwner            Mitra?                    @relation("MitraWarrantyOwner", fields: [warrantyOwnerId], references: [id])
+  
   workOrderMaterialReturns WorkOrderMaterialReturn[]
   materials                WorkOrderMaterial[]
 
   @@index([assignedToId])
+  @@index([assignedMitraId])
   @@index([departmentId])
   @@index([pelangganId])
   @@index([priority])
@@ -3224,12 +3236,38 @@ model Mitra {
   pushTokenUpdatedAt DateTime?
 
   // Mitra configuration fields
-  mitraRateWo        Float? // Rate komisi per WO selesai (customizable per mitra)
-  mitraRateCanvasing Float? // Rate komisi per canvasing installed
-  bankName           String? // Nama bank untuk withdraw
-  bankAccountNo      String? // Nomor rekening bank
-  bankAccountName    String? // Nama pemilik rekening
-  targetHarian       Int? // Target harian khusus mitra sales
+  mitraRateWoPsb         Float? // Rate komisi per WO Instalasi/PSB
+  mitraRateWoMaintenance Float? // Rate komisi per WO Maintenance/Gangguan
+  mitraRateCanvasing     Float? // Rate komisi per canvasing installed
+  bankName               String? // Nama bank untuk withdraw
+  bankAccountNo          String? // Nomor rekening bank
+  bankAccountName        String? // Nama pemilik rekening
+  targetHarian           Int? // Target harian khusus mitra sales
+  minWithdrawal          Int? // Target minimum pencairan dana
+  
+  // KYC & Data Diri
+  nik                      String?   @unique
+  tempatLahir              String?
+  tanggalLahir             DateTime?
+  alamat                   String?
+  latitudeRumah            Float?
+  longitudeRumah           Float?
+  
+  // Dokumen Pendukung (URL)
+  fotoDiri                 String?
+  fotoKtp                  String?
+  fotoSim                  String?
+  fotoKk                   String?
+
+  // Liveness & Face Verification
+  requiresFaceVerification Boolean   @default(false)
+  lastFaceVerification     DateTime?
+  
+  // Warranty settings
+  garansiHari            Int? @default(7) // Masa Berlaku Garansi (hari)
+  slaGaransiJam          Int? @default(24) // Batas Waktu Respon/SLA (jam) eksklusif
+  penaltyPsb             Float? @default(0) // Denda garansi ex-PSB
+  penaltyMaintenance     Float? @default(0) // Denda garansi ex-Maintenance
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3240,6 +3278,8 @@ model Mitra {
   withdrawalsRequested   WithdrawRequest[]      @relation("WithdrawRequester")
   salesCanvasing         Canvasing[]            @relation("MitraSalesCanvasing")
   work_order_assignments WorkOrderAssignments[] @relation("MitraWoAssignments")
+  warranty_work_orders   WorkOrders[]           @relation("MitraWarrantyOwner")
+  assigned_work_orders   WorkOrders[]           @relation("MitraWoAssigned")
 
   @@index([siteId])
   @@index([mitraType])

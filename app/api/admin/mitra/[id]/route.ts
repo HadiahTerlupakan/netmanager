@@ -66,3 +66,33 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
 }
+
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const user = await getCurrentUser()
+    if (!user || !(await hasPermission('users:update', user, { silent: true }))) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 })
+    }
+
+    const { id } = await params
+
+    try {
+        const body = await request.json()
+        const result = await mitraService.updateMitra(id, body, user.id!)
+
+        if (!result.success) {
+            return NextResponse.json({ success: false, error: result.error }, { status: 400 })
+        }
+
+        // Push real-time profile refresh to mobile app via Socket.IO
+        // This replaces the need for polling on the mobile side
+        const { socketEmitter } = await import('@/lib/websocket/emitter')
+        socketEmitter.profileRefresh(id)
+
+        return NextResponse.json({ success: true })
+    } catch {
+        return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 })
+    }
+}

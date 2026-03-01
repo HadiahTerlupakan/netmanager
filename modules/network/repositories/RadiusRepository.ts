@@ -467,7 +467,7 @@ export class RadiusRepository implements IRadiusRepository {
             orderBy: { nasname: 'asc' },
         });
 
-        return nasList.map(nas => ({
+        return nasList.map((nas) => ({
             id: nas.id,
             nasname: nas.nasname,
             secret: nas.secret,
@@ -598,7 +598,7 @@ export class RadiusRepository implements IRadiusRepository {
             orderBy: [{ pool_name: 'asc' }, { framedipaddress: 'asc' }],
         });
 
-        return pools.map(pool => ({
+        return pools.map((pool) => ({
             id: pool.id,
             poolName: pool.pool_name,
             framedIpAddress: pool.framedipaddress,

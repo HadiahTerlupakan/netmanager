@@ -9,7 +9,7 @@
 import type { PrismaClient, WorkOrderStatus, WorkOrderPriority, WorkOrderType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { WorkOrderRepository } from '../repositories/WorkOrderRepository'
-import type { WorkOrderFilters, WorkOrderWithRelations } from '../repositories/IWorkOrderRepository'
+import type { WorkOrderFilters, WorkOrderWithRelations, CreateWorkOrderData } from '../repositories/IWorkOrderRepository'
 import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } from './WorkOrderNotifications'
 import { workOrderCacheService } from './WorkOrderCacheService'
 import { socketEmitter } from '@/lib/websocket/emitter'
@@ -272,13 +272,54 @@ export class WorkOrderService {
 
             // Create work order - ensure scheduledDate is Date or undefined
             const { scheduledDate: rawScheduledDate, ...restInput } = input
-            const createData = {
+            let createData: Record<string, unknown> = {
                 ...restInput,
                 createdById,
                 ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
             }
 
-            const workOrder = await this.repository.create(createData)
+            // --- WARRANTY CHECK LOGIC ---
+            if (input.pelangganId && (input.type === 'TROUBLESHOOT' || input.type === 'MAINTENANCE')) {
+                // Find the most recent completed work order for this customer that was done by a Mitra
+                const lastCompletedWo = await prisma.workOrders.findFirst({
+                    where: {
+                        pelangganId: input.pelangganId,
+                        status: 'COMPLETED',
+                        assignedMitraId: { not: null },
+                        completedAt: { not: null }
+                    },
+                    orderBy: { completedAt: 'desc' },
+                    include: { assignedMitra: true }
+                });
+
+                if (lastCompletedWo && lastCompletedWo.assignedMitra && lastCompletedWo.completedAt) {
+                    const mitra = lastCompletedWo.assignedMitra;
+                    const garansiHari = mitra.garansiHari || 0;
+
+                    if (garansiHari > 0) {
+                        const garansiMs = garansiHari * 24 * 60 * 60 * 1000;
+                        const expirationDate = new Date(lastCompletedWo.completedAt.getTime() + garansiMs);
+
+                        // Check if currently still within warranty duration
+                        if (new Date() <= expirationDate) {
+                            const slaJam = mitra.slaGaransiJam || 24;
+                            const slaMs = slaJam * 60 * 60 * 1000;
+
+                            createData = {
+                                ...createData,
+                                isWarranty: true,
+                                warrantyOwnerId: mitra.id,
+                                warrantySla: new Date(Date.now() + slaMs)
+                            };
+
+                            logger.info(`[Warranty] Auto-assigned Warranty ticket to Mitra ${mitra.id} (SLA: ${slaJam}h) for Pelanggan ${input.pelangganId}`);
+                        }
+                    }
+                }
+            }
+            // --- END WARRANTY CHECK LOGIC ---
+
+            const workOrder = await this.repository.create(createData as unknown as CreateWorkOrderData)
 
             // Trigger notifications
             await this.notifyWorkOrderCreated(workOrder, userContext.id)
@@ -390,7 +431,7 @@ export class WorkOrderService {
 
             // Fetch full WO data for notification
             const fullWorkOrder = await this.repository.findById(id)
-            
+
             // Notify status change
             if (fullWorkOrder) {
                 await onWorkOrderStatusChanged(
@@ -690,12 +731,12 @@ export class WorkOrderService {
                 // Logic: 
                 // 1. If preferredGudangId, filter by it.
                 // 2. If not, defaults to "highest stock" (existing behavior), but we can log unique warehouse usage if needed.
-                
-                const barang = await tx.barang.findUnique({ 
+
+                const barang = await tx.barang.findUnique({
                     where: { id: barangId },
                     include: {
                         barangGudang: {
-                            where: { 
+                            where: {
                                 stok: { gt: 0 },
                                 ...(preferredGudangId ? { gudangId: preferredGudangId } : {})
                             },
@@ -712,7 +753,7 @@ export class WorkOrderService {
                 // Find available stock
                 const gudangSource = barang.barangGudang[0]
                 if (!gudangSource || gudangSource.stok < quantity) {
-                     // Note: Simple check. For production, might need to split across warehouses if needed.
+                    // Note: Simple check. For production, might need to split across warehouses if needed.
                     throw new Error(`Stok tidak mencukupi. Tersedia: ${gudangSource?.stok || 0}`)
                 }
 
@@ -764,10 +805,10 @@ export class WorkOrderService {
             })
         } catch (error) {
             logger.error('WorkOrderService.addMaterial failed', error instanceof Error ? error : undefined)
-            return { 
-                success: false, 
-                error: error instanceof Error ? error.message : 'Gagal menambahkan material', 
-                code: 'ADD_MATERIAL_ERROR' 
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Gagal menambahkan material',
+                code: 'ADD_MATERIAL_ERROR'
             }
         }
     }
@@ -1082,7 +1123,7 @@ export class WorkOrderService {
 
             const attachment = workOrder.attachments?.find(a => a.id === attachmentId)
             if (!attachment) {
-                 return { success: false, error: 'Lampiran tidak ditemukan pada work order ini', code: 'NOT_FOUND' }
+                return { success: false, error: 'Lampiran tidak ditemukan pada work order ini', code: 'NOT_FOUND' }
             }
 
             await this.repository.deleteAttachment(attachmentId, userContext.id)

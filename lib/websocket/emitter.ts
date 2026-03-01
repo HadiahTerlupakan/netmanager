@@ -296,17 +296,32 @@ export const socketEmitter = {
     forceLogout(userId: string) {
         const io = getSocketServer()
         if (io) {
-            io.to(`user:${userId}`).emit(SOCKET_EVENTS.FORCE_LOGOUT, { 
+            io.to(`user:${userId}`).emit(SOCKET_EVENTS.FORCE_LOGOUT, {
                 message: 'Sesi Anda telah diakhiri oleh administrator',
                 timestamp: new Date().toISOString()
             })
             console.log(`[WS] Emitted force logout to user:${userId}`)
         } else {
             // Fallback via HTTP
-            emitViaHttp(SOCKET_EVENTS.FORCE_LOGOUT, `user:${userId}`, { 
+            emitViaHttp(SOCKET_EVENTS.FORCE_LOGOUT, `user:${userId}`, {
                 message: 'Sesi Anda telah diakhiri oleh administrator',
                 timestamp: new Date().toISOString()
             })
+        }
+    },
+
+    /**
+     * Push profile refresh signal to a specific user (e.g., Mitra)
+     * Used when admin changes profile flags like requiresFaceVerification
+     */
+    profileRefresh(userId: string) {
+        const io = getSocketServer()
+        const payload = { timestamp: new Date().toISOString() }
+        if (io) {
+            io.to(`user:${userId}`).emit(SOCKET_EVENTS.PROFILE_REFRESH, payload)
+            console.log(`[WS] Emitted profile:refresh to user:${userId}`)
+        } else {
+            emitViaHttp(SOCKET_EVENTS.PROFILE_REFRESH, `user:${userId}`, payload)
         }
     },
 }

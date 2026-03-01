@@ -31,14 +31,31 @@ interface Mitra {
     name: string | null
     email: string
     phone: string | null
-    employeeType: 'MITRA_TEKNISI' | 'MITRA_SALES'
+    mitraType: 'MITRA_TEKNISI' | 'MITRA_SALES'
     isActive: boolean
     siteId: string | null
-    mitraRateWo: number | null
+    mitraRateWoPsb: number | null
+    mitraRateWoMaintenance: number | null
     mitraRateCanvasing: number | null
+    minWithdrawal: number | null
     bankName: string | null
     bankAccountNo: string | null
     bankAccountName: string | null
+    garansiHari: number | null
+    slaGaransiJam: number | null
+    penaltyPsb: number | null
+    penaltyMaintenance: number | null
+    nik: string | null
+    tempatLahir: string | null
+    tanggalLahir: string | null
+    alamat: string | null
+    latitudeRumah: number | null
+    longitudeRumah: number | null
+    fotoDiri: string | null
+    fotoKtp: string | null
+    fotoSim: string | null
+    fotoKk: string | null
+    requiresFaceVerification: boolean
     sites: { name: string } | null
     role: { name: string } | null
     mitraWallet: {
@@ -107,12 +124,28 @@ export default function MitraListClient() {
         phone: '',
         employeeType: 'MITRA_TEKNISI' as 'MITRA_TEKNISI' | 'MITRA_SALES',
         siteId: '',
-        mitraRateWo: '',
+        mitraRateWoPsb: '',
+        mitraRateWoMaintenance: '',
         mitraRateCanvasing: '',
+        minWithdrawal: '',
         bankName: '',
         bankAccountNo: '',
         bankAccountName: '',
         targetHarian: '',
+        garansiHari: '',
+        slaGaransiJam: '',
+        penaltyPsb: '',
+        penaltyMaintenance: '',
+        nik: '',
+        tempatLahir: '',
+        tanggalLahir: '',
+        alamat: '',
+        latitudeRumah: '',
+        longitudeRumah: '',
+        fotoDiri: '',
+        fotoKtp: '',
+        fotoSim: '',
+        fotoKk: '',
     })
 
     // Wallet state
@@ -170,9 +203,14 @@ export default function MitraListClient() {
         setForm({
             name: '', email: '', password: '', phone: '',
             employeeType: 'MITRA_TEKNISI', siteId: '',
-            mitraRateWo: '', mitraRateCanvasing: '',
+            mitraRateWoPsb: '', mitraRateWoMaintenance: '', mitraRateCanvasing: '',
+            minWithdrawal: '',
             bankName: '', bankAccountNo: '', bankAccountName: '',
             targetHarian: '',
+            garansiHari: '', slaGaransiJam: '', penaltyPsb: '', penaltyMaintenance: '',
+            nik: '', tempatLahir: '', tanggalLahir: '', alamat: '',
+            latitudeRumah: '', longitudeRumah: '',
+            fotoDiri: '', fotoKtp: '', fotoSim: '', fotoKk: '',
         })
     }
 
@@ -189,9 +227,25 @@ export default function MitraListClient() {
                 body: JSON.stringify({
                     ...form,
                     siteId: form.siteId || undefined,
-                    mitraRateWo: form.mitraRateWo ? parseFloat(form.mitraRateWo) : undefined,
+                    mitraRateWoPsb: form.mitraRateWoPsb ? parseFloat(form.mitraRateWoPsb) : undefined,
+                    mitraRateWoMaintenance: form.mitraRateWoMaintenance ? parseFloat(form.mitraRateWoMaintenance) : undefined,
                     mitraRateCanvasing: form.mitraRateCanvasing ? parseFloat(form.mitraRateCanvasing) : undefined,
+                    minWithdrawal: form.minWithdrawal ? parseFloat(form.minWithdrawal) : undefined,
                     targetHarian: form.targetHarian ? parseInt(form.targetHarian, 10) : undefined,
+                    garansiHari: form.garansiHari ? parseInt(form.garansiHari, 10) : undefined,
+                    slaGaransiJam: form.slaGaransiJam ? parseInt(form.slaGaransiJam, 10) : undefined,
+                    penaltyPsb: form.penaltyPsb ? parseFloat(form.penaltyPsb) : undefined,
+                    penaltyMaintenance: form.penaltyMaintenance ? parseFloat(form.penaltyMaintenance) : undefined,
+                    nik: form.nik || undefined,
+                    tempatLahir: form.tempatLahir || undefined,
+                    tanggalLahir: form.tanggalLahir || undefined,
+                    alamat: form.alamat || undefined,
+                    latitudeRumah: form.latitudeRumah ? parseFloat(form.latitudeRumah) : undefined,
+                    longitudeRumah: form.longitudeRumah ? parseFloat(form.longitudeRumah) : undefined,
+                    fotoDiri: form.fotoDiri || undefined,
+                    fotoKtp: form.fotoKtp || undefined,
+                    fotoSim: form.fotoSim || undefined,
+                    fotoKk: form.fotoKk || undefined,
                 }),
             })
             const data = await res.json()
@@ -224,12 +278,28 @@ export default function MitraListClient() {
                     phone: form.phone || undefined,
                     employeeType: form.employeeType,
                     siteId: form.siteId || null,
-                    mitraRateWo: form.mitraRateWo ? parseFloat(form.mitraRateWo) : undefined,
+                    mitraRateWoPsb: form.mitraRateWoPsb ? parseFloat(form.mitraRateWoPsb) : undefined,
+                    mitraRateWoMaintenance: form.mitraRateWoMaintenance ? parseFloat(form.mitraRateWoMaintenance) : undefined,
                     mitraRateCanvasing: form.mitraRateCanvasing ? parseFloat(form.mitraRateCanvasing) : undefined,
+                    minWithdrawal: form.minWithdrawal ? parseFloat(form.minWithdrawal) : undefined,
                     bankName: form.bankName || undefined,
                     bankAccountNo: form.bankAccountNo || undefined,
                     bankAccountName: form.bankAccountName || undefined,
                     targetHarian: form.targetHarian ? parseInt(form.targetHarian, 10) : undefined,
+                    garansiHari: form.garansiHari ? parseInt(form.garansiHari, 10) : undefined,
+                    slaGaransiJam: form.slaGaransiJam ? parseInt(form.slaGaransiJam, 10) : undefined,
+                    penaltyPsb: form.penaltyPsb ? parseFloat(form.penaltyPsb) : undefined,
+                    penaltyMaintenance: form.penaltyMaintenance ? parseFloat(form.penaltyMaintenance) : undefined,
+                    nik: form.nik || undefined,
+                    tempatLahir: form.tempatLahir || undefined,
+                    tanggalLahir: form.tanggalLahir || undefined,
+                    alamat: form.alamat || undefined,
+                    latitudeRumah: form.latitudeRumah ? parseFloat(form.latitudeRumah) : undefined,
+                    longitudeRumah: form.longitudeRumah ? parseFloat(form.longitudeRumah) : undefined,
+                    fotoDiri: form.fotoDiri || undefined,
+                    fotoKtp: form.fotoKtp || undefined,
+                    fotoSim: form.fotoSim || undefined,
+                    fotoKk: form.fotoKk || undefined,
                 }),
             })
             const data = await res.json()
@@ -267,6 +337,37 @@ export default function MitraListClient() {
         }
     }
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Ukuran file maksimal 5MB')
+            return
+        }
+
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('folder', 'mitra-document')
+
+        const toastId = toast.loading(`Mengunggah gambar...`)
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            const data = await res.json()
+            if (res.ok && data.success) {
+                setForm(f => ({ ...f, [field]: data.url }))
+                toast.success('Gambar berhasil diunggah', { id: toastId })
+            } else {
+                toast.error(data.error || 'Gagal mengunggah', { id: toastId })
+            }
+        } catch {
+            toast.error('Terjadi kesalahan jaringan', { id: toastId })
+        }
+    }
+
     const openEditModal = (mitra: Mitra) => {
         setSelectedMitra(mitra)
         setForm({
@@ -274,14 +375,30 @@ export default function MitraListClient() {
             email: mitra.email,
             password: '',
             phone: mitra.phone || '',
-            employeeType: mitra.employeeType,
+            employeeType: mitra.mitraType,
             siteId: mitra.siteId || '',
-            mitraRateWo: mitra.mitraRateWo?.toString() || '',
+            mitraRateWoPsb: mitra.mitraRateWoPsb?.toString() || '',
+            mitraRateWoMaintenance: mitra.mitraRateWoMaintenance?.toString() || '',
             mitraRateCanvasing: mitra.mitraRateCanvasing?.toString() || '',
+            minWithdrawal: mitra.minWithdrawal?.toString() || '',
             bankName: mitra.bankName || '',
             bankAccountNo: mitra.bankAccountNo || '',
             bankAccountName: mitra.bankAccountName || '',
             targetHarian: (mitra as Mitra & { targetHarian?: number }).targetHarian?.toString() || '',
+            garansiHari: mitra.garansiHari?.toString() || '',
+            slaGaransiJam: mitra.slaGaransiJam?.toString() || '',
+            penaltyPsb: mitra.penaltyPsb?.toString() || '',
+            penaltyMaintenance: mitra.penaltyMaintenance?.toString() || '',
+            nik: mitra.nik || '',
+            tempatLahir: mitra.tempatLahir || '',
+            tanggalLahir: mitra.tanggalLahir ? new Date(mitra.tanggalLahir).toISOString().split('T')[0] : '',
+            alamat: mitra.alamat || '',
+            latitudeRumah: mitra.latitudeRumah?.toString() || '',
+            longitudeRumah: mitra.longitudeRumah?.toString() || '',
+            fotoDiri: mitra.fotoDiri || '',
+            fotoKtp: mitra.fotoKtp || '',
+            fotoSim: mitra.fotoSim || '',
+            fotoKk: mitra.fotoKk || '',
         })
         setShowEditModal(true)
     }
@@ -343,11 +460,11 @@ export default function MitraListClient() {
             priority: 'primary',
             render: (mitra) => (
                 <div className="flex items-center gap-3">
-                    <div className={`shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${mitra.employeeType === 'MITRA_TEKNISI'
+                    <div className={`shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${mitra.mitraType === 'MITRA_TEKNISI'
                         ? 'bg-linear-to-br from-blue-500 to-cyan-600'
                         : 'bg-linear-to-br from-purple-500 to-pink-600'
                         }`}>
-                        {mitra.employeeType === 'MITRA_TEKNISI'
+                        {mitra.mitraType === 'MITRA_TEKNISI'
                             ? <HiOutlineWrenchScrewdriver className="w-5 h-5 text-white" />
                             : <HiOutlineMegaphone className="w-5 h-5 text-white" />
                         }
@@ -356,7 +473,17 @@ export default function MitraListClient() {
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {mitra.name || mitra.email.split('@')[0]}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{mitra.email}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {mitra.email}
+                            {mitra.requiresFaceVerification && (
+                                <span className="ml-2 inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-xs font-medium dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Wajib Verif Wajah
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
             )
@@ -366,11 +493,11 @@ export default function MitraListClient() {
             header: 'Tipe',
             priority: 'primary',
             render: (mitra) => (
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${mitra.employeeType === 'MITRA_TEKNISI'
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${mitra.mitraType === 'MITRA_TEKNISI'
                     ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                     : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
                     }`}>
-                    {mitra.employeeType === 'MITRA_TEKNISI' ? 'Teknisi' : 'Sales'}
+                    {mitra.mitraType === 'MITRA_TEKNISI' ? 'Teknisi' : 'Sales'}
                 </span>
             )
         },
@@ -388,10 +515,21 @@ export default function MitraListClient() {
             priority: 'secondary',
             render: (mitra) => (
                 <div className="text-sm">
-                    {mitra.employeeType === 'MITRA_TEKNISI' ? (
-                        <span className="text-blue-600 dark:text-blue-400 font-medium">
-                            WO: {formatCurrency(mitra.mitraRateWo)}
-                        </span>
+                    {mitra.mitraType === 'MITRA_TEKNISI' ? (
+                        <div className="flex flex-col gap-1 text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-500 font-medium">PSB:</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                    {formatCurrency(mitra.mitraRateWoPsb)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-500 font-medium whitespace-nowrap">MTc:</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                    {formatCurrency(mitra.mitraRateWoMaintenance)}
+                                </span>
+                            </div>
+                        </div>
                     ) : (
                         <span className="text-purple-600 dark:text-purple-400 font-medium">
                             Canvasing: {formatCurrency(mitra.mitraRateCanvasing)}
@@ -425,8 +563,49 @@ export default function MitraListClient() {
         },
     ]
 
+    const handleRequestFaceVerification = async (mitraId: string) => {
+        if (!confirm('Apakah Anda yakin ingin mewajibkan mitra ini untuk melakukan Verifikasi Wajah (Liveness) pada login berikutnya?')) return
+        const toastId = toast.loading('Memicu verifikasi wajah...')
+        try {
+            const res = await fetch(`/api/admin/mitra/${mitraId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requiresFaceVerification: true })
+            })
+            const data = await res.json()
+            if (res.ok && data.success) {
+                toast.success('Mitra diwajibkan verifikasi wajah', { id: toastId })
+                fetchMitras()
+            } else {
+                toast.error(data.error || 'Gagal mengubah status', { id: toastId })
+            }
+        } catch {
+            toast.error('Terjadi kesalahan jaringan', { id: toastId })
+        }
+    }
+
     const renderActions = (mitra: Mitra) => (
         <>
+            <button
+                onClick={() => handleRequestFaceVerification(mitra.id)}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md transition-colors ${mitra.requiresFaceVerification ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400'}`}
+                title={mitra.requiresFaceVerification ? "Sedang menunggu verifikasi wajah" : "Minta Verifikasi Wajah"}
+                disabled={mitra.requiresFaceVerification}
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+            <button
+                onClick={() => window.open(`/mitra-id/${mitra.id}`, '_blank')}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+                title="Lihat/Print ID Card Resmi"
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                </svg>
+            </button>
             <button
                 onClick={() => openWalletModal(mitra)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-md hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
@@ -497,6 +676,109 @@ export default function MitraListClient() {
                     placeholder="08xxxxxxxxxx"
                 />
             </div>
+
+            <div className="md:col-span-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 my-2 pt-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Informasi Data Diri (KYC)</h4>
+                </div>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIK</label>
+                <input
+                    type="text"
+                    value={form.nik}
+                    onChange={(e) => setForm(f => ({ ...f, nik: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Nomor Induk Kependudukan"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tempat Lahir</label>
+                <input
+                    type="text"
+                    value={form.tempatLahir}
+                    onChange={(e) => setForm(f => ({ ...f, tempatLahir: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Contoh: Jakarta"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tanggal Lahir</label>
+                <input
+                    type="date"
+                    value={form.tanggalLahir}
+                    onChange={(e) => setForm(f => ({ ...f, tanggalLahir: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+            </div>
+            <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alamat Domisili</label>
+                <textarea
+                    value={form.alamat}
+                    onChange={(e) => setForm(f => ({ ...f, alamat: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Alamat domisili"
+                    rows={1}
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude Rumah</label>
+                <input
+                    type="number"
+                    step="any"
+                    value={form.latitudeRumah}
+                    onChange={(e) => setForm(f => ({ ...f, latitudeRumah: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="-6.123456"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitude Rumah</label>
+                <input
+                    type="number"
+                    step="any"
+                    value={form.longitudeRumah}
+                    onChange={(e) => setForm(f => ({ ...f, longitudeRumah: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="106.123456"
+                />
+            </div>
+
+            <div className="md:col-span-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 my-2 pt-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Dokumen Pendukung (Maksimal 5MB/file)</h4>
+                </div>
+            </div>
+            {[
+                { field: 'fotoDiri', label: 'Foto Diri / Pasfoto' },
+                { field: 'fotoKtp', label: 'Foto KTP' },
+                { field: 'fotoSim', label: 'Foto SIM' },
+                { field: 'fotoKk', label: 'Foto Kartu Keluarga' }
+            ].map(({ field, label }) => (
+                <div key={field}>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+                    <div className="flex items-center gap-3">
+                        {form[field as keyof typeof form] && (
+                            <>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={String(form[field as keyof typeof form])} alt={label} className="h-10 w-10 object-cover rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800" />
+                            </>
+                        )}
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, field)}
+                            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/30 dark:file:text-indigo-400"
+                        />
+                    </div>
+                </div>
+            ))}
+
+            <div className="md:col-span-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 my-2 pt-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Informasi Pekerjaan</h4>
+                </div>
+            </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipe Mitra *</label>
                 <select
@@ -521,26 +803,42 @@ export default function MitraListClient() {
                     ))}
                 </select>
             </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rate WO (Rp)</label>
-                <input
-                    type="number"
-                    value={form.mitraRateWo}
-                    onChange={(e) => setForm(f => ({ ...f, mitraRateWo: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="50000"
-                />
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rate Canvasing (Rp)</label>
-                <input
-                    type="number"
-                    value={form.mitraRateCanvasing}
-                    onChange={(e) => setForm(f => ({ ...f, mitraRateCanvasing: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="25000"
-                />
-            </div>
+            {form.employeeType === 'MITRA_TEKNISI' && (
+                <>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rate WO PSB</label>
+                        <input
+                            type="number"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            value={form.mitraRateWoPsb}
+                            onChange={(e) => setForm(f => ({ ...f, mitraRateWoPsb: e.target.value }))}
+                            placeholder="Cth: 50000"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rate WO Maintenance</label>
+                        <input
+                            type="number"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            value={form.mitraRateWoMaintenance}
+                            onChange={(e) => setForm(f => ({ ...f, mitraRateWoMaintenance: e.target.value }))}
+                            placeholder="Cth: 20000"
+                        />
+                    </div>
+                </>
+            )}
+            {form.employeeType === 'MITRA_SALES' && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rate Canvasing (Rp)</label>
+                    <input
+                        type="number"
+                        value={form.mitraRateCanvasing}
+                        onChange={(e) => setForm(f => ({ ...f, mitraRateCanvasing: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="25000"
+                    />
+                </div>
+            )}
 
             <div className="md:col-span-2">
                 <div className="border-t border-gray-200 dark:border-gray-700 my-2 pt-3">
@@ -574,8 +872,25 @@ export default function MitraListClient() {
                     value={form.bankAccountName}
                     onChange={(e) => setForm(f => ({ ...f, bankAccountName: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Nama sesuai rekening"
+                    placeholder="A.N John Doe"
                 />
+            </div>
+
+            <div className="md:col-span-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 my-2 pt-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Ketentuan Penarikan (Opsional)</h4>
+                </div>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Minimal Penarikan (Rp)</label>
+                <input
+                    type="number"
+                    value={form.minWithdrawal}
+                    onChange={(e) => setForm(f => ({ ...f, minWithdrawal: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Cth: 50000"
+                />
+                <p className="mt-1 text-xs text-gray-500">Kosongkan untuk mengikuti default sistem</p>
             </div>
 
             {form.employeeType === 'MITRA_SALES' && (
@@ -594,6 +909,60 @@ export default function MitraListClient() {
                     </p>
                 </div>
             )}
+
+            <div className="md:col-span-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 my-2 pt-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Pengaturan Garansi Mitra</h4>
+                </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Masa Garansi (Hari)</label>
+                <input
+                    type="number"
+                    min="0"
+                    value={form.garansiHari}
+                    onChange={(e) => setForm(f => ({ ...f, garansiHari: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Contoh: 7"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SLA Tunggu Lelang (Jam)</label>
+                <input
+                    type="number"
+                    min="0"
+                    value={form.slaGaransiJam}
+                    onChange={(e) => setForm(f => ({ ...f, slaGaransiJam: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Contoh: 24"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Denda Garansi PSB (Rp)</label>
+                <input
+                    type="number"
+                    min="0"
+                    value={form.penaltyPsb}
+                    onChange={(e) => setForm(f => ({ ...f, penaltyPsb: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Contoh: 50000"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Denda Garansi MTC (Rp)</label>
+                <input
+                    type="number"
+                    min="0"
+                    value={form.penaltyMaintenance}
+                    onChange={(e) => setForm(f => ({ ...f, penaltyMaintenance: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Contoh: 30000"
+                />
+            </div>
         </div>
     )
 

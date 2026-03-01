@@ -9,12 +9,29 @@ export interface CreateMitraDTO {
     departmentId?: string
     siteId?: string
     roleId?: string
-    mitraRateWo?: number
+    mitraRateWoPsb?: number
+    mitraRateWoMaintenance?: number
     mitraRateCanvasing?: number
     bankName?: string
     bankAccountNo?: string
     bankAccountName?: string
     targetHarian?: number
+    minWithdrawal?: number
+    garansiHari?: number
+    slaGaransiJam?: number
+    penaltyPsb?: number
+    penaltyMaintenance?: number
+    nik?: string
+    tempatLahir?: string
+    tanggalLahir?: string | Date
+    alamat?: string
+    latitudeRumah?: number
+    longitudeRumah?: number
+    fotoDiri?: string
+    fotoKtp?: string
+    fotoSim?: string
+    fotoKk?: string
+    requiresFaceVerification?: boolean
 }
 
 export interface UpdateMitraDTO {
@@ -26,13 +43,30 @@ export interface UpdateMitraDTO {
     departmentId?: string
     siteId?: string
     roleId?: string
-    mitraRateWo?: number
+    mitraRateWoPsb?: number
+    mitraRateWoMaintenance?: number
     mitraRateCanvasing?: number
     bankName?: string
     bankAccountNo?: string
     bankAccountName?: string
     targetHarian?: number
+    minWithdrawal?: number
+    garansiHari?: number
+    slaGaransiJam?: number
+    penaltyPsb?: number
+    penaltyMaintenance?: number
     isActive?: boolean
+    nik?: string
+    tempatLahir?: string
+    tanggalLahir?: string | Date
+    alamat?: string
+    latitudeRumah?: number
+    longitudeRumah?: number
+    fotoDiri?: string
+    fotoKtp?: string
+    fotoSim?: string
+    fotoKk?: string
+    requiresFaceVerification?: boolean
 }
 
 export interface MitraFilters {
@@ -57,14 +91,32 @@ export interface MitraWithDetails {
     name: string | null
     email: string
     phone: string | null
-    employeeType: EmployeeType
+    mitraType: EmployeeType
     isActive: boolean
-    mitraRateWo: number | null
+    mitraRateWoPsb: number | null
+    mitraRateWoMaintenance: number | null
     mitraRateCanvasing: number | null
     bankName: string | null
     bankAccountNo: string | null
     bankAccountName: string | null
     targetHarian: number | null
+    minWithdrawal: number | null
+    garansiHari: number | null
+    slaGaransiJam: number | null
+    penaltyPsb: number | null
+    penaltyMaintenance: number | null
+    nik: string | null
+    tempatLahir: string | null
+    tanggalLahir: Date | null
+    alamat: string | null
+    latitudeRumah: number | null
+    longitudeRumah: number | null
+    fotoDiri: string | null
+    fotoKtp: string | null
+    fotoSim: string | null
+    fotoKk: string | null
+    requiresFaceVerification: boolean
+    lastFaceVerification: Date | null
     departments: { name: string } | null
     sites: { name: string } | null
     role: { name: string } | null

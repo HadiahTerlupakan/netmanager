@@ -26,6 +26,9 @@ export const SOCKET_EVENTS = {
     // Inventory
     INVENTORY_UPDATE: 'inventory:update',
 
+    // Profile updates (pushed to mobile when admin changes profile flags)
+    PROFILE_REFRESH: 'profile:refresh',
+
     // Session management
     FORCE_LOGOUT: 'session:forceLogout',
 
@@ -35,7 +38,7 @@ export const SOCKET_EVENTS = {
 
     // User Status
     USER_STATUS_CHANGE: 'user:status',
-    USER_PERMISSIONS_UPDATE: 'user:permissions_update', 
+    USER_PERMISSIONS_UPDATE: 'user:permissions_update',
 
 
     // Live Location Tracking

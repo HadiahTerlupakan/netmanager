@@ -9,8 +9,10 @@ const walletService = getMitraWalletService()
 interface MitraUser {
     id: string
     mitraType: string
-    mitraRateWo: number | null
+    mitraRateWoPsb: number | null
+    mitraRateWoMaintenance: number | null
     mitraRateCanvasing: number | null
+    minWithdrawal: number | null
 }
 
 // GET /api/mobile/mitra/dashboard — Mitra dashboard stats
@@ -28,8 +30,10 @@ export async function GET(req: NextRequest) {
             select: {
                 id: true,
                 mitraType: true,
-                mitraRateWo: true,
+                mitraRateWoPsb: true,
+                mitraRateWoMaintenance: true,
                 mitraRateCanvasing: true,
+                minWithdrawal: true,
             },
         }) as unknown as MitraUser | null
 
@@ -83,7 +87,10 @@ export async function GET(req: NextRequest) {
 
         return apiSuccess({
             employeeType: mitra.mitraType,
-            rate: mitra.mitraType === 'MITRA_TEKNISI' ? mitra.mitraRateWo : mitra.mitraRateCanvasing,
+            ratePsb: mitra.mitraRateWoPsb,
+            rateMaintenance: mitra.mitraRateWoMaintenance,
+            rateCanvasing: mitra.mitraRateCanvasing,
+            minWithdrawal: mitra.minWithdrawal,
             balance: balance?.balance || 0,
             totalEarnings: balance?.totalEarnings || 0,
             totalWithdrawn: balance?.totalWithdrawn || 0,

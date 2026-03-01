@@ -22,6 +22,11 @@ export interface WorkOrderWithRelations extends WorkOrders {
         name: string | null;
         email: string | null;
     } | null;
+    assignedMitra?: {
+        id: string;
+        name: string;
+        email: string;
+    } | null;
     tasks?: WorkOrderTasks[];
     assignments?: (WorkOrderAssignments & {
         user: {
@@ -135,6 +140,7 @@ export interface WorkOrderFilters {
     siteId?: string;
     departmentId?: string;
     assignedToId?: string | null;
+    assignedMitraId?: string | null;
     pelangganId?: string;
     search?: string;
     dateFrom?: Date;
@@ -214,6 +220,10 @@ export interface WorkOrderListItem {
     assignedTo: {
         id: string;
         name: string | null;
+    } | null;
+    assignedMitra: {
+        id: string;
+        name: string;
     } | null;
     createdBy: {
         id: string;

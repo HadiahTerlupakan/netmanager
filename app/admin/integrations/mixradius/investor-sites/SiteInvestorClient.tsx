@@ -28,6 +28,7 @@ export default function SiteInvestorClient() {
     const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
+    const [ownerSearchTerm, setOwnerSearchTerm] = useState('')
 
     // Form State
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -129,6 +130,7 @@ export default function SiteInvestorClient() {
 
     const openEdit = (site: InvestorSite) => {
         setEditingId(site.id)
+        setOwnerSearchTerm('')
         setFormData({
             name: site.name,
             owners: site.owners,
@@ -139,6 +141,7 @@ export default function SiteInvestorClient() {
 
     const openCreate = () => {
         setEditingId(null)
+        setOwnerSearchTerm('')
         setFormData({
             name: '',
             owners: [],
@@ -291,25 +294,53 @@ export default function SiteInvestorClient() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Pilih Owners MixRadius ({formData.owners.length} dipilih)
-                        </label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Pilih Owners MixRadius ({formData.owners.length} dipilih)
+                            </label>
+
+                            {/* Search Filter input */}
+                            <div className="relative w-1/2">
+                                <HiMagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                                <input
+                                    type="text"
+                                    placeholder="Cari owner..."
+                                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500"
+                                    value={ownerSearchTerm}
+                                    onChange={e => setOwnerSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
                         <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 h-60 overflow-y-auto">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {owners.length === 0 ? (
                                     <div className="col-span-2 text-center text-gray-500 py-4">Memuat owners...</div>
                                 ) : (
-                                    owners.map(owner => (
-                                        <label key={owner} className="flex items-center gap-2 p-2 hover:bg-white dark:hover:bg-gray-700/50 rounded cursor-pointer transition">
-                                            <input
-                                                type="checkbox"
-                                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                                                checked={formData.owners.includes(owner)}
-                                                onChange={() => toggleOwner(owner)}
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{owner}</span>
-                                        </label>
-                                    ))
+                                    owners.length > 0 && owners
+                                        .filter(owner => owner.toLowerCase().includes(ownerSearchTerm.toLowerCase()))
+                                        .map((owner) => (
+                                            <label
+                                                key={owner}
+                                                className={`flex items-start gap-2 p-2 rounded cursor-pointer border hover:border-indigo-400 transition-colors ${formData.owners.includes(owner)
+                                                    ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
+                                                    : 'bg-white border-transparent dark:bg-gray-800'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                                    checked={formData.owners.includes(owner)}
+                                                    onChange={() => toggleOwner(owner)}
+                                                />
+                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 break-words line-clamp-2">
+                                                    {owner}
+                                                </span>
+                                            </label>
+                                        ))
+                                )}
+
+                                {owners.length > 0 && owners.filter(o => o.toLowerCase().includes(ownerSearchTerm.toLowerCase())).length === 0 && (
+                                    <div className="col-span-2 text-center text-gray-500 py-4 text-sm">Tidak ada owner yang cocok</div>
                                 )}
                             </div>
                         </div>

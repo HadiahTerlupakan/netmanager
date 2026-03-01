@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
         // Multi-site: Include userSites
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { 
-                departmentId: true, 
-                siteId: true, 
+            select: {
+                departmentId: true,
+                siteId: true,
                 name: true,
                 userSites: {
                     select: { siteId: true }
@@ -47,23 +47,57 @@ export async function GET(request: NextRequest) {
             userSiteIds.push(user.siteId);
         }
 
-        // Strict Filtering Logic:
-        // 1. If WO has Dept, User must be in that Dept (or User is Dept-less? No, usually Users must be in Dept)
-        //    Easier: WO Dept is NULL OR WO Dept == User Dept
-        // 2. If WO has Site, User must have access to that Site (via userSites or legacy siteId)
-        
-        const departmentFilter: Record<string, unknown> = { departmentId: null };
-        if (user?.departmentId) {
-            departmentFilter.departmentId = { in: [null, user.departmentId] }; // Allow null or match
-        }
+        const currentViewerId = payload.role === 'MITRA' ? ((payload.sub || payload.id) as string) : userId;
 
-        const workOrders = await prisma.workOrders.findMany({
-            where: {
-                status: 'PENDING',
-                assignedToId: null,
+        // Handle permissions differently for Mitra vs Internal User
+        let whereClause: Record<string, unknown> = {
+            status: 'PENDING',
+            assignedToId: null,
+            assignedMitraId: null,
+            // Warranty SLA Lock: 
+            // - If not a warranty ticket, show it.
+            // - If it is a warranty ticket, only show if SLA has expired OR if the current user is the owner.
+            OR: [
+                { isWarranty: false },
+                {
+                    isWarranty: true,
+                    OR: [
+                        { warrantySla: { lt: new Date() } },
+                        { warrantyOwnerId: currentViewerId }
+                    ]
+                }
+            ]
+        };
+
+        if (payload.role === 'MITRA') {
+            const mitraId = currentViewerId;
+            // Fetch Mitra's true siteId from DB in case it's not in token
+            const mitra = await prisma.mitra.findUnique({
+                where: { id: mitraId },
+                select: { siteId: true }
+            });
+            const mitraSiteId = mitra?.siteId || payload.siteId;
+
+            whereClause = {
+                ...whereClause,
+                AND: [
+                    mitraSiteId
+                        ? { OR: [{ siteId: null }, { siteId: mitraSiteId }] }
+                        : { siteId: null }
+                ]
+            };
+        } else {
+            // Original logic for internal users
+            const departmentFilter: Record<string, unknown> = { departmentId: null };
+            if (user?.departmentId) {
+                departmentFilter.departmentId = { in: [null, user.departmentId] }; // Allow null or match
+            }
+
+            whereClause = {
+                ...whereClause,
                 AND: [
                     // Handle Department Match
-                    user?.departmentId 
+                    user?.departmentId
                         ? { OR: [{ departmentId: null }, { departmentId: user.departmentId }] }
                         : { departmentId: null }, // If user has no dept, can only see global
 
@@ -72,7 +106,11 @@ export async function GET(request: NextRequest) {
                         ? { OR: [{ siteId: null }, { siteId: { in: userSiteIds } }] }
                         : { siteId: null } // If user has no sites, can only see global location
                 ]
-            },
+            };
+        }
+
+        const workOrders = await prisma.workOrders.findMany({
+            where: whereClause,
             select: {
                 id: true,
                 workOrderNumber: true,
@@ -155,9 +193,9 @@ export async function POST(request: NextRequest) {
         // Fetch User to check permissions (Multi-site support)
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { 
-                departmentId: true, 
-                siteId: true, 
+            select: {
+                departmentId: true,
+                siteId: true,
                 name: true,
                 userSites: {
                     select: { siteId: true }
@@ -186,53 +224,108 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Work order sudah tidak tersedia' }, { status: 400 });
         }
 
-        if (workOrder.assignedToId) {
+        if (workOrder.assignedToId || workOrder.assignedMitraId) {
             return NextResponse.json({ error: 'Work order sudah diambil orang lain' }, { status: 400 });
         }
 
-        // Strict Check Authorization (Site AND Department match)
-        // 1. Check Department
-        const isDeptValid = !workOrder.departmentId || (user?.departmentId && workOrder.departmentId === user.departmentId);
-        
-        // 2. Check Site (Multi-site: check against userSiteIds array)
-        const isSiteValid = !workOrder.siteId || userSiteIds.includes(workOrder.siteId);
+        let updatedWorkOrder;
+        let triggeredByName = 'Unknown';
 
-        if (!isDeptValid || !isSiteValid) {
-            let errorMsg = 'Anda tidak memiliki akses ke Work Order ini (';
-            if (!isDeptValid) errorMsg += 'Beda Department';
-            if (!isDeptValid && !isSiteValid) errorMsg += ' & ';
-            if (!isSiteValid) errorMsg += 'Beda Site';
-            errorMsg += ')';
-             return NextResponse.json({ error: errorMsg }, { status: 403 });
-        }
+        if (payload.role === 'MITRA') {
+            const mitraId = (payload.sub || payload.id) as string;
+            // Fetch Mitra for site authorization
+            const mitra = await prisma.mitra.findUnique({
+                where: { id: mitraId },
+                select: { name: true, siteId: true }
+            });
+            const mitraSiteId = mitra?.siteId || payload.siteId;
+            triggeredByName = (mitra?.name as string) || (payload.name as string) || 'Unknown Mitra';
 
-        // Assign work order to user
-        const updatedWorkOrder = await prisma.workOrders.update({
-            where: { id: workOrderId },
-            data: {
-                assignedToId: userId,
-                status: 'ASSIGNED',
-                scheduledDate: new Date(),
-                scheduledTimeStart: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
+            // Check Site
+            const isSiteValid = !workOrder.siteId || mitraSiteId === workOrder.siteId;
+            if (!isSiteValid) {
+                return NextResponse.json({ error: 'Anda tidak memiliki akses ke Work Order ini (Beda Site)' }, { status: 403 });
             }
-        });
+
+            // Assign work order to Mitra
+            updatedWorkOrder = await prisma.workOrders.update({
+                where: { id: workOrderId },
+                data: {
+                    assignedMitraId: mitraId,
+                    status: 'ASSIGNED',
+                    scheduledDate: new Date(),
+                    scheduledTimeStart: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
+                }
+            });
+
+            // Also log to WorkOrderAssignments for consistency if needed by other logic
+            await prisma.workOrderAssignments.create({
+                data: {
+                    id: randomUUID(),
+                    workOrderId,
+                    mitraId: mitraId,
+                    role: 'TEKNISI',
+                    status: 'PENDING'
+                }
+            });
+
+        } else {
+            // Strict Check Authorization (Site AND Department match for Internal)
+            // 1. Check Department
+            const isDeptValid = !workOrder.departmentId || (user?.departmentId && workOrder.departmentId === user.departmentId);
+
+            // 2. Check Site (Multi-site: check against userSiteIds array)
+            const isSiteValid = !workOrder.siteId || userSiteIds.includes(workOrder.siteId);
+
+            if (!isDeptValid || !isSiteValid) {
+                let errorMsg = 'Anda tidak memiliki akses ke Work Order ini (';
+                if (!isDeptValid) errorMsg += 'Beda Department';
+                if (!isDeptValid && !isSiteValid) errorMsg += ' & ';
+                if (!isSiteValid) errorMsg += 'Beda Site';
+                errorMsg += ')';
+                return NextResponse.json({ error: errorMsg }, { status: 403 });
+            }
+
+            triggeredByName = (user?.name as string) || (payload.name as string) || 'Unknown User';
+
+            // Assign work order to Internal user
+            updatedWorkOrder = await prisma.workOrders.update({
+                where: { id: workOrderId },
+                data: {
+                    assignedToId: userId,
+                    status: 'ASSIGNED',
+                    scheduledDate: new Date(),
+                    scheduledTimeStart: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
+                }
+            });
+
+            await prisma.workOrderAssignments.create({
+                data: {
+                    id: randomUUID(),
+                    workOrderId,
+                    userId,
+                    role: 'TEKNISI',
+                    status: 'PENDING'
+                }
+            });
+        }
 
         // System Log
         logActivitySafe({
             action: 'UPDATE',
             subject: 'Work Order',
-            userId: userId,
-            details: { id: workOrderId, action: 'ASSIGN_SELF_MOBILE', status: 'ASSIGNED' }
-        })
+            userId: payload.role === 'MITRA' ? null : userId,
+            details: { id: workOrderId, action: 'ASSIGN_SELF_MOBILE', status: 'ASSIGNED', role: payload.role, triggeredByName }
+        });
 
         // Create update log
         await prisma.workOrderUpdates.create({
             data: {
                 id: randomUUID(),
                 workOrderId,
-                createdById: userId,
+                createdById: payload.role === 'MITRA' ? null : userId,
                 updateType: 'STATUS_CHANGE',
-                message: 'Tiket diambil via Mobile App',
+                message: payload.role === 'MITRA' ? `Tiket diambil via Mobile App oleh Mitra Teknisi (${triggeredByName})` : 'Tiket diambil via Mobile App',
                 oldStatus: 'PENDING',
                 newStatus: 'ASSIGNED'
             }
@@ -247,7 +340,7 @@ export async function POST(request: NextRequest) {
             actionType: 'CLAIM',
             actionMessage: 'Mengambil/Claim tiket Work Order',
             triggeredByUserId: userId,
-            triggeredByName: (user?.name as string) || (payload.name as string) || 'Unknown',
+            triggeredByName: triggeredByName,
             ...(updatedWorkOrder.departmentId && { departmentId: updatedWorkOrder.departmentId }),
             ...(updatedWorkOrder.siteId && { siteId: updatedWorkOrder.siteId }),
         });

@@ -122,6 +122,73 @@ export class MitraWalletService {
     }
 
     /**
+     * Deduct balance from mitra wallet (called automatically when warranty SLA is violated)
+     */
+    async deductBalance(
+        userId: string,
+        amount: number,
+        description: string,
+        referenceId?: string,
+        referenceType?: 'WORK_ORDER' | 'CANVASING'
+    ): Promise<ServiceResult> {
+        try {
+            if (amount <= 0) {
+                return { success: false, error: 'Jumlah harus lebih dari 0' }
+            }
+
+            await prisma.$transaction(async (tx) => {
+                // Ensure wallet exists
+                let wallet = await tx.mitraWallet.findUnique({
+                    where: { mitraId: userId },
+                })
+
+                if (!wallet) {
+                    wallet = await tx.mitraWallet.create({
+                        data: { mitraId: userId },
+                    })
+                }
+
+                // Check for duplicate transaction (same referenceId and type)
+                if (referenceId) {
+                    const existing = await tx.mitraTransaction.findFirst({
+                        where: { walletId: wallet.id, referenceId, type: 'ADJUSTMENT', description: { contains: '[PENALTY]' } },
+                    })
+                    if (existing) {
+                        throw new Error('Transaksi penalti sudah ada untuk referensi ini')
+                    }
+                }
+
+                // Create transaction
+                await tx.mitraTransaction.create({
+                    data: {
+                        walletId: wallet.id,
+                        amount: -amount,
+                        type: MitraTransactionType.ADJUSTMENT,
+                        description: `[PENALTY] ${description}`,
+                        referenceId,
+                        referenceType,
+                    },
+                })
+
+                // Update wallet balance (allow negative balance if penalty exceeds earnings)
+                await tx.mitraWallet.update({
+                    where: { id: wallet.id },
+                    data: {
+                        balance: { decrement: amount },
+                    },
+                })
+            })
+
+            logger.info(`[MitraWalletService] Penalty deducted: userId=${userId}, amount=${amount}, ref=${referenceId}`)
+            return { success: true }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Gagal memotong saldo'
+            logger.error('[MitraWalletService] Error deducting balance:', error as Error)
+            return { success: false, error: message }
+        }
+    }
+
+    /**
      * Manual adjustment by admin (can be positive or negative)
      */
     async addAdjustment(

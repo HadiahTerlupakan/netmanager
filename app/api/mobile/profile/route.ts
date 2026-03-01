@@ -27,7 +27,11 @@ export async function GET(request: Request) {
                     phone: true,
                     isActive: true,
                     mitraType: true,
+                    nik: true,
+                    fotoDiri: true,
+                    createdAt: true,
                     siteId: true,
+                    requiresFaceVerification: true,
                     sites: { select: { id: true, name: true } },
                 }
             })
@@ -49,7 +53,12 @@ export async function GET(request: Request) {
                     name: mitra.name,
                     email: mitra.email,
                     phone: mitra.phone,
-                    image: null,
+                    image: mitra.fotoDiri, // Use face verification selfie as profile photo
+                    nik: mitra.nik,
+                    fotoDiri: mitra.fotoDiri,
+                    createdAt: mitra.createdAt.toISOString(),
+                    mitraType: mitra.mitraType,
+                    requiresFaceVerification: mitra.requiresFaceVerification,
                     workingHourMode: null,
                     startWorkTime: null,
                     endWorkTime: null,

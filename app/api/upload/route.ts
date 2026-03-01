@@ -1,53 +1,43 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { convertAndSaveImage } from '@/lib/utils/image-upload'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth-helpers'
+import { convertAndSaveImage, isImageFile, saveFile } from '@/lib/utils/image-upload'
+import { logger } from '@/lib/logger'
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session || !session.user) {
-    return ApiErrors.unauthorized('Session tidak valid')
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const formData = await req.formData()
-    const files = formData.getAll('file').concat(formData.getAll('files')) as File[]
-    const folder = formData.get('folder') as string || 'uploads'
+    const session = await requireAdmin(request)
+    if (session instanceof NextResponse) return session
 
-    if (!files || files.length === 0) {
-      return apiError('Tidak ada file yang diupload', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
+    const folder = formData.get('folder') as string || 'general'
+
+    if (!file) {
+      return NextResponse.json({ error: 'Tidak ada file yang diunggah' }, { status: 400 })
     }
 
-    const uploadedUrls: string[] = []
+    const timestamp = Date.now()
+    const randomStr = Math.random().toString(36).substring(7)
+    // Clean original filename of spaces and special chars
+    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_').split('.')[0]
+    const fileName = `${originalName}_${timestamp}_${randomStr}`
 
-    for (const file of files) {
-      if (file instanceof File) {
-        if (!file.type.startsWith('image/')) {
-          continue
-        }
+    const uploadDir = `public/uploads/${folder}`
+    let url = ''
 
-        const safeName = folder.replace(/\//g, '-')
-        const imageUrl = await convertAndSaveImage(
-          file,
-          `public/${folder}`,
-          `${safeName}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-          'marketing',
-          folder
-        )
-        uploadedUrls.push(imageUrl)
-      }
+    if (isImageFile(file)) {
+      url = await convertAndSaveImage(file, uploadDir, fileName, 'user-profile')
+    } else {
+      // If it's a PDF or something else
+      url = await saveFile(file, uploadDir, `${fileName}.${file.name.split('.').pop()}`, 'user-profile')
     }
 
-    if (uploadedUrls.length === 0) {
-      return apiError('Tidak ada gambar valid yang diupload', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    }
-    
-    return apiSuccess({
-      url: uploadedUrls[0],
-      urls: uploadedUrls
-    }, { message: 'Upload berhasil' })
-  } catch (error: unknown) {
-    console.error('Upload error:', error)
-    return ApiErrors.internalError('Gagal mengupload gambar')
+    // Return path without public/ prefix, ensuring it starts with /
+    const publicUrl = url.replace(/^public\//, '/').replace(/^\/?/, '/')
+
+    return NextResponse.json({ success: true, url: publicUrl })
+  } catch (error) {
+    logger.error('Error in generic upload endpoint', error as Error)
+    return NextResponse.json({ error: 'Gagal mengunggah file' }, { status: 500 })
   }
 }

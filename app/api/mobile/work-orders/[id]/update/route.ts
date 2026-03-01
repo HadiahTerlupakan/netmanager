@@ -302,18 +302,84 @@ export async function POST(
             try {
                 const mitra = await prisma.mitra.findUnique({
                     where: { id: userId },
-                    select: { mitraType: true, mitraRateWo: true },
+                    select: { mitraType: true, mitraRateWoPsb: true, mitraRateWoMaintenance: true },
                 });
-                if (mitra?.mitraType === 'MITRA_TEKNISI' && mitra.mitraRateWo && mitra.mitraRateWo > 0) {
+                if (mitra?.mitraType === 'MITRA_TEKNISI') {
                     const { getMitraWalletService } = await import('@/modules/mitra');
                     const walletService = getMitraWalletService();
-                    await walletService.addEarning(
-                        userId,
-                        mitra.mitraRateWo,
-                        `Komisi WO #${ticketNumber}`,
-                        workOrderId,
-                        'WORK_ORDER'
-                    );
+
+                    // --- WARRANTY & PENALTY LOGIC ---
+                    if (workOrder.isWarranty && workOrder.warrantyOwnerId) {
+                        if (workOrder.warrantyOwnerId === userId) {
+                            // Scenario A: Original owner fixes it themselves within or outside SLA
+                            // Commission is Rp 0. Do not deduct penalty.
+                            await walletService.addEarning(
+                                userId,
+                                0,
+                                `Pengerjaan Garansi Mandiri #${ticketNumber}`,
+                                workOrderId,
+                                'WORK_ORDER'
+                            );
+                            logger.info(`[Warranty] Mitra ${userId} completed their own warranty ticket ${workOrderId} with Rp 0 commission.`);
+                        } else {
+                            // Scenario B: Scavenger fixes the ticket
+                            // 1. Scavenger gets normal commission
+                            let rate = 0;
+                            if (workOrder.type === 'INSTALLATION' && mitra.mitraRateWoPsb) rate = mitra.mitraRateWoPsb;
+                            else if (mitra.mitraRateWoMaintenance) rate = mitra.mitraRateWoMaintenance;
+
+                            if (rate > 0) {
+                                await walletService.addEarning(
+                                    userId,
+                                    rate,
+                                    `Komisi WO #${ticketNumber} (${workOrder.type}) - Lelang Garansi`,
+                                    workOrderId,
+                                    'WORK_ORDER'
+                                );
+                            }
+
+                            // 2. Penalty deduction for the original owner
+                            try {
+                                const originalOwner = await prisma.mitra.findUnique({
+                                    where: { id: workOrder.warrantyOwnerId },
+                                    select: { penaltyPsb: true, penaltyMaintenance: true }
+                                });
+
+                                // Apply penalty
+                                const penaltyAmount = originalOwner?.penaltyPsb || 50000;
+
+                                await walletService.deductBalance(
+                                    workOrder.warrantyOwnerId,
+                                    penaltyAmount,
+                                    `Denda Garansi SLA Pelanggaran Pekerjaan #${ticketNumber}`,
+                                    workOrderId,
+                                    'WORK_ORDER'
+                                );
+                                logger.info(`[Warranty] Penalty ${penaltyAmount} deducted from Mitra ${workOrder.warrantyOwnerId}.`);
+                            } catch (penaltyErr) {
+                                console.error('[Warranty] Failed to deduct penalty:', penaltyErr);
+                            }
+                        }
+                    } else {
+                        // --- NORMAL COMMISSION (No Warranty) ---
+                        let rate = 0;
+                        if (workOrder.type === 'INSTALLATION' && mitra.mitraRateWoPsb) {
+                            rate = mitra.mitraRateWoPsb;
+                        } else if (mitra.mitraRateWoMaintenance) {
+                            rate = mitra.mitraRateWoMaintenance;
+                        }
+
+                        if (rate > 0) {
+                            await walletService.addEarning(
+                                userId,
+                                rate,
+                                `Komisi WO #${ticketNumber} (${workOrder.type})`,
+                                workOrderId,
+                                'WORK_ORDER'
+                            );
+                        }
+                    }
+                    // --- END WARRANTY LOGIC ---
                 }
             } catch (mitraErr) {
                 // Non-blocking: log but don't fail the WO completion

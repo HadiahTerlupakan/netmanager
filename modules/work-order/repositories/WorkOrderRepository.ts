@@ -164,6 +164,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         email: true,
                     },
                 },
+                assignedMitra: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    }
+                },
                 tasks: {
                     orderBy: { order: 'asc' },
                 },
@@ -254,6 +261,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         email: true,
                     },
                 },
+                assignedMitra: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    }
+                },
                 tasks: {
                     orderBy: { order: 'asc' },
                 },
@@ -316,6 +330,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         if (filters?.unassignedOnly) {
             where.assignedToId = null;
+            // Also ensure no mitra is assigned if requesting truly unassigned tickets
+            where.assignedMitraId = null;
         }
 
         if (filters?.involvedUserId) {
@@ -323,10 +339,19 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             const userFilter: Prisma.WorkOrdersWhereInput = {
                 OR: [
                     { assignedToId: filters.involvedUserId },
+                    { assignedMitraId: filters.involvedUserId },
                     {
                         assignments: {
                             some: {
                                 userId: filters.involvedUserId,
+                                status: { not: 'REJECTED' } // Exclude rejected assignments
+                            }
+                        }
+                    },
+                    {
+                        assignments: {
+                            some: {
+                                mitraId: filters.involvedUserId,
                                 status: { not: 'REJECTED' } // Exclude rejected assignments
                             }
                         }
@@ -344,27 +369,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 ];
                 delete where.OR;
             } else {
-                // Just merge into where, but since OR is top level, effectively we are doing implicit AND with other fields
-                // Wait, if I set where.OR = userFilter.OR, it conflicts with future ORs?
-                // Actually, if search comes later, it might overwrite.
-                // Safest to add to AND array if we anticipate multiple complex conditions.
-                // But for now, let's just push to AND if OR exists, otherwise set OR.
-                // However, search logic is below.
-                // Let's defer applying involvedUserId until after search check or integrate it carefully.
-                // A better pattern for Prisma is to build an array of conditions and assign to AND at the end if > 1.
-
-                // Let's follow the existing pattern:
-                where.OR = [
-                    { assignedToId: filters.involvedUserId },
-                    {
-                        assignments: {
-                            some: {
-                                userId: filters.involvedUserId,
-                                status: { not: 'REJECTED' } // Exclude rejected assignments  
-                            }
-                        }
-                    }
-                ];
+                where.OR = userFilter.OR;
             }
         } else if (filters?.assignedToId !== undefined) {
             // Only apply specific assignedToId if involvedUserId isn't set (priority)
@@ -378,7 +383,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         if (filters?.siteId) {
             where.siteId = filters.siteId;
         }
-        
+
         if (filters?.search) {
             const searchFilter: Prisma.WorkOrdersWhereInput = {
                 OR: [
@@ -451,6 +456,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                             name: true,
                             email: true,
                         },
+                    },
+                    assignedMitra: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                        }
                     },
                     tasks: true,
                     assignments: {
@@ -529,16 +541,26 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         if (filters?.unassignedOnly) {
             where.assignedToId = null;
+            where.assignedMitraId = null;
         }
 
         if (filters?.involvedUserId) {
             const userFilter: Prisma.WorkOrdersWhereInput = {
                 OR: [
                     { assignedToId: filters.involvedUserId },
+                    { assignedMitraId: filters.involvedUserId },
                     {
                         assignments: {
                             some: {
                                 userId: filters.involvedUserId,
+                                status: { not: 'REJECTED' }
+                            }
+                        }
+                    },
+                    {
+                        assignments: {
+                            some: {
+                                mitraId: filters.involvedUserId,
                                 status: { not: 'REJECTED' }
                             }
                         }
@@ -555,17 +577,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 ];
                 delete where.OR;
             } else {
-                where.OR = [
-                    { assignedToId: filters.involvedUserId },
-                    {
-                        assignments: {
-                            some: {
-                                userId: filters.involvedUserId,
-                                status: { not: 'REJECTED' }
-                            }
-                        }
-                    }
-                ];
+                where.OR = userFilter.OR;
             }
         } else if (filters?.assignedToId !== undefined) {
             where.assignedToId = filters.assignedToId;
@@ -665,6 +677,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                             id: true,
                             name: true,
                         },
+                    },
+                    assignedMitra: {
+                        select: {
+                            id: true,
+                            name: true,
+                        }
                     },
                     createdBy: {
                         select: {
@@ -893,7 +911,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
 
         // NOTE: Notification moved to Service layer
-        
+
         return result;
     }
 
@@ -1001,11 +1019,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
 
         await this.addAssignment(id, employeeId, role || 'Lead');
-        
+
         const wo = await this.findById(id) as WorkOrders;
-        
+
         // console.log(`[RepoDebug] Assigning WO ${id} to ${employeeId} by ${triggeredByUserId}`);
-        
+
         // NOTE: Notification moved to Service layer
 
         return wo;
@@ -1332,8 +1350,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
 
                 if (!userStats[name]) {
-                    userStats[name] = { 
-                        count: 0, 
+                    userStats[name] = {
+                        count: 0,
                         totalHours: 0,
                         ...(role && { role }),
                         ...(site && { site })
@@ -1420,8 +1438,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
 
                 if (!userStats[name]) {
-                    userStats[name] = { 
-                        count: 0, 
+                    userStats[name] = {
+                        count: 0,
                         totalHours: 0,
                         ...(role && { role }),
                         ...(site && { site })
@@ -1934,7 +1952,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             // Include all completed states, not just COMPLETED
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
         };
-        
+
         if (siteId) where.siteId = siteId;
         if (departmentId) where.departmentId = departmentId;
 
@@ -2004,9 +2022,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where,
             include: {
                 workOrders: {
-                    select: { 
-                        id: true, 
-                        createdAt: true, 
+                    select: {
+                        id: true,
+                        createdAt: true,
                         completedAt: true,
                         verifiedAt: true,
                         departmentId: true,
@@ -2014,8 +2032,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     }
                 },
                 user: {
-                    select: { 
-                        id: true, 
+                    select: {
+                        id: true,
                         name: true,
                         role: {
                             select: {
@@ -2097,7 +2115,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 const verifyKey = `verify-${update.workOrderId}`;
                 if (!processedVerifyPairs.has(verifyKey)) {
                     userStats[userId].verifiedCount += 1;
-                    
+
                     // Calculate verify time
                     if (update.workOrders.completedAt) {
                         const verifyTime = (new Date(update.createdAt).getTime() - new Date(update.workOrders.completedAt).getTime()) / (1000 * 60);
@@ -2196,8 +2214,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 // Verified (Admin Final) = 3 pts
                 // Canvasing Approval (Admin Task) = 2 pts
                 // Regular Response (Quick Action) = 1 pt
-                
-                const score = 
+
+                const score =
                     (stat.completedCount * 5) +
                     (stat.verifiedCount * 3) +
                     ((stat.canvasingCount || 0) * 2) +
@@ -2274,8 +2292,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 totalVerificationMinutes += diff / (1000 * 60);
             }
         });
-        const avgVerificationTimeMinutes = verifiedWOs.length > 0 
-            ? Math.round(totalVerificationMinutes / verifiedWOs.length) 
+        const avgVerificationTimeMinutes = verifiedWOs.length > 0
+            ? Math.round(totalVerificationMinutes / verifiedWOs.length)
             : 0;
 
         // 3. Global Canvasing Stats (Sales)
@@ -2294,9 +2312,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 totalCanvasingMinutes += diff / (1000 * 60);
             }
         });
-        
-        const avgCanvasingTimeMinutes = approvedCanvasing.length > 0 
-            ? Math.round(totalCanvasingMinutes / approvedCanvasing.length) 
+
+        const avgCanvasingTimeMinutes = approvedCanvasing.length > 0
+            ? Math.round(totalCanvasingMinutes / approvedCanvasing.length)
             : 0;
 
         // Canvasing Approved Today
@@ -2334,9 +2352,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Used for dashboard trend chart
      */
     async getVolumeTrend(
-        startDate: Date, 
-        endDate: Date, 
-        departmentId?: string, 
+        startDate: Date,
+        endDate: Date,
+        departmentId?: string,
         siteId?: string
     ): Promise<Array<{ month: string; created: number; completed: number; requested: number }>> {
         const where: Record<string, unknown> = {};
@@ -2373,7 +2391,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         // Build month map
         const months: { [key: string]: { created: number; completed: number; requested: number } } = {};
         const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-                           (endDate.getMonth() - startDate.getMonth()) + 1;
+            (endDate.getMonth() - startDate.getMonth()) + 1;
         const numMonths = Math.max(1, Math.min(monthsDiff, 24));
 
         for (let i = 0; i < numMonths; i++) {
@@ -2425,9 +2443,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Uses classifyIssue helper to categorize WOs
      */
     async getIssueTrend(
-        startDate: Date, 
-        endDate: Date, 
-        departmentId?: string, 
+        startDate: Date,
+        endDate: Date,
+        departmentId?: string,
         siteId?: string
     ): Promise<Array<{ month: string; issues: Array<{ issue: string; count: number }> }>> {
         const where: Record<string, unknown> = {};
@@ -2445,7 +2463,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         // Build month-issue map
         const monthIssues: { [key: string]: { [issue: string]: number } } = {};
         const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-                           (endDate.getMonth() - startDate.getMonth()) + 1;
+            (endDate.getMonth() - startDate.getMonth()) + 1;
         const numMonths = Math.max(1, Math.min(monthsDiff, 24));
 
         for (let i = 0; i < numMonths; i++) {
@@ -2480,9 +2498,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get Performance Trend - Avg completion time and rating per month
      */
     async getPerformanceTrend(
-        startDate: Date, 
-        endDate: Date, 
-        departmentId?: string, 
+        startDate: Date,
+        endDate: Date,
+        departmentId?: string,
         siteId?: string
     ): Promise<Array<{ month: string; avgCompletionHours: number; avgRating: number | null; totalCompleted: number }>> {
         const where: Record<string, unknown> = {};
@@ -2495,18 +2513,18 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 completedAt: { gte: startDate, lte: endDate },
                 status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] }
             },
-            select: { 
-                completedAt: true, 
-                startedAt: true, 
+            select: {
+                completedAt: true,
+                startedAt: true,
                 actualHours: true,
-                rating: true 
+                rating: true
             }
         });
 
         // Build month map
         const monthStats: { [key: string]: { totalHours: number; totalRating: number; ratingCount: number; count: number } } = {};
         const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-                           (endDate.getMonth() - startDate.getMonth()) + 1;
+            (endDate.getMonth() - startDate.getMonth()) + 1;
         const numMonths = Math.max(1, Math.min(monthsDiff, 24));
 
         for (let i = 0; i < numMonths; i++) {
@@ -2522,7 +2540,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                 if (monthStats[key]) {
                     monthStats[key].count++;
-                    
+
                     // Calculate completion hours
                     if (wo.actualHours) {
                         monthStats[key].totalHours += Number(wo.actualHours);
@@ -2530,7 +2548,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
                         monthStats[key].totalHours += hours;
                     }
-                    
+
                     // Rating
                     if (wo.rating) {
                         monthStats[key].totalRating += Number(wo.rating);
@@ -2556,9 +2574,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
      * Get Type Trend - Distribution of WO types per month
      */
     async getTypeTrend(
-        startDate: Date, 
-        endDate: Date, 
-        departmentId?: string, 
+        startDate: Date,
+        endDate: Date,
+        departmentId?: string,
         siteId?: string
     ): Promise<Array<{ month: string; types: Array<{ type: string; count: number }> }>> {
         const where: Record<string, unknown> = {};
@@ -2576,7 +2594,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         // Build month-type map
         const monthTypes: { [key: string]: { [type: string]: number } } = {};
         const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-                           (endDate.getMonth() - startDate.getMonth()) + 1;
+            (endDate.getMonth() - startDate.getMonth()) + 1;
         const numMonths = Math.max(1, Math.min(monthsDiff, 24));
 
         for (let i = 0; i < numMonths; i++) {

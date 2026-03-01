@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
                     lastVersionUpdate: new Date()
                 }
             })
+        } else if (session.role === 'MITRA') {
+            // Mitra table doesn't have lastVersionCode columns yet, skip DB update
         } else {
             await prisma.user.update({
                 where: { id: session.id },
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({ success: true })
-        
+
     } catch (error) {
         console.error('Error reporting app version:', error)
         return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })

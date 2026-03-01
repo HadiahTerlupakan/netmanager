@@ -39,6 +39,9 @@ interface WorkOrder {
     assignedTo?: {
         name: string
     } | null
+    assignedMitra?: {
+        name: string
+    } | null
     department?: {
         name: string
     } | null
@@ -92,11 +95,11 @@ export function ClientComponent() {
     const router = useRouter()
     const { showToast } = useToast()
     const { hasPermission } = usePermission()
-    
+
     // CRUD permissions
     const canCreate = hasPermission('list:create')
     const canDelete = hasPermission('list:delete')  // Hapus permanen
-    
+
     // Workflow action permissions (terpisah dari CRUD)
     const canCancel = hasPermission('list:cancel')  // Batalkan WO
     const canVerify = hasPermission('list:verify')  // Verifikasi & Tolak WO
@@ -132,7 +135,7 @@ export function ClientComponent() {
         debounceTimerRef.current = setTimeout(() => {
             setDebouncedSearch(search)
         }, 300)
-        
+
         return () => {
             if (debounceTimerRef.current) {
                 clearTimeout(debounceTimerRef.current)
@@ -149,7 +152,7 @@ export function ClientComponent() {
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [cancelReason, setCancelReason] = useState('')
     const [sendingReminderId, setSendingReminderId] = useState<string | null>(null)
-    
+
     // WO Request Approval states
     const [showApproveRequestModal, setShowApproveRequestModal] = useState(false)
     const [showRejectRequestModal, setShowRejectRequestModal] = useState(false)
@@ -223,7 +226,7 @@ export function ClientComponent() {
             fetchSites()
             fetchDepartments()
         }
-    // PHASE 5: Use debouncedSearch instead of search for API calls
+        // PHASE 5: Use debouncedSearch instead of search for API calls
     }, [session, status, fetchWorkOrders])
 
     const handleVerify = async (id: string, e: React.MouseEvent) => {
@@ -379,12 +382,12 @@ export function ClientComponent() {
             const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}/reminder`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    departmentId: selectedDepartmentId || undefined 
+                body: JSON.stringify({
+                    departmentId: selectedDepartmentId || undefined
                 }),
             })
             const data = await response.json()
-            
+
             if (response.ok) {
                 showToast('success', data.message || 'Reminder terkirim')
                 setShowReminderModal(false)
@@ -403,7 +406,7 @@ export function ClientComponent() {
     // Handler untuk Approve WO Request
     const handleApproveRequest = async () => {
         if (!selectedWorkOrderId) return
-        
+
         setProcessingApproval(true)
         try {
             const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}/approve`, {
@@ -412,7 +415,7 @@ export function ClientComponent() {
                 body: JSON.stringify({ action: 'APPROVE' }),
             })
             const data = await response.json()
-            
+
             if (response.ok) {
                 showToast('success', 'WO Request berhasil disetujui')
                 setShowApproveRequestModal(false)
@@ -435,7 +438,7 @@ export function ClientComponent() {
             showToast('error', 'Alasan penolakan wajib diisi')
             return
         }
-        
+
         setProcessingApproval(true)
         try {
             const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}/approve`, {
@@ -444,7 +447,7 @@ export function ClientComponent() {
                 body: JSON.stringify({ action: 'REJECT', reason: rejectRequestReason.trim() }),
             })
             const data = await response.json()
-            
+
             if (response.ok) {
                 showToast('success', 'WO Request berhasil ditolak')
                 setShowRejectRequestModal(false)
@@ -565,11 +568,30 @@ export function ClientComponent() {
             key: 'assignedTo',
             header: 'Assigned To',
             priority: 'tertiary',
-            render: (wo) => (
-                <span className="text-sm text-gray-900 dark:text-white">
-                    {wo.assignedTo ? wo.assignedTo.name : <span className="text-gray-400">Unassigned</span>}
-                </span>
-            )
+            render: (wo) => {
+                if (wo.assignedMitra) {
+                    return (
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {wo.assignedMitra.name}
+                            </span>
+                            <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">Mitra</span>
+                        </div>
+                    )
+                }
+                if (wo.assignedTo) {
+                    return (
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {wo.assignedTo.name}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Internal</span>
+                        </div>
+                    )
+                }
+
+                return <span className="text-gray-400 text-sm">Unassigned</span>
+            }
         },
         {
             key: 'createdAtDate',

@@ -138,16 +138,34 @@ export function WoSidebar({
             {/* Assignment */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Assignment</h3>
-                {workOrder.assignedTo ? (
-                    <div className="text-sm">
-                        <p className="text-gray-600 dark:text-gray-400">Assigned to:</p>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                            {workOrder.assignedTo.name}
-                        </p>
+                {workOrder.assignedMitra ? (
+                    <div className="text-sm mb-3">
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">Assigned to (Mitra):</p>
+                        <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                                {workOrder.assignedMitra.name}
+                            </p>
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400 rounded">
+                                Mitra
+                            </span>
+                        </div>
+                    </div>
+                ) : workOrder.assignedTo ? (
+                    <div className="text-sm mb-3">
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">Assigned to (Internal):</p>
+                        <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                                {workOrder.assignedTo.name}
+                            </p>
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded">
+                                Internal
+                            </span>
+                        </div>
                     </div>
                 ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Not assigned yet</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Not assigned yet</p>
                 )}
+
                 {workOrder.department && (
                     <div className="text-sm mt-3">
                         <p className="text-gray-600 dark:text-gray-400">Department:</p>

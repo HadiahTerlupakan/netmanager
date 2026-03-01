@@ -74,6 +74,10 @@ export interface WorkOrderDetail {
         id: string
         name: string
     } | null
+    assignedMitra?: {
+        id: string
+        name: string
+    } | null
     department?: {
         name: string
     } | null

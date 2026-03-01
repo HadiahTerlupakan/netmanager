@@ -29,12 +29,12 @@ interface WithdrawRequest {
     rejectionReason: string | null
     createdAt: string
     processedAt: string | null
-    wallet: {
-        user: {
+    mitraWallet: {
+        mitra: {
             id: string
             name: string | null
             email: string
-            employeeType: string
+            mitraType: string
         }
     }
     processedBy: { id: string; name: string | null } | null
@@ -133,10 +133,10 @@ export default function WithdrawalsClient() {
             render: (req) => (
                 <div>
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {req.wallet.user.name || req.wallet.user.email}
+                        {req.mitraWallet?.mitra?.name || req.mitraWallet?.mitra?.email || 'Unknown'}
                     </div>
                     <div className="text-xs text-gray-500">
-                        {req.wallet.user.employeeType === 'MITRA_TEKNISI' ? 'Teknisi' : 'Sales'}
+                        {req.mitraWallet?.mitra?.mitraType === 'MITRA_TEKNISI' ? 'Teknisi' : 'Sales'}
                     </div>
                 </div>
             )

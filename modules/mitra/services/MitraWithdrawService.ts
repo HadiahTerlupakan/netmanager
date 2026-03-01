@@ -33,10 +33,16 @@ export class MitraWithdrawService {
      */
     async requestWithdraw(userId: string, data: WithdrawRequestDTO): Promise<ServiceResult<{ id: string }>> {
         try {
-            const minWithdraw = await this.getMinWithdraw()
+            const mitra = await prisma.mitra.findUnique({
+                where: { id: userId },
+                select: { minWithdrawal: true },
+            });
+
+            const defaultMinWithdraw = await this.getMinWithdraw()
+            const minWithdraw = mitra?.minWithdrawal ?? defaultMinWithdraw;
 
             if (data.amount < minWithdraw) {
-                return { success: false, error: `Minimum penarikan adalah Rp ${minWithdraw.toLocaleString('id-ID')}` }
+                return { success: false, error: `Minimum penarikan Anda adalah Rp ${minWithdraw.toLocaleString('id-ID')}` }
             }
 
             // Validate bank info if method is TRANSFER

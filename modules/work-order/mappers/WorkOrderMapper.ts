@@ -37,6 +37,7 @@ export class WorkOrderMapper {
             departmentName: entity.department?.name ?? null,
             siteName: entity.site?.name ?? null,
             assignedToName: entity.assignedTo?.name ?? null,
+            assignedMitraName: entity.assignedMitra?.name ?? null,
         }
     }
 
@@ -83,6 +84,10 @@ export class WorkOrderMapper {
                 id: entity.assignedTo.id,
                 name: entity.assignedTo.name ?? null,
                 email: entity.assignedTo.email,
+            } : null,
+            assignedMitra: entity.assignedMitra ? {
+                id: entity.assignedMitra.id,
+                name: entity.assignedMitra.name,
             } : null,
             createdBy: entity.createdBy ? {
                 id: entity.createdBy.id,

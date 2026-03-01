@@ -27,6 +27,7 @@ export interface WorkOrderListItemDTO {
     departmentName: string | null
     siteName: string | null
     assignedToName: string | null
+    assignedMitraName: string | null
 }
 
 /**
@@ -64,6 +65,10 @@ export interface WorkOrderDetailDTO {
         id: string
         name: string | null
         email: string
+    } | null
+    assignedMitra: {
+        id: string
+        name: string
     } | null
     createdBy: {
         id: string
