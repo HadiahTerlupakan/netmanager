@@ -66,6 +66,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/prisma.radius.config.ts ./prisma.radius.config.ts
+COPY --from=builder /app/prisma.billing.config.ts ./prisma.billing.config.ts
+COPY --from=builder /app/prisma.mitra.config.ts ./prisma.mitra.config.ts
 
 # Copy lib folder (required by server.ts for websocket, etc.)
 COPY --from=builder /app/lib ./lib
