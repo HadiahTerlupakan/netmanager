@@ -131,6 +131,7 @@ exports.Prisma.MitraScalarFieldEnum = {
   mitraType: 'mitraType',
   pushToken: 'pushToken',
   pushTokenUpdatedAt: 'pushTokenUpdatedAt',
+  fcmTokens: 'fcmTokens',
   mitraRateWoPsb: 'mitraRateWoPsb',
   mitraRateWoMaintenance: 'mitraRateWoMaintenance',
   mitraRateCanvasing: 'mitraRateCanvasing',

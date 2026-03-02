@@ -8,27 +8,14 @@ import { HiOutlineReceiptRefund, HiOutlineCheckCircle } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
 
+import { useRealtimePaymentApprovals } from '@/lib/websocket/hooks/useRealtimePaymentApprovals'
+import { useFCM } from '@/hooks/useFCM'
+
 const LAST_READ_KEY = 'payment-approval-last-read'
 
-interface PendingPayment {
-    id: string
-    amount: number
-    method: string
-    status: string
-    receiptUrl: string
-    createdAt: string
-    customerName: string
-    invoice: {
-        id: string
-        invoiceNumber: string
-        customerId: string
-        totalAmount: number
-    } | null
-}
-
 export function PaymentApprovalBell() {
-    const [payments, setPayments] = useState<PendingPayment[]>([])
-    const [loading, setLoading] = useState(true)
+    useFCM() // Setup FCM Token & Foreground UI Toast listener
+    const { payments, loading, isConnected, refresh } = useRealtimePaymentApprovals()
     const [isOpen, setIsOpen] = useState(false)
     const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -38,6 +25,7 @@ export function PaymentApprovalBell() {
     useEffect(() => {
         const stored = localStorage.getItem(LAST_READ_KEY)
         if (stored) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLastReadTimestamp(Number(stored))
         }
     }, [])
@@ -60,26 +48,12 @@ export function PaymentApprovalBell() {
     const closeDropdown = useCallback(() => setIsOpen(false), [])
     useClickOutside(dropdownRef, closeDropdown)
 
-    const fetchPendingPayments = async () => {
-        try {
-            const res = await fetch('/api/admin/payments/pending-manual')
-            const json = await res.json()
-            if (json.success) {
-                setPayments(json.data)
-            }
-        } catch (error) {
-            console.error('Failed to fetch pending payments:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
+    // Refresh when dropdown opens
     useEffect(() => {
-        fetchPendingPayments()
-        // Poll every 1 minute
-        const interval = setInterval(fetchPendingPayments, 60000)
-        return () => clearInterval(interval)
-    }, [])
+        if (isOpen) {
+            refresh()
+        }
+    }, [isOpen, refresh])
 
     useEffect(() => {
         if (payments.length > 0) {
@@ -122,6 +96,10 @@ export function PaymentApprovalBell() {
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
+                {/* WebSocket connection indicator */}
+                {isConnected && (
+                    <span className="absolute bottom-1 right-1 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
+                )}
             </Button>
 
             {/* Dropdown */}
@@ -131,6 +109,11 @@ export function PaymentApprovalBell() {
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Persetujuan Pembayaran</h3>
+                            {isConnected && (
+                                <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                                    Live
+                                </span>
+                            )}
                         </div>
                         {unreadCount > 0 && (
                             <button
@@ -162,8 +145,8 @@ export function PaymentApprovalBell() {
                                         <div
                                             key={payment.id}
                                             className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${isUnread
-                                                    ? 'border-l-orange-500 bg-orange-50/30 dark:bg-orange-900/10'
-                                                    : 'border-l-gray-200 dark:border-l-gray-700 bg-white dark:bg-gray-900'
+                                                ? 'border-l-orange-500 bg-orange-50/30 dark:bg-orange-900/10'
+                                                : 'border-l-gray-200 dark:border-l-gray-700 bg-white dark:bg-gray-900'
                                                 }`}
                                         >
                                             <div className="flex gap-3">

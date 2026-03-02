@@ -4,6 +4,8 @@ import { prismaBilling } from '@/lib/prisma-billing'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { analyzeReceiptWithOCR } from '@/lib/services/receipt-ocr'
+import { emitSocketEvent } from '@/lib/websocket/emit'
+import { SOCKET_EVENTS } from '@/lib/websocket/types'
 
 export async function POST(request: NextRequest) {
     try {
@@ -93,6 +95,23 @@ export async function POST(request: NextRequest) {
                     notes: aiNotes.trim()
                 }
             })
+
+            // Notifikasi realtime WebSocket ke Admin
+            await emitSocketEvent('admin:payments', SOCKET_EVENTS.PAYMENT_PENDING_NEW, {
+                id: updatedPayment.id,
+                amount: expectedAmount,
+                pelangganId: session.id,
+                message: 'Struk pembayaran baru diunggah'
+            })
+
+            // Push Notification FCM ke Admin
+            try {
+                const { getAdminTokens, sendFCMNotification } = await import('@/lib/firebase/messaging')
+                const tokens = await getAdminTokens();
+                await sendFCMNotification(tokens, 'Persetujuan Pembayaran', 'Struk pembayaran baru diunggah pelanggan', { url: '/admin/payments/approval' })
+            } catch (e) {
+                console.error("[FCM] Push failed", e)
+            }
 
             return apiSuccess({
                 receiptUrl: updatedPayment.receiptUrl

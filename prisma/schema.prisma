@@ -878,6 +878,7 @@ model User {
   flexibleTargetHour                         Int?
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
+  fcmTokens                                  String[]                  @default([])
   tokenVersion                               Int                       @default(0)
   lastVersionCode                            Int?
   lastVersionName                            String?

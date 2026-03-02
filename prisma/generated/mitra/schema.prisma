@@ -24,6 +24,7 @@ model Mitra {
 
   pushToken          String?
   pushTokenUpdatedAt DateTime?
+  fcmTokens          String[]  @default([])
 
   // Mitra configuration fields
   mitraRateWoPsb         Float? // Rate komisi per WO Instalasi/PSB

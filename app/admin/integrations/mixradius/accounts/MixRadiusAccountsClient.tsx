@@ -61,7 +61,7 @@ export default function MixRadiusAccountsClient() {
       const rawConfigs = Array.isArray(data) ? data : (data.data || [])
 
       // Map API fields (apiUrl) to UI fields (baseUrl)
-      const mapped = rawConfigs.map((c: any) => ({
+      const mapped = rawConfigs.map((c: Partial<MixRadiusConfig> & { apiUrl?: string }) => ({
         ...c,
         baseUrl: c.baseUrl || c.apiUrl || '',
         name: c.name || 'Default Account'

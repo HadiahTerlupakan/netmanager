@@ -1491,6 +1491,7 @@ export namespace Prisma {
     mitraType: number
     pushToken: number
     pushTokenUpdatedAt: number
+    fcmTokens: number
     mitraRateWoPsb: number
     mitraRateWoMaintenance: number
     mitraRateCanvasing: number
@@ -1638,6 +1639,7 @@ export namespace Prisma {
     mitraType?: true
     pushToken?: true
     pushTokenUpdatedAt?: true
+    fcmTokens?: true
     mitraRateWoPsb?: true
     mitraRateWoMaintenance?: true
     mitraRateCanvasing?: true
@@ -1764,6 +1766,7 @@ export namespace Prisma {
     mitraType: $Enums.MitraType
     pushToken: string | null
     pushTokenUpdatedAt: Date | null
+    fcmTokens: string[]
     mitraRateWoPsb: number | null
     mitraRateWoMaintenance: number | null
     mitraRateCanvasing: number | null
@@ -1822,6 +1825,7 @@ export namespace Prisma {
     mitraType?: boolean
     pushToken?: boolean
     pushTokenUpdatedAt?: boolean
+    fcmTokens?: boolean
     mitraRateWoPsb?: boolean
     mitraRateWoMaintenance?: boolean
     mitraRateCanvasing?: boolean
@@ -1865,6 +1869,7 @@ export namespace Prisma {
     mitraType?: boolean
     pushToken?: boolean
     pushTokenUpdatedAt?: boolean
+    fcmTokens?: boolean
     mitraRateWoPsb?: boolean
     mitraRateWoMaintenance?: boolean
     mitraRateCanvasing?: boolean
@@ -1904,6 +1909,7 @@ export namespace Prisma {
     mitraType?: boolean
     pushToken?: boolean
     pushTokenUpdatedAt?: boolean
+    fcmTokens?: boolean
     mitraRateWoPsb?: boolean
     mitraRateWoMaintenance?: boolean
     mitraRateCanvasing?: boolean
@@ -1943,6 +1949,7 @@ export namespace Prisma {
     mitraType?: boolean
     pushToken?: boolean
     pushTokenUpdatedAt?: boolean
+    fcmTokens?: boolean
     mitraRateWoPsb?: boolean
     mitraRateWoMaintenance?: boolean
     mitraRateCanvasing?: boolean
@@ -1971,7 +1978,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type MitraOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "passwordHash" | "phone" | "isActive" | "siteId" | "mitraType" | "pushToken" | "pushTokenUpdatedAt" | "mitraRateWoPsb" | "mitraRateWoMaintenance" | "mitraRateCanvasing" | "bankName" | "bankAccountNo" | "bankAccountName" | "targetHarian" | "minWithdrawal" | "nik" | "tempatLahir" | "tanggalLahir" | "alamat" | "latitudeRumah" | "longitudeRumah" | "fotoDiri" | "fotoKtp" | "fotoSim" | "fotoKk" | "requiresFaceVerification" | "lastFaceVerification" | "garansiHari" | "slaGaransiJam" | "penaltyPsb" | "penaltyMaintenance" | "createdAt" | "updatedAt", ExtArgs["result"]["mitra"]>
+  export type MitraOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "passwordHash" | "phone" | "isActive" | "siteId" | "mitraType" | "pushToken" | "pushTokenUpdatedAt" | "fcmTokens" | "mitraRateWoPsb" | "mitraRateWoMaintenance" | "mitraRateCanvasing" | "bankName" | "bankAccountNo" | "bankAccountName" | "targetHarian" | "minWithdrawal" | "nik" | "tempatLahir" | "tanggalLahir" | "alamat" | "latitudeRumah" | "longitudeRumah" | "fotoDiri" | "fotoKtp" | "fotoSim" | "fotoKk" | "requiresFaceVerification" | "lastFaceVerification" | "garansiHari" | "slaGaransiJam" | "penaltyPsb" | "penaltyMaintenance" | "createdAt" | "updatedAt", ExtArgs["result"]["mitra"]>
   export type MitraInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     mitraWallet?: boolean | Mitra$mitraWalletArgs<ExtArgs>
     withdrawalsRequested?: boolean | Mitra$withdrawalsRequestedArgs<ExtArgs>
@@ -1999,6 +2006,7 @@ export namespace Prisma {
       mitraType: $Enums.MitraType
       pushToken: string | null
       pushTokenUpdatedAt: Date | null
+      fcmTokens: string[]
       mitraRateWoPsb: number | null
       mitraRateWoMaintenance: number | null
       mitraRateCanvasing: number | null
@@ -2461,6 +2469,7 @@ export namespace Prisma {
     readonly mitraType: FieldRef<"Mitra", 'MitraType'>
     readonly pushToken: FieldRef<"Mitra", 'String'>
     readonly pushTokenUpdatedAt: FieldRef<"Mitra", 'DateTime'>
+    readonly fcmTokens: FieldRef<"Mitra", 'String[]'>
     readonly mitraRateWoPsb: FieldRef<"Mitra", 'Float'>
     readonly mitraRateWoMaintenance: FieldRef<"Mitra", 'Float'>
     readonly mitraRateCanvasing: FieldRef<"Mitra", 'Float'>
@@ -7684,6 +7693,7 @@ export namespace Prisma {
     mitraType: 'mitraType',
     pushToken: 'pushToken',
     pushTokenUpdatedAt: 'pushTokenUpdatedAt',
+    fcmTokens: 'fcmTokens',
     mitraRateWoPsb: 'mitraRateWoPsb',
     mitraRateWoMaintenance: 'mitraRateWoMaintenance',
     mitraRateCanvasing: 'mitraRateCanvasing',
@@ -7942,6 +7952,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFilter<"Mitra"> | $Enums.MitraType
     pushToken?: StringNullableFilter<"Mitra"> | string | null
     pushTokenUpdatedAt?: DateTimeNullableFilter<"Mitra"> | Date | string | null
+    fcmTokens?: StringNullableListFilter<"Mitra">
     mitraRateWoPsb?: FloatNullableFilter<"Mitra"> | number | null
     mitraRateWoMaintenance?: FloatNullableFilter<"Mitra"> | number | null
     mitraRateCanvasing?: FloatNullableFilter<"Mitra"> | number | null
@@ -7984,6 +7995,7 @@ export namespace Prisma {
     mitraType?: SortOrder
     pushToken?: SortOrderInput | SortOrder
     pushTokenUpdatedAt?: SortOrderInput | SortOrder
+    fcmTokens?: SortOrder
     mitraRateWoPsb?: SortOrderInput | SortOrder
     mitraRateWoMaintenance?: SortOrderInput | SortOrder
     mitraRateCanvasing?: SortOrderInput | SortOrder
@@ -8030,6 +8042,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFilter<"Mitra"> | $Enums.MitraType
     pushToken?: StringNullableFilter<"Mitra"> | string | null
     pushTokenUpdatedAt?: DateTimeNullableFilter<"Mitra"> | Date | string | null
+    fcmTokens?: StringNullableListFilter<"Mitra">
     mitraRateWoPsb?: FloatNullableFilter<"Mitra"> | number | null
     mitraRateWoMaintenance?: FloatNullableFilter<"Mitra"> | number | null
     mitraRateCanvasing?: FloatNullableFilter<"Mitra"> | number | null
@@ -8071,6 +8084,7 @@ export namespace Prisma {
     mitraType?: SortOrder
     pushToken?: SortOrderInput | SortOrder
     pushTokenUpdatedAt?: SortOrderInput | SortOrder
+    fcmTokens?: SortOrder
     mitraRateWoPsb?: SortOrderInput | SortOrder
     mitraRateWoMaintenance?: SortOrderInput | SortOrder
     mitraRateCanvasing?: SortOrderInput | SortOrder
@@ -8118,6 +8132,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeWithAggregatesFilter<"Mitra"> | $Enums.MitraType
     pushToken?: StringNullableWithAggregatesFilter<"Mitra"> | string | null
     pushTokenUpdatedAt?: DateTimeNullableWithAggregatesFilter<"Mitra"> | Date | string | null
+    fcmTokens?: StringNullableListFilter<"Mitra">
     mitraRateWoPsb?: FloatNullableWithAggregatesFilter<"Mitra"> | number | null
     mitraRateWoMaintenance?: FloatNullableWithAggregatesFilter<"Mitra"> | number | null
     mitraRateCanvasing?: FloatNullableWithAggregatesFilter<"Mitra"> | number | null
@@ -8484,6 +8499,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -8526,6 +8542,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -8568,6 +8585,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -8610,6 +8628,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -8652,6 +8671,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -8691,6 +8711,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -8730,6 +8751,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -9164,6 +9186,14 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
   }
 
+  export type StringNullableListFilter<$PrismaModel = never> = {
+    equals?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    has?: string | StringFieldRefInput<$PrismaModel> | null
+    hasEvery?: string[] | ListStringFieldRefInput<$PrismaModel>
+    hasSome?: string[] | ListStringFieldRefInput<$PrismaModel>
+    isEmpty?: boolean
+  }
+
   export type FloatNullableFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null
     in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
@@ -9238,6 +9268,7 @@ export namespace Prisma {
     mitraType?: SortOrder
     pushToken?: SortOrder
     pushTokenUpdatedAt?: SortOrder
+    fcmTokens?: SortOrder
     mitraRateWoPsb?: SortOrder
     mitraRateWoMaintenance?: SortOrder
     mitraRateCanvasing?: SortOrder
@@ -9772,6 +9803,10 @@ export namespace Prisma {
     longitude?: SortOrder
   }
 
+  export type MitraCreatefcmTokensInput = {
+    set: string[]
+  }
+
   export type MitraWalletCreateNestedOneWithoutMitraInput = {
     create?: XOR<MitraWalletCreateWithoutMitraInput, MitraWalletUncheckedCreateWithoutMitraInput>
     connectOrCreate?: MitraWalletCreateOrConnectWithoutMitraInput
@@ -9830,6 +9865,11 @@ export namespace Prisma {
 
   export type NullableDateTimeFieldUpdateOperationsInput = {
     set?: Date | string | null
+  }
+
+  export type MitraUpdatefcmTokensInput = {
+    set?: string[]
+    push?: string | string[]
   }
 
   export type NullableFloatFieldUpdateOperationsInput = {
@@ -10602,6 +10642,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -10643,6 +10684,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -10774,6 +10816,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -10815,6 +10858,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -10966,6 +11010,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -11007,6 +11052,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -11093,6 +11139,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -11134,6 +11181,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -11210,6 +11258,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -11251,6 +11300,7 @@ export namespace Prisma {
     mitraType?: $Enums.MitraType
     pushToken?: string | null
     pushTokenUpdatedAt?: Date | string | null
+    fcmTokens?: MitraCreatefcmTokensInput | string[]
     mitraRateWoPsb?: number | null
     mitraRateWoMaintenance?: number | null
     mitraRateCanvasing?: number | null
@@ -11308,6 +11358,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null
@@ -11349,6 +11400,7 @@ export namespace Prisma {
     mitraType?: EnumMitraTypeFieldUpdateOperationsInput | $Enums.MitraType
     pushToken?: NullableStringFieldUpdateOperationsInput | string | null
     pushTokenUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fcmTokens?: MitraUpdatefcmTokensInput | string[]
     mitraRateWoPsb?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateWoMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     mitraRateCanvasing?: NullableFloatFieldUpdateOperationsInput | number | null

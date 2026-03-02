@@ -7,6 +7,9 @@ export const SOCKET_EVENTS = {
     NOTIFICATION_READ: 'notification:read',
     NOTIFICATION_COUNT: 'notification:count',
 
+    // Payments
+    PAYMENT_PENDING_NEW: 'payment:pending_new',
+
     // Announcements (public broadcast)
     ANNOUNCEMENT_NEW: 'announcement:new',
 
