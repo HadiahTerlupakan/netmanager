@@ -27,6 +27,10 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     body.apiUrl = body.baseUrl
   }
 
+  if (body.baseUrl) {
+    delete body.baseUrl
+  }
+
   const updatedConfig = await mixRadiusConfigRepo.updateConfig(id, body)
 
   await logger.logActivity({
