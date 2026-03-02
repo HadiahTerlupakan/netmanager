@@ -31,6 +31,15 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     delete body.baseUrl
   }
 
+  // Map isActive (UI) to isDefault (DB)
+  if (body.isActive !== undefined && body.isDefault === undefined) {
+    body.isDefault = body.isActive
+  }
+
+  if (body.isActive !== undefined) {
+    delete body.isActive
+  }
+
   const updatedConfig = await mixRadiusConfigRepo.updateConfig(id, body)
 
   await logger.logActivity({

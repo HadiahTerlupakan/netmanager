@@ -41,7 +41,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   // Support both apiUrl (DB) and baseUrl (UI)
   const apiUrl = body.apiUrl || body.baseUrl
   const name = body.name || 'Default'
-  const { username, password, isDefault } = body
+  const { username, password } = body
+  const isDefault = body.isDefault !== undefined ? body.isDefault : (body.isActive !== undefined ? body.isActive : false)
   // Support optional apiKey from UI
   const apiKey = body.apiKey || 'default-api-key'
 
