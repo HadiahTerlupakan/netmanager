@@ -37,6 +37,10 @@ interface User {
     absentDeductionRate: number | null
     departments?: { name: string } | null
     role?: { name: string } | null
+    joinDate: string | null
+    ptkpStatus: string | null
+    bpjsKesehatan: boolean
+    bpjsKetenagakerjaan: boolean
 }
 
 interface SalaryComponent {
@@ -81,6 +85,10 @@ export default function SalaryUsersClient() {
     const [woIncentiveRate, setWoIncentiveRate] = useState('')
     const [lateDeductionRate, setLateDeductionRate] = useState('')
     const [absentDeductionRate, setAbsentDeductionRate] = useState('')
+    const [joinDate, setJoinDate] = useState('')
+    const [ptkpStatus, setPtkpStatus] = useState('TK_0')
+    const [bpjsKesehatan, setBpjsKesehatan] = useState(false)
+    const [bpjsKetenagakerjaan, setBpjsKetenagakerjaan] = useState(false)
     const [pendingComponents, setPendingComponents] = useState<{ name: string, type: 'EARNING' | 'DEDUCTION', rateType: 'FIXED' | 'PERCENTAGE', amount: number, notes: string }[]>([])
 
     // Form states untuk komponen dicover oleh newComponent* states di atas
@@ -154,6 +162,10 @@ export default function SalaryUsersClient() {
                     payDay: payDay,
                     lateDeductionRate: lateDeductionRate ? parseFloat(lateDeductionRate) : null,
                     absentDeductionRate: absentDeductionRate ? parseFloat(absentDeductionRate) : null,
+                    joinDate: joinDate || null,
+                    ptkpStatus: ptkpStatus || null,
+                    bpjsKesehatan,
+                    bpjsKetenagakerjaan,
                 }),
             })
             const data = await res.json()
@@ -224,6 +236,10 @@ export default function SalaryUsersClient() {
                     payDay: editForm.payDay,
                     lateDeductionRate: editForm.lateDeductionRate ? parseFloat(editForm.lateDeductionRate) : null,
                     absentDeductionRate: editForm.absentDeductionRate ? parseFloat(editForm.absentDeductionRate) : null,
+                    joinDate: editForm.joinDate || null,
+                    ptkpStatus: editForm.ptkpStatus || null,
+                    bpjsKesehatan: editForm.bpjsKesehatan,
+                    bpjsKetenagakerjaan: editForm.bpjsKetenagakerjaan,
                 }),
             })
             const data = await res.json()
@@ -260,6 +276,10 @@ export default function SalaryUsersClient() {
         setNewComponentType('EARNING')
         setNewComponentRateType('FIXED')
         setNewComponentAmount('')
+        setJoinDate('')
+        setPtkpStatus('TK_0')
+        setBpjsKesehatan(false)
+        setBpjsKetenagakerjaan(false)
     }
 
     const handleDeleteUser = async (userId: string) => {
@@ -286,7 +306,11 @@ export default function SalaryUsersClient() {
         lateDeductionRate: '',
         absentDeductionRate: '',
         payPeriodDay: 25,
-        payDay: 1
+        payDay: 1,
+        joinDate: '',
+        ptkpStatus: 'TK_0',
+        bpjsKesehatan: false,
+        bpjsKetenagakerjaan: false
     })
 
     const openEditModal = (user: User) => {
@@ -304,7 +328,11 @@ export default function SalaryUsersClient() {
             lateDeductionRate: user.lateDeductionRate?.toString() || '',
             absentDeductionRate: user.absentDeductionRate?.toString() || '',
             payPeriodDay: user.payPeriodDay || 25,
-            payDay: user.payDay || 1
+            payDay: user.payDay || 1,
+            joinDate: user.joinDate ? new Date(user.joinDate).toISOString().split('T')[0] : '',
+            ptkpStatus: user.ptkpStatus || 'TK_0',
+            bpjsKesehatan: user.bpjsKesehatan || false,
+            bpjsKetenagakerjaan: user.bpjsKetenagakerjaan || false
         })
         setShowEditModal(true)
         fetchUserComponents(user.id)
@@ -619,6 +647,60 @@ export default function SalaryUsersClient() {
                                 <option value="MITRA_SALES">Mitra Sales</option>
                             </select>
                         </div>
+                    </div>
+
+                    {/* Prorate & Tax Config */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tanggal Masuk (Join Date) *</label>
+                            <input
+                                type="date"
+                                value={joinDate}
+                                onChange={(e) => setJoinDate(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+                                required
+                            />
+                            <p className="text-[10px] text-gray-500 mt-1">Digunakan untuk hitungan gaji prorat bulan pertama.</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Status PTKP (Pajak)</label>
+                            <select
+                                value={ptkpStatus}
+                                onChange={(e) => setPtkpStatus(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+                            >
+                                <option value="TK_0">TK/0 (Lajang)</option>
+                                <option value="TK_1">TK/1</option>
+                                <option value="TK_2">TK/2</option>
+                                <option value="TK_3">TK/3</option>
+                                <option value="K_0">K/0 (Menikah)</option>
+                                <option value="K_1">K/1</option>
+                                <option value="K_2">K/2</option>
+                                <option value="K_3">K/3</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* BPJS Config */}
+                    <div className="flex gap-6 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-800/30">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={bpjsKesehatan}
+                                onChange={(e) => setBpjsKesehatan(e.target.checked)}
+                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Potong BPJS Kesehatan (1%)</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={bpjsKetenagakerjaan}
+                                onChange={(e) => setBpjsKetenagakerjaan(e.target.checked)}
+                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Potong BPJS TK (3%)</span>
+                        </label>
                     </div>
 
                     {/* Gaji Pokok */}
@@ -988,6 +1070,59 @@ export default function SalaryUsersClient() {
                                     className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                                 />
                             </div>
+                        </div>
+
+                        {/* Prorate & Tax Config Edit */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tanggal Masuk (Join Date) *</label>
+                                <input
+                                    type="date"
+                                    value={editForm.joinDate}
+                                    onChange={(e) => setEditForm({ ...editForm, joinDate: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Status PTKP (Pajak)</label>
+                                <select
+                                    value={editForm.ptkpStatus}
+                                    onChange={(e) => setEditForm({ ...editForm, ptkpStatus: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+                                >
+                                    <option value="TK_0">TK/0 (Lajang)</option>
+                                    <option value="TK_1">TK/1</option>
+                                    <option value="TK_2">TK/2</option>
+                                    <option value="TK_3">TK/3</option>
+                                    <option value="K_0">K/0 (Menikah)</option>
+                                    <option value="K_1">K/1</option>
+                                    <option value="K_2">K/2</option>
+                                    <option value="K_3">K/3</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* BPJS Config Edit */}
+                        <div className="flex gap-6 mt-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-800/30">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={editForm.bpjsKesehatan}
+                                    onChange={(e) => setEditForm({ ...editForm, bpjsKesehatan: e.target.checked })}
+                                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Potong BPJS Kesehatan (1%)</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={editForm.bpjsKetenagakerjaan}
+                                    onChange={(e) => setEditForm({ ...editForm, bpjsKetenagakerjaan: e.target.checked })}
+                                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Potong BPJS TK (3%)</span>
+                            </label>
                         </div>
 
                         {/* Overtime Rates */}

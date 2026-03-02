@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { HiOutlineHome, HiOutlineBriefcase, HiOutlineUser } from 'react-icons/hi2'
+import { HiOutlineHome, HiOutlineBriefcase, HiOutlineUser, HiOutlineCurrencyDollar } from 'react-icons/hi2'
 
 export default function InvestorBottomNav() {
     const pathname = usePathname()
@@ -10,6 +10,7 @@ export default function InvestorBottomNav() {
     const navItems = [
         { name: 'Dashboard', href: '/investor', icon: HiOutlineHome },
         { name: 'Proyek', href: '/investor/projects', icon: HiOutlineBriefcase },
+        { name: 'Payout', href: '/investor/payouts', icon: HiOutlineCurrencyDollar },
         { name: 'Profil', href: '/investor/profile', icon: HiOutlineUser },
     ]
 

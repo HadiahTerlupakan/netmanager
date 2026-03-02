@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { z } from 'zod'
-import { EmployeeType, RateType } from '@prisma/client'
+import { EmployeeType, RateType, PtkpStatus } from '@prisma/client'
 
 const updateSalaryConfigSchema = z.object({
     basicSalary: z.union([z.number(), z.string()]).optional().nullable(),
@@ -16,6 +16,10 @@ const updateSalaryConfigSchema = z.object({
     woIncentiveRate: z.union([z.number(), z.string()]).optional().nullable(),
     lateDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
     absentDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
+    joinDate: z.string().optional().nullable(),
+    ptkpStatus: z.nativeEnum(PtkpStatus).optional().nullable(),
+    bpjsKesehatan: z.boolean().optional(),
+    bpjsKetenagakerjaan: z.boolean().optional(),
 })
 
 // GET - Get user salary details
@@ -34,7 +38,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             email: true,
             image: true,
             employeeType: true,
-            
+
             // Salary Config
             basicSalary: true,
             overtimeRateNormal: true,
@@ -46,7 +50,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             woIncentiveRate: true,
             lateDeductionRate: true,
             absentDeductionRate: true,
-            
+            joinDate: true,
+            ptkpStatus: true,
+            bpjsKesehatan: true,
+            bpjsKetenagakerjaan: true,
+
             // Relations
             departments: {
                 select: { name: true }
@@ -69,9 +77,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 })
 
 // PUT - Update user salary config
-export const PUT = createHandler({ 
-    auth: true, 
-    schema: updateSalaryConfigSchema 
+export const PUT = createHandler({
+    auth: true,
+    schema: updateSalaryConfigSchema
 }, async (req, ctx) => {
     if (!await hasPermission('salary:update')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah konfigurasi gaji')
@@ -86,7 +94,11 @@ export const PUT = createHandler({
         overtimeRateNational, overtimeCalcTypeNational,
         woIncentiveRate,
         lateDeductionRate,
-        absentDeductionRate
+        absentDeductionRate,
+        joinDate,
+        ptkpStatus,
+        bpjsKesehatan,
+        bpjsKetenagakerjaan
     } = ctx.validated
 
     await prisma.user.update({
@@ -103,6 +115,10 @@ export const PUT = createHandler({
             ...(woIncentiveRate !== undefined ? { woIncentiveRate: woIncentiveRate ? parseFloat(String(woIncentiveRate)) : null } : {}),
             ...(lateDeductionRate !== undefined ? { lateDeductionRate: lateDeductionRate ? parseFloat(String(lateDeductionRate)) : null } : {}),
             ...(absentDeductionRate !== undefined ? { absentDeductionRate: absentDeductionRate ? parseFloat(String(absentDeductionRate)) : null } : {}),
+            ...(joinDate !== undefined ? { joinDate: joinDate ? new Date(joinDate) : null } : {}),
+            ...(ptkpStatus !== undefined ? { ptkpStatus } : {}),
+            ...(bpjsKesehatan !== undefined ? { bpjsKesehatan } : {}),
+            ...(bpjsKetenagakerjaan !== undefined ? { bpjsKetenagakerjaan } : {}),
         }
     })
 

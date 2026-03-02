@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { z } from 'zod'
-import { EmployeeType, RateType } from '@prisma/client'
+import { EmployeeType, RateType, PtkpStatus } from '@prisma/client'
 
 const addSalaryUserSchema = z.object({
     userId: z.string().uuid('User ID wajib diisi'),
@@ -17,6 +17,10 @@ const addSalaryUserSchema = z.object({
     woIncentiveRate: z.number().min(0).optional(),
     lateDeductionRate: z.number().min(0).optional(),
     absentDeductionRate: z.number().min(0).optional(),
+    joinDate: z.string().optional().nullable(),
+    ptkpStatus: z.nativeEnum(PtkpStatus).optional().nullable(),
+    bpjsKesehatan: z.boolean().optional(),
+    bpjsKetenagakerjaan: z.boolean().optional(),
 })
 
 // GET - List users with salary setup
@@ -46,6 +50,10 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
             woIncentiveRate: true,
             lateDeductionRate: true,
             absentDeductionRate: true,
+            joinDate: true,
+            ptkpStatus: true,
+            bpjsKesehatan: true,
+            bpjsKetenagakerjaan: true,
             departments: {
                 select: { name: true }
             },
@@ -75,9 +83,9 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
 })
 
 // POST - Add user to salary list (set basicSalary and config)
-export const POST = createHandler({ 
-    auth: true, 
-    schema: addSalaryUserSchema 
+export const POST = createHandler({
+    auth: true,
+    schema: addSalaryUserSchema
 }, async (req, ctx) => {
     if (!await hasPermission('salary:create')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah user ke penggajian')
@@ -96,6 +104,10 @@ export const POST = createHandler({
         woIncentiveRate,
         lateDeductionRate,
         absentDeductionRate,
+        joinDate,
+        ptkpStatus,
+        bpjsKesehatan,
+        bpjsKetenagakerjaan
     } = ctx.validated
 
     await prisma.user.update({
@@ -112,7 +124,11 @@ export const POST = createHandler({
             ...(overtimeRateNational !== undefined ? { overtimeRateNational } : {}),
             ...(woIncentiveRate !== undefined ? { woIncentiveRate } : {}),
             ...(lateDeductionRate !== undefined ? { lateDeductionRate } : {}),
-            ...(absentDeductionRate !== undefined ? { absentDeductionRate } : {})
+            ...(absentDeductionRate !== undefined ? { absentDeductionRate } : {}),
+            ...(joinDate !== undefined ? { joinDate: joinDate ? new Date(joinDate) : null } : {}),
+            ...(ptkpStatus !== undefined ? { ptkpStatus } : {}),
+            ...(bpjsKesehatan !== undefined ? { bpjsKesehatan } : {}),
+            ...(bpjsKetenagakerjaan !== undefined ? { bpjsKetenagakerjaan } : {}),
         }
     })
 

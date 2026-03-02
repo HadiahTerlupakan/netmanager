@@ -16,7 +16,22 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   const { searchParams } = req.nextUrl;
   const groupId = searchParams.get('groupId') || undefined;
-  
-  const stats = await syncService.getNPLStatistics(groupId);
-  return apiSuccess(stats);
+
+  try {
+    const stats = await syncService.getNPLStatistics(groupId);
+    return apiSuccess(stats);
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'MixRadiusConfigError') {
+      return apiSuccess({
+        error: error.message,
+        isConfigError: true,
+        under30: { count: 0, sum: 0 },
+        between30And60: { count: 0, sum: 0 },
+        between60And90: { count: 0, sum: 0 },
+        over90: { count: 0, sum: 0 },
+        totalCustomers: 0
+      })
+    }
+    throw error
+  }
 })

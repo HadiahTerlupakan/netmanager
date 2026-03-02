@@ -7,7 +7,8 @@ import { LeaveBalanceRepository } from '../../attendance/repositories/LeaveBalan
 import {
     RateType,
     Prisma,
-    EmployeeType
+    EmployeeType,
+    PtkpStatus
 } from '@prisma/client'
 
 interface SalaryCalculationResult {
@@ -16,7 +17,7 @@ interface SalaryCalculationResult {
     year: number
     basicSalary: number
     earnings: Array<{ name: string; amount: number; quantity?: number; rate?: number; notes?: string }>
-    deductions: Array<{ name: string; amount: number; quantity?: number; rate?: number; notes?: string }>
+    deductions: Array<{ name: string; amount: number; quantity?: number; rate?: number; notes?: string; loanId?: string }>
     totalEarnings: number
     totalDeductions: number
     netSalary: number
@@ -63,6 +64,10 @@ export type UserCalculationData = {
     overtimeCalcTypeHoliday: RateType | null
     overtimeCalcTypeNational: RateType | null
     workDays: string | null
+    joinDate: Date | null
+    ptkpStatus: PtkpStatus | null
+    bpjsKesehatan: boolean
+    bpjsKetenagakerjaan: boolean
 }
 
 export class SalaryCalculatorService {
@@ -107,7 +112,11 @@ export class SalaryCalculatorService {
                 overtimeCalcTypeNormal: true,
                 overtimeCalcTypeHoliday: true,
                 overtimeCalcTypeNational: true,
-                workDays: true
+                workDays: true,
+                joinDate: true,
+                ptkpStatus: true,
+                bpjsKesehatan: true,
+                bpjsKetenagakerjaan: true
             }
         })) as UserCalculationData | null
 
@@ -135,10 +144,24 @@ export class SalaryCalculatorService {
         const earnings: SalaryCalculationResult['earnings'] = []
         const deductions: SalaryCalculationResult['deductions'] = []
 
+        // Prorate Calculation
+        let effectiveBasicSalary = basicSalary
+        let isProrated = false
+        if (user.joinDate && user.joinDate > startDate && user.joinDate <= endDate) {
+            // User joined in the middle of current period
+            const workDaysSinceJoin = this.calculateWorkDays(user.joinDate, endDate, user.workDays || 'Senin,Selasa,Rabu,Kamis,Jumat,Sabtu')
+            effectiveBasicSalary = Math.round((basicSalary / attendanceStats.workDays) * workDaysSinceJoin)
+            isProrated = true
+        } else if (user.joinDate && user.joinDate > endDate) {
+            effectiveBasicSalary = 0
+            isProrated = true
+        }
+
         // 1. Basic Salary - always included
         earnings.push({
             name: 'Gaji Pokok',
-            amount: basicSalary
+            amount: effectiveBasicSalary,
+            notes: isProrated && effectiveBasicSalary > 0 ? 'Prorate (karyawan baru)' : undefined
         })
 
         // 2. User-assigned components (tunjangan tetap)
@@ -147,8 +170,14 @@ export class SalaryCalculatorService {
             let rate: number | undefined = undefined
 
             if (uc.component.rateType === 'PERCENTAGE') {
-                amount = Math.round((basicSalary * uc.amount) / 100)
+                amount = Math.round((effectiveBasicSalary * uc.amount) / 100)
                 rate = uc.amount // Save the percentage (e.g., 5 or 10) as rate
+            } else if (isProrated && effectiveBasicSalary > 0 && uc.component.type === 'EARNING') {
+                // Prorate fixed allowance
+                const workDaysSinceJoin = this.calculateWorkDays(user.joinDate!, endDate, user.workDays || 'Senin,Selasa,Rabu,Kamis,Jumat,Sabtu')
+                amount = Math.round((uc.amount / attendanceStats.workDays) * workDaysSinceJoin)
+            } else if (isProrated && effectiveBasicSalary === 0) {
+                amount = 0
             }
 
             if (uc.component.type === 'EARNING') {
@@ -223,17 +252,27 @@ export class SalaryCalculatorService {
             })
         }
 
-        // 6. Absent (Alpha) deduction
-        if (attendanceStats.absent > 0) {
-            const effectiveAbsentRate = user.absentDeductionRate || 0
-            const absentDeduction = Math.round(attendanceStats.absent * effectiveAbsentRate)
-            deductions.push({
-                name: 'Potongan Alpha',
-                amount: absentDeduction,
-                quantity: attendanceStats.absent,
-                rate: effectiveAbsentRate,
-                notes: `${attendanceStats.absent} hari alpha`
-            })
+        // 6. Absent (Alpha / Unpaid Leave) deduction
+        if (attendanceStats.absent > 0 || attendanceStats.sick > 0 || attendanceStats.permit > 0) {
+            // Unpaid calculation: if limits exist in HR rules, they would be checked here.
+            // Currently applying user requested formula for Alpha: (Basic Salary / Work Days) * Absent Days
+            const deductionPerDay = Math.round(effectiveBasicSalary / attendanceStats.workDays)
+            let absentDeduction = deductionPerDay * attendanceStats.absent
+
+            // Allow override if custom rate is higher (penalty)
+            if (user.absentDeductionRate && user.absentDeductionRate > deductionPerDay) {
+                absentDeduction = user.absentDeductionRate * attendanceStats.absent
+            }
+
+            if (absentDeduction > 0) {
+                deductions.push({
+                    name: 'Potongan Alpha / Unpaid',
+                    amount: absentDeduction,
+                    quantity: attendanceStats.absent,
+                    rate: Math.max(deductionPerDay, user.absentDeductionRate || 0),
+                    notes: `${attendanceStats.absent} hari absen/unpaid`
+                })
+            }
         }
 
         // 7. Info only: Sick & Permit (Transparent reporting)
@@ -252,6 +291,68 @@ export class SalaryCalculatorService {
                 quantity: attendanceStats.permit,
                 notes: `${attendanceStats.permit} hari (Informasi)`
             })
+        }
+
+        // 8. BPJS Deductions
+        const bpjsBaseSalary = earnings.filter(e => e.name === 'Gaji Pokok' || e.rate !== undefined).reduce((sum, e) => sum + e.amount, 0)
+
+        if (user.bpjsKesehatan) {
+            // BPJS Kesehatan 1% of Gaji Pokok + Tunjangan Tetap (Cap 12,000,000)
+            const baseKes = Math.min(12000000, bpjsBaseSalary)
+            const bpjsKesAmount = Math.round(baseKes * 0.01)
+            deductions.push({
+                name: 'BPJS Kesehatan (1%)',
+                amount: bpjsKesAmount,
+                notes: `Batas max Rp12jt`
+            })
+        }
+
+        if (user.bpjsKetenagakerjaan) {
+            // BPJS JHT 2% + JP 1% (Cap 10,042,300)
+            const bpjsJhtAmount = Math.round(bpjsBaseSalary * 0.02)
+            const baseJp = Math.min(10042300, bpjsBaseSalary)
+            const bpjsJpAmount = Math.round(baseJp * 0.01)
+
+            deductions.push({
+                name: 'BPJS JHT (2%)',
+                amount: bpjsJhtAmount,
+            })
+            deductions.push({
+                name: 'BPJS Pensiun (1%)',
+                amount: bpjsJpAmount,
+                notes: `Batas max Rp10jt`
+            })
+        }
+
+        // 9. Employee Loan Deductions
+        const activeLoans = await prisma.employeeLoan.findMany({
+            where: { userId, status: 'ACTIVE' }
+        })
+
+        for (const loan of activeLoans) {
+            if (loan.remainingAmount > 0) {
+                const deductionAmount = Math.min(loan.installment, loan.remainingAmount)
+
+                deductions.push({
+                    name: 'Cicilan Pinjaman',
+                    amount: deductionAmount,
+                    loanId: loan.id,
+                    notes: `Sisa sebelum dipotong: Rp${loan.remainingAmount.toLocaleString()}`
+                })
+            }
+        }
+
+        // 10. Tax (PPh 21 TER)
+        const grossIncome = earnings.reduce((sum, e) => sum + e.amount, 0)
+        if (user.ptkpStatus && grossIncome > 0) {
+            const pph21Amount = this.calculatePph21Ter(grossIncome, user.ptkpStatus)
+            if (pph21Amount > 0) {
+                deductions.push({
+                    name: 'Pajak PPh 21 (TER)',
+                    amount: pph21Amount,
+                    notes: `Status PTKP: ${user.ptkpStatus.replace('_', '/')}`
+                })
+            }
         }
 
         // Calculate totals
@@ -288,6 +389,28 @@ export class SalaryCalculatorService {
             calculatedAt: new Date()
         })
 
+        // Revert previous loan payments if any before clearing details
+        const existingDetailsWithLoans = await prisma.salaryDetail.findMany({
+            where: { salaryId: salary.id, loanPaymentId: { not: null } },
+            include: { loanPayment: true }
+        })
+
+        for (const detail of existingDetailsWithLoans) {
+            if (detail.loanPayment) {
+                await prisma.$transaction(async (tx) => {
+                    const loan = await tx.employeeLoan.findUnique({ where: { id: detail.loanPayment!.loanId } })
+                    if (loan) {
+                        const newRemaining = loan.remainingAmount + detail.loanPayment!.amount
+                        await tx.employeeLoan.update({
+                            where: { id: loan.id },
+                            data: { remainingAmount: newRemaining, status: 'ACTIVE' }
+                        })
+                    }
+                    await tx.loanPayment.delete({ where: { id: detail.loanPaymentId! } })
+                })
+            }
+        }
+
         // Clear existing details and add new ones
         await this.salaryRepo.clearDetails(salary.id)
 
@@ -305,13 +428,44 @@ export class SalaryCalculatorService {
 
         // Add deductions
         for (const deduction of result.deductions) {
-            await this.salaryRepo.addDetail(salary.id, {
-                name: deduction.name,
-                type: 'DEDUCTION',
-                amount: deduction.amount,
-                quantity: deduction.quantity,
-                rate: deduction.rate,
-                notes: deduction.notes
+            let loanPaymentId: string | undefined = undefined
+
+            if (deduction.loanId) {
+                loanPaymentId = await prisma.$transaction(async (tx) => {
+                    const loan = await tx.employeeLoan.findUnique({ where: { id: deduction.loanId! } })
+                    if (!loan) return undefined
+
+                    const newRemaining = Math.max(0, loan.remainingAmount - deduction.amount)
+                    const newStatus = newRemaining <= 0 ? 'PAID_OFF' : 'ACTIVE'
+
+                    await tx.employeeLoan.update({
+                        where: { id: loan.id },
+                        data: { remainingAmount: newRemaining, status: newStatus }
+                    })
+
+                    const payment = await tx.loanPayment.create({
+                        data: {
+                            loanId: loan.id,
+                            amount: deduction.amount,
+                            notes: `Potongan gaji otomatis bulan ${month}/${year}`
+                        }
+                    })
+                    return payment.id
+                })
+            }
+
+            // Using prisma directly to include loanPaymentId
+            await prisma.salaryDetail.create({
+                data: {
+                    salaryId: salary.id,
+                    name: deduction.name,
+                    type: 'DEDUCTION',
+                    amount: deduction.amount,
+                    quantity: deduction.quantity,
+                    rate: deduction.rate,
+                    notes: deduction.notes,
+                    loanPaymentId: loanPaymentId
+                }
             })
         }
 
@@ -357,7 +511,11 @@ export class SalaryCalculatorService {
                 overtimeCalcTypeNormal: true,
                 overtimeCalcTypeHoliday: true,
                 overtimeCalcTypeNational: true,
-                workDays: true
+                workDays: true,
+                joinDate: true,
+                ptkpStatus: true,
+                bpjsKesehatan: true,
+                bpjsKetenagakerjaan: true
             }
         })
 
@@ -429,7 +587,7 @@ export class SalaryCalculatorService {
             where: { id: userId },
             select: { workDays: true }
         })
-        
+
         const workDays = this.calculateWorkDays(startDate, endDate, user?.workDays || 'Senin,Selasa,Rabu,Kamis,Jumat,Sabtu')
 
         return { present, late, absent, sick, permit, workDays }
@@ -512,10 +670,10 @@ export class SalaryCalculatorService {
             }
         }
 
-        return { 
-            totalMinutes, 
-            normalMinutes, 
-            holidayMinutes, 
+        return {
+            totalMinutes,
+            normalMinutes,
+            holidayMinutes,
             nationalHolidayMinutes,
             normalCount,
             holidayCount,
@@ -575,11 +733,11 @@ export class SalaryCalculatorService {
 
         if (rateType === 'FIXED') {
             // Fixed rate per overtime record (event-based)
-            const amount = 
+            const amount =
                 (stats.normalCount * rateNormal) +
                 (stats.holidayCount * rateHoliday) +
                 (stats.nationalCount * rateNational)
-            
+
             return {
                 amount,
                 hours: totalHours,
@@ -589,7 +747,7 @@ export class SalaryCalculatorService {
             // Percentage of daily salary per hour
             const dailySalary = basicSalary / workDays
             const hourlyRate = (dailySalary * rateNormal) / 100 // rateNormal is percentage
-            
+
             const normalHours = stats.normalMinutes / 60
             const holidayHours = stats.holidayMinutes / 60
             const nationalHours = stats.nationalHolidayMinutes / 60
@@ -598,7 +756,7 @@ export class SalaryCalculatorService {
             const holidayMultiplier = rateHoliday > 0 ? rateHoliday / 100 : 2 // Default 2x if not set
             const nationalMultiplier = rateNational > 0 ? rateNational / 100 : 3 // Default 3x if not set
 
-            const amount = 
+            const amount =
                 (normalHours * hourlyRate) +
                 (holidayHours * hourlyRate * holidayMultiplier) +
                 (nationalHours * hourlyRate * nationalMultiplier)
@@ -607,7 +765,7 @@ export class SalaryCalculatorService {
         } else if (rateType === 'DAILY_SALARY') {
             // 1x daily salary per overtime shift (8h proportional)
             const dailySalary = basicSalary / workDays
-            
+
             const normalShifts = (stats.normalMinutes / 60) / 8
             const holidayShifts = (stats.holidayMinutes / 60) / 8
             const nationalShifts = (stats.nationalHolidayMinutes / 60) / 8
@@ -616,7 +774,7 @@ export class SalaryCalculatorService {
             const holidayMult = rateHoliday > 0 ? rateHoliday / 100 : 1
             const nationalMult = rateNational > 0 ? rateNational / 100 : 1
 
-            const amount = 
+            const amount =
                 (normalShifts * dailySalary) +
                 (holidayShifts * dailySalary * holidayMult) +
                 (nationalShifts * dailySalary * nationalMult)
@@ -632,12 +790,57 @@ export class SalaryCalculatorService {
             const holidayHours = stats.holidayMinutes / 60
             const nationalHours = stats.nationalHolidayMinutes / 60
 
-            const amount = 
+            const amount =
                 (normalHours * rateNormal) +
                 (holidayHours * rateHoliday) +
                 (nationalHours * rateNational)
 
             return { amount, hours: totalHours, rate: rateNormal }
         }
+    }
+
+    /**
+     * Helper to calculate PPh 21 using Tarif Efektif Rata-rata (TER)
+     * Note: Simplified representation of TER 2024 category bounds.
+     */
+    private calculatePph21Ter(grossIncome: number, ptkpStatus: PtkpStatus): number {
+        let rate = 0;
+
+        // Kategori A
+        if (['TK_0', 'TK_1', 'K_0'].includes(ptkpStatus)) {
+            if (grossIncome <= 5400000) rate = 0;
+            else if (grossIncome <= 5650000) rate = 0.0025;
+            else if (grossIncome <= 5950000) rate = 0.005;
+            else if (grossIncome <= 6300000) rate = 0.0075;
+            else if (grossIncome <= 6750000) rate = 0.01;
+            else if (grossIncome <= 7500000) rate = 0.0125;
+            else if (grossIncome <= 8550000) rate = 0.015;
+            else if (grossIncome <= 9650000) rate = 0.0175;
+            else if (grossIncome <= 10050000) rate = 0.02;
+            else if (grossIncome <= 10350000) rate = 0.0225;
+            else if (grossIncome <= 10700000) rate = 0.025;
+            else rate = 0.03;
+        }
+        // Kategori B
+        else if (['TK_2', 'TK_3', 'K_1', 'K_2'].includes(ptkpStatus)) {
+            if (grossIncome <= 6200000) rate = 0;
+            else if (grossIncome <= 6500000) rate = 0.0025;
+            else if (grossIncome <= 6850000) rate = 0.005;
+            else if (grossIncome <= 7300000) rate = 0.0075;
+            else if (grossIncome <= 9200000) rate = 0.015;
+            else if (grossIncome <= 10750000) rate = 0.02;
+            else rate = 0.03;
+        }
+        // Kategori C
+        else if (['K_3'].includes(ptkpStatus)) {
+            if (grossIncome <= 6600000) rate = 0;
+            else if (grossIncome <= 6950000) rate = 0.0025;
+            else if (grossIncome <= 7350000) rate = 0.005;
+            else if (grossIncome <= 7800000) rate = 0.0075;
+            else if (grossIncome <= 8850000) rate = 0.01;
+            else rate = 0.03;
+        }
+
+        return Math.floor(grossIncome * rate);
     }
 }

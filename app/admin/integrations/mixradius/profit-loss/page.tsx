@@ -6,7 +6,8 @@ import {
     HiOutlineArrowTrendingUp,
     HiOutlineArrowTrendingDown,
     HiOutlineCalendar,
-    HiOutlineChartBar
+    HiOutlineChartBar,
+    HiOutlineExclamationTriangle
 } from 'react-icons/hi2'
 import { formatCurrency } from '@/lib/utils'
 import {
@@ -65,6 +66,7 @@ interface ProfitLossData {
 export default function ProfitLossPage() {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<ProfitLossData | null>(null)
+    const [error, setError] = useState<string | null>(null)
 
     // Default: Current Month (Local Time safe)
     const [startDate, setStartDate] = useState(() => {
@@ -90,15 +92,23 @@ export default function ProfitLossPage() {
 
     const fetchData = async () => {
         setLoading(true)
+        setError(null)
         try {
             const params = new URLSearchParams({ startDate, endDate })
             const res = await fetch(`/api/integrations/mixradius/profit-loss?${params}`)
             const json = await res.json()
             if (!json.error) {
                 setData(json)
+            } else {
+                setError(json.error)
+                // If it's a config error, we still want to show the empty state with 0s
+                if (json.isConfigError) {
+                    setData(json)
+                }
             }
         } catch (error) {
             console.error('Failed to fetch P&L', error)
+            setError('Gagal mengambil data dari server. Silakan coba lagi.')
         } finally {
             setLoading(false)
         }
@@ -167,6 +177,20 @@ export default function ProfitLossPage() {
                 </div>
             </div>
 
+            {/* Error Banner */}
+            {error && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-pulse">
+                    <HiOutlineExclamationTriangle className="w-6 h-6 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="text-amber-800 dark:text-amber-400 font-bold text-sm text-left">Masalah Integrasi MixRadius</h4>
+                        <p className="text-amber-700 dark:text-amber-500/80 text-xs mt-1 leading-relaxed text-left">
+                            {error} <br />
+                            Silakan periksa <strong>Pengaturan Integrasi</strong> untuk memastikan Base URL, Username, dan Password sudah benar.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Income */}
@@ -179,10 +203,10 @@ export default function ProfitLossPage() {
                         {loading ? '...' : formatCurrency(data?.summary?.totalIncome || 0)}
                     </h3>
                     <div className="flex items-center gap-2 mt-2">
-                         <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
                             {data?.summary?.totalTransactions || 0} Trx
-                         </span>
-                         <span className="text-xs text-gray-500">Invoice Lunas</span>
+                        </span>
+                        <span className="text-xs text-gray-500">Invoice Lunas</span>
                     </div>
                 </div>
 
@@ -199,11 +223,10 @@ export default function ProfitLossPage() {
                 </div>
 
                 {/* Net Profit */}
-                <div className={`bg-white dark:bg-gray-800 p-6 rounded-2xl border shadow-sm relative overflow-hidden ${
-                    (data?.summary?.netProfit || 0) >= 0
-                        ? 'border-blue-100 dark:border-blue-900/30'
-                        : 'border-orange-100 dark:border-orange-900/30'
-                }`}>
+                <div className={`bg-white dark:bg-gray-800 p-6 rounded-2xl border shadow-sm relative overflow-hidden ${(data?.summary?.netProfit || 0) >= 0
+                    ? 'border-blue-100 dark:border-blue-900/30'
+                    : 'border-orange-100 dark:border-orange-900/30'
+                    }`}>
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <HiOutlineCurrencyDollar className={`w-20 h-20 ${(data?.summary?.netProfit || 0) >= 0 ? 'text-blue-500' : 'text-orange-500'}`} />
                     </div>

@@ -3,7 +3,7 @@ import { SOCKET_EVENTS, type SocketData } from './types'
 
 // Declare global type for Socket.io server instance
 declare global {
-     
+
     var socketIOServer: SocketIOServer | undefined
 }
 
@@ -85,24 +85,24 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
 
         // Handle request for online users (sent by Admin UI on load)
         socket.on('user:get_online_users', async () => {
-             // Only admins (RBAC verified) need this list
-             if (accessAdminPanel) {
-                 // We can find all rooms starting with "user:"
-                 const rooms = globalThis.socketIOServer?.sockets.adapter.rooms
-                 const onlineUserIds: string[] = []
-                 
-                 if (rooms) {
-                     for (const [roomName, _] of rooms) {
-                         if (roomName.startsWith('user:')) {
-                             const id = roomName.split(':')[1]
-                             if (id) onlineUserIds.push(id)
-                         }
-                     }
-                 }
-                 
-                 // Send back to the specific requesting admin socket
-                 socket.emit('user:online_users_list', onlineUserIds)
-             }
+            // Only admins (RBAC verified) need this list
+            if (accessAdminPanel) {
+                // We can find all rooms starting with "user:"
+                const rooms = globalThis.socketIOServer?.sockets.adapter.rooms
+                const onlineUserIds: string[] = []
+
+                if (rooms) {
+                    for (const [roomName, _] of rooms) {
+                        if (roomName.startsWith('user:')) {
+                            const id = roomName.split(':')[1]
+                            if (id) onlineUserIds.push(id)
+                        }
+                    }
+                }
+
+                // Send back to the specific requesting admin socket
+                socket.emit('user:online_users_list', onlineUserIds)
+            }
         })
 
         // Handle dynamic room joining
@@ -126,16 +126,39 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
             }
         })
 
+        // Handle typing indicator
+        socket.on('chat:typing', (data: { room: string; senderName?: string }) => {
+            if (data.room) {
+                // Forward the typing event to all other clients in the room
+                socket.to(data.room).emit('chat:typing', {
+                    userId,
+                    senderName: data.senderName || 'Seseorang',
+                    room: data.room
+                })
+            }
+        })
+
+        // Handle stop typing indicator
+        socket.on('chat:stop_typing', (data: { room: string }) => {
+            if (data.room) {
+                // Forward the stop typing event to all other clients in the room
+                socket.to(data.room).emit('chat:stop_typing', {
+                    userId,
+                    room: data.room
+                })
+            }
+        })
+
         // Handle disconnect
         socket.on('disconnect', async (reason) => {
             console.log(`[WS] User disconnected: ${userId} (${reason})`)
-            
+
             // Explicitly leave all rooms to prevent memory leaks
             const rooms = Array.from(socket.rooms)
             for (const room of rooms) {
                 socket.leave(room)
             }
-            
+
             // Check if any connections remain for this user
             const sockets = await globalThis.socketIOServer?.in(`user:${userId}`).fetchSockets()
             if (!sockets || sockets.length === 0) {

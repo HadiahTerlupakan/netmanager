@@ -239,13 +239,13 @@ model Expense {
 
   description      String?
   userId           String?
-  createdAt        DateTime             @default(now())
+  createdAt        DateTime @default(now())
   updatedAt        DateTime
   siteId           String?
-  site             Sites?               @relation(fields: [siteId], references: [id])
+  site             Sites?   @relation(fields: [siteId], references: [id])
   mixRadiusGroupId String?
   // Soft-relation to MixRadiusOwnerGroup in billing DB
-  user             User?                @relation(fields: [userId], references: [id])
+  user             User?    @relation(fields: [userId], references: [id])
 
   @@index([category])
   @@index([date])
@@ -302,6 +302,27 @@ model Investor {
   updatedAt    DateTime @updatedAt
 
   rabProjects RabInvestor[]
+  payouts     InvestorPayout[]
+}
+
+model InvestorPayout {
+  id            String   @id @default(uuid())
+  investorId    String
+  amount        BigInt
+  date          DateTime @default(now())
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  reference     String?
+  notes         String?
+  status        String   @default("COMPLETED")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  investor Investor @relation(fields: [investorId], references: [id])
+
+  @@index([investorId])
+  @@index([date])
 }
 
 model RabInvestor {
@@ -889,6 +910,10 @@ model User {
   // Salary configuration fields
   basicSalary                                Float?
   employeeType                               EmployeeType              @default(KARYAWAN)
+  joinDate                                   DateTime?
+  ptkpStatus                                 PtkpStatus?
+  bpjsKesehatan                              Boolean                   @default(false)
+  bpjsKetenagakerjaan                        Boolean                   @default(false)
   payPeriodDay                               Int                       @default(25)
   payDay                                     Int                       @default(1)
   overtimeRateNormal                         Float?
@@ -956,6 +981,7 @@ model User {
   userSalaryComponents                       UserSalaryComponent[]
   createdRabProjects                         RabProject[]
   rabApprovals                               RabApproval[]
+  employeeLoans                              EmployeeLoan[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -1393,7 +1419,6 @@ model PushSubscriptions {
   @@map("push_subscriptions")
 }
 
-
 model Registrations {
   id              String             @id
   name            String
@@ -1491,35 +1516,35 @@ model ServiceSuspension {
 }
 
 model Sites {
-  id                   String                @id
-  code                 String                @unique
-  name                 String
-  description          String?
-  address              String?
-  latitude             Float?
-  longitude            Float?
-  attendanceRadius     Int                   @default(100)
-  isActive             Boolean               @default(true)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime
-  expenses             Expense[]
-  mikrotikRouter       MikroTikRouter[]
-  odcs                 Odc[]
-  odps                 Odp[]
-  otbs                 Otb[]
-  pelanggan            Pelanggan[]
-  poles                Pole[]
-  user                 User[]
-  notifications        Notifications[]
-  userSites            UserSite[]
-  work_orders          WorkOrders[]
-  gudang               Gudang[]              @relation("GudangToSite")
-  bandwidths           Bandwidth[]
-  profilePPPs          ProfilePPP[]
-  hargaPakets          HargaPaket[]
-  joinboxes            Joinbox[]
-  kmzFiles             KmzFile[]
-  rabProjects          RabProject[]
+  id               String           @id
+  code             String           @unique
+  name             String
+  description      String?
+  address          String?
+  latitude         Float?
+  longitude        Float?
+  attendanceRadius Int              @default(100)
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime
+  expenses         Expense[]
+  mikrotikRouter   MikroTikRouter[]
+  odcs             Odc[]
+  odps             Odp[]
+  otbs             Otb[]
+  pelanggan        Pelanggan[]
+  poles            Pole[]
+  user             User[]
+  notifications    Notifications[]
+  userSites        UserSite[]
+  work_orders      WorkOrders[]
+  gudang           Gudang[]         @relation("GudangToSite")
+  bandwidths       Bandwidth[]
+  profilePPPs      ProfilePPP[]
+  hargaPakets      HargaPaket[]
+  joinboxes        Joinbox[]
+  kmzFiles         KmzFile[]
+  rabProjects      RabProject[]
 
   @@index([isActive])
   @@map("sites")
@@ -1817,79 +1842,79 @@ model WorkOrderUpdates {
 }
 
 model WorkOrders {
-  id                       String                    @id
-  workOrderNumber          String                    @unique
-  pelangganId              String?
-  siteId                   String?
-  type                     WorkOrderType
-  title                    String
-  description              String
-  status                   WorkOrderStatus           @default(PENDING)
-  priority                 WorkOrderPriority         @default(NORMAL)
-  departmentId             String?
-  assignedToId             String?
-  locationAddress          String?
-  locationLat              Float?
-  locationLng              Float?
-  contactName              String?
-  contactPhone             String?
-  scheduledDate            DateTime?
-  scheduledTimeStart       String?
-  scheduledTimeEnd         String?
-  startedAt                DateTime?
-  completedAt              DateTime?
-  verifiedAt               DateTime?
-  closedAt                 DateTime?
+  id                  String            @id
+  workOrderNumber     String            @unique
+  pelangganId         String?
+  siteId              String?
+  type                WorkOrderType
+  title               String
+  description         String
+  status              WorkOrderStatus   @default(PENDING)
+  priority            WorkOrderPriority @default(NORMAL)
+  departmentId        String?
+  assignedToId        String?
+  locationAddress     String?
+  locationLat         Float?
+  locationLng         Float?
+  contactName         String?
+  contactPhone        String?
+  scheduledDate       DateTime?
+  scheduledTimeStart  String?
+  scheduledTimeEnd    String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  verifiedAt          DateTime?
+  closedAt            DateTime?
   // ON_HOLD tracking fields
-  holdReason               String?
-  heldAt                   DateTime?
-  resumedAt                DateTime?
-  estimatedHours           Float?
-  actualHours              Float?
-  estimatedCost            Float?
-  actualCost               Float?
-  requiredMaterials        Json?
-  usedMaterials            Json?
-  returnedMaterials        Json? // For DISCONNECTION: materials returned to warehouse
-  internalNotes            String?
-  resolutionNotes          String?
-  customerFeedback         String?
-  rating                   Int?
-  disconnectionReason      String?
-  templateId               String?
-  slaId                    String?
-  createdById              String?
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime
-  ticketId                 String?
-  isInternal               Boolean                   @default(false) // true = Internal FOC, false = Customer/Guest
+  holdReason          String?
+  heldAt              DateTime?
+  resumedAt           DateTime?
+  estimatedHours      Float?
+  actualHours         Float?
+  estimatedCost       Float?
+  actualCost          Float?
+  requiredMaterials   Json?
+  usedMaterials       Json?
+  returnedMaterials   Json? // For DISCONNECTION: materials returned to warehouse
+  internalNotes       String?
+  resolutionNotes     String?
+  customerFeedback    String?
+  rating              Int?
+  disconnectionReason String?
+  templateId          String?
+  slaId               String?
+  createdById         String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime
+  ticketId            String?
+  isInternal          Boolean           @default(false) // true = Internal FOC, false = Customer/Guest
   // Mobile WO Request fields
-  requestedById            String? // User yang request dari mobile
-  requestedAt              DateTime? // Waktu request
-  approvedById             String? // Admin yang approve/reject
-  approvedAt               DateTime? // Waktu approve/reject
-  rejectionReason          String? // Alasan reject (jika ditolak)
-  
+  requestedById       String? // User yang request dari mobile
+  requestedAt         DateTime? // Waktu request
+  approvedById        String? // Admin yang approve/reject
+  approvedAt          DateTime? // Waktu approve/reject
+  rejectionReason     String? // Alasan reject (jika ditolak)
+
   // Warranty fields
-  isWarranty               Boolean                   @default(false)
-  warrantyOwnerId          String?
-  warrantySla              DateTime?
-  canvasing                Canvasing[]
-  assignments              WorkOrderAssignments[]
-  attachments              WorkOrderAttachments[]
-  tasks                    WorkOrderTasks[]
-  updates                  WorkOrderUpdates[]
-  assignedTo               User?                     @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
-  createdBy                User?                     @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
-  department               Departments?              @relation(fields: [departmentId], references: [id])
-  pelanggan                Pelanggan?                @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  site                     Sites?                    @relation(fields: [siteId], references: [id])
-  sla                      Sla?                      @relation(fields: [slaId], references: [id])
-  template                 WorkOrderTemplates?       @relation(fields: [templateId], references: [id])
-  ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
-  requestedBy              User?                     @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
-  approvedBy               User?                     @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
-  
+  isWarranty      Boolean                @default(false)
+  warrantyOwnerId String?
+  warrantySla     DateTime?
+  canvasing       Canvasing[]
+  assignments     WorkOrderAssignments[]
+  attachments     WorkOrderAttachments[]
+  tasks           WorkOrderTasks[]
+  updates         WorkOrderUpdates[]
+  assignedTo      User?                  @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
+  createdBy       User?                  @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
+  department      Departments?           @relation(fields: [departmentId], references: [id])
+  pelanggan       Pelanggan?             @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  site            Sites?                 @relation(fields: [siteId], references: [id])
+  sla             Sla?                   @relation(fields: [slaId], references: [id])
+  template        WorkOrderTemplates?    @relation(fields: [templateId], references: [id])
+  ticket          SupportTickets?        @relation(fields: [ticketId], references: [id])
+  requestedBy     User?                  @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
+  approvedBy      User?                  @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
+
   // NEW: Support for Mitra Assignment
   assignedMitraId          String?
   // NOTE: assignedMitraId is a soft-relation to db_mitra (Mitra table)
@@ -2094,7 +2119,25 @@ enum EmployeeType {
   KARYAWAN
 }
 
+enum PtkpStatus {
+  TK_0
+  TK_1
+  TK_2
+  TK_3
+  K_0
+  K_1
+  K_2
+  K_3
+  KI_0
+  KI_1
+  KI_2
+  KI_3
+}
 
+enum LoanStatus {
+  ACTIVE
+  PAID_OFF
+}
 
 enum RateType {
   FIXED
@@ -2609,17 +2652,19 @@ model SalaryComponent {
 }
 
 model SalaryDetail {
-  id          String              @id @default(uuid())
-  salaryId    String
-  componentId String?
-  name        String
-  type        SalaryComponentType
-  quantity    Float?
-  rate        Float?
-  amount      Float
-  notes       String?
-  component   SalaryComponent?    @relation(fields: [componentId], references: [id])
-  salary      Salary              @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  id            String              @id @default(uuid())
+  salaryId      String
+  componentId   String?
+  name          String
+  type          SalaryComponentType
+  quantity      Float?
+  rate          Float?
+  amount        Float
+  notes         String?
+  loanPaymentId String?             @unique
+  component     SalaryComponent?    @relation(fields: [componentId], references: [id])
+  salary        Salary              @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  loanPayment   LoanPayment?        @relation(fields: [loanPaymentId], references: [id], onDelete: SetNull)
 
   @@index([salaryId])
   @@map("salary_details")
@@ -2766,8 +2811,8 @@ enum RabRecoveryType {
 }
 
 model RabProject {
-  id               String  @id @default(cuid())
-  name             String
+  id                      String  @id @default(cuid())
+  name                    String
   description             String?
   siteId                  String?
   mixRadiusGroupId        String?
@@ -2815,11 +2860,11 @@ model RabProject {
   approvals          RabApproval[]
   investors          RabInvestor[]
 
-  site                  Sites?                 @relation(fields: [siteId], references: [id])
+  site    Sites? @relation(fields: [siteId], references: [id])
   // Soft-relation to Sites in main DB
   // Soft-relation to MixRadiusOwnerGroup in billing DB
   // Soft-relation to MixRadiusInvestorSite in billing DB
-  creator               User?                  @relation(fields: [createdBy], references: [id])
+  creator User?  @relation(fields: [createdBy], references: [id])
 
   @@index([siteId])
   @@index([status])
@@ -3011,3 +3056,35 @@ model RabActualAchievement {
 // =====================================================
 // MITRA SYSTEM (MOVED TO mitra.prisma)
 // =====================================================
+
+model EmployeeLoan {
+  id              String        @id @default(uuid())
+  userId          String
+  amount          Float
+  installment     Float
+  remainingAmount Float
+  status          LoanStatus    @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments        LoanPayment[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("employee_loans")
+}
+
+model LoanPayment {
+  id          String   @id @default(uuid())
+  loanId      String
+  amount      Float
+  paymentDate DateTime @default(now())
+  notes       String?
+
+  loan         EmployeeLoan  @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  salaryDetail SalaryDetail?
+
+  @@index([loanId])
+  @@map("loan_payments")
+}

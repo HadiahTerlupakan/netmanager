@@ -49,6 +49,10 @@ interface SalaryUser {
     absentDeductionRate: number
 
     departments?: { name: string }
+    joinDate: string | null
+    ptkpStatus: string | null
+    bpjsKesehatan: boolean
+    bpjsKetenagakerjaan: boolean
     userSalaryComponents: UserSalaryComponent[]
 }
 
@@ -162,8 +166,8 @@ export default function SalaryUserDetailClient() {
                                     {user.departments?.name || 'No Dept'}
                                 </span>
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.employeeType === 'KARYAWAN'
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-amber-100 text-amber-800'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-amber-100 text-amber-800'
                                     }`}>
                                     <HiOutlineUser className="w-3 h-3 mr-1" />
                                     {user.employeeType}
@@ -243,6 +247,31 @@ export default function SalaryUserDetailClient() {
                                     </div>
                                 </div>
                             </div>
+
+                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">Tanggal Masuk</span>
+                                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                                        {user.joinDate ? new Date(user.joinDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">Status PTKP</span>
+                                    <span className="font-medium text-indigo-600 dark:text-indigo-400">{user.ptkpStatus || 'TK_0'}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">BPJS Kesehatan</span>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${user.bpjsKesehatan ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>
+                                        {user.bpjsKesehatan ? 'AKTIF (1%)' : 'NON-AKTIF'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">BPJS Ketenagakerjaan</span>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${user.bpjsKetenagakerjaan ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>
+                                        {user.bpjsKetenagakerjaan ? 'AKTIF (3%)' : 'NON-AKTIF'}
+                                    </span>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
@@ -269,8 +298,8 @@ export default function SalaryUserDetailClient() {
                                         <div key={comp.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${comp.component.type === 'EARNING'
-                                                        ? 'bg-green-100 text-green-600'
-                                                        : 'bg-red-100 text-red-600'
+                                                    ? 'bg-green-100 text-green-600'
+                                                    : 'bg-red-100 text-red-600'
                                                     }`}>
                                                     {comp.component.type === 'EARNING' ? '+' : '-'}
                                                 </div>
@@ -286,8 +315,8 @@ export default function SalaryUserDetailClient() {
                                             </div>
                                             <div className="text-right">
                                                 <div className={`font-medium ${comp.component.type === 'EARNING'
-                                                        ? 'text-green-600'
-                                                        : 'text-red-600'
+                                                    ? 'text-green-600'
+                                                    : 'text-red-600'
                                                     }`}>
                                                     {comp.component.rateType === 'PERCENTAGE' ? (
                                                         <div className="flex flex-col items-end">

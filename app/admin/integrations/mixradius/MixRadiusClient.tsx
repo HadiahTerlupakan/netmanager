@@ -193,32 +193,32 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     const fetchCountsProgressively = async () => {
       const ids = data.map(d => d.id)
       const CHUNK_SIZE = 1 // Fetch 1 by 1 as requested (non-aggressive)
-      
+
       for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
         const chunkIds = ids.slice(i, i + CHUNK_SIZE)
-        
+
         // Build validationData for this chunk (Smart-Cache Sync)
         const chunkValidationData: Record<string, string> = {}
         chunkIds.forEach(id => {
-            const customer = data.find(d => d.id === id)
-            if (customer?.renewed_on) {
-                chunkValidationData[id] = customer.renewed_on
-            }
+          const customer = data.find(d => d.id === id)
+          if (customer?.renewed_on) {
+            chunkValidationData[id] = customer.renewed_on
+          }
         })
-        
+
         try {
           const res = await fetch('/api/integrations/mixradius/invoice-counts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                customerIds: chunkIds,
-                validationData: chunkValidationData,
-                bypassCache: isRefreshing // Manual bypass still available
-              })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerIds: chunkIds,
+              validationData: chunkValidationData,
+              bypassCache: isRefreshing // Manual bypass still available
+            })
           })
           const json = await res.json()
           if (json.data) {
-              setInvoiceCounts(prev => ({ ...prev, ...json.data }))
+            setInvoiceCounts(prev => ({ ...prev, ...json.data }))
           }
         } catch (err) {
           console.error(`Failed to fetch invoice counts for chunk starting at ${i}`, err)
@@ -226,7 +226,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       }
       if (isRefreshing) setIsRefreshing(false)
     }
-    
+
     const timer = setTimeout(fetchCountsProgressively, 500)
     return () => clearTimeout(timer)
   }, [data, isRefreshing])
@@ -236,10 +236,10 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const fetchCustomerDetail = async (customerId: string) => {
     setDetailLoading(true)
     setShowDetailModal(true)
-    
+
     try {
       const response = await fetch(`/api/integrations/mixradius/customers/${customerId}`)
-      
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}))
         throw new Error(errData.error || 'Gagal mengambil detail pelanggan')
@@ -320,9 +320,16 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     const fetchOwners = async () => {
       try {
         const response = await fetch('/api/integrations/mixradius/owners')
+        const result = await response.json()
+
         if (response.ok) {
-          const result = await response.json()
           setOwners(result.data || [])
+        } else {
+          // If it's a config error, it might be reported in global error or handled here
+          console.warn('Owners fetch failed:', result.error)
+          if (result.details?.isConfigError) {
+            setError(result.error)
+          }
         }
       } catch (err) {
         console.error('Failed to fetch owners', err)
@@ -333,9 +340,15 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     const fetchGroups = async () => {
       try {
         const response = await fetch('/api/integrations/mixradius/groups')
+        const result = await response.json()
+
         if (response.ok) {
-          const result = await response.json()
           setGroups(result.data || [])
+        } else {
+          console.warn('Groups fetch failed:', result.error)
+          if (result.details?.isConfigError) {
+            setError(result.error)
+          }
         }
       } catch (err) {
         console.error('Failed to fetch groups', err)
@@ -378,7 +391,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       }
 
       const response = await fetch(`/api/integrations/mixradius/customers?${params}`)
-      
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}))
         throw new Error(errData.error || 'Gagal mengambil data pelanggan')
@@ -468,8 +481,8 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
             {viewMode === 'isolir' ? 'MixRadius Isolir' : 'MixRadius Integration'}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {viewMode === 'isolir' 
-              ? 'Daftar pelanggan Isolir (Non-Aktif/Disabled)' 
+            {viewMode === 'isolir'
+              ? 'Daftar pelanggan Isolir (Non-Aktif/Disabled)'
               : 'Data pelanggan PPP dari sistem eksternal MixRadius'}
           </p>
         </div>
@@ -508,7 +521,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
             <div className="text-sm text-gray-500 dark:text-gray-400">Source</div>
             <div className="text-lg font-medium text-blue-600 dark:text-blue-400">sblnet.topsetting.com</div>
           </div>
-          <Button 
+          <Button
             variant="outline"
             size="sm"
             onClick={clearCache}
@@ -577,7 +590,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
           className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
         >
           <option value="all">Manajemen Site</option>
-          {groups.map(group => (
+          {Array.isArray(groups) && groups.map(group => (
             <option key={group.id} value={group.id}>{group.name}</option>
           ))}
         </select>
@@ -591,7 +604,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
           className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
         >
           <option value="all">Semua NAS</option>
-          {owners.map(owner => (
+          {Array.isArray(owners) && owners.map(owner => (
             <option key={owner.id} value={owner.name}>{owner.name}</option>
           ))}
         </select>
@@ -637,7 +650,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                   <div className={`text-sm ${isExpired(item.expired_on) ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-900 dark:text-white'}`}>
                     {formatDate(item.expired_on)}
                   </div>
-                 )
+                )
               },
               {
                 key: 'online',
@@ -749,23 +762,23 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 priority: 'secondary',
                 sortable: true,
                 render: (item) => {
-                    const count = invoiceCounts[item.id]
-                    if (!count) return (
-                        <div className="flex items-center gap-1 text-gray-400">
-                            <HiOutlineArrowPath className="w-3 h-3 animate-spin" />
-                            <span className="text-[9px]">Memuat...</span>
-                        </div>
-                    )
-                    return (
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                                {count.paidCount} Bulan
-                            </span>
-                            <span className="text-[9px] text-gray-400">
-                                ID: {item.id}
-                            </span>
-                        </div>
-                    )
+                  const count = invoiceCounts[item.id]
+                  if (!count) return (
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <HiOutlineArrowPath className="w-3 h-3 animate-spin" />
+                      <span className="text-[9px]">Memuat...</span>
+                    </div>
+                  )
+                  return (
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                        {count.paidCount} Bulan
+                      </span>
+                      <span className="text-[9px] text-gray-400">
+                        ID: {item.id}
+                      </span>
+                    </div>
+                  )
                 }
               },
               {
@@ -802,7 +815,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
               </button>
             )}
             emptyMessage={
-               <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
                 <HiOutlineMagnifyingGlass className="w-12 h-12 mb-3 text-gray-300 dark:text-gray-600" />
                 <p>Tidak ada data ditemukan</p>
               </div>
@@ -857,316 +870,312 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       <Modal
         isOpen={showDetailModal}
         onClose={() => {
-            closeDetailModal()
-            setActiveTab('profile')
+          closeDetailModal()
+          setActiveTab('profile')
         }}
         title="Detail Pelanggan"
         description="Informasi lengkap data pelanggan dari MixRadius"
         size="lg"
       >
         {detailLoading ? (
-            <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12">
             <HiOutlineArrowPath className="w-10 h-10 animate-spin text-blue-500" />
-            </div>
+          </div>
         ) : selectedCustomer ? (
-            <div className="space-y-6">
-                {/* Tabs */}
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    <button
-                        onClick={() => setActiveTab('profile')}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === 'profile'
-                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                        }`}
-                    >
-                        Profil Pelanggan
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('invoices')}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === 'invoices'
-                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                        }`}
-                    >
-                        Riwayat Tagihan & Invoice
-                    </button>
-                </div>
+          <div className="space-y-6">
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'profile'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+              >
+                Profil Pelanggan
+              </button>
+              <button
+                onClick={() => setActiveTab('invoices')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'invoices'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+              >
+                Riwayat Tagihan & Invoice
+              </button>
+            </div>
 
             {activeTab === 'profile' ? (
-                /* PROFILE TAB */
-                <div className="space-y-6">
-            {/* Personal Info */}
-            <div>
-                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+              /* PROFILE TAB */
+              <div className="space-y-6">
+                {/* Personal Info */}
+                <div>
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
                     <HiUserCircle className="w-5 h-5 text-gray-500" />
                     Info Pribadi
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">ID Pelanggan</label>
-                        <p className="text-sm font-mono font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1.5 rounded-md border border-gray-100 dark:border-gray-700 inline-block">
-                            {selectedCustomer.member_id}
-                        </p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">ID Pelanggan</label>
+                      <p className="text-sm font-mono font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1.5 rounded-md border border-gray-100 dark:border-gray-700 inline-block">
+                        {selectedCustomer.member_id}
+                      </p>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Username</label>
-                        <p className="text-sm font-mono font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1.5 rounded-md border border-gray-100 dark:border-gray-700 inline-block">
-                            {selectedCustomer.username}
-                        </p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Username</label>
+                      <p className="text-sm font-mono font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1.5 rounded-md border border-gray-100 dark:border-gray-700 inline-block">
+                        {selectedCustomer.username}
+                      </p>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Nama Lengkap</label>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedCustomer.fullname}</p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Nama Lengkap</label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedCustomer.fullname}</p>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">No. Identitas</label>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.identity_number || '-'}</p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">No. Identitas</label>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.identity_number || '-'}</p>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Email</label>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.email || '-'}</p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Email</label>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.email || '-'}</p>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">No. Telepon</label>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.phonenumber || '-'}</p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">No. Telepon</label>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.phonenumber || '-'}</p>
                     </div>
                     <div className="col-span-1 md:col-span-2">
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Alamat</label>
-                        <p className="text-sm text-gray-900 dark:text-white leading-relaxed">{selectedCustomer.address || '-'}</p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Alamat</label>
+                      <p className="text-sm text-gray-900 dark:text-white leading-relaxed">{selectedCustomer.address || '-'}</p>
+                    </div>
+                  </div>
                 </div>
-            </div>
-            </div>
 
-            {/* Online Status Alert */}
-            {selectedCustomer.online && (
-              <div className="mb-6 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-3 animate-pulse">
-                <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full">
-                   <HiWifi className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
+                {/* Online Status Alert */}
+                {selectedCustomer.online && (
+                  <div className="mb-6 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-3 animate-pulse">
+                    <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full">
+                      <HiWifi className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-green-800 dark:text-green-300">Perangkat Online</h4>
+                      <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
+                        <span>Uptime: {selectedCustomer.uptime || '-'}</span>
+                        {selectedCustomer.quota_usage && <span>| Quota: {selectedCustomer.quota_usage}</span>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Service Info */}
                 <div>
-                   <h4 className="text-sm font-bold text-green-800 dark:text-green-300">Perangkat Online</h4>
-                   <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
-                      <span>Uptime: {selectedCustomer.uptime || '-'}</span>
-                      {selectedCustomer.quota_usage && <span>| Quota: {selectedCustomer.quota_usage}</span>}
-                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Service Info */}
-            <div>
-                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
                     <HiWifi className="w-5 h-5 text-gray-500" />
                     Layanan & Pembayaran
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
                     <div className="col-span-1 md:col-span-2">
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Paket Langganan</label>
-                        <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300 rounded-full border border-blue-100 dark:border-blue-800">
-                                {selectedCustomer.plan_name}
-                            </span>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Jenis Layanan</label>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedCustomer.service_type || 'PPPOE'}</p>
-                    </div>
-                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Tipe IP</label>
-                        <p className="text-sm text-gray-900 dark:text-white uppercase">{selectedCustomer.ip_type?.replace('automatic', 'DYNAMIC') || '-'}</p>
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Tipe Pelanggan</label>
-                        <p className="text-sm text-gray-900 dark:text-white uppercase">{selectedCustomer.subscription_type?.replace('_', ' ')}</p>
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Pembayaran</label>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.payment_type}</p>
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Status Bayar</label>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            selectedCustomer.trx_status === 'PAID' 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                        }`}>
-                            {selectedCustomer.trx_status}
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Paket Langganan</label>
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300 rounded-full border border-blue-100 dark:border-blue-800">
+                          {selectedCustomer.plan_name}
                         </span>
+                      </div>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Status Akun</label>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            selectedCustomer.auth_status === 'Enabled-Users' 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Jenis Layanan</label>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedCustomer.service_type || 'PPPOE'}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Tipe IP</label>
+                      <p className="text-sm text-gray-900 dark:text-white uppercase">{selectedCustomer.ip_type?.replace('automatic', 'DYNAMIC') || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Tipe Pelanggan</label>
+                      <p className="text-sm text-gray-900 dark:text-white uppercase">{selectedCustomer.subscription_type?.replace('_', ' ')}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Pembayaran</label>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.payment_type}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Status Bayar</label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedCustomer.trx_status === 'PAID'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                         }`}>
-                            {selectedCustomer.auth_status === 'Enabled-Users' ? 'AKTIF' : 'NON-AKTIF'}
-                        </span>
+                        {selectedCustomer.trx_status}
+                      </span>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Diperbaharui</label>
-                        <p className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
-                            <HiClock className="w-4 h-4 text-gray-400" />
-                            {selectedCustomer.renewed_on}
-                        </p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Status Akun</label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedCustomer.auth_status === 'Enabled-Users'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                        }`}>
+                        {selectedCustomer.auth_status === 'Enabled-Users' ? 'AKTIF' : 'NON-AKTIF'}
+                      </span>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Jatuh Tempo</label>
-                        <p className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
-                            <HiClock className="w-4 h-4 text-gray-400" />
-                            {selectedCustomer.expired_on}
-                        </p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Diperbaharui</label>
+                      <p className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                        <HiClock className="w-4 h-4 text-gray-400" />
+                        {selectedCustomer.renewed_on}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Jatuh Tempo</label>
+                      <p className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                        <HiClock className="w-4 h-4 text-gray-400" />
+                        {selectedCustomer.expired_on}
+                      </p>
                     </div>
                     {selectedCustomer.expired_action && (
-                        <div className="col-span-1 md:col-span-2">
-                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Aksi Jatuh Tempo</label>
-                             <p className="text-sm text-gray-900 dark:text-white italic">
-                                {selectedCustomer.expired_action}
-                             </p>
-                        </div>
+                      <div className="col-span-1 md:col-span-2">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Aksi Jatuh Tempo</label>
+                        <p className="text-sm text-gray-900 dark:text-white italic">
+                          {selectedCustomer.expired_action}
+                        </p>
+                      </div>
                     )}
+                  </div>
                 </div>
-            </div>
 
-            {/* Technical Info */}
-            <div>
-                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                {/* Technical Info */}
+                <div>
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
                     <HiBolt className="w-5 h-5 text-gray-500" />
                     Teknis & Perangkat
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
-                     <div className="col-span-1 md:col-span-2">
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Owner Data / Reseller</label>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedCustomer?.owner_name?.split('—')?.[0]?.trim() || '-'}</p>
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Owner Data / Reseller</label>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedCustomer?.owner_name?.split('—')?.[0]?.trim() || '-'}</p>
                     </div>
                     <div className="col-span-1 md:col-span-2">
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">ODP / POP</label>
-                        <p className="text-sm font-mono text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 p-2 rounded border border-gray-100 dark:border-gray-700 whitespace-pre-wrap">
-                            {selectedCustomer.odp_name || '-'}
-                        </p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">ODP / POP</label>
+                      <p className="text-sm font-mono text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 p-2 rounded border border-gray-100 dark:border-gray-700 whitespace-pre-wrap">
+                        {selectedCustomer.odp_name || '-'}
+                      </p>
                     </div>
                     {/* Stats */}
                     {selectedCustomer.uptime && (
-                        <div>
-                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Waktu Online (Uptime)</label>
-                             <p className="text-sm font-bold text-green-600 dark:text-green-400">{selectedCustomer.uptime}</p>
-                        </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Waktu Online (Uptime)</label>
+                        <p className="text-sm font-bold text-green-600 dark:text-green-400">{selectedCustomer.uptime}</p>
+                      </div>
                     )}
-                     {selectedCustomer.quota_usage && (
-                        <div>
-                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Kuota Terpakai</label>
-                             <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedCustomer.quota_usage}</p>
-                        </div>
+                    {selectedCustomer.quota_usage && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Kuota Terpakai</label>
+                        <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedCustomer.quota_usage}</p>
+                      </div>
                     )}
 
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Bind MAC</label>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.bind_mac}</p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Bind MAC</label>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.bind_mac}</p>
                     </div>
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">MAC / Caller ID</label>
-                        <p className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedCustomer.mac_address || '-'}</p>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">MAC / Caller ID</label>
+                      <p className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedCustomer.mac_address || '-'}</p>
                     </div>
                     {selectedCustomer.portal_password && (
-                        <div>
-                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Password Portal</label>
-                             <p className="text-sm font-mono text-gray-900 dark:text-white">{selectedCustomer.portal_password}</p>
-                        </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Password Portal</label>
+                        <p className="text-sm font-mono text-gray-900 dark:text-white">{selectedCustomer.portal_password}</p>
+                      </div>
                     )}
-                    
+
                     {selectedCustomer.note && (
-                        <div className="col-span-1 md:col-span-2">
-                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Catatan</label>
-                            <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800/30">
-                                <p className="text-sm text-gray-700 dark:text-gray-300 italic">{selectedCustomer.note}</p>
-                            </div>
+                      <div className="col-span-1 md:col-span-2">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Catatan</label>
+                        <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800/30">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 italic">{selectedCustomer.note}</p>
                         </div>
+                      </div>
                     )}
 
                     {/* Dismantle Button Area */}
                     <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setDismantleReason(DISMANTLE_REASONS[0])
-                                setShowDismantleModal(true)
-                            }}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl transition-colors font-bold"
-                        >
-                            <HiOutlineTrash className="w-5 h-5" />
-                            Bongkar Pelanggan (Dismantle)
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDismantleReason(DISMANTLE_REASONS[0])
+                          setShowDismantleModal(true)
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl transition-colors font-bold"
+                      >
+                        <HiOutlineTrash className="w-5 h-5" />
+                        Bongkar Pelanggan (Dismantle)
+                      </button>
                     </div>
+                  </div>
                 </div>
-            </div>
-            </div>
+              </div>
             ) : (
-                 /* INVOICES TAB */
-                <div>
-                     {selectedCustomer.invoices && selectedCustomer.invoices.length > 0 ? (
-                         <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead className="bg-gray-50 dark:bg-gray-800">
-                                    <tr>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Invoice</th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paket</th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Periode</th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jumlah</th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                                    {selectedCustomer.invoices.map((inv, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                            <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                                {inv.invoice_number}<br/>
-                                                <span className="text-xs text-gray-500">#{inv.id}</span>
-                                            </td>
-                                            <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">{inv.plan_name}</td>
-                                            <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-xs">Aktif: {inv.activation_date}</span>
-                                                    <span className="text-xs text-red-500">Exp: {inv.deadline_date}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">{inv.amount}</td>
-                                            <td className="px-3 py-3 text-sm">
-                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                                    Detail
-                                                 </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                         </div>
-                     ) : (
-                         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                             Belum ada data invoice
-                         </div>
-                     )}
-                </div>
+              /* INVOICES TAB */
+              <div>
+                {selectedCustomer.invoices && selectedCustomer.invoices.length > 0 ? (
+                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Invoice</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paket</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Periode</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jumlah</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        {selectedCustomer.invoices.map((inv, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                              {inv.invoice_number}<br />
+                              <span className="text-xs text-gray-500">#{inv.id}</span>
+                            </td>
+                            <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">{inv.plan_name}</td>
+                            <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs">Aktif: {inv.activation_date}</span>
+                                <span className="text-xs text-red-500">Exp: {inv.deadline_date}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">{inv.amount}</td>
+                            <td className="px-3 py-3 text-sm">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                Detail
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    Belum ada data invoice
+                  </div>
+                )}
+              </div>
             )}
-            </div>
+          </div>
         ) : (
-            <div className="py-12 text-center">
-                <HiOutlineCloud className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400">Tidak ada data pelanggan yang dipilih</p>
-            </div>
+          <div className="py-12 text-center">
+            <HiOutlineCloud className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400">Tidak ada data pelanggan yang dipilih</p>
+          </div>
         )}
-        
+
         <ModalFooter>
-             <button
-                type="button"
-                onClick={closeDetailModal}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                >
-                Tutup
-            </button>
-            {/* Future: Add "Sync Now" button here if needed in Phase 5 part 2 */}
+          <button
+            type="button"
+            onClick={closeDetailModal}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            Tutup
+          </button>
+          {/* Future: Add "Sync Now" button here if needed in Phase 5 part 2 */}
         </ModalFooter>
       </Modal>
 
@@ -1179,78 +1188,76 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         size="md"
       >
         <div className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Alasan Bongkar
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Alasan Bongkar
+            </label>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              {DISMANTLE_REASONS.map((reason) => (
+                <label
+                  key={reason}
+                  className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${dismantleReason === reason
+                      ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                      : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="dismantleReason"
+                    value={reason}
+                    checked={dismantleReason === reason}
+                    onChange={(e) => setDismantleReason(e.target.value)}
+                    className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
+                  />
+                  <span className={`ml-3 text-sm ${dismantleReason === reason
+                      ? 'font-medium text-red-900 dark:text-red-300'
+                      : 'text-gray-700 dark:text-gray-300'
+                    }`}>
+                    {reason}
+                  </span>
                 </label>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                    {DISMANTLE_REASONS.map((reason) => (
-                        <label
-                            key={reason}
-                            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
-                                dismantleReason === reason
-                                    ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
-                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
-                            }`}
-                        >
-                            <input
-                                type="radio"
-                                name="dismantleReason"
-                                value={reason}
-                                checked={dismantleReason === reason}
-                                onChange={(e) => setDismantleReason(e.target.value)}
-                                className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
-                            />
-                            <span className={`ml-3 text-sm ${
-                                dismantleReason === reason
-                                    ? 'font-medium text-red-900 dark:text-red-300'
-                                    : 'text-gray-700 dark:text-gray-300'
-                            }`}>
-                                {reason}
-                            </span>
-                        </label>
-                    ))}
-                </div>
+              ))}
             </div>
+          </div>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Catatan Tambahan (Opsional)
-                </label>
-                <textarea
-                    value={dismantleNotes}
-                    onChange={(e) => setDismantleNotes(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                    placeholder="Tambahkan catatan untuk tim teknis..."
-                />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Catatan Tambahan (Opsional)
+            </label>
+            <textarea
+              value={dismantleNotes}
+              onChange={(e) => setDismantleNotes(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 focus:ring-red-500 focus:border-red-500 sm:text-sm"
+              placeholder="Tambahkan catatan untuk tim teknis..."
+            />
+          </div>
         </div>
 
         <ModalFooter>
-            <button
-                type="button"
-                onClick={() => setShowDismantleModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                disabled={processingDismantle}
-            >
-                Batal
-            </button>
-            <button
-                type="button"
-                onClick={handleDismantle}
-                disabled={processingDismantle || !dismantleReason}
-                className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {processingDismantle ? (
-                    <>
-                        <HiOutlineArrowPath className="w-4 h-4 mr-2 animate-spin" />
-                        Memproses...
-                    </>
-                ) : (
-                    'Ya, Ajukan Bongkar'
-                )}
-            </button>
+          <button
+            type="button"
+            onClick={() => setShowDismantleModal(false)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            disabled={processingDismantle}
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleDismantle}
+            disabled={processingDismantle || !dismantleReason}
+            className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {processingDismantle ? (
+              <>
+                <HiOutlineArrowPath className="w-4 h-4 mr-2 animate-spin" />
+                Memproses...
+              </>
+            ) : (
+              'Ya, Ajukan Bongkar'
+            )}
+          </button>
         </ModalFooter>
       </Modal>
     </div>

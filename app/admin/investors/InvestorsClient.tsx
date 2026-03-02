@@ -10,6 +10,10 @@ import {
     HiOutlinePlus,
     HiOutlineUsers,
     HiOutlineCheckCircle,
+    HiOutlinePencilSquare,
+    HiOutlineTrash,
+    HiOutlinePower,
+    HiOutlineEye
 } from 'react-icons/hi2'
 
 interface Investor {
@@ -17,13 +21,37 @@ interface Investor {
     username: string
     namaLengkap: string
     email: string | null
-    phone: string | null
+    noTelp: string | null
     perusahaan: string | null
     isActive: boolean
     createdAt: string
     _count?: {
         rabProjects: number
+        payouts?: number
     }
+}
+
+interface RabProjectItem {
+    id: string
+    profitSharePercent: number
+    investmentAmount: number | string
+    rabProject?: {
+        name: string
+        site?: {
+            name: string
+        }
+    }
+}
+
+interface DetailData extends Investor {
+    rabProjects?: RabProjectItem[]
+    payouts?: Array<{
+        id: string
+        amount: string | number
+        date: string | Date
+        bankName?: string | null
+        status: string
+    }>
 }
 
 export default function InvestorsClient() {
@@ -34,7 +62,15 @@ export default function InvestorsClient() {
     const [loading, setLoading] = useState(true)
 
     const [showAddModal, setShowAddModal] = useState(false)
+    const [showEditModal, setShowEditModal] = useState(false)
+    const [showDetailModal, setShowDetailModal] = useState(false)
+    const [showPayoutModal, setShowPayoutModal] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [detailData, setDetailData] = useState<DetailData | null>(null)
+    const [loadingDetail, setLoadingDetail] = useState(false)
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const canUpdate = hasPermission('users:update')
+    const canDelete = hasPermission('users:delete')
 
     // Form state
     const [form, setForm] = useState({
@@ -44,6 +80,16 @@ export default function InvestorsClient() {
         email: '',
         noTelp: '',
         perusahaan: '',
+    })
+
+    const [payoutForm, setPayoutForm] = useState({
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        bankName: '',
+        accountNumber: '',
+        accountName: '',
+        reference: '',
+        notes: ''
     })
 
     const fetchInvestors = useCallback(async () => {
@@ -100,6 +146,134 @@ export default function InvestorsClient() {
         }
     }
 
+    const handleViewDetail = async (id: string) => {
+        setLoadingDetail(true)
+        setShowDetailModal(true)
+        try {
+            const res = await fetch(`/api/admin/investors/${id}/detail`)
+            const data = await res.json()
+            if (res.ok) {
+                setDetailData(data)
+            } else {
+                toast.error(data.message || 'Gagal memuat detail investor')
+                setShowDetailModal(false)
+            }
+        } catch {
+            toast.error('Terjadi kesalahan')
+            setShowDetailModal(false)
+        } finally {
+            setLoadingDetail(false)
+        }
+    }
+
+    const handleSavePayout = async () => {
+        if (!payoutForm.amount || isNaN(Number(payoutForm.amount))) {
+            toast.error('Nominal harus berupa angka')
+            return
+        }
+        setSaving(true)
+        try {
+            const res = await fetch(`/api/admin/investors/${detailData?.id}/payouts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payoutForm),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success('Payout berhasil dicatat')
+                setShowPayoutModal(false)
+                setPayoutForm({
+                    amount: '', date: new Date().toISOString().split('T')[0], bankName: '', accountNumber: '', accountName: '', reference: '', notes: ''
+                })
+                handleViewDetail(detailData!.id) // Refresh details
+            } else {
+                toast.error(data.message || 'Gagal mencatat payout')
+            }
+        } catch {
+            toast.error('Terjadi kesalahan')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const handleEditClick = (inv: Investor) => {
+        setForm({
+            username: inv.username,
+            password: '',
+            namaLengkap: inv.namaLengkap,
+            email: inv.email || '',
+            noTelp: inv.noTelp || '',
+            perusahaan: inv.perusahaan || ''
+        })
+        setEditingId(inv.id)
+        setShowEditModal(true)
+    }
+
+    const handleSaveEdit = async () => {
+        if (!form.username || !form.namaLengkap) {
+            toast.error('Username dan Nama Lengkap harus diisi')
+            return
+        }
+        setSaving(true)
+        try {
+            const res = await fetch(`/api/admin/investors/${editingId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success('Data Investor berhasil diperbarui')
+                setShowEditModal(false)
+                resetForm()
+                fetchInvestors()
+            } else {
+                toast.error(data.message || 'Gagal memperbarui investor')
+            }
+        } catch {
+            toast.error('Terjadi kesalahan')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+        try {
+            const res = await fetch(`/api/admin/investors/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive: !currentStatus }),
+            })
+            if (res.ok) {
+                toast.success('Status Investor berhasil diubah')
+                fetchInvestors()
+            } else {
+                const data = await res.json()
+                toast.error(data.message || 'Gagal mengubah status')
+            }
+        } catch {
+            toast.error('Terjadi kesalahan')
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Apakah Anda yakin ingin menghapus investor ini?')) return
+        try {
+            const res = await fetch(`/api/admin/investors/${id}`, {
+                method: 'DELETE',
+            })
+            if (res.ok) {
+                toast.success('Investor berhasil dihapus')
+                fetchInvestors()
+            } else {
+                const data = await res.json()
+                toast.error(data.message || 'Gagal menghapus investor')
+            }
+        } catch {
+            toast.error('Terjadi kesalahan')
+        }
+    }
+
     const columns: Column<Investor>[] = [
         {
             key: 'namaLengkap',
@@ -146,6 +320,51 @@ export default function InvestorsClient() {
                     }`}>
                     {inv.isActive ? 'Aktif' : 'Nonaktif'}
                 </span>
+            )
+        },
+        {
+            key: 'actions',
+            header: 'Aksi',
+            align: 'right',
+            priority: 'primary',
+            render: (inv) => (
+                <div className="flex items-center justify-end gap-2">
+                    <button
+                        title="Lihat Detail"
+                        onClick={() => handleViewDetail(inv.id)}
+                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    >
+                        <HiOutlineEye className="w-4 h-4" />
+                    </button>
+                    {canUpdate && (
+                        <button
+                            title="Edit"
+                            onClick={() => handleEditClick(inv)}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                        >
+                            <HiOutlinePencilSquare className="w-4 h-4" />
+                        </button>
+                    )}
+                    {canUpdate && (
+                        <button
+                            title={inv.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                            onClick={() => handleToggleStatus(inv.id, inv.isActive)}
+                            className={`p-1.5 hover:bg-opacity-20 rounded-lg transition-colors ${inv.isActive ? 'text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/30' : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30'
+                                }`}
+                        >
+                            <HiOutlinePower className="w-4 h-4" />
+                        </button>
+                    )}
+                    {canDelete && (
+                        <button
+                            title="Hapus Permanen"
+                            onClick={() => handleDelete(inv.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        >
+                            <HiOutlineTrash className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
             )
         },
     ]
@@ -286,6 +505,176 @@ export default function InvestorsClient() {
                     </button>
                     <button onClick={handleAdd} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
                         {saving ? 'Menyimpan...' : 'Simpan'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
+            <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Investor" size="lg">
+                <div className="mb-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Peringatan: Kosongkan password jika Anda tidak ingin mengubahnya.</p>
+                </div>
+                {renderFormFields()}
+                <ModalFooter>
+                    <button onClick={() => setShowEditModal(false)} disabled={saving} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Batal
+                    </button>
+                    <button onClick={handleSaveEdit} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                        {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
+            <Modal isOpen={showDetailModal} onClose={() => { setShowDetailModal(false); setDetailData(null) }} title="Detail Investor" size="lg">
+                <div className="min-h-[300px] p-2">
+                    {loadingDetail ? (
+                        <PageLoader variant="section" message="Memuat informasi lengkap investor..." />
+                    ) : detailData ? (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4 border-b border-gray-100 dark:border-gray-800 pb-4">
+                                <div>
+                                    <p className="text-sm text-gray-500">Nama Lengkap</p>
+                                    <p className="font-semibold text-gray-900 dark:text-white">{detailData.namaLengkap}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Telepon / Email</p>
+                                    <p className="font-semibold text-gray-900 dark:text-white">
+                                        {detailData.noTelp || '-'} / {detailData.email || '-'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Perusahaan</p>
+                                    <p className="font-semibold text-gray-900 dark:text-white">{detailData.perusahaan || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Status</p>
+                                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${detailData.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        {detailData.isActive ? 'Aktif' : 'Nonaktif'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-md font-bold text-gray-900 dark:text-white mb-3">Daftar Proyek RAB yang didanai ({detailData.rabProjects?.length || 0})</h4>
+                                {detailData.rabProjects && detailData.rabProjects.length > 0 ? (
+                                    <div className="space-y-3 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {detailData.rabProjects.map((rp) => (
+                                            <div key={rp.id} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <h5 className="font-bold text-gray-900 dark:text-white">{rp.rabProject?.name}</h5>
+                                                        <p className="text-xs text-gray-500">Site: {rp.rabProject?.site?.name || 'Global'}</p>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded">
+                                                        Bagi Hasil: {rp.profitSharePercent}%
+                                                    </span>
+                                                </div>
+                                                <div className="mt-3 flex justify-between text-sm">
+                                                    <span className="text-gray-500">Nilai Investasi:</span>
+                                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                                        Rp {Number(rp.investmentAmount).toLocaleString('id-ID')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 italic">Belum ada proyek yang didanai.</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between items-center mb-3 mt-4">
+                                    <h4 className="text-md font-bold text-gray-900 dark:text-white">Riwayat Payout Terakhir</h4>
+                                    <button
+                                        onClick={() => setShowPayoutModal(true)}
+                                        className="text-xs font-semibold bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition"
+                                    >
+                                        Catat Payout Baru
+                                    </button>
+                                </div>
+                                {detailData.payouts && detailData.payouts.length > 0 ? (
+                                    <div className="space-y-3 max-h-[150px] overflow-y-auto custom-scrollbar">
+                                        {detailData.payouts.map((p) => (
+                                            <div key={p.id} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 text-sm">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <span className="font-bold text-gray-900 dark:text-white">Rp {Number(p.amount).toLocaleString('id-ID')}</span>
+                                                        <p className="text-xs text-gray-500 uppercase">{new Date(p.date).toLocaleDateString('id-ID')} - {p.bankName || 'Transfer Bank'}</p>
+                                                    </div>
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                        {p.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 italic mb-2">Belum ada riwayat payout.</p>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-red-500">Gagal memuat data.</div>
+                    )}
+                </div>
+            </Modal>
+
+            {/* Payout Modal */}
+            <Modal isOpen={showPayoutModal} onClose={() => setShowPayoutModal(false)} title="Pencatatan Payout Investor" size="md">
+                <div className="space-y-4 py-2">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nominal Payout (Rp) *</label>
+                        <input
+                            type="number"
+                            value={payoutForm.amount}
+                            onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tanggal Payout *</label>
+                        <input
+                            type="date"
+                            value={payoutForm.date}
+                            onChange={(e) => setPayoutForm({ ...payoutForm, date: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bank Tujuan Opsional</label>
+                            <input
+                                type="text"
+                                value={payoutForm.bankName}
+                                onChange={(e) => setPayoutForm({ ...payoutForm, bankName: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                                placeholder="BCA / Mandiri"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">No Rekening</label>
+                            <input
+                                type="text"
+                                value={payoutForm.accountNumber}
+                                onChange={(e) => setPayoutForm({ ...payoutForm, accountNumber: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catatan Tambahan</label>
+                        <textarea
+                            value={payoutForm.notes}
+                            onChange={(e) => setPayoutForm({ ...payoutForm, notes: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                            rows={2}
+                        />
+                    </div>
+                </div>
+                <ModalFooter>
+                    <button onClick={() => setShowPayoutModal(false)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Batal</button>
+                    <button onClick={handleSavePayout} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                        {saving ? 'Menyimpan...' : 'Simpan Payout'}
                     </button>
                 </ModalFooter>
             </Modal>

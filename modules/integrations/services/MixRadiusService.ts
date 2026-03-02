@@ -16,6 +16,13 @@ export interface MixRadiusCredentials {
 
 export type { MixRadiusOwnerGroup }
 
+export class MixRadiusConfigError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'MixRadiusConfigError'
+  }
+}
+
 export interface MixRadiusCustomer {
   id: string
   type: string
@@ -344,12 +351,12 @@ export class MixRadiusService {
     // Check for missing configuration
     if (!this.credentials.baseUrl || !this.credentials.baseUrl.startsWith('http')) {
       console.warn('[MixRadius] Invalid or missing Base URL')
-      throw new Error('URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.')
+      throw new MixRadiusConfigError('URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.')
     }
 
     if (!this.credentials.username || !this.credentials.password) {
       console.warn('[MixRadius] Missing credentials')
-      throw new Error('Username atau Password MixRadius belum dikonfigurasi.')
+      throw new MixRadiusConfigError('Username atau Password MixRadius belum dikonfigurasi.')
     }
 
     try {
@@ -418,20 +425,14 @@ export class MixRadiusService {
     const { start = 0, length = 10, search = '', searchType = 'all', sortBy = 'expired_on', sortDir = 'asc', forceRefresh = false } = params
 
     try {
-      // Ensure we're logged in
       try {
         await this.login()
       } catch (loginError) {
         const errorMsg = loginError instanceof Error ? loginError.message : String(loginError)
-        // If it's a configuration error, return empty data instead of crashing
-        if (errorMsg.includes('konfigurasi') || errorMsg.includes('valid')) {
+        // If it's a configuration error, throw MixRadiusConfigError
+        if (loginError instanceof MixRadiusConfigError || errorMsg.includes('konfigurasi') || errorMsg.includes('valid')) {
           console.warn(`[MixRadius] Integration not available: ${errorMsg}`)
-          return {
-            draw: 1,
-            recordsTotal: 0,
-            recordsFiltered: 0,
-            data: []
-          }
+          throw loginError instanceof MixRadiusConfigError ? loginError : new MixRadiusConfigError(errorMsg)
         }
         throw loginError
       }
@@ -766,10 +767,8 @@ export class MixRadiusService {
       const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
       console.error('[MixRadius] Fetch error:', message)
 
-      // If it's a session error, try to re-login
-      if (message.includes('session') || (error as { response?: { status: number } }).response?.status === 401) {
-        this.isLoggedIn = false
-        throw new Error('Session expired, please refresh')
+      if (error instanceof MixRadiusConfigError || message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+        throw error instanceof MixRadiusConfigError ? error : new MixRadiusConfigError(message)
       }
 
       throw new Error(`Failed to fetch MixRadius customers: ${message}`)
@@ -1201,20 +1200,9 @@ export class MixRadiusService {
       const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
       // Graceful handling for missing configuration
-      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+      if (error instanceof MixRadiusConfigError || message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchIncomeByPeriod): ${message}`)
-        return {
-          draw: 1,
-          recordsTotal: 0,
-          recordsFiltered: 0,
-          data: [],
-          summary: {
-            profit: '0',
-            feeSeller: '0',
-            totalPlusPpn: '0',
-            totalTransactions: '0'
-          }
-        }
+        throw error instanceof MixRadiusConfigError ? error : new MixRadiusConfigError(message)
       }
 
       console.error('[MixRadius] Fetch income period error:', message)
@@ -1339,13 +1327,13 @@ export class MixRadiusService {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+      if (error instanceof MixRadiusConfigError || message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchIncomeSummary): ${message}`)
-        return { profit: '0', feeSeller: '0', totalPlusPpn: '0', totalTransactions: '0' }
+        throw error instanceof MixRadiusConfigError ? error : new MixRadiusConfigError(message)
       }
 
       console.error('[MixRadius] Failed to fetch income summary:', error)
-      return { profit: '0', feeSeller: '0', totalPlusPpn: '0', totalTransactions: '0' }
+      throw error
     }
   }
 
@@ -1397,9 +1385,9 @@ export class MixRadiusService {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+      if (error instanceof MixRadiusConfigError || message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (getOwnersWithIds): ${message}`)
-        return []
+        throw error instanceof MixRadiusConfigError ? error : new MixRadiusConfigError(message)
       }
 
       console.error('[MixRadius] Failed to fetch owners from HTML:', error)
@@ -1467,11 +1455,10 @@ export class MixRadiusService {
 
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
-      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+      if (error instanceof MixRadiusConfigError || message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (deleteIncomeRecord): ${message}`)
-        return false
+        throw error instanceof MixRadiusConfigError ? error : new MixRadiusConfigError(message)
       }
-
       console.error(`[MixRadius] Delete record ${id} error:`, message)
       throw new Error(`Failed to delete record: ${message}`)
     }
@@ -1620,13 +1607,13 @@ export class MixRadiusService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
 
-      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+      if (error instanceof MixRadiusConfigError || message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchActiveSessionsPPP): ${message}`)
-        return new Map()
+        throw error instanceof MixRadiusConfigError ? error : new MixRadiusConfigError(message)
       }
 
       console.error('[MixRadius] Failed to fetch active sessions:', message)
-      // Return empty map instead of failing entire request
+      // Return empty map instead of failing entire request for non-config errors
       return new Map()
     }
   }
@@ -1646,9 +1633,9 @@ export class MixRadiusService {
       if (!this.isLoggedIn) await this.login()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
+      if (error instanceof MixRadiusConfigError || message.includes('konfigurasi') || message.includes('valid') || message.includes('Missing credentials')) {
         console.warn(`[MixRadius] Integration not available (fetchInvoiceCounts): ${message}`)
-        return new Map()
+        throw error instanceof MixRadiusConfigError ? error : new MixRadiusConfigError(message)
       }
       throw error
     }
@@ -2515,6 +2502,7 @@ export class MixRadiusService {
         taxes: taxArray
       }
     } catch (error) {
+      if (error instanceof MixRadiusConfigError) throw error;
       console.error('[MixRadius] Error fetching profit report:', error)
       return {
         income: Array(12).fill(0),

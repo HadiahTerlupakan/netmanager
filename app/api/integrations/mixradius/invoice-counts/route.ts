@@ -9,36 +9,46 @@ export const dynamic = 'force-dynamic'
  * Batch fetch invoice counts for multiple customers
  */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-    const user = ctx.session!.user
-    const isSuper = isSuperAdmin(user)
+  const user = ctx.session!.user
+  const isSuper = isSuperAdmin(user)
 
-    if (!isSuper) {
-      const permissions = await getUserPermissions(user.id)
-      const hasAccess = permissions.includes('mixradius:read') ||
-                        permissions.includes('*')
-      if (!hasAccess) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses ke data MixRadius')
-      }
+  if (!isSuper) {
+    const permissions = await getUserPermissions(user.id)
+    const hasAccess = permissions.includes('mixradius:read') ||
+      permissions.includes('*')
+    if (!hasAccess) {
+      return ApiErrors.forbidden('Anda tidak memiliki akses ke data MixRadius')
     }
+  }
 
-    const body = await req.json()
-    const customerIds: string[] = body.customerIds || []
-    const validationData: Record<string, string> = body.validationData || {}
-    const bypassCache: boolean = body.bypassCache || false
+  const body = await req.json()
+  const customerIds: string[] = body.customerIds || []
+  const validationData: Record<string, string> = body.validationData || {}
+  const bypassCache: boolean = body.bypassCache || false
 
-    if (customerIds.length === 0) {
-      return apiSuccess({})
-    }
+  if (customerIds.length === 0) {
+    return apiSuccess({})
+  }
 
-    const limitedIds = customerIds.slice(0, 20)
+  const limitedIds = customerIds.slice(0, 20)
 
+  try {
     const service = getMixRadiusService()
     const results = await service.fetchInvoiceCounts(limitedIds, bypassCache, validationData)
 
     const data: Record<string, { paidCount: number, totalCount: number }> = {}
-    results.forEach((value: { paidCount: number; totalCount: number }, key: string) => {
+    results.forEach((value, key) => {
       data[key] = value
     })
 
     return apiSuccess(data)
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'MixRadiusConfigError') {
+      return apiSuccess({
+        error: error.message,
+        isConfigError: true,
+      })
+    }
+    throw error
+  }
 })
