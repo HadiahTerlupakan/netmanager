@@ -126,7 +126,11 @@ export class MixRadiusSyncService {
 
       // console.log(`[MixRadiusSync] Successfully synced ${count} customers`)
       return { success: true, count }
-    } catch (error) {
+    } catch (error: any) {
+      if (error && error.name === 'MixRadiusConfigError') {
+        console.warn(`[MixRadiusSync] Berhenti sinkronisasi pelanggan: ${error.message}`)
+        return { success: false, count: 0, reason: error.message }
+      }
       console.error("[MixRadiusSync] Full customer sync error:", error)
       throw error
     }
@@ -172,7 +176,11 @@ export class MixRadiusSyncService {
 
       // console.log(`[MixRadiusSync] Successfully synced ${syncCount} invoices`)
       return { success: true, count: syncCount }
-    } catch (error) {
+    } catch (error: any) {
+      if (error && error.name === 'MixRadiusConfigError') {
+        console.warn(`[MixRadiusSync] Berhenti sinkronisasi invoice: ${error.message}`)
+        return { success: false, count: 0, reason: error.message }
+      }
       console.error("[MixRadiusSync] Invoice sync error:", error)
       throw error
     }
