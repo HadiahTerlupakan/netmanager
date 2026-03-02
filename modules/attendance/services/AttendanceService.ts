@@ -38,10 +38,10 @@ export class AttendanceService {
         // 1. Timezone & Date Context
         // Use offlineTime if provided (trusted for sync), else server time
         const checkInTime = offlineTime || new Date()
-        
+
         // Get timezone from service if not provided
         const tz = timezone || await this.timezoneService.getTimezone()
-        
+
         // Use timezone service to get effective date
         const { now: nowInTz, startOfDay: effectiveToday } = this.timezoneService.getEffectiveDate(tz)
 
@@ -55,17 +55,17 @@ export class AttendanceService {
         // 3. User Settings & Schedule (with caching)
         const cacheKey = `user:schedule:${userId}`
         const cachedSchedule = cache.get<{ startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null, shiftId: string | null, shift: { startTime: string, endTime: string } | null }>(cacheKey)
-        
+
         let userDetails: { startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null, shiftId: string | null, shift: { startTime: string, endTime: string } | null } | null
         if (cachedSchedule) {
             userDetails = cachedSchedule
         } else {
             userDetails = await prisma.user.findUnique({
                 where: { id: userId },
-                select: { 
-                    startWorkTime: true, 
-                    endWorkTime: true, 
-                    workingHourMode: true, 
+                select: {
+                    startWorkTime: true,
+                    endWorkTime: true,
+                    workingHourMode: true,
                     shiftId: true,
                     shift: { select: { startTime: true, endTime: true } }
                 }
@@ -96,7 +96,7 @@ export class AttendanceService {
             distance: null as number | null,
             siteName: null as string | null
         }
-        
+
         if (latitude !== undefined && longitude !== undefined) {
             const geoCheck = await this.geofenceService.validateGeofence(userId, latitude, longitude)
             geofenceResult = {
@@ -114,7 +114,7 @@ export class AttendanceService {
             if (userDetails?.workingHourMode === 'SHIFT' && userDetails?.shift) {
                 scheduleTime = userDetails.shift.startTime
             }
-            
+
             if (scheduleTime) {
                 status = await this.timezoneService.calculateStatus(
                     checkInTime,
@@ -164,7 +164,7 @@ export class AttendanceService {
 
         await Promise.all(staleSessions.map(async (session) => {
             let autoCheckOut = new Date(session.checkIn)
-            
+
             // Logic Auto Checkout - same as legacy
             if (userDetails?.endWorkTime) {
                 const parts = userDetails.endWorkTime.split(':').map(Number)
@@ -178,13 +178,13 @@ export class AttendanceService {
             // Adjust date if previous day logic needed? 
             // The legacy code used simple Hours setting on the CheckIn Date.
             // If checkIn was yesterday 08:00, autoCheckout becomes yesterday 17:00. Correct.
-            
+
             // Safety: if config error makes checkout < checkin
             if (autoCheckOut <= session.checkIn) {
                 // Fallback: CheckIn + default work hours
                 autoCheckOut = new Date(session.checkIn.getTime() + ATTENDANCE_CONSTANTS.DEFAULT_WORK_HOURS * 3600000)
             }
-            
+
             // Logic "Malam" -> end of day
             if (session.checkIn > autoCheckOut) {
                 autoCheckOut.setHours(
@@ -200,8 +200,8 @@ export class AttendanceService {
 
             await prisma.attendance.update({
                 where: { id: session.id },
-                data: { 
-                    checkOut: autoCheckOut, 
+                data: {
+                    checkOut: autoCheckOut,
                     notes: newNotes,
                     status: 'ABSENT' // Consistent with AutoCheckoutService
                 }
@@ -227,14 +227,10 @@ export class AttendanceService {
     }> {
         const { userId, photoUrl, location, notes, latitude, longitude, offlineTime } = params
 
-        // 1. Find active attendance (last 24 hours)
-        const searchStart = new Date()
-        searchStart.setHours(searchStart.getHours() - 24)
-
+        // 1. Find active attendance
         const attendance = await prisma.attendance.findFirst({
             where: {
                 userId,
-                checkIn: { gte: searchStart },
                 checkOut: null
             },
             orderBy: { checkIn: 'desc' },
@@ -307,7 +303,7 @@ export class AttendanceService {
 
         const result: { attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>; warning?: string } = { attendance: updatedAttendance as Prisma.AttendanceGetPayload<{ include: { user: true } }> }
         if (warning) result.warning = warning
-        
+
         return result
     }
 
@@ -343,10 +339,10 @@ export class AttendanceService {
 
         // 2. Formal Overtime (Approved/Completed) - ONLY add to existing users with attendance
         userOtStats.forEach(item => {
-             // Skip if user has no attendance record (shouldn't appear in Star Employees)
-             if (!userMap.has(item.userId)) return
-             const current = userMap.get(item.userId)!
-             current.officialOtMinutes += (item._sum.duration || 0)
+            // Skip if user has no attendance record (shouldn't appear in Star Employees)
+            if (!userMap.has(item.userId)) return
+            const current = userMap.get(item.userId)!
+            current.officialOtMinutes += (item._sum.duration || 0)
         })
 
         // 3. Absence Stats (Penalties) - ONLY for existing users
@@ -389,7 +385,7 @@ export class AttendanceService {
                     if (config.startWorkTime && config.endWorkTime) {
                         const startParts = config.startWorkTime.split(':').map(Number)
                         const endParts = config.endWorkTime.split(':').map(Number)
-                        
+
                         const startH = startParts[0] ?? 0
                         const startM = startParts[1] ?? 0
                         const endH = endParts[0] ?? 0
@@ -398,8 +394,8 @@ export class AttendanceService {
                         const startMinutes = startH * 60 + startM
                         const endMinutes = endH * 60 + endM
                         // Handle overnight (end < start)
-                        return endMinutes >= startMinutes 
-                            ? endMinutes - startMinutes 
+                        return endMinutes >= startMinutes
+                            ? endMinutes - startMinutes
                             : (24 * 60 - startMinutes) + endMinutes
                     }
                     return 480 // Default 8 hours
@@ -418,8 +414,8 @@ export class AttendanceService {
                         const startMinutes = startH * 60 + startM
                         const endMinutes = endH * 60 + endM
                         // Handle overnight shift
-                        return endMinutes >= startMinutes 
-                            ? endMinutes - startMinutes 
+                        return endMinutes >= startMinutes
+                            ? endMinutes - startMinutes
                             : (24 * 60 - startMinutes) + endMinutes
                     }
                     return 480 // Default 8 hours
@@ -435,61 +431,61 @@ export class AttendanceService {
 
         // 5. Implicit Overtime & Total Duration - ONLY for existing users
         userTotalDuration.forEach((totalMinutes, userId) => {
-             // Skip if user has no attendance record
-             if (!userMap.has(userId)) return
-             const current = userMap.get(userId)!
-             
-             // Set absolute total working minutes
-             current.totalMinutes = totalMinutes
+            // Skip if user has no attendance record
+            if (!userMap.has(userId)) return
+            const current = userMap.get(userId)!
 
-             // Calculate Standard Work Minutes based on user's ACTUAL work hour configuration
-             // Only calculate excess if user has actual attendance days
-             if (current.days > 0) {
-                 const standardMinutesPerDay = getStandardMinutesPerDay(userId)
-                 const standardMinutes = current.days * standardMinutesPerDay
-                 
-                 if (totalMinutes > standardMinutes) {
-                     const excess = totalMinutes - standardMinutes
-                     // Add excess minutes to record
-                     current.excessMinutes += excess
-                 }
-             }
+            // Set absolute total working minutes
+            current.totalMinutes = totalMinutes
+
+            // Calculate Standard Work Minutes based on user's ACTUAL work hour configuration
+            // Only calculate excess if user has actual attendance days
+            if (current.days > 0) {
+                const standardMinutesPerDay = getStandardMinutesPerDay(userId)
+                const standardMinutes = current.days * standardMinutesPerDay
+
+                if (totalMinutes > standardMinutes) {
+                    const excess = totalMinutes - standardMinutes
+                    // Add excess minutes to record
+                    current.excessMinutes += excess
+                }
+            }
         })
 
         // FILTER: Only include users with at least 1 day of attendance
         const scoredUsers = Array.from(userMap.entries())
             .filter(([_, stats]) => stats.days > 0) // Must have attendance
             .map(([userId, stats]) => {
-            // Scoring System:
-            // 1 Day Present = 10 pts
-            // 1 Day Alpha = -20 pts (Penalty)
-            // Official Overtime = 2 pts/hour (1 pt per 30 mins)
-            // Extra/Excess Overtime = 4 pts/hour (1 pt per 15 mins)
-            
-            const officialScore = Math.floor(stats.officialOtMinutes / 30)
-            const excessScore = Math.floor(stats.excessMinutes / 15)
-            const alphaPenalty = stats.alphaCount * 20
-            
-            const totalOtMinutes = stats.officialOtMinutes + stats.excessMinutes
-            const score = (stats.days * 10) + officialScore + excessScore - alphaPenalty
-            
-            return { 
-                userId, 
-                score, 
-                details: { 
-                    days: stats.days, 
-                    alphaCount: stats.alphaCount,
-                    otHours: parseFloat((totalOtMinutes / 60).toFixed(1)), // Total OT
-                    officialOtHours: parseFloat((stats.officialOtMinutes / 60).toFixed(1)), // Resmi
-                    excessHours: parseFloat((stats.excessMinutes / 60).toFixed(1)), // Ekstra
-                    totalHours: parseFloat((stats.totalMinutes / 60).toFixed(1)) // Total Jam Kerja
-                } 
-            }
-        })
+                // Scoring System:
+                // 1 Day Present = 10 pts
+                // 1 Day Alpha = -20 pts (Penalty)
+                // Official Overtime = 2 pts/hour (1 pt per 30 mins)
+                // Extra/Excess Overtime = 4 pts/hour (1 pt per 15 mins)
+
+                const officialScore = Math.floor(stats.officialOtMinutes / 30)
+                const excessScore = Math.floor(stats.excessMinutes / 15)
+                const alphaPenalty = stats.alphaCount * 20
+
+                const totalOtMinutes = stats.officialOtMinutes + stats.excessMinutes
+                const score = (stats.days * 10) + officialScore + excessScore - alphaPenalty
+
+                return {
+                    userId,
+                    score,
+                    details: {
+                        days: stats.days,
+                        alphaCount: stats.alphaCount,
+                        otHours: parseFloat((totalOtMinutes / 60).toFixed(1)), // Total OT
+                        officialOtHours: parseFloat((stats.officialOtMinutes / 60).toFixed(1)), // Resmi
+                        excessHours: parseFloat((stats.excessMinutes / 60).toFixed(1)), // Ekstra
+                        totalHours: parseFloat((stats.totalMinutes / 60).toFixed(1)) // Total Jam Kerja
+                    }
+                }
+            })
 
         // Sort by Score DESC
         scoredUsers.sort((a, b) => b.score - a.score)
-        
+
         // Take Top 5
         const topScorers = scoredUsers.slice(0, 5)
 
@@ -501,20 +497,20 @@ export class AttendanceService {
                 image: string | null;
                 sites: { name: string } | null;
                 departments: { name: string } | null;
-        } | undefined;
-        score: number;
-        details: Record<string, unknown>;
-    }> = []
+            } | undefined;
+            score: number;
+            details: Record<string, unknown>;
+        }> = []
 
-    if (topScorers.length > 0) {
+        if (topScorers.length > 0) {
             const topScorerDetails = await prisma.user.findMany({
                 where: { id: { in: topScorers.map(u => u.userId) } },
-                select: { 
-                    id: true, 
-                    name: true, 
-                    image: true, 
-                    sites: { select: { name: true } }, 
-                    departments: { select: { name: true } } 
+                select: {
+                    id: true,
+                    name: true,
+                    image: true,
+                    sites: { select: { name: true } },
+                    departments: { select: { name: true } }
                 }
             })
 
@@ -596,7 +592,7 @@ export class AttendanceService {
                 totalJamKerja: parseFloat((totalMinutes / 60).toFixed(1))
             }
         }).filter(e => e.user !== null)
-        
+
         return {
             summary: {
                 totalAttendance: stats.total,

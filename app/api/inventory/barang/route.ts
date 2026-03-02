@@ -169,8 +169,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     // Check restriction: barang:site_only (specific) OR k_barang:site_only (mobile) OR gudang:site_only (inherited)
     const hasRestriction = permissions.includes('barang:site_only') ||
-                           permissions.includes('k_barang:site_only') ||
-                           permissions.includes('gudang:site_only')
+      permissions.includes('k_barang:site_only') ||
+      permissions.includes('gudang:site_only')
 
     // ctx.session.user structure in createHandler might not have siteId directly mapped if it's strict
     // We should fetch user or use what's available. `isSuperAdmin` helper usually takes a user object with role.
@@ -181,12 +181,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     // Wait, previous code used `session.siteId`. `session` was `Session` from next-auth.
     // `createHandler` defines `session.user` as `{ id, email, name?, role? }`. It does NOT include siteId.
     // So I MUST fetch siteId if restriction applies.
-    
+
     let siteId: string | undefined = undefined;
     if (!isSuper && hasRestriction) {
-        const { prisma } = await import('@/lib/prisma');
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-        siteId = dbUser?.siteId || undefined;
+      const { prisma } = await import('@/lib/prisma');
+      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+      siteId = dbUser?.siteId || undefined;
     }
 
     const findAllParams: Parameters<typeof inventoryRepository.findAllBarang>[0] = {
@@ -315,21 +315,31 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const dbStart = Date.now()
     const inventoryRepository = getInventoryRepository()
 
-    // Generate unique kode
-    let kode: string
-    let attempts = 0
-    const maxAttempts = 10
+    // Process user-provided code or generate one
+    let kode: string = body.kode?.trim()
 
-    do {
-      kode = await generateBarangCode()
+    if (kode) {
+      // Validate uniqueness of user-provided code
       const isExists = await inventoryRepository.existsBarangByKode(kode)
+      if (isExists) {
+        return ApiErrors.badRequest(`Kode barang "${kode}" sudah digunakan. Silakan gunakan kode lain atau kosongkan field kode.`)
+      }
+    } else {
+      // Auto-generate unique code if not provided
+      let attempts = 0
+      const maxAttempts = 10
 
-      if (!isExists) break
-      attempts++
-    } while (attempts < maxAttempts)
+      do {
+        kode = await generateBarangCode()
+        const isExists = await inventoryRepository.existsBarangByKode(kode)
 
-    if (attempts >= maxAttempts) {
-      throw new Error('Gagal generate kode unik')
+        if (!isExists) break
+        attempts++
+      } while (attempts < maxAttempts)
+
+      if (attempts >= maxAttempts) {
+        throw new Error('Gagal generate kode unik')
+      }
     }
 
     const barang = await inventoryRepository.createBarang({

@@ -3,6 +3,7 @@ import type { UserWithRelations } from '../repositories/UserRepository'
 import { WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
 import { hash } from 'bcryptjs'
+import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
 import { cache } from '@/lib/cache'
 import { invalidatePermissionCache } from '@/lib/auth'
 
@@ -60,10 +61,10 @@ export class UserService {
     }
 
     async createUser(data: CreateUserInput): Promise<User> {
-        // Check if email already exists
-        const existingUser = await this.userRepository.findByEmail(data.email)
-        if (existingUser) {
-            throw new Error('Email sudah terdaftar')
+        // Check if email already exists globally
+        const globalCheck = await checkGlobalIdentifier(data.email, 'EMPLOYEE')
+        if (globalCheck.exists) {
+            throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`)
         }
 
         // Hash password
@@ -98,11 +99,11 @@ export class UserService {
             throw new Error('User tidak ditemukan')
         }
 
-        // If email is being changed, check if new email is available
+        // If email is being changed, check if new email is available globally
         if (data.email && data.email !== existingUser.email) {
-            const emailExists = await this.userRepository.findByEmail(data.email)
-            if (emailExists) {
-                throw new Error('Email sudah terdaftar')
+            const globalCheck = await checkGlobalIdentifier(data.email, 'EMPLOYEE')
+            if (globalCheck.exists) {
+                throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`)
             }
         }
 
@@ -176,10 +177,10 @@ export class UserService {
         }
 
         const updatedUser = await this.userRepository.updateWorkingHours(id, data)
-        
+
         // Invalidate attendance schedule cache to ensure immediate effect
         cache.invalidate(`user:schedule:${id}`)
-        
+
         return updatedUser
     }
 }

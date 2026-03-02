@@ -10,6 +10,7 @@ import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sy
 import { logActivitySafe } from '@/lib/logger'
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 import { Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client'
+import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
 interface ExtendedUser {
   id: string;
   role: string;
@@ -636,15 +637,34 @@ export async function PUT(
       )
     }
 
-    // Cek apakah ID Pelanggan sudah digunakan oleh pelanggan lain (jika diubah)
+    // Cek apakah ID Pelanggan sudah digunakan secara global (jika diubah)
     if (idPelanggan.trim() !== existingPelanggan.idPelanggan) {
-      const existingIdPelanggan = await prisma.pelanggan.findUnique({
-        where: { idPelanggan: idPelanggan.trim() },
-      })
-
-      if (existingIdPelanggan) {
+      const globalIdCheck = await checkGlobalIdentifier(idPelanggan.trim(), 'CUSTOMER', existingPelanggan.id)
+      if (globalIdCheck.exists) {
         return NextResponse.json(
-          { error: 'ID Pelanggan sudah digunakan. Silakan gunakan ID lain.' },
+          { error: `ID Pelanggan sudah digunakan sebagai ${globalIdCheck.role}. Silakan gunakan ID lain.` },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Cek apakah username sudah digunakan secara global (jika diubah)
+    if (username.trim() !== existingPelanggan.username) {
+      const globalUsernameCheck = await checkGlobalIdentifier(username.trim(), 'CUSTOMER', existingPelanggan.id)
+      if (globalUsernameCheck.exists) {
+        return NextResponse.json(
+          { error: `Username sudah digunakan sebagai ${globalUsernameCheck.role}. Silakan gunakan Username lain.` },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Cek apakah email sudah digunakan secara global (jika diubah)
+    if (email && email.trim() !== existingPelanggan.email) {
+      const globalEmailCheck = await checkGlobalIdentifier(email.trim(), 'CUSTOMER', existingPelanggan.id)
+      if (globalEmailCheck.exists) {
+        return NextResponse.json(
+          { error: `Email sudah digunakan sebagai ${globalEmailCheck.role}. Silakan gunakan Email lain.` },
           { status: 409 }
         )
       }

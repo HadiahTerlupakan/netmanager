@@ -23,14 +23,14 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const permissions = await getUserPermissions(user.id);
   const isSuper = isSuperAdmin(user)
   const hasRestriction = permissions.includes('barang:site_only') ||
-                         permissions.includes('k_barang:site_only') ||
-                         permissions.includes('gudang:site_only')
+    permissions.includes('k_barang:site_only') ||
+    permissions.includes('gudang:site_only')
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-      const { prisma } = await import('@/lib/prisma');
-      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-      siteId = dbUser?.siteId || undefined;
+    const { prisma } = await import('@/lib/prisma');
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+    siteId = dbUser?.siteId || undefined;
   }
 
   try {
@@ -116,14 +116,14 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const permissions = await getUserPermissions(user.id);
   const isSuper = isSuperAdmin(user)
   const hasRestriction = permissions.includes('barang:site_only') ||
-                         permissions.includes('k_barang:site_only') ||
-                         permissions.includes('gudang:site_only')
+    permissions.includes('k_barang:site_only') ||
+    permissions.includes('gudang:site_only')
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-      const { prisma } = await import('@/lib/prisma');
-      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-      siteId = dbUser?.siteId || undefined;
+    const { prisma } = await import('@/lib/prisma');
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+    siteId = dbUser?.siteId || undefined;
   }
 
   try {
@@ -208,14 +208,14 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const permissions = await getUserPermissions(user.id);
   const isSuper = isSuperAdmin(user)
   const hasRestriction = permissions.includes('barang:site_only') ||
-                         permissions.includes('k_barang:site_only') ||
-                         permissions.includes('gudang:site_only')
+    permissions.includes('k_barang:site_only') ||
+    permissions.includes('gudang:site_only')
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-      const { prisma } = await import('@/lib/prisma');
-      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-      siteId = dbUser?.siteId || undefined;
+    const { prisma } = await import('@/lib/prisma');
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+    siteId = dbUser?.siteId || undefined;
   }
 
   try {
@@ -259,6 +259,12 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     return apiSuccess(null, { message: 'Barang berhasil dihapus' })
   } catch (error) {
     const err = error as Error
+
+    // Check for Prisma Foreign Key Constraint error (P2003)
+    if ((error as { code?: string }).code === 'P2003' || err.message?.includes('P2003')) {
+      return ApiErrors.badRequest('Barang tidak bisa dihapus karena masih terkait dengan data transaksi (Work Order, Pesanan, atau Aset). Pastikan semua relasi data terkait sudah dibersihkan.')
+    }
+
     logger.error('Error deleting barang', err, {
       path: '/api/inventory/barang/[id]',
       method: 'DELETE',

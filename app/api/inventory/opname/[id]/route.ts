@@ -25,8 +25,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return ApiErrors.forbidden()
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    try {
       const dbStart = Date.now()
 
       const opnameRecord = await prisma.stockOpname.findUnique({
@@ -94,7 +94,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return ApiErrors.forbidden()
     }
 
-        const { id } = await params
+    const { id } = await params
     const body = await req.json()
     const {
       stokFisik,
@@ -148,15 +148,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         })
 
         const stokSistem = currentStock?.stok || 0
-        const selisih = stokFisik - stokSistem
+        const selisihFisik = stokFisik - existingRecord.stokFisik
+        const selisihBaru = stokFisik - existingRecord.stokSistem // updated selisih from the original system baseline
 
         // Update stock opname record
         const updatedRecord = await tx.stockOpname.update({
           where: { id },
           data: {
             stokFisik,
-            stokSistem,
-            selisih,
+            selisih: selisihBaru,
             keterangan,
             kondisiBaik: kondisiBaik !== undefined ? kondisiBaik : existingRecord.kondisiBaik,
             kondisiRusak: kondisiRusak !== undefined ? kondisiRusak : existingRecord.kondisiRusak,
@@ -173,20 +173,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           }
         })
 
-        // Update stock to match physical count
+        // Update stock to match physical count differences (Delta update to avoid overwriting history)
         if (currentStock) {
-          if (stokFisik === 0) {
-            // Delete stock record if physical count is 0
-            await tx.barangGudang.delete({
-              where: { barangId_gudangId: { barangId: existingRecord.barangId, gudangId: existingRecord.gudangId } }
-            })
-          } else {
-            // Update stock record
-            await tx.barangGudang.update({
-              where: { barangId_gudangId: { barangId: existingRecord.barangId, gudangId: existingRecord.gudangId } },
-              data: { stok: stokFisik }
-            })
-          }
+          const newTotalStock = Math.max(0, currentStock.stok + selisihFisik)
+          const newStokBaru = Math.max(0, currentStock.stokBaru + selisihFisik)
+
+          await tx.barangGudang.update({
+            where: { barangId_gudangId: { barangId: existingRecord.barangId, gudangId: existingRecord.gudangId } },
+            data: {
+              stok: newTotalStock,
+              stokBaru: newStokBaru
+            }
+          })
         } else if (stokFisik > 0) {
           // Create new stock record if it doesn't exist
           await tx.barangGudang.create({
@@ -207,7 +205,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           opnameId: id,
           stokFisik,
           stokSistem,
-          selisih,
+          selisih: selisihBaru,
         })
 
         return updatedRecord
@@ -251,8 +249,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return ApiErrors.forbidden()
     }
 
-        const { id } = await params
-        // Validate ID
+    const { id } = await params
+    // Validate ID
     if (!id || id.trim() === '') {
       return ApiErrors.badRequest('ID tidak valid')
     }
@@ -277,30 +275,23 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         }
       })
 
-      // Restore stock to previous system stock
+      // Restore stock to previous system stock (Reverse the delta applied during creation/update)
       if (currentStock) {
-        if (existingRecord.stokSistem === 0) {
-          // Delete stock record if system stock was 0
-          await tx.barangGudang.delete({
-            where: {
-              barangId_gudangId: {
-                barangId: existingRecord.barangId,
-                gudangId: existingRecord.gudangId
-              }
+        const newTotalStock = Math.max(0, currentStock.stok - existingRecord.selisih)
+        const newStokBaru = Math.max(0, currentStock.stokBaru - existingRecord.selisih)
+
+        await tx.barangGudang.update({
+          where: {
+            barangId_gudangId: {
+              barangId: existingRecord.barangId,
+              gudangId: existingRecord.gudangId
             }
-          })
-        } else {
-          // Update stock back to system stock
-          await tx.barangGudang.update({
-            where: {
-              barangId_gudangId: {
-                barangId: existingRecord.barangId,
-                gudangId: existingRecord.gudangId
-              }
-            },
-            data: { stok: existingRecord.stokSistem }
-          })
-        }
+          },
+          data: {
+            stok: newTotalStock,
+            stokBaru: newStokBaru
+          }
+        })
       }
 
       // Delete the stock opname record

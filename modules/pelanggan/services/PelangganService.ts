@@ -5,6 +5,7 @@ import { hash } from 'bcryptjs'
 import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
 import { prisma } from '@/lib/prisma'
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
+import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
 
 export interface CreatePelangganInput {
     idPelanggan: string
@@ -84,16 +85,24 @@ export class PelangganService {
             throw new Error('ID Pelanggan harus 8 digit angka')
         }
 
-        // Check if ID already exists
-        const existingById = await this.pelangganRepository.findByIdPelanggan(data.idPelanggan.trim())
-        if (existingById) {
-            throw new Error('ID Pelanggan sudah digunakan')
+        // Check if ID already exists globally
+        const globalIdCheck = await checkGlobalIdentifier(data.idPelanggan.trim(), 'CUSTOMER')
+        if (globalIdCheck.exists) {
+            throw new Error(`ID Pelanggan sudah digunakan sebagai ${globalIdCheck.role}`)
         }
 
-        // Check if username already exists
-        const existingByUsername = await this.pelangganRepository.findByUsername(data.username.trim())
-        if (existingByUsername) {
-            throw new Error('Username sudah digunakan')
+        // Check if username already exists globally
+        const globalUsernameCheck = await checkGlobalIdentifier(data.username.trim(), 'CUSTOMER')
+        if (globalUsernameCheck.exists) {
+            throw new Error(`Username sudah digunakan sebagai ${globalUsernameCheck.role}`)
+        }
+
+        // Check if email already exists globally if provided
+        if (data.email) {
+            const globalEmailCheck = await checkGlobalIdentifier(data.email.trim(), 'CUSTOMER')
+            if (globalEmailCheck.exists) {
+                throw new Error(`Email sudah digunakan sebagai ${globalEmailCheck.role}`)
+            }
         }
 
         // Check if HargaPaket exists

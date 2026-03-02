@@ -191,3 +191,17 @@ export function stopPushRetryProcessor(): void {
         // console.log('[PushRetry] Retry processor stopped')
     }
 }
+
+/**
+ * Get current stats of the retry queue
+ */
+export async function getRetryQueueStats(): Promise<{ queueLength: number; processingLength: number }> {
+    try {
+        const queueLength = await redis.llen(RETRY_QUEUE_KEY)
+        const processingLength = await redis.llen(RETRY_PROCESSING_KEY)
+        return { queueLength, processingLength }
+    } catch (error) {
+        console.error('[PushRetry] Failed to get queue stats:', error)
+        return { queueLength: 0, processingLength: 0 }
+    }
+}

@@ -113,9 +113,21 @@ export async function sendCustomerPushNotification(
 
     } catch (error) {
         console.error('[Push] Error sending customer notification:', error)
-        // Ensure retry enqueue logic works for Pelanggan as well if needed.
-        // The current PushRetryQueue seems bounded to `userId`. We might just skip retry or adapt it.
-        // For now, logging the error is sufficient.
+        // Retry logic for Pelanggan
+        const pelanggan = await prisma.pelanggan.findUnique({
+            where: { id: pelangganId },
+            select: { pushToken: true }
+        })
+        if (pelanggan?.pushToken) {
+            enqueuePushRetry({
+                type: 'expo',
+                userId: pelangganId, // Treat pelangganId as userId for retry purposes
+                title,
+                body,
+                data,
+                pushToken: pelanggan.pushToken,
+            })
+        }
         return false
     }
 }

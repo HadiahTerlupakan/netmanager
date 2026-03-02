@@ -142,8 +142,8 @@ export const POST = createHandler({
 
     return apiSuccess({ id: user.id }, { status: 201, message: 'User berhasil dibuat' })
   } catch (e: unknown) {
-    if (e instanceof Error && e.message === 'Email already exists') {
-      return ApiErrors.conflict('Email sudah terdaftar')
+    if (e instanceof Error && e.message.startsWith('Email sudah terdaftar')) {
+      return ApiErrors.conflict(e.message)
     }
     throw e // Let createHandler deal with general errors
   }

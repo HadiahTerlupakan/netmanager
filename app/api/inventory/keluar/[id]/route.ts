@@ -3,8 +3,9 @@ import { getServerSession, type Session } from 'next-auth'
 import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { apiError, apiSuccess, ApiErrors, ErrorCodes } from '@/lib/api-response'
 import { hasPermission } from '@/lib/rbac'
+import { STOCK_FIELD_MAP } from '@/lib/constants/inventory'
 
 interface UserSession {
   id: string
@@ -202,9 +203,19 @@ export async function PUT(
             throw new Error('Stok tidak mencukupi untuk perubahan ini')
           }
 
+          const stockField = STOCK_FIELD_MAP[currentRecord.kondisi as keyof typeof STOCK_FIELD_MAP] || 'stokBaru'
+          const newConditionStock = Number((currentStock as Record<string, unknown>)[stockField] || 0) + stockDifference
+
+          if (newConditionStock < 0) {
+            throw new Error(`Stok ${currentRecord.kondisi} tidak mencukupi untuk perubahan ini`)
+          }
+
           await tx.barangGudang.update({
             where: { barangId_gudangId: { barangId: currentRecord.barangId, gudangId: currentRecord.gudangId } },
-            data: { stok: newStock }
+            data: {
+              stok: newStock,
+              [stockField]: newConditionStock
+            }
           })
         } else {
           throw new Error('Stok tidak ditemukan untuk barang dan gudang ini')
@@ -314,21 +325,28 @@ export async function DELETE(
         })
 
         if (currentStock) {
+          const stockField = STOCK_FIELD_MAP[keluarRecord.kondisi as keyof typeof STOCK_FIELD_MAP] || 'stokBaru'
+          const newConditionStock = Number((currentStock as Record<string, unknown>)[stockField] || 0) + keluarRecord.jumlah
+
           // Add back the stock that was taken out
           await tx.barangGudang.update({
             where: { barangId_gudangId: { barangId: keluarRecord.barangId, gudangId: keluarRecord.gudangId } },
             data: {
-              stok: currentStock.stok + keluarRecord.jumlah
+              stok: currentStock.stok + keluarRecord.jumlah,
+              [stockField]: newConditionStock
             }
           })
         } else {
           // If no stock record exists, create one
+          const stockField = STOCK_FIELD_MAP[keluarRecord.kondisi as keyof typeof STOCK_FIELD_MAP] || 'stokBaru'
+
           await tx.barangGudang.create({
             data: {
               id: crypto.randomUUID(),
               barangId: keluarRecord.barangId,
               gudangId: keluarRecord.gudangId,
               stok: keluarRecord.jumlah,
+              [stockField]: keluarRecord.jumlah,
               updatedAt: new Date()
             }
           })

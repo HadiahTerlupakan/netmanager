@@ -215,7 +215,18 @@ export async function POST(req: Request) {
         // EXECUTION FLOW
         let result: LoginResult
 
-        if (loginType === 'CUSTOMER') {
+        if (targetType === 'MITRA') {
+            result = await tryMitraLogin()
+            if (!result.found) {
+                const empResult = await tryEmployeeLogin()
+                if (empResult.found) {
+                    result = empResult
+                } else {
+                    const custResult = await tryCustomerLogin()
+                    if (custResult.found) result = custResult
+                }
+            }
+        } else if (targetType === 'CUSTOMER') {
             result = await tryCustomerLogin()
             if (!result.found) {
                 const empResult = await tryEmployeeLogin()

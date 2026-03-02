@@ -8,6 +8,7 @@ import { checkSiteRestriction, canAccessSite } from '@/modules/roles'
 import { updateUserSchema } from '@/lib/validations/user'
 import type { Session } from 'next-auth'
 import { Prisma } from '@prisma/client'
+import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
 
 /**
  * @swagger
@@ -130,12 +131,13 @@ export const PATCH = createHandler({
   // Fetch current data for sensitive field checks and site restriction
   const currentData = await prisma.user.findUnique({
     where: { id },
-    select: { 
+    select: {
       id: true,
-      roleId: true, 
-      siteId: true, 
-      departmentId: true, 
-      isActive: true 
+      email: true,
+      roleId: true,
+      siteId: true,
+      departmentId: true,
+      isActive: true
     }
   })
 
@@ -170,8 +172,16 @@ export const PATCH = createHandler({
   }
 
   // Prepare data for update
-  const { password, userSites, ...updateData } = body
+  const { password, userSites, email, ...updateData } = body
   const data: Prisma.UserUpdateInput = { ...updateData }
+
+  if (email && email !== currentData.email) {
+    const globalCheck = await checkGlobalIdentifier(email, 'EMPLOYEE', id)
+    if (globalCheck.exists) {
+      return ApiErrors.conflict(`Email sudah terdaftar sebagai ${globalCheck.role}`)
+    }
+    data.email = email
+  }
 
   // Hash password if provided
   if (password) {
@@ -221,7 +231,7 @@ export const PATCH = createHandler({
     if (body.roleId !== undefined) {
       const { invalidatePermissionCache } = await import('@/lib/auth')
       await invalidatePermissionCache(id)
-      
+
       // Emit socket event so mobile app can refresh permissions without logout
       await emitSocketEvent(`user:${id}`, SOCKET_EVENTS.USER_PERMISSIONS_UPDATE, { userId: id })
     }

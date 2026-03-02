@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server'
 import { getServerSession, type Session } from 'next-auth'
 import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { hasPermission } from '@/lib/rbac'
+import { apiError, apiSuccess, ApiErrors, ErrorCodes } from '@/lib/api-response'
+import { prisma } from '@/lib/prisma'
+import { STOCK_FIELD_MAP } from '@/lib/constants/inventory'
 
 interface UserSession {
   id: string
@@ -199,23 +200,47 @@ export async function PUT(
         })
 
         if (currentStock) {
-          const newStock = currentStock.stok + stockDifference
-          if (newStock < 0) {
+          const newTotalStock = currentStock.stok + stockDifference
+          if (newTotalStock < 0) {
             throw new Error('Stok tidak bisa negatif')
+          }
+
+          const oldKondisi = currentRecord.kondisi as keyof typeof STOCK_FIELD_MAP
+          const newKondisi = (kondisi || currentRecord.kondisi) as keyof typeof STOCK_FIELD_MAP
+          const oldStockField = STOCK_FIELD_MAP[oldKondisi] || 'stokBaru'
+          const newStockField = STOCK_FIELD_MAP[newKondisi] || 'stokBaru'
+
+          const updateData: Record<string, number> = { stok: newTotalStock }
+
+          if (oldStockField === newStockField) {
+            const newConditionStock = Number((currentStock as Record<string, unknown>)[oldStockField] || 0) + stockDifference
+            if (newConditionStock < 0) throw new Error(`Stok ${newKondisi} tidak bisa negatif`)
+            updateData[newStockField] = newConditionStock
+          } else {
+            const oldConditionStock = Number((currentStock as Record<string, unknown>)[oldStockField] || 0) - currentRecord.jumlah
+            if (oldConditionStock < 0) throw new Error(`Stok ${oldKondisi} tidak bisa negatif`)
+
+            const newConditionStock = Number((currentStock as Record<string, unknown>)[newStockField] || 0) + jumlah
+            updateData[oldStockField] = oldConditionStock
+            updateData[newStockField] = newConditionStock
           }
 
           await tx.barangGudang.update({
             where: { barangId_gudangId: { barangId: currentRecord.barangId, gudangId: currentRecord.gudangId } },
-            data: { stok: newStock }
+            data: updateData
           })
         } else {
           // If no stock record exists, create one
+          const newKondisi = (kondisi || currentRecord.kondisi) as keyof typeof STOCK_FIELD_MAP
+          const newStockField = STOCK_FIELD_MAP[newKondisi] || 'stokBaru'
+
           await tx.barangGudang.create({
             data: {
               id: crypto.randomUUID(),
               barangId: currentRecord.barangId,
               gudangId: currentRecord.gudangId,
               stok: jumlah,
+              [newStockField]: jumlah,
               updatedAt: new Date()
             }
           })
@@ -311,6 +336,7 @@ export async function DELETE(
 
         if (currentStock) {
           const newStock = Math.max(0, currentStock.stok - masukRecord.jumlah)
+          const stockField = STOCK_FIELD_MAP[masukRecord.kondisi as keyof typeof STOCK_FIELD_MAP] || 'stokBaru'
 
           if (newStock === 0) {
             // If stock becomes 0, delete the BarangGudang record
@@ -319,9 +345,13 @@ export async function DELETE(
             })
           } else {
             // Update with reduced stock
+            const newConditionStock = Math.max(0, Number((currentStock as Record<string, unknown>)[stockField] || 0) - masukRecord.jumlah)
             await tx.barangGudang.update({
               where: { barangId_gudangId: { barangId: masukRecord.barangId, gudangId: masukRecord.gudangId } },
-              data: { stok: newStock }
+              data: {
+                stok: newStock,
+                [stockField]: newConditionStock
+              }
             })
           }
         }

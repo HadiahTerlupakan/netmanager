@@ -3,6 +3,7 @@ import { hash } from 'bcryptjs'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { MitraRepository, getMitraRepository } from '../repositories/MitraRepository'
 import type { CreateMitraDTO, UpdateMitraDTO, MitraFilters } from '../dto/MitraDTO'
+import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
 
 interface ServiceResult<T = void> {
     success: boolean
@@ -52,9 +53,9 @@ export class MitraService {
      */
     async createMitra(data: CreateMitraDTO, createdById: string): Promise<ServiceResult<{ id: string }>> {
         try {
-            const existing = await prismaMitra.mitra.findUnique({ where: { email: data.email } })
-            if (existing) {
-                return { success: false, error: 'Email sudah digunakan' }
+            const globalCheck = await checkGlobalIdentifier(data.email, 'MITRA')
+            if (globalCheck.exists) {
+                return { success: false, error: `Email sudah digunakan sebagai ${globalCheck.role}` }
             }
 
             // Validate mitra type (mapped from DTO employeeType temporarily, ideally DTO also updated)
@@ -133,9 +134,9 @@ export class MitraService {
 
             // Check email uniqueness if changing
             if (data.email && data.email !== existing.email) {
-                const emailTaken = await prismaMitra.mitra.findUnique({ where: { email: data.email } })
-                if (emailTaken) {
-                    return { success: false, error: 'Email sudah digunakan' }
+                const globalCheck = await checkGlobalIdentifier(data.email, 'MITRA')
+                if (globalCheck.exists) {
+                    return { success: false, error: `Email sudah digunakan sebagai ${globalCheck.role}` }
                 }
             }
 

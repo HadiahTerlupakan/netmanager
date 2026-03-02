@@ -121,7 +121,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
 /**
  * DELETE /api/inventory/gudang/[id]
- * Delete specific warehouse (soft delete by setting isActive to false)
+ * Delete specific warehouse (hard delete)
  */
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params
@@ -150,7 +150,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.badRequest('Tidak dapat menghapus gudang yang masih memiliki stok barang')
     }
 
-    // Soft delete by setting isActive to false (via repository deleteGudang)
+    // Hard delete via repository
     await inventoryRepository.deleteGudang(id)
 
     logger.dbOperation('update', 'Gudang', Date.now() - dbStart)
@@ -171,6 +171,12 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     return apiSuccess({ message: 'Gudang berhasil dihapus' })
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error))
+
+    // Check for Prisma Foreign Key Constraint error (P2003)
+    if ((error as { code?: string }).code === 'P2003' || err.message?.includes('P2003')) {
+      return ApiErrors.badRequest('Gudang tidak dapat dihapus karena masih terelasi dengan data Transaksi (Barang Masuk/Keluar, Transfer, dsb). Pastikan gudang tersebut kosong dan tidak ada riwayat transaksi yang mengikat.')
+    }
+
     logger.error('Error deleting gudang', err, {
       path: '/api/inventory/gudang/[id]',
       method: 'DELETE',
