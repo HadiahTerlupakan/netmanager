@@ -81,6 +81,8 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+    networks:
+      - internal
 
   # ==========================================================================
   # DATABASE BILLING - PostgreSQL
