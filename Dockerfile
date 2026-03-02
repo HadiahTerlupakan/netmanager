@@ -33,7 +33,7 @@ ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ENV REDIS_URL="redis://localhost:6379"
 ENV OAUTH_ENCRYPTION_KEY="build-time-key-will-be-replaced-at-runtime"
 
-RUN npx prisma generate
+RUN npm run prisma:generate
 RUN npm run build
 
 # ==============================================================================
