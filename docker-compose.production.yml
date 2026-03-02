@@ -27,7 +27,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,7 +38,7 @@ services:
       resources:
         limits:
           memory: 1G
-          cpus: '1'
+          cpus: "1"
     logging:
       driver: "json-file"
       options:
@@ -64,7 +64,7 @@ services:
     volumes:
       - postgres_radius_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -75,13 +75,12 @@ services:
       resources:
         limits:
           memory: 1G
-          cpus: '1'
+          cpus: "1"
     logging:
       driver: "json-file"
       options:
         max-size: "50m"
         max-file: "5"
-    
 
   # ==========================================================================
   # DATABASE BILLING - PostgreSQL
@@ -98,7 +97,7 @@ services:
     volumes:
       - postgres_billing_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -109,7 +108,7 @@ services:
       resources:
         limits:
           memory: 1G
-          cpus: '1'
+          cpus: "1"
     logging:
       driver: "json-file"
       options:
@@ -133,7 +132,7 @@ services:
     volumes:
       - postgres_mitra_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -144,7 +143,7 @@ services:
       resources:
         limits:
           memory: 1G
-          cpus: '1'
+          cpus: "1"
     logging:
       driver: "json-file"
       options:
@@ -165,7 +164,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -175,7 +174,7 @@ services:
       resources:
         limits:
           memory: 384M
-          cpus: '0.5'
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -218,7 +217,7 @@ services:
       resources:
         limits:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -278,7 +277,8 @@ services:
     expose:
       - "3000"
     healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health" ]
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -292,7 +292,7 @@ services:
       resources:
         limits:
           memory: 1.5G
-          cpus: '2'
+          cpus: "2"
     logging:
       driver: "json-file"
       options:
@@ -369,7 +369,7 @@ services:
       - "--log.level=WARN"
       - "--accesslog=true"
       - "--accesslog.filepath=/var/log/traefik/access.log"
-      
+
       # Transport timeouts for large file uploads (5 minutes)
       - "--serversTransport.forwardingTimeouts.responseHeaderTimeout=300s"
       - "--serversTransport.forwardingTimeouts.idleConnTimeout=600s"
@@ -387,7 +387,7 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '0.5'
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -417,7 +417,7 @@ services:
       resources:
         limits:
           memory: 128M
-          cpus: '0.25'
+          cpus: "0.25"
     logging:
       driver: "json-file"
       options:
@@ -522,7 +522,7 @@ services:
       resources:
         limits:
           memory: 64M
-          cpus: '0.1'
+          cpus: "0.1"
     logging:
       driver: "json-file"
       options:
@@ -540,6 +540,8 @@ volumes:
   postgres_radius_data:
     driver: local
   postgres_billing_data:
+    driver: local
+  postgres_mitra_data:
     driver: local
   redis_data:
     driver: local
