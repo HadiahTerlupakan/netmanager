@@ -4,7 +4,6 @@ pipeline {
     environment {
         DOCKER_IMAGE = "netmanager-app"
         DOCKER_TAG = "staging"
-        DOCKER_REGISTRY = "registry-staging.radpro.id" // Domain registry dengan HTTPS
         NAMESPACE = "netmanager-staging"
     }
 
@@ -24,13 +23,11 @@ pipeline {
             }
         }
 
-        stage('Push Image') {
+        stage('Load Image to K3s') {
             steps {
                 script {
-                    // Pastikan kredensial docker sudah dikonfigurasi di Jenkins
-                    echo "Pushing Image to Registry..."
-                    sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    echo "Loading Docker image into K3s containerd..."
+                    sh "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} | sudo k3s ctr images import -"
                 }
             }
         }
