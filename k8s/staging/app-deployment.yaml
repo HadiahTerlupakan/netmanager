@@ -53,6 +53,16 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: RADIUS_DATABASE_URL
+            - name: DATABASE_URL_BILLING
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_BILLING
+            - name: DATABASE_URL_MITRA
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_MITRA
             - name: RADIUS_SECRET
               valueFrom:
                 secretKeyRef:
