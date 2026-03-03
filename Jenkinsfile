@@ -1,30 +1,17 @@
 pipeline {
-    agent { label 'k8s-agent' }
-
-    options {
-        skipDefaultCheckout()
-    }
+    agent { label 'built-in' }
 
     environment {
         DOCKER_IMAGE = "netmanager-app"
         DOCKER_TAG = "staging"
         NAMESPACE = "netmanager-staging"
-        GIT_SSH_COMMAND = "ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'github-ssh', keyFileVariable: 'SSH_KEY')]) {
-                    sh '''
-                        export GIT_SSH_COMMAND="ssh -i $SSH_KEY -o StrictHostKeyChecking=no"
-                        if [ -d .git ]; then
-                            git fetch --tags --force origin
-                            git checkout -f origin/main
-                        else
-                            git clone git@github.com:HadiahTerlupakan/netmanager.git .
-                        fi
-                    '''
+                sshagent(credentials: ['github-ssh']) {
+                    checkout scm
                 }
             }
         }
