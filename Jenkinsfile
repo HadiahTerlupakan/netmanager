@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "netmanager-app"
         DOCKER_TAG = "staging"
-        DOCKER_REGISTRY = "141.11.160.150:5000" // Registry lokal di server staging
+        DOCKER_REGISTRY = "registry-staging.radpro.id" // Domain registry dengan HTTPS
         NAMESPACE = "netmanager-staging"
     }
 
