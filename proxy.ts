@@ -37,10 +37,14 @@ export async function proxy(request: NextRequest) {
   const rootDomain = 'radpro.id'
   let subdomain = null
 
-  if (hostname.includes(rootDomain)) {
-    if (hostname.startsWith('admin.')) subdomain = 'admin'
-    if (hostname.startsWith('karyawan.')) subdomain = 'karyawan'
-  }
+  if (hostname.startsWith('admin.')) subdomain = 'admin'
+  if (hostname.startsWith('admin-staging.')) subdomain = 'admin'
+  if (hostname.startsWith('karyawan.')) subdomain = 'karyawan'
+  if (hostname.startsWith('karyawan-staging.')) subdomain = 'karyawan'
+  if (hostname.startsWith('investor.')) subdomain = 'investor'
+  if (hostname.startsWith('investor-staging.')) subdomain = 'investor'
+  if (hostname.startsWith('pelanggan.')) subdomain = 'pelanggan'
+  if (hostname.startsWith('pelanggan-staging.')) subdomain = 'pelanggan'
 
   // SKIP Rewrite/Auth for: API, Next.js Internals, Static Files
   if (
@@ -65,7 +69,7 @@ export async function proxy(request: NextRequest) {
     res.headers.set('X-Frame-Options', 'DENY')
     res.headers.set('X-Content-Type-Options', 'nosniff')
     res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-    
+
     return res
   }
 
@@ -117,20 +121,28 @@ export async function proxy(request: NextRequest) {
     const newUrl = new URL(rewritePath, request.url)
     newUrl.search = url.search
     response = NextResponse.rewrite(newUrl)
+  } else if (subdomain === 'investor') {
+    let rewritePath = pathname
+    if (!rewritePath.startsWith('/investor')) {
+      rewritePath = `/investor${rewritePath}`
+    }
+    const newUrl = new URL(rewritePath, request.url)
+    newUrl.search = url.search
+    response = NextResponse.rewrite(newUrl)
   } else {
     // Root domain logic
     // Protect direct access to /admin or /karyawan paths on root domain
     if (pathname.startsWith('/admin')) {
-        if (!token?.accessAdminPanel && token?.role !== 'SUPER_ADMIN' && !pathname.includes('/login')) {
-            return NextResponse.redirect(new URL('/admin/login', request.url))
-        }
+      if (!token?.accessAdminPanel && token?.role !== 'SUPER_ADMIN' && !pathname.includes('/login')) {
+        return NextResponse.redirect(new URL('/admin/login', request.url))
+      }
     }
     if (pathname.startsWith('/karyawan')) {
-        if (!token?.accessEmployeePanel && token?.role !== 'SUPER_ADMIN' && !pathname.includes('/login')) {
-            return NextResponse.redirect(new URL('/karyawan/login', request.url))
-        }
+      if (!token?.accessEmployeePanel && token?.role !== 'SUPER_ADMIN' && !pathname.includes('/login')) {
+        return NextResponse.redirect(new URL('/karyawan/login', request.url))
+      }
     }
-    
+
     response = NextResponse.next()
   }
 
@@ -140,7 +152,7 @@ export async function proxy(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set(
     'Content-Security-Policy',
-     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https: http: ws: wss: capacitor:; worker-src 'self' blob:;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https: http: ws: wss: capacitor:; worker-src 'self' blob:;"
   )
 
   return response

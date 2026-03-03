@@ -12,6 +12,8 @@ spec:
         - staging.radpro.id
         - admin-staging.radpro.id
         - karyawan-staging.radpro.id
+        - pelanggan-staging.radpro.id
+        - investor-staging.radpro.id
       secretName: netmanager-tls-staging
   rules:
     - host: staging.radpro.id
@@ -35,6 +37,26 @@ spec:
                 port:
                   number: 80
     - host: karyawan-staging.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: pelanggan-staging.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: investor-staging.radpro.id
       http:
         paths:
           - path: /

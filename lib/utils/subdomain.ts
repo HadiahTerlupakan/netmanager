@@ -36,7 +36,22 @@ export function getSubdomain(request: NextRequest): string | null {
   }
 
   // Ambil subdomain pertama
-  return parts[0] ?? null
+  let subdomain = parts[0] ?? null
+
+  // Normalisasi untuk staging (hapus suffix -staging)
+  if (subdomain?.endsWith('-staging')) {
+    subdomain = subdomain.replace('-staging', '')
+  }
+
+  return subdomain
+}
+
+/**
+ * Check if request is from investor subdomain
+ */
+export function isInvestorSubdomain(request: NextRequest): boolean {
+  const subdomain = getSubdomain(request)
+  return subdomain === 'investor'
 }
 
 /**
