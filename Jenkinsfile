@@ -5,6 +5,7 @@ pipeline {
         DOCKER_IMAGE = "netmanager-app"
         DOCKER_TAG = "staging"
         NAMESPACE = "netmanager-staging"
+        GIT_SSH_COMMAND = "ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no"
     }
 
     stages {
