@@ -1,6 +1,10 @@
 pipeline {
     agent { label 'k8s-agent' }
 
+    options {
+        skipDefaultCheckout()
+    }
+
     environment {
         DOCKER_IMAGE = "netmanager-app"
         DOCKER_TAG = "staging"
