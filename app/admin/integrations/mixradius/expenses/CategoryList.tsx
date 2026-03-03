@@ -66,7 +66,7 @@ export default function CategoryList() {
             const json = await res.json()
             // Fix: Extract data from wrapper { success: true, data: [...] }
             const data = Array.isArray(json) ? json : (json.data || [])
-            
+
             if (Array.isArray(data)) {
                 setCategories(data)
 
@@ -203,7 +203,7 @@ export default function CategoryList() {
         // Calculate current index string (e.g. "1.1", "1.2") based on parent and item index
         // Note: We need the index from the map function to generate this correctly.
         // I'll update the recursive map call to pass `idx` and calculate `currentIndexString`.
-        
+
         // This is handled in the recursive calls below. For root items, it's passed from the main render.
 
         // Level 0: Main Card Style
@@ -216,8 +216,8 @@ export default function CategoryList() {
                             {/* Icon Box with Number */}
                             <div className={`
                                 w-12 h-12 flex items-center justify-center rounded-xl bg-gradient-to-br relative overflow-hidden
-                                ${selectedType === 'OPEX' 
-                                    ? 'from-orange-50 to-orange-100 text-orange-600 dark:from-orange-900/30 dark:to-orange-800/20 dark:text-orange-400' 
+                                ${selectedType === 'OPEX'
+                                    ? 'from-orange-50 to-orange-100 text-orange-600 dark:from-orange-900/30 dark:to-orange-800/20 dark:text-orange-400'
                                     : 'from-purple-50 to-purple-100 text-purple-600 dark:from-purple-900/30 dark:to-purple-800/20 dark:text-purple-400'
                                 }
                             `}>
@@ -287,7 +287,7 @@ export default function CategoryList() {
                                 onClick={() => hasChildren && toggleExpand(item.id)}
                                 className={`
                                     w-8 h-8 flex items-center justify-center rounded-lg border transition-all
-                                    ${hasChildren 
+                                    ${hasChildren
                                         ? isExpanded
                                             ? 'bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
                                             : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-gray-600'
@@ -320,62 +320,71 @@ export default function CategoryList() {
 
         // Level > 0: List Item Style
         return (
-            <div className="relative pl-4 pr-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors group flex items-center justify-between">
+            <div className="relative pl-4 mt-1">
                 {/* Visual Tree Connector */}
-                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-gray-200 dark:bg-gray-700/50 rounded-full my-1"></div>
-                {isLast && <div className="absolute left-0 top-1/2 bottom-0 w-[2px] bg-gray-50 dark:bg-gray-900 z-10" style={{ marginBottom: '-4px' }}></div>} {/* Mask for last item line */}
+                <div className={`absolute left-0 top-0 w-[2px] bg-gray-200 dark:bg-gray-700/50 rounded-full my-1 ${isLast ? 'h-[20px] bottom-auto' : 'bottom-0'}`}></div>
 
-                <div className="flex items-center gap-3 flex-1 min-w-0 pl-3">
-                    <span className="font-mono text-xs text-gray-400 dark:text-gray-500 bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded">
-                        {parentIndexString}
-                    </span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                        {item.name}
-                    </span>
-                    {hasChildren && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 font-medium">
-                            {item.children.length}
+                {/* Item Row */}
+                <div className="pr-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+                    <div className="flex items-center gap-3 flex-1 min-w-0 pl-1">
+                        <span className="font-mono text-xs text-gray-400 dark:text-gray-500 bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                            {parentIndexString}
                         </span>
-                    )}
-                </div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                            {item.name}
+                        </span>
+                        {hasChildren && (
+                            <button onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-500 font-medium transition-colors cursor-pointer">
+                                {item.children.length} sub
+                                {isExpanded ? <HiChevronDown className="w-3 h-3" /> : <HiChevronRight className="w-3 h-3" />}
+                            </button>
+                        )}
+                    </div>
 
-                <div className="flex items-center gap-4">
-                    <span className={`font-mono text-sm font-bold ${hasAmount ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
-                        {formatCurrency(item.totalRecursive)}
-                    </span>
+                    <div className="flex items-center gap-4 pl-8 sm:pl-0">
+                        <span className={`font-mono text-sm font-bold ${hasAmount ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
+                            {formatCurrency(item.totalRecursive)}
+                        </span>
 
-                    {/* Mini Actions */}
-                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                            onClick={() => handleOpenModal(undefined, item.id)}
-                            className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors"
-                            title="Sub"
-                        >
-                            <HiOutlinePlus className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                            onClick={() => handleOpenModal(item)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors"
-                            title="Edit"
-                        >
-                            <HiOutlinePencilSquare className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                            onClick={() => handleDelete(item.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
-                            title="Hapus"
-                        >
-                            <HiOutlineTrash className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Mini Actions */}
+                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleOpenModal(undefined, item.id); }}
+                                className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors"
+                                title="Tambah Sub"
+                            >
+                                <HiOutlinePlus className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleOpenModal(item); }}
+                                className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Edit"
+                            >
+                                <HiOutlinePencilSquare className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                                title="Hapus"
+                            >
+                                <HiOutlineTrash className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* Recursive Children for deep nesting (though rare for simple COA) */}
-                {hasChildren && (
-                    <div className="w-full mt-2 pl-4 border-l border-gray-200 dark:border-gray-700 hidden">
-                        {/* Currently hiding deep nesting > level 1 to keep UI simple, 
-                            can be enabled if 'toggle' logic is added to children rows 
-                        */}
+                {/* Recursive Children for deep nesting */}
+                {hasChildren && isExpanded && (
+                    <div className="w-full space-y-1">
+                        {item.children.map((child: CategoryWithTotal, idx: number) => (
+                            <CategoryItem
+                                key={child.id}
+                                item={child}
+                                level={level + 1}
+                                isLast={idx === item.children.length - 1}
+                                parentIndexString={`${parentIndexString}.${idx + 1}`}
+                            />
+                        ))}
                     </div>
                 )}
             </div>
@@ -391,21 +400,19 @@ export default function CategoryList() {
                     <div className="flex p-1 bg-gray-100 dark:bg-gray-900 rounded-xl">
                         <button
                             onClick={() => setSelectedType('OPEX')}
-                            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
-                                selectedType === 'OPEX'
+                            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${selectedType === 'OPEX'
                                     ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm transform scale-100'
                                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             OPEX
                         </button>
                         <button
                             onClick={() => setSelectedType('CAPEX')}
-                            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${
-                                selectedType === 'CAPEX'
+                            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${selectedType === 'CAPEX'
                                     ? 'bg-white dark:bg-gray-800 text-purple-600 shadow-sm transform scale-100'
                                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             CAPEX
                         </button>

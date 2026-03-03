@@ -120,66 +120,59 @@ interface Category {
     name: string
     type: string
     parentId?: string | null
+    code?: string
 }
 
-// Buat opsi berjenjang: parent sebagai header (disabled), children di-indent
+// Buat opsi berjenjang tak terbatas: parent sebagai header (disabled), children di-indent sesuai kedalaman
 function buildHierarchicalOptions(categories: Category[], expenseType: string) {
     const filtered = categories.filter(c => c.type === expenseType)
-    const parents = filtered.filter(c => !c.parentId)
-    const children = filtered.filter(c => !!c.parentId)
-
     const options: { value: string; label: React.ReactNode; searchLabel: string; disabled?: boolean }[] = []
 
-    // Kategori yang tidak punya parent sama sekali (standalone)
-    const standaloneChildren = children.filter(
-        c => !parents.some(p => p.id === c.parentId)
-    )
+    const addCategoryAndChildren = (parentId: string | null, depth: number) => {
+        const children = filtered.filter(c => c.parentId === parentId)
 
-    // Parent-parent yang punya anak
-    parents.forEach(parent => {
-        const kids = children.filter(c => c.parentId === parent.id)
-        if (kids.length > 0) {
-            // Tampilkan parent sebagai header (disabled)
-            options.push({
-                value: `__header__${parent.id}`,
-                label: (
-                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        {parent.name}
-                    </span>
-                ),
-                searchLabel: parent.name,
-                disabled: true,
-            })
-            kids.forEach(kid => {
+        children.forEach(child => {
+            const hasChildren = filtered.some(c => c.parentId === child.id)
+
+            if (hasChildren) {
                 options.push({
-                    value: kid.id,
+                    value: `__header__${child.id}`,
                     label: (
-                        <span className="pl-2 flex items-center gap-1.5 text-gray-700 dark:text-gray-200">
-                            <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
-                            {kid.name}
+                        <span
+                            className={`flex items-center gap-1.5 text-gray-500 dark:text-gray-400 ${depth === 0 ? 'text-xs font-bold uppercase tracking-wider mt-1' : 'text-sm font-semibold'}`}
+                            style={{ paddingLeft: `${depth * 1}rem` }}
+                        >
+                            {depth > 0 && <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>}
+                            📁 {child.code ? `[${child.code}] ` : ''}{child.name}
                         </span>
                     ),
-                    searchLabel: kid.name,
+                    searchLabel: child.name,
+                    disabled: true,
                 })
-            })
-        } else {
-            // Parent tanpa anak → bisa dipilih langsung
-            options.push({
-                value: parent.id,
-                label: <span className="text-gray-700 dark:text-gray-200">{parent.name}</span>,
-                searchLabel: parent.name,
-            })
-        }
-    })
+            } else {
+                options.push({
+                    value: child.id,
+                    label: (
+                        <span
+                            className="flex items-center gap-1.5 text-gray-700 dark:text-gray-200"
+                            style={{ paddingLeft: `${depth * 1}rem` }}
+                        >
+                            {depth > 0 && <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>}
+                            📄 {child.code ? `[${child.code}] ` : ''}{child.name}
+                        </span>
+                    ),
+                    searchLabel: child.name,
+                    disabled: false
+                })
+            }
 
-    // Anak yang parentId-nya tidak ada di list (orphan)
-    standaloneChildren.forEach(c => {
-        options.push({
-            value: c.id,
-            label: <span className="text-gray-700 dark:text-gray-200">{c.name}</span>,
-            searchLabel: c.name,
+            if (hasChildren) {
+                addCategoryAndChildren(child.id, depth + 1)
+            }
         })
-    })
+    }
+
+    addCategoryAndChildren(null, 0)
 
     return options
 }
