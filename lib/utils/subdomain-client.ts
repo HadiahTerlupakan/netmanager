@@ -28,7 +28,7 @@ export function getSubdomainFromWindow(): string | null {
 
   // Untuk production domain
   const parts = hostname.split('.')
-  
+
   // Jika hanya 2 bagian (example.com), tidak ada subdomain
   if (parts.length <= 2) {
     return null
@@ -43,7 +43,7 @@ export function getSubdomainFromWindow(): string | null {
  */
 export function isAdminSubdomainFromWindow(): boolean {
   const subdomain = getSubdomainFromWindow()
-  return subdomain === 'admin'
+  return subdomain === 'admin' || subdomain === 'admin-staging'
 }
 
 /**
@@ -51,7 +51,7 @@ export function isAdminSubdomainFromWindow(): boolean {
  */
 export function isPelangganSubdomainFromWindow(): boolean {
   const subdomain = getSubdomainFromWindow()
-  return subdomain === 'pelanggan'
+  return subdomain === 'pelanggan' || subdomain === 'pelanggan-staging'
 }
 
 /**
@@ -65,7 +65,7 @@ export function getUrlWithSubdomain(path: string): string {
   const subdomain = getSubdomainFromWindow()
   const protocol = window.location.protocol
   const port = window.location.port ? `:${window.location.port}` : ''
-  
+
   // Jika sudah ada subdomain, gunakan subdomain yang sama
   if (subdomain) {
     const hostname = window.location.hostname
@@ -95,32 +95,34 @@ export function getAdminUrl(path: string = '/admin', forceFullUrl: boolean = fal
   const protocol = window.location.protocol
   const hostname = window.location.hostname
   const port = window.location.port ? `:${window.location.port}` : ''
-  
+
   // Jika sudah di admin subdomain dan tidak force full URL, gunakan path relatif
   if (isAdminSubdomainFromWindow() && !forceFullUrl) {
     return path
   }
 
   // Jika hostname adalah localhost atau 127.0.0.1, gunakan admin.localhost
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('.localhost')) {
     return `${protocol}//admin.localhost${port}${path}`
   }
 
   // Untuk custom domain atau production
-  // Jika hostname sudah memiliki subdomain, ganti dengan admin
+  const isStaging = hostname.includes('-staging.') || hostname.startsWith('staging.')
+  const targetSubdomain = isStaging ? 'admin-staging' : 'admin'
+
   if (hostname.includes('.')) {
     const parts = hostname.split('.')
-    // Jika sudah ada subdomain, ganti dengan admin
+    // Jika sudah ada subdomain, ganti dengan targetSubdomain
     if (parts.length > 2) {
-      parts[0] = 'admin'
+      parts[0] = targetSubdomain
       return `${protocol}//${parts.join('.')}${port}${path}`
     }
-    // Jika belum ada subdomain, tambahkan admin
-    return `${protocol}//admin.${hostname}${port}${path}`
+    // Jika belum ada subdomain, tambahkan targetSubdomain
+    return `${protocol}//${targetSubdomain}.${hostname}${port}${path}`
   }
 
-  // Fallback: tambahkan admin sebagai subdomain
-  return `${protocol}//admin.${hostname}${port}${path}`
+  // Fallback: tambahkan targetSubdomain
+  return `${protocol}//${targetSubdomain}.${hostname}${port}${path}`
 }
 
 /**
@@ -134,19 +136,26 @@ export function getPelangganUrl(path: string = '/pelanggan'): string {
   const protocol = window.location.protocol
   const hostname = window.location.hostname
   const port = window.location.port ? `:${window.location.port}` : ''
-  
+
   // Jika sudah di pelanggan subdomain, gunakan path relatif
   if (isPelangganSubdomainFromWindow()) {
     return path
   }
 
   // Jika hostname adalah localhost, gunakan pelanggan.localhost
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('.localhost')) {
     return `${protocol}//pelanggan.localhost${port}${path}`
   }
 
   // Untuk custom domain atau production
-  const baseHostname = hostname.replace(/^[^.]+\./, '') // Hapus subdomain jika ada
-  return `${protocol}//pelanggan.${baseHostname}${port}${path}`
+  const isStaging = hostname.includes('-staging.') || hostname.startsWith('staging.')
+  const targetSubdomain = isStaging ? 'pelanggan-staging' : 'pelanggan'
+
+  const parts = hostname.split('.')
+  if (parts.length > 2) {
+    parts[0] = targetSubdomain
+    return `${protocol}//${parts.join('.')}${port}${path}`
+  }
+  return `${protocol}//${targetSubdomain}.${hostname}${port}${path}`
 }
 

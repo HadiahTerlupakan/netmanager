@@ -23,15 +23,18 @@ export function getKaryawanPortalUrl(path: string = '/'): string {
 
     // Untuk production, gunakan subdomain karyawan
     // Contoh: example.com -> karyawan.example.com
+    const isStaging = hostname.includes('-staging.') || hostname.startsWith('staging.')
+    const targetSubdomain = isStaging ? 'karyawan-staging' : 'karyawan'
+
     const parts = hostname.split('.')
     if (parts.length >= 2) {
-        // Jika sudah ada subdomain, replace dengan karyawan
+        // Jika sudah ada subdomain, replace dengan targetSubdomain
         if (parts.length > 2) {
-            parts[0] = 'karyawan'
+            parts[0] = targetSubdomain
             return `${protocol}//${parts.join('.')}${port}${path}`
         }
-        // Jika tidak ada subdomain, tambahkan karyawan
-        return `${protocol}//karyawan.${hostname}${port}${path}`
+        // Jika tidak ada subdomain, tambahkan targetSubdomain
+        return `${protocol}//${targetSubdomain}.${hostname}${port}${path}`
     }
 
     // Fallback
@@ -56,5 +59,5 @@ export function isOnKaryawanSubdomain(): boolean {
     }
 
     const hostname = window.location.hostname
-    return hostname.startsWith('karyawan.')
+    return hostname.startsWith('karyawan.') || hostname.startsWith('karyawan-staging.')
 }
