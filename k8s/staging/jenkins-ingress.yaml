@@ -5,7 +5,7 @@ metadata:
   namespace: netmanager-staging
 spec:
   type: ExternalName
-  externalName: host.k3s.internal # Mengarah ke node host
+  externalName: 141.11.160.150 # IP Publik Server Host
   ports:
     - port: 8080
       targetPort: 8080
