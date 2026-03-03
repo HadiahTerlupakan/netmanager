@@ -8,14 +8,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                sshagent(credentials: ['github-ssh']) {
-                    checkout scm
-                }
-            }
-        }
-
         stage('Build Image') {
             steps {
                 script {
