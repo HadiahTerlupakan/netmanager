@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netmanager-ingress
+  namespace: netmanager-staging
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+spec:
+  tls:
+    - hosts:
+        - staging.radpro.id
+        - admin-staging.radpro.id
+        - karyawan-staging.radpro.id
+      secretName: netmanager-tls-staging
+  rules:
+    - host: staging.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: admin-staging.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: karyawan-staging.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80

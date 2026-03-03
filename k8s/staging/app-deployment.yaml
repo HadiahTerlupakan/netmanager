@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netmanager-app
+  namespace: netmanager-staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: netmanager-app
+  template:
+    metadata:
+      labels:
+        app: netmanager-app
+    spec:
+      containers:
+        - name: app
+          image: 141.11.160.150:5000/netmanager-app:staging # Akan diupdate oleh Jenkins atau manual
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: netmanager-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: REDIS_PASSWORD
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: AUTH_SECRET
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: NEXTAUTH_SECRET
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          healthcheck:
+            livenessProbe:
+              httpGet:
+                path: /api/health
+                port: 3000
+              initialDelaySeconds: 40
+              periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netmanager-app
+  namespace: netmanager-staging
+spec:
+  ports:
+    - port: 80
+      targetPort: 3000
+  selector:
+    app: netmanager-app
