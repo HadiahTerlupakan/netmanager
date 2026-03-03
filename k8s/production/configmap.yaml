@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: netmanager-config
+  namespace: netmanager-production
+data:
+  DOMAIN: "radpro.id"
+  AUTH_URL: "https://radpro.id"
+  NEXTAUTH_URL: "https://radpro.id"
+  TZ: "Asia/Jakarta"
+  NODE_ENV: "production"

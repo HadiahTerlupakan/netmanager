@@ -1,0 +1,70 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netmanager-ingress
+  namespace: netmanager-production
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - radpro.id
+        - admin.radpro.id
+        - karyawan.radpro.id
+        - pelanggan.radpro.id
+        - investor.radpro.id
+      secretName: netmanager-tls-production
+  rules:
+    - host: radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: admin.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: karyawan.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: pelanggan.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: investor.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80

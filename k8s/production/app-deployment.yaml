@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netmanager-app
+  namespace: netmanager-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: netmanager-app
+  template:
+    metadata:
+      labels:
+        app: netmanager-app
+    spec:
+      containers:
+        - name: app
+          image: netmanager-app:production
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: netmanager-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: REDIS_PASSWORD
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: AUTH_SECRET
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: NEXTAUTH_SECRET
+            - name: RADIUS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_DATABASE_URL
+            - name: DATABASE_URL_BILLING
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_BILLING
+            - name: DATABASE_URL_MITRA
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_MITRA
+            - name: RADIUS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_SECRET
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: CRON_SECRET
+            - name: OAUTH_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: OAUTH_ENCRYPTION_KEY
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netmanager-app
+  namespace: netmanager-production
+spec:
+  ports:
+    - port: 80
+      targetPort: 3000
+  selector:
+    app: netmanager-app

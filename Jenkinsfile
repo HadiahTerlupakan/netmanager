@@ -3,8 +3,10 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "netmanager-app"
-        DOCKER_TAG = "staging"
-        NAMESPACE = "netmanager-staging"
+        // Adjust values dynamically based on the current branch
+        DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
+        NAMESPACE = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'netmanager-production' : 'netmanager-staging'}"
+        K8S_DIR = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'k8s/production' : 'k8s/staging'}"
     }
 
     stages {
@@ -26,14 +28,14 @@ pipeline {
             }
         }
 
-        stage('Deploy to K8s') {
+    stage('Deploy to K8s') {
             steps {
                 script {
-                    echo "Deploying to Kubernetes namespace ${NAMESPACE}..."
-                    // Apply all manifests in k8s/staging
-                    sh "kubectl apply -f k8s/staging/ --namespace=${NAMESPACE}"
+                    echo "Deploying to Kubernetes namespace ${NAMESPACE} using ${K8S_DIR}..."
+                    // Apply all manifests in correct directory
+                    sh "kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
                     
-                    // Force rollout restart if image tag is same
+                    // Force rollout restart
                     sh "kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE}"
                 }
             }
