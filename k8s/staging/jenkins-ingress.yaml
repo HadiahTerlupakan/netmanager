@@ -23,10 +23,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - jenkins.radpro.id
+        - jenkins-staging.radpro.id
       secretName: jenkins-tls
   rules:
-    - host: jenkins.radpro.id
+    - host: jenkins-staging.radpro.id
       http:
         paths:
           - path: /
