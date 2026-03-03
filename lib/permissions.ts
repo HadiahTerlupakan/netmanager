@@ -128,6 +128,12 @@ export const PERMISSIONS = {
       CREATE: 'role:create',
       UPDATE: 'role:update',
       DELETE: 'role:delete',
+    },
+    ACS: {
+      READ: 'acs:read',
+      CREATE: 'acs:create',
+      UPDATE: 'acs:update',
+      DELETE: 'acs:delete',
     }
   }
 } as const;

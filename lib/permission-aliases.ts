@@ -106,6 +106,13 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   'assets:delete': ['asset:delete'],
   'assets:site_only': ['asset:site_only'],
   'assets:department_only': ['asset:department_only'],
+
+  // ====== ACS MODULE ======
+  // By default, if user has pengaturan permissions, they should get acs permissions
+  'acs:read': ['pengaturan:read'],
+  'acs:create': ['pengaturan:update'],
+  'acs:update': ['pengaturan:update'],
+  'acs:delete': ['pengaturan:delete'],
 }
 
 /**

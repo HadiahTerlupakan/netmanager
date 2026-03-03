@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react'
 import { Check, Info, RefreshCw, AlertCircle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast' // Adjusted import to the actual implementation
+import { usePermission } from '@/hooks/use-permission'
 
 export function AcsConfigTab() {
   const { showToast } = useToast()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('acs:update')
 
   const [formData, setFormData] = useState({
     genieAcsUrl: 'http://113.192.1.34:7557/devices',
@@ -52,6 +55,10 @@ export function AcsConfigTab() {
   const handleSave = async (e: React.FormEvent | React.MouseEvent) => {
     if (e && 'preventDefault' in e) {
       e.preventDefault()
+    }
+    if (!canUpdate) {
+      showToast('error', 'Anda tidak memiliki hak akses untuk menyimpan pengaturan')
+      return
     }
     setLoading(true)
     try {
@@ -134,7 +141,7 @@ export function AcsConfigTab() {
                 <button type="button" onClick={handleTestUrl} disabled={testingUrl} className="px-4 py-2 border border-blue-500 text-blue-600 rounded-md text-[13px] font-medium hover:bg-blue-50 flex items-center disabled:opacity-50">
                   {testingUrl ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <AlertCircle className="w-4 h-4 mr-1.5" />} Test URL
                 </button>
-                <button type="button" onClick={handleSave} disabled={loading} className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50">
+                <button type="button" onClick={handleSave} disabled={loading || !canUpdate} className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50">
                   {loading ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Check className="w-4 h-4 mr-1.5" />} Save URL
                 </button>
               </div>
@@ -190,7 +197,7 @@ export function AcsConfigTab() {
                 </div>
               </div>
               <div className="flex justify-end mt-8">
-                <button type="button" onClick={handleSave} disabled={loading} className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50">
+                <button type="button" onClick={handleSave} disabled={loading || !canUpdate} className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50">
                   {loading ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Check className="w-4 h-4 mr-1.5" />} Save Virtual Parameters
                 </button>
               </div>
@@ -254,7 +261,7 @@ export function AcsConfigTab() {
               </div>
 
               <div className="flex justify-end">
-                <button type="button" onClick={handleSave} disabled={loading} className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50">
+                <button type="button" onClick={handleSave} disabled={loading || !canUpdate} className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50">
                   {loading ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Check className="w-4 h-4 mr-1.5" />} Save RX Power Settings
                 </button>
               </div>

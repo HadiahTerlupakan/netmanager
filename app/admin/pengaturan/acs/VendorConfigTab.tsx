@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Package, Wifi, Plus, Edit, Trash2, X, RefreshCw } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
+import { usePermission } from '@/hooks/use-permission'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObject = any;
@@ -28,6 +29,9 @@ function ModalOverlay({ isOpen, onClose, title, children }: { isOpen: boolean, o
 
 export function VendorConfigTab() {
   const { showToast } = useToast()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('acs:update')
+
   const [vendors, setVendors] = useState<AnyObject[]>([])
   const [wifiConfigs, setWifiConfigs] = useState<AnyObject[]>([])
   const [activeSubTab, setActiveSubTab] = useState<'vendors' | 'wifi'>('vendors')
@@ -65,6 +69,10 @@ export function VendorConfigTab() {
   // --- VENDOR ACTIONS ---
   const handleSaveVendor = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canUpdate) {
+      showToast('error', 'Anda tidak memiliki hak akses')
+      return
+    }
     setIsSaving(true)
     try {
       const url = vendorModal.isEdit ? `/api/settings/acs/vendors/${vendorModal.data.id}` : '/api/settings/acs/vendors'
@@ -92,6 +100,10 @@ export function VendorConfigTab() {
   }
 
   const handleDeleteVendor = async (id: string) => {
+    if (!canUpdate) {
+      showToast('error', 'Anda tidak memiliki hak akses')
+      return
+    }
     if (!confirm('Hapus vendor ini?')) return
     try {
       const res = await fetch(`/api/settings/acs/vendors/${id}`, { method: 'DELETE' })
@@ -108,6 +120,10 @@ export function VendorConfigTab() {
   // --- WIFI SECURITY ACTIONS ---
   const handleSaveWifi = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canUpdate) {
+      showToast('error', 'Anda tidak memiliki hak akses')
+      return
+    }
     setIsSaving(true)
     try {
       const url = wifiModal.isEdit ? `/api/settings/acs/wifi-security/${wifiModal.data.id}` : '/api/settings/acs/wifi-security'
@@ -135,6 +151,10 @@ export function VendorConfigTab() {
   }
 
   const handleDeleteWifi = async (id: string) => {
+    if (!canUpdate) {
+      showToast('error', 'Anda tidak memiliki hak akses')
+      return
+    }
     if (!confirm('Hapus konfigurasi WiFi ini?')) return
     try {
       const res = await fetch(`/api/settings/acs/wifi-security/${id}`, { method: 'DELETE' })
@@ -183,12 +203,14 @@ export function VendorConfigTab() {
                 <p className="text-[13px] text-gray-500">All vendor parameter paths in one place!</p>
               </div>
               <div className="flex space-x-2">
-                <button
-                  onClick={() => setVendorModal({ isOpen: true, isEdit: false, data: { name: '', priority: 10, enabled: true } })}
-                  className="px-4 py-2 bg-[#a855f7] text-white rounded-md text-[13px] font-medium hover:bg-purple-700 flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" /> Add Vendor
-                </button>
+                {canUpdate && (
+                  <button
+                    onClick={() => setVendorModal({ isOpen: true, isEdit: false, data: { name: '', priority: 10, enabled: true } })}
+                    className="px-4 py-2 bg-[#a855f7] text-white rounded-md text-[13px] font-medium hover:bg-purple-700 flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" /> Add Vendor
+                  </button>
+                )}
               </div>
             </div>
 
@@ -240,12 +262,16 @@ export function VendorConfigTab() {
                         {vendor.priority}
                       </td>
                       <td className="px-6 py-4 text-center space-x-2">
-                        <button onClick={() => setVendorModal({ isOpen: true, isEdit: true, data: { ...vendor } })} className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] text-white rounded text-[12px] font-medium hover:bg-blue-700">
-                          <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
-                        </button>
-                        <button onClick={() => handleDeleteVendor(vendor.id)} className="inline-flex items-center px-3 py-1.5 bg-[#ef4444] text-white rounded text-[12px] font-medium hover:bg-red-700">
-                          <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-                        </button>
+                        {canUpdate && (
+                          <>
+                            <button onClick={() => setVendorModal({ isOpen: true, isEdit: true, data: { ...vendor } })} className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] text-white rounded text-[12px] font-medium hover:bg-blue-700">
+                              <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
+                            </button>
+                            <button onClick={() => handleDeleteVendor(vendor.id)} className="inline-flex items-center px-3 py-1.5 bg-[#ef4444] text-white rounded text-[12px] font-medium hover:bg-red-700">
+                              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -266,12 +292,14 @@ export function VendorConfigTab() {
                 <p className="text-[13px] text-gray-500">Configure WiFi password paths per product class</p>
               </div>
               <div className="flex space-x-2">
-                <button
-                  onClick={() => setWifiModal({ isOpen: true, isEdit: false, data: { productClass: '', parameterPath: 'PreSharedKey.1.KeyPassphrase' } })}
-                  className="px-4 py-2 bg-[#a855f7] text-white rounded-md text-[13px] font-medium hover:bg-purple-700 flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" /> Add WiFi Config
-                </button>
+                {canUpdate && (
+                  <button
+                    onClick={() => setWifiModal({ isOpen: true, isEdit: false, data: { productClass: '', parameterPath: 'PreSharedKey.1.KeyPassphrase' } })}
+                    className="px-4 py-2 bg-[#a855f7] text-white rounded-md text-[13px] font-medium hover:bg-purple-700 flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" /> Add WiFi Config
+                  </button>
+                )}
               </div>
             </div>
 
@@ -314,12 +342,16 @@ export function VendorConfigTab() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center space-x-2">
-                        <button onClick={() => setWifiModal({ isOpen: true, isEdit: true, data: { ...config } })} className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] text-white rounded text-[12px] font-medium hover:bg-blue-700">
-                          <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
-                        </button>
-                        <button onClick={() => handleDeleteWifi(config.id)} className="inline-flex items-center px-3 py-1.5 bg-[#ef4444] text-white rounded text-[12px] font-medium hover:bg-red-700">
-                          <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-                        </button>
+                        {canUpdate && (
+                          <>
+                            <button onClick={() => setWifiModal({ isOpen: true, isEdit: true, data: { ...config } })} className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] text-white rounded text-[12px] font-medium hover:bg-blue-700">
+                              <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
+                            </button>
+                            <button onClick={() => handleDeleteWifi(config.id)} className="inline-flex items-center px-3 py-1.5 bg-[#ef4444] text-white rounded text-[12px] font-medium hover:bg-red-700">
+                              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

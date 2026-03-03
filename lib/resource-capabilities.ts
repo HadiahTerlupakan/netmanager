@@ -55,6 +55,14 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'site_only'],
         description: 'Log aktivitas sistem'
     },
+    login: {
+        actions: ['read', 'site_only'],
+        description: 'Log riwayat login'
+    },
+    activity: {
+        actions: ['read', 'site_only'],
+        description: 'Log riwayat aktivitas pengguna'
+    },
     report: {
         actions: ['read', 'site_only', 'department_only'],
         description: 'Laporan kehadiran'
@@ -71,7 +79,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'site_only'],
         description: 'Laporan rugi laba'
     },
-    
+
     // ====== KEHADIRAN MODULE ======
     attendance: {
         actions: ['read', 'create', 'update', 'delete', 'site_only', 'department_only'],
@@ -93,7 +101,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete'],
         description: 'Manajemen jadwal shift kerja'
     },
-    
+
     // ====== INVENTORY MODULE ======
     barang: {
         actions: ['read', 'create', 'update', 'delete', 'site_only', 'department_only'],
@@ -137,7 +145,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete'],
         description: 'Master data supplier'
     },
-    
+
     // ====== WORK ORDER MODULE ======
     workorders: {
         actions: ['read', 'create', 'update', 'delete', 'cancel', 'verify', 'reminder', 'approve_request', 'site_only', 'department_only'],
@@ -147,11 +155,23 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete', 'cancel', 'verify', 'reminder', 'approve_request', 'site_only', 'department_only'],
         description: 'Daftar Work Order'
     },
-    
+
     // ====== USERS & ROLES ======
     users: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Manajemen pengguna'
+    },
+    investors: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Manajemen data investor'
+    },
+    mitra: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Data mitra'
+    },
+    withdrawals: {
+        actions: ['read', 'create', 'update', 'delete', 'verify', 'site_only'],
+        description: 'Penarikan komisi mitra'
     },
     roles: {
         actions: ['read', 'create', 'update', 'delete'],
@@ -165,7 +185,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete'],
         description: 'Manajemen site'
     },
-    
+
     // ====== NETWORK ======
     map: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
@@ -183,13 +203,25 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Radius server'
     },
+    acs_dashboard: {
+        actions: ['read', 'site_only'],
+        description: 'Dashboard ACS'
+    },
+    acs_mapping: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Pemetaan perangkat OLT/ONT'
+    },
+    acs_devices: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Semua device ONT di ACS'
+    },
 
     // ====== PELANGGAN ======
     pelanggan: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Data pelanggan'
     },
-    
+
     // ====== SETTINGS ======
     umum: {
         actions: ['read', 'update'],
@@ -219,7 +251,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read'],
         description: 'Pengaturan nada dering notifikasi'
     },
-    
+
     // ====== OTHERS ======
     announcement: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
@@ -232,6 +264,14 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     finance: {
         actions: ['read', 'site_only'],
         description: 'Menu finance (parent)'
+    },
+    accounts: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Buku kas dan rekening bank'
+    },
+    manual_payments: {
+        actions: ['read', 'create', 'update', 'delete', 'verify', 'site_only'],
+        description: 'Verifikasi pembayaran manual'
     },
     expense: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
@@ -249,6 +289,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     mixradius_sites: {
         actions: ['read', 'create', 'update', 'delete'],
         description: 'Manajemen Group/Site MixRadius'
+    },
+    mixradius_investor_sites: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Manajemen Group/Site MixRadius milik Investor'
     },
     mixradius_accounts: {
         actions: ['read', 'create', 'update', 'delete'],
