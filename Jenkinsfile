@@ -11,7 +11,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                sshagent(credentials: ['github-ssh']) {
+                    checkout scm
+                }
             }
         }
 
