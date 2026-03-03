@@ -156,26 +156,28 @@ export default function LiveMapClient() {
                     <div className="flex items-center gap-4 flex-wrap">
                         {/* View Toggle */}
                         <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                            <Button onClick={() => setViewMode('map')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                                    viewMode === 'map' 
-                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                                }`}
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('map')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === 'map'
+                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700/50'
+                                    }`}
                             >
                                 <HiOutlineMap className="w-4 h-4" />
                                 Map
-                            </Button>
-                            <Button onClick={() => setViewMode('cards')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                                    viewMode === 'cards' 
-                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                                }`}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('cards')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === 'cards'
+                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700/50'
+                                    }`}
                             >
                                 <HiOutlineSquares2X2 className="w-4 h-4" />
                                 Cards
-                            </Button>
+                            </button>
                         </div>
                         {/* Stats Badge */}
                         <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full">
@@ -186,7 +188,7 @@ export default function LiveMapClient() {
                         {/* Manual Refresh */}
                         <Button onClick={fetchLocations}
                             disabled={loading}
-                            
+
                         >
                             <HiOutlineArrowPath className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
@@ -304,11 +306,10 @@ export default function LiveMapClient() {
                                             Update: {formatDistanceToNow(new Date(loc.recordedAt), { addSuffix: true, locale: id })}
                                         </span>
                                         {loc.batteryLevel !== null && (
-                                            <span className={`px-2 py-1 rounded ${
-                                                loc.batteryLevel > 0.5 ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' :
-                                                loc.batteryLevel > 0.2 ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400' :
-                                                'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-                                            }`}>
+                                            <span className={`px-2 py-1 rounded ${loc.batteryLevel > 0.5 ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' :
+                                                    loc.batteryLevel > 0.2 ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400' :
+                                                        'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                                                }`}>
                                                 🔋 {Math.round(loc.batteryLevel * 100)}%
                                             </span>
                                         )}

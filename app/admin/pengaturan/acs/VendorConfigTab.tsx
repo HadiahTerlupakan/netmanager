@@ -12,9 +12,9 @@ function ModalOverlay({ isOpen, onClose, title, children }: { isOpen: boolean, o
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-[800px] overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-[800px] overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-          <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -169,25 +169,25 @@ export function VendorConfigTab() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden pb-12">
-      <div className="px-6 py-6 border-b border-gray-100 bg-white">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden pb-12">
+      <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-[22px] font-bold text-gray-900">Vendor Management</h2>
-          <button onClick={fetchData} className="text-gray-500 hover:text-blue-600">
+          <h2 className="text-[22px] font-bold text-gray-900 dark:text-gray-100">Vendor Management</h2>
+          <button onClick={fetchData} className="text-gray-500 hover:text-blue-600 dark:hover:text-blue-400">
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
-        <div className="flex space-x-6 border-b border-gray-200">
+        <div className="flex space-x-6 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setActiveSubTab('vendors')}
-            className={"flex items-center pb-3 text-[13px] font-bold " + (activeSubTab === 'vendors' ? "text-[#a855f7] border-b-2 border-[#a855f7]" : "text-gray-500 hover:text-gray-700")}
+            className={"flex items-center pb-3 text-[13px] font-bold " + (activeSubTab === 'vendors' ? "text-[#a855f7] border-b-2 border-[#a855f7]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300")}
           >
             <Package className="w-4 h-4 mr-1.5" /> Vendors
           </button>
           <button
             onClick={() => setActiveSubTab('wifi')}
-            className={"flex items-center pb-3 text-[13px] font-bold " + (activeSubTab === 'wifi' ? "text-[#a855f7] border-b-2 border-[#a855f7]" : "text-gray-500 hover:text-gray-700")}
+            className={"flex items-center pb-3 text-[13px] font-bold " + (activeSubTab === 'wifi' ? "text-[#a855f7] border-b-2 border-[#a855f7]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300")}
           >
             <Wifi className="w-4 h-4 mr-1.5" /> WiFi Security Config
           </button>
@@ -199,8 +199,8 @@ export function VendorConfigTab() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="text-[16px] font-bold text-gray-900">Vendors</h3>
-                <p className="text-[13px] text-gray-500">All vendor parameter paths in one place!</p>
+                <h3 className="text-[16px] font-bold text-gray-900 dark:text-gray-100">Vendors</h3>
+                <p className="text-[13px] text-gray-500 dark:text-gray-400">All vendor parameter paths in one place!</p>
               </div>
               <div className="flex space-x-2">
                 {canUpdate && (
@@ -214,34 +214,34 @@ export function VendorConfigTab() {
               </div>
             </div>
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-[#f8fafc]">
+                <thead className="bg-[#f8fafc] dark:bg-gray-800/50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">VENDOR INFORMATION</th>
-                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">CONFIGURATION</th>
-                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">DETECTION PATTERNS</th>
-                    <th className="px-6 py-4 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">PRIORITY</th>
-                    <th className="px-6 py-4 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">ACTIONS</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">VENDOR INFORMATION</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">CONFIGURATION</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">DETECTION PATTERNS</th>
+                    <th className="px-6 py-4 text-center text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PRIORITY</th>
+                    <th className="px-6 py-4 text-center text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ACTIONS</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {vendors.map((vendor: any) => (
-                    <tr key={vendor.id} className="hover:bg-gray-50">
+                    <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-lg bg-[#3b5fe5]">
                             {vendor.name ? vendor.name.charAt(0).toUpperCase() : 'V'}
                           </div>
                           <div className="ml-4">
-                            <div className="text-[13px] font-bold text-gray-900">{vendor.name}</div>
-                            {vendor.description && <div className="text-[12px] text-gray-500 mt-0.5">{vendor.description}</div>}
+                            <div className="text-[13px] font-bold text-gray-900 dark:text-gray-100">{vendor.name}</div>
+                            {vendor.description && <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">{vendor.description}</div>}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-[12px] text-gray-500 mb-1">Parameter Prefix</div>
+                        <div className="text-[12px] text-gray-500 dark:text-gray-400 mb-1">Parameter Prefix</div>
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[12px] font-medium bg-[#f3e8ff] text-[#9333ea]">
                           {vendor.parameterPrefix || '-'}
                         </span>
@@ -250,15 +250,15 @@ export function VendorConfigTab() {
                         <div className="flex flex-col gap-1.5">
                           <div className="flex items-center">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-[#dbeafe] text-[#1e40af] mr-2">MFR</span>
-                            <span className="text-[12px] text-gray-700">{vendor.manufacturerPatterns}</span>
+                            <span className="text-[12px] text-gray-700 dark:text-gray-300">{vendor.manufacturerPatterns}</span>
                           </div>
                           <div className="flex items-center">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-[#dcfce7] text-[#166534] mr-2">PROD</span>
-                            <span className="text-[12px] text-gray-700">{vendor.productPatterns}</span>
+                            <span className="text-[12px] text-gray-700 dark:text-gray-300">{vendor.productPatterns}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center text-[14px] font-bold text-gray-700">
+                      <td className="px-6 py-4 text-center text-[14px] font-bold text-gray-700 dark:text-gray-300">
                         {vendor.priority}
                       </td>
                       <td className="px-6 py-4 text-center space-x-2">
@@ -288,8 +288,8 @@ export function VendorConfigTab() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="text-[16px] font-bold text-gray-900">WiFi Security Configuration</h3>
-                <p className="text-[13px] text-gray-500">Configure WiFi password paths per product class</p>
+                <h3 className="text-[16px] font-bold text-gray-900 dark:text-gray-100">WiFi Security Configuration</h3>
+                <p className="text-[13px] text-gray-500 dark:text-gray-400">Configure WiFi password paths per product class</p>
               </div>
               <div className="flex space-x-2">
                 {canUpdate && (
@@ -303,33 +303,33 @@ export function VendorConfigTab() {
               </div>
             </div>
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-[#f8fafc]">
+                <thead className="bg-[#f8fafc] dark:bg-gray-800/50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider w-1/3">PRODUCT CLASS</th>
-                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">PASSWORD CONFIGURATION</th>
-                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">SECURITY TYPES</th>
-                    <th className="px-6 py-4 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">ACTIONS</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3">PRODUCT CLASS</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PASSWORD CONFIGURATION</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">SECURITY TYPES</th>
+                    <th className="px-6 py-4 text-center text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ACTIONS</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {wifiConfigs.map((config: any) => (
-                    <tr key={config.id} className="hover:bg-gray-50">
+                    <tr key={config.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#d946ef] flex items-center justify-center text-white">
                             <Wifi className="w-5 h-5" />
                           </div>
                           <div className="ml-4">
-                            <div className="text-[13px] font-bold text-gray-900 leading-tight">{config.productClass}</div>
-                            <div className="text-[12px] text-gray-500 mt-1">WiFi Security Configuration</div>
+                            <div className="text-[13px] font-bold text-gray-900 dark:text-gray-100 leading-tight">{config.productClass}</div>
+                            <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">WiFi Security Configuration</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-[12px] text-gray-500 mb-1">Parameter Path</div>
+                        <div className="text-[12px] text-gray-500 dark:text-gray-400 mb-1">Parameter Path</div>
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#f3e8ff] text-[#9333ea]">
                           {config.parameterPath}
                         </span>
@@ -371,79 +371,79 @@ export function VendorConfigTab() {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[13px] font-bold text-gray-800 mb-2">Vendor Name <span className="text-gray-400">*</span></label>
-                <input type="text" required value={vendorModal.data.name || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, name: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="e.g., Huawei, ZTE CT-COM" />
+                <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Vendor Name <span className="text-gray-400">*</span></label>
+                <input type="text" required value={vendorModal.data.name || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, name: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="e.g., Huawei, ZTE CT-COM" />
               </div>
               <div>
-                <label className="block text-[13px] font-bold text-gray-800 mb-2">Parameter Prefix <span className="text-gray-400">*</span></label>
-                <input type="text" value={vendorModal.data.parameterPrefix || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, parameterPrefix: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="e.g., X_HW, X_CT-COM" />
+                <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Parameter Prefix <span className="text-gray-400">*</span></label>
+                <input type="text" value={vendorModal.data.parameterPrefix || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, parameterPrefix: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="e.g., X_HW, X_CT-COM" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[13px] font-bold text-gray-800 mb-2">Manufacturer Patterns (Comma-separated) <span className="text-gray-400">*</span></label>
-                <input type="text" required value={vendorModal.data.manufacturerPatterns || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, manufacturerPatterns: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="huawei, HUAWEI" />
+                <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Manufacturer Patterns (Comma-separated) <span className="text-gray-400">*</span></label>
+                <input type="text" required value={vendorModal.data.manufacturerPatterns || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, manufacturerPatterns: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="huawei, HUAWEI" />
               </div>
               <div>
-                <label className="block text-[13px] font-bold text-gray-800 mb-2">Product Patterns (Comma-separated) <span className="text-gray-400">*</span></label>
-                <input type="text" required value={vendorModal.data.productPatterns || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, productPatterns: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="eg8, hg8, hs8" />
+                <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Product Patterns (Comma-separated) <span className="text-gray-400">*</span></label>
+                <input type="text" required value={vendorModal.data.productPatterns || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, productPatterns: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="eg8, hg8, hs8" />
               </div>
             </div>
 
             <div className="pt-2">
-              <h4 className="text-[14px] font-bold text-gray-900 mb-4">WAN Connection Parameters</h4>
+              <h4 className="text-[14px] font-bold text-gray-900 dark:text-gray-100 mb-4">WAN Connection Parameters</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[13px] font-bold text-gray-800 mb-2">Service List Path</label>
-                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="X_HW_SERVICELIST" />
+                  <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Service List Path</label>
+                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="X_HW_SERVICELIST" />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-bold text-gray-800 mb-2">LAN Binding Path</label>
-                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="X_HW_LANBIND" />
+                  <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">LAN Binding Path</label>
+                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="X_HW_LANBIND" />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-bold text-gray-800 mb-2">VLAN ID Path</label>
-                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="X_HW_VLAN" />
+                  <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">VLAN ID Path</label>
+                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="X_HW_VLAN" />
                 </div>
               </div>
             </div>
 
             <div className="pt-2">
-              <h4 className="text-[14px] font-bold text-gray-900 mb-4">Security Parameters</h4>
+              <h4 className="text-[14px] font-bold text-gray-900 dark:text-gray-100 mb-4">Security Parameters</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[13px] font-bold text-gray-800 mb-2">HTTP WAN Enable Path</label>
-                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="InternetGatewayDevice.X_HW_Security..." />
+                  <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">HTTP WAN Enable Path</label>
+                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="InternetGatewayDevice.X_HW_Security..." />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-bold text-gray-800 mb-2">Firewall Level Path</label>
-                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="InternetGatewayDevice.X_HW_Security..." />
+                  <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Firewall Level Path</label>
+                  <input type="text" className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-400" placeholder="InternetGatewayDevice.X_HW_Security..." />
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4 pt-2">
               <div>
-                <label className="block text-[13px] font-bold text-gray-800 mb-2">Priority</label>
-                <input type="number" value={vendorModal.data.priority || 10} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, priority: parseInt(e.target.value) } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" />
+                <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Priority</label>
+                <input type="number" value={vendorModal.data.priority || 10} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, priority: parseInt(e.target.value) } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" />
               </div>
               <div>
-                <label className="block text-[13px] font-bold text-gray-800 mb-2">Status</label>
-                <select className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] bg-white">
+                <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Status</label>
+                <select className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] bg-white">
                   <option>Enabled</option>
                   <option>Disabled</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-bold text-gray-800 mb-2">Description</label>
-                <input type="text" value={vendorModal.data.description || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, description: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="Optional description" />
+                <label className="block text-[13px] font-bold text-gray-800 dark:text-gray-200 mb-2">Description</label>
+                <input type="text" value={vendorModal.data.description || ''} onChange={e => setVendorModal(p => ({ ...p, data: { ...p.data, description: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="Optional description" />
               </div>
             </div>
 
           </div>
           <div className="px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
-            <button type="button" onClick={() => setVendorModal(p => ({ ...p, isOpen: false }))} className="px-5 py-2 text-gray-700 font-bold text-[14px] hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors">Cancel</button>
+            <button type="button" onClick={() => setVendorModal(p => ({ ...p, isOpen: false }))} className="px-5 py-2 text-gray-700 font-bold text-[14px] hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-gray-300 rounded-lg transition-colors">Cancel</button>
             <button type="submit" disabled={isSaving} className="flex items-center px-5 py-2 bg-[#a855f7] text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 disabled:opacity-50 transition-colors shadow-sm">
               {isSaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : null} {vendorModal.isEdit ? 'Update Vendor' : 'Create Vendor'}
             </button>
@@ -457,20 +457,20 @@ export function VendorConfigTab() {
           <div className="p-6 space-y-6">
             <div>
               <label className="block text-[14px] font-bold text-gray-800 mb-2">Product Class <span className="text-gray-400">*</span> (Comma-separated for multiple)</label>
-              <input type="text" required value={wifiModal.data.productClass || ''} onChange={e => setWifiModal(p => ({ ...p, data: { ...p.data, productClass: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="e.g., HS8145C5, hg8245h, EG8145V5" />
-              <p className="text-[12px] text-gray-500 mt-2 font-medium">Enter multiple product classes separated by commas</p>
+              <input type="text" required value={wifiModal.data.productClass || ''} onChange={e => setWifiModal(p => ({ ...p, data: { ...p.data, productClass: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px]" placeholder="e.g., HS8145C5, hg8245h, EG8145V5" />
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-2 font-medium">Enter multiple product classes separated by commas</p>
             </div>
             <div>
               <label className="block text-[14px] font-bold text-gray-800 mb-2">Password Parameter Path <span className="text-gray-400">*</span></label>
-              <input type="text" required value={wifiModal.data.parameterPath || ''} onChange={e => setWifiModal(p => ({ ...p, data: { ...p.data, parameterPath: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-500" placeholder="KeyPassphrase or PreSharedKey.1.KeyPassphrase" />
+              <input type="text" required value={wifiModal.data.parameterPath || ''} onChange={e => setWifiModal(p => ({ ...p, data: { ...p.data, parameterPath: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-500" placeholder="KeyPassphrase or PreSharedKey.1.KeyPassphrase" />
             </div>
             <div>
               <label className="block text-[14px] font-bold text-gray-800 mb-2">Security Types Mapping (JSON or comma-separated)</label>
-              <input type="text" value={wifiModal.data.wpaTypes || ''} onChange={e => setWifiModal(p => ({ ...p, data: { ...p.data, wpaTypes: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-500" placeholder="WPA/WPA2-PSK, WPA2-PSK" />
+              <input type="text" value={wifiModal.data.wpaTypes || ''} onChange={e => setWifiModal(p => ({ ...p, data: { ...p.data, wpaTypes: e.target.value } }))} className="w-full px-3.5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 text-[14px] text-gray-500" placeholder="WPA/WPA2-PSK, WPA2-PSK" />
             </div>
           </div>
           <div className="px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
-            <button type="button" onClick={() => setWifiModal(p => ({ ...p, isOpen: false }))} className="px-5 py-2 text-gray-700 font-bold text-[14px] hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors">Cancel</button>
+            <button type="button" onClick={() => setWifiModal(p => ({ ...p, isOpen: false }))} className="px-5 py-2 text-gray-700 font-bold text-[14px] hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-gray-300 rounded-lg transition-colors">Cancel</button>
             <button type="submit" disabled={isSaving} className="flex items-center px-5 py-2 bg-[#a855f7] text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 disabled:opacity-50 transition-colors shadow-sm">
               {isSaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : null} {wifiModal.isEdit ? 'Update Config' : 'Create Config'}
             </button>
