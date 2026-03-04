@@ -187,6 +187,7 @@ model MixRadiusInvoice {
   mixRadiusId   String? // The internal ID from MixRadius
   username      String
   fullName      String?
+  ownerName     String?
   planName      String?
   amount        Decimal   @db.Decimal(19, 2)
   status        String // PAID, UNPAID, etc.
@@ -198,6 +199,7 @@ model MixRadiusInvoice {
 
   @@index([status])
   @@index([username])
+  @@index([ownerName])
   @@index([dueDate])
   @@map("mix_radius_invoices")
 }

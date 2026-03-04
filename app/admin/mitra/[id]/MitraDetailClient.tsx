@@ -17,6 +17,7 @@ import {
     HiOutlineClock,
     HiOutlineCamera,
     HiOutlineDocumentText,
+    HiOutlineChartBar,
 } from 'react-icons/hi2'
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -41,6 +42,9 @@ interface MitraDetail {
     slaGaransiJam: number | null
     penaltyPsb: number | null
     penaltyMaintenance: number | null
+    mitraRateFeePelanggan: number | null
+    enableFeePelanggan: boolean
+    mixradiusOwnerNames: string[]
     nik: string | null
     tempatLahir: string | null
     tanggalLahir: string | null
@@ -104,6 +108,17 @@ export default function MitraDetailClient() {
     const [faceLogsLoading, setFaceLogsLoading] = useState(false)
     const [previewPhoto, setPreviewPhoto] = useState<string | null>(null)
 
+    const [feeStartDate, setFeeStartDate] = useState(() => {
+        const d = new Date()
+        return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
+    })
+    const [feeEndDate, setFeeEndDate] = useState(() => {
+        const d = new Date()
+        return d.toISOString().split('T')[0]
+    })
+    const [feeData, setFeeData] = useState<Record<string, unknown>[]>([])
+    const [feeLoading, setFeeLoading] = useState(false)
+
     const fetchMitra = useCallback(async () => {
         try {
             setLoading(true)
@@ -142,7 +157,45 @@ export default function MitraDetailClient() {
         }
     }, [params.id])
 
+    const fetchFeeData = useCallback(async () => {
+        if (!mitra || mitra.mitraType !== 'MITRA_SALES' || !mitra.mixradiusOwnerNames || mitra.mixradiusOwnerNames.length === 0) return
+        try {
+            setFeeLoading(true)
+            const res = await fetch(`/api/integrations/mixradius/reports/period?fdate=${feeStartDate}&tdate=${feeEndDate}&start=0&length=10000`)
+            const responseJson = await res.json()
+            if (res.ok && responseJson.success && responseJson.data?.data) {
+                const allowedOwners = new Set<string>()
+                    ; (mitra.mixradiusOwnerNames as string[]).forEach(o => {
+                        const lower = o.toLowerCase().trim()
+                        allowedOwners.add(lower)
+                        allowedOwners.add(lower.split(/[—–-]/)[0].trim())
+                    })
+
+                const filtered = responseJson.data.data.filter((r: { owner_name?: string, member_id?: string, invoice: string }) => {
+                    if (!r.owner_name) return false
+                    const itemOwner = r.owner_name.toLowerCase().trim()
+                    const itemPrefix = itemOwner.split(/[—–-]/)[0].trim()
+                    return allowedOwners.has(itemOwner) || allowedOwners.has(itemPrefix)
+                })
+                setFeeData(filtered)
+            } else {
+                toast.error(responseJson.error || 'Gagal mengambil data MixRadius')
+            }
+        } catch (error) {
+            console.error('MixRadius API Error:', error)
+            toast.error('Gagal mengambil data MixRadius')
+        } finally {
+            setFeeLoading(false)
+        }
+    }, [feeStartDate, feeEndDate, mitra])
+
     useEffect(() => { if (params.id) fetchMitra() }, [params.id, fetchMitra])
+
+    useEffect(() => {
+        if (mitra && mitra.mitraType === 'MITRA_SALES') {
+            fetchFeeData()
+        }
+    }, [fetchFeeData, mitra])
 
     const handleRequestFaceVerification = async () => {
         if (!mitra) return
@@ -187,6 +240,18 @@ export default function MitraDetailClient() {
     }
 
     const isTeknisi = mitra.mitraType === 'MITRA_TEKNISI'
+
+    let activeCustomers = 0
+    let totalFee = 0
+    if (!isTeknisi && feeData.length > 0) {
+        const uniqueMembers = new Set()
+        feeData.forEach(r => {
+            const identifier = (r.member_id === '0' || !r.member_id) ? r.invoice : r.member_id
+            uniqueMembers.add(identifier)
+        })
+        activeCustomers = uniqueMembers.size
+        totalFee = activeCustomers * (mitra.mitraRateFeePelanggan || 0)
+    }
 
     // ─── Render ──────────────────────────────────────────────────────
 
@@ -382,6 +447,9 @@ export default function MitraDetailClient() {
                                         <>
                                             <KomisiRow label="Per Canvasing Installed" value={fmt(mitra.mitraRateCanvasing)} />
                                             <KomisiRow label="Target Harian" value={`${mitra.targetHarian ?? '-'}`} suffix="canvasing" />
+                                            {mitra.enableFeePelanggan && (
+                                                <KomisiRow label="Fee Pelanggan Berbayar" value={fmt(mitra.mitraRateFeePelanggan)} />
+                                            )}
                                         </>
                                     )}
                                     <KomisiRow label="Min. Pencairan" value={fmt(mitra.minWithdrawal)} />
@@ -412,6 +480,63 @@ export default function MitraDetailClient() {
                             </div>
                         </div>
                     </Section>
+
+                    {/* Estimasi Fee MixRadius */}
+                    {(!isTeknisi && mitra.enableFeePelanggan) && (
+                        <Section icon={<HiOutlineChartBar />} title="Estimasi Fee Pelanggan (MixRadius)">
+                            <div className="space-y-4">
+                                <div className="flex flex-col sm:flex-row gap-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl">
+                                    <div className="flex-1">
+                                        <label className="block text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Mulai</label>
+                                        <input
+                                            type="date"
+                                            value={feeStartDate}
+                                            onChange={e => setFeeStartDate(e.target.value)}
+                                            className="w-full text-sm py-1.5 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Sampai</label>
+                                        <input
+                                            type="date"
+                                            value={feeEndDate}
+                                            onChange={e => setFeeEndDate(e.target.value)}
+                                            className="w-full text-sm py-1.5 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                {mitra.mixradiusOwnerNames && mitra.mixradiusOwnerNames.length > 0 ? (
+                                    feeLoading ? (
+                                        <div className="py-6 text-center">
+                                            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                                            <p className="text-xs text-gray-400 mt-2">Menghitung dari MixRadius...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3 mt-4">
+                                            <MiniStat label="Pelanggan Berbayar" value={`${activeCustomers} User`} color="emerald" />
+                                            <MiniStat label="Estimasi Total Fee" value={fmt(totalFee)} color="emerald" />
+                                        </div>
+                                    )
+                                ) : (
+                                    <EmptyState text="Belum ada Owner MixRadius yang diassign." />
+                                )}
+
+                                {mitra.mixradiusOwnerNames && mitra.mixradiusOwnerNames.length > 0 && (
+                                    <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-3">
+                                        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-2">Owner Assigned:</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {mitra.mixradiusOwnerNames.map(o => (
+                                                <span key={o} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded text-xs">
+                                                    {o}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </Section>
+                    )}
 
                     {/* History Verifikasi Wajah */}
                     <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800 overflow-hidden">

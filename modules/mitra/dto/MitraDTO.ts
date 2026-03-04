@@ -13,6 +13,9 @@ export interface CreateMitraDTO {
     mitraRateWoPsb?: number
     mitraRateWoMaintenance?: number
     mitraRateCanvasing?: number
+    mitraRateFeePelanggan?: number
+    enableFeePelanggan?: boolean
+    mixradiusOwnerNames?: string[]
     bankName?: string
     bankAccountNo?: string
     bankAccountName?: string
@@ -47,6 +50,9 @@ export interface UpdateMitraDTO {
     mitraRateWoPsb?: number
     mitraRateWoMaintenance?: number
     mitraRateCanvasing?: number
+    mitraRateFeePelanggan?: number
+    enableFeePelanggan?: boolean
+    mixradiusOwnerNames?: string[]
     bankName?: string
     bankAccountNo?: string
     bankAccountName?: string
@@ -96,7 +102,10 @@ export interface MitraWithDetails {
     isActive: boolean
     mitraRateWoPsb: number | null
     mitraRateWoMaintenance: number | null
-    mitraRateCanvasing: number | null
+    mitraRateCanvasing?: number | null
+    mitraRateFeePelanggan?: number | null
+    enableFeePelanggan?: boolean
+    mixradiusOwnerNames: string[]
     bankName: string | null
     bankAccountNo: string | null
     bankAccountName: string | null

@@ -451,6 +451,12 @@ app.prepare().then(() => {
             syncService.syncInvoices()
         })
         console.log('[Server] MixRadius invoice sync cron scheduled (Hourly)')
+
+        cron.schedule('5 0 * * *', () => {
+            console.log('[Cron] Running daily MixRadius settlement sync (T-1)')
+            syncService.syncYesterdaySettlement()
+        })
+        console.log('[Server] MixRadius settlement sync cron scheduled (00:05)')
     }).catch(err => console.error('[Server] Failed to start MixRadius Sync Service:', err))
 
 

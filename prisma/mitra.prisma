@@ -30,11 +30,16 @@ model Mitra {
   mitraRateWoPsb         Float? // Rate komisi per WO Instalasi/PSB
   mitraRateWoMaintenance Float? // Rate komisi per WO Maintenance/Gangguan
   mitraRateCanvasing     Float? // Rate komisi per canvasing installed
+  mitraRateFeePelanggan  Float? // Rate komisi per pelanggan berbayar/aktif bulanan
+  enableFeePelanggan     Boolean @default(false) // Toggle untuk mengaktifkan komisi per pelanggan berbayar
   bankName               String? // Nama bank untuk withdraw
   bankAccountNo          String? // Nomor rekening bank
   bankAccountName        String? // Nama pemilik rekening
   targetHarian           Int? // Target harian khusus mitra sales
   minWithdrawal          Int? // Target minimum pencairan dana
+  
+  // MixRadius Integration
+  mixradiusOwnerNames    String[] @default([]) // Array of MixRadius Owner Names for computing fees
   
   // KYC & Data Diri
   nik                      String?   @unique

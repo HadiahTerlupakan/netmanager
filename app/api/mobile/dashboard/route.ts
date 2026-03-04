@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
+import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+
+const mixRadiusService = getMixRadiusService()
 
 export async function GET(req: NextRequest) {
     try {
@@ -31,6 +34,9 @@ export async function GET(req: NextRequest) {
                     siteId: true,
                     mitraType: true,
                     targetHarian: true,
+                    enableFeePelanggan: true,
+                    mitraRateFeePelanggan: true,
+                    mixradiusOwnerNames: true,
                     mitraWallet: { select: { balance: true } }
                 }
             })
@@ -88,10 +94,11 @@ export async function GET(req: NextRequest) {
                 }
             })
 
-            // Additional Stats specifically for MITRA_SALES
             let targetHarian = 0;
             let suksesClosingMonth = 0;
             let saldoKomisi = 0;
+            let activeCustomers = 0;
+            let totalFeePelanggan = 0;
 
             if (mitra.mitraType === 'MITRA_SALES') {
                 targetHarian = mitra.targetHarian || 0;
@@ -104,6 +111,53 @@ export async function GET(req: NextRequest) {
                         createdAt: { gte: monthStart }
                     }
                 })
+
+                if (mitra.enableFeePelanggan) {
+                    try {
+                        const startStr = monthStart.toISOString().split('T')[0]
+                        const endStr = today.toISOString().split('T')[0]
+
+                        const incomeResult = await mixRadiusService.fetchIncomeByPeriod({ startDate: startStr, endDate: endStr, length: 100000 })
+                        if (incomeResult && incomeResult.data && incomeResult.data.length > 0) {
+                            const allowedOwners = new Set<string>()
+                            if (mitra.mixradiusOwnerNames) {
+                                mitra.mixradiusOwnerNames.forEach((o: string) => {
+                                    const lower = o.toLowerCase().trim()
+                                    allowedOwners.add(lower)
+                                    allowedOwners.add(lower.split(/[—–-]/)[0].trim())
+                                })
+                            }
+
+                            const filteredData = incomeResult.data.filter((item: { owner_name?: string }) => {
+                                if (allowedOwners.size === 0) return true
+                                if (!item.owner_name) return false
+                                const itemOwner = item.owner_name.toLowerCase().trim()
+                                const itemPrefix = itemOwner.split(/[—–-]/)[0].trim()
+                                return allowedOwners.has(itemOwner) || allowedOwners.has(itemPrefix)
+                            })
+
+                            const uniqueMembers = new Set()
+                            filteredData.forEach((r: { member_id?: string, invoice: string }) => {
+                                const identifier = (r.member_id === '0' || !r.member_id) ? r.invoice : r.member_id
+                                if (identifier) uniqueMembers.add(identifier)
+                            })
+
+                            activeCustomers = uniqueMembers.size
+                            totalFeePelanggan = activeCustomers * (mitra.mitraRateFeePelanggan || 0)
+
+                            console.log(`[Mobile API] MixRadius Fee Debug: start=${startStr}, end=${endStr}, expectedOwners=${JSON.stringify(mitra.mixradiusOwnerNames)}, fetched=${incomeResult.data.length}, filtered=${filteredData.length}, activeCustomers=${activeCustomers}`)
+                        } else {
+                            console.log(`[Mobile API] MixRadius Fee Debug: No data from MixRadius API for period ${startStr} to ${endStr}`)
+                        }
+                    } catch (err) {
+                        console.error('[Mobile API] Error fetching MixRadius fee:', err)
+                    }
+                }
+
+                // Add the un-withdrawn fee to their current virtual balance overview?
+                // The web app handles it in MitraDetail view, just for display. 
+                // We'll pass it to frontend, if they want to sum it up.
+                saldoKomisi += totalFeePelanggan;
             }
 
             return NextResponse.json({
@@ -117,7 +171,9 @@ export async function GET(req: NextRequest) {
                 // Extra payload for Sales Mode
                 targetHarian,
                 suksesClosingMonth,
-                saldoKomisi
+                saldoKomisi,
+                activeCustomers,
+                enableFeePelanggan: mitra.enableFeePelanggan || false
             })
         }
 
@@ -139,7 +195,7 @@ export async function GET(req: NextRequest) {
 
         const userSiteIds: string[] = [];
         if (user.userSites && user.userSites.length > 0) {
-            userSiteIds.push(...user.userSites.map(us => us.siteId));
+            userSiteIds.push(...user.userSites.map((us: { siteId: string }) => us.siteId));
         } else if (user.siteId) {
             userSiteIds.push(user.siteId);
         }

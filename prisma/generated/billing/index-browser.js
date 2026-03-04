@@ -247,6 +247,7 @@ exports.Prisma.MixRadiusInvoiceScalarFieldEnum = {
   mixRadiusId: 'mixRadiusId',
   username: 'username',
   fullName: 'fullName',
+  ownerName: 'ownerName',
   planName: 'planName',
   amount: 'amount',
   status: 'status',

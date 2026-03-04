@@ -10602,6 +10602,7 @@ export namespace Prisma {
     mixRadiusId: string | null
     username: string | null
     fullName: string | null
+    ownerName: string | null
     planName: string | null
     amount: Decimal | null
     status: string | null
@@ -10618,6 +10619,7 @@ export namespace Prisma {
     mixRadiusId: string | null
     username: string | null
     fullName: string | null
+    ownerName: string | null
     planName: string | null
     amount: Decimal | null
     status: string | null
@@ -10634,6 +10636,7 @@ export namespace Prisma {
     mixRadiusId: number
     username: number
     fullName: number
+    ownerName: number
     planName: number
     amount: number
     status: number
@@ -10660,6 +10663,7 @@ export namespace Prisma {
     mixRadiusId?: true
     username?: true
     fullName?: true
+    ownerName?: true
     planName?: true
     amount?: true
     status?: true
@@ -10676,6 +10680,7 @@ export namespace Prisma {
     mixRadiusId?: true
     username?: true
     fullName?: true
+    ownerName?: true
     planName?: true
     amount?: true
     status?: true
@@ -10692,6 +10697,7 @@ export namespace Prisma {
     mixRadiusId?: true
     username?: true
     fullName?: true
+    ownerName?: true
     planName?: true
     amount?: true
     status?: true
@@ -10795,6 +10801,7 @@ export namespace Prisma {
     mixRadiusId: string | null
     username: string
     fullName: string | null
+    ownerName: string | null
     planName: string | null
     amount: Decimal
     status: string
@@ -10830,6 +10837,7 @@ export namespace Prisma {
     mixRadiusId?: boolean
     username?: boolean
     fullName?: boolean
+    ownerName?: boolean
     planName?: boolean
     amount?: boolean
     status?: boolean
@@ -10846,6 +10854,7 @@ export namespace Prisma {
     mixRadiusId?: boolean
     username?: boolean
     fullName?: boolean
+    ownerName?: boolean
     planName?: boolean
     amount?: boolean
     status?: boolean
@@ -10862,6 +10871,7 @@ export namespace Prisma {
     mixRadiusId?: boolean
     username?: boolean
     fullName?: boolean
+    ownerName?: boolean
     planName?: boolean
     amount?: boolean
     status?: boolean
@@ -10878,6 +10888,7 @@ export namespace Prisma {
     mixRadiusId?: boolean
     username?: boolean
     fullName?: boolean
+    ownerName?: boolean
     planName?: boolean
     amount?: boolean
     status?: boolean
@@ -10888,7 +10899,7 @@ export namespace Prisma {
     syncedAt?: boolean
   }
 
-  export type MixRadiusInvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "mixRadiusId" | "username" | "fullName" | "planName" | "amount" | "status" | "paymentMethod" | "issuedDate" | "dueDate" | "expiredOn" | "syncedAt", ExtArgs["result"]["mixRadiusInvoice"]>
+  export type MixRadiusInvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "mixRadiusId" | "username" | "fullName" | "ownerName" | "planName" | "amount" | "status" | "paymentMethod" | "issuedDate" | "dueDate" | "expiredOn" | "syncedAt", ExtArgs["result"]["mixRadiusInvoice"]>
 
   export type $MixRadiusInvoicePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "MixRadiusInvoice"
@@ -10899,6 +10910,7 @@ export namespace Prisma {
       mixRadiusId: string | null
       username: string
       fullName: string | null
+      ownerName: string | null
       planName: string | null
       amount: Prisma.Decimal
       status: string
@@ -11335,6 +11347,7 @@ export namespace Prisma {
     readonly mixRadiusId: FieldRef<"MixRadiusInvoice", 'String'>
     readonly username: FieldRef<"MixRadiusInvoice", 'String'>
     readonly fullName: FieldRef<"MixRadiusInvoice", 'String'>
+    readonly ownerName: FieldRef<"MixRadiusInvoice", 'String'>
     readonly planName: FieldRef<"MixRadiusInvoice", 'String'>
     readonly amount: FieldRef<"MixRadiusInvoice", 'Decimal'>
     readonly status: FieldRef<"MixRadiusInvoice", 'String'>
@@ -16051,6 +16064,7 @@ export namespace Prisma {
     mixRadiusId: 'mixRadiusId',
     username: 'username',
     fullName: 'fullName',
+    ownerName: 'ownerName',
     planName: 'planName',
     amount: 'amount',
     status: 'status',
@@ -17110,6 +17124,7 @@ export namespace Prisma {
     mixRadiusId?: StringNullableFilter<"MixRadiusInvoice"> | string | null
     username?: StringFilter<"MixRadiusInvoice"> | string
     fullName?: StringNullableFilter<"MixRadiusInvoice"> | string | null
+    ownerName?: StringNullableFilter<"MixRadiusInvoice"> | string | null
     planName?: StringNullableFilter<"MixRadiusInvoice"> | string | null
     amount?: DecimalFilter<"MixRadiusInvoice"> | Decimal | DecimalJsLike | number | string
     status?: StringFilter<"MixRadiusInvoice"> | string
@@ -17126,6 +17141,7 @@ export namespace Prisma {
     mixRadiusId?: SortOrderInput | SortOrder
     username?: SortOrder
     fullName?: SortOrderInput | SortOrder
+    ownerName?: SortOrderInput | SortOrder
     planName?: SortOrderInput | SortOrder
     amount?: SortOrder
     status?: SortOrder
@@ -17145,6 +17161,7 @@ export namespace Prisma {
     mixRadiusId?: StringNullableFilter<"MixRadiusInvoice"> | string | null
     username?: StringFilter<"MixRadiusInvoice"> | string
     fullName?: StringNullableFilter<"MixRadiusInvoice"> | string | null
+    ownerName?: StringNullableFilter<"MixRadiusInvoice"> | string | null
     planName?: StringNullableFilter<"MixRadiusInvoice"> | string | null
     amount?: DecimalFilter<"MixRadiusInvoice"> | Decimal | DecimalJsLike | number | string
     status?: StringFilter<"MixRadiusInvoice"> | string
@@ -17161,6 +17178,7 @@ export namespace Prisma {
     mixRadiusId?: SortOrderInput | SortOrder
     username?: SortOrder
     fullName?: SortOrderInput | SortOrder
+    ownerName?: SortOrderInput | SortOrder
     planName?: SortOrderInput | SortOrder
     amount?: SortOrder
     status?: SortOrder
@@ -17185,6 +17203,7 @@ export namespace Prisma {
     mixRadiusId?: StringNullableWithAggregatesFilter<"MixRadiusInvoice"> | string | null
     username?: StringWithAggregatesFilter<"MixRadiusInvoice"> | string
     fullName?: StringNullableWithAggregatesFilter<"MixRadiusInvoice"> | string | null
+    ownerName?: StringNullableWithAggregatesFilter<"MixRadiusInvoice"> | string | null
     planName?: StringNullableWithAggregatesFilter<"MixRadiusInvoice"> | string | null
     amount?: DecimalWithAggregatesFilter<"MixRadiusInvoice"> | Decimal | DecimalJsLike | number | string
     status?: StringWithAggregatesFilter<"MixRadiusInvoice"> | string
@@ -18348,6 +18367,7 @@ export namespace Prisma {
     mixRadiusId?: string | null
     username: string
     fullName?: string | null
+    ownerName?: string | null
     planName?: string | null
     amount: Decimal | DecimalJsLike | number | string
     status: string
@@ -18364,6 +18384,7 @@ export namespace Prisma {
     mixRadiusId?: string | null
     username: string
     fullName?: string | null
+    ownerName?: string | null
     planName?: string | null
     amount: Decimal | DecimalJsLike | number | string
     status: string
@@ -18380,6 +18401,7 @@ export namespace Prisma {
     mixRadiusId?: NullableStringFieldUpdateOperationsInput | string | null
     username?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
     planName?: NullableStringFieldUpdateOperationsInput | string | null
     amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     status?: StringFieldUpdateOperationsInput | string
@@ -18396,6 +18418,7 @@ export namespace Prisma {
     mixRadiusId?: NullableStringFieldUpdateOperationsInput | string | null
     username?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
     planName?: NullableStringFieldUpdateOperationsInput | string | null
     amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     status?: StringFieldUpdateOperationsInput | string
@@ -18412,6 +18435,7 @@ export namespace Prisma {
     mixRadiusId?: string | null
     username: string
     fullName?: string | null
+    ownerName?: string | null
     planName?: string | null
     amount: Decimal | DecimalJsLike | number | string
     status: string
@@ -18428,6 +18452,7 @@ export namespace Prisma {
     mixRadiusId?: NullableStringFieldUpdateOperationsInput | string | null
     username?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
     planName?: NullableStringFieldUpdateOperationsInput | string | null
     amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     status?: StringFieldUpdateOperationsInput | string
@@ -18444,6 +18469,7 @@ export namespace Prisma {
     mixRadiusId?: NullableStringFieldUpdateOperationsInput | string | null
     username?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
+    ownerName?: NullableStringFieldUpdateOperationsInput | string | null
     planName?: NullableStringFieldUpdateOperationsInput | string | null
     amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     status?: StringFieldUpdateOperationsInput | string
@@ -19686,6 +19712,7 @@ export namespace Prisma {
     mixRadiusId?: SortOrder
     username?: SortOrder
     fullName?: SortOrder
+    ownerName?: SortOrder
     planName?: SortOrder
     amount?: SortOrder
     status?: SortOrder
@@ -19706,6 +19733,7 @@ export namespace Prisma {
     mixRadiusId?: SortOrder
     username?: SortOrder
     fullName?: SortOrder
+    ownerName?: SortOrder
     planName?: SortOrder
     amount?: SortOrder
     status?: SortOrder
@@ -19722,6 +19750,7 @@ export namespace Prisma {
     mixRadiusId?: SortOrder
     username?: SortOrder
     fullName?: SortOrder
+    ownerName?: SortOrder
     planName?: SortOrder
     amount?: SortOrder
     status?: SortOrder

@@ -105,6 +105,9 @@ export const GRANULAR_PERMISSIONS = {
   SALARY_APPROVE: 'salary:approve',                 // Final approval for salary
   SALARY_MARK_PAID: 'salary:mark_paid',             // Mark salary as paid
   SALARY_VIEW_ALL: 'salary:view_all',               // View all salary records (bypass privacy)
+
+  // MixRadius sensitive operations
+  MIXRADIUS_SYNC: 'mixradius:calculate',              // Manual sync MixRadius data to local DB
 } as const
 
 export type GranularPermission = typeof GRANULAR_PERMISSIONS[keyof typeof GRANULAR_PERMISSIONS]

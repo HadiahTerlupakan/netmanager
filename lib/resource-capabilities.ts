@@ -279,7 +279,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     },
 
     mixradius: {
-        actions: ['read', 'create', 'update', 'delete'],
+        actions: ['read', 'create', 'update', 'delete', 'calculate'],
         description: 'Integrasi MixRadius (Dashboard & Menu Utama)'
     },
     mixradius_isolir: {
@@ -299,7 +299,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         description: 'Manajemen Akun/Koneksi MixRadius'
     },
     mixradius_income: {
-        actions: ['read', 'delete', 'site_only'], // delete = hapus riwayat pendapatan
+        actions: ['read', 'delete', 'calculate', 'site_only'], // delete = hapus riwayat pendapatan, calculate = manual sync
         description: 'Laporan Pendapatan MixRadius'
     },
     mixradius_expenses: {

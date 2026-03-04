@@ -138,6 +138,18 @@ export class MixRadiusSyncService {
   }
 
   /**
+   * Sync specifically for settlement (H-1)
+   */
+  async syncYesterdaySettlement() {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const dateStr = yesterday.toISOString().split('T')[0]
+
+    console.log(`[MixRadiusSync] Running daily settlement sync for ${dateStr}`)
+    return await this.syncInvoices(dateStr, dateStr)
+  }
+
+  /**
    * Sync invoices from MixRadius to Local Database.
    * Default to current month if dates not provided.
    */
@@ -223,6 +235,7 @@ export class MixRadiusSyncService {
       mixRadiusId: record.id,
       username: record.username,
       fullName: record.fullname,
+      ownerName: record.owner_name,
       planName: record.plan_name,
       amount: amount,
       status: record.trx_status.toUpperCase() === "SUCCESS" ? "PAID" : record.trx_status.toUpperCase(),
