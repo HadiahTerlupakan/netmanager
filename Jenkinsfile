@@ -13,17 +13,9 @@ pipeline {
         stage('Install & Code Quality Check') {
             steps {
                 script {
-                    echo "Checking node/npm installation..."
-                    sh "node -v && npm -v"
-                    
-                    echo "Installing dependencies..."
-                    sh "npm ci"
-                    
-                    echo "Running code linters (eslint)..."
-                    sh "npm run lint"
-                    
-                    echo "Running TypeScript compiler check..."
-                    sh "npm run typecheck"
+                    echo "Running Quality Checks inside Node container..."
+                    // We run prisma:generate inside the container so lint/typecheck have the client
+                    sh "docker run --rm -v ${WORKSPACE}:/app -w /app node:20-alpine sh -c 'npm ci && npm run prisma:generate && npm run lint && npm run typecheck'"
                 }
             }
         }
@@ -31,8 +23,8 @@ pipeline {
         stage('Run Unit Tests') {
             steps {
                 script {
-                    echo "Running Vitest unit tests..."
-                    sh "npm run test:run"
+                    echo "Running Unit Tests inside Node container..."
+                    sh "docker run --rm -v ${WORKSPACE}:/app -w /app node:20-alpine sh -c 'npm run test:run'"
                 }
             }
         }
@@ -40,17 +32,13 @@ pipeline {
         stage('Build Image') {
             steps {
                 script {
-                    echo "Generating Prisma Client for Docker build..."
-                    sh "npx prisma generate"
-                    sh "npx prisma generate --config=prisma.radius.config.ts"
-                    sh "npx prisma generate --config=prisma.billing.config.ts"
-                    sh "npx prisma generate --config=prisma.mitra.config.ts"
-                    
                     echo "Building Docker image ${DOCKER_IMAGE}:${DOCKER_TAG}..."
+                    // Prisma generation and build are handled INSIDE the Dockerfile (Stages 1 & 2)
                     sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                 }
             }
         }
+
 
         stage('Load Image to K3s') {
             steps {
