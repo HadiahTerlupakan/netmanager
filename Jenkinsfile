@@ -140,7 +140,7 @@ spec:
             echo "Pipeline finished."
         }
         success {
-            echo "Deployment to Staging Successful!"
+                echo "Deployment to ${ENV} Successful!"
         }
         failure {
             echo "Deployment Failed. Please check logs."
