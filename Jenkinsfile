@@ -14,8 +14,15 @@ pipeline {
             steps {
                 script {
                     echo "Running Quality Checks inside Node container..."
-                    // Triple single-quotes for robust quoting of shell commands
-                    sh '''docker run --rm -v "${WORKSPACE}":/app -w /app node:20-alpine sh -c "npm install && npm run prisma:generate && npm run lint && npm run typecheck"'''
+                    sh '''docker run --rm \
+                        -e DATABASE_URL="postgresql://user:pass@localhost:5432/db" \
+                        -e RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius" \
+                        -e DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing" \
+                        -e DATABASE_URL_MITRA="postgresql://user:pass@localhost:5432/mitra" \
+                        -e REDIS_URL="redis://localhost:6379" \
+                        -e NEXTAUTH_SECRET="build-time-secret" \
+                        -e NEXTAUTH_URL="http://localhost:3000" \
+                        -v "${WORKSPACE}":/app -w /app node:20-alpine sh -c "npm install && npm run prisma:generate && npm run lint && npm run typecheck"'''
                 }
             }
         }
@@ -24,7 +31,15 @@ pipeline {
             steps {
                 script {
                     echo "Running Unit Tests inside Node container..."
-                    sh '''docker run --rm -v "${WORKSPACE}":/app -w /app node:20-alpine sh -c "npm run test:run"'''
+                    sh '''docker run --rm \
+                        -e DATABASE_URL="postgresql://user:pass@localhost:5432/db" \
+                        -e RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius" \
+                        -e DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing" \
+                        -e DATABASE_URL_MITRA="postgresql://user:pass@localhost:5432/mitra" \
+                        -e REDIS_URL="redis://localhost:6379" \
+                        -e NEXTAUTH_SECRET="build-time-secret" \
+                        -e NEXTAUTH_URL="http://localhost:3000" \
+                        -v "${WORKSPACE}":/app -w /app node:20-alpine sh -c "npm run test:run"'''
                 }
             }
         }
