@@ -127,8 +127,11 @@ spec:
                         // Apply all manifests in correct directory. Pastikan jenkins service account / default pod memiliki role K8s.
                         sh "kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
                         
-                        // Force rollout restart with a slight delay to avoid 'already triggered' error
-                        sh "sleep 2 && kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE}"
+                        // Force rollout restart with a slight delay. Ignore error if apply already triggered a rollout.
+                        sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress by apply')"
+                        
+                        // Wait for the rollout to complete to ensure deployment success
+                        sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=180s"
                     }
                 }
             }
