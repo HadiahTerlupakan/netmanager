@@ -732,6 +732,23 @@ async function main() {
   })
   console.log('   ✅ Investor: investordemo (Type: INVESTOR)')
 
+  const investor2Hash = await hash('investor456', 10)
+  await prisma.investor.upsert({
+    where: { username: 'investor2' },
+    update: {},
+    create: {
+      username: 'investor2',
+      password: 'investor456',
+      passwordHash: investor2Hash,
+      namaLengkap: 'Ibu Investorwati',
+      perusahaan: 'PT Investasi Bersama',
+      noTelp: '081234567888',
+      email: 'investor2@example.com',
+      isActive: true,
+    }
+  })
+  console.log('   ✅ Investor: investor2 (Type: INVESTOR)')
+
   // ========================================================================
   // STEP 9: VALIDATION
   // ========================================================================

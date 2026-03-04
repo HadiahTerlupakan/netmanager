@@ -124,7 +124,7 @@ export function ClientComponent() {
             })
 
             const response = await fetchWithHandling<Overtime[]>(`/api/admin/lembur?${query.toString()}`, { signal })
-            
+
             setRequests(response.data || [])
             setTotalPages(response.pagination?.totalPages || 1)
             setTotalItems(response.pagination?.total || 0)
@@ -210,7 +210,7 @@ export function ClientComponent() {
 
         // Validate before submit
         const errors: Record<string, string> = {}
-        
+
         const reasonValidation = validateReason(editForm.reason)
         if (!reasonValidation.valid) {
             errors.reason = reasonValidation.error || 'Alasan tidak valid'
@@ -356,7 +356,7 @@ export function ClientComponent() {
             render: (item) => {
                 const dayName = getDayName(item.createdAt)
                 const dateStr = formatDateDisplay(item.createdAt)
-                
+
                 return (
                     <div className="text-gray-600 dark:text-gray-300">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -366,16 +366,15 @@ export function ClientComponent() {
                             </div>
                             {/* Holiday/Off-day Badge */}
                             {item.isHolidayOvertime && (
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                                    item.isNationalHoliday 
-                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                        : item.isOffDay 
-                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                            : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                                }`} title={item.holidayDescription}>
-                                    {item.isNationalHoliday ? '🎌 Libur Nasional' 
-                                        : item.isOffDay ? '📅 Hari Libur' 
-                                        : '🏖️ Cuti Bersama'}
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${item.isNationalHoliday
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                    : item.isOffDay
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                        : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                    }`} title={item.holidayDescription}>
+                                    {item.isNationalHoliday ? '🎌 Libur Nasional'
+                                        : item.isOffDay ? '📅 Hari Libur'
+                                            : '🏖️ Cuti Bersama'}
                                 </span>
                             )}
                         </div>
@@ -464,15 +463,25 @@ export function ClientComponent() {
             render: (item) => (
                 <div className="flex gap-2">
                     {item.startPhoto && (
-                        <Button onClick={() => setSelectedPhoto(item.startPhoto!)} className="relative group" title="Foto Mulai">
-                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-green-500 transition-all relative">
+                        <Button
+                            variant="ghost"
+                            className="p-0 h-auto w-auto hover:bg-transparent"
+                            onClick={() => setSelectedPhoto(item.startPhoto!)}
+                            title="Foto Mulai"
+                        >
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm transition-all ring-2 ring-transparent hover:ring-green-500 dark:hover:ring-green-400 relative">
                                 <Image src={item.startPhoto} alt="Start" fill className="object-cover" />
                             </div>
                         </Button>
                     )}
                     {item.endPhoto && (
-                        <Button onClick={() => setSelectedPhoto(item.endPhoto!)} className="relative group" title="Foto Selesai">
-                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-red-500 transition-all relative">
+                        <Button
+                            variant="ghost"
+                            className="p-0 h-auto w-auto hover:bg-transparent"
+                            onClick={() => setSelectedPhoto(item.endPhoto!)}
+                            title="Foto Selesai"
+                        >
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm transition-all ring-2 ring-transparent hover:ring-red-500 dark:hover:ring-red-400 relative">
                                 <Image src={item.endPhoto} alt="End" fill className="object-cover" />
                             </div>
                         </Button>
@@ -485,19 +494,25 @@ export function ClientComponent() {
 
     // Render actions for each row
     const renderActions = (item: Overtime) => (
-        <>
+        <div className="flex items-center gap-1">
             {item.status === 'PENDING' && canVerify && (
                 <>
-                    <Button onClick={() => handleAction(item.id, 'approve')}
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleAction(item.id, 'approve')}
                         disabled={processingId === item.id}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
                         title="Setujui (Verify)"
                     >
                         <MdCheckCircle className="text-lg" />
                     </Button>
-                    <Button onClick={() => setRejectId(item.id)}
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setRejectId(item.id)}
                         disabled={processingId === item.id}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                         title="Tolak (Verify)"
                     >
                         <MdCancel className="text-lg" />
@@ -505,24 +520,30 @@ export function ClientComponent() {
                 </>
             )}
             {canUpdate && (
-                <Button onClick={() => openEditModal(item)}
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => openEditModal(item)}
                     disabled={processingId === item.id}
-                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
                     title="Edit Data"
                 >
                     <MdEdit className="text-lg" />
                 </Button>
             )}
             {canDelete && (
-                <Button onClick={() => handleDelete(item.id)}
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => handleDelete(item.id)}
                     disabled={processingId === item.id}
-                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    className="text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Hapus"
                 >
                     <MdDelete className="text-lg" />
                 </Button>
             )}
-        </>
+        </div>
     )
 
     return (
@@ -628,11 +649,13 @@ export function ClientComponent() {
                         <option value="OFFDAY">📅 Hari Libur Karyawan</option>
                     </select>
                 </div>
-                <Button onClick={() => fetchRequests()}
+                <Button
+                    onClick={() => fetchRequests()}
                     disabled={retryCountdown !== null}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    variant="default"
+                    className="px-4 py-2 rounded-lg text-sm h-[38px] flex items-center gap-2 disabled:opacity-50 transition-all font-medium shadow-sm hover:shadow-md active:scale-95"
                 >
-                    <FaSearch /> Cari
+                    <FaSearch className="w-3.5 h-3.5" /> Cari
                 </Button>
             </div>
 
@@ -674,33 +697,33 @@ export function ClientComponent() {
                 size="sm"
             >
                 <div>
-                        <textarea
-                            className={`w-full p-2 border rounded-lg mb-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${rejectError ? 'border-red-500' : ''}`}
-                            rows={3}
-                            placeholder="Minimal 5 karakter..."
-                            value={rejectReason}
-                            onChange={(e) => {
-                                setRejectReason(e.target.value)
-                                setRejectError(null)
-                            }}
-                        />
-                        {rejectError && (
-                            <p className="text-xs text-red-500 mb-2">{rejectError}</p>
-                        )}
-                        <p className="text-xs text-gray-500 mb-3">{rejectReason.length}/500 karakter</p>
+                    <textarea
+                        className={`w-full p-2 border rounded-lg mb-1 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${rejectError ? 'border-red-500' : ''}`}
+                        rows={3}
+                        placeholder="Minimal 5 karakter..."
+                        value={rejectReason}
+                        onChange={(e) => {
+                            setRejectReason(e.target.value)
+                            setRejectError(null)
+                        }}
+                    />
+                    {rejectError && (
+                        <p className="text-xs text-red-500 mb-2">{rejectError}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mb-3">{rejectReason.length}/500 karakter</p>
                 </div>
                 <ModalFooter>
-                            <Button onClick={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
-                                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-                            >
-                                Batal
-                            </Button>
-                            <Button onClick={() => handleAction(rejectId!, 'reject', rejectReason)}
-                                disabled={!rejectReason.trim() || processingId === rejectId}
-                                className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                            >
-                                Tolak
-                            </Button>
+                    <Button onClick={() => { setRejectId(null); setRejectReason(''); setRejectError(null); }}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                        Batal
+                    </Button>
+                    <Button onClick={() => handleAction(rejectId!, 'reject', rejectReason)}
+                        disabled={!rejectReason.trim() || processingId === rejectId}
+                        className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                    >
+                        Tolak
+                    </Button>
                 </ModalFooter>
             </Modal>
 
@@ -712,61 +735,61 @@ export function ClientComponent() {
                 size="md"
             >
                 <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Alasan Lembur</label>
-                                <textarea
-                                    className={`w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white ${editErrors.reason ? 'border-red-500' : ''}`}
-                                    rows={3}
-                                    value={editForm.reason}
-                                    onChange={(e) => {
-                                        setEditForm({ ...editForm, reason: e.target.value })
-                                        if (editErrors.reason) {
-                                            setEditErrors({ ...editErrors, reason: '' })
-                                        }
-                                    }}
-                                />
-                                {editErrors.reason && (
-                                    <p className="text-xs text-red-500 mt-1">{editErrors.reason}</p>
-                                )}
-                                <p className="text-xs text-gray-500 mt-1">{editForm.reason.length}/500 karakter (min 10)</p>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Jam Mulai</label>
-                                    <input
-                                        type="datetime-local"
-                                        className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                        value={editForm.startTime}
-                                        onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Jam Selesai</label>
-                                    <input
-                                        type="datetime-local"
-                                        className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                        value={editForm.endTime}
-                                        onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            {editErrors.time && (
-                                <p className="text-xs text-red-500">{editErrors.time}</p>
-                            )}
+                    <div>
+                        <label className="block text-sm font-medium mb-1 dark:text-gray-300">Alasan Lembur</label>
+                        <textarea
+                            className={`w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white ${editErrors.reason ? 'border-red-500' : ''}`}
+                            rows={3}
+                            value={editForm.reason}
+                            onChange={(e) => {
+                                setEditForm({ ...editForm, reason: e.target.value })
+                                if (editErrors.reason) {
+                                    setEditErrors({ ...editErrors, reason: '' })
+                                }
+                            }}
+                        />
+                        {editErrors.reason && (
+                            <p className="text-xs text-red-500 mt-1">{editErrors.reason}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">{editForm.reason.length}/500 karakter (min 10)</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Jam Mulai</label>
+                            <input
+                                type="datetime-local"
+                                className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                value={editForm.startTime}
+                                onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Jam Selesai</label>
+                            <input
+                                type="datetime-local"
+                                className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                value={editForm.endTime}
+                                onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    {editErrors.time && (
+                        <p className="text-xs text-red-500">{editErrors.time}</p>
+                    )}
                 </div>
                 <ModalFooter>
-                            <Button onClick={() => { setEditId(null); setEditErrors({}); }}
-                                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-                            >
-                                Batal
-                            </Button>
-                            <Button onClick={handleEditSubmit}
-                                disabled={processingId === editId}
-                                
-                            >
-                                Simpan Perubahan
-                            </Button>
+                    <Button onClick={() => { setEditId(null); setEditErrors({}); }}
+                        className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                        Batal
+                    </Button>
+                    <Button onClick={handleEditSubmit}
+                        disabled={processingId === editId}
+
+                    >
+                        Simpan Perubahan
+                    </Button>
                 </ModalFooter>
             </Modal>
 
@@ -781,11 +804,11 @@ export function ClientComponent() {
             >
                 <div className="relative w-full h-[80vh] flex items-center justify-center bg-black/90">
                     {selectedPhoto && (
-                        <Image 
-                            src={selectedPhoto} 
-                            alt="Full view" 
-                            fill 
-                            className="object-contain" 
+                        <Image
+                            src={selectedPhoto}
+                            alt="Full view"
+                            fill
+                            className="object-contain"
                         />
                     )}
                 </div>

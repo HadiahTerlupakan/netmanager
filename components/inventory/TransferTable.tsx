@@ -193,15 +193,21 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete: _
       emptyMessage="Belum ada data transfer barang antar gudang."
       renderActions={(item) => (
         <div className="flex items-center gap-2">
-          <Button onClick={() => onViewDetails(item)}
-            className="p-2 text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onViewDetails(item)}
+            className="text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
             title="Detail"
           >
             <FiEye className="w-5 h-5" />
           </Button>
-          <Button onClick={() => handleDelete(item)}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => handleDelete(item)}
             disabled={deletingId === item.id}
-            className="p-2 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors disabled:opacity-50"
+            className="text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
             title="Batalkan Transfer"
           >
             {deletingId === item.id ? (

@@ -260,20 +260,29 @@ export function MasukTable({
   // Render actions for each row
   const renderActions = (item: BarangMasuk) => (
     <>
-      <Button onClick={() => onView?.(item)}
-        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onView?.(item)}
+        className="text-blue-600 hover:text-blue-900 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 transition-colors"
         title="Lihat Detail"
       >
         <FiEye className="h-4 w-4" />
       </Button>
-      <Button onClick={() => onEdit?.(item)}
-        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onEdit?.(item)}
+        className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20 transition-colors"
         title="Edit"
       >
         <FiEdit className="h-4 w-4" />
       </Button>
-      <Button onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
-        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
+        className="text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 transition-colors"
         title="Hapus"
       >
         <FiTrash2 className="h-4 w-4" />

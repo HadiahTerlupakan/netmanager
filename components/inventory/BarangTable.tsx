@@ -255,8 +255,11 @@ export function BarangTable() {
         </Link>
       )}
       {canDelete && (
-        <Button onClick={() => handleDelete(item.id, item.kode)}
-          className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors"
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => handleDelete(item.id, item.kode)}
+          className="text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
           title="Hapus"
         >
           <FiTrash2 className="h-4 w-4" />
