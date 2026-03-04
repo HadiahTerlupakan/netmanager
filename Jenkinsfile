@@ -10,6 +10,8 @@ spec:
     image: jenkins/inbound-agent:latest
   - name: docker
     image: docker:24-cli
+    command: ['cat']
+    tty: true
     securityContext:
       privileged: true
     volumeMounts:
