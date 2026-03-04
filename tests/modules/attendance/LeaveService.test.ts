@@ -59,7 +59,8 @@ vi.mock('@/lib/logger', () => ({
         logActivity: vi.fn(),
         error: vi.fn(),
         info: vi.fn()
-    }
+    },
+    logActivitySafe: vi.fn()
 }))
 
 describe('LeaveService', () => {

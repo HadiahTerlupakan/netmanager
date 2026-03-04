@@ -62,7 +62,7 @@ export class UserService {
 
     async createUser(data: CreateUserInput): Promise<User> {
         // Check if email already exists globally
-        const globalCheck = await checkGlobalIdentifier(data.email, 'EMPLOYEE')
+        const globalCheck = await checkGlobalIdentifier(data.email)
         if (globalCheck.exists) {
             throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`)
         }
@@ -101,7 +101,7 @@ export class UserService {
 
         // If email is being changed, check if new email is available globally
         if (data.email && data.email !== existingUser.email) {
-            const globalCheck = await checkGlobalIdentifier(data.email, 'EMPLOYEE')
+            const globalCheck = await checkGlobalIdentifier(data.email, undefined, id)
             if (globalCheck.exists) {
                 throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`)
             }

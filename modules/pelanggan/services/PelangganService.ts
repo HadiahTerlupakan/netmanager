@@ -86,20 +86,20 @@ export class PelangganService {
         }
 
         // Check if ID already exists globally
-        const globalIdCheck = await checkGlobalIdentifier(data.idPelanggan.trim(), 'CUSTOMER')
+        const globalIdCheck = await checkGlobalIdentifier(data.idPelanggan.trim())
         if (globalIdCheck.exists) {
             throw new Error(`ID Pelanggan sudah digunakan sebagai ${globalIdCheck.role}`)
         }
 
         // Check if username already exists globally
-        const globalUsernameCheck = await checkGlobalIdentifier(data.username.trim(), 'CUSTOMER')
+        const globalUsernameCheck = await checkGlobalIdentifier(data.username.trim())
         if (globalUsernameCheck.exists) {
             throw new Error(`Username sudah digunakan sebagai ${globalUsernameCheck.role}`)
         }
 
         // Check if email already exists globally if provided
         if (data.email) {
-            const globalEmailCheck = await checkGlobalIdentifier(data.email.trim(), 'CUSTOMER')
+            const globalEmailCheck = await checkGlobalIdentifier(data.email.trim())
             if (globalEmailCheck.exists) {
                 throw new Error(`Email sudah digunakan sebagai ${globalEmailCheck.role}`)
             }

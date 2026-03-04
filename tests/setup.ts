@@ -51,6 +51,11 @@ export type MockPrismaClient = {
   holiday: MockModel
   salary: MockModel
   salaryComponent: MockModel
+  mitra: MockModel
+  mitraWallet: MockModel
+  mitraTransaction: MockModel
+  withdrawRequest: MockModel
+  leaveRequest: MockModel
   canvasing: MockModel
   pointClaim: MockModel
   coupon: MockModel
@@ -149,6 +154,11 @@ const createMock = (): MockPrismaClient => {
     holiday: createMockModel(),
     salary: createMockModel(),
     salaryComponent: createMockModel(),
+    mitra: createMockModel(),
+    mitraWallet: createMockModel(),
+    mitraTransaction: createMockModel(),
+    withdrawRequest: createMockModel(),
+    leaveRequest: createMockModel(),
     canvasing: createMockModel(),
     pointClaim: createMockModel(),
     coupon: createMockModel(),

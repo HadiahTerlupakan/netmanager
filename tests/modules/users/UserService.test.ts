@@ -40,6 +40,7 @@ describe('UserService', () => {
   let service: UserService
 
   beforeEach(() => {
+    vi.clearAllMocks()
     service = new UserService()
   })
 

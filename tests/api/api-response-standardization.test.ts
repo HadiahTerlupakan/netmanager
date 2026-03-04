@@ -39,10 +39,10 @@ function usesApiSuccess(content: string): boolean {
 
 function usesApiErrors(content: string): boolean {
   return content.includes("ApiErrors.unauthorized()") ||
-         content.includes("ApiErrors.forbidden()") ||
-         content.includes("ApiErrors.notFound(") ||
-         content.includes("ApiErrors.internalError(") ||
-         content.includes("ApiErrors.badRequest(")
+    content.includes("ApiErrors.forbidden()") ||
+    content.includes("ApiErrors.notFound(") ||
+    content.includes("ApiErrors.internalError(") ||
+    content.includes("ApiErrors.badRequest(")
 }
 
 function doesNotUseNextResponse(content: string): boolean {
@@ -148,27 +148,31 @@ describe('API Auth Pattern Checks', () => {
       it(`${path} should have auth check`, () => {
         const content = readFile(path)
         if (!content) return
-        
+
         // Should have some form of auth check
-        const hasAuthCheck = 
+        const hasAuthCheck =
           content.includes('verifyAuth(') ||
           content.includes('getServerSession(') ||
           content.includes('requireAuth(') ||
           content.includes('requireAdmin(') ||
-          content.includes('authorize(')
-        
+          content.includes('authorize(') ||
+          content.includes('createHandler({ auth: true }') ||
+          content.includes('createHandler({auth: true}')
+
         expect(hasAuthCheck).toBe(true)
       })
 
       it(`${path} should return 401 for unauthenticated requests`, () => {
         const content = readFile(path)
         if (!content) return
-        
+
         // Should handle unauthorized using ApiErrors
-        const hasUnauthorizedHandling = 
+        const hasUnauthorizedHandling =
           content.includes('ApiErrors.unauthorized()') ||
-          content.includes('status: 401')
-        
+          content.includes('status: 401') ||
+          content.includes('createHandler({ auth: true }') ||
+          content.includes('createHandler({auth: true}')
+
         expect(hasUnauthorizedHandling).toBe(true)
       })
     })
@@ -180,12 +184,12 @@ describe('Error Code Usage', () => {
     ...REFACTORED_ROUTES.payments,
     ...REFACTORED_ROUTES.mixradius,
   ]
-  
+
   ALL_ROUTES.forEach(path => {
     it(`${path} should use ErrorCodes enum for validation errors`, () => {
       const content = readFile(path)
       if (!content) return
-      
+
       // If apiError is used, ErrorCodes should be imported
       if (content.includes('apiError(')) {
         expect(content.includes('ErrorCodes')).toBe(true)

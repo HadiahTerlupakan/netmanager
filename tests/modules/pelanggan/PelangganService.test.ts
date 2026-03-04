@@ -19,6 +19,7 @@ describe('PelangganService', () => {
   let service: PelangganService
 
   beforeEach(() => {
+    vi.clearAllMocks()
     service = new PelangganService()
   })
 
@@ -51,8 +52,8 @@ describe('PelangganService', () => {
     })
 
     it('should reject duplicate ID Pelanggan', async () => {
-      // Mock: ID already exists - findByIdPelanggan uses findUnique
-      prismaMock.pelanggan.findUnique.mockResolvedValueOnce({
+      // Mock: ID already exists - checkGlobalIdentifier uses findFirst
+      prismaMock.pelanggan.findFirst.mockResolvedValueOnce({
         id: 'existing-id',
         idPelanggan: '12345678'
       } as unknown as Pelanggan)
@@ -62,8 +63,8 @@ describe('PelangganService', () => {
     })
 
     it('should reject duplicate username', async () => {
-      // Mock: ID not exists - findByIdPelanggan uses findUnique
-      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(null)
+      // Mock: ID not exists
+      prismaMock.pelanggan.findFirst.mockResolvedValueOnce(null)
       // Mock: Username exists - findByUsername uses findFirst
       prismaMock.pelanggan.findFirst.mockResolvedValueOnce({
         id: 'existing-id',
@@ -95,8 +96,8 @@ describe('PelangganService', () => {
         hargaPaket: { name: 'Paket 10 Mbps', harga: 100000 }
       }
 
-      // Mock: ID not exists (findByIdPelanggan using findUnique)
-      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(null)
+      // Mock: ID not exists
+      prismaMock.pelanggan.findFirst.mockResolvedValueOnce(null)
       // Mock: Username not exists
       prismaMock.pelanggan.findFirst.mockResolvedValueOnce(null)
       // Mock: HargaPaket exists
