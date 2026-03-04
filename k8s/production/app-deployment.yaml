@@ -78,6 +78,9 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: OAUTH_ENCRYPTION_KEY
+          volumeMounts:
+            - name: uploads-volume
+              mountPath: /app/public/uploads
           resources:
             requests:
               cpu: "500m"
@@ -97,6 +100,10 @@ spec:
               port: 3000
             initialDelaySeconds: 120
             periodSeconds: 30
+      volumes:
+        - name: uploads-volume
+          persistentVolumeClaim:
+            claimName: netmanager-uploads
 ---
 apiVersion: v1
 kind: Service
