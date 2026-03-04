@@ -34,7 +34,6 @@ export async function proxy(request: NextRequest) {
   // ----------------------------------------------------------------------------
   // 3. SUBDOMAIN & REWRITE LOGIC
   // ----------------------------------------------------------------------------
-  const rootDomain = 'radpro.id'
   let subdomain = null
 
   if (hostname.startsWith('admin.')) subdomain = 'admin'
