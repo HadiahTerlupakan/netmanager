@@ -203,9 +203,13 @@ const createMock = (): MockPrismaClient => {
 // Export with simplified type - the actual mock still has all Prisma methods
 export const prismaMock = createMock() as unknown as MockPrismaClient
 
-// Mock the prisma module
+// Mock the prisma modules
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock
+}))
+
+vi.mock('@/lib/prisma-mitra', () => ({
+  prismaMitra: prismaMock
 }))
 
 // Reset all mocks before each test
@@ -215,8 +219,8 @@ beforeEach(() => {
 })
 
 // Mock console methods to reduce noise in tests
-vi.spyOn(console, 'log').mockImplementation(() => {})
-vi.spyOn(console, 'error').mockImplementation(() => {})
+vi.spyOn(console, 'log').mockImplementation(() => { })
+vi.spyOn(console, 'error').mockImplementation(() => { })
 
 // Mock the WebSocket emitter globally using vi.mock
 // This replaces the module completely preventing any network calls
