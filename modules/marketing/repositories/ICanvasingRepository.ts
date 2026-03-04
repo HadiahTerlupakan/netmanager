@@ -77,7 +77,11 @@ export interface ICanvasingRepository {
   create(data: CreateCanvasingInput): Promise<CanvasingWithSalesInfo>
   findById(id: string): Promise<Canvasing | null>
   findByIdWithSales(id: string): Promise<CanvasingWithSalesSite | null>
-  findAll(filters?: { status?: CanvasingStatus; salesId?: string; mitraId?: string; siteId?: string }): Promise<Canvasing[]>
+  findAll(
+    filters?: { status?: CanvasingStatus; salesId?: string; mitraId?: string; siteId?: string },
+    page?: number,
+    limit?: number
+  ): Promise<{ data: Canvasing[]; total: number }>
   update(id: string, data: UpdateCanvasingInput): Promise<Canvasing>
   delete(id: string): Promise<void>
 }

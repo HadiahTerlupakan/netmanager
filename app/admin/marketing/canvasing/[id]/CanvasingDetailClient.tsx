@@ -61,10 +61,14 @@ interface CanvasingDetail {
     foto?: string;
     fotoKtp?: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
-    sales: {
+    sales?: {
         name: string;
         email: string;
-    };
+    } | null;
+    user?: {
+        name: string;
+        email: string;
+    } | null;
     createdAt: string;
     workOrder?: {
         workOrderNumber: string;
@@ -186,7 +190,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             </div>
         );
     }
-    
+
     if (!item) {
         return (
             <div className="text-center py-20">
@@ -201,7 +205,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
     return (
         <div className="space-y-6">
             {/* Back Button */}
-            <Button 
+            <Button
                 variant="ghost"
                 onClick={() => router.back()}
                 className="inline-flex items-center gap-2"
@@ -212,14 +216,14 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
 
             {/* Main Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
+
                 {/* Left Column - Profile Card */}
                 <div className="lg:col-span-1 space-y-6">
                     {/* Profile Card */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                         {/* Cover */}
                         <div className="h-24 bg-indigo-600 dark:bg-indigo-700"></div>
-                        
+
                         {/* Avatar & Name */}
                         <div className="px-6 pb-6">
                             <div className="-mt-12 mb-4">
@@ -227,25 +231,24 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                     {item.nama.charAt(0).toUpperCase()}
                                 </div>
                             </div>
-                            
+
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{item.nama}</h2>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Calon Pelanggan</p>
-                            
+
                             {/* Status Badge */}
-                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
-                                item.status === 'APPROVED' 
-                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                    : item.status === 'REJECTED'
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${item.status === 'APPROVED'
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                : item.status === 'REJECTED'
                                     ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                                     : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                            }`}>
+                                }`}>
                                 {item.status === 'APPROVED' && <HiOutlineCheck className="w-4 h-4" />}
                                 {item.status === 'REJECTED' && <HiOutlineXMark className="w-4 h-4" />}
                                 {item.status === 'PENDING' && <HiOutlineClock className="w-4 h-4" />}
                                 {item.status}
                             </div>
                         </div>
-                        
+
                         {/* Contact Info */}
                         <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-4 space-y-3">
                             <div className="flex items-center gap-3 text-sm">
@@ -265,7 +268,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                 <span className="text-gray-600 dark:text-gray-300">{item.alamat}</span>
                             </div>
                         </div>
-                        
+
                         {/* NIK */}
                         <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-4">
                             <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">NIK KTP</p>
@@ -278,11 +281,11 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                         <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Sales</h3>
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold">
-                                {item.sales.name.charAt(0).toUpperCase()}
+                                {(item.user?.name || item.sales?.name)?.charAt(0).toUpperCase() || '-'}
                             </div>
                             <div>
-                                <p className="font-medium text-gray-900 dark:text-white">{item.sales.name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{item.sales.email}</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{item.user?.name || item.sales?.name || '-'}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{item.user?.email || item.sales?.email || '-'}</p>
                             </div>
                         </div>
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
@@ -292,7 +295,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
 
                     {/* Map Link */}
                     {item.latitude && item.longitude && (
-                        <a 
+                        <a
                             href={`https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -313,30 +316,30 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
 
                 {/* Right Column - Details */}
                 <div className="lg:col-span-2 space-y-6">
-                    
+
                     {/* Technical Specs */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Spesifikasi Layanan</h3>
-                        
+
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800">
                                 <HiOutlineWifi className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mb-2" />
                                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1">Paket</p>
                                 <p className="text-lg font-bold text-gray-900 dark:text-white">{item.paket}</p>
                             </div>
-                            
+
                             <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800">
                                 <HiOutlineSquare3Stack3D className="w-6 h-6 text-purple-600 dark:text-purple-400 mb-2" />
                                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">Kabel</p>
                                 <p className="text-lg font-bold text-gray-900 dark:text-white">{item.kabel}m</p>
                             </div>
-                            
+
                             <div className="bg-pink-50 dark:bg-pink-900/20 rounded-xl p-4 border border-pink-100 dark:border-pink-800">
                                 <HiOutlineSignal className="w-6 h-6 text-pink-600 dark:text-pink-400 mb-2" />
                                 <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mb-1">ODP</p>
                                 <p className="text-lg font-bold text-gray-900 dark:text-white truncate">{item.odp || '-'}</p>
                             </div>
-                            
+
                             <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-100 dark:border-amber-800">
                                 <HiOutlineQrCode className="w-6 h-6 text-amber-600 dark:text-amber-400 mb-2" />
                                 <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">SN</p>
@@ -348,15 +351,14 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                     {/* Documentation */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Dokumentasi</h3>
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {/* KTP */}
-                            <div 
-                                className={`aspect-video rounded-xl overflow-hidden border-2 ${
-                                    item.fotoKtp 
-                                        ? 'cursor-zoom-in hover:border-indigo-400 dark:hover:border-indigo-500' 
-                                        : 'border-dashed'
-                                } border-gray-200 dark:border-gray-700 transition-colors`}
+                            <div
+                                className={`aspect-video rounded-xl overflow-hidden border-2 ${item.fotoKtp
+                                    ? 'cursor-zoom-in hover:border-indigo-400 dark:hover:border-indigo-500'
+                                    : 'border-dashed'
+                                    } border-gray-200 dark:border-gray-700 transition-colors`}
                                 onClick={() => item.fotoKtp && setZoomImage(item.fotoKtp)}
                             >
                                 {item.fotoKtp ? (
@@ -372,14 +374,13 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                     </div>
                                 )}
                             </div>
-                            
+
                             {/* Location */}
-                            <div 
-                                className={`aspect-video rounded-xl overflow-hidden border-2 ${
-                                    item.foto 
-                                        ? 'cursor-zoom-in hover:border-indigo-400 dark:hover:border-indigo-500' 
-                                        : 'border-dashed'
-                                } border-gray-200 dark:border-gray-700 transition-colors`}
+                            <div
+                                className={`aspect-video rounded-xl overflow-hidden border-2 ${item.foto
+                                    ? 'cursor-zoom-in hover:border-indigo-400 dark:hover:border-indigo-500'
+                                    : 'border-dashed'
+                                    } border-gray-200 dark:border-gray-700 transition-colors`}
                                 onClick={() => item.foto && setZoomImage(item.foto)}
                             >
                                 {item.foto ? (
@@ -628,16 +629,16 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             >
                 <div className="relative w-full h-[80vh] flex items-center justify-center bg-black/90">
                     {zoomImage && (
-                        <Image 
-                            src={zoomImage} 
-                            alt="Zoomed" 
-                            fill 
-                            className="object-contain" 
+                        <Image
+                            src={zoomImage}
+                            alt="Zoomed"
+                            fill
+                            className="object-contain"
                         />
                     )}
                 </div>
                 <ModalFooter className="bg-black/90 border-t border-white/10">
-                    <Button 
+                    <Button
                         variant="ghost"
                         onClick={() => setZoomImage(null)}
                     >

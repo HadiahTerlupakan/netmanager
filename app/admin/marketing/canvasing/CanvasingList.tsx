@@ -31,7 +31,8 @@ interface CanvasingItem {
     paket: string
     alamat: string
     status: 'PENDING' | 'APPROVED' | 'REJECTED'
-    sales: { name: string }
+    sales?: { name: string } | null
+    user?: { name: string; email: string } | null
     createdAt: string
     pointClaims?: PointClaim
 }
@@ -41,6 +42,9 @@ export default function CanvasingList() {
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [siteId, setSiteId] = useState<string | undefined>(undefined)
+    const [page, setPage] = useState(1)
+    const [limit] = useState(10)
+    const [totalPages, setTotalPages] = useState(1)
     const [claimModal, setClaimModal] = useState<{ open: boolean; item: CanvasingItem | null; processing: boolean }>({
         open: false,
         item: null,
@@ -59,11 +63,14 @@ export default function CanvasingList() {
         try {
             const params = new URLSearchParams()
             if (siteId) params.append('siteId', siteId)
+            params.append('page', page.toString())
+            params.append('limit', limit.toString())
 
             const res = await fetch(`/api/marketing/canvasing?${params.toString()}`)
             if (res.ok) {
                 const json = await res.json()
-                setItems(json.data || json)
+                setItems(json.data || [])
+                setTotalPages(Math.ceil((json.total || 0) / limit))
             } else {
                 const json = await res.json().catch((): null => null)
                 toast.error(json?.error || 'Gagal memuat data canvasing')
@@ -74,7 +81,7 @@ export default function CanvasingList() {
         } finally {
             setLoading(false)
         }
-    }, [siteId])
+    }, [siteId, page, limit])
 
     useEffect(() => {
         fetchData()
@@ -83,7 +90,7 @@ export default function CanvasingList() {
     const handleApproveClaim = async (claimId: string) => {
         setClaimModal(prev => ({ ...prev, processing: true }))
         try {
-            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
+            await axios.put(`/api/marketing/point-claims/${claimId}`, {
                 action: 'approve'
             })
             toast.success('Claim poin berhasil disetujui')
@@ -105,12 +112,12 @@ export default function CanvasingList() {
             toast.error('Alasan penolakan harus diisi')
             return
         }
-        
+
         setClaimModal(prev => ({ ...prev, processing: true }))
         try {
-            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
-                action: 'reject', 
-                notes 
+            await axios.put(`/api/marketing/point-claims/${claimId}`, {
+                action: 'reject',
+                notes
             })
             toast.success('Claim poin ditolak')
             setClaimModal({ open: false, item: null, processing: false })
@@ -134,7 +141,7 @@ export default function CanvasingList() {
     }
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`Hapus request canvasing atas nama ${name}?`)) return
-        
+
         try {
             const res = await fetch(`/api/marketing/canvasing/${id}`, {
                 method: 'DELETE'
@@ -154,7 +161,7 @@ export default function CanvasingList() {
 
     const handleCancelApproval = async (id: string, name: string) => {
         if (!confirm(`Batalkan approval untuk ${name}? Status akan kembali ke PENDING dan WO terkait akan di-unlink.`)) return
-        
+
         try {
             const res = await fetch(`/api/marketing/canvasing/${id}`, {
                 method: 'PATCH',
@@ -174,7 +181,7 @@ export default function CanvasingList() {
         }
     }
 
-    const filteredItems = items.filter(item => 
+    const filteredItems = items.filter(item =>
         item.nama.toLowerCase().includes(search.toLowerCase()) ||
         item.alamat.toLowerCase().includes(search.toLowerCase())
     )
@@ -208,16 +215,16 @@ export default function CanvasingList() {
                     <div className="w-full md:w-48">
                         <SiteFilter onSiteChange={setSiteId} />
                     </div>
-                {canCreate && (
-                    <Link 
-                        href="/admin/marketing/canvasing/new"
-                        className={`${buttonVariants({ variant: 'default', size: 'default' })} !text-white`}
-                    >
-                        <HiOutlinePlus className="w-5 h-5" />
-                        Tambah Canvasing
-                    </Link>
-                )}
-                    
+                    {canCreate && (
+                        <Link
+                            href="/admin/marketing/canvasing/new"
+                            className={`${buttonVariants({ variant: 'default', size: 'default' })} !text-white`}
+                        >
+                            <HiOutlinePlus className="w-5 h-5" />
+                            Tambah Canvasing
+                        </Link>
+                    )}
+
                     <div className="relative w-full md:w-64">
                         <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
@@ -236,6 +243,9 @@ export default function CanvasingList() {
                     data={filteredItems}
                     loading={loading}
                     keyField="id"
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
                     columns={[
                         {
                             key: 'nama',
@@ -252,7 +262,7 @@ export default function CanvasingList() {
                             key: 'sales',
                             header: 'Sales',
                             priority: 'secondary',
-                            render: (item) => <span className="text-sm">{item.sales.name}</span>
+                            render: (item) => <span className="text-sm">{item.user?.name || item.sales?.name || '-'}</span>
                         },
                         {
                             key: 'alamat',
@@ -280,7 +290,7 @@ export default function CanvasingList() {
                     emptyMessage="Tidak ada data canvasing ditemukan."
                     renderActions={(item) => (
                         <div className="flex items-center gap-2">
-                            <Link 
+                            <Link
                                 href={`/admin/marketing/canvasing/${item.id}`}
                                 className="text-indigo-600 hover:text-indigo-800 p-2 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors inline-block"
                                 title="Lihat Detail"
@@ -289,7 +299,7 @@ export default function CanvasingList() {
                             </Link>
 
                             {item.status === 'PENDING' && canUpdate && (
-                                <Link 
+                                <Link
                                     href={`/admin/marketing/canvasing/${item.id}/edit`}
                                     className="text-amber-600 hover:text-amber-800 p-2 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors inline-block"
                                     title="Edit"
@@ -299,7 +309,7 @@ export default function CanvasingList() {
                             )}
 
                             {canDelete && (
-                                <Button 
+                                <Button
                                     variant="ghost"
                                     size="icon-sm"
                                     onClick={() => handleDelete(item.id, item.nama)}
@@ -310,7 +320,7 @@ export default function CanvasingList() {
                             )}
 
                             {item.status === 'APPROVED' && canUpdate && (
-                                <Button 
+                                <Button
                                     variant="ghost"
                                     size="icon-sm"
                                     onClick={() => handleCancelApproval(item.id, item.nama)}
@@ -322,7 +332,7 @@ export default function CanvasingList() {
 
                             {/* Tombol Claim Poin */}
                             {getPendingClaim(item) && canUpdate && (
-                                <Button 
+                                <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => setClaimModal({ open: true, item, processing: false })}
@@ -360,7 +370,7 @@ export default function CanvasingList() {
                                     <p className="text-xs text-gray-500">{claimModal.item.nama}</p>
                                 </div>
                             </div>
-                            <Button 
+                            <Button
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={() => setClaimModal({ open: false, item: null, processing: false })}

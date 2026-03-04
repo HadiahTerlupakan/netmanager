@@ -176,13 +176,13 @@ function DefaultMobileCard<T>({
             ? column.render(item, index)
             : getNestedValue(item, String(column.key))
 
-            return (
-              <div key={String(column.key)} className={colIndex === 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-sm text-gray-600 dark:text-gray-400'}>
-                {safeRender(value)}
-              </div>
-            )
-          })}
-        </div>
+          return (
+            <div key={String(column.key)} className={colIndex === 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-sm text-gray-600 dark:text-gray-400'}>
+              {safeRender(value)}
+            </div>
+          )
+        })}
+      </div>
 
       {/* Other Info - Grid Layout */}
       {(otherColumns.length > 0 || primaryColumns.length > 2) && (
@@ -493,26 +493,34 @@ export function ResponsiveTable<T>({
                   </svg>
                 </button>
                 {/* Simple page numbers */}
-                 {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                    let p = (page || 1) - 2 + i;
-                    if (p < 1) p = i + 1;
-                    if (p > totalPages) return null;
-                    
-                    return (
-                        <button
-                            key={p}
-                            onClick={() => onPageChange(p)}
-                            aria-current={p === (page || 1) ? 'page' : undefined}
-                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                                p === (page || 1)
-                                    ? 'z-10 bg-indigo-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
-                                    : 'text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0'
-                            }`}
-                        >
-                            {p}
-                        </button>
+                {(() => {
+                  const maxPagesToShow = 5;
+                  let startPage = Math.max(1, (page || 1) - Math.floor(maxPagesToShow / 2));
+                  let endPage = startPage + maxPagesToShow - 1;
+
+                  if (endPage > totalPages) {
+                    endPage = totalPages;
+                    startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                  }
+
+                  const pageButtons = [];
+                  for (let p = startPage; p <= endPage; p++) {
+                    pageButtons.push(
+                      <button
+                        key={p}
+                        onClick={() => onPageChange(p)}
+                        aria-current={p === (page || 1) ? 'page' : undefined}
+                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${p === (page || 1)
+                            ? 'z-10 bg-indigo-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+                            : 'text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0'
+                          }`}
+                      >
+                        {p}
+                      </button>
                     );
-                 })}
+                  }
+                  return pageButtons;
+                })()}
                 <button
                   onClick={() => onPageChange(Math.min(totalPages, (page || 1) + 1))}
                   disabled={(page || 1) >= totalPages}

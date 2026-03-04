@@ -87,20 +87,30 @@ export class CanvasingRepository implements ICanvasingRepository {
     }) as unknown as Promise<CanvasingWithSalesSite>
   }
 
-  async findAll(filters?: { status?: CanvasingStatus; salesId?: string; mitraId?: string; siteId?: string }): Promise<Canvasing[]> {
-    return this.db.canvasing.findMany({
-      where: {
-        AND: [
-          filters?.status ? { status: filters.status } : {},
-          filters?.salesId ? { salesId: filters.salesId } : {},
-          filters?.mitraId ? { mitraId: filters.mitraId } : {},
-          filters?.siteId ? {
-            OR: [
-              { user: { siteId: filters.siteId } }
-            ]
-          } as Prisma.CanvasingWhereInput : {},
-        ],
-      },
+  async findAll(
+    filters?: { status?: CanvasingStatus; salesId?: string; mitraId?: string; siteId?: string },
+    page?: number,
+    limit?: number
+  ): Promise<{ data: Canvasing[]; total: number }> {
+    const whereClause: Prisma.CanvasingWhereInput = {
+      AND: [
+        filters?.status ? { status: filters.status } : {},
+        filters?.salesId ? { salesId: filters.salesId } : {},
+        filters?.mitraId ? { mitraId: filters.mitraId } : {},
+        filters?.siteId ? {
+          OR: [
+            { user: { siteId: filters.siteId } }
+          ]
+        } as Prisma.CanvasingWhereInput : {},
+      ],
+    }
+
+    const total = await this.db.canvasing.count({
+      where: whereClause
+    })
+
+    const data = await this.db.canvasing.findMany({
+      where: whereClause,
       include: {
         user: {
           select: {
@@ -129,11 +139,13 @@ export class CanvasingRepository implements ICanvasingRepository {
             },
             createdAt: true
           },
-
         }
       },
       orderBy: { createdAt: 'desc' },
+      ...(page && limit ? { skip: (page - 1) * limit, take: limit } : {})
     })
+
+    return { data, total }
   }
 
   async update(id: string, data: UpdateCanvasingInput): Promise<Canvasing> {

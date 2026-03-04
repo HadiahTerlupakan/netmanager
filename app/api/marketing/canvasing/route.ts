@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { CanvasingStatus } from '@prisma/client'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getCanvasingService } from '@/lib/repositories'
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status')
     let salesId = searchParams.get('salesId') || undefined
     let filterSiteId: string | undefined = searchParams.get('siteId') || undefined
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
 
     // Logic:
     // 1. If Super Admin -> Can see all (no default filters)
@@ -38,28 +41,33 @@ export async function GET(req: NextRequest) {
     // console.log(`[API_CANVASING] User: ${session.email}, isSuperAdmin: ${isSuperAdmin}, canReadAll: ${canReadAll}, canVerify: ${canVerify}, canViewOthers: ${canViewOthers}`)
 
     if (!canViewOthers) {
-        // Absolute restriction for regular Sales/Staff
-        salesId = session.id
+      // Absolute restriction for regular Sales/Staff
+      salesId = session.id
     } else {
-        // Manager Logic
-        if (isSiteRestricted) {
-             if (session.siteId) {
-                 filterSiteId = session.siteId
-             } else {
-                 return apiSuccess([])
-             }
+      // Manager Logic
+      if (isSiteRestricted) {
+        if (session.siteId) {
+          filterSiteId = session.siteId
+        } else {
+          return apiSuccess([])
         }
+      }
     }
 
     const service = getCanvasingService()
-    const filterParams: Record<string, unknown> = {}
-    if (status) filterParams.status = status
+    const filterParams: { status?: CanvasingStatus; salesId?: string; siteId?: string } = {}
+    if (status) filterParams.status = status as CanvasingStatus
     if (salesId) filterParams.salesId = salesId
     if (filterSiteId) filterParams.siteId = filterSiteId
-    const requests = await service.getAllRequests(filterParams)
+    const result = await service.getAllRequests(filterParams, page, limit)
 
     // Return with data wrapper for mobile app compatibility
-    return NextResponse.json({ data: requests })
+    return NextResponse.json({
+      data: result.data,
+      total: result.total,
+      page,
+      limit
+    })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Gagal mengambil data canvasing'
     return ApiErrors.internalError(message)
