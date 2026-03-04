@@ -131,7 +131,7 @@ spec:
                         sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress by apply')"
                         
                         // Wait for the rollout to complete to ensure deployment success
-                        sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=180s"
+                        sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
                     }
                 }
             }
