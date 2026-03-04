@@ -15,7 +15,7 @@ pipeline {
                 script {
                     echo "Running Quality Checks inside Node container..."
                     // We run prisma:generate inside the container so lint/typecheck have the client
-                    sh "docker run --rm -v ${WORKSPACE}:/app -w /app node:20-alpine sh -c 'npm ci && npm run prisma:generate && npm run lint && npm run typecheck'"
+                    sh "docker run --rm -v \"${WORKSPACE}\":/app -w /app node:20-alpine sh -c \"npm ci && npm run prisma:generate && npm run lint && npm run typecheck\""
                 }
             }
         }
@@ -24,7 +24,7 @@ pipeline {
             steps {
                 script {
                     echo "Running Unit Tests inside Node container..."
-                    sh "docker run --rm -v ${WORKSPACE}:/app -w /app node:20-alpine sh -c 'npm run test:run'"
+                    sh "docker run --rm -v \"${WORKSPACE}\":/app -w /app node:20-alpine sh -c \"npm run test:run\""
                 }
             }
         }
