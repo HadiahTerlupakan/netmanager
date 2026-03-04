@@ -14,8 +14,6 @@ spec:
         - radpro.id
         - admin.radpro.id
         - karyawan.radpro.id
-        - pelanggan.radpro.id
-        - investor.radpro.id
       secretName: netmanager-tls-production
   rules:
     - host: radpro.id
@@ -39,26 +37,6 @@ spec:
                 port:
                   number: 80
     - host: karyawan.radpro.id
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: netmanager-app
-                port:
-                  number: 80
-    - host: pelanggan.radpro.id
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: netmanager-app
-                port:
-                  number: 80
-    - host: investor.radpro.id
       http:
         paths:
           - path: /
