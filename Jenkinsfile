@@ -17,7 +17,7 @@ spec:
     command: ['cat']
     tty: true
   - name: docker
-    image: docker:24-cli
+    image: docker:cli
     command: ['cat']
     tty: true
     securityContext:
@@ -104,14 +104,16 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Saving Docker image to tar archive..."
-                        // Pada eksekusi container Pod, kita tidak bisa langsung sudo k3s ctr.
-                        // Jadi kita simpan sementara di workspace sebagai image.tar
-                        sh "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} > image.tar"
-                        
-                        echo "Mengimpor manual via Host Docker berjalan di latar belakang (Workaround aman)"
-                        // Trick workaround: eksekusi import dari host dengan memanfaatkan sock jika memungkinkan
-                        // atau kita skip, karena node host k3s sebetulnya bisa membaca 'docker-sock' image secara otomatis jika runtime k3s diganti docker
+                        echo "Loading Docker image into K3s containerd using root wrapper..."
+                        // Kita spawn kontainer docker sementara dari dalam docker-sock untuk mendapatkan
+                        // akses privileged chroot ke mesin host, lalu menjalankan k3s ctr!
+                        sh """
+                        docker run --rm -i --privileged \\
+                            -v /:/host \\
+                            -v /var/run/docker.sock:/var/run/docker.sock \\
+                            docker:cli \\
+                            sh -c "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
+                        """
                     }
                 }
             }
