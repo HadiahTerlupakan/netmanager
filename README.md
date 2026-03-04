@@ -268,6 +268,29 @@ Setiap push dan pull request akan otomatis menjalankan:
 
 Lihat dokumentasi lengkap di [`docs/CI_CD_PIPELINE.md`](docs/CI_CD_PIPELINE.md)
 
+### 🚀 Deployment ke Production
+
+Aplikasi ini menggunakan sistem deployment berbasis branch melalui Jenkins:
+- Branch `staging` -> Otomatis deploy ke namespace `netmanager-staging`.
+- Branch `main` -> Otomatis deploy ke namespace `netmanager-production`.
+
+#### Menggunakan Terminal (Otomatis)
+Tersedia script `deploy-prod.sh` untuk melakukan sinkronisasi dari `staging` ke `main` dengan satu perintah:
+
+```bash
+# Memberikan izin eksekusi (hanya sekali)
+chmod +x deploy-prod.sh
+
+# Menjalankan deployment ke production
+./deploy-prod.sh
+```
+
+Script ini akan otomatis melakukan:
+1. Commit & Push sisa perubahan di branch `staging`.
+2. Merge `staging` ke branch `main`.
+3. Push ke branch `main` (memicu pipeline Jenkins Production).
+4. Kembali ke branch `staging`.
+
 ## 🛠️ Teknologi yang Digunakan
 
 - **Framework:** Next.js 16
