@@ -69,10 +69,10 @@ pipeline {
                 script {
                     echo "Deploying to Kubernetes namespace ${NAMESPACE} using ${K8S_DIR}..."
                     // Apply all manifests in correct directory
-                    sh "sudo kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
+                    sh "sudo k3s kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
                     
                     // Force rollout restart
-                    sh "sudo kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE}"
+                    sh "sudo k3s kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE}"
                 }
             }
         }
