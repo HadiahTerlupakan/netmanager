@@ -8,6 +8,9 @@ spec:
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
+    volumeMounts:
+    - name: ssh-keys
+      mountPath: /home/jenkins/.ssh
   - name: docker
     image: docker:24-cli
     command: ['cat']
@@ -29,6 +32,9 @@ spec:
   - name: docker-sock
     hostPath:
       path: /var/run/docker.sock
+  - name: ssh-keys
+    hostPath:
+      path: /var/lib/jenkins/.ssh
 """
         }
     }
