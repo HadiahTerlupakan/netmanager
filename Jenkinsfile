@@ -10,9 +10,42 @@ pipeline {
     }
 
     stages {
+        stage('Install & Code Quality Check') {
+            steps {
+                script {
+                    echo "Checking node/npm installation..."
+                    sh "node -v && npm -v"
+                    
+                    echo "Installing dependencies..."
+                    sh "npm ci"
+                    
+                    echo "Running code linters (eslint)..."
+                    sh "npm run lint"
+                    
+                    echo "Running TypeScript compiler check..."
+                    sh "npm run typecheck"
+                }
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                script {
+                    echo "Running Vitest unit tests..."
+                    sh "npm run test:run"
+                }
+            }
+        }
+
         stage('Build Image') {
             steps {
                 script {
+                    echo "Generating Prisma Client for Docker build..."
+                    sh "npx prisma generate"
+                    sh "npx prisma generate --config=prisma.radius.config.ts"
+                    sh "npx prisma generate --config=prisma.billing.config.ts"
+                    sh "npx prisma generate --config=prisma.mitra.config.ts"
+                    
                     echo "Building Docker image ${DOCKER_IMAGE}:${DOCKER_TAG}..."
                     sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                 }
