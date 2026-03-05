@@ -239,7 +239,7 @@ export function ClientComponent() {
                     </div>
 
                     {/* File Upload Area */}
-                    {!importResult ? (
+                    {!importResult && !importing && (
                         <>
                             <div
                                 className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors cursor-pointer"
@@ -248,7 +248,7 @@ export function ClientComponent() {
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept=".tar.gz,.tgz"
+                                    accept=".tar.gz,.tgz,application/gzip,application/x-gzip,application/tar+gzip"
                                     onChange={handleFileChange}
                                     className="hidden"
                                     id="backup-file-input"
@@ -278,17 +278,8 @@ export function ClientComponent() {
                                 disabled={!selectedFile || importing}
                                 className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
                             >
-                                {importing ? (
-                                    <>
-                                        <HiArrowPath className="w-4 h-4 animate-spin" />
-                                        Sedang Import Database...
-                                    </>
-                                ) : (
-                                    <>
-                                        <HiCloudArrowUp className="w-4 h-4" />
-                                        Mulai Import
-                                    </>
-                                )}
+                                <HiCloudArrowUp className="w-4 h-4" />
+                                Mulai Import
                             </button>
 
                             {importError && (
@@ -298,14 +289,35 @@ export function ClientComponent() {
                                 </div>
                             )}
                         </>
-                    ) : (
+                    )}
+
+                    {importing && (
+                        <div className="flex flex-col items-center justify-center py-10 px-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg text-center animate-in fade-in zoom-in duration-300">
+                            <HiArrowPath className="w-12 h-12 text-amber-500 animate-spin mb-4" />
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Mereset dan Mengimport Database...</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mb-6 mx-auto leading-relaxed">
+                                Proses ini menyedot file backup ke dalam 4 database secara paralel. Harap tunggu dan jangan tutup halaman ini.
+                            </p>
+                            <div className="w-full max-w-sm space-y-3">
+                                <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
+                                    <div className="h-full bg-amber-500 rounded-full w-full animate-pulse opacity-80"></div>
+                                </div>
+                                <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+                                    <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" /> Memproses...</span>
+                                    <span>Menyalin tabel...</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {importResult && !importing && (
                         /* Import Results */
                         <div className="space-y-4">
                             {/* Summary */}
                             <div
                                 className={`flex items-start gap-3 p-4 rounded-lg border ${importResult.success
-                                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                        : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                                    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
                                     }`}
                             >
                                 {importResult.success ? (
@@ -315,8 +327,8 @@ export function ClientComponent() {
                                 )}
                                 <p
                                     className={`text-sm font-medium ${importResult.success
-                                            ? 'text-green-800 dark:text-green-400'
-                                            : 'text-amber-800 dark:text-amber-400'
+                                        ? 'text-green-800 dark:text-green-400'
+                                        : 'text-amber-800 dark:text-amber-400'
                                         }`}
                                 >
                                     {importResult.message}
@@ -345,10 +357,10 @@ export function ClientComponent() {
                                         </div>
                                         <span
                                             className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.status === 'success'
-                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
-                                                    : r.status === 'skipped'
-                                                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400'
-                                                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                                                : r.status === 'skipped'
+                                                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400'
+                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
                                                 }`}
                                         >
                                             {r.status === 'success' ? 'Berhasil' : r.status === 'skipped' ? 'Dilewati' : 'Error'}
@@ -367,7 +379,7 @@ export function ClientComponent() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
 

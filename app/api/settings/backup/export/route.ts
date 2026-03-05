@@ -67,7 +67,7 @@ function parseDatabaseUrl(url: string) {
  * GET /api/settings/backup/export
  * Export semua database sekaligus dalam satu file .tar.gz
  */
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function GET(_req: NextRequest): Promise<NextResponse> {
     // Auth check
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             const pgDumpBin = findPgDump()
             const pgDumpCmd = [
                 `set -e -o pipefail;`,
-                `PGPASSWORD="${dbConfig.password}"`,
+                `export PGPASSWORD="${dbConfig.password}";`,
                 `"${pgDumpBin}"`,
                 `-h "${dbConfig.host}"`,
                 `-p ${dbConfig.port}`,
@@ -122,6 +122,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 `--no-owner`,
                 `--no-acl`,
                 `--format=plain`,
+                `--inserts`,
+                `--column-inserts`,
+                `--on-conflict-do-nothing`,
                 `| gzip > "${dumpFilePath}"`,
             ].join(' ')
 

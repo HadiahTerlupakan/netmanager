@@ -33,6 +33,12 @@ function findPsql(): string {
     }
 }
 
+function findPrismaBin(): string {
+    const local = path.join(process.cwd(), 'node_modules', '.bin', 'prisma')
+    if (fs.existsSync(local)) return local
+    return 'npx prisma'
+}
+
 /**
  * Mapping nama database ke env variable DATABASE_URL
  */
@@ -70,8 +76,14 @@ type ImportResult = {
 
 /**
  * POST /api/settings/backup/import
- * Import semua database dari file .tar.gz hasil export
- * TIDAK menghapus data yang ada — hanya menambah data baru
+ *
+ * Strategi: FULL RESTORE (mendukung format lama COPY dan baru INSERT)
+ *   1. DROP SCHEMA public CASCADE
+ *   2. CREATE SCHEMA public
+ *   3. Pipe gunzip -> psql (import dump)
+ *   4. Untuk DB netmanager: prisma db push --accept-data-loss (sync kolom baru)
+ *
+ * PERHATIAN: Ini akan menggantikan SELURUH data dengan isi file backup.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
     // Auth check
@@ -107,9 +119,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // Extract tar.gz ke extractDir
         const extractDir = path.join(tmpDir, 'extracted')
         fs.mkdirSync(extractDir)
-        await execAsync(`tar -xzf "${uploadedFilePath}" -C "${extractDir}"`, {
-            shell: '/bin/bash',
-        })
+        await execAsync(`tar -xzf "${uploadedFilePath}" -C "${extractDir}"`, { shell: '/bin/bash' })
 
         // Cari semua file .sql.gz di dalam extracted dir
         const extractedFiles = fs.readdirSync(extractDir).filter((f) => f.endsWith('.sql.gz'))
@@ -120,6 +130,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const results: ImportResult[] = []
+        const psqlBin = findPsql()
 
         // Restore setiap database
         for (const sqlGzFile of extractedFiles) {
@@ -127,80 +138,76 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             const envVar = DB_ENV_MAP[dbName]
 
             if (!envVar) {
-                results.push({
-                    database: dbName,
-                    status: 'skipped',
-                    message: `Database "${dbName}" tidak dikenal, dilewati.`,
-                })
+                results.push({ database: dbName, status: 'skipped', message: `Database "${dbName}" tidak dikenal, dilewati.` })
                 continue
             }
 
             const rawUrl = process.env[envVar]
             if (!rawUrl) {
-                results.push({
-                    database: dbName,
-                    status: 'skipped',
-                    message: `Env var ${envVar} tidak ditemukan.`,
-                })
+                results.push({ database: dbName, status: 'skipped', message: `Env var ${envVar} tidak ditemukan.` })
                 continue
             }
 
             const dbConfig = parseDatabaseUrl(rawUrl)
             if (!dbConfig) {
-                results.push({
-                    database: dbName,
-                    status: 'error',
-                    message: `Gagal parse DATABASE_URL untuk ${dbName}.`,
-                })
+                results.push({ database: dbName, status: 'error', message: `Gagal parse DATABASE_URL untuk ${dbName}.` })
                 continue
             }
 
             const sqlGzPath = path.join(extractDir, sqlGzFile)
-
-            // Decompress .sql.gz → pipe ke psql
-            // Menggunakan --set ON_ERROR_STOP=off agar jika ada conflict (data sudah ada),
-            // error di-skip dan proses lanjut ke baris berikutnya
-            // TIDAK ada DROP TABLE / TRUNCATE, sehingga data lama TETAP AMAN
-            // Gunakan set -e -o pipefail agar kegagalan gunzip atau koneksi psql membuat pipeline gagal
-            const psqlBin = findPsql()
-            const restoreCmd = [
-                `set -e -o pipefail;`,
-                `PGPASSWORD="${dbConfig.password}"`,
-                `gunzip -c "${sqlGzPath}"`,
-                `|`,
-                `"${psqlBin}"`,
-                `-h "${dbConfig.host}"`,
-                `-p ${dbConfig.port}`,
-                `-U "${dbConfig.user}"`,
-                `-d "${dbConfig.database}"`,
-                `--set ON_ERROR_STOP=off`,
-                `-q`,
-            ].join(' ')
+            const pgPrefix = `export PGPASSWORD="${dbConfig.password}"; export PGHOST="${dbConfig.host}"; export PGPORT="${dbConfig.port}"; export PGUSER="${dbConfig.user}";`
 
             try {
-                await execAsync(restoreCmd, { shell: '/bin/bash' })
+                // LANGKAH 1: Reset schema (drop + create bersih)
+                // Ini kunci utama agar format COPY maupun INSERT bisa masuk tanpa konflik
+                await execAsync(
+                    `${pgPrefix} "${psqlBin}" -d "${dbConfig.database}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" -q`,
+                    { shell: '/bin/bash', maxBuffer: 1024 * 1024 * 10 }
+                )
+
+                // LANGKAH 2: Import dump (mendukung COPY dan INSERT)
+                await execAsync(
+                    `${pgPrefix} gunzip -c "${sqlGzPath}" | "${psqlBin}" -d "${dbConfig.database}" -q > /dev/null 2>&1`,
+                    { shell: '/bin/bash', maxBuffer: 1024 * 1024 * 10 }
+                )
+
+                // LANGKAH 3: Untuk netmanager, jalankan prisma db push
+                // agar kolom baru yang ada di schema.prisma (tapi belum ada di dump) ikut terbuat
+                if (dbName === 'netmanager') {
+                    const prismaBin = findPrismaBin()
+                    try {
+                        await execAsync(
+                            `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss --skip-generate`,
+                            {
+                                shell: '/bin/bash',
+                                maxBuffer: 1024 * 1024 * 30,
+                                env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
+                            }
+                        )
+                    } catch (pushErr) {
+                        // Push gagal tapi data sudah masuk — tidak perlu error fatal
+                        console.warn('[backup:import] prisma db push warning:', String(pushErr).substring(0, 300))
+                    }
+                }
+
                 results.push({
                     database: dbName,
                     status: 'success',
-                    message: `Berhasil di-import.`,
+                    message: 'Berhasil di-restore. Data diganti dengan isi backup.',
                 })
             } catch (err) {
                 const errMsg = err instanceof Error ? err.message : String(err)
-                console.error(`[backup:import] Error restore ${dbName}:`, errMsg)
+                console.error(`[backup:import] Error restore ${dbName}:`, errMsg.substring(0, 500))
                 results.push({
                     database: dbName,
                     status: 'error',
-                    message: `Error: ${errMsg.slice(0, 200)}`,
+                    message: `Gagal restore: ${errMsg.substring(0, 200)}`,
                 })
             }
         }
 
         // Cleanup
-        try {
-            fs.rmSync(tmpDir, { recursive: true, force: true })
-        } catch {
-            /* ignore */
-        }
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch { /* ignore */ }
 
         const successCount = results.filter((r) => r.status === 'success').length
         const errorCount = results.filter((r) => r.status === 'error').length
@@ -214,11 +221,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             results,
         })
     } catch (err) {
-        try {
-            fs.rmSync(tmpDir, { recursive: true, force: true })
-        } catch {
-            /* ignore */
-        }
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch { /* ignore */ }
         const errMsg = err instanceof Error ? err.message : String(err)
         console.error('[backup:import] Fatal error:', errMsg)
         return ApiErrors.internalError(`Gagal import backup: ${errMsg}`)
