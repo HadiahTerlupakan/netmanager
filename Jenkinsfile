@@ -12,12 +12,15 @@ spec:
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
+    imagePullPolicy: IfNotPresent
   - name: node
     image: node:20-alpine
+    imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
   - name: docker
     image: docker:cli
+    imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
     securityContext:
@@ -27,6 +30,7 @@ spec:
       mountPath: /var/run/docker.sock
   - name: kubectl
     image: dtzar/helm-kubectl:latest
+    imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
   volumes:
