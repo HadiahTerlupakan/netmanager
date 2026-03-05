@@ -123,6 +123,7 @@ export default function ExpensesClient() {
 
     // Options
     const [sites, setSites] = useState<SiteOption[]>([])
+    const [internalSites, setInternalSites] = useState<SiteOption[]>([])
     const [investorSites, setInvestorSites] = useState<InvestorSiteOption[]>([])
     const [categories, setCategories] = useState<CategoryOption[]>([])
     // const [coaCategories, setCoaCategories] = useState<CategoryOption[]>([]) // Deprecated
@@ -211,8 +212,24 @@ export default function ExpensesClient() {
             }
         }
 
+        const fetchInternalSites = async () => {
+            try {
+                const res = await fetch('/api/admin/sites?activeOnly=true')
+                const json = await res.json()
+                if (json.success && Array.isArray(json.data)) {
+                    setInternalSites(json.data.map((s: { id: string; name: string }) => ({
+                        id: s.id,
+                        name: s.name
+                    })))
+                }
+            } catch (e) {
+                console.error('Failed to fetch internal sites', e)
+            }
+        }
+
         fetchSites()
         fetchInvestorSites()
+        fetchInternalSites()
     }, [])
 
     // Fetch Metadata (None needed initially for now, categories fetched on demand)
@@ -1214,6 +1231,7 @@ export default function ExpensesClient() {
                         onSaved={handleRABSaved}
                         initialData={editingRAB}
                         sites={sites} // Pass existing sites/groups data
+                        internalSites={internalSites} // Pass internal sites
                         investorSites={investorSites} // Pass new investor sites data
                     />
 

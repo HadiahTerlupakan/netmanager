@@ -124,6 +124,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             },
             wbsGroups: true,
             site: { select: { name: true } },
+            investors: true,
             creator: { select: { name: true } },
             approvals: {
                 include: {
@@ -148,6 +149,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         projectedRevenue: p.projectedRevenue.toString(),
         projectedOpex: p.projectedOpex.toString(),
         arpu: p.arpu?.toString() || null,
+        contingencyAmount: p.contingencyAmount?.toString() || "0",
+        investors: (p.investors || []).map((i: { investmentAmount: bigint }) => ({
+            ...i,
+            investmentAmount: i.investmentAmount?.toString() || "0"
+        })),
         items: p.items.map(i => ({
             ...i,
             unitPrice: i.unitPrice.toString(),

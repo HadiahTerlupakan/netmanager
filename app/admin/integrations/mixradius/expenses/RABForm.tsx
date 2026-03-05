@@ -40,6 +40,7 @@ interface RABFormProps {
     isOpen: boolean
     initialData?: RABProject | null
     sites: SiteOption[]
+    internalSites?: SiteOption[]
     investorSites?: InvestorSiteOption[]
     onSaved: () => void
     onClose: () => void
@@ -297,7 +298,7 @@ function calculateRealisticBEP(
     return Infinity
 }
 
-export default function RABForm({ isOpen, initialData, sites, investorSites = [], onSaved, onClose }: RABFormProps) {
+export default function RABForm({ isOpen, initialData, sites, internalSites = [], investorSites = [], onSaved, onClose }: RABFormProps) {
     const [mainTab, setMainTab] = useState<MainTab>('info')
     const [expenseTab, setExpenseTab] = useState<ExpenseType>('CAPEX')
 
@@ -393,16 +394,20 @@ export default function RABForm({ isOpen, initialData, sites, investorSites = []
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                if (initialData.siteId) setBillingSource('INTERNAL')
-                else if (initialData.mixRadiusInvestorSiteId) setBillingSource('MIXRADIUS')
+                // Better billing source inference
+                if (initialData.mixRadiusGroupId || initialData.mixRadiusInvestorSiteId) {
+                    setBillingSource('MIXRADIUS')
+                } else if (initialData.siteId) {
+                    setBillingSource('INTERNAL')
+                }
 
                 setFormData({
-                    name: initialData.name,
+                    name: initialData.name || '',
                     description: initialData.description || '',
                     mixRadiusGroupId: initialData.mixRadiusGroupId || '',
-                    mixRadiusInvestorSiteId: (initialData as any).mixRadiusInvestorSiteId || '',
+                    mixRadiusInvestorSiteId: (initialData as any).mixRadiusInvestorSiteId || initialData.mixRadiusInvestorSiteId || '',
                     siteId: initialData.siteId || '',
-                    status: initialData.status,
+                    status: initialData.status || 'DRAFT',
                     startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : '',
                     investmentDurationMonths: initialData.investmentDurationMonths || 12,
                     investmentRecoveryType: initialData.investmentRecoveryType || 'PERCENTAGE',
@@ -414,10 +419,16 @@ export default function RABForm({ isOpen, initialData, sites, investorSites = []
                     investorIds: (initialData as any).investors?.map((i: any) => i.investorId) || []
                 })
 
-                // Load target & arpu
-                if (initialData.targetSubscribers) setTargetSubscribers(initialData.targetSubscribers)
-                if (initialData.arpu) setArpu(Number(initialData.arpu))
-                if (initialData.paymentType) setPaymentType(initialData.paymentType as 'PREPAID' | 'POSTPAID')
+                // Load target & arpu - logic fixed to handle 0 values
+                if (initialData.targetSubscribers !== undefined && initialData.targetSubscribers !== null) {
+                    setTargetSubscribers(initialData.targetSubscribers)
+                }
+                if (initialData.arpu !== undefined && initialData.arpu !== null) {
+                    setArpu(Number(initialData.arpu))
+                }
+                if (initialData.paymentType) {
+                    setPaymentType(initialData.paymentType as 'PREPAID' | 'POSTPAID')
+                }
 
                 // Load growth settings
                 if (initialData.growthType) setGrowthType(initialData.growthType as GrowthType)
@@ -433,24 +444,28 @@ export default function RABForm({ isOpen, initialData, sites, investorSites = []
                 }
 
                 // Load items
-                setItems(initialData.items.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    category: item.category,
-                    expenseCategoryId: (item as any).expenseCategoryId || undefined,
-                    quantity: Number(item.quantity),
-                    unitPrice: Number(item.unitPrice),
-                    expenseType: item.expenseType || 'CAPEX',
-                    wbsGroupId: (item as any).wbsId || item.wbsGroupId || undefined,
-                    disbursements: (item.disbursements || []).map((d: any) => ({
-                        id: d.id,
-                        name: d.name,
-                        percentage: d.percentage,
-                        amount: Number(d.amount),
-                        estimatedDate: d.estimatedDate ? new Date(d.estimatedDate).toISOString().split('T')[0] : '',
-                        isPaid: d.isPaid || false
-                    }))
-                })))
+                if (initialData.items) {
+                    setItems(initialData.items.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        category: item.category,
+                        expenseCategoryId: (item as any).expenseCategoryId || undefined,
+                        quantity: Number(item.quantity),
+                        unitPrice: Number(item.unitPrice),
+                        expenseType: item.expenseType || 'CAPEX',
+                        wbsGroupId: (item as any).wbsId || item.wbsGroupId || undefined,
+                        disbursements: (item.disbursements || []).map((d: any) => ({
+                            id: d.id,
+                            name: d.name,
+                            percentage: d.percentage,
+                            amount: Number(d.amount),
+                            estimatedDate: d.estimatedDate ? new Date(d.estimatedDate).toISOString().split('T')[0] : '',
+                            isPaid: d.isPaid || false
+                        }))
+                    })))
+                } else {
+                    setItems([])
+                }
 
                 // Load WBS
                 setWbsGroups((initialData.wbsGroups || []).map((w: any) => ({
@@ -492,11 +507,12 @@ export default function RABForm({ isOpen, initialData, sites, investorSites = []
                     { id: crypto.randomUUID(), name: '', category: 'DEVICE', quantity: 1, unitPrice: 0, expenseType: 'CAPEX', disbursements: [] }
                 ])
                 setWbsGroups([])
+                setBillingSource('MIXRADIUS')
+                setMainTab('info')
+                setExpenseTab('CAPEX')
             }
-            setMainTab('info')
-            setExpenseTab('CAPEX')
         }
-    }, [initialData, isOpen])
+    }, [initialData, isOpen]) // Tab resets removed from dependency array to avoid jumping
 
     const handleAddItem = () => {
         setItems([...items, {
@@ -823,7 +839,7 @@ export default function RABForm({ isOpen, initialData, sites, investorSites = []
                                                                 className="block w-full pl-10 rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white appearance-none"
                                                             >
                                                                 <option value="">-- Pilih Site Internal --</option>
-                                                                {sites.map(s => (
+                                                                {internalSites.map(s => (
                                                                     <option key={s.id} value={s.id}>{s.name}</option>
                                                                 ))}
                                                             </select>
