@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
-import { Status } from '@prisma/client'
+import { Status, Prisma } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
 import type { FilterOptions } from '@/modules/pelanggan'
 import { logActivitySafe } from '@/lib/logger'
+import { checkSiteRestriction } from '@/modules/roles'
 import { apiSuccess, apiPaginated } from '@/lib/api-response'
 
 /**
@@ -51,20 +52,19 @@ export async function GET(req: NextRequest) {
     const siteIdParam = searchParams.get('siteId')
     const search = searchParams.get('search')
 
-    const isSiteRestricted =
-      (await hasPermission('pelanggan:site_only')) &&
-      session.user.role !== 'SUPER_ADMIN'
+    const { isRestricted, siteIds } = checkSiteRestriction(session, 'pelanggan')
 
-    const filter: FilterOptions = {}
+    const filter: FilterOptions & { siteIds?: string[] } = {}
     if (status) filter.status = status
     if (search) filter.search = search
 
-    if (isSiteRestricted) {
-      const userSiteId = (session.user as { siteId?: string }).siteId
-      if (!userSiteId) {
+    if (isRestricted) {
+      if (siteIds.length === 0) {
         return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
       }
-      filter.siteId = userSiteId
+      // Pass siteIds to filter (depends on if service supports it)
+      // We will cast to any to pass the array to Prisma if FilterOptions doesn't explicitly support it
+      filter.siteId = { in: siteIds } as Prisma.StringNullableFilter
     } else if (siteIdParam) {
       filter.siteId = siteIdParam
     }
@@ -144,17 +144,14 @@ export async function POST(req: NextRequest) {
 
     const data = validationResult.data
 
-    const isSiteRestricted =
-      (await hasPermission('pelanggan:site_only')) &&
-      session.user.role !== 'SUPER_ADMIN'
+    const { isRestricted, primarySiteId } = checkSiteRestriction(session, 'pelanggan')
 
     // Force siteId for restricted users
-    if (isSiteRestricted) {
-      const userSiteId = (session.user as { siteId?: string }).siteId
-      if (!userSiteId) {
+    if (isRestricted) {
+      if (!primarySiteId) {
         return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
       }
-      data.siteId = userSiteId
+      data.siteId = primarySiteId
     }
 
     // Handle file uploads with strict validation

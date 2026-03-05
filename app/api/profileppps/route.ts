@@ -4,10 +4,11 @@ import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { createPPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
 import { getServerSession } from 'next-auth'
-import { authOptions, isSuperAdmin } from '@/lib/auth'
+import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { randomUUID } from 'crypto'
 import { Prisma } from '@prisma/client'
+import { checkSiteRestriction } from '@/modules/roles'
 
 /**
  * GET /api/profileppps
@@ -44,15 +45,16 @@ export async function GET(req: NextRequest) {
     }
 
     // User restriction logic
-    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
-    if (!isSuper) {
-      // For non-super admins, restrict to their assigned site
-      if (session.user.siteId) {
-        where.siteId = session.user.siteId
-      }
+    const { isRestricted, siteIds } = checkSiteRestriction(session, 'profileppp')
+
+    if (isRestricted && siteIds.length > 0) {
+      where.siteId = siteIds[0] // Type workaround, overridden below if multi-site
     } else if (siteIdParam) {
-      // For super admins, allow filtering if param is provided
       where.siteId = siteIdParam
+    }
+
+    if (isRestricted && siteIds.length > 0) {
+      where.siteId = { in: siteIds } as Prisma.StringNullableFilter;
     }
 
     const profilePPPs = await prisma.profilePPP.findMany({
@@ -244,18 +246,18 @@ export async function POST(req: NextRequest) {
       siteId: body.siteId || undefined
     }
 
-    // Enforce siteId for non-SUPER_ADMIN
-    const isSuper = isSuperAdmin(session.user as { role?: string | null; isSuperAdmin?: boolean })
-    if (!isSuper && session.user.siteId) {
-      sanitizedBody.siteId = session.user.siteId
+    // Enforce siteId for restricted users
+    const { isRestricted, primarySiteId } = checkSiteRestriction(session, 'profileppp')
+    if (isRestricted && primarySiteId) {
+      sanitizedBody.siteId = primarySiteId
     }
 
     // Log the creation attempt including siteId
     await import('@/lib/logger').then(({ logger }) => {
       logger.info('Creating Profile PPP', {
-          userId: session.user.id,
-          siteId: sanitizedBody.siteId,
-          name: sanitizedBody.name
+        userId: session.user.id,
+        siteId: sanitizedBody.siteId,
+        name: sanitizedBody.name
       })
     })
 

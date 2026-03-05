@@ -8,6 +8,7 @@ import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { logActivitySafe } from '@/lib/logger'
+import { checkSiteRestriction } from '@/modules/roles'
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,11 +30,19 @@ export async function GET(req: NextRequest) {
       where.status = status
     }
 
-    const user = session.user as { role: string; siteId?: string; id?: string }
-    if (user.role !== 'SUPER_ADMIN' && user.siteId) {
-      where.siteId = user.siteId
+    const { isRestricted, siteIds } = checkSiteRestriction(session, 'bandwidth')
+    if (isRestricted && siteIds.length > 0) {
+      where.siteId = siteIds[0] // or use { in: siteIds } if prisma schema allows
+      // Actually, since where is structured with siteId?: string, let's stick to single site for now,
+      // or map correctly: 
+      // where.siteId = { in: siteIds } as any
     } else if (siteIdParam) {
       where.siteId = siteIdParam
+    }
+
+    if (isRestricted && siteIds.length > 0) {
+      // override where for multi-site if needed
+      (where as Prisma.BandwidthWhereInput).siteId = { in: siteIds } as Prisma.StringNullableFilter
     }
 
     const bandwidths = await prisma.bandwidth.findMany({
@@ -66,11 +75,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const user = session.user as { role: string; siteId?: string; id?: string }
-
     let siteIdToSave = body.siteId
-    if (user.role !== 'SUPER_ADMIN' && user.siteId) {
-      siteIdToSave = user.siteId
+    const { isRestricted, primarySiteId } = checkSiteRestriction(session, 'bandwidth')
+    if (isRestricted && primarySiteId) {
+      siteIdToSave = primarySiteId
     }
 
     const sanitizedBody: Record<string, string | number | boolean | undefined | null> = {
@@ -113,7 +121,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (siteIdToSave) {
-        dataToCreate.siteId = siteIdToSave
+      dataToCreate.siteId = siteIdToSave
     }
 
     const { randomUUID } = await import('crypto')

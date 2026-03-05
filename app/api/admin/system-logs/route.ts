@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { LogType, Prisma } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
-import { isSuperAdmin } from '@/lib/auth'
+import { checkSiteRestriction } from '@/modules/roles'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
@@ -47,12 +47,10 @@ export async function GET(req: NextRequest) {
         }
 
         // SITE RESTRICTION LOGIC
-        const user = session.user as { role: string; siteId?: string }
-        const isSuper = isSuperAdmin(user)
-        const isSiteRestricted = await hasPermission('system_log:site_only') && !isSuper
+        const { isRestricted, siteIds } = checkSiteRestriction(session, 'system_log')
 
-        if (isSiteRestricted) {
-            if (!user.siteId) {
+        if (isRestricted) {
+            if (siteIds.length === 0) {
                 // Restricted user but no siteId? Treat as no access to logs.
                 return apiSuccess({
                     logs: [],
@@ -61,7 +59,7 @@ export async function GET(req: NextRequest) {
             }
             // Filter logs where the *actor* (user) is from the same site
             where.user = {
-                siteId: user.siteId
+                siteId: { in: siteIds }
             }
         }
 

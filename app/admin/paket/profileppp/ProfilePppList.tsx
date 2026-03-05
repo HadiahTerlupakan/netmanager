@@ -266,22 +266,23 @@ export default function ProfilePPPPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-             <div className="w-full md:w-48">
-                <SiteFilter 
-                  value={siteId || ''}
-                  onSiteChange={setSiteId} 
-                />
-             </div>
-            <button
-              onClick={() => {
-                setFormData(prev => ({ ...prev, siteId: siteId || '' }))
-                setIsModalOpen(true)
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-            >
-              <span>+</span>
-              Tambah Profile PPP
-            </button>
+          <div className="w-full md:w-48">
+            <SiteFilter
+              value={siteId || ''}
+              onSiteChange={setSiteId}
+              resource="profileppp"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setFormData(prev => ({ ...prev, siteId: siteId || '' }))
+              setIsModalOpen(true)
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <span>+</span>
+            Tambah Profile PPP
+          </button>
         </div>
       </div>
 
@@ -438,12 +439,13 @@ export default function ProfilePPPPage() {
           </div>
 
           <div>
-             <SiteFilter
-                value={formData.siteId}
-                onSiteChange={(id) => setFormData({ ...formData, siteId: id || '' })}
-                isInput
-                className="mb-0"
-             />
+            <SiteFilter
+              value={formData.siteId}
+              onSiteChange={(id) => setFormData({ ...formData, siteId: id || '' })}
+              isInput
+              resource="profileppp"
+              className="mb-0"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -536,10 +538,10 @@ export default function ProfilePPPPage() {
               {mikroTikRouters
                 .filter(router => !formData.siteId || !router.siteId || router.siteId === formData.siteId)
                 .map((router) => (
-                <option key={router.id} value={router.id}>
-                  {router.name} ({router.ipAddress})
-                </option>
-              ))}
+                  <option key={router.id} value={router.id}>
+                    {router.name} ({router.ipAddress})
+                  </option>
+                ))}
             </select>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Pilih router MikroTik sebagai target untuk profile ini

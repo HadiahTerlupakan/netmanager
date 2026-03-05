@@ -13,15 +13,17 @@ interface SiteFilterProps {
   className?: string | undefined
   isInput?: boolean | undefined // If true, behaves like a form input (auto-selects & shows static if single site)
   value?: string | undefined
+  resource?: string
 }
 
-export function SiteFilter({ onSiteChange, className = '', isInput = false, value }: SiteFilterProps) {
+export function SiteFilter({ onSiteChange, className = '', isInput = false, value, resource }: SiteFilterProps) {
   const [sites, setSites] = useState<Site[]>([])
   const [selectedSite, setSelectedSite] = useState<string>(value || '')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/sites')
+    const url = resource ? `/api/sites?resource=${resource}` : '/api/sites';
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         setSites(data.sites || [])
@@ -31,7 +33,7 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
         console.error('Failed to fetch sites:', err)
         setLoading(false)
       })
-  }, [])
+  }, [resource])
 
   // Sync with value prop if provided
   useEffect(() => {

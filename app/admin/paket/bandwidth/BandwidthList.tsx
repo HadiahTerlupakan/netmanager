@@ -292,22 +292,23 @@ export default function BandwidthPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-             <div className="w-full md:w-48">
-                <SiteFilter 
-                  value={siteId || ''}
-                  onSiteChange={setSiteId} 
-                />
-             </div>
-            <button
-              onClick={() => {
-                setFormData(prev => ({ ...prev, siteId: siteId || '' }))
-                setIsModalOpen(true)
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-            >
-              <span>+</span>
-              Tambah Bandwidth
-            </button>
+          <div className="w-full md:w-48">
+            <SiteFilter
+              value={siteId || ''}
+              onSiteChange={setSiteId}
+              resource="bandwidth"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setFormData(prev => ({ ...prev, siteId: siteId || '' }))
+              setIsModalOpen(true)
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <span>+</span>
+            Tambah Bandwidth
+          </button>
         </div>
       </div>
 
@@ -415,18 +416,19 @@ export default function BandwidthPage() {
         title={editingBandwidth ? 'Edit Bandwidth' : 'Tambah Bandwidth'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          
+
           {/* Site Selection in Modal */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Site <span className="text-red-500">*</span>
             </label>
-            <SiteFilter 
-                isInput 
-                value={formData.siteId} 
-                onSiteChange={(id) => setFormData({ ...formData, siteId: id || '' })} 
+            <SiteFilter
+              isInput
+              value={formData.siteId}
+              onSiteChange={(id) => setFormData({ ...formData, siteId: id || '' })}
+              resource="bandwidth"
             />
-             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Bandwidth ini akan dikaitkan dengan site yang dipilih.
             </p>
           </div>

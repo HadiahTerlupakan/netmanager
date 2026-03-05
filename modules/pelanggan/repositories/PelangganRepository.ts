@@ -1,5 +1,5 @@
 import { Prisma as PrismaBilling } from '@/prisma/generated/billing'
-;
+    ;
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client'
@@ -58,8 +58,8 @@ export interface CreatePelangganDTO {
 // Use Prisma's generated type for accurate typing
 const _pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({
     include: {
-                    site: true,
-                    hargaPaket: {
+        site: true,
+        hargaPaket: {
             include: {
                 profilePPP: true,
                 bandwidth: true,
@@ -72,7 +72,7 @@ export type PelangganWithPackage = Prisma.PelangganGetPayload<typeof _pelangganW
 
 export interface FilterOptions {
     status?: Status
-    siteId?: string
+    siteId?: string | Prisma.StringNullableFilter
     search?: string
 }
 
@@ -82,7 +82,8 @@ export class PelangganRepository {
 
         return prisma.pelanggan.findMany({
             where,
-            include: { site: true, hargaPaket: {
+            include: {
+                site: true, hargaPaket: {
                     include: {
                         profilePPP: true,
                         bandwidth: true,
@@ -101,7 +102,8 @@ export class PelangganRepository {
         const [data, total] = await Promise.all([
             prisma.pelanggan.findMany({
                 where,
-                include: { site: true, hargaPaket: {
+                include: {
+                    site: true, hargaPaket: {
                         include: {
                             profilePPP: true,
                             bandwidth: true,
@@ -205,7 +207,8 @@ export class PelangganRepository {
                 odpId: data.odpId,
                 siteId: data.siteId,
             },
-            include: { site: true, hargaPaket: {
+            include: {
+                site: true, hargaPaket: {
                     include: {
                         profilePPP: true,
                         bandwidth: true,
@@ -249,7 +252,8 @@ export class PelangganRepository {
     async findByIdWithPackage(id: string) {
         return prisma.pelanggan.findUnique({
             where: { id },
-            include: { site: true, hargaPaket: {
+            include: {
+                site: true, hargaPaket: {
                     include: {
                         bandwidth: true,
                     },

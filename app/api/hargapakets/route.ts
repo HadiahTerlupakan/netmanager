@@ -1,6 +1,8 @@
 import { hasPermission } from '@/lib/rbac'
 import { HargaPaketService } from '@/modules/network/services/HargaPaketService'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
+import { checkSiteRestriction } from '@/modules/roles'
+import type { Session } from 'next-auth'
 
 const hargaPaketService = new HargaPaketService()
 
@@ -18,16 +20,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (status) options.status = status
     if (featured !== null) options.featured = featured === 'true'
 
-    const user = ctx.session!.user
-    const isSiteRestricted = (await hasPermission('harga:site_only')) && user.role !== 'SUPER_ADMIN'
-    
-    if (isSiteRestricted) {
-        const { prisma: db } = await import('@/lib/prisma');
-        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-        const userSiteId = dbUser?.siteId
+    const { isRestricted, siteIds } = checkSiteRestriction(ctx.session as Session | null, 'harga')
 
-        if (!userSiteId) return apiSuccess([])
-        options.siteId = userSiteId
+    if (isRestricted && siteIds.length > 0) {
+        options.siteId = { in: siteIds };
     } else if (siteIdParam) {
         options.siteId = siteIdParam
     }
@@ -44,17 +40,13 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const body = await req.json()
     const user = ctx.session!.user
 
-    const isSiteRestricted = (await hasPermission('harga:site_only')) && user.role !== 'SUPER_ADMIN'
-    
-    if (isSiteRestricted) {
-        const { prisma: db } = await import('@/lib/prisma');
-        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-        const userSiteId = dbUser?.siteId
+    const { isRestricted, primarySiteId } = checkSiteRestriction(ctx.session as Session | null, 'harga')
 
-        if (!userSiteId) {
+    if (isRestricted) {
+        if (!primarySiteId) {
             return ApiErrors.forbidden('User tidak memiliki akses site')
         }
-        body.siteId = userSiteId
+        body.siteId = primarySiteId
     }
 
     try {

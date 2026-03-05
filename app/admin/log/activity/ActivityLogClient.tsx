@@ -98,7 +98,7 @@ export function ClientComponent() {
                         <HiOutlineSearch className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
                     </div>
                     <div className="w-full md:w-48">
-                        <SiteFilter onSiteChange={setSiteId} />
+                        <SiteFilter onSiteChange={setSiteId} resource="system_log" />
                     </div>
                     <Button onClick={() => fetchLogs(pagination.page)}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -163,9 +163,9 @@ export function ClientComponent() {
                                     priority: 'primary',
                                     render: (item) => (
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.action === 'CREATE' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                                item.action === 'UPDATE' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
-                                                    item.action === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                            item.action === 'UPDATE' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                item.action === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                             }`}>
                                             {item.action}
                                         </span>
