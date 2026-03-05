@@ -13,6 +13,8 @@ spec:
       labels:
         app: netmanager-app
     spec:
+      securityContext:
+        fsGroup: 1001
       containers:
         - name: app
           image: netmanager-app:staging

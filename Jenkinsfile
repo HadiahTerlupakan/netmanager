@@ -123,19 +123,33 @@ spec:
             }
         }
 
-    stage('Deploy to K8s') {
+        stage('Deploy to K8s') {
             steps {
                 container('kubectl') {
                     script {
                         echo "Deploying to Kubernetes namespace ${NAMESPACE} using ${K8S_DIR}..."
-                        // Apply all manifests in correct directory. Pastikan jenkins service account / default pod memiliki role K8s.
+                        // Apply all manifests in correct directory.
                         sh "kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
                         
-                        // Force rollout restart with a slight delay. Ignore error if apply already triggered a rollout.
-                        sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress by apply')"
+                        // Force rollout restart with a slight delay.
+                        sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')"
                         
-                        // Wait for the rollout to complete to ensure deployment success
+                        // Wait for the rollout to complete
                         sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
+                    }
+                }
+            }
+        }
+
+        stage('Database Migration') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "Running Prisma migrations for all databases in ${NAMESPACE}..."
+                        // Menjalankan migrasi otomatis melalui pod aplikasi yang baru di-deploy
+                        sh """
+                        kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'npm run prisma:migrate-deploy'
+                        """
                     }
                 }
             }

@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: netmanager-db
+  name: db-netmanager
   namespace: netmanager-staging
 spec:
-  serviceName: "db"
+  serviceName: "db-netmanager"
   replicas: 1
   selector:
     matchLabels:
-      app: db
+      app: db-netmanager
   template:
     metadata:
       labels:
-        app: db
+        app: db-netmanager
     spec:
       containers:
         - name: postgres
@@ -45,10 +45,175 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: db
+  name: db-netmanager
   namespace: netmanager-staging
 spec:
   ports:
     - port: 5432
   selector:
-    app: db
+    app: db-netmanager
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db-billing
+  namespace: netmanager-staging
+spec:
+  serviceName: "db-billing"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-billing
+  template:
+    metadata:
+      labels:
+        app: db-billing
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: "netmgr"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              value: "billing"
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-billing
+  namespace: netmanager-staging
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: db-billing
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db-mitra
+  namespace: netmanager-staging
+spec:
+  serviceName: "db-mitra"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-mitra
+  template:
+    metadata:
+      labels:
+        app: db-mitra
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: "netmgr"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              value: "mitra"
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-mitra
+  namespace: netmanager-staging
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: db-mitra
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db-radius
+  namespace: netmanager-staging
+spec:
+  serviceName: "db-radius"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-radius
+  template:
+    metadata:
+      labels:
+        app: db-radius
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: "netmgr"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              value: "radius"
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-radius
+  namespace: netmanager-staging
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: db-radius
