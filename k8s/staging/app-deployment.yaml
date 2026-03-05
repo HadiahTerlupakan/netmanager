@@ -78,6 +78,11 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: OAUTH_ENCRYPTION_KEY
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: REDIS_URL
           volumeMounts:
             - name: uploads-volume
               mountPath: /app/public/uploads
