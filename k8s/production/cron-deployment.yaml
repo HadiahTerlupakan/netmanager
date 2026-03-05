@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netmanager-cron
+  namespace: netmanager-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netmanager-cron
+  template:
+    metadata:
+      labels:
+        app: netmanager-cron
+    spec:
+      containers:
+        - name: cron
+          image: netmanager-cron:production
+          imagePullPolicy: Never
+          env:
+            - name: APP_URL
+              value: "http://netmanager-app"
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: CRON_SECRET
+            - name: TZ
+              value: "Asia/Jakarta"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"

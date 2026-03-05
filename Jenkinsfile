@@ -43,6 +43,7 @@ spec:
 
     environment {
         DOCKER_IMAGE = "netmanager-app"
+        CRON_IMAGE = "netmanager-cron"
         // Adjust values dynamically based on the current branch
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
         NAMESPACE = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'netmanager-production' : 'netmanager-staging'}"
@@ -96,8 +97,9 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Building Docker image ${DOCKER_IMAGE}:${DOCKER_TAG}..."
+                        echo "Building Docker images for ${DOCKER_TAG}..."
                         sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                        sh "docker build -t ${CRON_IMAGE}:${DOCKER_TAG} ./cron"
                     }
                 }
             }
@@ -116,7 +118,7 @@ spec:
                             -v /:/host \\
                             -v /var/run/docker.sock:/var/run/docker.sock \\
                             docker:cli \\
-                            sh -c "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
+                            sh -c "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} ${CRON_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
                         """
                     }
                 }
