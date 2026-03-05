@@ -4,6 +4,10 @@ import React from 'react'
 import type { RABProject, LinearGrowthSettings, PercentageGrowthSettings } from './RABList'
 import { calculateRealisticBEP } from './RABList'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { HiOutlineDocumentDownload } from 'react-icons/hi'
+import { toast } from 'react-hot-toast'
 
 interface RABCompareProps {
     projects: RABProject[]
@@ -116,6 +120,92 @@ export default function RABCompare({ projects, isOpen, onClose }: RABCompareProp
     }
 
     const finalSummaries = projects.map(p => getFinalSummary(p))
+
+    const handleExportPDF = () => {
+        try {
+            const doc = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4'
+            })
+
+            // Title
+            doc.setFontSize(16)
+            doc.setTextColor(31, 41, 55) // Gray-800
+            doc.text('Komparasi Rencana Anggaran Biaya (RAB)', 14, 15)
+
+            doc.setFontSize(9)
+            doc.setTextColor(107, 114, 128) // Gray-500
+            doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 21)
+
+            // Table
+            const headers = ['Parameter', ...projects.map((p, i) => `Proyek #${i + 1}: ${p.name}`)]
+
+            const body = [
+                [{ content: 'INFORMASI UMUM', colSpan: projects.length + 1, styles: { fillColor: [243, 244, 246], fontStyle: 'bold', textColor: [31, 41, 55] } }],
+                ['Status', ...projects.map(p => p.status)],
+                ['Site / Area', ...projects.map(p => p.site?.name || p.mixRadiusGroup?.name || '-')],
+
+                [{ content: 'ASUMSI BISNIS', colSpan: projects.length + 1, styles: { fillColor: [243, 244, 246], fontStyle: 'bold', textColor: [31, 41, 55] } }],
+                ['Target Pelanggan', ...projects.map(p => (p.targetSubscribers || 0).toString())],
+                ['ARPU (Tagihan/Bln)', ...projects.map(p => formatCurrency(Number(p.arpu || 0)))],
+                ['Model Pertumbuhan', ...projects.map(p => getGrowthModelDesc(p))],
+                ['Sistem Pembayaran', ...projects.map(p => p.paymentType === 'POSTPAID' ? 'Pascabayar' : 'Prabayar')],
+
+                [{ content: 'STRUKTUR BIAYA', colSpan: projects.length + 1, styles: { fillColor: [243, 244, 246], fontStyle: 'bold', textColor: [31, 41, 55] } }],
+                ['Modal Awal (CAPEX)', ...projects.map(p => formatCurrency(getCapex(p)))],
+                ['Operasional (OPEX/Bln)', ...projects.map(p => formatCurrency(Number(p.projectedOpex || 0)))],
+
+                [{ content: 'INVESTASI & BAGI HASIL', colSpan: projects.length + 1, styles: { fillColor: [243, 244, 246], fontStyle: 'bold', textColor: [31, 41, 55] } }],
+                ['Durasi Kontrak', ...projects.map(p => `${p.investmentDurationMonths || 12} Bulan`)],
+                ['Angsuran Recovery', ...projects.map(p => getRecoveryDesc(p))],
+                ['Bagi Hasil (Investor:Psh)', ...projects.map(p => `${p.investorProfitSharePercent}% : ${100 - (p.investorProfitSharePercent || 50)}%`)],
+
+                [{ content: 'PREDIKSI BEP & ROI', colSpan: projects.length + 1, styles: { fillColor: [243, 244, 246], fontStyle: 'bold', textColor: [31, 41, 55] } }],
+                ['Kapasitas Penuh (Bln)', ...bepData.map(b => `Bulan ${b.monthsToFullCapacity}`)],
+                ['BEP Selesai (Bln)', ...bepData.map(b => b.bepMonth === Infinity ? 'Tidak Tercapai' : `Bulan ${b.bepMonth}`)],
+
+                [{ content: 'RINGKASAN AKHIR', colSpan: projects.length + 1, styles: { fillColor: [243, 244, 246], fontStyle: 'bold', textColor: [31, 41, 55] } }],
+                // Bold rows using individual cell styling to be safe with types
+                ['Total Diterima Investor', ...finalSummaries.map(s => formatCurrency(s.totalInvestor))].map((content, i) => ({
+                    content,
+                    styles: { fontStyle: 'bold' as const, fillColor: i === 0 ? [249, 250, 251] : undefined }
+                })),
+                ['Total Profit Perusahaan', ...finalSummaries.map(s => formatCurrency(s.totalCompany))].map((content, i) => ({
+                    content,
+                    styles: { fontStyle: 'bold' as const, fillColor: i === 0 ? [249, 250, 251] : undefined }
+                }))
+            ]
+
+            autoTable(doc, {
+                head: [headers],
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                body: body as any,
+                startY: 28,
+                theme: 'grid',
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 3,
+                    valign: 'middle',
+                    lineColor: [209, 213, 219] // gray-300
+                },
+                headStyles: {
+                    fillColor: [79, 70, 229], // Indigo-600
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold'
+                },
+                columnStyles: {
+                    0: { fontStyle: 'bold', fillColor: [249, 250, 251], cellWidth: 45 }
+                }
+            })
+
+            doc.save(`Komparasi-RAB-${new Date().getTime()}.pdf`)
+            toast.success('PDF berhasil dibuat')
+        } catch (error) {
+            console.error('Failed to export PDF:', error)
+            toast.error('Gagal mengekspor PDF')
+        }
+    }
 
     return (
         <Modal
@@ -306,16 +396,16 @@ export default function RABCompare({ projects, isOpen, onClose }: RABCompareProp
                                 Ringkasan Pembagian Akhir (Hingga Kontrak Berakhir)
                             </td>
                         </tr>
-                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Total Diterima Investor (Modal + Profit)</td>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-750 bg-indigo-50/20 dark:bg-indigo-900/10">
+                            <td className="px-4 py-3 text-gray-900 dark:text-white font-bold">Total Diterima Investor (Modal + Profit)</td>
                             {projects.map((p, i) => (
                                 <td key={`total-inv-${p.id}`} className="px-4 py-3 border-l border-gray-100 dark:border-gray-700 text-indigo-700 dark:text-indigo-400 font-bold">
                                     {formatCurrency(finalSummaries[i].totalInvestor)}
                                 </td>
                             ))}
                         </tr>
-                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Total Diterima Perusahaan (Profit Bersih)</td>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-750 bg-emerald-50/20 dark:bg-emerald-900/10">
+                            <td className="px-4 py-3 text-gray-900 dark:text-white font-bold">Total Diterima Perusahaan (Profit Bersih)</td>
                             {projects.map((p, i) => (
                                 <td key={`total-comp-${p.id}`} className="px-4 py-3 border-l border-gray-100 dark:border-gray-700 text-emerald-700 dark:text-emerald-400 font-bold">
                                     {formatCurrency(finalSummaries[i].totalCompany)}
@@ -328,13 +418,23 @@ export default function RABCompare({ projects, isOpen, onClose }: RABCompareProp
             </div>
 
             <ModalFooter>
-                <button
-                    type="button"
-                    className="inline-flex w-full justify-center rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 sm:w-auto"
-                    onClick={onClose}
-                >
-                    Tutup Komparasi
-                </button>
+                <div className="flex w-full justify-between items-center">
+                    <button
+                        type="button"
+                        onClick={handleExportPDF}
+                        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-colors"
+                    >
+                        <HiOutlineDocumentDownload className="w-4 h-4" />
+                        Ekspor PDF (Landscape)
+                    </button>
+                    <button
+                        type="button"
+                        className="inline-flex rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-300 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 sm:w-auto"
+                        onClick={onClose}
+                    >
+                        Tutup Komparasi
+                    </button>
+                </div>
             </ModalFooter>
         </Modal>
     )
