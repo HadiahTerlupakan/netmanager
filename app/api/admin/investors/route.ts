@@ -28,7 +28,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
     try {
-        const canWrite = await hasPermission('users:write')
+        const canWrite = await hasPermission('users:create')
         if (!canWrite) return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
 
         const body = await req.json()

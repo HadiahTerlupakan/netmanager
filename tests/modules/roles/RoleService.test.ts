@@ -83,7 +83,7 @@ describe('RoleService', () => {
 
       const result = await service.createRole({
         name: 'Custom Role',
-        permissions: ['users:read', 'users:write']
+        permissions: ['users:read', 'users:create']
       })
 
       expect(result).toBeDefined()

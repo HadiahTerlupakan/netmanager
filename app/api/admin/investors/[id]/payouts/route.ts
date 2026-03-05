@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        await ensurePermission('users:write')
+        await ensurePermission('users:create')
 
         const { id } = await params
         const body = await request.json()
