@@ -25,6 +25,7 @@ interface SalesUser {
     email: string
     phone: string | null
     canvasingTarget: number
+    targetSchema: 'MONTHLY_RESET' | 'ACCUMULATED'
     departments: { name: string } | null
     sites: {
         code: string
@@ -54,7 +55,7 @@ export default function SalesListClient() {
         totalPending: 0
     })
     const [searchTerm, setSearchTerm] = useState('')
-    
+
     // Permission checks
     const { hasPermission } = usePermission()
     const canUpdate = hasPermission('sales:update')
@@ -62,6 +63,7 @@ export default function SalesListClient() {
     // Edit Target Modal
     const [editingUser, setEditingUser] = useState<SalesUser | null>(null)
     const [newTarget, setNewTarget] = useState<number>(0)
+    const [newSchema, setNewSchema] = useState<'MONTHLY_RESET' | 'ACCUMULATED'>('MONTHLY_RESET')
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
@@ -97,6 +99,7 @@ export default function SalesListClient() {
     const handleEditClick = (user: SalesUser) => {
         setEditingUser(user)
         setNewTarget(user.canvasingTarget || 50)
+        setNewSchema(user.targetSchema || 'MONTHLY_RESET')
     }
 
     const handleSaveTarget = async () => {
@@ -107,22 +110,23 @@ export default function SalesListClient() {
             const res = await fetch(`/api/admin/users/${editingUser.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ canvasingTarget: newTarget })
+                body: JSON.stringify({ canvasingTarget: newTarget, targetSchema: newSchema })
             })
 
             if (res.ok) {
                 toast.success('Target berhasil diperbarui')
-                setUsers(prev => prev.map(u => 
-                    u.id === editingUser.id ? { ...u, canvasingTarget: newTarget } : u
+                setUsers(prev => prev.map(u =>
+                    u.id === editingUser.id ? { ...u, canvasingTarget: newTarget, targetSchema: newSchema } : u
                 ))
-                // Optimistically update total target (simplified logic)
+                // Optimistically update total target logic
                 setStats(prev => ({
                     ...prev,
                     totalTarget: prev.totalTarget - (editingUser.canvasingTarget || 0) + newTarget
                 }))
                 setEditingUser(null)
             } else {
-                toast.error('Gagal menyimpan target')
+                const json = await res.json()
+                toast.error(json?.error || 'Gagal menyimpan target')
             }
         } catch (error) {
             console.error('Error saving target:', error)
@@ -132,7 +136,7 @@ export default function SalesListClient() {
         }
     }
 
-    const filteredUsers = users.filter(user => 
+    const filteredUsers = users.filter(user =>
         user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.departments?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -348,8 +352,24 @@ export default function SalesListClient() {
                         />
                         <span className="text-gray-500 font-medium">Data</span>
                     </div>
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Skema Target
+                    </label>
+                    <select
+                        value={newSchema}
+                        onChange={(e) => setNewSchema(e.target.value as 'MONTHLY_RESET' | 'ACCUMULATED')}
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    >
+                        <option value="MONTHLY_RESET">Bulanan (Reset tiap bulan)</option>
+                        <option value="ACCUMULATED">Akumulasi (Ditularkan)</option>
+                    </select>
                     <p className="text-xs text-gray-500 mt-2">
-                        Target ini akan muncul di dashboard aplikasi mobile user.
+                        {newSchema === 'MONTHLY_RESET'
+                            ? 'Pencapaian akan direset menjadi 0 setiap awal bulan.'
+                            : 'Pencapaian akan terus ditabung sampai dicairkan secara manual.'}
                     </p>
                 </div>
 

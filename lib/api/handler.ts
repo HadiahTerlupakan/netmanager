@@ -111,26 +111,50 @@ export function createHandler<T = unknown>(
             if (options.auth) {
                 const session = await getServerSession(authOptions)
 
-                if (!session?.user) {
-                    return ApiErrors.unauthorized('Session tidak valid')
-                }
+                if (session?.user) {
+                    ctx.session = {
+                        user: {
+                            id: session.user.id || '',
+                            email: session.user.email || '',
+                            name: session.user.name,
+                            role: session.user.role,
+                        }
+                    }
 
-                ctx.session = {
-                    user: {
-                        id: session.user.id || '',
-                        email: session.user.email || '',
-                        ...(session.user.name && { name: session.user.name }),
-                        ...(session.user.role && { role: session.user.role }),
+                    // Load permissions from session or cache
+                    const userPermissions = (session.user as { permissions?: string[] }).permissions
+                    if (userPermissions && Array.isArray(userPermissions)) {
+                        ctx.permissions = userPermissions
+                    } else {
+                        // Fallback: Fetch permissions at runtime
+                        ctx.permissions = await getUserPermissions(ctx.session!.user.id)
+                    }
+                } else {
+                    // Fallback to Bearer token (Mobile Auth)
+                    const authHeader = request.headers.get('Authorization')
+                    if (authHeader?.startsWith('Bearer ')) {
+                        const token = authHeader.split(' ')[1]
+                        if (token) {
+                            const { verifyMobileToken } = await import('@/lib/mobile-auth')
+                            const payload = await verifyMobileToken(token)
+
+                            if (payload) {
+                                ctx.session = {
+                                    user: {
+                                        id: payload.userId,
+                                        email: (payload.email as string) || '',
+                                        name: payload.name as string | undefined,
+                                        role: payload.role,
+                                    }
+                                }
+                                ctx.permissions = payload.permissions || []
+                            }
+                        }
                     }
                 }
 
-                // Load permissions from session or cache
-                const userPermissions = (session.user as { permissions?: string[] }).permissions
-                if (userPermissions && Array.isArray(userPermissions)) {
-                    ctx.permissions = userPermissions
-                } else {
-                    // Fallback: Fetch permissions at runtime
-                    ctx.permissions = await getUserPermissions(ctx.session!.user.id)
+                if (!ctx.session?.user) {
+                    return ApiErrors.unauthorized('Session tidak valid atau Token kedaluwarsa')
                 }
             }
 

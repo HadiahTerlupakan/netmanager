@@ -285,6 +285,38 @@ export async function GET(req: NextRequest) {
             }
         })
 
+        // Ensure to fetch canvasingTarget and targetSchema from user
+        const userDetails = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { canvasingTarget: true, targetSchema: true }
+        })
+        const canvasingTarget = userDetails?.canvasingTarget || 30
+        const targetSchema = userDetails?.targetSchema || 'MONTHLY_RESET'
+
+        // For internal Karyawan Sales, we need unclaimed canvasing progress vs target
+        let unclaimedCanvasing = 0
+        if (targetSchema === 'ACCUMULATED') {
+            // Accumulated: Approved points that are not yet cashed out
+            unclaimedCanvasing = await prisma.pointClaim.count({
+                where: {
+                    salesId: userId,
+                    status: 'APPROVED',
+                    isCashedOut: false
+                }
+            })
+        } else {
+            // Monthly Reset: Points achieved in the current month
+            unclaimedCanvasing = await prisma.canvasing.count({
+                where: {
+                    salesId: userId,
+                    status: 'APPROVED',
+                    createdAt: {
+                        gte: monthStart
+                    }
+                }
+            })
+        }
+
         return NextResponse.json({
             workOrdersAssigned,
             workOrdersPending,
@@ -292,7 +324,10 @@ export async function GET(req: NextRequest) {
             woCompletedWeek,
             woCompletedMonth,
             barangKeluarToday,
-            barangMasukToday
+            barangMasukToday,
+            unclaimedCanvasing,
+            canvasingTarget,
+            targetSchema
         })
     } catch (error) {
         console.error('Error fetching mobile dashboard stats:', error)

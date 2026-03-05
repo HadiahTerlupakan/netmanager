@@ -2,6 +2,7 @@ import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
 import { logActivitySafe } from '@/lib/logger'
+import { SiteService } from '@/modules/roles/services/SiteService'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,18 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const service = getMixRadiusService()
     const groups = await service.getOwnerGroups()
 
-    return apiSuccess(groups)
+    const siteService = new SiteService()
+    const sites = await siteService.getSites()
+    const siteMap = new Map(sites.map(s => [s.id, s.name]))
+
+    const mappedGroups = groups.map(group => ({
+      ...group,
+      site: group.siteId && siteMap.has(group.siteId)
+        ? { name: siteMap.get(group.siteId) }
+        : undefined
+    }))
+
+    return apiSuccess(mappedGroups)
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'MixRadiusConfigError') {
       return apiError(

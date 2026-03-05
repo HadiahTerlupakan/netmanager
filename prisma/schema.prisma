@@ -906,6 +906,7 @@ model User {
   lastVersionUpdate                          DateTime?
   lastLoginAt                                DateTime?
   canvasingTarget                            Int                       @default(50)
+  targetSchema                               TargetSchema              @default(MONTHLY_RESET)
   isSales                                    Boolean                   @default(false)
   // Salary configuration fields
   basicSalary                                Float?
@@ -2100,6 +2101,7 @@ model PointClaim {
   keterangan    String?
   pointValue    Int              @default(2)
   status        PointClaimStatus @default(PENDING)
+  isCashedOut   Boolean          @default(false)
   reviewedById  String?
   reviewedAt    DateTime?
   reviewNotes   String?
@@ -3087,4 +3089,9 @@ model LoanPayment {
 
   @@index([loanId])
   @@map("loan_payments")
+}
+
+enum TargetSchema {
+  MONTHLY_RESET
+  ACCUMULATED
 }

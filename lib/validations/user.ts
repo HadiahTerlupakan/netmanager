@@ -30,6 +30,11 @@ export const workingHourModeEnum = z.enum(['FIXED', 'FLEXIBLE', 'SHIFT'])
 export const overtimeCalcTypeEnum = z.enum(['PER_HOUR', 'DAILY_SALARY', 'FIXED', 'PERCENTAGE'])
 
 /**
+ * Target schema options
+ */
+export const targetSchemaEnum = z.enum(['MONTHLY_RESET', 'ACCUMULATED'])
+
+/**
  * Create user schema
  */
 export const createUserSchema = z.object({
@@ -59,6 +64,7 @@ export const createUserSchema = z.object({
 
   // Sales configuration
   canvasingTarget: z.number().int().min(0).default(50),
+  targetSchema: targetSchemaEnum.default('MONTHLY_RESET'),
 
   // Salary configuration
   basicSalary: z.number().min(0).optional(),
@@ -110,6 +116,7 @@ export const updateUserSchema = z.object({
 
   // Sales configuration
   canvasingTarget: z.number().int().min(0).optional(),
+  targetSchema: targetSchemaEnum.optional(),
 
   // Salary configuration
   basicSalary: z.number().min(0).optional(),

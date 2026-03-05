@@ -47,6 +47,7 @@ export const GET = createHandler({
       workDays: true,
       flexibleTargetHour: true,
       canvasingTarget: true,
+      targetSchema: true,
       isSales: true,
       shiftId: true,
       // Salary configuration
