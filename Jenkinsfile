@@ -93,6 +93,19 @@ spec:
             }
         }
 
+        stage('Backup Previous Image') {
+            steps {
+                container('docker') {
+                    script {
+                        echo "Backing up previous images as :prev before building new ones..."
+                        // Simpan image lama sebagai cadangan (:prev), abaikan jika belum ada
+                        sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${DOCKER_TAG}-prev 2>/dev/null || echo 'No previous app image to backup'"
+                        sh "docker tag ${CRON_IMAGE}:${DOCKER_TAG} ${CRON_IMAGE}:${DOCKER_TAG}-prev 2>/dev/null || echo 'No previous cron image to backup'"
+                    }
+                }
+            }
+        }
+
         stage('Build Image') {
             steps {
                 container('docker') {
@@ -151,6 +164,26 @@ spec:
                         // Menjalankan migrasi otomatis melalui pod aplikasi yang baru di-deploy
                         sh """
                         kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'npm run prisma:migrate-deploy'
+                        """
+                    }
+                }
+            }
+        }
+        stage('Cleanup') {
+            steps {
+                container('docker') {
+                    script {
+                        echo "Cleaning up old Docker images and build cache..."
+                        // Hapus dangling images (image lama tanpa tag)
+                        sh "docker image prune -f || true"
+                        // Hapus build cache yang lebih dari 24 jam
+                        sh "docker builder prune -f --filter 'until=24h' || true"
+                        // Bersihkan image tak terpakai di K3s containerd
+                        sh """
+                        docker run --rm -i --privileged \
+                            -v /:/host \
+                            docker:cli \
+                            sh -c "chroot /host /usr/local/bin/k3s ctr images prune --all 2>/dev/null || echo 'K3s image prune skipped'"
                         """
                     }
                 }
