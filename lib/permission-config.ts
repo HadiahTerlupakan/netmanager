@@ -8,7 +8,7 @@ export const PERMISSION_GROUPS = {
   WORKORDERS: ['workorders', 'work_order_dashboard', 'list', 'site', 'department'],
   KEHADIRAN: ['kehadiran', 'attendance', 'report', 'lembur', 'holiday', 'izin', 'live_tracking', 'shift'],
   FINANCE: ['finance', 'accounts', 'debts_receivables', 'treasury', 'transactions', 'manual_payments', 'categories', 'reports', 'daily_income', 'period_income', 'expense', 'profit_loss'],
-  PENGATURAN: ['pengaturan', 'umum', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api', 'nada_dering', 'app_version', 'acs'],
+  PENGATURAN: ['pengaturan', 'umum', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api', 'nada_dering', 'app_version', 'acs', 'backup_database'],
   SYSTEM_LOG: ['system_log', 'login', 'activity'],
   INTEGRATION: ['mixradius', 'mixradius_isolir', 'mixradius_sites', 'mixradius_investor_sites', 'mixradius_accounts', 'mixradius_income', 'mixradius_expenses', 'mixradius_profit_loss'],
   SUPPORT: ['support'],

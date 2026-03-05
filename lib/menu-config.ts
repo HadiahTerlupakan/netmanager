@@ -277,6 +277,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'PENGATURAN.NADA_DERING', name: 'Nada Dering', path: '/admin/pengaturan/nada-dering', icon: 'HiOutlineSpeakerWave' },
             { code: 'PENGATURAN.ACS', name: 'ACS & Vendor', path: '/admin/pengaturan/acs', icon: 'HiOutlineServerStack' },
             { code: 'PENGATURAN.APP_VERSION', name: 'Versi App', path: '/admin/pengaturan/app-version', icon: 'HiOutlineDevicePhoneMobile' },
+            { code: 'PENGATURAN.BACKUP_DATABASE', name: 'Backup Database', path: '/admin/pengaturan/backup', icon: 'HiOutlineCircleStack' },
         ],
     },
     {

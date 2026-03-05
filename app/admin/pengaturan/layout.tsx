@@ -8,7 +8,8 @@ const PENGATURAN_PERMISSIONS = [
     'email:read',
     'whatsapp:read',
     'payment_gateway:read',
-    'api:read'
+    'api:read',
+    'backup_database:read'
 ]
 
 export default async function PengaturanSectionLayout({

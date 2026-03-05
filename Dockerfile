@@ -45,6 +45,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Install postgresql-client for pg_dump and psql (used by backup feature)
+RUN apk add --no-cache postgresql-client
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
