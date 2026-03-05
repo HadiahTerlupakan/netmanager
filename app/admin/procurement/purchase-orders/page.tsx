@@ -38,10 +38,10 @@ export default function PurchaseOrderListPage() {
     const { data: session } = useSession()
     const router = useRouter()
     const { hasPermission: can } = usePermission()
-    
+
     // Tab state
     const [activeTab, setActiveTab] = useState<'po' | 'pr'>('pr')
-    
+
     // Permission check
     const canCreate = can('purchase_orders:create')
     const canRead = can('purchase_orders:read')
@@ -118,7 +118,7 @@ export default function PurchaseOrderListPage() {
     }
 
     const [processingId, setProcessingId] = useState<string | null>(null)
-    
+
     // Modal Receive Goods State
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null)
     const [showReceiveModal, setShowReceiveModal] = useState(false)
@@ -127,7 +127,7 @@ export default function PurchaseOrderListPage() {
     const handleStartShopping = async (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation()
         if (!confirm('Mulai proses belanja? Status akan berubah menjadi PROCESSING.')) return
-        
+
         setProcessingId(id)
         try {
             const res = await fetch(`/api/procurement/purchase-orders/${id}/status`, {
@@ -136,7 +136,7 @@ export default function PurchaseOrderListPage() {
                 body: JSON.stringify({ action: 'START_SHOPPING' })
             })
             if (!res.ok) throw new Error('Gagal update status')
-            
+
             toast.success('Status update: Sedang Dibelanjakan')
             fetchData()
         } catch (_e) {
@@ -155,7 +155,7 @@ export default function PurchaseOrderListPage() {
             const res = await fetch(`/api/procurement/purchase-orders/${id}`)
             if (!res.ok) throw new Error('Gagal memuat detail PO')
             const po = await res.json()
-            
+
             setSelectedPO(po)
             setShowReceiveModal(true)
         } catch (_error) {
@@ -219,15 +219,19 @@ export default function PurchaseOrderListPage() {
             className: 'text-center w-40', // Increase width for buttons
             render: (row) => (
                 <div className="flex justify-center gap-2">
-                    <Button onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}?mode=view`)}
-                        className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    <Button
+                        variant="ghost"
+                        onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}?mode=view`)}
+                        className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                         title="Detail"
                     >
                         <HiEye className="w-5 h-5" />
                     </Button>
                     {canUpdate && (
-                         <Button onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}`)}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        <Button
+                            variant="ghost"
+                            onClick={() => router.push(`/admin/procurement/purchase-orders/${row.id}`)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                             title="Edit"
                         >
                             <HiPencil className="w-5 h-5" />
@@ -235,9 +239,11 @@ export default function PurchaseOrderListPage() {
                     )}
 
                     {canUpdate && row.status === 'DRAFT' && (
-                        <Button onClick={(e) => handleStartShopping(row.id, e)}
+                        <Button
+                            variant="ghost"
+                            onClick={(e) => handleStartShopping(row.id, e)}
                             disabled={processingId === row.id}
-                            className={`p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${processingId === row.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`p-1.5 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors ${processingId === row.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title="Mulai Belanja"
                         >
                             <HiOutlineShoppingBag className="w-5 h-5" />
@@ -245,8 +251,10 @@ export default function PurchaseOrderListPage() {
                     )}
 
                     {canUpdate && row.status === 'ORDERED' && (
-                        <Button onClick={(e) => handleReceiveGoods(row.id, e)}
-                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        <Button
+                            variant="ghost"
+                            onClick={(e) => handleReceiveGoods(row.id, e)}
+                            className="p-1.5 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                             title="Terima Barang"
                         >
                             <HiOutlineArchive className="w-5 h-5" />
@@ -254,11 +262,13 @@ export default function PurchaseOrderListPage() {
                     )}
 
                     {canDelete && ['DRAFT', 'ORDERED', 'CANCELLED'].includes(row.status) && (
-                        <Button onClick={(e) => {
+                        <Button
+                            variant="ghost"
+                            onClick={(e) => {
                                 e.stopPropagation()
                                 handleDelete(row.id)
                             }}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             title="Hapus"
                         >
                             <HiTrash className="w-5 h-5" />
@@ -270,7 +280,7 @@ export default function PurchaseOrderListPage() {
     ]
 
     const totalPages = Math.ceil(total / limit)
-    
+
 
 
     if (!canRead) {
@@ -288,14 +298,14 @@ export default function PurchaseOrderListPage() {
                 <div className="flex gap-2">
                     {canCreate && activeTab === 'po' && (
                         <>
-                             <div className="relative group">
+                            <div className="relative group">
                                 <Button onClick={() => router.push('/admin/procurement/purchase-orders/create')}
                                     className="flex items-center gap-2 px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                                 >
                                     <HiPlus className="w-5 h-5" />
                                     Manual PO
                                 </Button>
-                             </div>
+                            </div>
                         </>
                     )}
                 </div>
@@ -304,26 +314,24 @@ export default function PurchaseOrderListPage() {
             {/* Tabs */}
             <div className="border-b border-gray-200 dark:border-gray-700">
                 <nav className="-mb-px flex space-x-8">
-                    <Button 
+                    <Button
                         variant="ghost"
                         onClick={() => setActiveTab('pr')}
-                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors rounded-none ${
-                            activeTab === 'pr'
+                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors rounded-none ${activeTab === 'pr'
                                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-transparent hover:bg-transparent'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-transparent'
-                        }`}
+                            }`}
                     >
                         <HiClipboardList className="w-5 h-5" />
                         Purchase Requests
                     </Button>
-                    <Button 
+                    <Button
                         variant="ghost"
                         onClick={() => setActiveTab('po')}
-                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors rounded-none ${
-                            activeTab === 'po'
+                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors rounded-none ${activeTab === 'po'
                                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-transparent hover:bg-transparent'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-transparent'
-                        }`}
+                            }`}
                     >
                         <HiCollection className="w-5 h-5" />
                         Purchase Orders
@@ -351,7 +359,7 @@ export default function PurchaseOrderListPage() {
                         </div>
                         <Button variant="secondary"
                             onClick={fetchData}
-                            
+
                         >
                             <HiRefresh className="w-5 h-5" />
                         </Button>
@@ -371,7 +379,7 @@ export default function PurchaseOrderListPage() {
                                 Halaman {page} dari {totalPages} ({total} Data)
                             </span>
                             <div className="flex gap-2">
-                                <Button 
+                                <Button
                                     variant="outline"
                                     disabled={page === 1}
                                     onClick={() => setPage(p => p - 1)}
@@ -379,7 +387,7 @@ export default function PurchaseOrderListPage() {
                                 >
                                     <HiChevronLeft /> Prev
                                 </Button>
-                                <Button 
+                                <Button
                                     variant="outline"
                                     disabled={page >= totalPages}
                                     onClick={() => setPage(p => p + 1)}
@@ -394,7 +402,7 @@ export default function PurchaseOrderListPage() {
             )}
 
             {showReceiveModal && selectedPO && (
-                <ReceiveGoodsModal 
+                <ReceiveGoodsModal
                     isOpen={showReceiveModal}
                     onClose={() => setShowReceiveModal(false)}
                     po={selectedPO}

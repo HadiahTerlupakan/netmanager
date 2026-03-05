@@ -145,16 +145,18 @@ export default function Navbar() {
                           : `/admin/users/${session.user.id}?view=true`)
                     }
                     onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors font-medium rounded-lg"
                   >
-                    <HiOutlineUser className="w-4 h-4 text-gray-500" />
+                    <HiOutlineUser className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                     Detail Profile
                   </Link>
 
                   <div className="my-1 border-t border-gray-100 dark:border-gray-700"></div>
 
-                  <Button onClick={() => signOut()}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left"
+                  <Button
+                    variant="ghost"
+                    onClick={() => signOut()}
+                    className="w-full flex items-center justify-start gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
                     <HiArrowRightOnRectangle className="w-4 h-4" />
                     Keluar Aplikasi

@@ -182,15 +182,15 @@ export const PATCH = createHandler({
     if (description !== undefined) updateData.description = description;
 
     if (siteId !== undefined) {
-        updateData.site = siteId ? { connect: { id: siteId } } : { disconnect: true };
+        updateData.siteId = siteId;
     }
 
     if (mixRadiusGroupId !== undefined) {
-        updateData.mixRadiusGroup = mixRadiusGroupId ? { connect: { id: mixRadiusGroupId } } : { disconnect: true };
+        updateData.mixRadiusGroupId = mixRadiusGroupId;
     }
 
     if (mixRadiusInvestorSiteId !== undefined) {
-        updateData.mixRadiusInvestorSite = mixRadiusInvestorSiteId ? { connect: { id: mixRadiusInvestorSiteId } } : { disconnect: true };
+        updateData.mixRadiusInvestorSiteId = mixRadiusInvestorSiteId;
     }
 
     if (status) updateData.status = status;

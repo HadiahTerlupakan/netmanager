@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { HiCheck, HiX, HiEye, HiRefresh, HiSearch } from 'react-icons/hi'
+import { HiCheck, HiX, HiEye, HiRefresh, HiSearch, HiChevronLeft, HiChevronRight } from 'react-icons/hi'
 import { Button } from '@/components/ui/Button'
 import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { Modal } from '@/components/ui/Modal'
@@ -217,22 +217,28 @@ export default function PurchaseRequestTab() {
             priority: 'primary',
             render: (row) => (
                 <div className="flex gap-1">
-                    <Button onClick={() => { setSelectedPR(row); setShowDetail(true) }}
-                        className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                    <Button
+                        variant="ghost"
+                        onClick={() => { setSelectedPR(row); setShowDetail(true) }}
+                        className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                         title="Detail"
                     >
                         <HiEye className="w-5 h-5" />
                     </Button>
                     {canUpdate && row.status === 'DRAFT' && (
                         <>
-                            <Button onClick={() => { setSelectedPR(row); setShowApproveModal(true) }}
-                                className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
+                            <Button
+                                variant="ghost"
+                                onClick={() => { setSelectedPR(row); setShowApproveModal(true) }}
+                                className="p-1.5 text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                                 title="Approve"
                             >
                                 <HiCheck className="w-5 h-5" />
                             </Button>
-                            <Button onClick={() => { setSelectedPR(row); setShowRejectModal(true) }}
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                            <Button
+                                variant="ghost"
+                                onClick={() => { setSelectedPR(row); setShowRejectModal(true) }}
+                                className="p-1.5 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 title="Reject"
                             >
                                 <HiX className="w-5 h-5" />
@@ -273,7 +279,7 @@ export default function PurchaseRequestTab() {
                 </select>
                 <Button variant="secondary"
                     onClick={fetchData}
-                    
+
                 >
                     <HiRefresh className="w-5 h-5" />
                 </Button>
@@ -295,17 +301,21 @@ export default function PurchaseRequestTab() {
                         Halaman {page} dari {totalPages} ({total} Data)
                     </span>
                     <div className="flex gap-2">
-                        <Button disabled={page === 1}
+                        <Button
+                            variant="outline"
+                            disabled={page === 1}
                             onClick={() => setPage(p => p - 1)}
-                            className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600"
+                            className="flex items-center gap-1 px-3 py-1 text-sm rounded-lg"
                         >
-                            Prev
+                            <HiChevronLeft /> Prev
                         </Button>
-                        <Button disabled={page >= totalPages}
+                        <Button
+                            variant="outline"
+                            disabled={page >= totalPages}
                             onClick={() => setPage(p => p + 1)}
-                            className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600"
+                            className="flex items-center gap-1 px-3 py-1 text-sm rounded-lg"
                         >
-                            Next
+                            Next <HiChevronRight />
                         </Button>
                     </div>
                 </div>
