@@ -171,13 +171,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                     { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10 }
                 )
 
-                // LANGKAH 3: Untuk netmanager, jalankan prisma db push
+                // LANGKAH 3: Jalankan prisma db push untuk sync schema
                 // agar kolom baru yang ada di schema.prisma (tapi belum ada di dump) ikut terbuat
-                if (dbName === 'netmanager') {
-                    const prismaBin = findPrismaBin()
+                const prismaBin = findPrismaBin()
+                const DB_CONFIG_MAP: Record<string, { config?: string; migrationsDir: string }> = {
+                    netmanager: { migrationsDir: 'prisma/migrations' },
+                    radius: { config: 'prisma.radius.config.ts', migrationsDir: 'prisma/radius_migrations' },
+                    billing: { config: 'prisma.billing.config.ts', migrationsDir: 'prisma/billing_migrations' },
+                    mitra: { config: 'prisma.mitra.config.ts', migrationsDir: 'prisma/mitra_migrations' },
+                }
+                const dbConf = DB_CONFIG_MAP[dbName]
+
+                if (dbConf) {
+                    const configFlag = dbConf.config ? ` --config=${dbConf.config}` : ''
+
                     try {
                         await execAsync(
-                            `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss`,
+                            `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss${configFlag}`,
                             {
                                 shell: '/bin/sh',
                                 maxBuffer: 1024 * 1024 * 30,
@@ -185,15 +195,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                             }
                         )
                     } catch (pushErr) {
-                        // Push gagal tapi data sudah masuk — tidak perlu error fatal
-                        console.warn('[backup:import] prisma db push warning:', String(pushErr).substring(0, 300))
+                        console.warn(`[backup:import] prisma db push warning for ${dbName}:`, String(pushErr).substring(0, 300))
                     }
 
                     // LANGKAH 4: Mark semua migration sebagai applied
                     // Agar deploy berikutnya (prisma migrate deploy) tidak gagal
-                    // karena tipe/tabel yang sudah dibuat oleh backup + db push
                     try {
-                        const migrationsDir = path.join(process.cwd(), 'prisma', 'migrations')
+                        const migrationsDir = path.join(process.cwd(), dbConf.migrationsDir)
                         if (fs.existsSync(migrationsDir)) {
                             const migrationFolders = fs.readdirSync(migrationsDir)
                                 .filter(f => {
@@ -204,22 +212,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
                             for (const migration of migrationFolders) {
                                 try {
+                                    // rolled-back dulu untuk clear failed status
                                     await execAsync(
-                                        `cd "${process.cwd()}" && "${prismaBin}" migrate resolve --applied "${migration}"`,
-                                        {
-                                            shell: '/bin/sh',
-                                            maxBuffer: 1024 * 1024 * 10,
-                                            env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
-                                        }
+                                        `cd "${process.cwd()}" && "${prismaBin}" migrate resolve --rolled-back "${migration}"${configFlag}`,
+                                        { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' } }
                                     )
-                                } catch {
-                                    // Migration mungkin sudah tercatat — abaikan error
-                                }
+                                } catch { /* ignore */ }
+                                try {
+                                    // lalu mark sebagai applied
+                                    await execAsync(
+                                        `cd "${process.cwd()}" && "${prismaBin}" migrate resolve --applied "${migration}"${configFlag}`,
+                                        { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' } }
+                                    )
+                                } catch { /* ignore */ }
                             }
-                            console.log(`[backup:import] ${migrationFolders.length} migrations marked as applied.`)
+                            console.log(`[backup:import] ${dbName}: ${migrationFolders.length} migrations marked as applied.`)
                         }
                     } catch (resolveErr) {
-                        console.warn('[backup:import] migrate resolve warning:', String(resolveErr).substring(0, 300))
+                        console.warn(`[backup:import] migrate resolve warning for ${dbName}:`, String(resolveErr).substring(0, 300))
                     }
                 }
 
