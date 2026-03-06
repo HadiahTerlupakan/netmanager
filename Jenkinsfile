@@ -1,5 +1,8 @@
 // Jenkinsfile (Controller Isolation / Kubernetes Pod version)
 pipeline {
+    options {
+        disableConcurrentBuilds()
+    }
     agent {
         kubernetes {
             yaml """
@@ -139,6 +142,9 @@ spec:
         }
 
         stage('Database Migration (Zero Downtime K8s Job)') {
+            options {
+                timeout(time: 35, unit: 'MINUTES')
+            }
             steps {
                 container('kubectl') {
                     script {
@@ -182,8 +188,8 @@ spec:
                         // 4. Polling for Job completion or failure (menghindari race condition)
                         def jobStatus = sh(
                             script: """
-                                echo "Menunggu Kubernetes Job netmanager-migration-job (max 5 menit)..."
-                                for i in \$(seq 1 60); do
+                                echo "Menunggu Kubernetes Job netmanager-migration-job (max 30 menit)..."
+                                for i in \$(seq 1 360); do
                                     COMPLETE=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "False")
                                     FAILED=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo "False")
                                     if [ "\$COMPLETE" = "True" ]; then exit 0; fi

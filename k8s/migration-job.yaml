@@ -4,8 +4,9 @@ metadata:
   name: netmanager-migration-job
   namespace: "{{NAMESPACE}}"
 spec:
+  ttlSecondsAfterFinished: 300
   backoffLimit: 0
-  activeDeadlineSeconds: 600
+  activeDeadlineSeconds: 1800
   template:
     metadata:
       labels:
@@ -18,6 +19,13 @@ spec:
         - name: migration
           image: "{{IMAGE_TAG}}"
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           envFrom:
             - configMapRef:
                 name: netmanager-config
@@ -27,6 +35,21 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: DATABASE_URL
+            - name: RADIUS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_DATABASE_URL
+            - name: DATABASE_URL_BILLING
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_BILLING
+            - name: DATABASE_URL_MITRA
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_MITRA
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -47,21 +70,6 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: NEXTAUTH_SECRET
-            - name: RADIUS_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: netmanager-secrets
-                  key: RADIUS_DATABASE_URL
-            - name: DATABASE_URL_BILLING
-              valueFrom:
-                secretKeyRef:
-                  name: netmanager-secrets
-                  key: DATABASE_URL_BILLING
-            - name: DATABASE_URL_MITRA
-              valueFrom:
-                secretKeyRef:
-                  name: netmanager-secrets
-                  key: DATABASE_URL_MITRA
             - name: RADIUS_SECRET
               valueFrom:
                 secretKeyRef:
@@ -86,81 +94,88 @@ spec:
             - "sh"
             - "-c"
             - |
-              echo "=== Starting Database Migration Job ==="
+              set -e
 
-              # Step 0: Debug Status
-              echo "=== Migration Status (sebelum deploy) ==="
-              npx prisma migrate status 2>&1 || true
-              npx prisma migrate status --config=prisma.radius.config.ts 2>&1 || true
-              npx prisma migrate status --config=prisma.billing.config.ts 2>&1 || true
-              npx prisma migrate status --config=prisma.mitra.config.ts 2>&1 || true
+              echo "======================================"
+              echo "🚀 NETMANAGER DATABASE MIGRATION JOB"
+              echo "======================================"
 
-              echo "=== Executing normal migrate deploy ==="
-              if npm run prisma:migrate-deploy; then
-                echo "✅ Migration successful!"
-                exit 0
-              fi
+              echo ""
+              echo "=== Checking migration status ==="
+              npx prisma migrate status || true
+              npx prisma migrate status --config=prisma.radius.config.ts || true
+              npx prisma migrate status --config=prisma.billing.config.ts || true
+              npx prisma migrate status --config=prisma.mitra.config.ts || true
 
-              echo "⚠️ Migration gagal. Menjalankan fallback logic..."
-              echo "=== Step 1: Schema validation (migrate diff) ==="
-              echo "--- netmanager ---"
-              npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma 2>&1 || true
-              echo "--- radius ---"
-              npx prisma migrate diff --from-url "$RADIUS_DATABASE_URL" --to-schema-datamodel prisma/schema.radius.prisma 2>&1 || true
-              echo "--- billing ---"
-              npx prisma migrate diff --from-url "$DATABASE_URL_BILLING" --to-schema-datamodel prisma/billing.prisma 2>&1 || true
-              echo "--- mitra ---"
-              npx prisma migrate diff --from-url "$DATABASE_URL_MITRA" --to-schema-datamodel prisma/mitra.prisma 2>&1 || true
+              echo ""
+              echo "======================================"
+              echo "🛡️ SAFE MIGRATION GUARD CHECK"
+              echo "======================================"
+              DANGEROUS=0
 
-              echo "=== Step 2: Clearing failed migrations & marking as applied ==="
-
-              echo "Resolving netmanager migrations..."
-              for dir in prisma/migrations/*/; do
-                  m=$(basename "$dir")
-                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" 2>/dev/null || true
-                      npx prisma migrate resolve --applied "$m" 2>/dev/null || true
-                  fi
+              for sql_file in prisma/migrations/*/migration.sql; do
+                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
+                  echo "⚠️ Destructive SQL found in: $sql_file"
+                  DANGEROUS=1
+                fi
               done
 
-              echo "Resolving radius migrations..."
-              for dir in prisma/radius_migrations/*/; do
-                  m=$(basename "$dir")
-                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.radius.config.ts 2>/dev/null || true
-                      npx prisma migrate resolve --applied "$m" --config=prisma.radius.config.ts 2>/dev/null || true
-                  fi
+              for sql_file in prisma/radius_migrations/*/migration.sql; do
+                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
+                  echo "⚠️ Destructive SQL found in: $sql_file"
+                  DANGEROUS=1
+                fi
               done
 
-              echo "Resolving billing migrations..."
-              for dir in prisma/billing_migrations/*/; do
-                  m=$(basename "$dir")
-                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.billing.config.ts 2>/dev/null || true
-                      npx prisma migrate resolve --applied "$m" --config=prisma.billing.config.ts 2>/dev/null || true
-                  fi
+              for sql_file in prisma/billing_migrations/*/migration.sql; do
+                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
+                  echo "⚠️ Destructive SQL found in: $sql_file"
+                  DANGEROUS=1
+                fi
               done
 
-              echo "Resolving mitra migrations..."
-              for dir in prisma/mitra_migrations/*/; do
-                  m=$(basename "$dir")
-                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.mitra.config.ts 2>/dev/null || true
-                      npx prisma migrate resolve --applied "$m" --config=prisma.mitra.config.ts 2>/dev/null || true
-                  fi
+              for sql_file in prisma/mitra_migrations/*/migration.sql; do
+                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
+                  echo "⚠️ Destructive SQL found in: $sql_file"
+                  DANGEROUS=1
+                fi
               done
 
-              echo "=== Step 3: Migration status setelah resolve ==="
-              npx prisma migrate status 2>&1 || true
-              npx prisma migrate status --config=prisma.radius.config.ts 2>&1 || true
-              npx prisma migrate status --config=prisma.billing.config.ts 2>&1 || true
-              npx prisma migrate status --config=prisma.mitra.config.ts 2>&1 || true
-
-              echo "=== Step 4: Re-running migrate deploy ==="
-              if npm run prisma:migrate-deploy; then
-                echo "✅ Fallback Migration successful!"
-                exit 0
-              else
-                echo "❌ Fallback Migration FAILED!"
+              if [ "$DANGEROUS" = "1" ]; then
+                echo "❌ Pipeline dihentikan: destructive migration detected!"
                 exit 1
               fi
+              echo "✅ Safe migration check passed."
+
+              echo ""
+              echo "======================================"
+              echo "Running netmanager migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy
+
+              echo ""
+              echo "======================================"
+              echo "Running radius migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy --config=prisma.radius.config.ts
+
+              echo ""
+              echo "======================================"
+              echo "Running billing migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy --config=prisma.billing.config.ts
+
+              echo ""
+              echo "======================================"
+              echo "Running mitra migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy --config=prisma.mitra.config.ts
+
+              echo ""
+              echo "======================================"
+              echo "✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY"
+              echo "======================================"
