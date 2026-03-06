@@ -160,11 +160,56 @@ spec:
             steps {
                 container('kubectl') {
                     script {
+                        def isProduction = (DOCKER_TAG == 'production')
+
+                        if (isProduction) {
+                            echo "🔒 PRODUCTION: Creating database backup before migration..."
+                            // Backup database sebelum migration (safety net)
+                            def backupStatus = sh(
+                                script: """
+                                kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c '
+                                    BACKUP_FILE="/tmp/pre_migration_backup_\$(date +%Y%m%d_%H%M%S).sql.gz"
+                                    echo "Creating backup: \$BACKUP_FILE"
+                                    PGPASSWORD=\$DB_PASSWORD pg_dump -h \$DB_HOST -U \$DB_USER -d \$DB_NAME --no-owner --no-privileges | gzip > \$BACKUP_FILE
+                                    echo "BACKUP_PATH=\$BACKUP_FILE"
+                                    ls -lh \$BACKUP_FILE
+                                '
+                                """,
+                                returnStatus: true
+                            )
+
+                            if (backupStatus != 0) {
+                                echo "⚠️ Warning: Pre-migration backup failed, tapi migration tetap dilanjutkan."
+                            } else {
+                                echo "✅ Database backup berhasil dibuat."
+                            }
+                        }
+
                         echo "Running Prisma migrations for all databases in ${NAMESPACE}..."
-                        // Menjalankan migrasi otomatis melalui pod aplikasi yang baru di-deploy
-                        sh """
-                        kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'npm run prisma:migrate-deploy'
-                        """
+                        def migrateStatus = sh(
+                            script: """
+                            kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'npm run prisma:migrate-deploy'
+                            """,
+                            returnStatus: true
+                        )
+
+                        if (migrateStatus != 0) {
+                            if (isProduction) {
+                                echo "❌ Migration gagal di PRODUCTION!"
+                                echo "🔄 Mencoba rollback ke image sebelumnya..."
+                                // Rollback deployment ke image sebelumnya
+                                sh """
+                                kubectl rollout undo deployment/netmanager-app --namespace=${NAMESPACE}
+                                kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=300s
+                                """
+                                error("Migration gagal di production. Deployment di-rollback ke versi sebelumnya. Silakan periksa migration secara manual.")
+                            } else {
+                                echo "⚠️ Migration gagal di STAGING. Periksa log untuk detail."
+                                error("Migration gagal di staging.")
+                            }
+                        } else {
+                            echo "✅ Database migration berhasil!"
+                        }
                     }
                 }
             }

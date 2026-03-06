@@ -188,6 +188,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                         // Push gagal tapi data sudah masuk — tidak perlu error fatal
                         console.warn('[backup:import] prisma db push warning:', String(pushErr).substring(0, 300))
                     }
+
+                    // LANGKAH 4: Mark semua migration sebagai applied
+                    // Agar deploy berikutnya (prisma migrate deploy) tidak gagal
+                    // karena tipe/tabel yang sudah dibuat oleh backup + db push
+                    try {
+                        const migrationsDir = path.join(process.cwd(), 'prisma', 'migrations')
+                        if (fs.existsSync(migrationsDir)) {
+                            const migrationFolders = fs.readdirSync(migrationsDir)
+                                .filter(f => {
+                                    const fullPath = path.join(migrationsDir, f)
+                                    return fs.statSync(fullPath).isDirectory() && f !== 'migration_lock.toml'
+                                })
+                                .sort()
+
+                            for (const migration of migrationFolders) {
+                                try {
+                                    await execAsync(
+                                        `cd "${process.cwd()}" && "${prismaBin}" migrate resolve --applied "${migration}"`,
+                                        {
+                                            shell: '/bin/sh',
+                                            maxBuffer: 1024 * 1024 * 10,
+                                            env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
+                                        }
+                                    )
+                                } catch {
+                                    // Migration mungkin sudah tercatat — abaikan error
+                                }
+                            }
+                            console.log(`[backup:import] ${migrationFolders.length} migrations marked as applied.`)
+                        }
+                    } catch (resolveErr) {
+                        console.warn('[backup:import] migrate resolve warning:', String(resolveErr).substring(0, 300))
+                    }
                 }
 
                 results.push({
