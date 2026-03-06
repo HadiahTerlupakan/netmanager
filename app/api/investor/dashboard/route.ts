@@ -50,6 +50,7 @@ export async function GET() {
             .filter((id: any): id is string => id !== null))] as string[]
 
         // Fetch MixRadiusInvestorSite details from billing DB
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const investorSiteIds = [...new Set(rabInvestors.map((ri: any) => ri.rabProject.mixRadiusInvestorSiteId).filter(Boolean))] as string[]
         const investorSites = investorSiteIds.length > 0
             ? await prismaBilling.mixRadiusInvestorSite.findMany({
