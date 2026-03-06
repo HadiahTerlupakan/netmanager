@@ -119,7 +119,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // Extract tar.gz ke extractDir
         const extractDir = path.join(tmpDir, 'extracted')
         fs.mkdirSync(extractDir)
-        await execAsync(`tar -xzf "${uploadedFilePath}" -C "${extractDir}"`, { shell: '/bin/bash' })
+        await execAsync(`tar -xzf "${uploadedFilePath}" -C "${extractDir}"`, { shell: '/bin/sh' })
 
         // Cari semua file .sql.gz di dalam extracted dir
         const extractedFiles = fs.readdirSync(extractDir).filter((f) => f.endsWith('.sql.gz'))
@@ -162,13 +162,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 // Ini kunci utama agar format COPY maupun INSERT bisa masuk tanpa konflik
                 await execAsync(
                     `${pgPrefix} "${psqlBin}" -d "${dbConfig.database}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" -q`,
-                    { shell: '/bin/bash', maxBuffer: 1024 * 1024 * 10 }
+                    { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10 }
                 )
 
                 // LANGKAH 2: Import dump (mendukung COPY dan INSERT)
                 await execAsync(
                     `${pgPrefix} gunzip -c "${sqlGzPath}" | "${psqlBin}" -d "${dbConfig.database}" -q > /dev/null 2>&1`,
-                    { shell: '/bin/bash', maxBuffer: 1024 * 1024 * 10 }
+                    { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10 }
                 )
 
                 // LANGKAH 3: Untuk netmanager, jalankan prisma db push
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                         await execAsync(
                             `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss`,
                             {
-                                shell: '/bin/bash',
+                                shell: '/bin/sh',
                                 maxBuffer: 1024 * 1024 * 30,
                                 env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
                             }
