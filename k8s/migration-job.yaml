@@ -113,39 +113,58 @@ spec:
               echo "======================================"
               DANGEROUS=0
 
-              for sql_file in prisma/migrations/*/migration.sql; do
-                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
-                  echo "⚠️ Destructive SQL found in: $sql_file"
-                  DANGEROUS=1
-                fi
-              done
+              cat << 'EOF' > /tmp/safe-guard.js
+              const fs = require('fs');
+              const { execSync } = require('child_process');
 
-              for sql_file in prisma/radius_migrations/*/migration.sql; do
-                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
-                  echo "⚠️ Destructive SQL found in: $sql_file"
-                  DANGEROUS=1
-                fi
-              done
+              function checkDatabase(config, folder) {
+                let unapplied = [];
+                try {
+                  execSync(`npx prisma migrate status ${config}`, { stdio: 'pipe', encoding: 'utf-8' });
+                } catch (e) {
+                  const out = (e.stdout || '') + '\n' + (e.stderr || '');
+                  const cleanOut = out.replace(/\x1B\[\d+m/g, '');
+                  const match = cleanOut.match(/have not yet been applied:\n([\s\S]*?)(?:\n\n|\n[A-Z]|$)/i);
+                  if (match) {
+                    unapplied = match[1].split('\n').map(s => s.trim()).filter(s => /^\d+_/.test(s));
+                  }
+                }
 
-              for sql_file in prisma/billing_migrations/*/migration.sql; do
-                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
-                  echo "⚠️ Destructive SQL found in: $sql_file"
-                  DANGEROUS=1
-                fi
-              done
+                let dangerous = false;
+                for (const m of unapplied) {
+                  const file = `${folder}/${m}/migration.sql`;
+                  if (fs.existsSync(file)) {
+                    const sql = fs.readFileSync(file, 'utf8');
+                    if (/DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|ALTER\s+(TABLE\s+".*"\s+ALTER\s+COLUMN|TYPE)/i.test(sql)) {
+                      console.error(`⚠️ Destructive SQL found in UNAPPLIED migration: ${file}`);
+                      dangerous = true;
+                    }
+                  }
+                }
+                return dangerous;
+              }
 
-              for sql_file in prisma/mitra_migrations/*/migration.sql; do
-                if [ -f "$sql_file" ] && grep -Ei "DROP TABLE|DROP COLUMN|TRUNCATE|ALTER.*TYPE" "$sql_file"; then
-                  echo "⚠️ Destructive SQL found in: $sql_file"
-                  DANGEROUS=1
-                fi
-              done
+              const db = [
+                { c: '', f: 'prisma/migrations' },
+                { c: '--config=prisma.radius.config.ts', f: 'prisma/radius_migrations' },
+                { c: '--config=prisma.billing.config.ts', f: 'prisma/billing_migrations' },
+                { c: '--config=prisma.mitra.config.ts', f: 'prisma/mitra_migrations' }
+              ];
 
-              if [ "$DANGEROUS" = "1" ]; then
-                echo "❌ Pipeline dihentikan: destructive migration detected!"
-                exit 1
-              fi
-              echo "✅ Safe migration check passed."
+              let hasDanger = false;
+              for (const {c, f} of db) {
+                if (checkDatabase(c, f)) hasDanger = true;
+              }
+
+              if (hasDanger) {
+                console.error('❌ Pipeline dihentikan: destructive migration detected in unapplied migrations!');
+                process.exit(1);
+              } else {
+                console.log('✅ Safe migration check passed.');
+              }
+              EOF
+
+              node /tmp/safe-guard.js
 
               echo ""
               echo "======================================"
