@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 
 const secret = new TextEncoder().encode(
@@ -38,7 +39,6 @@ export async function GET(
                     include: {
                         actualAchievements: true,
                         site: { select: { name: true } },
-                        mixRadiusInvestorSite: { select: { name: true, owners: true } }
                     }
                 }
             }
@@ -49,6 +49,13 @@ export async function GET(
         }
 
         const p = rabInvestor.rabProject
+
+        let mixRadiusInvestorSite = null;
+        if (p.mixRadiusInvestorSiteId) {
+            mixRadiusInvestorSite = await prismaBilling.mixRadiusInvestorSite.findUnique({
+                where: { id: p.mixRadiusInvestorSiteId }
+            });
+        }
 
         // Prepare dual billing logic for subscriber count & revenue
         let totalSubscribers = 0
@@ -76,8 +83,8 @@ export async function GET(
             actualRevenueToDate = payingCustomers.reduce((acc, c) => acc + Number((c as any).hargaPaket?.harga || 0), 0)
 
             // MIXRADIUS API BILLING
-        } else if (p.mixRadiusInvestorSiteId && p.mixRadiusInvestorSite) {
-            const owners = p.mixRadiusInvestorSite.owners || []
+        } else if (p.mixRadiusInvestorSiteId && mixRadiusInvestorSite) {
+            const owners = mixRadiusInvestorSite.owners || []
             if (owners.length > 0) {
                 try {
                     const service = getMixRadiusService()
@@ -136,7 +143,7 @@ export async function GET(
             name: p.name,
             description: p.description,
             status: p.status,
-            siteName: p.mixRadiusInvestorSiteId ? p.mixRadiusInvestorSite?.name : p.site?.name,
+            siteName: p.mixRadiusInvestorSiteId ? mixRadiusInvestorSite?.name : p.site?.name,
             billingSource: p.mixRadiusInvestorSiteId ? 'MIXRADIUS' : (p.siteId ? 'INTERNAL' : 'NONE'),
             investmentAmount: rabInvestor.investmentAmount.toString(),
             profitSharePercent: rabInvestor.profitSharePercent,

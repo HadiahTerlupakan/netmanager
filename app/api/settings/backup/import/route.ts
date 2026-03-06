@@ -119,7 +119,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // Extract tar.gz ke extractDir
         const extractDir = path.join(tmpDir, 'extracted')
         fs.mkdirSync(extractDir)
-        await execAsync(`tar -xzf "${uploadedFilePath}" -C "${extractDir}"`, { shell: '/bin/bash' })
+        await execAsync(`tar -xzf "${uploadedFilePath}" -C "${extractDir}"`, { shell: '/bin/sh' })
 
         // Cari semua file .sql.gz di dalam extracted dir
         const extractedFiles = fs.readdirSync(extractDir).filter((f) => f.endsWith('.sql.gz'))
@@ -162,32 +162,47 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 // Ini kunci utama agar format COPY maupun INSERT bisa masuk tanpa konflik
                 await execAsync(
                     `${pgPrefix} "${psqlBin}" -d "${dbConfig.database}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" -q`,
-                    { shell: '/bin/bash', maxBuffer: 1024 * 1024 * 10 }
+                    { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10 }
                 )
 
                 // LANGKAH 2: Import dump (mendukung COPY dan INSERT)
                 await execAsync(
                     `${pgPrefix} gunzip -c "${sqlGzPath}" | "${psqlBin}" -d "${dbConfig.database}" -q > /dev/null 2>&1`,
-                    { shell: '/bin/bash', maxBuffer: 1024 * 1024 * 10 }
+                    { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10 }
                 )
 
-                // LANGKAH 3: Untuk netmanager, jalankan prisma db push
+                // LANGKAH 3: Jalankan prisma db push untuk sync schema
                 // agar kolom baru yang ada di schema.prisma (tapi belum ada di dump) ikut terbuat
-                if (dbName === 'netmanager') {
-                    const prismaBin = findPrismaBin()
+                const prismaBin = findPrismaBin()
+                const DB_CONFIG_MAP: Record<string, { config?: string; migrationsDir: string }> = {
+                    netmanager: { migrationsDir: 'prisma/migrations' },
+                    radius: { config: 'prisma.radius.config.ts', migrationsDir: 'prisma/radius_migrations' },
+                    billing: { config: 'prisma.billing.config.ts', migrationsDir: 'prisma/billing_migrations' },
+                    mitra: { config: 'prisma.mitra.config.ts', migrationsDir: 'prisma/mitra_migrations' },
+                }
+                const dbConf = DB_CONFIG_MAP[dbName]
+
+                if (dbConf) {
+                    const configFlag = dbConf.config ? ` --config=${dbConf.config}` : ''
+
                     try {
                         await execAsync(
-                            `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss --skip-generate`,
+                            `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss${configFlag}`,
                             {
-                                shell: '/bin/bash',
+                                shell: '/bin/sh',
                                 maxBuffer: 1024 * 1024 * 30,
                                 env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
                             }
                         )
                     } catch (pushErr) {
-                        // Push gagal tapi data sudah masuk — tidak perlu error fatal
-                        console.warn('[backup:import] prisma db push warning:', String(pushErr).substring(0, 300))
+                        console.warn(`[backup:import] prisma db push warning for ${dbName}:`, String(pushErr).substring(0, 300))
                     }
+
+                    // LANGKAH 4: Mark semua migration sebagai applied tidak lagi dilakukan manual via loop
+                    // Karena ini memakan waktu sangat lama (bisa 10+ menit untuk >70 migrasi) dan
+                    // memicu 504 Gateway Timeout di web endpoint.
+                    // Saat import database di staging/prod, struktur database dan isinya sudah 
+                    // menggantikan seluruhnya, dan tabel _prisma_migrations ikut ter-import.
                 }
 
                 results.push({

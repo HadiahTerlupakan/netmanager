@@ -129,7 +129,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
             ].join(' ')
 
             try {
-                await execAsync(pgDumpCmd, { shell: '/bin/bash' })
+                await execAsync(pgDumpCmd, { shell: '/bin/sh' })
                 dumpFiles.push(dumpFilePath)
             } catch (err) {
                 const errMsg = err instanceof Error ? err.message : String(err)
@@ -146,7 +146,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
         // Buat .tar.gz dari semua file dump
         const fileNames = dumpFiles.map((f) => path.basename(f)).join(' ')
         await execAsync(`tar -czf "${tarFilePath}" -C "${tmpDir}" ${fileNames}`, {
-            shell: '/bin/bash',
+            shell: '/bin/sh',
         })
 
         // Baca file tar

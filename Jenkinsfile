@@ -1,5 +1,8 @@
 // Jenkinsfile (Controller Isolation / Kubernetes Pod version)
 pipeline {
+    options {
+        disableConcurrentBuilds()
+    }
     agent {
         kubernetes {
             yaml """
@@ -138,12 +141,85 @@ spec:
             }
         }
 
+        stage('Database Migration (Zero Downtime K8s Job)') {
+            options {
+                timeout(time: 35, unit: 'MINUTES')
+            }
+            steps {
+                container('kubectl') {
+                    script {
+                        def isProduction = (DOCKER_TAG == 'production')
+
+                        if (isProduction) {
+                            echo "🔒 PRODUCTION: Creating database backup before migration..."
+                            // Backup database disalurkan keluar pod ke workspace Jenkins agar persisten
+                            def backupStatus = sh(
+                                script: """
+                                BACKUP_FILE="backup_${NAMESPACE}_\$(date +%Y%m%d_%H%M%S).sql.gz"
+                                echo "Creating backup streaming to Jenkins workspace: \$BACKUP_FILE"
+                                kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'pg_dump "\$DATABASE_URL" --no-owner --no-privileges' | gzip > "\$BACKUP_FILE"
+                                ls -lh "\$BACKUP_FILE"
+                                """,
+                                returnStatus: true
+                            )
+
+                            if (backupStatus != 0) {
+                                echo "⚠️ Warning: Pre-migration backup failed (mungkin pod belum ada), tapi migration dilanjutkan."
+                            } else {
+                                echo "✅ Database backup berhasil dibuat."
+                            }
+                        }
+
+                        echo "Menjalankan K8s Job untuk Database Migration di ${NAMESPACE}..."
+                        
+                        // 1. Bersihkan Job lama jika ada
+                        sh "kubectl delete job netmanager-migration-job --namespace=${NAMESPACE} --ignore-not-found"
+                        
+                        // 2. Terapkan config map TERBARU sebelum job jalan
+                        sh "kubectl apply -f ${K8S_DIR}/configmap.yaml --namespace=${NAMESPACE} || true"
+
+                        // 3. Render template dan apply Job
+                        sh """
+                        sed -e 's|{{NAMESPACE}}|${NAMESPACE}|g' \\
+                            -e 's|{{IMAGE_TAG}}|${DOCKER_IMAGE}:${DOCKER_TAG}|g' \\
+                            k8s/migration-job.yaml | kubectl apply -f -
+                        """
+                        
+                        // 4. Polling for Job completion or failure (menghindari race condition)
+                        def jobStatus = sh(
+                            script: """
+                                echo "Menunggu Kubernetes Job netmanager-migration-job (max 30 menit)..."
+                                for i in \$(seq 1 360); do
+                                    COMPLETE=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "False")
+                                    FAILED=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo "False")
+                                    if [ "\$COMPLETE" = "True" ]; then exit 0; fi
+                                    if [ "\$FAILED" = "True" ]; then exit 1; fi
+                                    sleep 5
+                                done
+                                exit 1 # Timeout
+                            """,
+                            returnStatus: true
+                        )
+                        
+                        if (jobStatus != 0) {
+                            echo "❌ Migration Job GAGAL! Deployment dibatalkan."
+                            sh "kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=100 || true"
+                            error("Pipeline berhenti untuk mencegah corrupt data / downtime.")
+                        } else {
+                            echo "✅ Migration selesai dengan sukses!"
+                            sh "kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=50 || true"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Deploy to K8s') {
             steps {
                 container('kubectl') {
                     script {
                         echo "Deploying to Kubernetes namespace ${NAMESPACE} using ${K8S_DIR}..."
-                        // Apply all manifests in correct directory.
+                        // Apply all manifests (termasuk Deployment aplikasi yang baru)
                         sh "kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
                         
                         // Force rollout restart with a slight delay.
@@ -151,20 +227,6 @@ spec:
                         
                         // Wait for the rollout to complete
                         sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
-                    }
-                }
-            }
-        }
-
-        stage('Database Migration') {
-            steps {
-                container('kubectl') {
-                    script {
-                        echo "Running Prisma migrations for all databases in ${NAMESPACE}..."
-                        // Menjalankan migrasi otomatis melalui pod aplikasi yang baru di-deploy
-                        sh """
-                        kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'npm run prisma:migrate-deploy'
-                        """
                     }
                 }
             }
@@ -194,6 +256,8 @@ spec:
     post {
         always {
             echo "Pipeline finished."
+            // Hapus backup files lama (lebih dari 7 hari)
+            sh "find . -name 'backup_*.sql.gz' -mtime +7 -delete 2>/dev/null || true"
         }
         success {
                 echo "Deployment to ${NAMESPACE} Successful!"

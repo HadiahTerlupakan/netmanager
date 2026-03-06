@@ -1,0 +1,200 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: netmanager-migration-job
+  namespace: "{{NAMESPACE}}"
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        app: netmanager-migration
+    spec:
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: migration
+          image: "{{IMAGE_TAG}}"
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          envFrom:
+            - configMapRef:
+                name: netmanager-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL
+            - name: RADIUS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_DATABASE_URL
+            - name: DATABASE_URL_BILLING
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_BILLING
+            - name: DATABASE_URL_MITRA
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_MITRA
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: REDIS_PASSWORD
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: AUTH_SECRET
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: NEXTAUTH_SECRET
+            - name: RADIUS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_SECRET
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: CRON_SECRET
+            - name: OAUTH_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: OAUTH_ENCRYPTION_KEY
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: REDIS_URL
+          command:
+            - "sh"
+            - "-c"
+            - |
+              set -e
+
+              echo "======================================"
+              echo "🚀 NETMANAGER DATABASE MIGRATION JOB"
+              echo "======================================"
+
+              echo ""
+              echo "=== Checking migration status ==="
+              npx prisma migrate status || true
+              npx prisma migrate status --config=prisma.radius.config.ts || true
+              npx prisma migrate status --config=prisma.billing.config.ts || true
+              npx prisma migrate status --config=prisma.mitra.config.ts || true
+
+              echo ""
+              echo "======================================"
+              echo "🛡️ SAFE MIGRATION GUARD CHECK"
+              echo "======================================"
+              DANGEROUS=0
+
+              cat << 'EOF' > /tmp/safe-guard.js
+              const fs = require('fs');
+              const { execSync } = require('child_process');
+
+              function checkDatabase(config, folder) {
+                let unapplied = [];
+                try {
+                  execSync(`npx prisma migrate status ${config}`, { stdio: 'pipe', encoding: 'utf-8' });
+                } catch (e) {
+                  const out = (e.stdout || '') + '\n' + (e.stderr || '');
+                  const cleanOut = out.replace(/\x1B\[\d+m/g, '');
+                  const match = cleanOut.match(/have not yet been applied:\n([\s\S]*?)(?:\n\n|\n[A-Z]|$)/i);
+                  if (match) {
+                    unapplied = match[1].split('\n').map(s => s.trim()).filter(s => /^\d+_/.test(s));
+                  }
+                }
+
+                let dangerous = false;
+                for (const m of unapplied) {
+                  const file = `${folder}/${m}/migration.sql`;
+                  if (fs.existsSync(file)) {
+                    const sql = fs.readFileSync(file, 'utf8');
+                    if (/DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|ALTER\s+(TABLE\s+".*"\s+ALTER\s+COLUMN|TYPE)/i.test(sql)) {
+                      console.error(`⚠️ Destructive SQL found in UNAPPLIED migration: ${file}`);
+                      dangerous = true;
+                    }
+                  }
+                }
+                return dangerous;
+              }
+
+              const db = [
+                { c: '', f: 'prisma/migrations' },
+                { c: '--config=prisma.radius.config.ts', f: 'prisma/radius_migrations' },
+                { c: '--config=prisma.billing.config.ts', f: 'prisma/billing_migrations' },
+                { c: '--config=prisma.mitra.config.ts', f: 'prisma/mitra_migrations' }
+              ];
+
+              let hasDanger = false;
+              for (const {c, f} of db) {
+                if (checkDatabase(c, f)) hasDanger = true;
+              }
+
+              if (hasDanger) {
+                console.error('❌ Pipeline dihentikan: destructive migration detected in unapplied migrations!');
+                process.exit(1);
+              } else {
+                console.log('✅ Safe migration check passed.');
+              }
+              EOF
+
+              node /tmp/safe-guard.js
+
+              echo ""
+              echo "======================================"
+              echo "Running netmanager migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy
+
+              echo ""
+              echo "======================================"
+              echo "Running radius migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy --config=prisma.radius.config.ts
+
+              echo ""
+              echo "======================================"
+              echo "Running billing migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy --config=prisma.billing.config.ts
+
+              echo ""
+              echo "======================================"
+              echo "Running mitra migrations"
+              echo "======================================"
+
+              npx prisma migrate deploy --config=prisma.mitra.config.ts
+
+              echo ""
+              echo "======================================"
+              echo "✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY"
+              echo "======================================"
