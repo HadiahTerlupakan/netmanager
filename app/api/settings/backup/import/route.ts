@@ -198,39 +198,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                         console.warn(`[backup:import] prisma db push warning for ${dbName}:`, String(pushErr).substring(0, 300))
                     }
 
-                    // LANGKAH 4: Mark semua migration sebagai applied
-                    // Agar deploy berikutnya (prisma migrate deploy) tidak gagal
-                    try {
-                        const migrationsDir = path.join(process.cwd(), dbConf.migrationsDir)
-                        if (fs.existsSync(migrationsDir)) {
-                            const migrationFolders = fs.readdirSync(migrationsDir)
-                                .filter(f => {
-                                    const fullPath = path.join(migrationsDir, f)
-                                    return fs.statSync(fullPath).isDirectory() && f !== 'migration_lock.toml'
-                                })
-                                .sort()
-
-                            for (const migration of migrationFolders) {
-                                try {
-                                    // rolled-back dulu untuk clear failed status
-                                    await execAsync(
-                                        `cd "${process.cwd()}" && "${prismaBin}" migrate resolve --rolled-back "${migration}"${configFlag}`,
-                                        { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' } }
-                                    )
-                                } catch { /* ignore */ }
-                                try {
-                                    // lalu mark sebagai applied
-                                    await execAsync(
-                                        `cd "${process.cwd()}" && "${prismaBin}" migrate resolve --applied "${migration}"${configFlag}`,
-                                        { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' } }
-                                    )
-                                } catch { /* ignore */ }
-                            }
-                            console.log(`[backup:import] ${dbName}: ${migrationFolders.length} migrations marked as applied.`)
-                        }
-                    } catch (resolveErr) {
-                        console.warn(`[backup:import] migrate resolve warning for ${dbName}:`, String(resolveErr).substring(0, 300))
-                    }
+                    // LANGKAH 4: Mark semua migration sebagai applied tidak lagi dilakukan manual via loop
+                    // Karena ini memakan waktu sangat lama (bisa 10+ menit untuk >70 migrasi) dan
+                    // memicu 504 Gateway Timeout di web endpoint.
+                    // Saat import database di staging/prod, struktur database dan isinya sudah 
+                    // menggantikan seluruhnya, dan tabel _prisma_migrations ikut ter-import.
                 }
 
                 results.push({
