@@ -17,7 +17,7 @@ spec:
       containers:
         - name: migration
           image: { { IMAGE_TAG } }
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
                 name: netmanager-config
@@ -118,7 +118,6 @@ spec:
               for dir in prisma/migrations/*/; do
                   m=$(basename "$dir")
                   if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" || true
                       npx prisma migrate resolve --applied "$m" || true
                   fi
               done
@@ -127,7 +126,6 @@ spec:
               for dir in prisma/radius_migrations/*/; do
                   m=$(basename "$dir")
                   if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.radius.config.ts || true
                       npx prisma migrate resolve --applied "$m" --config=prisma.radius.config.ts || true
                   fi
               done
@@ -136,7 +134,6 @@ spec:
               for dir in prisma/billing_migrations/*/; do
                   m=$(basename "$dir")
                   if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.billing.config.ts || true
                       npx prisma migrate resolve --applied "$m" --config=prisma.billing.config.ts || true
                   fi
               done
@@ -145,8 +142,7 @@ spec:
               for dir in prisma/mitra_migrations/*/; do
                   m=$(basename "$dir")
                   if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
-                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.mitra.config.ts || true
-                      npx prisma migrate resolve --applied "$m" --config=prisma.mitra.config.ts || true
+                       npx prisma migrate resolve --applied "$m" --config=prisma.mitra.config.ts || true
                   fi
               done
 

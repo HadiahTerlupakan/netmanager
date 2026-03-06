@@ -146,15 +146,13 @@ spec:
 
                         if (isProduction) {
                             echo "🔒 PRODUCTION: Creating database backup before migration..."
-                            // Backup database menggunakan pod yang lama sebelum migration
+                            // Backup database disalurkan keluar pod ke workspace Jenkins agar persisten
                             def backupStatus = sh(
                                 script: """
-                                kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c '
-                                    BACKUP_FILE="/tmp/pre_migration_backup_\$(date +%Y%m%d_%H%M%S).sql.gz"
-                                    echo "Creating backup: \$BACKUP_FILE"
-                                    PGPASSWORD=\$DB_PASSWORD pg_dump -h \$DB_HOST -U \$DB_USER -d \$DB_NAME --no-owner --no-privileges | gzip > \$BACKUP_FILE
-                                    echo "BACKUP_PATH=\$BACKUP_FILE"
-                                '
+                                BACKUP_FILE="backup_${NAMESPACE}_\$(date +%Y%m%d_%H%M%S).sql.gz"
+                                echo "Creating backup streaming to Jenkins workspace: \$BACKUP_FILE"
+                                kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'pg_dump "\$DATABASE_URL" --no-owner --no-privileges' | gzip > "\$BACKUP_FILE"
+                                ls -lh "\$BACKUP_FILE"
                                 """,
                                 returnStatus: true
                             )
@@ -171,9 +169,8 @@ spec:
                         // 1. Bersihkan Job lama jika ada
                         sh "kubectl delete job netmanager-migration-job --namespace=${NAMESPACE} --ignore-not-found"
                         
-                        // 2. Terapkan config map dan secret TERBARU sebelum job jalan
+                        // 2. Terapkan config map TERBARU sebelum job jalan
                         sh "kubectl apply -f ${K8S_DIR}/configmap.yaml --namespace=${NAMESPACE} || true"
-                        sh "kubectl apply -f ${K8S_DIR}/secrets.yaml --namespace=${NAMESPACE} || true"
 
                         // 3. Render template dan apply Job
                         sh """
@@ -182,9 +179,19 @@ spec:
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
                         
-                        // 4. Wait for Job completion
+                        // 4. Polling for Job completion or failure (menghindari race condition)
                         def jobStatus = sh(
-                            script: "kubectl wait --for=condition=complete job/netmanager-migration-job --namespace=${NAMESPACE} --timeout=300s",
+                            script: """
+                                echo "Menunggu Kubernetes Job netmanager-migration-job (max 5 menit)..."
+                                for i in \$(seq 1 60); do
+                                    COMPLETE=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "False")
+                                    FAILED=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo "False")
+                                    if [ "\$COMPLETE" = "True" ]; then exit 0; fi
+                                    if [ "\$FAILED" = "True" ]; then exit 1; fi
+                                    sleep 5
+                                done
+                                exit 1 # Timeout
+                            """,
                             returnStatus: true
                         )
                         
@@ -243,6 +250,8 @@ spec:
     post {
         always {
             echo "Pipeline finished."
+            // Hapus backup files lama (lebih dari 7 hari)
+            sh "find . -name 'backup_*.sql.gz' -mtime +7 -delete 2>/dev/null || true"
         }
         success {
                 echo "Deployment to ${NAMESPACE} Successful!"
