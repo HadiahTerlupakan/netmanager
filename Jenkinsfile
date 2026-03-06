@@ -237,6 +237,15 @@ spec:
                                             fi
                                         done
                                     fi
+
+                                    echo "Cleaning up failed migration records from all databases..."
+                                    for db_url_var in DATABASE_URL RADIUS_DATABASE_URL DATABASE_URL_BILLING DATABASE_URL_MITRA; do
+                                        db_url=\$(printenv \$db_url_var 2>/dev/null || echo "")
+                                        if [ -n "\$db_url" ]; then
+                                            echo "Cleaning failed migrations from \$db_url_var..."
+                                            psql "\$db_url" -c "DELETE FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL;" 2>/dev/null || true
+                                        fi
+                                    done
                                     
                                     echo "Re-running migrate deploy..."
                                     npm run prisma:migrate-deploy
