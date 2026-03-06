@@ -138,25 +138,7 @@ spec:
             }
         }
 
-        stage('Deploy to K8s') {
-            steps {
-                container('kubectl') {
-                    script {
-                        echo "Deploying to Kubernetes namespace ${NAMESPACE} using ${K8S_DIR}..."
-                        // Apply all manifests in correct directory.
-                        sh "kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
-                        
-                        // Force rollout restart with a slight delay.
-                        sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')"
-                        
-                        // Wait for the rollout to complete
-                        sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
-                    }
-                }
-            }
-        }
-
-        stage('Database Migration') {
+        stage('Database Migration (Zero Downtime K8s Job)') {
             steps {
                 container('kubectl') {
                     script {
@@ -164,7 +146,7 @@ spec:
 
                         if (isProduction) {
                             echo "🔒 PRODUCTION: Creating database backup before migration..."
-                            // Backup database sebelum migration (safety net)
+                            // Backup database menggunakan pod yang lama sebelum migration
                             def backupStatus = sh(
                                 script: """
                                 kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c '
@@ -172,97 +154,66 @@ spec:
                                     echo "Creating backup: \$BACKUP_FILE"
                                     PGPASSWORD=\$DB_PASSWORD pg_dump -h \$DB_HOST -U \$DB_USER -d \$DB_NAME --no-owner --no-privileges | gzip > \$BACKUP_FILE
                                     echo "BACKUP_PATH=\$BACKUP_FILE"
-                                    ls -lh \$BACKUP_FILE
                                 '
                                 """,
                                 returnStatus: true
                             )
 
                             if (backupStatus != 0) {
-                                echo "⚠️ Warning: Pre-migration backup failed, tapi migration tetap dilanjutkan."
+                                echo "⚠️ Warning: Pre-migration backup failed (mungkin pod belum ada), tapi migration dilanjutkan."
                             } else {
                                 echo "✅ Database backup berhasil dibuat."
                             }
                         }
 
-                        echo "Running Prisma migrations for all databases in ${NAMESPACE}..."
-                        def migrateStatus = sh(
-                            script: """
-                            kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'npm run prisma:migrate-deploy'
-                            """,
+                        echo "Menjalankan K8s Job untuk Database Migration di ${NAMESPACE}..."
+                        
+                        // 1. Bersihkan Job lama jika ada
+                        sh "kubectl delete job netmanager-migration-job --namespace=${NAMESPACE} --ignore-not-found"
+                        
+                        // 2. Terapkan config map dan secret TERBARU sebelum job jalan
+                        sh "kubectl apply -f ${K8S_DIR}/configmap.yaml --namespace=${NAMESPACE} || true"
+                        sh "kubectl apply -f ${K8S_DIR}/secrets.yaml --namespace=${NAMESPACE} || true"
+
+                        // 3. Render template dan apply Job
+                        sh """
+                        sed -e 's|{{NAMESPACE}}|${NAMESPACE}|g' \\
+                            -e 's|{{IMAGE_TAG}}|${DOCKER_IMAGE}:${DOCKER_TAG}|g' \\
+                            k8s/migration-job.yaml | kubectl apply -f -
+                        """
+                        
+                        // 4. Wait for Job completion
+                        def jobStatus = sh(
+                            script: "kubectl wait --for=condition=complete job/netmanager-migration-job --namespace=${NAMESPACE} --timeout=300s",
                             returnStatus: true
                         )
-
-                        if (migrateStatus != 0) {
-                            echo "⚠️ Migration gagal, mencoba fallback auto-resolve..."
-                            def fallbackStatus = sh(
-                                script: """
-                                kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c '
-                                    echo "=== Step 1: Clearing failed migrations & marking as applied ==="
-
-                                    echo "Resolving netmanager migrations..."
-                                    for dir in prisma/migrations/*/; do
-                                        m=\$(basename "\$dir")
-                                        if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
-                                            npx prisma migrate resolve --rolled-back "\$m" 2>/dev/null || true
-                                            npx prisma migrate resolve --applied "\$m" 2>/dev/null || true
-                                        fi
-                                    done
-
-                                    echo "Resolving radius migrations..."
-                                    for dir in prisma/radius_migrations/*/; do
-                                        m=\$(basename "\$dir")
-                                        if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
-                                            npx prisma migrate resolve --rolled-back "\$m" --config=prisma.radius.config.ts 2>/dev/null || true
-                                            npx prisma migrate resolve --applied "\$m" --config=prisma.radius.config.ts 2>/dev/null || true
-                                        fi
-                                    done
-
-                                    echo "Resolving billing migrations..."
-                                    for dir in prisma/billing_migrations/*/; do
-                                        m=\$(basename "\$dir")
-                                        if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
-                                            npx prisma migrate resolve --rolled-back "\$m" --config=prisma.billing.config.ts 2>/dev/null || true
-                                            npx prisma migrate resolve --applied "\$m" --config=prisma.billing.config.ts 2>/dev/null || true
-                                        fi
-                                    done
-
-                                    echo "Resolving mitra migrations..."
-                                    for dir in prisma/mitra_migrations/*/; do
-                                        m=\$(basename "\$dir")
-                                        if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
-                                            npx prisma migrate resolve --rolled-back "\$m" --config=prisma.mitra.config.ts 2>/dev/null || true
-                                            npx prisma migrate resolve --applied "\$m" --config=prisma.mitra.config.ts 2>/dev/null || true
-                                        fi
-                                    done
-
-                                    echo "=== Step 2: Re-running migrate deploy ==="
-                                    npm run prisma:migrate-deploy
-                                '
-                                """,
-                                returnStatus: true
-                            )
-                            
-                            if (fallbackStatus != 0) {
-                                if (isProduction) {
-                                    echo "❌ Migration gagal di PRODUCTION!"
-                                    echo "🔄 Mencoba rollback ke image sebelumnya..."
-                                    // Rollback deployment ke image sebelumnya
-                                    sh """
-                                    kubectl rollout undo deployment/netmanager-app --namespace=${NAMESPACE}
-                                    kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=300s
-                                    """
-                                    error("Migration gagal di production. Deployment di-rollback ke versi sebelumnya. Silakan periksa migration secara manual.")
-                                } else {
-                                    echo "⚠️ Migration gagal di STAGING. Periksa log untuk detail."
-                                    error("Migration gagal di staging.")
-                                }
-                            } else {
-                                echo "✅ Fallback migration berhasil!"
-                            }
+                        
+                        if (jobStatus != 0) {
+                            echo "❌ Migration Job GAGAL! Deployment dibatalkan."
+                            sh "kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=100 || true"
+                            error("Pipeline berhenti untuk mencegah corrupt data / downtime.")
                         } else {
-                            echo "✅ Database migration berhasil!"
+                            echo "✅ Migration selesai dengan sukses!"
+                            sh "kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=50 || true"
                         }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to K8s') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "Deploying to Kubernetes namespace ${NAMESPACE} using ${K8S_DIR}..."
+                        // Apply all manifests (termasuk Deployment aplikasi yang baru)
+                        sh "kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
+                        
+                        // Force rollout restart with a slight delay.
+                        sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')"
+                        
+                        // Wait for the rollout to complete
+                        sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
                     }
                 }
             }

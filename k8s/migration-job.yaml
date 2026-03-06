@@ -1,0 +1,166 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: netmanager-migration-job
+  namespace: { { NAMESPACE } }
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: netmanager-migration
+    spec:
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: migration
+          image: { { IMAGE_TAG } }
+          imagePullPolicy: Never
+          envFrom:
+            - configMapRef:
+                name: netmanager-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: REDIS_PASSWORD
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: AUTH_SECRET
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: NEXTAUTH_SECRET
+            - name: RADIUS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_DATABASE_URL
+            - name: DATABASE_URL_BILLING
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_BILLING
+            - name: DATABASE_URL_MITRA
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: DATABASE_URL_MITRA
+            - name: RADIUS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_SECRET
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: CRON_SECRET
+            - name: OAUTH_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: OAUTH_ENCRYPTION_KEY
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: REDIS_URL
+          command:
+            - "sh"
+            - "-c"
+            - |
+              echo "=== Starting Database Migration Job ==="
+
+              # Step 0: Debug Status
+              echo "=== Migration Status (sebelum deploy) ==="
+              npx prisma migrate status 2>&1 || true
+              npx prisma migrate status --config=prisma.radius.config.ts 2>&1 || true
+              npx prisma migrate status --config=prisma.billing.config.ts 2>&1 || true
+              npx prisma migrate status --config=prisma.mitra.config.ts 2>&1 || true
+
+              echo "=== Executing normal migrate deploy ==="
+              if npm run prisma:migrate-deploy; then
+                echo "✅ Migration successful!"
+                exit 0
+              fi
+
+              echo "⚠️ Migration gagal. Menjalankan fallback logic..."
+              echo "=== Step 1: Schema validation (migrate diff) ==="
+              echo "--- netmanager ---"
+              npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma 2>&1 || true
+              echo "--- radius ---"
+              npx prisma migrate diff --from-url "$RADIUS_DATABASE_URL" --to-schema-datamodel prisma/schema.radius.prisma 2>&1 || true
+              echo "--- billing ---"
+              npx prisma migrate diff --from-url "$DATABASE_URL_BILLING" --to-schema-datamodel prisma/billing.prisma 2>&1 || true
+              echo "--- mitra ---"
+              npx prisma migrate diff --from-url "$DATABASE_URL_MITRA" --to-schema-datamodel prisma/mitra.prisma 2>&1 || true
+
+              echo "=== Step 2: Clearing failed migrations & marking as applied ==="
+
+              echo "Resolving netmanager migrations..."
+              for dir in prisma/migrations/*/; do
+                  m=$(basename "$dir")
+                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
+                      npx prisma migrate resolve --rolled-back "$m" || true
+                      npx prisma migrate resolve --applied "$m" || true
+                  fi
+              done
+
+              echo "Resolving radius migrations..."
+              for dir in prisma/radius_migrations/*/; do
+                  m=$(basename "$dir")
+                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
+                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.radius.config.ts || true
+                      npx prisma migrate resolve --applied "$m" --config=prisma.radius.config.ts || true
+                  fi
+              done
+
+              echo "Resolving billing migrations..."
+              for dir in prisma/billing_migrations/*/; do
+                  m=$(basename "$dir")
+                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
+                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.billing.config.ts || true
+                      npx prisma migrate resolve --applied "$m" --config=prisma.billing.config.ts || true
+                  fi
+              done
+
+              echo "Resolving mitra migrations..."
+              for dir in prisma/mitra_migrations/*/; do
+                  m=$(basename "$dir")
+                  if [ "$m" != "migration_lock.toml" ] && [ "$m" != "*" ]; then
+                      npx prisma migrate resolve --rolled-back "$m" --config=prisma.mitra.config.ts || true
+                      npx prisma migrate resolve --applied "$m" --config=prisma.mitra.config.ts || true
+                  fi
+              done
+
+              echo "=== Step 3: Migration status setelah resolve ==="
+              npx prisma migrate status 2>&1 || true
+              npx prisma migrate status --config=prisma.radius.config.ts 2>&1 || true
+              npx prisma migrate status --config=prisma.billing.config.ts 2>&1 || true
+              npx prisma migrate status --config=prisma.mitra.config.ts 2>&1 || true
+
+              echo "=== Step 4: Re-running migrate deploy ==="
+              if npm run prisma:migrate-deploy; then
+                echo "✅ Fallback Migration successful!"
+                exit 0
+              else
+                echo "❌ Fallback Migration FAILED!"
+                exit 1
+              fi
