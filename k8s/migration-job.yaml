@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: netmanager-migration-job
-  namespace: { { NAMESPACE } }
+  namespace: "{{NAMESPACE}}"
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 600
@@ -16,7 +16,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: migration
-          image: { { IMAGE_TAG } }
+          image: "{{IMAGE_TAG}}"
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
