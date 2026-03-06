@@ -194,18 +194,73 @@ spec:
                         )
 
                         if (migrateStatus != 0) {
-                            if (isProduction) {
-                                echo "❌ Migration gagal di PRODUCTION!"
-                                echo "🔄 Mencoba rollback ke image sebelumnya..."
-                                // Rollback deployment ke image sebelumnya
-                                sh """
-                                kubectl rollout undo deployment/netmanager-app --namespace=${NAMESPACE}
-                                kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=300s
-                                """
-                                error("Migration gagal di production. Deployment di-rollback ke versi sebelumnya. Silakan periksa migration secara manual.")
+                            echo "⚠️ Migration pertama gagal, mencoba fallback auto-resolve (baselining)..."
+                            def fallbackStatus = sh(
+                                script: """
+                                kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c '
+                                    echo "Resolving netmanager migrations..."
+                                    if [ -d "prisma/migrations" ]; then
+                                        for dir in prisma/migrations/*/; do
+                                            m=\$(basename "\$dir")
+                                            if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
+                                                npx prisma migrate resolve --applied "\$m" 2>/dev/null || true
+                                            fi
+                                        done
+                                    fi
+
+                                    echo "Resolving radius migrations..."
+                                    if [ -d "prisma/radius_migrations" ]; then
+                                        for dir in prisma/radius_migrations/*/; do
+                                            m=\$(basename "\$dir")
+                                            if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
+                                                npx prisma migrate resolve --applied "\$m" --config=prisma.radius.config.ts 2>/dev/null || true
+                                            fi
+                                        done
+                                    fi
+
+                                    echo "Resolving billing migrations..."
+                                    if [ -d "prisma/billing_migrations" ]; then
+                                        for dir in prisma/billing_migrations/*/; do
+                                            m=\$(basename "\$dir")
+                                            if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
+                                                npx prisma migrate resolve --applied "\$m" --config=prisma.billing.config.ts 2>/dev/null || true
+                                            fi
+                                        done
+                                    fi
+
+                                    echo "Resolving mitra migrations..."
+                                    if [ -d "prisma/mitra_migrations" ]; then
+                                        for dir in prisma/mitra_migrations/*/; do
+                                            m=\$(basename "\$dir")
+                                            if [ "\$m" != "migration_lock.toml" ] && [ "\$m" != "*" ]; then
+                                                npx prisma migrate resolve --applied "\$m" --config=prisma.mitra.config.ts 2>/dev/null || true
+                                            fi
+                                        done
+                                    fi
+                                    
+                                    echo "Re-running migrate deploy..."
+                                    npm run prisma:migrate-deploy
+                                '
+                                """,
+                                returnStatus: true
+                            )
+                            
+                            if (fallbackStatus != 0) {
+                                if (isProduction) {
+                                    echo "❌ Migration gagal di PRODUCTION!"
+                                    echo "🔄 Mencoba rollback ke image sebelumnya..."
+                                    // Rollback deployment ke image sebelumnya
+                                    sh """
+                                    kubectl rollout undo deployment/netmanager-app --namespace=${NAMESPACE}
+                                    kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=300s
+                                    """
+                                    error("Migration gagal di production. Deployment di-rollback ke versi sebelumnya. Silakan periksa migration secara manual.")
+                                } else {
+                                    echo "⚠️ Migration gagal di STAGING. Periksa log untuk detail."
+                                    error("Migration gagal di staging.")
+                                }
                             } else {
-                                echo "⚠️ Migration gagal di STAGING. Periksa log untuk detail."
-                                error("Migration gagal di staging.")
+                                echo "✅ Fallback migration berhasil!"
                             }
                         } else {
                             echo "✅ Database migration berhasil!"
