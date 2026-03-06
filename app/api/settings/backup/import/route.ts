@@ -177,7 +177,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                     const prismaBin = findPrismaBin()
                     try {
                         await execAsync(
-                            `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss --skip-generate`,
+                            `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss`,
                             {
                                 shell: '/bin/bash',
                                 maxBuffer: 1024 * 1024 * 30,

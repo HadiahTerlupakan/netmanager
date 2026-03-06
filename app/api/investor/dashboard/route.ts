@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { prisma } from '@/lib/prisma'
+import { prismaBilling } from '@/lib/prisma-billing'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 
 const secret = new TextEncoder().encode(
@@ -28,7 +29,6 @@ export async function GET() {
                     include: {
                         actualAchievements: true,
                         items: true,
-                        mixRadiusInvestorSite: { select: { name: true, owners: true } }
                     }
                 }
             }
@@ -49,12 +49,21 @@ export async function GET() {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .filter((id: any): id is string => id !== null))] as string[]
 
+        // Fetch MixRadiusInvestorSite details from billing DB
+        const investorSiteIds = [...new Set(rabInvestors.map((ri: any) => ri.rabProject.mixRadiusInvestorSiteId).filter(Boolean))] as string[]
+        const investorSites = investorSiteIds.length > 0
+            ? await prismaBilling.mixRadiusInvestorSite.findMany({
+                where: { id: { in: investorSiteIds } }
+            })
+            : []
+        const investorSiteMap = new Map(investorSites.map(is => [is.id, is]))
+
         // Compile MixRadius owners
         const mixRadiusOwners = [...new Set(rabInvestors
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .filter((ri: any) => ri.rabProject.mixRadiusInvestorSiteId && ri.rabProject.mixRadiusInvestorSite)
+            .filter((ri: any) => ri.rabProject.mixRadiusInvestorSiteId && investorSiteMap.has(ri.rabProject.mixRadiusInvestorSiteId))
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .flatMap((ri: any) => ri.rabProject.mixRadiusInvestorSite?.owners || []))]
+            .flatMap((ri: any) => investorSiteMap.get(ri.rabProject.mixRadiusInvestorSiteId)?.owners || []))]
 
         let totalSubscribers = 0
         let activeSubscribers = 0
@@ -154,10 +163,10 @@ export async function GET() {
                 currentActualRevenue = payingInternal.reduce((acc, c) => acc + Number(c.hargaPaket?.harga || 0), 0)
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } else if ((ri.rabProject as any).mixRadiusInvestorSiteId && (ri.rabProject as any).mixRadiusInvestorSite) {
+            } else if ((ri.rabProject as any).mixRadiusInvestorSiteId && investorSiteMap.has((ri.rabProject as any).mixRadiusInvestorSiteId)) {
                 // MixRadius API Billing
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const owners = (ri.rabProject as any).mixRadiusInvestorSite.owners || []
+                const owners = investorSiteMap.get((ri.rabProject as any).mixRadiusInvestorSiteId)?.owners || []
                 const activeMixRadius = mixRadiusCustomers.filter(c => {
                     const ownerLower = (c.owner_name || '').toLowerCase().trim()
                     const isOwnerMatch = owners.some((allowed: unknown) => {
