@@ -38,7 +38,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
   const [filterCategory, setFilterCategory] = useState('')
   const [filterSiteId, setFilterSiteId] = useState<string | undefined>(undefined)
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) // Default start of month
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]) // Default today
+  const [endDate, setEndDate] = useState((() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })()) // Default today
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
@@ -50,7 +50,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
     categoryId: '',
     accountId: '',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
     description: '',
     attachments: [] as string[]
   })
@@ -171,7 +171,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
         categoryId: '',
         accountId: '',
         amount: 0,
-        date: new Date().toISOString().split('T')[0],
+        date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
         description: '',
         attachments: []
       })

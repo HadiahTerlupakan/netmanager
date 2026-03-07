@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
-
+import { toZonedTime, toDate } from 'date-fns-tz'
+import { startOfDay as fnsStartOfDay, endOfDay as fnsEndOfDay } from 'date-fns'
 export class AttendanceValidationService {
     /**
      * Memvalidasi apakah user bisa check-in pada tanggal tertentu
@@ -7,16 +8,21 @@ export class AttendanceValidationService {
      * 1. Apakah ada Cuti yang disetujui (APPROVED) pada tanggal tersebut?
      * 2. Apakah tanggal tersebut adalah Hari Libur (Holiday)?
      */
-    async validateCheckInEligibility(userId: string, date: Date = new Date()): Promise<{
+    async validateCheckInEligibility(userId: string, date: Date = new Date(), timezone: string = 'Asia/Jakarta'): Promise<{
         isValid: boolean
         reason?: string
         type?: 'LEAVE' | 'HOLIDAY' | 'OFF_DAY'
     }> {
-        const startOfDay = new Date(date)
-        startOfDay.setHours(0, 0, 0, 0)
+        // Build the correct timezone boundaries
+        const zonedDate = toZonedTime(date, timezone)
         
-        const endOfDay = new Date(date)
-        endOfDay.setHours(23, 59, 59, 999)
+        // Start and end of day in the specified timezone
+        const localStartOfDay = fnsStartOfDay(zonedDate)
+        const localEndOfDay = fnsEndOfDay(zonedDate)
+        
+        // Convert to UTC Date objects for accurate Prisma queries
+        const startOfDay = toDate(localStartOfDay, { timeZone: timezone })
+        const endOfDay = toDate(localEndOfDay, { timeZone: timezone })
 
         // 1. Check Leave Requests (Cuti/Izin)
         const activeLeave = await prisma.leaveRequest.findFirst({

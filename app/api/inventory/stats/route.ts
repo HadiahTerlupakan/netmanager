@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { Prisma } from '@prisma/client'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
 
         // Date filter for "Today"
         const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
 
         // Add date filter to transaction filters
         const todayFilter: Prisma.BarangMasukWhereInput = {

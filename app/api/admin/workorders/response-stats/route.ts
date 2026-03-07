@@ -3,6 +3,8 @@ import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrder
 import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -24,12 +26,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     // Date calculation logic
     if (period === 'daily') {
         const now = new Date();
-        dateFrom = new Date(now.setHours(0, 0, 0, 0));
+        dateFrom = new Date(now.setTime(toStartOfDay(now).getTime()));
     } else if (period === 'weekly') {
         const now = new Date();
         const firstDay = now.getDate() - now.getDay(); 
         dateFrom = new Date(now.setDate(firstDay));
-        dateFrom.setHours(0, 0, 0, 0);
+        dateFrom.setTime(toStartOfDay(dateFrom).getTime());
     } else if (period === 'monthly') {
         const now = new Date();
         dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);

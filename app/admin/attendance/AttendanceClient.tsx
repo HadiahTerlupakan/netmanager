@@ -56,20 +56,30 @@ export function ClientComponent() {
 
     // Filters
     const [startDate, setStartDate] = useState(() => {
-        const now = new Date()
-        const year = now.getFullYear()
-        const month = String(now.getMonth() + 1).padStart(2, '0')
+        // Safe local date generator
+        const d = new Date()
+        // Convert to timezone offset explicitly, but simple padStart is safe for local browser time IF not using toISOString
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
         return `${year}-${month}-01`
     })
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+    const [endDate, setEndDate] = useState(() => {
+        const d = new Date()
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+    })
     const [siteId, setSiteId] = useState('')
     const [departmentId, setDepartmentId] = useState('')
+    const [searchQuery, setSearchQuery] = useState('')
 
     // Debounced filters
     const debouncedStartDate = useDebounce(startDate, 300)
     const debouncedEndDate = useDebounce(endDate, 300)
     const debouncedSiteId = useDebounce(siteId, 300)
     const debouncedDepartmentId = useDebounce(departmentId, 300)
+    const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
     // Summary
     const [summary, setSummary] = useState<Record<string, number>>({})
@@ -118,6 +128,7 @@ export function ClientComponent() {
             }
             if (debouncedSiteId) params.siteId = debouncedSiteId
             if (debouncedDepartmentId) params.departmentId = debouncedDepartmentId
+            if (debouncedSearchQuery) params.search = debouncedSearchQuery
 
             const query = new URLSearchParams(params)
 
@@ -140,7 +151,7 @@ export function ClientComponent() {
                 setLoading(false)
             }
         }
-    }, [page, debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, retryCountdown, showToast])
+    }, [page, debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, debouncedSearchQuery, retryCountdown, showToast])
 
     useEffect(() => {
         fetchOptions()
@@ -159,7 +170,7 @@ export function ClientComponent() {
             await fetchWithHandling(`/api/admin/attendance/${id}`, {
                 method: 'DELETE'
             })
-            
+
             showToast('success', 'Data absensi berhasil dihapus')
             fetchAttendances()
         } catch (error) {
@@ -182,7 +193,8 @@ export function ClientComponent() {
         }
         if (siteId) params.siteId = siteId
         if (departmentId) params.departmentId = departmentId
-        
+        if (searchQuery) params.search = searchQuery
+
         const query = new URLSearchParams(params)
         window.open(`/api/admin/attendance?${query.toString()}`, '_blank')
     }
@@ -215,7 +227,7 @@ export function ClientComponent() {
         const errors: Record<string, string> = {}
         const checkInValid = validateRequired(editForm.checkIn, 'Jam Masuk')
         if (!checkInValid.valid) errors.checkIn = checkInValid.error!
-        
+
         const statusValid = validateRequired(editForm.status, 'Status')
         if (!statusValid.valid) errors.status = statusValid.error!
 
@@ -304,7 +316,7 @@ export function ClientComponent() {
                         </div>
                     )
                 }
-                
+
                 return (
                     <div>
                         <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
@@ -329,14 +341,14 @@ export function ClientComponent() {
                 if (item.status === 'ALPHA' || item.status === 'ABSENT' || !item.checkOut) {
                     return <span className="text-gray-400 text-sm">-</span>
                 }
-                
+
                 const start = new Date(item.checkIn).getTime()
                 const end = new Date(item.checkOut).getTime()
                 const diffMs = end - start
-                
+
                 const hours = Math.floor(diffMs / (1000 * 60 * 60))
                 const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-                
+
                 return (
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {hours}h {minutes}m
@@ -395,7 +407,7 @@ export function ClientComponent() {
                     'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur' }
                 }
                 const config = statusConfig[item.status] || statusConfig['ABSENT'] || { bg: 'bg-gray-100', text: 'text-gray-800', label: item.status };
-                
+
                 return (
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.bg} ${config.text}`}>
                         {config.label}
@@ -517,6 +529,21 @@ export function ClientComponent() {
                         className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                 </div>
+                <div className="flex-1 min-w-[200px]">
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Pencarian Karyawan</label>
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <FaSearch className="text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Cari nama atau email..."
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                            className="border rounded pl-10 pr-3 py-2 text-sm w-full dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
                 <div>
                     <label className="block text-sm font-medium mb-1 dark:text-gray-300">Site</label>
                     <select
@@ -597,11 +624,11 @@ export function ClientComponent() {
             >
                 <div className="relative w-full aspect-square md:aspect-video bg-black/5 rounded-lg overflow-hidden">
                     {selectedPhoto && (
-                        <Image 
-                            src={selectedPhoto} 
-                            alt="Full view" 
-                            fill 
-                            className="object-contain" 
+                        <Image
+                            src={selectedPhoto}
+                            alt="Full view"
+                            fill
+                            className="object-contain"
                         />
                     )}
                 </div>

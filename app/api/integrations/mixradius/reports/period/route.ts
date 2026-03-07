@@ -2,6 +2,8 @@ import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusSe
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { getUserPermissions } from '@/lib/auth'
 import { prismaBilling } from '@/lib/prisma-billing'
+import { toEndOfDay } from '@/lib/utils/datetime'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +41,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       }
       if (endDateStr) {
         const end = new Date(endDateStr)
-        end.setHours(23, 59, 59, 999)
+        end.setTime(toEndOfDay(end).getTime())
         where.issuedDate = { ...where.issuedDate, lte: end }
       }
       if (search) {

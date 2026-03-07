@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prismaBilling } from '@/lib/prisma-billing'
 import { prisma } from '@/lib/prisma'
 import { ensureAdminAccess } from '@/lib/server-auth'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export async function GET(request: Request) {
     try {
@@ -21,9 +23,9 @@ export async function GET(request: Request) {
 
         if (startDate && endDate) {
             const start = new Date(startDate)
-            start.setHours(0, 0, 0, 0)
+            start.setTime(toStartOfDay(start).getTime())
             const end = new Date(endDate)
-            end.setHours(23, 59, 59, 999)
+            end.setTime(toEndOfDay(end).getTime())
             whereClause.createdAt = {
                 gte: start,
                 lte: end

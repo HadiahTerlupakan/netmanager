@@ -78,7 +78,7 @@ export function ClientComponent() {
     passwordLogin: '123456', // Default password untuk login portal pelanggan
     hargaPaketId: '',
     tipe: 'REGULER' as 'REGULER' | 'NON_REGULER',
-    tanggalAktif: new Date().toISOString().split('T')[0] ?? '', // Default: hari ini
+    tanggalAktif: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })() ?? '', // Default: hari ini
     jatuhTempo: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE',
     autoIsolir: true, // Default: auto isolir aktif
@@ -156,7 +156,7 @@ export function ClientComponent() {
         passwordLogin: data.passwordLogin || '',
         hargaPaketId: data.hargaPaketId || '',
         tipe: data.tipe || 'REGULER',
-        tanggalAktif: data.tanggalAktif ? new Date(data.tanggalAktif).toISOString().split('T')[0] ?? '' : new Date().toISOString().split('T')[0] ?? '',
+        tanggalAktif: data.tanggalAktif ? new Date(data.tanggalAktif).toISOString().split('T')[0] ?? '' : (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })() ?? '',
         jatuhTempo: data.jatuhTempo ? new Date(data.jatuhTempo).toISOString().split('T')[0] ?? '' : '',
         status: data.status || 'AKTIF',
         autoIsolir: data.autoIsolir ?? true, // Load from DB, default true

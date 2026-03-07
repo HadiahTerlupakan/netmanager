@@ -4,6 +4,8 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 async function requireAdmin() {
   const session = await getServerSession(authConfig) as Session | null
@@ -64,12 +66,12 @@ export async function GET(req: NextRequest) {
       for (let i = 5; i >= 0; i--) {
         const monthStart = new Date()
         monthStart.setMonth(monthStart.getMonth() - i, 1)
-        monthStart.setHours(0, 0, 0, 0)
+        monthStart.setTime(toStartOfDay(monthStart).getTime())
 
         const monthEnd = new Date(monthStart)
         monthEnd.setMonth(monthEnd.getMonth() + 1)
         monthEnd.setDate(0)
-        monthEnd.setHours(23, 59, 59, 999)
+        monthEnd.setTime(toEndOfDay(monthEnd).getTime())
 
         const monthData = await prisma.barangKeluar.aggregate({
           where: {

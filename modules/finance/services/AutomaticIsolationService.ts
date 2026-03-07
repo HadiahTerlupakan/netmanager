@@ -5,6 +5,8 @@ import { RadiusSyncService } from '@/modules/network/services/radius-sync-servic
 import { createNotification } from '@/modules/notification';
 import { logger } from '@/lib/logger';
 import { Status } from '@prisma/client';
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 export class AutomaticIsolationService {
     /**
@@ -28,7 +30,7 @@ export class AutomaticIsolationService {
             }
 
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setTime(toStartOfDay(today).getTime());
 
             // Calculation Logic:
             // NEW LOGIC: Find Active customers who have at least ONE UNPAID invoice that is overdue
@@ -60,7 +62,7 @@ export class AutomaticIsolationService {
             for (const customer of activeCustomers) {
                 try {
                     const dueDate = new Date(customer.jatuhTempo);
-                    dueDate.setHours(0, 0, 0, 0);
+                    dueDate.setTime(toStartOfDay(dueDate).getTime());
 
 
 

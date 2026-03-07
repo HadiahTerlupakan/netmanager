@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { sendPushNotification } from '@/modules/notification/services/ExpoPushService'
 import { createNotification } from '@/modules/notification/services/NotificationService'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * Attendance Alert Service
@@ -78,9 +80,9 @@ export async function getUsersNeedingCheckInReminder(
     const now = new Date()
 
     const startOfDay = new Date(now)
-    startOfDay.setHours(0, 0, 0, 0)
+    startOfDay.setTime(toStartOfDay(startOfDay).getTime())
     const endOfDay = new Date(now)
-    endOfDay.setHours(23, 59, 59, 999)
+    endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
     // Get all active users with push tokens and work schedule configured
     const users = await prisma.user.findMany({
@@ -139,9 +141,9 @@ export async function getUsersNeedingCheckOutReminder(
     const now = new Date()
 
     const startOfDay = new Date(now)
-    startOfDay.setHours(0, 0, 0, 0)
+    startOfDay.setTime(toStartOfDay(startOfDay).getTime())
     const endOfDay = new Date(now)
-    endOfDay.setHours(23, 59, 59, 999)
+    endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
     // Get users who checked in but haven't checked out
     const incompleteAttendance = await prisma.attendance.findMany({
@@ -318,9 +320,9 @@ export async function processIncompleteAttendance(): Promise<{
 }> {
     const now = new Date()
     const startOfDay = new Date(now)
-    startOfDay.setHours(0, 0, 0, 0)
+    startOfDay.setTime(toStartOfDay(startOfDay).getTime())
     const endOfDay = new Date(now)
-    endOfDay.setHours(23, 59, 59, 999)
+    endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
     // Find users who checked in but didn't check out
     const incomplete = await prisma.attendance.findMany({
@@ -430,9 +432,9 @@ export async function processFlexibleReminders(): Promise<{ usersNotified: numbe
     try {
         const now = new Date()
         const startOfDay = new Date(now)
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
         const endOfDay = new Date(now)
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         // Find Flexible users currently Checked-In (CheckOut is null)
         const activeFlexibleSessions = await prisma.attendance.findMany({

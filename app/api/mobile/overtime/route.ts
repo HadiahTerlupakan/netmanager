@@ -3,6 +3,8 @@ import { verifyMobileToken } from '@/lib/mobile-auth';
 import { OvertimeService } from '@/modules/overtime';
 import { convertAndSaveBase64 } from '@/lib/utils/image-upload';
 import { prisma } from '@/lib/prisma';
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 // GET - Get user's overtime history
 export async function GET(request: NextRequest) {
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
 
         // Check if user has checked out today (for start validation)
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        today.setTime(toStartOfDay(today).getTime());
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
             // Convert Base64 photo to file/url if needed
             let photoUrl = photo;
             if (!photo.startsWith('http') && !photo.startsWith('/uploads')) {
-                 const dateStr = new Date().toISOString().split('T')[0];
+                 const dateStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
                  const uploadDir = `public/uploads/overtime/${dateStr}`;
                  const fileName = `${userId}_start_${Date.now()}`;
     
@@ -144,7 +146,7 @@ export async function POST(request: NextRequest) {
             // Convert Base64 photo to file/url if needed
             let photoUrl = photo;
             if (!photo.startsWith('http') && !photo.startsWith('/uploads')) {
-                const dateStr = new Date().toISOString().split('T')[0];
+                const dateStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
                 const uploadDir = `public/uploads/overtime/${dateStr}`;
                 const fileName = `${userId}_stop_${Date.now()}`;
 

@@ -107,7 +107,7 @@ export function ClientComponent() {
         const now = new Date()
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
     })
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+    const [endDate, setEndDate] = useState((() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })())
     const [siteId, setSiteId] = useState('')
     const [departmentId, setDepartmentId] = useState('')
 

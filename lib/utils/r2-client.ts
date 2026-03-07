@@ -110,6 +110,7 @@ export async function getR2Client(): Promise<S3Client | null> {
             accessKeyId: settings.accessKeyId,
             secretAccessKey: settings.secretAccessKey,
         },
+        forcePathStyle: true
     })
 
     return client
@@ -127,6 +128,7 @@ export async function testR2Connection(settings: Omit<R2Settings, 'enabled'>): P
                 accessKeyId: settings.accessKeyId,
                 secretAccessKey: settings.secretAccessKey,
             },
+            forcePathStyle: true
         })
 
         // Try to head the bucket to verify access
@@ -357,12 +359,12 @@ export function generateR2Key(
             return `uploads/apk/${timestamp}-${sanitizedFilename}`
         case 'marketing':
             if (subFolder) {
-                 return `uploads/marketing/${subFolder}/${timestamp}-${sanitizedFilename}`
+                return `uploads/marketing/${subFolder}/${timestamp}-${sanitizedFilename}`
             }
             return `uploads/marketing/${timestamp}-${sanitizedFilename}`
         case 'map-nodes':
             if (subFolder) {
-                 return `uploads/map-nodes/${subFolder}/${timestamp}-${sanitizedFilename}`
+                return `uploads/map-nodes/${subFolder}/${timestamp}-${sanitizedFilename}`
             }
             return `uploads/map-nodes/${timestamp}-${sanitizedFilename}`
         default:

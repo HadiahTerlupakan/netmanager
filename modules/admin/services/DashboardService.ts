@@ -1,5 +1,7 @@
 import { getAttendanceRepository, getWorkOrderRepository, getPointClaimRepository, getInventoryRepository } from '@/lib/repositories';
 import { prisma } from '@/lib/prisma';
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export type TopEmployee = {
     userId: string;
@@ -49,8 +51,8 @@ export class DashboardService {
      */
     async getSystemSummary(): Promise<SystemSummary> {
         const today = new Date();
-        const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+        const startOfDay = new Date(today.setTime(toStartOfDay(today).getTime()));
+        const endOfDay = new Date(today.setTime(toEndOfDay(today).getTime()));
 
         // 1. Inventory Summary (Total Items)
         // Note: lowStockItems logic would normally require a threshold check per item.

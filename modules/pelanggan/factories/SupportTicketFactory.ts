@@ -6,6 +6,8 @@
 
 import type { TicketCategory, TicketPriority } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export interface CreateTicketInput {
     pelangganId: string
@@ -111,8 +113,8 @@ export class SupportTicketFactory {
         const today = new Date()
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
 
-        const startOfDay = new Date(today.setHours(0, 0, 0, 0))
-        const endOfDay = new Date(today.setHours(23, 59, 59, 999))
+        const startOfDay = new Date(today.setTime(toStartOfDay(today).getTime()))
+        const endOfDay = new Date(today.setTime(toEndOfDay(today).getTime()))
 
         const count = await prisma.supportTickets.count({
             where: {

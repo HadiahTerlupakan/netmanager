@@ -3,6 +3,8 @@ import { OvertimeStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '../../notification/services/NotificationService'
 import { HolidayRepository } from '../../attendance/repositories/HolidayRepository'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export class OvertimeService {
     private repository: OvertimeRepository
@@ -22,10 +24,10 @@ export class OvertimeService {
         }
     ) {
         const startOfDay = new Date(data.date)
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
 
         const endOfDay = new Date(data.date)
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         // Cek apakah sudah ada request PENDING/APPROVED/IN_PROGRESS hari ini
         const existing = await prisma.overtime.findFirst({
@@ -108,9 +110,9 @@ export class OvertimeService {
 
         // Cari attendance hari ini (tidak wajib checkout)
         const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
         const endOfDay = new Date()
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         const attendance = await prisma.attendance.findFirst({
             where: {

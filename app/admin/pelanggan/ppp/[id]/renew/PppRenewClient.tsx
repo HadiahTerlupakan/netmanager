@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { HiArrowLeft, HiExclamationCircle } from 'react-icons/hi2'
 import Link from 'next/link'
 import PageLoader from '@/components/ui/PageLoader'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 type Pelanggan = {
   id: string
@@ -145,10 +147,10 @@ export function ClientComponent() {
   useEffect(() => {
     if (pelanggan && !loading) {
       const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      today.setTime(toStartOfDay(today).getTime())
 
       const jatuhTempoDate = new Date(pelanggan.jatuhTempo)
-      jatuhTempoDate.setHours(0, 0, 0, 0)
+      jatuhTempoDate.setTime(toStartOfDay(jatuhTempoDate).getTime())
 
       const allowedDate = new Date(jatuhTempoDate)
       allowedDate.setDate(allowedDate.getDate() - disableDuration)

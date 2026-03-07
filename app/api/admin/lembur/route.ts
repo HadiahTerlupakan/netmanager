@@ -5,6 +5,8 @@ import { OvertimeStatus } from '@prisma/client'
 import { createHandler, ApiErrors } from '@/lib/api'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * GET /api/admin/lembur
@@ -72,9 +74,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     // Apply date range filter
     if (startDateStr && endDateStr) {
         const start = new Date(startDateStr)
-        start.setHours(0, 0, 0, 0)
+        start.setTime(toStartOfDay(start).getTime())
         const end = new Date(endDateStr)
-        end.setHours(23, 59, 59, 999)
+        end.setTime(toEndOfDay(end).getTime())
         serviceFilters.startDate = start
         serviceFilters.endDate = end
     }

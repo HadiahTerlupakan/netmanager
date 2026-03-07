@@ -247,11 +247,19 @@ model Expense {
   // Soft-relation to MixRadiusOwnerGroup in billing DB
   user             User?    @relation(fields: [userId], references: [id])
 
+  rabProjectId String?
+  rabProject   RabProject? @relation(fields: [rabProjectId], references: [id])
+
+  rabItemId String?
+  rabItem   RabItem? @relation(fields: [rabItemId], references: [id])
+
   @@index([category])
   @@index([date])
   @@index([userId])
   @@index([siteId])
   @@index([mixRadiusGroupId])
+  @@index([rabProjectId])
+  @@index([rabItemId])
 }
 
 model HargaPaket {
@@ -2862,11 +2870,12 @@ model RabProject {
   approvals          RabApproval[]
   investors          RabInvestor[]
 
-  site    Sites? @relation(fields: [siteId], references: [id])
+  site     Sites?    @relation(fields: [siteId], references: [id])
   // Soft-relation to Sites in main DB
   // Soft-relation to MixRadiusOwnerGroup in billing DB
   // Soft-relation to MixRadiusInvestorSite in billing DB
-  creator User?  @relation(fields: [createdBy], references: [id])
+  creator  User?     @relation(fields: [createdBy], references: [id])
+  expenses Expense[]
 
   @@index([siteId])
   @@index([status])
@@ -2908,6 +2917,7 @@ model RabItem {
   rabProject    RabProject        @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
   wbs           RabWbs?           @relation(fields: [wbsId], references: [id], onDelete: SetNull)
   disbursements RabDisbursement[]
+  expenses      Expense[]
 
   @@index([wbsId])
   @@map("rab_items")

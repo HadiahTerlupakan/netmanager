@@ -51,9 +51,9 @@ export async function POST(request: NextRequest) {
         let latitude: number | undefined
         let longitude: number | undefined
         let offlineCapturedAt: Date | undefined
-        
+
         const contentType = request.headers.get('content-type') || ''
-        
+
         if (contentType.includes('multipart/form-data')) {
             const formData = await request.formData()
 
@@ -101,28 +101,28 @@ export async function POST(request: NextRequest) {
                     if (meta.capturedAt) {
                         const dt = new Date(meta.capturedAt)
                         if (!isNaN(dt.getTime())) {
-                             offlineCapturedAt = dt
+                            offlineCapturedAt = dt
 
-                             // Verify Signature for FormData
-                             if (meta.signature) {
-                                  const dataToVerify = {
-                                      userId,
-                                      timestamp: meta.capturedAt,
-                                      latitude,
-                                      longitude
-                                  }
-                                  if (!verifySignature(dataToVerify, meta.signature)) {
-                                      return NextResponse.json({
-                                          error: 'Tanda tangan data offline tidak valid',
-                                          code: 'VALIDATION_ERROR'
-                                      }, { status: 400 })
-                                  }
-                             } else {
-                                 return NextResponse.json({
-                                     error: 'Data offline harus ditandatangani',
-                                     code: 'VALIDATION_ERROR'
-                                 }, { status: 400 })
-                             }
+                            // Verify Signature for FormData
+                            if (meta.signature) {
+                                const dataToVerify = {
+                                    userId,
+                                    timestamp: meta.capturedAt,
+                                    latitude,
+                                    longitude
+                                }
+                                if (!verifySignature(dataToVerify, meta.signature)) {
+                                    return NextResponse.json({
+                                        error: 'Tanda tangan data offline tidak valid',
+                                        code: 'VALIDATION_ERROR'
+                                    }, { status: 400 })
+                                }
+                            } else {
+                                return NextResponse.json({
+                                    error: 'Data offline harus ditandatangani',
+                                    code: 'VALIDATION_ERROR'
+                                }, { status: 400 })
+                            }
                         }
                     }
                 } catch (_e) {
@@ -144,13 +144,13 @@ export async function POST(request: NextRequest) {
             }
         } else if (contentType.includes('application/json')) {
             const body = await request.json() as {
-              location: string;
-              notes: string;
-              latitude?: number;
-              longitude?: number;
-              photoUrl?: string;
-              capturedAt?: string;
-              _offline_meta?: { capturedAt?: string; signature?: string }
+                location: string;
+                notes: string;
+                latitude?: number;
+                longitude?: number;
+                photoUrl?: string;
+                capturedAt?: string;
+                _offline_meta?: { capturedAt?: string; signature?: string }
             }
             location = body.location
             notes = body.notes
@@ -180,17 +180,47 @@ export async function POST(request: NextRequest) {
                     photoUrl = body.photoUrl
                 } else {
                     // Full URL - validate against trusted domains
+                    const host = request.headers.get('host')
                     const trustedDomains = [
                         'cdn.radpro.id',
                         'localhost:3000',
                         '0.0.0.0:3000',
-                        // Add other trusted domains as needed
+                        'localhost'
                     ]
+                    if (host) {
+                        trustedDomains.push(host)
+                        trustedDomains.push(host.split(':')[0]) // push hostname without port just in case
+                    }
+
+                    try {
+                        // Dynamically add R2 domain if enabled
+                        const { getR2Settings } = await import('@/lib/utils/r2-client')
+                        const r2Settings = await getR2Settings()
+                        if (r2Settings?.enabled) {
+                            if (r2Settings.publicUrl) {
+                                try {
+                                    const r2Url = new URL(r2Settings.publicUrl)
+                                    trustedDomains.push(r2Url.host)
+                                    trustedDomains.push(r2Url.hostname)
+                                } catch (_e) {
+                                    // ignore invalid public url format
+                                }
+                            } else {
+                                // Default R2 dev url format
+                                trustedDomains.push(`${r2Settings.bucketName}.${r2Settings.accountId}.r2.cloudflarestorage.com`)
+                            }
+                        }
+                    } catch (_e) {
+                        // Optional fallback if r2-client fails
+                    }
 
                     try {
                         const url = new URL(body.photoUrl)
-                        const isTrusted = trustedDomains.some(domain =>
-                            url.host === domain || url.host.endsWith('.' + domain)
+                        const isLocalIP = process.env.NODE_ENV !== 'production' &&
+                            (/^(192\.168|10|127|172\.(1[6-9]|2[0-9]|3[0-1]))\./.test(url.hostname));
+
+                        const isTrusted = isLocalIP || trustedDomains.some(domain =>
+                            url.host === domain || url.hostname === domain || url.host.endsWith('.' + domain)
                         )
 
                         if (isTrusted) {
@@ -235,15 +265,15 @@ export async function POST(request: NextRequest) {
                         longitude: longitude
                     }
                     if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
-                         return NextResponse.json({
-                             error: 'Tanda tangan data offline tidak valid',
-                             code: 'VALIDATION_ERROR'
-                         }, { status: 400 })
+                        return NextResponse.json({
+                            error: 'Tanda tangan data offline tidak valid',
+                            code: 'VALIDATION_ERROR'
+                        }, { status: 400 })
                     }
                 }
             } else if (body.capturedAt) {
-                 const dt = new Date(body.capturedAt)
-                 if (!isNaN(dt.getTime())) offlineCapturedAt = dt
+                const dt = new Date(body.capturedAt)
+                if (!isNaN(dt.getTime())) offlineCapturedAt = dt
             }
         }
 
@@ -251,14 +281,14 @@ export async function POST(request: NextRequest) {
         // --- Use Centralized Service ---
         const attendanceService = new AttendanceService()
         const checkInParams: {
-          userId: string;
-          photoUrl: string | null;
-          location: string;
-          notes: string;
-          timezone: string;
-          latitude?: number;
-          longitude?: number;
-          offlineTime?: Date;
+            userId: string;
+            photoUrl: string | null;
+            location: string;
+            notes: string;
+            timezone: string;
+            latitude?: number;
+            longitude?: number;
+            offlineTime?: Date;
         } = {
             userId,
             photoUrl,
@@ -289,20 +319,20 @@ export async function POST(request: NextRequest) {
 
     } catch (error: unknown) {
         if (error instanceof Error) {
-          if (error.message === 'DUPLICATE_ENTRY') {
-              return NextResponse.json({
-                  error: 'Anda sudah melakukan check-in hari ini',
-                  code: 'DUPLICATE_ENTRY'
-              }, { status: 400 })
-          }
-          if (error.message.startsWith('CHECKIN_REJECTED:')) {
-              const reason = error.message.split(':')[1]
-              return NextResponse.json({
-                  error: `Check-in ditolak: ${reason}`,
-                  code: 'VALIDATION_ERROR',
-                  details: { reason }
-              }, { status: 400 })
-          }
+            if (error.message === 'DUPLICATE_ENTRY') {
+                return NextResponse.json({
+                    error: 'Anda sudah melakukan check-in hari ini',
+                    code: 'DUPLICATE_ENTRY'
+                }, { status: 400 })
+            }
+            if (error.message.startsWith('CHECKIN_REJECTED:')) {
+                const reason = error.message.split(':')[1]
+                return NextResponse.json({
+                    error: `Check-in ditolak: ${reason}`,
+                    code: 'VALIDATION_ERROR',
+                    details: { reason }
+                }, { status: 400 })
+            }
         }
 
         logger.error('Error in mobile check-in', error as Error)

@@ -4,6 +4,8 @@ import { apiSuccess, ErrorCodes, apiError, createHandler, ApiErrors } from '@/li
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { isSuperAdmin } from '@/lib/auth'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 // Disable Next.js caching for this route
 export const dynamic = 'force-dynamic'
@@ -53,9 +55,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const startDate = new Date(startDateStr)
-    startDate.setHours(0, 0, 0, 0)
+    startDate.setTime(toStartOfDay(startDate).getTime())
     const endDate = new Date(endDateStr)
-    endDate.setHours(23, 59, 59, 999)
+    endDate.setTime(toEndOfDay(endDate).getTime())
 
     const attendanceService = new AttendanceService()
     const overtimeService = new OvertimeService()

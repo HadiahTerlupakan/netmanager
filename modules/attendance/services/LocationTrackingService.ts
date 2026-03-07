@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { calculateHaversineDistance } from '@/lib/geo-utils'
 import { type Server as SocketIOServer } from 'socket.io'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 interface LocationData {
     latitude: number
@@ -120,7 +122,7 @@ export class LocationTrackingService {
         
         // Create "today at 00:00 WIB" in UTC
         const todayWIB = new Date(now.getTime() + totalOffset * 60 * 1000)
-        todayWIB.setHours(0, 0, 0, 0)
+        todayWIB.setTime(toStartOfDay(todayWIB).getTime())
         return new Date(todayWIB.getTime() - totalOffset * 60 * 1000)
     }
 
@@ -170,7 +172,7 @@ export class LocationTrackingService {
         
         // Create "today at 00:00 WIB" in UTC
         const todayWIB = new Date(now.getTime() + totalOffset * 60 * 1000)
-        todayWIB.setHours(0, 0, 0, 0)
+        todayWIB.setTime(toStartOfDay(todayWIB).getTime())
         const todayUTC = new Date(todayWIB.getTime() - totalOffset * 60 * 1000)
 
         // Build user filter for RBAC restrictions
@@ -327,10 +329,10 @@ export class LocationTrackingService {
         totalDistance: number
     }> {
         const startOfDay = new Date(date)
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
         
         const endOfDay = new Date(date)
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         const locations = await prisma.employeeLocation.findMany({
             where: {

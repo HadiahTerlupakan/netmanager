@@ -14,7 +14,7 @@ export default function CouponForm() {
         description: '',
         discountType: 'FIXED', // 'FIXED', 'PERCENT'
         discountValue: '',
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
         endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
         minTransaction: '',
         maxDiscount: '',

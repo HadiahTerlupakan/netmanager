@@ -17,6 +17,8 @@ const expenseSchema = z.object({
     description: z.string().optional(),
     siteId: z.string().optional(),
     mixRadiusGroupId: z.string().optional(),
+    rabProjectId: z.string().optional(),
+    rabItemId: z.string().optional(),
 });
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -136,6 +138,18 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
                     name: true,
                     type: true
                 }
+            },
+            rabProject: {
+                select: {
+                    id: true,
+                    name: true
+                }
+            },
+            rabItem: {
+                select: {
+                    id: true,
+                    name: true
+                }
             }
         }
     });
@@ -182,7 +196,9 @@ export const POST = createHandler({
         expenseCategoryId,
         description,
         siteId,
-        mixRadiusGroupId
+        mixRadiusGroupId,
+        rabProjectId,
+        rabItemId
     } = ctx.validated;
 
     let finalSiteId = siteId;
@@ -215,6 +231,8 @@ export const POST = createHandler({
             updatedAt: new Date(),
             ...(finalSiteId ? { siteId: finalSiteId } : {}),
             ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
+            ...(rabProjectId ? { rabProjectId } : {}),
+            ...(rabItemId ? { rabItemId } : {}),
         },
     });
 

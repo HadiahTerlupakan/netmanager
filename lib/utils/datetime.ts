@@ -1,3 +1,4 @@
+import { toZonedTime, toDate } from 'date-fns-tz'
 /**
  * Datetime Utilities
  * Timezone-safe date formatting for forms and API communication
@@ -166,9 +167,11 @@ export function formatDate(
  * @param date - Date object or ISO string (defaults to today)
  * @returns Date at start of day
  */
-export function toStartOfDay(date: Date | string = new Date()): Date {
+export function toStartOfDay(date: Date | string = new Date(), timezone: string = 'Asia/Jakarta'): Date {
   const d = typeof date === 'string' ? parseISO(date) : date
-  return dateFnsStartOfDay(d)
+  const zonedDate = toZonedTime(d, timezone)
+  const localStart = dateFnsStartOfDay(zonedDate)
+  return toDate(localStart, { timeZone: timezone })
 }
 
 /**
@@ -177,9 +180,11 @@ export function toStartOfDay(date: Date | string = new Date()): Date {
  * @param date - Date object or ISO string (defaults to today)
  * @returns Date at end of day
  */
-export function toEndOfDay(date: Date | string = new Date()): Date {
+export function toEndOfDay(date: Date | string = new Date(), timezone: string = 'Asia/Jakarta'): Date {
   const d = typeof date === 'string' ? parseISO(date) : date
-  return dateFnsEndOfDay(d)
+  const zonedDate = toZonedTime(d, timezone)
+  const localEnd = dateFnsEndOfDay(zonedDate)
+  return toDate(localEnd, { timeZone: timezone })
 }
 
 /**

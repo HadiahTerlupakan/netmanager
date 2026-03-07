@@ -1,12 +1,8 @@
 import { prismaRadius } from '@/lib/prisma-radius';
-/**
- * RADIUS Repository Implementation
- * 
- * Implements FreeRADIUS database operations using Prisma ORM.
- */
-
+import { toStartOfDay } from '@/lib/utils/datetime';
 import { PrismaClient } from '@prisma/client';
 import type {
+
     IRadiusRepository,
     IRadiusUser,
     IRadiusBandwidth,
@@ -172,7 +168,7 @@ export class RadiusRepository implements IRadiusRepository {
             where: { username },
             orderBy: { priority: 'asc' },
         });
-        return groups.map((g) => g.groupname);
+        return groups.map((g: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => g.groupname);
     }
 
     /**
@@ -467,7 +463,7 @@ export class RadiusRepository implements IRadiusRepository {
             orderBy: { nasname: 'asc' },
         });
 
-        return nasList.map((nas) => ({
+        return nasList.map((nas: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => ({
             id: nas.id,
             nasname: nas.nasname,
             secret: nas.secret,
@@ -598,7 +594,7 @@ export class RadiusRepository implements IRadiusRepository {
             orderBy: [{ pool_name: 'asc' }, { framedipaddress: 'asc' }],
         });
 
-        return pools.map((pool) => ({
+        return pools.map((pool: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => ({
             id: pool.id,
             poolName: pool.pool_name,
             framedIpAddress: pool.framedipaddress,
@@ -632,7 +628,7 @@ export class RadiusRepository implements IRadiusRepository {
 
         // Get today's traffic
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        today.setTime(toStartOfDay(today).getTime());
 
         const todaySessions = await prismaRadius.radacct.findMany({
             where: {
@@ -710,7 +706,7 @@ export class RadiusRepository implements IRadiusRepository {
         });
 
         const now = new Date();
-        const transformedSessions = sessions.map((session) => {
+        const transformedSessions = sessions.map((session: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
             const startTime = session.acctstarttime || new Date();
             const isOnline = session.acctstoptime === null;
 

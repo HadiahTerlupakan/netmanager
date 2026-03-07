@@ -17,6 +17,8 @@ const expenseSchema = z.object({
     mixRadiusGroupId: z.string().optional(),
     categoryId: z.string().optional(),
     accountId: z.string().optional(),
+    rabProjectId: z.string().optional(),
+    rabItemId: z.string().optional(),
 });
 
 export const PUT = createHandler({
@@ -32,14 +34,14 @@ export const PUT = createHandler({
     const isSuper = isSuperAdmin(user);
 
     const hasAccess = isSuper ||
-                     (await hasPermission("expense:update")) ||
-                     (await hasPermission("mixradius_expenses:update"));
+        (await hasPermission("expense:update")) ||
+        (await hasPermission("mixradius_expenses:update"));
 
     if (!hasAccess) {
         return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update');
     }
 
-    const { amount, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId, categoryId, accountId } = ctx.validated;
+    const { amount, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId, categoryId, accountId, rabProjectId, rabItemId } = ctx.validated;
 
     // Build where clause to prevent IDOR
     const where: Prisma.ExpenseWhereUniqueInput = { id };
@@ -47,19 +49,19 @@ export const PUT = createHandler({
     // Only restrict by site if user has expense:site_only permission
     const isSiteRestricted = !isSuper && (await hasPermission("expense:site_only"));
     if (isSiteRestricted) {
-         // Fetch user siteId
-         const dbUser = await prisma.user.findUnique({
+        // Fetch user siteId
+        const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
             select: { siteId: true }
         });
-         const userSiteId = dbUser?.siteId;
+        const userSiteId = dbUser?.siteId;
 
-         if (userSiteId) {
-             where.siteId = userSiteId;
-         } else {
-             // User restricted but has no site -> cannot edit anything
-             return ApiErrors.forbidden('Akses terbatas: Site tidak ditemukan di profil anda');
-         }
+        if (userSiteId) {
+            where.siteId = userSiteId;
+        } else {
+            // User restricted but has no site -> cannot edit anything
+            return ApiErrors.forbidden('Akses terbatas: Site tidak ditemukan di profil anda');
+        }
     }
 
     const updateData: Prisma.ExpenseUpdateInput = {
@@ -71,6 +73,8 @@ export const PUT = createHandler({
         ...(mixRadiusGroupId !== undefined ? { mixRadiusGroup: mixRadiusGroupId ? { connect: { id: mixRadiusGroupId } } : { disconnect: true } } : {}),
         ...(categoryId !== undefined ? { transactionCategory: categoryId ? { connect: { id: categoryId } } : { disconnect: true } } : {}),
         ...(accountId !== undefined ? { financialAccount: accountId ? { connect: { id: accountId } } : { disconnect: true } } : {}),
+        ...(rabProjectId !== undefined ? { rabProject: rabProjectId ? { connect: { id: rabProjectId } } : { disconnect: true } } : {}),
+        ...(rabItemId !== undefined ? { rabItem: rabItemId ? { connect: { id: rabItemId } } : { disconnect: true } } : {}),
     };
 
     if (isSiteRestricted) {
@@ -112,7 +116,7 @@ export const PUT = createHandler({
         }, { message: 'Expense berhasil diperbarui' })
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-             return apiError('Pengeluaran tidak ditemukan atau anda tidak memiliki akses', ErrorCodes.NOT_FOUND, { status: 404 });
+            return apiError('Pengeluaran tidak ditemukan atau anda tidak memiliki akses', ErrorCodes.NOT_FOUND, { status: 404 });
         }
         throw error; // Let createHandler handle other errors
     }
@@ -128,8 +132,8 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user);
 
     const hasAccess = isSuper ||
-                     (await hasPermission("expense:delete")) ||
-                     (await hasPermission("mixradius_expenses:delete"));
+        (await hasPermission("expense:delete")) ||
+        (await hasPermission("mixradius_expenses:delete"));
 
     if (!hasAccess) {
         return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: expense:delete ATAU mixradius_expenses:delete');
@@ -141,17 +145,17 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     // Only restrict by site if user has expense:site_only permission
     const isSiteRestricted = !isSuper && (await hasPermission("expense:site_only"));
     if (isSiteRestricted) {
-         const dbUser = await prisma.user.findUnique({
+        const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
             select: { siteId: true }
         });
-         const userSiteId = dbUser?.siteId;
+        const userSiteId = dbUser?.siteId;
 
-         if (userSiteId) {
-             where.siteId = userSiteId;
-         } else {
-             return ApiErrors.forbidden('Akses terbatas: Site tidak ditemukan di profil anda');
-         }
+        if (userSiteId) {
+            where.siteId = userSiteId;
+        } else {
+            return ApiErrors.forbidden('Akses terbatas: Site tidak ditemukan di profil anda');
+        }
     }
 
     // Check if expense exists first

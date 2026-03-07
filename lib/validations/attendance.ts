@@ -39,7 +39,11 @@ export const attendanceFilterSchema = z.object({
         AttendanceStatus.PERMIT,
         AttendanceStatus.DAY_OFF,
     ]).optional()),
+    search: z.preprocess(emptyToUndefined, z.string().optional()),
     export: z.preprocess((v) => (v === 'true' || v === true ? 'true' : v === 'false' || v === false ? 'false' : undefined), z.enum(['true', 'false']).optional()),
+}).refine((data) => !(data.endDate && !data.startDate), {
+    message: "startDate wajib diisi jika endDate dipilih",
+    path: ["startDate"]
 })
 
 export type AttendanceFilter = z.infer<typeof attendanceFilterSchema>

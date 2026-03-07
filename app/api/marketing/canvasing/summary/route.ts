@@ -3,6 +3,8 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 
 export async function GET(req: NextRequest) {
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
     // Get date ranges
     const now = new Date()
     const today = new Date(now)
-    today.setHours(0, 0, 0, 0)
+    today.setTime(toStartOfDay(today).getTime())
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 

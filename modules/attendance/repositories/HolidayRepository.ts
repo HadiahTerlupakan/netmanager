@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { cache } from '@/lib/cache'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 type Holiday = Prisma.HolidayGetPayload<object>
 
@@ -47,10 +49,10 @@ export class HolidayRepository {
 
         // Normalize date to YYYY-MM-DD for comparison
         const startOfDay = new Date(date)
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
 
         const endOfDay = new Date(startOfDay)
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         const holiday = await prisma.holiday.findFirst({
             where: {

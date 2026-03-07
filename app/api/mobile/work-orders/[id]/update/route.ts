@@ -276,7 +276,7 @@ export async function POST(
                         `[COMPLETED] ${i + 1}/${photos.length}`
                     ];
 
-                    const dateStr = new Date().toISOString().split('T')[0];
+                    const dateStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
                     const uploadDir = `public/uploads/workorders/${dateStr}`;
                     const fileName = `${workOrderId}_complete_${Date.now()}_${i}`;
 
@@ -490,7 +490,7 @@ export async function POST(
                     locationStr
                 ];
 
-                const dateStr = new Date().toISOString().split('T')[0];
+                const dateStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
                 const attachmentPath = await convertAndSaveImage(
                     photo,
                     `public/uploads/workorders/${dateStr}`,
@@ -573,7 +573,7 @@ export async function POST(
                     locationStr
                 ];
 
-                const dateStr = new Date().toISOString().split('T')[0];
+                const dateStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
                 const attachmentPath = await convertAndSaveImage(
                     photo,
                     `public/uploads/workorders/${dateStr}`,

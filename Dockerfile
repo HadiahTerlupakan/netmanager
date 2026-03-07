@@ -46,11 +46,12 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 # Install postgresql-client for pg_dump and psql (used by backup feature)
-RUN apk add --no-cache postgresql-client
+# and tzdata for setting correct TZ behavior
+RUN apk add --no-cache postgresql-client tzdata
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-
+ENV TZ=Asia/Jakarta
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 

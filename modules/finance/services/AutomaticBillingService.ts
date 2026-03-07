@@ -6,6 +6,8 @@ import { randomUUID } from 'crypto';
 import { createNotification } from '@/modules/notification';
 import { sendCustomerPushNotification } from '@/modules/notification/services/ExpoPushService';
 import { logger } from '@/lib/logger';
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 // Type for the raw query result
 interface EligibleCustomerRow {
@@ -177,11 +179,11 @@ export class AutomaticBillingService {
 
             // 3. Check if date is within window
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setTime(toStartOfDay(today).getTime());
 
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + daysBeforeDue);
-            targetDate.setHours(23, 59, 59, 999);
+            targetDate.setTime(toEndOfDay(targetDate).getTime());
 
             const jatuhTempo = new Date(customer.jatuhTempo);
 
@@ -441,7 +443,7 @@ export class AutomaticBillingService {
         if (!customer) return;
 
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        today.setTime(toStartOfDay(today).getTime());
 
         const safeAddMonth = (date: Date) => {
             const d = new Date(date);
@@ -548,7 +550,7 @@ export class AutomaticBillingService {
 
             // Calculate target date limit (H-X)
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setTime(toStartOfDay(today).getTime());
 
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + reminderDays);

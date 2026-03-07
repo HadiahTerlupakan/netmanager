@@ -1,6 +1,8 @@
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * GET /api/admin/location/history/[userId]
@@ -19,10 +21,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const endDateParam = searchParams.get('endDate')
     
     let startDate = new Date()
-    startDate.setHours(0, 0, 0, 0)
+    startDate.setTime(toStartOfDay(startDate).getTime())
     
     let endDate = new Date()
-    endDate.setHours(23, 59, 59, 999)
+    endDate.setTime(toEndOfDay(endDate).getTime())
     
     if (startDateParam) {
         startDate = new Date(startDateParam)

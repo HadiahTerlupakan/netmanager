@@ -84,7 +84,7 @@ export default function InvestorsClient() {
 
     const [payoutForm, setPayoutForm] = useState({
         amount: '',
-        date: new Date().toISOString().split('T')[0],
+        date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
         bankName: '',
         accountNumber: '',
         accountName: '',
@@ -183,7 +183,7 @@ export default function InvestorsClient() {
                 toast.success('Payout berhasil dicatat')
                 setShowPayoutModal(false)
                 setPayoutForm({
-                    amount: '', date: new Date().toISOString().split('T')[0], bankName: '', accountNumber: '', accountName: '', reference: '', notes: ''
+                    amount: '', date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(), bankName: '', accountNumber: '', accountName: '', reference: '', notes: ''
                 })
                 handleViewDetail(detailData!.id) // Refresh details
             } else {

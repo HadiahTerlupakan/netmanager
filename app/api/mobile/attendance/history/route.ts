@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
     try {
         const authHeader = request.headers.get('Authorization')
@@ -82,11 +84,11 @@ export async function GET(request: NextRequest) {
         })
 
         if (approvedTukarLibur) {
-            const startDateMatch = approvedTukarLibur.startDate && 
-                approvedTukarLibur.startDate >= todayStart && 
+            const startDateMatch = approvedTukarLibur.startDate &&
+                approvedTukarLibur.startDate >= todayStart &&
                 approvedTukarLibur.startDate <= todayEnd
-            const replacementDateMatch = approvedTukarLibur.replacementDate && 
-                approvedTukarLibur.replacementDate >= todayStart && 
+            const replacementDateMatch = approvedTukarLibur.replacementDate &&
+                approvedTukarLibur.replacementDate >= todayStart &&
                 approvedTukarLibur.replacementDate <= todayEnd
 
             if (replacementDateMatch) {
@@ -102,7 +104,7 @@ export async function GET(request: NextRequest) {
         // User FLEXIBLE tidak terpengaruh workDays - bisa absen setiap hari
         if (userData?.workDays && userData?.workingHourMode !== 'FLEXIBLE') {
             const dayOfWeek = today.getDay() // 0 = Sunday, 6 = Saturday
-            const dayMap: Record<string, number> = { 
+            const dayMap: Record<string, number> = {
                 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
                 'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6,
                 '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6

@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { Prisma } from '@prisma/client'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 interface PredictionResult {
   barangId: string
@@ -263,12 +265,12 @@ async function getMonthlyUsage(barangId: string, gudangId: string, months: numbe
   for (let i = months - 1; i >= 0; i--) {
     const startDate = new Date()
     startDate.setMonth(startDate.getMonth() - i, 1)
-    startDate.setHours(0, 0, 0, 0)
+    startDate.setTime(toStartOfDay(startDate).getTime())
 
     const endDate = new Date(startDate)
     endDate.setMonth(endDate.getMonth() + 1)
     endDate.setDate(0)
-    endDate.setHours(23, 59, 59, 999)
+    endDate.setTime(toEndOfDay(endDate).getTime())
 
     const usage = await prisma.barangKeluar.aggregate({
       where: {

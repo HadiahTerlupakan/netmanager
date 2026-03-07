@@ -7,6 +7,8 @@ import { createNotification } from '@/modules/notification/services/Notification
 import { logger, logActivitySafe } from '@/lib/logger'
 import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 // Standard ServiceResult pattern
 export interface ServiceResult<T> {
@@ -54,8 +56,8 @@ export class LeaveService {
         const lastDate = new Date(endDate)
 
         // Reset hours to ensure clean day iteration
-        curDate.setHours(0, 0, 0, 0)
-        lastDate.setHours(0, 0, 0, 0)
+        curDate.setTime(toStartOfDay(curDate).getTime())
+        lastDate.setTime(toStartOfDay(lastDate).getTime())
 
         // Parse workDays (e.g., "Mon,Tue,Wed,Thu,Fri")
         // Default to Mon-Fri if null or empty
@@ -437,9 +439,9 @@ export class LeaveService {
         const curDate = new Date(startDate)
 
         // Reset hours
-        curDate.setHours(0, 0, 0, 0)
+        curDate.setTime(toStartOfDay(curDate).getTime())
         const lastDate = new Date(endDate)
-        lastDate.setHours(0, 0, 0, 0)
+        lastDate.setTime(toStartOfDay(lastDate).getTime())
 
         // Determine status based on LeaveType
         let status: AttendanceStatus = 'PERMIT'
@@ -464,9 +466,9 @@ export class LeaveService {
                 if (!isHoliday) {
                     // Start of Day and End of Day for query
                     const dayStart = new Date(curDate)
-                    dayStart.setHours(0, 0, 0, 0)
+                    dayStart.setTime(toStartOfDay(dayStart).getTime())
                     const dayEnd = new Date(curDate)
-                    dayEnd.setHours(23, 59, 59, 999)
+                    dayEnd.setTime(toEndOfDay(dayEnd).getTime())
 
                     // Check existing attendance
                     const existingAttendance = await prisma.attendance.findFirst({
@@ -497,7 +499,7 @@ export class LeaveService {
                         // CREATE new
                         // Create dummy checkIn at 00:00:00
                         const checkInTime = new Date(curDate)
-                        checkInTime.setHours(0, 0, 0, 0)
+                        checkInTime.setTime(toStartOfDay(checkInTime).getTime())
 
                         await prisma.attendance.create({
                             data: {

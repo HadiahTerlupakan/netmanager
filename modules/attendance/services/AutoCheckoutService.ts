@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { getTimezone } from '@/lib/utils/get-timezone'
+import { toEndOfDay } from '@/lib/utils/datetime'
+
 
 export class AutoCheckoutService {
     /**
@@ -22,7 +24,7 @@ export class AutoCheckoutService {
         const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
         
         const endOfToday = new Date(nowInTz)
-        endOfToday.setHours(23, 59, 59, 999)
+        endOfToday.setTime(toEndOfDay(endOfToday).getTime())
 
         // 1. Find all active attendance (checkOut is null)
         // We catch everything up to the current moment.
@@ -71,7 +73,7 @@ export class AutoCheckoutService {
                 let checkOutTime = new Date(checkInDate)
 
                 // Default force checkout at 23:59:59 of the check-in day
-                checkOutTime.setHours(23, 59, 59, 999)
+                checkOutTime.setTime(toEndOfDay(checkOutTime).getTime())
 
                 // Special handling for SHIFT mode due to potential Overnight Shifts
                 if (user.workingHourMode === 'SHIFT' && user.shift) {

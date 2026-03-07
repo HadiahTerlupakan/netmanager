@@ -29,13 +29,13 @@ export const GET = createHandler({ auth: true }, async () => {
 
   const settingsMap = new Map(settings.map(s => [s.key, s.value]))
 
-  // Return settings (tidak return secret key untuk keamanan)
+  // Return settings
   return apiSuccess({
     googleGeminiApiKey: settingsMap.get('GOOGLE_GEMINI_API_KEY') || '',
     geminiEnabled: settingsMap.get('GEMINI_ENABLED') === 'true',
     r2AccountId: settingsMap.get('R2_ACCOUNT_ID') || '',
     r2AccessKeyId: settingsMap.get('R2_ACCESS_KEY_ID') || '',
-    r2SecretAccessKey: settingsMap.get('R2_SECRET_ACCESS_KEY') ? '********' : '',
+    r2SecretAccessKey: settingsMap.get('R2_SECRET_ACCESS_KEY') || '',
     r2BucketName: settingsMap.get('R2_BUCKET_NAME') || '',
     r2PublicUrl: settingsMap.get('R2_PUBLIC_URL') || '',
     r2Enabled: settingsMap.get('R2_ENABLED') === 'true'
@@ -48,6 +48,7 @@ export const GET = createHandler({ auth: true }, async () => {
  */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const body = await req.json()
+  console.log('--- SETTINGS API POST BODY ---', body)
   const {
     googleGeminiApiKey,
     geminiEnabled,
@@ -126,8 +127,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     })
   }
 
-  // Hanya update secret key jika bukan placeholder
-  if (r2SecretAccessKey !== undefined && r2SecretAccessKey !== '********') {
+  // Upsert secret key
+  if (r2SecretAccessKey !== undefined) {
     await prisma.settings.upsert({
       where: { key: 'R2_SECRET_ACCESS_KEY' },
       update: { value: r2SecretAccessKey.trim() || null, updatedAt: new Date() },

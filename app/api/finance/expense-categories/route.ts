@@ -4,6 +4,8 @@ import { z } from "zod";
 import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { toEndOfDay } from '@/lib/utils/datetime'
+
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +27,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
         const end = new Date(endDate);
         if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
             // Set end date to end of day
-            end.setHours(23, 59, 59, 999);
+            end.setTime(toEndOfDay(end).getTime());
             expenseWhere.date = {
                 gte: start,
                 lte: end
