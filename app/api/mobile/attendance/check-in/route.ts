@@ -3,10 +3,14 @@ import { prisma } from '@/lib/prisma'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { AttendanceIdempotencyService } from '@/modules/attendance/services/AttendanceIdempotencyService'
 import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
 import { verifySignature } from '@/lib/crypto'
 
 export async function POST(request: NextRequest) {
+    let userId: string | null = null
+    let resolvedRequestId: string | null = null
+
     try {
         const authHeader = request.headers.get('authorization')
 
@@ -24,7 +28,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
-        const userId = decoded.userId as string
+        userId = decoded.userId as string
+        let bodyRequestId: string | undefined
 
         // Fetch Settings first to determine Timezone
         const [toleranceSetting, timezoneSetting] = await Promise.all([
@@ -62,6 +67,11 @@ export async function POST(request: NextRequest) {
             notes = formData.get('notes') as string
             const latStr = formData.get('latitude') as string
             const lngStr = formData.get('longitude') as string
+            const requestIdValue = formData.get('requestId')
+
+            if (typeof requestIdValue === 'string') {
+                bodyRequestId = requestIdValue
+            }
 
             if (latStr && lngStr) {
                 const lat = parseFloat(latStr)
@@ -149,11 +159,13 @@ export async function POST(request: NextRequest) {
                 latitude?: number;
                 longitude?: number;
                 photoUrl?: string;
+                requestId?: string;
                 capturedAt?: string;
                 _offline_meta?: { capturedAt?: string; signature?: string }
             }
             location = body.location
             notes = body.notes
+            bodyRequestId = body.requestId
 
             // Validate coordinates using centralized utility
             if (body.latitude !== undefined && body.longitude !== undefined) {
@@ -280,6 +292,57 @@ export async function POST(request: NextRequest) {
 
         // --- Use Centralized Service ---
         const attendanceService = new AttendanceService()
+        const idempotencyService = new AttendanceIdempotencyService()
+
+        resolvedRequestId = idempotencyService.resolveRequestId(
+            request.headers.get('Idempotency-Key') ?? request.headers.get('idempotency-key'),
+            bodyRequestId
+        )
+
+        let payloadHash: string | null = null
+
+        if (resolvedRequestId) {
+            payloadHash = idempotencyService.buildPayloadHash({
+                location,
+                notes,
+                latitude,
+                longitude,
+                photoUrl,
+                offlineTime: offlineCapturedAt?.toISOString() ?? null,
+                timezone,
+            })
+
+            const beginState = await idempotencyService.begin(userId, 'check-in', resolvedRequestId, payloadHash)
+
+            if (beginState === 'completed') {
+                const replayPayload = await idempotencyService.getReplay<{ success: boolean; data: unknown }>(
+                    userId,
+                    'check-in',
+                    resolvedRequestId
+                )
+
+                if (replayPayload) {
+                    return NextResponse.json(replayPayload, {
+                        headers: { 'X-Idempotent-Replay': 'true' }
+                    })
+                }
+            }
+
+            if (beginState === 'hash-mismatch') {
+                return NextResponse.json({
+                    error: 'Idempotency key sudah digunakan untuk payload berbeda',
+                    code: 'IDEMPOTENCY_KEY_REUSED'
+                }, { status: 409 })
+            }
+
+            if (beginState === 'in-progress') {
+                return NextResponse.json({
+                    error: 'Permintaan check-in sedang diproses',
+                    code: 'REQUEST_IN_PROGRESS'
+                }, { status: 409 })
+            }
+        }
+
         const checkInParams: {
             userId: string;
             photoUrl: string | null;
@@ -315,10 +378,27 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        return NextResponse.json({ success: true, data: attendance })
+        const responsePayload = { success: true, data: attendance }
+
+        if (resolvedRequestId && payloadHash) {
+            await idempotencyService.complete(userId, 'check-in', resolvedRequestId, payloadHash, responsePayload)
+        }
+
+        return NextResponse.json(responsePayload)
 
     } catch (error: unknown) {
+        if (userId && resolvedRequestId) {
+            const idempotencyService = new AttendanceIdempotencyService()
+            await idempotencyService.release(userId, 'check-in', resolvedRequestId)
+        }
+
         if (error instanceof Error) {
+            if (error.message === 'OUTSIDE_GEOFENCE') {
+                return NextResponse.json({
+                    error: 'Anda berada di luar area absensi yang diizinkan',
+                    code: 'OUTSIDE_GEOFENCE'
+                }, { status: 400 })
+            }
             if (error.message === 'DUPLICATE_ENTRY') {
                 return NextResponse.json({
                     error: 'Anda sudah melakukan check-in hari ini',
