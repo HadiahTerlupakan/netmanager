@@ -42,6 +42,7 @@ export const GET = createHandler({
       siteId: true,
       roleId: true,
       workingHourMode: true,
+      attendanceGeofencePolicy: true,
       startWorkTime: true,
       endWorkTime: true,
       workDays: true,

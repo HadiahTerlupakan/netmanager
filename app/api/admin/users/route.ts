@@ -96,6 +96,7 @@ export const POST = createHandler({
       isActive: body.isActive ?? true,
       // Working Hours Settings
       workingHourMode: body.workingHourMode || 'FIXED',
+      attendanceGeofencePolicy: body.attendanceGeofencePolicy || 'WARN',
       ...(body.startWorkTime && { startWorkTime: body.startWorkTime }),
       ...(body.endWorkTime && { endWorkTime: body.endWorkTime }),
       ...(body.workDays && { workDays: body.workDays }),
