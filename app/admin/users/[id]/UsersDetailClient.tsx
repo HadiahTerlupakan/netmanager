@@ -75,6 +75,7 @@ interface UserData {
   }>
   // Working hours
   workingHourMode?: string
+  attendanceGeofencePolicy?: string | null
   startWorkTime?: string | null
   endWorkTime?: string | null
   workDays?: string | null
@@ -117,6 +118,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     isActive: true,
     // Working Hours
     workingHourMode: 'FIXED',
+    attendanceGeofencePolicy: 'WARN',
     startWorkTime: '',
     endWorkTime: '',
     workDays: '',
@@ -145,6 +147,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           isActive: usr.isActive ?? true,
           // Working Hours
           workingHourMode: usr.workingHourMode || 'FIXED',
+          attendanceGeofencePolicy: usr.attendanceGeofencePolicy || 'WARN',
           startWorkTime: usr.startWorkTime || '',
           endWorkTime: usr.endWorkTime || '',
           workDays: usr.workDays || '',
@@ -292,6 +295,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         isActive: formData.isActive,
         // Working Hours
         workingHourMode: formData.workingHourMode,
+        attendanceGeofencePolicy: formData.attendanceGeofencePolicy,
         startWorkTime: formData.startWorkTime || null,
         endWorkTime: formData.endWorkTime || null,
         workDays: formData.workDays || null,
@@ -913,6 +917,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         <WorkingHoursSettings
           initialData={{
             workingHourMode: formData.workingHourMode,
+            attendanceGeofencePolicy: formData.attendanceGeofencePolicy,
             startWorkTime: formData.startWorkTime,
             endWorkTime: formData.endWorkTime,
             workDays: formData.workDays,
