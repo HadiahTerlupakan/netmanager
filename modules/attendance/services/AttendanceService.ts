@@ -21,6 +21,17 @@ interface CheckInParams {
     timezone?: string
 }
 
+type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
+
+type CachedUserAttendanceSettings = {
+    startWorkTime: string | null
+    endWorkTime: string | null
+    workingHourMode: string | null
+    attendanceGeofencePolicy: AttendanceGeofencePolicy | null
+    shiftId: string | null
+    shift: { startTime: string, endTime: string } | null
+}
+
 export class AttendanceService {
     private geofenceService: GeofenceService
     private validationService: AttendanceValidationService
@@ -54,9 +65,9 @@ export class AttendanceService {
 
         // 3. User Settings & Schedule (with caching)
         const cacheKey = `user:schedule:${userId}`
-        const cachedSchedule = cache.get<{ startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null, shiftId: string | null, shift: { startTime: string, endTime: string } | null }>(cacheKey)
+        const cachedSchedule = cache.get<CachedUserAttendanceSettings>(cacheKey)
 
-        let userDetails: { startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null, shiftId: string | null, shift: { startTime: string, endTime: string } | null } | null
+        let userDetails: CachedUserAttendanceSettings | null
         if (cachedSchedule) {
             userDetails = cachedSchedule
         } else {
@@ -66,6 +77,7 @@ export class AttendanceService {
                     startWorkTime: true,
                     endWorkTime: true,
                     workingHourMode: true,
+                    attendanceGeofencePolicy: true,
                     shiftId: true,
                     shift: { select: { startTime: true, endTime: true } }
                 }
@@ -99,6 +111,12 @@ export class AttendanceService {
 
         if (latitude !== undefined && longitude !== undefined) {
             const geoCheck = await this.geofenceService.validateGeofence(userId, latitude, longitude)
+            const geofencePolicy = userDetails?.attendanceGeofencePolicy ?? 'WARN'
+
+            if (!geoCheck.isInside && geofencePolicy === 'STRICT') {
+                throw new Error('OUTSIDE_GEOFENCE')
+            }
+
             geofenceResult = {
                 status: geoCheck.isInside ? 'INSIDE' : 'OUTSIDE',
                 distance: geoCheck.nearestDistance,
@@ -238,6 +256,7 @@ export class AttendanceService {
                 user: {
                     select: {
                         workingHourMode: true,
+                        attendanceGeofencePolicy: true,
                         flexibleTargetHour: true,
                         name: true
                     }
@@ -274,6 +293,12 @@ export class AttendanceService {
 
         if (latitude !== undefined && longitude !== undefined) {
             const geoCheck = await this.geofenceService.validateGeofence(userId, latitude, longitude)
+            const geofencePolicy = attendance.user.attendanceGeofencePolicy ?? 'WARN'
+
+            if (!geoCheck.isInside && geofencePolicy === 'STRICT') {
+                throw new Error('OUTSIDE_GEOFENCE')
+            }
+
             checkOutGeofenceStatus = geoCheck.isInside ? 'INSIDE' : 'OUTSIDE'
             checkOutGeofenceDistance = geoCheck.nearestDistance
         }
