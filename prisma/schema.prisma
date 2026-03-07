@@ -889,6 +889,7 @@ model User {
   roleId                                     String?
   isActive                                   Boolean                   @default(true)
   workingHourMode                            WorkingHourMode           @default(FIXED)
+  attendanceGeofencePolicy                   AttendanceGeofencePolicy  @default(WARN)
   startWorkTime                              String?
   endWorkTime                                String?
   workDays                                   String?
@@ -2695,6 +2696,12 @@ enum AttendanceStatus {
   PERMIT
   DAY_OFF
   ALPHA
+}
+
+enum AttendanceGeofencePolicy {
+  STRICT
+  WARN
+  DISABLED
 }
 
 enum AlertSeverity {
