@@ -18,6 +18,7 @@ export interface CreateUserInput {
     isActive?: boolean
     // Working Hours Settings
     workingHourMode?: string
+    attendanceGeofencePolicy?: string
     startWorkTime?: string
     endWorkTime?: string
     workDays?: string
@@ -26,6 +27,8 @@ export interface CreateUserInput {
     // Sales Feature
     isSales?: boolean
 }
+
+type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
 
 export interface UpdateUserInput {
     email?: string
@@ -82,6 +85,7 @@ export class UserService {
             isActive: data.isActive,
             // Working Hours Settings
             workingHourMode: (data.workingHourMode as WorkingHourMode) || WorkingHourMode.FIXED,
+            attendanceGeofencePolicy: (data.attendanceGeofencePolicy as AttendanceGeofencePolicy) || 'WARN',
             startWorkTime: data.startWorkTime || '09:00',
             endWorkTime: data.endWorkTime || '17:00',
             workDays: data.workDays || 'Mon,Tue,Wed,Thu,Fri',
@@ -194,4 +198,3 @@ export function getUserService(): UserService {
     }
     return userServiceInstance
 }
-
