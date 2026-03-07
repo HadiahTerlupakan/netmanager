@@ -1217,7 +1217,7 @@ export default function ExpensesClient() {
                                                         <option value="">-- Bebas / Tidak Spesifik --</option>
                                                         {rabProjects
                                                             .find(r => r.id === formData.rabProjectId)?.items
-                                                            ?.filter(i => i.expenseType === formData.category)
+                                                            ?.filter(i => formData.category ? i.expenseType === formData.category : true)
                                                             .map(item => (
                                                                 <option key={item.id} value={item.id}>{item.name}</option>
                                                             ))

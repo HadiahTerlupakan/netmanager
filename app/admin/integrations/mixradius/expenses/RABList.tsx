@@ -1002,6 +1002,21 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
         }
     }
 
+    const getStatusBadge = (status: string) => {
+        switch (status) {
+            case 'DRAFT': return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+            case 'PENDING_APPROVAL': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+            case 'APPROVED': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+            case 'REJECTED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+            case 'PENGADAAN': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+            case 'PENGGELARAN_JARINGAN': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+            case 'PENJUALAN': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
+            case 'TARGET_TERCAPAI': return 'bg-emerald-500 text-white font-bold'
+            case 'SELESAI': return 'bg-gray-800 text-white dark:bg-white dark:text-gray-900 font-bold'
+            default: return 'bg-gray-100 text-gray-600'
+        }
+    }
+
     return (
         <div className="space-y-4">
             {/* Bulk Actions Header */}
@@ -1138,7 +1153,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                             key: 'status',
                             header: 'Status',
                             render: (item) => (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded text-xs font-medium uppercase">
+                                <span className={`px-2 py-1 ${getStatusBadge(item.status)} rounded text-xs font-bold uppercase`}>
                                     {item.status || 'DRAFT'}
                                 </span>
                             )
@@ -1201,6 +1216,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                         }
                     ]}
                 />
+
                 {showCompareModal && (
                     <RABCompare
                         projects={selectedProjects}

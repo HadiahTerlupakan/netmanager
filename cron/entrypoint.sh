@@ -35,6 +35,9 @@ cat > /etc/crontabs/root <<EOF
 
 # Work Order Reminder - kirim reminder untuk WO > 1 hari pada jam 08:00 setiap hari
 0 8 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/workorder-reminder" >> /var/log/cron.log 2>&1
+
+# RAB Status Evaluation
+0 1 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/rab-status-eval" >> /var/log/cron.log 2>&1
 EOF
 
 echo "Cron jobs configured:"

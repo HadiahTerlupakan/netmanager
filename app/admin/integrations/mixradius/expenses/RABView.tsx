@@ -132,6 +132,119 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
         }
     }
 
+    const handleStatusTransition = async (newStatus: string) => {
+        setIsApproving(true)
+        try {
+            const res = await fetch(`/api/finance/rab-projects/${data.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+            const json = await res.json()
+            if (json.success) {
+                toast.success(`Status berhasil diubah ke ${newStatus}`)
+                // Update local data optimistically
+                Object.assign(data, { status: newStatus })
+            } else {
+                toast.error(json.error || 'Gagal mengubah status')
+            }
+        } catch (_error) {
+            toast.error('Gagal terhubung ke server')
+        } finally {
+            setIsApproving(false)
+        }
+    }
+
+    const getStatusBadge = (status: string) => {
+        switch (status) {
+            case 'DRAFT': return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+            case 'PENDING_APPROVAL': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+            case 'APPROVED': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+            case 'REJECTED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+            case 'PENGADAAN': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+            case 'PENGGELARAN_JARINGAN': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+            case 'PENJUALAN': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
+            case 'TARGET_TERCAPAI': return 'bg-emerald-500 text-white font-bold'
+            case 'SELESAI': return 'bg-gray-800 text-white dark:bg-white dark:text-gray-900 font-bold'
+            default: return 'bg-gray-100 text-gray-600'
+        }
+    }
+
+    const renderActionButtons = () => {
+        const canManage = (currentUser as any)?.isSuperAdmin || (currentUser as any)?.canApproveRab
+        if (!canManage) return null
+
+        switch (data.status) {
+            case 'DRAFT':
+            case 'PENDING_APPROVAL':
+                return !data.approvals?.some(a => a.userId === currentUser.id) && (
+                    <button
+                        onClick={async () => {
+                            setIsApproving(true)
+                            try {
+                                const res = await fetch(`/api/integrations/mixradius/expenses/rab/${data.id}/approve`, { method: 'POST' })
+                                const json = await res.json()
+                                if (res.ok) {
+                                    toast.success(json.message)
+                                    if (json.data) Object.assign(data, json.data)
+                                } else {
+                                    toast.error(json.error || 'Gagal menyetujui RAB')
+                                }
+                            } catch (_e) {
+                                toast.error('Gagal menghubungi server')
+                            } finally {
+                                setIsApproving(false)
+                            }
+                        }}
+                        disabled={isApproving}
+                        className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                        {isApproving ? 'Memproses...' : (
+                            <>
+                                <HiOutlineCheck className="w-4 h-4" />
+                                Setujui RAB
+                            </>
+                        )}
+                    </button>
+                )
+            case 'APPROVED':
+                return (
+                    <button
+                        onClick={() => handleStatusTransition('PENGADAAN')}
+                        disabled={isApproving}
+                        className="px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                        <HiOutlineCalculator className="w-4 h-4" />
+                        Mulai Pengadaan
+                    </button>
+                )
+            case 'PENGADAAN':
+                return (
+                    <button
+                        onClick={() => handleStatusTransition('PENGGELARAN_JARINGAN')}
+                        disabled={isApproving}
+                        className="px-3 py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                        <HiOutlineCube className="w-4 h-4" />
+                        Mulai Penggelaran
+                    </button>
+                )
+            case 'PENGGELARAN_JARINGAN':
+                return (
+                    <button
+                        onClick={() => handleStatusTransition('PENJUALAN')}
+                        disabled={isApproving}
+                        className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                        <HiOutlineUsers className="w-4 h-4" />
+                        Mulai Penjualan
+                    </button>
+                )
+            default:
+                return null
+        }
+    }
+
     return (
         <Modal
             isOpen={isOpen}
@@ -151,40 +264,8 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Identitas Proyek</h3>
                             </div>
 
-                            {/* APPROVAL ACTION BUTTON */}
-                            {(data.status === 'DRAFT' || data.status === 'PENDING_APPROVAL') && ((currentUser as unknown as { canApproveRab?: boolean })?.canApproveRab || (currentUser as unknown as { isSuperAdmin?: boolean })?.isSuperAdmin) && !data.approvals?.some(a => a.userId === currentUser.id) && (
-                                <button
-                                    onClick={async () => {
-                                        setIsApproving(true)
-                                        try {
-                                            const res = await fetch(`/api/integrations/mixradius/expenses/rab/${data.id}/approve`, { method: 'POST' })
-                                            const json = await res.json()
-                                            if (res.ok) {
-                                                toast.success(json.message)
-                                                // Ideally trigger a refresh to parent component, but we can optimistically update data or just rely on parent's refreshKey
-                                                if (json.data) {
-                                                    Object.assign(data, json.data)
-                                                }
-                                            } else {
-                                                toast.error(json.error || 'Gagal menyetujui RAB')
-                                            }
-                                        } catch (_e) {
-                                            toast.error('Gagal menghubungi server')
-                                        } finally {
-                                            setIsApproving(false)
-                                        }
-                                    }}
-                                    disabled={isApproving}
-                                    className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                                >
-                                    {isApproving ? 'Memproses...' : (
-                                        <>
-                                            <HiOutlineCheck className="w-4 h-4" />
-                                            Setujui RAB
-                                        </>
-                                    )}
-                                </button>
-                            )}
+                            {/* ACTION BUTTONS */}
+                            {renderActionButtons()}
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -193,7 +274,7 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 font-semibold mb-1">Status</p>
-                                <span className={`px-2 py-1 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded text-xs font-bold uppercase`}>
+                                <span className={`px-2 py-1 ${getStatusBadge(data.status)} rounded text-xs font-bold uppercase`}>
                                     {data.status || 'DRAFT'}
                                 </span>
                             </div>

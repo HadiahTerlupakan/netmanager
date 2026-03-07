@@ -59,8 +59,22 @@ export default function InvestorProjects() {
             <div className="p-4 space-y-4">
                 {projects.map((item) => {
                     const p = item as { id: string; name: string; siteName?: string; status: string; investmentAmount: string | number; totalActualRevenue: string | number; totalActualOpex?: string | number; profitSharePercent: number }
-                    const statusColor = p.status === 'COMPLETED' ? 'text-green-500 bg-green-50 dark:bg-green-900/30' : p.status === 'IN_PROGRESS' ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'text-orange-500 bg-orange-50 dark:bg-orange-900/30'
-                    const StatusIcon = p.status === 'COMPLETED' ? HiOutlineCheckCircle : p.status === 'IN_PROGRESS' ? HiOutlineChartBar : HiOutlineClock
+                    // Helper to get status colors based on new RabStatus
+                    const getStatusUI = (status: string) => {
+                        switch (status) {
+                            case 'DRAFT': return { color: 'text-gray-500 bg-gray-50 dark:bg-gray-900/30', icon: HiOutlineClock }
+                            case 'PENDING_APPROVAL': return { color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30', icon: HiOutlineClock }
+                            case 'APPROVED': return { color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30', icon: HiOutlineCheckCircle }
+                            case 'PENGADAAN': return { color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30', icon: HiOutlineChartBar }
+                            case 'PENGGELARAN_JARINGAN': return { color: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30', icon: HiOutlineChartBar }
+                            case 'PENJUALAN': return { color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30', icon: HiOutlineChartBar }
+                            case 'TARGET_TERCAPAI': return { color: 'text-white bg-emerald-500', icon: HiOutlineCheckCircle }
+                            case 'SELESAI': return { color: 'text-white bg-gray-800 dark:bg-white dark:text-gray-900', icon: HiOutlineCheckCircle }
+                            default: return { color: 'text-gray-500 bg-gray-50 dark:bg-gray-900/30', icon: HiOutlineClock }
+                        }
+                    }
+                    const ui = getStatusUI(p.status)
+                    const StatusIcon = ui.icon
 
                     return (
                         <Link
@@ -78,9 +92,9 @@ export default function InvestorProjects() {
                                             <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" /> {p.siteName || 'Lokasi Global'}
                                         </p>
                                     </div>
-                                    <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${statusColor}`}>
+                                    <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${ui.color}`}>
                                         <StatusIcon className="w-3 h-3" />
-                                        <span>{p.status.replace('_', ' ')}</span>
+                                        <span>{p.status.replace(/_/g, ' ')}</span>
                                     </div>
                                 </div>
 
