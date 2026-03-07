@@ -5,6 +5,8 @@ import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepo
 
 export const dynamic = 'force-dynamic'
 
+const STALE_FLEXIBLE_SESSION_HOURS = 24
+
 export async function GET(request: NextRequest) {
     try {
         const authHeader = request.headers.get('Authorization')
@@ -33,10 +35,39 @@ export async function GET(request: NextRequest) {
                 where: { userId },
                 orderBy: { checkIn: 'desc' },
                 take: limit,
-                skip
+                skip,
+                include: {
+                    user: {
+                        select: {
+                            workingHourMode: true,
+                            flexibleTargetHour: true,
+                            shift: {
+                                select: {
+                                    startTime: true,
+                                    endTime: true
+                                }
+                            }
+                        }
+                    }
+                }
             }),
             prisma.attendance.count({ where: { userId } })
         ])
+
+        const now = new Date()
+        const attendancesWithSessionMeta = attendances.map((attendance) => {
+            const isStaleFlexibleSession =
+                attendance.user?.workingHourMode === 'FLEXIBLE'
+                && attendance.checkOut === null
+                && (now.getTime() - attendance.checkIn.getTime()) > STALE_FLEXIBLE_SESSION_HOURS * 60 * 60 * 1000
+
+            return {
+                ...attendance,
+                sessionMeta: {
+                    isStaleFlexibleSession
+                }
+            }
+        })
 
         // Check Holiday for Today (User Filter? Timezone?)
         // Ideally we should use user's timezone, but for now server time or basic check is okay for display.
@@ -132,7 +163,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            data: attendances,
+            data: attendancesWithSessionMeta,
             pagination: {
                 page,
                 limit,
