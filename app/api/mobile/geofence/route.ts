@@ -22,14 +22,18 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Token tidak valid atau kadaluarsa' }, { status: 401 })
         }
 
-        const userId = payload.id as string
+        const userId = payload.userId || payload.sub
         const geofenceService = new GeofenceService()
-        const zones = await geofenceService.getZonesForUser(userId)
+        const [zones, policy] = await Promise.all([
+            geofenceService.getZonesForUser(userId),
+            geofenceService.getPolicyForUser(userId)
+        ])
 
         return NextResponse.json({
             success: true,
             data: {
                 zones,
+                policy,
                 // Config for mobile app
                 config: {
                     enableWarning: true,  // Show warning if outside zone

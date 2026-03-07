@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { calculateHaversineDistance } from '@/lib/geo-utils'
 
+type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
+
 /**
  * GeofenceService - Validasi lokasi absensi terhadap zona geofence Sites
  * Menggunakan Formula Haversine untuk menghitung jarak antara 2 koordinat
@@ -8,6 +10,21 @@ import { calculateHaversineDistance } from '@/lib/geo-utils'
  * Multi-site Support: User bisa punya banyak sites via userSites relation
  */
 export class GeofenceService {
+
+    async getPolicyForUser(userId: string): Promise<AttendanceGeofencePolicy> {
+        const rows = await prisma.$queryRaw<Array<{ attendanceGeofencePolicy: string | null }>>`
+            SELECT "attendanceGeofencePolicy"
+            FROM "User"
+            WHERE "id" = ${userId}
+            LIMIT 1
+        `
+
+        const geofencePolicy = rows[0]?.attendanceGeofencePolicy ?? null
+
+        return geofencePolicy === 'STRICT' || geofencePolicy === 'DISABLED' || geofencePolicy === 'WARN'
+            ? geofencePolicy
+            : 'WARN'
+    }
 
     /**
      * Menghitung jarak antara 2 koordinat menggunakan Formula Haversine
@@ -237,4 +254,3 @@ export class GeofenceService {
         return zones
     }
 }
-
