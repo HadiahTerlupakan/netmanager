@@ -18,11 +18,11 @@ export class AutoCheckoutService {
      */
     static async runAutoCheckout() {
         const timezone = await getTimezone()
-        
+
         // Use timezone-aware current time
         const now = new Date()
         const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
-        
+
         const endOfToday = new Date(nowInTz)
         endOfToday.setTime(toEndOfDay(endOfToday).getTime())
 
@@ -43,11 +43,24 @@ export class AutoCheckoutService {
                 status: {
                     not: 'ALPHA'
                 },
-                user: {
-                    workingHourMode: {
-                        not: 'FLEXIBLE'
+                OR: [
+                    {
+                        user: {
+                            workingHourMode: {
+                                not: 'FLEXIBLE'
+                            }
+                        }
+                    },
+                    {
+                        user: {
+                            workingHourMode: 'FLEXIBLE'
+                        },
+                        checkIn: {
+                            // Flexible users are only auto-checked out if they've been checked in for more than 24 hours
+                            lte: new Date(now.getTime() - 24 * 60 * 60 * 1000)
+                        }
                     }
-                }
+                ]
             },
             include: {
                 user: {
@@ -76,7 +89,11 @@ export class AutoCheckoutService {
                 checkOutTime.setTime(toEndOfDay(checkOutTime).getTime())
 
                 // Special handling for SHIFT mode due to potential Overnight Shifts
-                if (user.workingHourMode === 'SHIFT' && user.shift) {
+                if (user.workingHourMode === 'FLEXIBLE') {
+                    // For flexible users, if they reached here, it means they have been checked in > 24 hours.
+                    // We set checkout time to exactly 24 hours after check-in.
+                    checkOutTime = new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000)
+                } else if (user.workingHourMode === 'SHIFT' && user.shift) {
                     const startH = parseInt(user.shift.startTime.split(':')[0] ?? '0')
                     const endH = parseInt(user.shift.endTime.split(':')[0] ?? '0')
 

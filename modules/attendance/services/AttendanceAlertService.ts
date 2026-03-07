@@ -47,7 +47,7 @@ function isInReminderWindow(
     const workDate = parseTimeToDate(workTime, currentTime)
     const reminderStart = new Date(workDate.getTime() + reminderMinutes * 60 * 1000)
     const reminderEnd = new Date(reminderStart.getTime() + windowMinutes * 60 * 1000)
-    
+
     return currentTime >= reminderStart && currentTime <= reminderEnd
 }
 
@@ -64,10 +64,10 @@ function getDayName(date: Date = new Date()): string {
  */
 function isWorkDay(workDays: string | null, date: Date = new Date()): boolean {
     if (!workDays) return true // Default: all days are work days
-    
+
     const dayName = getDayName(date)
     const workDayList = workDays.toUpperCase().split(',').map(d => d.trim())
-    
+
     return workDayList.includes(dayName)
 }
 
@@ -119,7 +119,7 @@ export async function getUsersNeedingCheckInReminder(
         if (!user.startWorkTime) return false
         if (!isWorkDay(user.workDays, now)) return false
         if (!isInReminderWindow(user.startWorkTime, reminderMinutes, now)) return false
-        
+
         return true
     }).map(user => ({
         userId: user.id,
@@ -178,7 +178,7 @@ export async function getUsersNeedingCheckOutReminder(
         if (!user.endWorkTime) return false
         if (!isWorkDay(user.workDays, now)) return false
         if (!isInReminderWindow(user.endWorkTime, reminderMinutes, now, windowMinutes)) return false
-        
+
         return true
     }).map(att => ({
         userId: att.user.id,
@@ -198,7 +198,7 @@ export async function processCheckInReminders(
 ): Promise<{ usersNotified: number; details: string[] }> {
     try {
         const users = await getUsersNeedingCheckInReminder(reminderMinutes)
-        
+
         if (users.length === 0) {
             console.log('[AttendanceAlert] No users need check-in reminder at this time')
             return { usersNotified: 0, details: [] }
@@ -240,7 +240,7 @@ export async function processCheckOutReminders(
 ): Promise<{ usersNotified: number; details: string[] }> {
     try {
         const users = await getUsersNeedingCheckOutReminder(reminderMinutes)
-        
+
         if (users.length === 0) {
             console.log('[AttendanceAlert] No users need check-out reminder at this time')
             return { usersNotified: 0, details: [] }
@@ -296,7 +296,7 @@ export async function sendAttendanceAlertToUser(
     }
 
     const message = messages[type]
-    
+
     // Create notification in database
     await createNotification({
         type: 'ALERT',
@@ -353,12 +353,12 @@ export async function processIncompleteAttendance(): Promise<{
 export async function processLateCheckOutReminders(): Promise<{ usersNotified: number; details: string[] }> {
     // 3 hours (180 mins) to 4 hours (240 mins) window
     // so reminderMinutes = 180, windowMinutes = 60
-    const reminderMinutes = 180 
+    const reminderMinutes = 180
     const windowMinutes = 60
-    
+
     try {
         const users = await getUsersNeedingCheckOutReminder(reminderMinutes, windowMinutes)
-        
+
         if (users.length === 0) {
             return { usersNotified: 0, details: [] }
         }
@@ -437,9 +437,9 @@ export async function processFlexibleReminders(): Promise<{ usersNotified: numbe
         endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         // Find Flexible users currently Checked-In (CheckOut is null)
+        // Note: Removed the gte: startOfDay constraint to allow notifications for sessions started on previous days
         const activeFlexibleSessions = await prisma.attendance.findMany({
             where: {
-                checkIn: { gte: startOfDay, lte: endOfDay },
                 checkOut: null,
                 user: {
                     isActive: true,
@@ -475,30 +475,30 @@ export async function processFlexibleReminders(): Promise<{ usersNotified: numbe
             // Only notify if duration exceeds target
             if (durationHours > targetHours) {
                 const excessHours = durationHours - targetHours
-                
+
                 // Logic to trigger roughly every hour (within 15 min window of the cron job)
                 // e.g., if excess is 1.05h (1h 3m) -> Notify
                 // if excess is 2.1h (2h 6m) -> Notify
                 // Using modulo 1 check
                 const remainder = excessHours % 1
-                
+
                 // Trigger if we are in the first 0.25 (15 mins) of a new hour block
                 // OR if it's the very first time crossing the threshold (within first 15 mins)
                 if (remainder >= 0 && remainder <= 0.25) {
-                    
+
                     const hoursWorked = Math.floor(durationHours)
                     const minutesWorked = Math.round((durationHours % 1) * 60)
 
                     await sendPushNotification(
                         session.user.id,
-                        '⏳ Reminder Durasi Kerja',
-                        `Halo ${session.user.name}, Anda telah bekerja selama ${hoursWorked} jam ${minutesWorked} menit (Target: ${targetHours} jam). Jangan lupa Check-Out jika pekerjaan sudah selesai.`,
+                        '⏰ Reminder Check-Out (Fleksibel)',
+                        `Halo ${session.user.name}, durasi kerja Anda sudah mencapai ${hoursWorked} jam ${minutesWorked} menit (Target: ${targetHours} jam). Harap segera Check-Out jika sudah selesai.`,
                         {
                             type: 'attendance_reminder',
                             action: 'check_out'
                         }
                     )
-                    
+
                     notified++
                     details.push(`${session.user.name} (${hoursWorked}h ${minutesWorked}m)`)
                 }
@@ -508,7 +508,7 @@ export async function processFlexibleReminders(): Promise<{ usersNotified: numbe
         if (notified > 0) {
             console.log(`[AttendanceAlert] Sent FLEXIBLE reminder to ${notified} users`)
         }
-        
+
         return { usersNotified: notified, details }
     } catch (error) {
         console.error('[AttendanceAlert] Error sending flexible reminders:', error)
