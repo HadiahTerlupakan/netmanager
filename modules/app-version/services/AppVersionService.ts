@@ -53,6 +53,12 @@ export interface CheckVersionResult {
     } | null
 }
 
+export interface VersionAccessResult extends CheckVersionResult {
+    isSupported: boolean
+    currentVersionCode: number
+    minimumVersion: string | null
+}
+
 // Singleton instance
 let serviceInstance: AppVersionService | null = null
 
@@ -367,22 +373,27 @@ export class AppVersionService {
             throw new Error('Versi tidak ditemukan')
         }
 
+        const updateData: UpdateAppVersionDTO = {
+            ...data,
+            ...(data.minVersion === undefined ? { minVersion: existing.minVersion } : {})
+        }
+
         // Check for version conflicts if changing version or versionCode
-        if (data.version && data.version !== existing.version) {
-            const versionExists = await this.repository.findByVersion(data.version)
+        if (updateData.version && updateData.version !== existing.version) {
+            const versionExists = await this.repository.findByVersion(updateData.version)
             if (versionExists) {
-                throw new Error(`Version ${data.version} sudah ada`)
+                throw new Error(`Version ${updateData.version} sudah ada`)
             }
         }
 
-        if (data.versionCode && data.versionCode !== existing.versionCode) {
-            const codeExists = await this.repository.findByVersionCode(data.versionCode)
+        if (updateData.versionCode && updateData.versionCode !== existing.versionCode) {
+            const codeExists = await this.repository.findByVersionCode(updateData.versionCode)
             if (codeExists) {
-                throw new Error(`Version code ${data.versionCode} sudah ada`)
+                throw new Error(`Version code ${updateData.versionCode} sudah ada`)
             }
         }
 
-        return this.repository.update(id, data)
+        return this.repository.update(id, updateData)
     }
 
     /**
@@ -398,8 +409,9 @@ export class AppVersionService {
         if (existing.apkUrl) {
             try {
                 // Cek apakah file lokal
-                if (existing.apkUrl.startsWith('/apk/')) {
-                    const localPath = path.join(process.cwd(), 'public', existing.apkUrl)
+                if (existing.apkUrl.startsWith('/uploads/apk/') || existing.apkUrl.startsWith('/apk/')) {
+                    const relativePath = existing.apkUrl.replace(/^\//, '')
+                    const localPath = path.join(process.cwd(), 'public', relativePath)
                     try {
                         await fs.unlink(localPath)
                         // console.log(`Deleted local APK: ${localPath}`)
@@ -409,7 +421,7 @@ export class AppVersionService {
                     }
                 }
                 // Cek apakah file R2 (mengandung uploads/apk/)
-                else if (existing.apkUrl.includes('uploads/apk/')) {
+                else if ((existing.apkUrl.startsWith('http://') || existing.apkUrl.startsWith('https://')) && existing.apkUrl.includes('uploads/apk/')) {
                     // Extract key from URL
                     // Key format: uploads/apk/timestamp-filename.apk
                     // URL format: https://domain.com/uploads/apk/timestamp-filename.apk
@@ -434,35 +446,32 @@ export class AppVersionService {
         await this.repository.delete(id)
     }
 
-    /**
-     * Check for available update
-     */
-    async checkForUpdate(
+    async evaluateVersionAccess(
         currentVersionCode: number,
         platform: string = 'android'
-    ): Promise<CheckVersionResult> {
+    ): Promise<VersionAccessResult> {
         const latestVersion = await this.repository.getLatestVersion(platform)
 
         if (!latestVersion) {
             return {
+                isSupported: true,
                 updateAvailable: false,
                 isForceUpdate: false,
                 currentVersion: '',
+                currentVersionCode,
+                minimumVersion: null,
                 latestVersion: null
             }
         }
 
         const updateAvailable = latestVersion.versionCode > currentVersionCode
 
-        // Determine if force update is required
         let isForceUpdate = false
         if (updateAvailable && latestVersion.isForceUpdate) {
             isForceUpdate = true
         }
 
-        // Also check minVersion if specified
         if (updateAvailable && latestVersion.minVersion) {
-            // Parse minVersion and compare
             const minVersionCode = this.parseVersionToCode(latestVersion.minVersion)
             if (minVersionCode && currentVersionCode < minVersionCode) {
                 isForceUpdate = true
@@ -470,18 +479,42 @@ export class AppVersionService {
         }
 
         return {
+            isSupported: !isForceUpdate,
             updateAvailable,
             isForceUpdate,
             currentVersion: latestVersion.version,
-            latestVersion: updateAvailable ? {
-                id: latestVersion.id,
-                version: latestVersion.version,
-                buildNumber: latestVersion.buildNumber,
-                versionCode: latestVersion.versionCode,
-                releaseNotes: latestVersion.releaseNotes,
-                downloadUrl: latestVersion.apkUrl ? (latestVersion.apkUrl.startsWith("http://") || latestVersion.apkUrl.startsWith("https://") ? latestVersion.apkUrl : `/api/mobile/app-version/download/${latestVersion.id}`) : null,
-                apkSize: latestVersion.apkSize ? Number(latestVersion.apkSize) : null
-            } : null
+            currentVersionCode,
+            minimumVersion: latestVersion.minVersion ?? null,
+            latestVersion: updateAvailable ? this.mapLatestVersion(latestVersion) : null
+        }
+    }
+
+    /**
+     * Check for available update
+     */
+    async checkForUpdate(
+        currentVersionCode: number,
+        platform: string = 'android'
+    ): Promise<CheckVersionResult> {
+        const result = await this.evaluateVersionAccess(currentVersionCode, platform)
+
+        return {
+            updateAvailable: result.updateAvailable,
+            isForceUpdate: result.isForceUpdate,
+            currentVersion: result.currentVersion,
+            latestVersion: result.latestVersion
+        }
+    }
+
+    private mapLatestVersion(latestVersion: AppVersion): CheckVersionResult['latestVersion'] {
+        return {
+            id: latestVersion.id,
+            version: latestVersion.version,
+            buildNumber: latestVersion.buildNumber,
+            versionCode: latestVersion.versionCode,
+            releaseNotes: latestVersion.releaseNotes,
+            downloadUrl: latestVersion.apkUrl ? (latestVersion.apkUrl.startsWith('http://') || latestVersion.apkUrl.startsWith('https://') ? latestVersion.apkUrl : `/api/mobile/app-version/download/${latestVersion.id}`) : null,
+            apkSize: latestVersion.apkSize ? Number(latestVersion.apkSize) : null
         }
     }
 
