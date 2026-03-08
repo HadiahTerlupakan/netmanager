@@ -79,5 +79,12 @@ describe('announcements route', () => {
         expect.objectContaining({ userId: 'super-1', sourceType: 'ANNOUNCEMENT' }),
       ],
     })
+    expect(prismaMock.user.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      where: {
+        isActive: true,
+        role: { name: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+      },
+      select: { id: true },
+    }))
   })
 })

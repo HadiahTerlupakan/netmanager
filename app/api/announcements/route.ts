@@ -156,6 +156,11 @@ export async function POST(request: NextRequest) {
                     userFilter.role = { name: { in: ['ADMIN', 'SUPER_ADMIN'] } };
                 }
 
+                const dbUserFilter = {
+                    isActive: true,
+                    ...(userFilter.role ? { role: userFilter.role } : {})
+                };
+
                 const users = await prisma.user.findMany({
                     where: userFilter,
                     select: { id: true, pushToken: true }
@@ -197,7 +202,7 @@ export async function POST(request: NextRequest) {
                 // 2. Create In-App Notifications (Database)
                 // We create a notification record for ALL targeted users, even on leave, so they have history
                 const allTargetedUsers = await prisma.user.findMany({
-                    where: { ...userFilter, pushToken: undefined }, // Remove pushToken filter for DB records
+                    where: dbUserFilter,
                     select: { id: true }
                 });
 
