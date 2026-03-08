@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma';
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 import { createNotification } from '@/modules/notification';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 
@@ -87,16 +86,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                 sourceType: 'WORK_ORDER',
                 sourceId: workOrder.id,
             });
-
-            // Push notification to mobile
-            if (employee.pushToken && employee.isActive) {
-                await sendPushToUsers(
-                    [employee.id],
-                    '📋 Work Order Baru',
-                    `${workOrder.workOrderNumber}: ${workOrder.title}`,
-                    { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderDetail' }
-                );
-            }
         } catch (notifyError) {
             console.error('Additional notification failed:', notifyError);
         }

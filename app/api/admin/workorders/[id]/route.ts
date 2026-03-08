@@ -4,7 +4,6 @@ import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
 import { onWorkOrderStatusChanged } from '@/modules/work-order/services/WorkOrderNotifications';
-import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 import { createNotification } from '@/modules/notification';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logActivitySafe } from '@/lib/logger';
@@ -25,7 +24,7 @@ const workOrderRepo = new WorkOrderRepository(prisma);
  * GET /api/admin/workorders/{id}
  * Get work order detail
  */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     const userBase = ctx.session!.user;
     const { id } = ctx.params;
 
@@ -217,13 +216,6 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
                     sourceId: id,
                 });
 
-                // Push notification to mobile
-                await sendPushToUsers(
-                    [updatedWO.assignedToId],
-                    title,
-                    message,
-                    { workOrderId: id, type: 'WORK_ORDER', screen: 'WorkOrderDetail' }
-                );
             }
 
             // 2. Use the standard status change notification flow for other stakeholders
@@ -359,14 +351,6 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
                 sourceType: 'WORK_ORDER',
                 sourceId: id,
             });
-
-            // Push notification to mobile
-            await sendPushToUsers(
-                [existingWO.assignedToId],
-                title,
-                message,
-                { workOrderId: id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
-            );
 
             // Notify other stakeholders
             await onWorkOrderStatusChanged({
