@@ -144,17 +144,16 @@ export async function POST(request: NextRequest) {
                 const userFilter: {
                     pushToken: { not: null };
                     isActive: boolean;
-                    Role?: { name: string | { in: string[] } };
+                    role?: { name: string | { in: string[] } };
                 } = {
                     pushToken: { not: null },
                     isActive: true
                 };
 
                 if (target === 'EMPLOYEE') {
-                    // Ensure we target employees
-                    userFilter.Role = { name: { in: ['EMPLOYEE', 'TEKNISI', 'ADMIN'] } }; 
+                    userFilter.role = { name: { in: ['EMPLOYEE', 'TEKNISI'] } };
                 } else if (target === 'ADMIN') {
-                    userFilter.Role = { name: 'ADMIN' };
+                    userFilter.role = { name: { in: ['ADMIN', 'SUPER_ADMIN'] } };
                 }
 
                 const users = await prisma.user.findMany({
