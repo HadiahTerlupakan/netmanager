@@ -16,6 +16,7 @@ interface AppVersion {
     apkSize: number | null
     releaseNotes: string | null
     isForceUpdate: boolean
+    minVersion: string | null
     isActive: boolean
     publishedAt: string | null
     createdAt: string
@@ -46,7 +47,7 @@ export function AppVersionClient() {
     const [stats, setStats] = useState<{ updatedCount: number, outdatedCount: number, unknownCount: number, latestVersion: AppVersion | null } | null>(null)
 
     // Fetch stats
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const res = await fetch('/api/admin/app-version/stats')
             const data = await res.json()
@@ -56,7 +57,7 @@ export function AppVersionClient() {
         } catch (error: unknown) {
             console.error('Failed to fetch stats:', error)
         }
-    }
+    }, [])
 
     // Fetch versions
     const fetchVersions = useCallback(async () => {
@@ -89,7 +90,7 @@ export function AppVersionClient() {
         } finally {
             setLoading(false)
         }
-    }, [pagination.page, pagination.limit])
+    }, [fetchStats, pagination.page, pagination.limit])
 
     useEffect(() => {
         fetchVersions()
@@ -185,7 +186,7 @@ export function AppVersionClient() {
 
     // Handle delete
     const handleDelete = async (id: string) => {
-        if (!confirm('Apakah Anda yakin ingin menonaktifkan versi ini?')) return
+        if (!confirm('Apakah Anda yakin ingin menghapus versi ini secara permanen? File APK yang terkait juga akan dihapus.')) return
 
         try {
             const res = await fetch(`/api/admin/app-version/${id}`, { method: 'DELETE' })
@@ -206,6 +207,7 @@ export function AppVersionClient() {
         <div className="flex gap-1">
             {canUpdate && (
                 <button
+                    type="button"
                     onClick={() => handleEdit(item)}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     title="Edit"
@@ -215,9 +217,10 @@ export function AppVersionClient() {
             )}
             {canDelete && item.isActive && (
                 <button
+                    type="button"
                     onClick={() => handleDelete(item.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Nonaktifkan"
+                    title="Hapus permanen"
                 >
                     <HiOutlineTrash className="h-4 w-4" />
                 </button>
@@ -235,6 +238,7 @@ export function AppVersionClient() {
                 </div>
                 {canCreate && (
                     <button
+                        type="button"
                         onClick={() => setShowUploadModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
@@ -308,6 +312,7 @@ export function AppVersionClient() {
                     </div>
                     <div className="flex gap-2">
                         <button
+                            type="button"
                             onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
                             disabled={pagination.page <= 1}
                             className="px-3 py-1 border rounded-md disabled:opacity-50"
@@ -315,6 +320,7 @@ export function AppVersionClient() {
                             Prev
                         </button>
                         <button
+                            type="button"
                             onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
                             disabled={pagination.page >= pagination.totalPages}
                             className="px-3 py-1 border rounded-md disabled:opacity-50"
@@ -503,10 +509,11 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                     <form id="upload-form" onSubmit={handleSubmit} className="space-y-4">
                         {/* APK File - prioritas utama */}
                         <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-4 border-2 border-dashed border-indigo-300">
-                            <label className="block text-sm font-medium mb-2 text-indigo-700 dark:text-indigo-300">
+                            <label htmlFor="upload-apk-file" className="block text-sm font-medium mb-2 text-indigo-700 dark:text-indigo-300">
                                 📦 File APK
                             </label>
                             <input
+                                id="upload-apk-file"
                                 type="file"
                                 accept=".apk"
                                 onChange={(e) => setApkFile(e.target.files?.[0] || null)}
@@ -568,10 +575,11 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
 
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">
+                                        <label htmlFor="upload-version" className="block text-sm font-medium mb-1">
                                             Versi <span className="text-red-500">*</span>
                                         </label>
                                         <input
+                                            id="upload-version"
                                             type="text"
                                             placeholder="1.0.54"
                                             value={formData.version}
@@ -581,10 +589,11 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">
+                                        <label htmlFor="upload-build-number" className="block text-sm font-medium mb-1">
                                             Build <span className="text-red-500">*</span>
                                         </label>
                                         <input
+                                            id="upload-build-number"
                                             type="number"
                                             placeholder="47"
                                             value={formData.buildNumber}
@@ -594,10 +603,11 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">
+                                        <label htmlFor="upload-version-code" className="block text-sm font-medium mb-1">
                                             Code <span className="text-red-500">*</span>
                                         </label>
                                         <input
+                                            id="upload-version-code"
                                             type="number"
                                             placeholder="47"
                                             value={formData.versionCode}
@@ -611,8 +621,9 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                         )}
 
                         <div>
-                            <label className="block text-sm font-medium mb-1">Platform</label>
+                            <label htmlFor="upload-platform" className="block text-sm font-medium mb-1">Platform</label>
                             <select
+                                id="upload-platform"
                                 value={formData.platform}
                                 onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
@@ -625,8 +636,9 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-1">Catatan Rilis</label>
+                            <label htmlFor="upload-release-notes" className="block text-sm font-medium mb-1">Catatan Rilis</label>
                             <textarea
+                                id="upload-release-notes"
                                 value={formData.releaseNotes}
                                 onChange={(e) => setFormData({ ...formData, releaseNotes: e.target.value })}
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
@@ -667,8 +679,9 @@ function UploadVersionModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-1">Minimum Versi (Opsional)</label>
+                            <label htmlFor="upload-min-version" className="block text-sm font-medium mb-1">Minimum Versi (Opsional)</label>
                             <input
+                                id="upload-min-version"
                                 type="text"
                                 placeholder="1.0.50"
                                 value={formData.minVersion}
@@ -715,7 +728,7 @@ function EditVersionModal({ version, onClose, onSuccess }: { version: AppVersion
         releaseNotes: version.releaseNotes || '',
         isForceUpdate: version.isForceUpdate,
         isActive: version.isActive,
-        minVersion: ''
+        minVersion: version.minVersion || ''
     })
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -753,8 +766,9 @@ function EditVersionModal({ version, onClose, onSuccess }: { version: AppVersion
                 <div className="space-y-4">
                     <form id="edit-form" onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium mb-1">Catatan Rilis</label>
+                            <label htmlFor="edit-release-notes" className="block text-sm font-medium mb-1">Catatan Rilis</label>
                             <textarea
+                                id="edit-release-notes"
                                 value={formData.releaseNotes}
                                 onChange={(e) => setFormData({ ...formData, releaseNotes: e.target.value })}
                                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
@@ -782,6 +796,19 @@ function EditVersionModal({ version, onClose, onSuccess }: { version: AppVersion
                                 className="h-4 w-4"
                             />
                             <label htmlFor="isActive" className="text-sm font-medium">Aktif</label>
+                        </div>
+
+                        <div>
+                            <label htmlFor="edit-min-version" className="block text-sm font-medium mb-1">Minimum Versi (Opsional)</label>
+                            <input
+                                id="edit-min-version"
+                                type="text"
+                                placeholder="1.0.50"
+                                value={formData.minVersion}
+                                onChange={(e) => setFormData({ ...formData, minVersion: e.target.value })}
+                                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Kosongkan jika versi ini tidak ingin memaksa minimum versi tertentu</p>
                         </div>
                     </form>
                 </div>

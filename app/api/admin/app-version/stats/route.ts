@@ -22,27 +22,48 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
         })
     }
 
-    // Count users
-    const updatedCount = await prisma.user.count({
-        where: {
-            isActive: true,
-            lastVersionCode: { gte: latestVersion.versionCode }
-        }
-    })
+    const [updatedUsers, updatedCustomers, outdatedUsers, outdatedCustomers, unknownUsers, unknownCustomers] = await Promise.all([
+        prisma.user.count({
+            where: {
+                isActive: true,
+                lastVersionCode: { gte: latestVersion.versionCode }
+            }
+        }),
+        prisma.pelanggan.count({
+            where: {
+                status: 'AKTIF',
+                lastVersionCode: { gte: latestVersion.versionCode }
+            }
+        }),
+        prisma.user.count({
+            where: {
+                isActive: true,
+                lastVersionCode: { lt: latestVersion.versionCode }
+            }
+        }),
+        prisma.pelanggan.count({
+            where: {
+                status: 'AKTIF',
+                lastVersionCode: { lt: latestVersion.versionCode }
+            }
+        }),
+        prisma.user.count({
+            where: {
+                isActive: true,
+                lastVersionCode: null
+            }
+        }),
+        prisma.pelanggan.count({
+            where: {
+                status: 'AKTIF',
+                lastVersionCode: null
+            }
+        })
+    ])
 
-    const outdatedCount = await prisma.user.count({
-        where: {
-            isActive: true,
-            lastVersionCode: { lt: latestVersion.versionCode }
-        }
-    })
-    
-    const unknownCount = await prisma.user.count({
-        where: {
-            isActive: true,
-            lastVersionCode: null
-        }
-    })
+    const updatedCount = updatedUsers + updatedCustomers
+    const outdatedCount = outdatedUsers + outdatedCustomers
+    const unknownCount = unknownUsers + unknownCustomers
 
     return apiSuccess({
         updatedCount,
