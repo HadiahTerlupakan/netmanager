@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logger, logActivitySafe } from '@/lib/logger'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { AttendanceIdempotencyService } from '@/modules/attendance/services/AttendanceIdempotencyService'
 import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
@@ -12,23 +12,12 @@ export async function POST(request: NextRequest) {
     let resolvedRequestId: string | null = null
 
     try {
-        const authHeader = request.headers.get('authorization')
-
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(' ')[1]
-        if (!token) {
-            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
-        }
-        const decoded = await verifyMobileToken(token)
-
-        if (!decoded) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-        }
-
-        userId = decoded.userId as string
+        userId = authResult.id as string
         let bodyRequestId: string | undefined
 
         // Fetch Settings first to determine Timezone

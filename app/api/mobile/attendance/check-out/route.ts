@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logger, logActivitySafe } from '@/lib/logger'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { AttendanceIdempotencyService } from '@/modules/attendance/services/AttendanceIdempotencyService'
 import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
@@ -8,32 +8,16 @@ import { validateCoordinates } from '@/lib/validation-utils'
 import { verifySignature } from '@/lib/crypto'
 
 export async function POST(request: NextRequest) {
-    const _startTime = Date.now()
     let userId: string | null = null
     let resolvedRequestId: string | null = null
 
     try {
-        const authHeader = request.headers.get('Authorization')
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return NextResponse.json({
-                error: 'Token hilang atau tidak valid',
-                code: 'UNAUTHORIZED'
-            }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(' ')[1]
-        if (!token) {
-            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
-        }
-        const payload = await verifyMobileToken(token)
-        if (!payload) {
-            return NextResponse.json({
-                error: 'Token tidak valid atau kadaluarsa',
-                code: 'UNAUTHORIZED'
-            }, { status: 401 })
-        }
-
-        userId = (payload.userId || payload.id) as string
+        userId = authResult.id as string
         let bodyRequestId: string | undefined
 
         if (!userId) {

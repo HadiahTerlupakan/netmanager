@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMobileToken } from '@/lib/mobile-auth';
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { convertAndSaveImage, isImageFile } from '@/lib/utils/image-upload';
 import type { UploadType } from '@/lib/utils/image-upload';
 import path from 'path';
@@ -10,21 +10,9 @@ import path from 'path';
  */
 export async function POST(request: NextRequest) {
     try {
-        // Check mobile authentication
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
-        }
-
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 });
-        }
-
-        const payload = await verifyMobileToken(token);
-
-        if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
+        const authResult = await getMobileAuthPayload(request);
+        if (authResult instanceof NextResponse) {
+            return authResult;
         }
 
         const formData = await request.formData();
