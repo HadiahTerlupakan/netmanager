@@ -73,6 +73,32 @@ describe('mobile notifications route', () => {
     expect(json.data.notifications[0].link).toBe('/(app)/work-order-detail/wo-1')
   })
 
+  it('maps attendance notifications to the mobile absensi screen', async () => {
+    mockFns.getNotificationsForUser.mockResolvedValueOnce({
+      notifications: [
+        {
+          id: 'notif-att-1',
+          type: 'ALERT',
+          title: 'Absensi Belum Lengkap',
+          message: 'Segera lengkapi absensi Anda',
+          link: '/attendance',
+          isRead: false,
+          sourceType: 'ATTENDANCE',
+          sourceId: 'att-1',
+          createdAt: new Date('2026-03-08T08:00:00.000Z'),
+        },
+      ],
+      total: 1,
+    })
+    mockFns.getUnreadCount.mockResolvedValueOnce(1)
+
+    const response = await GET(new NextRequest('http://localhost/api/mobile/notifications?limit=1'))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.data.notifications[0].link).toBe('/(app)/absensi')
+  })
+
   it('rejects markRead when the notification is not readable by the user', async () => {
     mockFns.getReadableNotificationForUser.mockResolvedValueOnce(null)
 

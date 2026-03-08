@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
                         link = '/(app)/izin'
                     } else if (n.sourceType === 'OVERTIME') {
                         link = '/(app)/lembur'
+                    } else if (n.sourceType === 'ATTENDANCE') {
+                        link = '/(app)/absensi'
                     } else if (n.sourceType === 'INVENTORY') {
                         link = '/(app)/barang'
                     }
