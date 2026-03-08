@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { randomUUID } from 'crypto'
 import { notifyAdminsAboutMobileAction } from '@/modules/notification'
 import { logger } from '@/lib/logger'
@@ -22,22 +22,12 @@ export async function POST(
     params: { params: Promise<{ id: string }> }
 ) {
     try {
-        const authHeader = req.headers.get('Authorization')
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(req)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(' ')[1]
-        if (!token) {
-            return NextResponse.json({ error: 'Format token tidak valid' }, { status: 401 })
-        }
-
-        const decoded = await verifyMobileToken(token)
-
-        if (!decoded || !decoded.id) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-        }
-
+        const decoded = authResult
         const userId = decoded.id as string
 
         // Fetch user to get name (for accurate notifications)

@@ -7,6 +7,8 @@ interface PelangganJWTPayload {
   nama: string
   username: string
   status: string
+  appVersionCode?: number
+  appVersionName?: string | null
   iat?: number
   exp?: number
 }
@@ -43,6 +45,8 @@ export function generatePelangganAccessToken(pelanggan: {
   nama: string
   username: string
   status: string
+  appVersionCode?: number
+  appVersionName?: string | null
 }, expiresIn: string | number = JWT_EXPIRES_IN): string {
   const payload: PelangganJWTPayload = {
     id: pelanggan.id,
@@ -50,6 +54,8 @@ export function generatePelangganAccessToken(pelanggan: {
     nama: pelanggan.nama,
     username: pelanggan.username,
     status: pelanggan.status,
+    appVersionCode: pelanggan.appVersionCode,
+    appVersionName: pelanggan.appVersionName,
   }
 
   return jwt.sign(payload, JWT_SECRET, {

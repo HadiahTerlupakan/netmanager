@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWalletService } from '@/modules/mitra'
 import { prismaMitra } from '@/lib/prisma-mitra'
@@ -9,8 +9,10 @@ const walletService = getMitraWalletService()
 // GET /api/mobile/mitra/wallet — Get wallet balance + transactions
 export async function GET(req: NextRequest) {
     try {
-        const session = await verifyAuth(req)
-        if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
+        const authResult = await getMobileAuthPayload(req)
+        if (authResult instanceof Response) return authResult
+
+        const session = authResult
 
         if (session.role !== 'MITRA') {
             return ApiErrors.forbidden('Bukan akun mitra');

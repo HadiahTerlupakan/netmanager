@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 
 interface RouteParams {
@@ -8,17 +8,12 @@ interface RouteParams {
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
     try {
-        const authHeader = req.headers.get('authorization')
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(req)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(' ')[1]
-        const payload = await verifyMobileToken(token)
-
-        if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-        }
+        const payload = authResult
 
         // Check Permission
         const permissions = payload.permissions || []

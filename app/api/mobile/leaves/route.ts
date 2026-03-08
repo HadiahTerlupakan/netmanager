@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { LeaveRepository } from '@/modules/attendance/repositories/LeaveRepository'
 import { LeaveBalanceRepository } from '@/modules/attendance/repositories/LeaveBalanceRepository'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { LeaveType, LeaveStatus, Prisma } from '@prisma/client'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { prisma } from '@/lib/prisma'
@@ -10,21 +10,17 @@ import { convertAndSaveBase64 } from '@/lib/utils/image-upload'
 const repo = new LeaveRepository()
 const leaveBalanceRepo = new LeaveBalanceRepository()
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token) as unknown as { id: string };
-        if (!user) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-        }
+        const payload = authResult
+        const userId = payload.userId as string
 
-        const leaves = await repo.findAll({ userId: user.id })
+        const leaves = await repo.findAll({ userId })
         return NextResponse.json({ success: true, data: leaves })
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan';
@@ -32,17 +28,17 @@ export async function GET(request: Request) {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token) as unknown as { id: string };
-        if (!user) {
+        const payload = authResult
+        const userId = payload.userId as string
+
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -61,15 +57,15 @@ export async function POST(request: Request) {
 
         // Check user's working hour mode - FLEXIBLE users don't have leave quotas
         const userData = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: userId },
             select: { workingHourMode: true, workDays: true, name: true }
         })
 
         // Validate leave quota (skip for FLEXIBLE users and TUKAR_LIBUR type)
         if (userData?.workingHourMode !== 'FLEXIBLE' && type !== 'TUKAR_LIBUR') {
-            const hasEnough = await leaveBalanceRepo.hasEnoughDays(user.id, currentYear, type as LeaveType, leaveDays)
+            const hasEnough = await leaveBalanceRepo.hasEnoughDays(userId, currentYear, type as LeaveType, leaveDays)
             if (!hasEnough) {
-                const remaining = await leaveBalanceRepo.getRemainingDays(user.id, currentYear, type as LeaveType)
+                const remaining = await leaveBalanceRepo.getRemainingDays(userId, currentYear, type as LeaveType)
                 return NextResponse.json({ 
                     error: `Kuota ${type} tidak cukup. Sisa: ${remaining} hari, Dibutuhkan: ${leaveDays} hari.`
                 }, { status: 400 })
@@ -139,7 +135,7 @@ export async function POST(request: Request) {
                 
                 // Otherwise treat as Base64
                 const timestamp = Date.now()
-                const fileName = `leave_${user.id}_${timestamp}_${i}`
+                const fileName = `leave_${userId}_${timestamp}_${i}`
                 const uploadDir = 'public/uploads/employee-leave'
                 const url = await convertAndSaveBase64(
                     photo,
@@ -152,7 +148,7 @@ export async function POST(request: Request) {
         }
 
         const createData: Record<string, unknown> = {
-            user: { connect: { id: user.id } },
+            user: { connect: { id: userId } },
             type: type as LeaveType,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
@@ -170,7 +166,7 @@ export async function POST(request: Request) {
 
         // Notify Admins
         try {
-            const userData = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
+            const userData = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
             const admins = await prisma.user.findMany({
                 where: {
                     isActive: true, // Only notify active admins

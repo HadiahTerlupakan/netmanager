@@ -1,8 +1,38 @@
 import { NextResponse } from 'next/server'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { compare } from 'bcryptjs'
 import { signMobileToken } from '@/lib/mobile-auth'
+import { getAppVersionService } from '@/modules/app-version/services/AppVersionService'
+
+function parseVersionCode(value: unknown): number {
+    const parsed = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+async function buildUnsupportedVersionResponse(versionCode: number) {
+    const versionAccess = await getAppVersionService().evaluateVersionAccess(versionCode)
+
+    if (versionAccess.isSupported) {
+        return null
+    }
+
+    return apiError(
+        'Aplikasi harus diperbarui untuk melanjutkan.',
+        ErrorCodes.APP_VERSION_UNSUPPORTED,
+        {
+            status: 426,
+            details: {
+                currentVersionCode: versionCode,
+                minimumVersion: versionAccess.minimumVersion,
+                latestVersion: versionAccess.latestVersion,
+                isForceUpdate: versionAccess.isForceUpdate,
+                updateAvailable: versionAccess.updateAvailable
+            }
+        }
+    )
+}
 
 export async function POST(req: Request) {
     try {
@@ -11,6 +41,7 @@ export async function POST(req: Request) {
         console.log('[MobileAuth] Login Request Body:', JSON.stringify(body, null, 2))
 
         const { email, password, versionCode, loginType } = body
+        const parsedVersionCode = parseVersionCode(versionCode)
 
         // IMPORTANT: Log what we received to debug why "loginType" might be wrong
         console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`)
@@ -45,10 +76,9 @@ export async function POST(req: Request) {
         }
 
         // Helper Types
-        type LoginResult =
-            | { found: false }
-            | { found: true; success: false; error: string; status?: number }
-            | { found: true; success: true; data: Record<string, unknown> }
+        type FailedLoginResult = { found: true; success: false; error?: string; status?: number; response?: NextResponse }
+        type SuccessfulLoginResult = { found: true; success: true; data: Record<string, unknown> }
+        type LoginResult = { found: false } | FailedLoginResult | SuccessfulLoginResult
 
         // Helper: Try Login as Customer
         const tryCustomerLogin = async (): Promise<LoginResult> => {
@@ -74,6 +104,11 @@ export async function POST(req: Request) {
 
             if (!isPasswordValid) return { found: true, success: false, error: 'Password salah' }
 
+            const unsupportedVersionResponse = await buildUnsupportedVersionResponse(parsedVersionCode)
+            if (unsupportedVersionResponse) {
+                return { found: true, success: false, response: unsupportedVersionResponse }
+            }
+
             // Success
             const { generatePelangganAccessToken } = await import('@/lib/jwt')
             const token = generatePelangganAccessToken({
@@ -81,7 +116,9 @@ export async function POST(req: Request) {
                 idPelanggan: customer.idPelanggan,
                 nama: customer.nama,
                 username: customer.username,
-                status: customer.status
+                status: customer.status,
+                appVersionCode: parsedVersionCode,
+                appVersionName: body.versionName || null
             }, '7d')
 
             return {
@@ -121,12 +158,17 @@ export async function POST(req: Request) {
             const hasMobileAccess = user.role?.accessEmployeePanel || user.role?.name === 'SUPER_ADMIN'
             if (!hasMobileAccess) return { found: true, success: false, error: 'Akun tidak memiliki akses mobile app', status: 403 }
 
+            const unsupportedVersionResponse = await buildUnsupportedVersionResponse(parsedVersionCode)
+            if (unsupportedVersionResponse) {
+                return { found: true, success: false, response: unsupportedVersionResponse }
+            }
+
             // Update version
-            if (versionCode) {
+            if (parsedVersionCode > 0) {
                 await prisma.user.update({
                     where: { id: user.id },
                     data: {
-                        lastVersionCode: parseInt(versionCode),
+                        lastVersionCode: parsedVersionCode,
                         lastVersionName: body.versionName,
                         lastVersionUpdate: new Date()
                     }
@@ -137,7 +179,9 @@ export async function POST(req: Request) {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                role: user.role?.name || 'USER'
+                role: user.role?.name || 'USER',
+                appVersionCode: parsedVersionCode,
+                appVersionName: body.versionName || null
             }
             const token = await signMobileToken(tokenPayload)
             const { getUserFeaturesWithCanvasing } = await import('@/lib/canvasing-access')
@@ -176,12 +220,19 @@ export async function POST(req: Request) {
             const isValid = await compare(password, mitra.passwordHash)
             if (!isValid) return { found: true, success: false, error: 'Password salah' }
 
+            const unsupportedVersionResponse = await buildUnsupportedVersionResponse(parsedVersionCode)
+            if (unsupportedVersionResponse) {
+                return { found: true, success: false, response: unsupportedVersionResponse }
+            }
+
             const tokenPayload = {
                 id: mitra.id,
                 email: mitra.email,
                 name: mitra.name,
                 role: 'MITRA',
-                mitraType: mitra.mitraType
+                mitraType: mitra.mitraType,
+                appVersionCode: parsedVersionCode,
+                appVersionName: body.versionName || null
             }
             const token = await signMobileToken(tokenPayload)
 
@@ -256,8 +307,11 @@ export async function POST(req: Request) {
         }
 
         if (!result.success) {
-            const errorResult = result as { error: string; status?: number }
-            return NextResponse.json({ success: false, error: errorResult.error }, { status: errorResult.status || 401 })
+            const failedResult = result as FailedLoginResult
+            if (failedResult.response) {
+                return failedResult.response
+            }
+            return NextResponse.json({ success: false, error: failedResult.error }, { status: failedResult.status || 401 })
         }
 
         return NextResponse.json({

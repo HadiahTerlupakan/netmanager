@@ -1,27 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { getNotificationsForUser, getUnreadCount, markAsRead, markAllAsRead } from '@/modules/notification'
 
 // GET - Get notifications for current user
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-        
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
-        
-        const user = await verifyMobileToken(token)
-        if (!user) {
+
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
-        const { notifications, total } = await getNotificationsForUser(user.id as string, {
+        const { notifications, total } = await getNotificationsForUser(userId, {
             limit: 50
         })
 
-        const unreadCount = await getUnreadCount(user.id as string)
+        const unreadCount = await getUnreadCount(userId)
 
         return NextResponse.json({
             success: true,
@@ -66,15 +64,13 @@ export async function GET(request: NextRequest) {
 // POST - Mark notification(s) as read
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-        
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
-        
-        const user = await verifyMobileToken(token)
-        if (!user) {
+
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -82,7 +78,7 @@ export async function POST(request: NextRequest) {
         const { action, notificationId } = body
 
         if (action === 'markAllRead') {
-            await markAllAsRead(user.id as string)
+            await markAllAsRead(userId)
             return NextResponse.json({ success: true, message: 'Semua notifikasi ditandai sudah dibaca' })
         } else if (action === 'markRead' && notificationId) {
             await markAsRead(notificationId)

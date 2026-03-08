@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 
 // POST - Register push token
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        const userRole = authResult.role as string | undefined
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
         await prisma.user.updateMany({
             where: {
                 pushToken: pushToken,
-                id: { not: user.id as string }
+                id: { not: userId }
             },
             data: {
                 pushToken: null,
@@ -41,7 +40,7 @@ export async function POST(request: NextRequest) {
         await prisma.pelanggan.updateMany({
             where: {
                 pushToken: pushToken,
-                id: { not: user.id as string }
+                id: { not: userId }
             },
             data: {
                 pushToken: null,
@@ -51,7 +50,7 @@ export async function POST(request: NextRequest) {
         await prismaMitra.mitra.updateMany({
             where: {
                 pushToken: pushToken,
-                id: { not: user.id as string }
+                id: { not: userId }
             },
             data: {
                 pushToken: null,
@@ -60,17 +59,17 @@ export async function POST(request: NextRequest) {
         })
 
         // Update user (or customer) with push token
-        if (user.role === 'CUSTOMER') {
+        if (userRole === 'CUSTOMER') {
             await prisma.pelanggan.update({
-                where: { id: user.id as string },
+                where: { id: userId },
                 data: {
                     pushToken: pushToken,
                     pushTokenUpdatedAt: new Date()
                 }
             })
-        } else if (user.role === 'MITRA') {
+        } else if (userRole === 'MITRA') {
             await prismaMitra.mitra.update({
-                where: { id: user.id as string },
+                where: { id: userId },
                 data: {
                     pushToken: pushToken,
                     pushTokenUpdatedAt: new Date()
@@ -79,7 +78,7 @@ export async function POST(request: NextRequest) {
         } else {
             // Update User Table (Employees)
             await prisma.user.update({
-                where: { id: user.id as string },
+                where: { id: userId },
                 data: {
                     pushToken: pushToken,
                     pushTokenUpdatedAt: new Date()
@@ -99,30 +98,29 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove push token (on logout)
 export async function DELETE(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        const userRole = authResult.role as string | undefined
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         // Remove push token from correct table
-        if (user.role === 'CUSTOMER') {
+        if (userRole === 'CUSTOMER') {
             await prisma.pelanggan.update({
-                where: { id: user.id as string },
+                where: { id: userId },
                 data: {
                     pushToken: null,
                     pushTokenUpdatedAt: null
                 }
             })
-        } else if (user.role === 'MITRA') {
+        } else if (userRole === 'MITRA') {
             await prismaMitra.mitra.update({
-                where: { id: user.id as string },
+                where: { id: userId },
                 data: {
                     pushToken: null,
                     pushTokenUpdatedAt: null
@@ -130,7 +128,7 @@ export async function DELETE(request: NextRequest) {
             })
         } else {
             await prisma.user.update({
-                where: { id: user.id as string },
+                where: { id: userId },
                 data: {
                     pushToken: null,
                     pushTokenUpdatedAt: null

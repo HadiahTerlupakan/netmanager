@@ -1,21 +1,16 @@
 import { NextResponse } from 'next/server'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 
 export async function POST(request: Request) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-        }
+        const user = authResult
 
         const formData = await request.formData()
         const photo = formData.get('photo') as File
