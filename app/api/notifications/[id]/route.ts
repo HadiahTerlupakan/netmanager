@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { markAsRead } from '@/modules/notification';
+import { getReadableNotificationForUser, markAsRead } from '@/modules/notification';
 import { requireAuth } from '@/lib/auth-helpers';
-import { prisma } from '@/lib/prisma';
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth';
 
 // PATCH /api/notifications/[id] - Mark single notification as read
 export async function PATCH(
@@ -15,23 +15,20 @@ export async function PATCH(
         }
         const { id } = await params;
 
-        // Verify notification belongs to user
-        const notification = await prisma.notifications.findUnique({
-            where: { id },
-            select: { userId: true }
+        const permissions = await getUserPermissions(session.user.id);
+        const siteId = !isSuperAdmin(session.user) && permissions.includes('site_only')
+            ? session.user.siteId || undefined
+            : undefined;
+
+        const notification = await getReadableNotificationForUser(id, session.user.id, {
+            departmentId: session.user.departmentId || undefined,
+            siteId,
         });
 
         if (!notification) {
             return NextResponse.json(
                 { error: 'Notifikasi tidak ditemukan' },
                 { status: 404 }
-            );
-        }
-
-        if (notification.userId && notification.userId !== session.user.id) {
-            return NextResponse.json(
-                { error: 'Tidak terautentikasi' },
-                { status: 403 }
             );
         }
 

@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { markAsRead } from '@/modules/notification';
+import { getReadableNotificationForUser, markAsRead } from '@/modules/notification';
 import { apiSuccess, ApiErrors } from '@/lib/api-response';
+import { getUserPermissions, isSuperAdmin } from '@/lib/auth';
 
 // PATCH /api/notifications/[id]/read - Mark notification as read
 export async function PATCH(
@@ -17,6 +18,20 @@ export async function PATCH(
         }
 
         const { id } = await params;
+
+        const permissions = await getUserPermissions(session.user.id);
+        const siteId = !isSuperAdmin(session.user) && permissions.includes('site_only')
+            ? session.user.siteId || undefined
+            : undefined;
+
+        const notification = await getReadableNotificationForUser(id, session.user.id, {
+            departmentId: session.user.departmentId || undefined,
+            siteId,
+        });
+
+        if (!notification) {
+            return ApiErrors.notFound('Notifikasi tidak ditemukan');
+        }
 
         await markAsRead(id);
 

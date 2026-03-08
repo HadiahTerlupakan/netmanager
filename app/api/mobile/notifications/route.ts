@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
-import { getNotificationsForUser, getUnreadCount, markAsRead, markAllAsRead } from '@/modules/notification'
+import { getNotificationsForUser, getReadableNotificationForUser, getUnreadCount, markAsRead, markAllAsRead } from '@/modules/notification'
 
 // GET - Get notifications for current user
 export async function GET(request: NextRequest) {
@@ -15,8 +15,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
+        const limitParam = Number.parseInt(request.nextUrl.searchParams.get('limit') || '15', 10)
+        const cursorParam = Number.parseInt(request.nextUrl.searchParams.get('cursor') || '0', 10)
+        const limit = Number.isNaN(limitParam) ? 15 : Math.min(Math.max(limitParam, 1), 50)
+        const offset = Number.isNaN(cursorParam) ? 0 : Math.max(cursorParam, 0)
+
         const { notifications, total } = await getNotificationsForUser(userId, {
-            limit: 50
+            limit,
+            offset,
         })
 
         const unreadCount = await getUnreadCount(userId)
@@ -51,7 +57,7 @@ export async function GET(request: NextRequest) {
                     }
                 }),
                 unreadCount,
-                total
+                nextCursor: offset + notifications.length < total ? String(offset + notifications.length) : null,
             }
         })
     } catch (error: unknown) {
@@ -81,6 +87,14 @@ export async function POST(request: NextRequest) {
             await markAllAsRead(userId)
             return NextResponse.json({ success: true, message: 'Semua notifikasi ditandai sudah dibaca' })
         } else if (action === 'markRead' && notificationId) {
+            const permissions = Array.isArray(authResult.permissions) ? authResult.permissions : []
+            const siteId = permissions.includes('site_only') ? authResult.siteId || undefined : undefined
+
+            const notification = await getReadableNotificationForUser(notificationId, userId, { siteId })
+            if (!notification) {
+                return NextResponse.json({ error: 'Notifikasi tidak ditemukan' }, { status: 404 })
+            }
+
             await markAsRead(notificationId)
             return NextResponse.json({ success: true, message: 'Notifikasi ditandai sudah dibaca' })
         }
