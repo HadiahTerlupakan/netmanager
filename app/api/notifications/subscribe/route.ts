@@ -71,7 +71,10 @@ export async function DELETE(request: NextRequest) {
         }
 
         await prisma.pushSubscriptions.updateMany({
-            where: { endpoint: body.endpoint },
+            where: {
+                endpoint: body.endpoint,
+                userId: session.user.id,
+            },
             data: { isActive: false },
         });
 
