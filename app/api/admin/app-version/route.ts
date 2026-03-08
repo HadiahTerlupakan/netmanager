@@ -1,7 +1,26 @@
 import { hasPermission } from '@/lib/rbac'
+import { deleteFromR2 } from '@/lib/utils/r2-client'
 import { getAppVersionService } from '@/modules/app-version'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, apiPaginated, createHandler } from '@/lib/api'
 import { logActivitySafe } from '@/lib/logger'
+
+function parsePositiveInteger(value: string | null, fieldName: string): number | undefined {
+    if (!value || !value.trim()) {
+        return undefined
+    }
+
+    const normalized = value.trim()
+    if (!/^\d+$/.test(normalized)) {
+        throw new Error(`${fieldName} harus berupa angka bulat positif`)
+    }
+
+    const parsed = Number(normalized)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`${fieldName} harus berupa angka bulat positif`)
+    }
+
+    return parsed
+}
 
 // Route segment config for large file uploads (APK)
 export const runtime = 'nodejs'
@@ -58,11 +77,23 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const uploadedKey = formData.get('uploadedKey') as string | null
     const uploadedFilename = formData.get('uploadedFilename') as string | null
     const uploadedSizeStr = formData.get('uploadedSize') as string | null
-    const uploadedSize = uploadedSizeStr ? parseInt(uploadedSizeStr) : undefined
+    let uploadedSize: number | undefined
     const forceLocal = formData.get('forceLocal') === 'true'
 
-    const buildNumber = buildNumberStr ? parseInt(buildNumberStr) : undefined
-    const versionCode = versionCodeStr ? parseInt(versionCodeStr) : undefined
+    let buildNumber: number | undefined
+    let versionCode: number | undefined
+
+    try {
+        buildNumber = parsePositiveInteger(buildNumberStr, 'buildNumber')
+        versionCode = parsePositiveInteger(versionCodeStr, 'versionCode')
+        uploadedSize = parsePositiveInteger(uploadedSizeStr, 'uploadedSize')
+    } catch (error) {
+        return apiError(
+            error instanceof Error ? error.message : 'Input numerik tidak valid',
+            ErrorCodes.VALIDATION_ERROR,
+            { status: 400 }
+        )
+    }
 
     // Validation - butuh APK (file/key) atau field lengkap
     const hasApk = apkFile || uploadedKey
@@ -72,6 +103,14 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
             ErrorCodes.VALIDATION_ERROR,
             { status: 400 }
         )
+    }
+
+    if (apkFile && !apkFile.name.toLowerCase().endsWith('.apk')) {
+        return apiError('File yang diupload harus berformat APK', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    }
+
+    if (uploadedFilename && !uploadedFilename.toLowerCase().endsWith('.apk')) {
+        return apiError('File direct upload harus berformat APK', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
     let apkBuffer: Buffer | undefined
@@ -97,34 +136,40 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const service = getAppVersionService()
-    const appVersion = await service.uploadVersion({
-        platform,
-        isForceUpdate,
-        createdBy: ctx.session!.user.id,
-        ...(version ? { version } : {}),
-        ...(buildNumber ? { buildNumber } : {}),
-        ...(versionCode ? { versionCode } : {}),
-        ...(releaseNotes ? { releaseNotes } : {}),
-        ...(minVersion ? { minVersion } : {}),
-        // Legacy upload fields
-        ...(apkBuffer ? { apkBuffer } : {}),
-        ...(apkTempPath ? { apkPath: apkTempPath } : {}),
-        ...(apkFilename ? { apkFilename } : {}),
-        ...(apkSize ? { apkSize } : {}),
-        // New direct upload fields
-        ...(uploadedKey ? { uploadedKey } : {}),
-        ...(uploadedFilename ? { uploadedFilename } : {}),
-        ...(uploadedSize ? { uploadedSize } : {}),
-        forceLocal,
-    })
+    let appVersion: Awaited<ReturnType<typeof service.uploadVersion>> | null = null
 
-    // Cleanup temp file after successful upload
-    if (apkTempPath) {
-        try {
-            const fs = await import('fs/promises')
-            await fs.unlink(apkTempPath)
-        } catch (e) {
-            console.warn(`[APK Upload] Failed to cleanup temp file: ${apkTempPath}`, e)
+    try {
+        appVersion = await service.uploadVersion({
+            platform,
+            isForceUpdate,
+            createdBy: ctx.session!.user.id,
+            ...(version ? { version } : {}),
+            ...(buildNumber ? { buildNumber } : {}),
+            ...(versionCode ? { versionCode } : {}),
+            ...(releaseNotes ? { releaseNotes } : {}),
+            ...(minVersion ? { minVersion } : {}),
+            ...(apkBuffer ? { apkBuffer } : {}),
+            ...(apkTempPath ? { apkPath: apkTempPath } : {}),
+            ...(apkFilename ? { apkFilename } : {}),
+            ...(apkSize ? { apkSize } : {}),
+            ...(uploadedKey ? { uploadedKey } : {}),
+            ...(uploadedFilename ? { uploadedFilename } : {}),
+            ...(uploadedSize ? { uploadedSize } : {}),
+            forceLocal,
+        })
+    } catch (error) {
+        if (uploadedKey) {
+            await deleteFromR2(uploadedKey)
+        }
+        throw error
+    } finally {
+        if (apkTempPath) {
+            try {
+                const fs = await import('fs/promises')
+                await fs.unlink(apkTempPath)
+            } catch (e) {
+                console.warn(`[APK Upload] Failed to cleanup temp file: ${apkTempPath}`, e)
+            }
         }
     }
 
