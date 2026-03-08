@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
+import { getAppVersionService, type VersionAccessResult } from '@/modules/app-version/services/AppVersionService'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 
@@ -42,7 +43,12 @@ export async function signMobileToken(payload: Record<string, unknown>) {
 export interface MobileTokenPayload {
     sub: string
     userId: string
+    id?: string
+    name?: string
+    email?: string
     tokenVersion?: number
+    appVersionCode?: number
+    appVersionName?: string | null
     role?: string
     permissions?: string[]
     isSales?: boolean
@@ -50,14 +56,57 @@ export interface MobileTokenPayload {
     [key: string]: unknown
 }
 
-export async function verifyMobileToken(token: string): Promise<MobileTokenPayload | null> {
+export interface MobileTokenDetails {
+    payload: MobileTokenPayload
+    versionCode: number
+    versionAccess: VersionAccessResult
+}
+
+function resolveVersionCode(payload: MobileTokenPayload, versionCodeOverride?: number | null): number {
+    if (typeof versionCodeOverride === 'number' && Number.isFinite(versionCodeOverride) && versionCodeOverride > 0) {
+        return versionCodeOverride
+    }
+
+    const tokenVersionCode = Number(payload.appVersionCode ?? payload.versionCode ?? 0)
+    return Number.isFinite(tokenVersionCode) && tokenVersionCode > 0 ? tokenVersionCode : 0
+}
+
+export async function getMobileTokenDetails(token: string, versionCodeOverride?: number | null): Promise<MobileTokenDetails | null> {
+    try {
+        const { payload } = await jwtVerify(token, secret)
+        const mobilePayload = payload as MobileTokenPayload
+        const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride)
+        const versionAccess = await getAppVersionService().evaluateVersionAccess(versionCode)
+
+        return {
+            payload: mobilePayload,
+            versionCode,
+            versionAccess
+        }
+    } catch (error) {
+        console.error('[MOBILE_AUTH] Token parsing failed:', error)
+        return null
+    }
+}
+
+export async function verifyMobileToken(token: string, versionCodeOverride?: number | null): Promise<MobileTokenPayload | null> {
     try {
         console.log('[MOBILE_AUTH] Verifying token...')
-        const { payload } = await jwtVerify(token, secret)
-        // Support both 'sub' and 'id' for backwards compatibility
+        const details = await getMobileTokenDetails(token, versionCodeOverride)
+        if (!details) {
+            console.log('[MOBILE_AUTH] Token details could not be parsed')
+            return null
+        }
+
+        const { payload, versionAccess, versionCode } = details
         const userId = (payload.sub || payload.id) as string
 
         console.log('[MOBILE_AUTH] Token payload verified for user:', userId)
+
+        if (!versionAccess.isSupported) {
+            console.log(`[MOBILE_AUTH] App version unsupported for user ${userId}. Version code: ${versionCode}, minimum: ${versionAccess.minimumVersion}`)
+            return null
+        }
 
         // Validate tokenVersion against database
         const dbUser = await prisma.user.findUnique({
@@ -92,6 +141,17 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
 
             if (customer) {
                 console.log('[MOBILE_AUTH] Customer found:', customer.nama)
+
+                if (customer.status !== 'AKTIF') {
+                    console.log('[MOBILE_AUTH] Customer is inactive:', userId)
+                    return null
+                }
+
+                const tokenVersion = (payload.tokenVersion as number) ?? 0
+                if (customer.tokenVersion > tokenVersion) {
+                    console.log(`[MOBILE_AUTH] Customer token version mismatch for ${userId}. DB: ${customer.tokenVersion}, Token: ${tokenVersion}`)
+                    return null
+                }
 
                 // Customer permission mapping
                 return {
