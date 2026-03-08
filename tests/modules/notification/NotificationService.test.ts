@@ -21,6 +21,7 @@ import {
   markAsRead,
   notifyNewPointClaim,
 } from '@/modules/notification/services/NotificationService'
+import { sendPushNotification as sendExpoPush } from '@/modules/notification/services/ExpoPushService'
 
 describe('NotificationService', () => {
   beforeEach(() => {
@@ -149,6 +150,38 @@ describe('NotificationService', () => {
         body: 'Web Push Body',
         tag: 'notification-notif-web-1',
       }))
+    })
+
+    it('can skip expo push while still creating in-app notification', async () => {
+      prismaMock.notifications.create.mockResolvedValueOnce({
+        id: 'notif-web-2',
+        type: 'SYSTEM',
+        priority: 'NORMAL',
+        title: 'No Expo',
+        message: 'Still persisted',
+        link: null,
+        sourceType: 'SYSTEM',
+        sourceId: 'src-2',
+        createdAt: new Date('2026-03-08T12:10:00.000Z'),
+      } as Notifications)
+      prismaMock.pushSubscriptions.findMany.mockResolvedValueOnce([])
+
+      await createNotification({
+        type: 'SYSTEM',
+        title: 'No Expo',
+        message: 'Still persisted',
+        userId: 'user-no-expo',
+        sourceType: 'SYSTEM',
+        sourceId: 'src-2',
+        skipExpoPush: true,
+      })
+
+      expect(sendExpoPush).not.toHaveBeenCalledWith(
+        'user-no-expo',
+        'No Expo',
+        'Still persisted',
+        expect.anything()
+      )
     })
   })
 

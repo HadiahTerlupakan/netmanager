@@ -20,6 +20,7 @@ export interface CreateNotificationData {
     siteId?: string | undefined;
     sourceType?: string | undefined;
     sourceId?: string | undefined;
+    skipExpoPush?: boolean | undefined;
 }
 
 export interface WorkOrderNotificationData {
@@ -83,12 +84,13 @@ export async function createNotification(data: CreateNotificationData) {
         socketEmitter.notifyUser(data.userId, wsPayload);
         browserRecipientIds.add(data.userId);
 
-        // Send Expo Push notification for mobile users
-        sendExpoPush(data.userId, data.title, data.message, {
-            link: data.link || undefined,
-            sourceType: data.sourceType || undefined,
-            sourceId: data.sourceId || undefined
-        }).catch(err => console.error('[Expo Push] Error:', err));
+        if (!data.skipExpoPush) {
+            sendExpoPush(data.userId, data.title, data.message, {
+                link: data.link || undefined,
+                sourceType: data.sourceType || undefined,
+                sourceId: data.sourceId || undefined
+            }).catch(err => console.error('[Expo Push] Error:', err));
+        }
     }
 
     // Emit to department if specified
@@ -114,12 +116,13 @@ export async function createNotification(data: CreateNotificationData) {
             browserRecipientIds.add(recipient.id);
         }
 
-        // Send Expo Push to all users in department
-        sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
-            link: data.link || undefined,
-            sourceType: data.sourceType || undefined,
-            sourceId: data.sourceId || undefined
-        }).catch(err => console.error('[Expo Push Dept] Error:', err));
+        if (!data.skipExpoPush) {
+            sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
+                link: data.link || undefined,
+                sourceType: data.sourceType || undefined,
+                sourceId: data.sourceId || undefined
+            }).catch(err => console.error('[Expo Push Dept] Error:', err));
+        }
     }
 
     // Also notify admins for important notifications
