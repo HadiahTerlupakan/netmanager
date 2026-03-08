@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
 import { SOCKET_EVENTS, type TicketPayload, type CountPayload } from '../types'
 import { usePermission } from '@/hooks/use-permission'
+import { shouldRefetchSupportTickets } from './supportTicketRealtime'
 
 export interface TicketPreview {
     id: string
@@ -158,6 +159,17 @@ export function useRealtimeSupportTickets(
         [fetchTickets]
     )
 
+    const handleTicketMessage = useCallback(
+        (payload: TicketPayload) => {
+            console.log('[Tickets] Ticket message:', payload.ticketNumber)
+
+            if (shouldRefetchSupportTickets(SOCKET_EVENTS.TICKET_MESSAGE)) {
+                fetchTickets()
+            }
+        },
+        [fetchTickets]
+    )
+
     // Handle count update from WebSocket
     const handleCountUpdate = useCallback((payload: CountPayload) => {
         setUnreadCount(payload.count)
@@ -168,6 +180,7 @@ export function useRealtimeSupportTickets(
     useSocketEvent(SOCKET_EVENTS.TICKET_NEW, handleNewTicket)
     useSocketEvent(SOCKET_EVENTS.TICKET_UPDATE, handleTicketUpdate)
     useSocketEvent(SOCKET_EVENTS.TICKET_REPLY, handleTicketReply)
+    useSocketEvent(SOCKET_EVENTS.TICKET_MESSAGE, handleTicketMessage)
     useSocketEvent(SOCKET_EVENTS.TICKET_COUNT, handleCountUpdate)
 
     return {
