@@ -1,8 +1,8 @@
 import { prismaBilling } from '@/lib/prisma-billing'
 import { prisma } from '@/lib/prisma'
-import { createNotification } from '@/modules/notification'
 import { logger } from '@/lib/logger'
 import { InvoiceStatus } from '@/prisma/generated/billing'
+import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
 
 export class VoidInvoiceService {
     /**
@@ -105,11 +105,10 @@ export class VoidInvoiceService {
 
             // 5. Create notification for the pelanggan
             try {
-                await createNotification({
-                    type: 'SYSTEM',
+                await notifyCustomerFinanceNotification({
+                    userId: pelanggan.userId,
                     title: 'Tagihan Dibatalkan',
                     message: `Tagihan ${invoice.invoiceNumber} telah dibatalkan oleh admin. Alasan: ${reason}`,
-                    userId: pelanggan.userId,
                     link: '/tagihan',
                     sourceType: 'INVOICE',
                     sourceId: invoice.id,
