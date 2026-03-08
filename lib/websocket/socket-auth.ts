@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders } from 'http'
-import { getToken } from 'next-auth/jwt'
+import { getToken, decode } from 'next-auth/jwt'
 import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { verifyPelangganAccessToken } from '@/lib/jwt'
@@ -59,16 +59,50 @@ export async function resolveSocketAuth(input: ResolveSocketAuthInput): Promise<
         }
     }
 
-    const token = await getToken({
-        req: { headers: input.headers } as never,
-        secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || '',
-    })
-    if (!token?.sub) {
+    const isSecure = process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://')
+    const cookieName = isSecure ? '__Secure-next-auth.session-token' : 'next-auth.session-token'
+    const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || ''
+
+    let tokenSub = null
+
+    try {
+        // First try to extract the token string manually and decode it directly.
+        // This avoids issues with NextAuth's internal req.cookies assumptions.
+        const sessionToken = getCookieValue(cookieHeader, cookieName)
+        if (sessionToken) {
+            const decoded = await decode({ token: sessionToken, secret })
+            if (decoded?.sub) {
+                tokenSub = decoded.sub
+            }
+        }
+    } catch (e) {
+        console.warn('[WS] Failed to decode session token manually:', e)
+    }
+
+    if (!tokenSub) {
+        // Fallback to NextAuth's getToken
+        try {
+            const token = await getToken({
+                req: { headers: input.headers } as never,
+                secret,
+                cookieName,
+                secureCookie: isSecure,
+            })
+            if (token?.sub) {
+                tokenSub = token.sub
+            }
+        } catch (e) {
+            console.warn('[WS] Fallback getToken failed:', e)
+        }
+    }
+
+    if (!tokenSub) {
+        console.error('[WS] Auth failed: no session token found in cookies (Names available:', cookieHeader ? cookieHeader.split(';').map(c => c.trim().split('=')[0]).join(', ') : 'none', ')')
         return null
     }
 
     const user = await prisma.user.findUnique({
-        where: { id: token.sub },
+        where: { id: tokenSub },
         select: {
             id: true,
             isActive: true,

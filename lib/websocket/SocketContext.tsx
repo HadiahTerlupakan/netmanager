@@ -59,6 +59,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
         const socketInstance = io({
             path: '/api/socket',
+            withCredentials: true,
             auth: {
                 userId: user.id,
                 userRole: user.role || 'USER',

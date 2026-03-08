@@ -320,7 +320,10 @@ app.prepare().then(() => {
     const io = new SocketIOServer(server, {
         path: '/api/socket',
         cors: {
-            origin: "*", // Allow all origins for mobile app testing
+            origin: (origin, callback) => {
+                // Safely allow all origins but preserve credentials
+                callback(null, true)
+            },
             methods: ['GET', 'POST'],
             credentials: true,
         },
