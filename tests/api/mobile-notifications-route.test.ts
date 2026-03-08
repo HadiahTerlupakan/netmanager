@@ -99,6 +99,58 @@ describe('mobile notifications route', () => {
     expect(json.data.notifications[0].link).toBe('/(app)/absensi')
   })
 
+  it('maps canvasing notifications to the mobile marketing canvasing detail screen', async () => {
+    mockFns.getNotificationsForUser.mockResolvedValueOnce({
+      notifications: [
+        {
+          id: 'notif-canv-1',
+          type: 'ANNOUNCEMENT',
+          title: 'Canvasing Disetujui',
+          message: 'WO baru sudah dibuat',
+          link: '/admin/marketing/canvasing/canv-1',
+          isRead: false,
+          sourceType: 'CANVASING',
+          sourceId: 'canv-1',
+          createdAt: new Date('2026-03-08T08:30:00.000Z'),
+        },
+      ],
+      total: 1,
+    })
+    mockFns.getUnreadCount.mockResolvedValueOnce(1)
+
+    const response = await GET(new NextRequest('http://localhost/api/mobile/notifications?limit=1'))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.data.notifications[0].link).toBe('/(app)/marketing/canvasing/canv-1')
+  })
+
+  it('maps point claim notifications to the related mobile canvasing detail screen', async () => {
+    mockFns.getNotificationsForUser.mockResolvedValueOnce({
+      notifications: [
+        {
+          id: 'notif-claim-1',
+          type: 'ANNOUNCEMENT',
+          title: 'Claim Poin Disetujui',
+          message: 'Claim Anda disetujui',
+          link: '/marketing/canvasing/canv-99',
+          isRead: false,
+          sourceType: 'POINT_CLAIM',
+          sourceId: 'claim-1',
+          createdAt: new Date('2026-03-08T09:00:00.000Z'),
+        },
+      ],
+      total: 1,
+    })
+    mockFns.getUnreadCount.mockResolvedValueOnce(1)
+
+    const response = await GET(new NextRequest('http://localhost/api/mobile/notifications?limit=1'))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.data.notifications[0].link).toBe('/(app)/marketing/canvasing/canv-99')
+  })
+
   it('rejects markRead when the notification is not readable by the user', async () => {
     mockFns.getReadableNotificationForUser.mockResolvedValueOnce(null)
 

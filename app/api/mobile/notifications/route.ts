@@ -33,6 +33,20 @@ export async function GET(request: NextRequest) {
                 notifications: notifications.map(n => {
                     let link = n.link
 
+                    const normalizeMarketingLink = (rawLink: string | null) => {
+                        if (!rawLink) return '/(app)/marketing/canvasing'
+                        if (rawLink.startsWith('/(app)/marketing/canvasing')) {
+                            return rawLink
+                        }
+                        if (rawLink.startsWith('/admin/marketing/canvasing')) {
+                            return rawLink.replace('/admin/marketing/canvasing', '/(app)/marketing/canvasing')
+                        }
+                        if (rawLink.startsWith('/marketing/canvasing')) {
+                            return rawLink.replace('/marketing/canvasing', '/(app)/marketing/canvasing')
+                        }
+                        return rawLink
+                    }
+
                     // Fix links for mobile navigation
                     if (n.sourceType === 'WORK_ORDER' && n.sourceId) {
                         link = `/(app)/work-order-detail/${n.sourceId}`
@@ -42,6 +56,8 @@ export async function GET(request: NextRequest) {
                         link = '/(app)/lembur'
                     } else if (n.sourceType === 'ATTENDANCE') {
                         link = '/(app)/absensi'
+                    } else if (n.sourceType === 'CANVASING' || n.sourceType === 'POINT_CLAIM') {
+                        link = normalizeMarketingLink(n.link)
                     } else if (n.sourceType === 'INVENTORY') {
                         link = '/(app)/barang'
                     }
