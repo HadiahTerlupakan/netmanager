@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma';
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { createNotification } from '@/modules/notification';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 
 // POST /api/admin/workorders/[id]/assign - Assign work order
@@ -64,32 +63,5 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         return apiError(result.error || 'Gagal assign work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 
-    const workOrder = result.data!;
-
-    // Additional: Direct notification to assigned technician (endpoint-specific)
-    const employee = await prisma.user.findUnique({
-        where: { id: body.employeeId },
-        select: { id: true, name: true, pushToken: true, isActive: true }
-    });
-
-    if (employee) {
-        try {
-            // In-app notification
-            await createNotification({
-                type: 'WORK_ORDER',
-                priority: (workOrder.priority === 'CRITICAL' ? 'URGENT' : workOrder.priority) as 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT',
-                title: '📋 Work Order Di-assign ke Anda',
-                message: `${workOrder.workOrderNumber}: ${workOrder.title}`,
-                link: `/admin/workorders/${workOrder.id}`,
-                userId: employee.id,
-                siteId: workOrder.siteId || undefined,
-                sourceType: 'WORK_ORDER',
-                sourceId: workOrder.id,
-            });
-        } catch (notifyError) {
-            console.error('Additional notification failed:', notifyError);
-        }
-    }
-
-    return apiSuccess(workOrder, { message: 'Work order berhasil di-assign' });
+    return apiSuccess(result.data, { message: 'Work order berhasil di-assign' });
 })

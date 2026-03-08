@@ -427,10 +427,12 @@ export async function notifyWorkOrderUpdate(
         updateMessage: string;
         updatedByName?: string;
         triggeredByUserId?: string;
+        excludeUserIds?: string[];
     }
 ) {
     // Notify Assignee + Admins/Department (exclude triggerer)
-    const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
+    const recipients = (await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId))
+        .filter((user) => !data.excludeUserIds?.includes(user.id));
 
     await Promise.all(recipients.map(async (user) => {
         await createNotification({

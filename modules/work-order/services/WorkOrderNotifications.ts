@@ -167,7 +167,8 @@ export async function onWorkOrderUpdated(
     workOrder: WorkOrderData,
     updateMessage: string,
     updatedByName?: string,
-    triggeredByUserId?: string
+    triggeredByUserId?: string,
+    excludeUserIds?: string[]
 ) {
     try {
         await notifyWorkOrderUpdate({
@@ -181,7 +182,8 @@ export async function onWorkOrderUpdated(
             siteId: workOrder.siteId || undefined,
             updateMessage,
             updatedByName,
-            triggeredByUserId
+            triggeredByUserId,
+            excludeUserIds,
         });
         // console.log(`[Notification] Update notification processed for WO: ${workOrder.workOrderNumber}`);
     } catch (error) {

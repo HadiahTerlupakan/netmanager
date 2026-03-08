@@ -5,6 +5,7 @@ import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { createNotification } from '@/modules/notification';
+import { onWorkOrderUpdated } from '@/modules/work-order/services/WorkOrderNotifications';
 
 interface CommentData {
   id: string;
@@ -80,10 +81,22 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     try {
         const workOrder = await prisma.workOrders.findUnique({
             where: { id },
-            include: { assignedTo: true }
+            select: {
+                id: true,
+                workOrderNumber: true,
+                title: true,
+                type: true,
+                priority: true,
+                departmentId: true,
+                siteId: true,
+                assignedToId: true,
+                assignedTo: {
+                    select: { id: true, pushToken: true, isActive: true }
+                }
+            }
         });
 
-        if (workOrder?.assignedTo?.pushToken && workOrder.assignedTo?.isActive) {
+        if (workOrder?.assignedTo?.isActive) {
             // Check if user is on leave
             const now = new Date();
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -107,6 +120,17 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                 sourceId: id,
                 skipExpoPush: Boolean(isOnLeave),
             });
+
+            await onWorkOrderUpdated({
+                id: workOrder.id,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                type: workOrder.type,
+                priority: workOrder.priority,
+                departmentId: workOrder.departmentId,
+                siteId: workOrder.siteId,
+                assignedToId: workOrder.assignedToId,
+            }, `${user.name || 'Admin'}: ${message.substring(0, 100)}`, user.name || 'Admin', user.id, [workOrder.assignedTo.id]);
         }
     } catch (error) {
         console.error('Failed to send comment notification:', error);

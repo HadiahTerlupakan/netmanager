@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
 import { usePermission } from '@/hooks/use-permission'
 import { useClickOutside } from '@/hooks/useClickOutside'
+import { normalizeKaryawanNotificationLink } from '@/lib/notifications/normalizeKaryawanNotificationLink'
 
 interface Announcement {
     id: string;
@@ -196,9 +197,7 @@ export function KaryawanNotificationBell() {
                                         }`}
                                 >
                                     <Link
-                                        href={(notif.link || '#')
-                                            .replace('/admin/workorders', '/karyawan/work-order')
-                                            .replace('/admin/work-order', '/karyawan/work-order')}
+                                        href={normalizeKaryawanNotificationLink(notif.link)}
                                         onClick={() => {
                                             if (!notif.isRead) markAsRead(notif.id)
                                             setIsOpen(false)

@@ -4,6 +4,7 @@ import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { createNotification } from '@/modules/notification';
+import { onWorkOrderUpdated } from '@/modules/work-order/services/WorkOrderNotifications';
 
 // GET /api/admin/workorders/[id]/tasks - Get tasks
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
@@ -112,7 +113,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
             }
         });
 
-        if (woForNotify?.assignedTo?.pushToken && woForNotify.assignedTo.isActive) {
+        if (woForNotify?.assignedTo?.isActive) {
             try {
                 // Check if user is on leave
                 const now = new Date();
@@ -139,6 +140,17 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                     sourceId: id,
                     skipExpoPush: Boolean(isOnLeave),
                 });
+
+                await onWorkOrderUpdated({
+                    id: woResult.data.id,
+                    workOrderNumber: woResult.data.workOrderNumber,
+                    title: woResult.data.title,
+                    type: woResult.data.type,
+                    priority: woResult.data.priority,
+                    departmentId: woResult.data.departmentId,
+                    siteId: woResult.data.siteId,
+                    assignedToId: woResult.data.assignedToId,
+                }, message, user.name || 'Admin', user.id, [woForNotify.assignedTo.id]);
             } catch (notifyError) {
                 console.error('Failed to send task notification:', notifyError);
             }
