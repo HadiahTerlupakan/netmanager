@@ -6,6 +6,7 @@ import { LeaveType, LeaveStatus, Prisma } from '@prisma/client'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveBase64 } from '@/lib/utils/image-upload'
+import { calculateWorkingDays } from '@/modules/attendance/utils/calculateWorkingDays'
 
 const repo = new LeaveRepository()
 const leaveBalanceRepo = new LeaveBalanceRepository()
@@ -49,10 +50,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Field wajib tidak lengkap' }, { status: 400 })
         }
 
-        // Calculate leave days
         const start = new Date(startDate)
         const end = new Date(endDate)
-        const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
         const currentYear = start.getFullYear()
 
         // Check user's working hour mode - FLEXIBLE users don't have leave quotas
@@ -60,6 +59,8 @@ export async function POST(request: NextRequest) {
             where: { id: userId },
             select: { workingHourMode: true, workDays: true, name: true, siteId: true }
         })
+
+        const leaveDays = await calculateWorkingDays(start, end, userData?.workDays || null)
 
         // Validate leave quota (skip for FLEXIBLE users and TUKAR_LIBUR type)
         if (userData?.workingHourMode !== 'FLEXIBLE' && type !== 'TUKAR_LIBUR') {

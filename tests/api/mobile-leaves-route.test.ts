@@ -104,4 +104,30 @@ describe('mobile leaves route', () => {
       sourceId: 'leave-1',
     }))
   })
+
+  it('uses working-day calculation for leave quota checks', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      workingHourMode: 'REGULAR',
+      workDays: 'Mon,Tue,Wed,Thu,Fri',
+      name: 'Budi',
+      siteId: 'site-1',
+    })
+    prismaMock.user.findMany.mockResolvedValue([])
+    prismaMock.holiday.findFirst.mockResolvedValue(null)
+
+    const response = await POST(new NextRequest('http://localhost/api/mobile/leaves', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'CUTI',
+        startDate: '2026-03-13',
+        endDate: '2026-03-15',
+        reason: 'Libur keluarga',
+        photos: [],
+      }),
+      headers: { 'content-type': 'application/json' },
+    }))
+
+    expect(response.status).toBe(201)
+    expect(mockFns.hasEnoughDays).toHaveBeenCalledWith('user-1', 2026, 'CUTI', 1)
+  })
 })
