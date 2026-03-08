@@ -49,7 +49,7 @@ import {
 describe('AttendanceAlertService', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-03-09T01:35:00.000Z'))
+    vi.setSystemTime(new Date(2026, 2, 9, 8, 35, 0, 0))
     vi.clearAllMocks()
     redisStore.clear()
   })
@@ -78,7 +78,7 @@ describe('AttendanceAlertService', () => {
   it('sends flexible reminders once per exceeded hour bucket', async () => {
     prismaMock.attendance.findMany.mockResolvedValue([
       {
-        checkIn: new Date('2026-03-08T16:20:00.000Z'),
+        checkIn: new Date(2026, 2, 8, 23, 20, 0, 0),
         user: {
           id: 'user-flex',
           name: 'Sari',

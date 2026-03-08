@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { prismaMock } from '../../setup'
 
 const mockGetToken = vi.hoisted(() => vi.fn())
+const mockDecode = vi.hoisted(() => vi.fn())
 const mockVerifyMobileToken = vi.hoisted(() => vi.fn())
 const mockVerifyPelangganAccessToken = vi.hoisted(() => vi.fn())
 
 vi.mock('next-auth/jwt', () => ({
   getToken: mockGetToken,
+  decode: mockDecode,
 }))
 
 vi.mock('@/lib/mobile-auth', () => ({
