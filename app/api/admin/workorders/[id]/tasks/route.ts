@@ -3,10 +3,10 @@ import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import crypto from 'crypto';
+import { createNotification } from '@/modules/notification';
 
 // GET /api/admin/workorders/[id]/tasks - Get tasks
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     const user = ctx.session!.user;
     const { id } = ctx.params;
 
@@ -126,41 +126,18 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                     }
                 });
 
-                if (!isOnLeave) {
-                    const { sendExpoPushNotifications } = await import('@/lib/expo');
-                    const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
-                    const message = `Admin menambahkan tugas: "${body.title}"`;
-
-                    await sendExpoPushNotifications(
-                        [woForNotify.assignedTo.pushToken],
-                        title,
-                        message,
-                        {
-                            type: 'WORK_ORDER',
-                            workOrderId: id,
-                            url: `/(app)/work-order-detail/${id}`
-                        }
-                    );
-                } else {
-                        // console.log(`Skipping notification for user ${woForNotify.assignedTo.id} (On Leave)`);
-                }
-
-                // Always create notification history
                 const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
                 const message = `Admin menambahkan tugas: "${body.title}"`;
-                await prisma.notifications.create({
-                    data: {
-                        id: crypto.randomUUID(),
-                        type: 'WORK_ORDER',
-                        title: title,
-                        message: message,
-                        userId: woForNotify.assignedTo.id,
-                        sourceType: 'WORK_ORDER',
-                        sourceId: id,
-                        isRead: false,
-                        priority: 'NORMAL',
-                        createdAt: new Date(),
-                    }
+                await createNotification({
+                    type: 'WORK_ORDER',
+                    priority: 'NORMAL',
+                    title,
+                    message,
+                    link: `/admin/workorders/${id}`,
+                    userId: woForNotify.assignedTo.id,
+                    sourceType: 'WORK_ORDER',
+                    sourceId: id,
+                    skipExpoPush: Boolean(isOnLeave),
                 });
             } catch (notifyError) {
                 console.error('Failed to send task notification:', notifyError);

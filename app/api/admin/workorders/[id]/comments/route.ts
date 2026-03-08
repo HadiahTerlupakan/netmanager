@@ -4,7 +4,7 @@ import { socketEmitter } from '@/lib/websocket/emitter';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import crypto from 'crypto';
+import { createNotification } from '@/modules/notification';
 
 interface CommentData {
   id: string;
@@ -96,40 +96,16 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                 }
             });
 
-            if (!isOnLeave) {
-                const { sendExpoPushNotifications } = await import('@/lib/expo');
-
-                const title = `Komentar Baru: ${workOrder.workOrderNumber}`;
-                const notifBody = `${user.name || 'Admin'}: ${message.substring(0, 100)}`;
-
-                await sendExpoPushNotifications(
-                    [workOrder.assignedTo.pushToken],
-                    title,
-                    notifBody,
-                    {
-                        type: 'WORK_ORDER',
-                        workOrderId: id,
-                        url: `/(app)/work-order-detail/${id}`
-                    }
-                );
-            } else {
-                // console.log(`Skipping notification for user ${workOrder.assignedTo.id} (On Leave)`);
-            }
-
-            // Persist notification (Always create history)
-            await prisma.notifications.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    type: 'WORK_ORDER',
-                    title: `Komentar Baru: ${workOrder.workOrderNumber}`,
-                    message: `${user.name || 'Admin'}: ${message.substring(0, 100)}`,
-                    userId: workOrder.assignedTo.id,
-                    sourceType: 'WORK_ORDER',
-                    sourceId: id,
-                    isRead: false,
-                    priority: 'NORMAL',
-                    createdAt: new Date(),
-                }
+            await createNotification({
+                type: 'WORK_ORDER',
+                priority: 'NORMAL',
+                title: `Komentar Baru: ${workOrder.workOrderNumber}`,
+                message: `${user.name || 'Admin'}: ${message.substring(0, 100)}`,
+                link: `/admin/workorders/${id}`,
+                userId: workOrder.assignedTo.id,
+                sourceType: 'WORK_ORDER',
+                sourceId: id,
+                skipExpoPush: Boolean(isOnLeave),
             });
         }
     } catch (error) {
