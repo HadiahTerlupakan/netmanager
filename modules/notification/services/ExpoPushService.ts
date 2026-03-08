@@ -121,8 +121,7 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<{ success: boo
                     const tickets = result.data as ExpoPushTicket[]
                     tickets.forEach((ticket, index) => {
                         if (ticket.status === 'error') {
-                            const errorType = (ticket.details as Record<string, unknown>)?.error || ticket.message || 'Unknown'
-                            allSucceeded = false
+                            const errorType = ((ticket.details as Record<string, unknown>)?.error as string) || ticket.message || 'Unknown'
                             failedTokens.push({
                                 token: chunk[index].to,
                                 error: errorType,
