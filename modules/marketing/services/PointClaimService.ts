@@ -6,7 +6,7 @@ import type {
   PointClaimWithRelations,
   PointSummary
 } from '../repositories/IPointClaimRepository'
-import { createNotification } from '../../notification/services/NotificationService'
+import { createNotification, notifyNewPointClaim } from '../../notification/services/NotificationService'
 
 export class PointClaimService {
   constructor(
@@ -26,7 +26,7 @@ export class PointClaimService {
       include: {
         workOrder: true,
         pointClaims: true,
-        user: { select: { name: true } },
+        user: { select: { name: true, siteId: true } },
       },
     })
 
@@ -66,14 +66,14 @@ export class PointClaimService {
 
     // 4. Notify admins about new claim
     const salesName = canvasing.user?.name || 'Sales'
-    createNotification({
-      type: 'ANNOUNCEMENT',
-      priority: 'NORMAL',
-      title: '🎁 Claim Poin Baru',
-      message: `${salesName} mengajukan claim +${claim.pointValue} poin untuk canvasing ${canvasing.nama}`,
-      link: `/admin/marketing/canvasing/${canvasing.id}`,
-      sourceType: 'POINT_CLAIM',
-      sourceId: claim.id,
+    notifyNewPointClaim({
+      claimId: claim.id,
+      canvasingId: canvasing.id,
+      customerName: canvasing.nama,
+      salesId: canvasing.salesId,
+      salesName,
+      pointValue: claim.pointValue,
+      siteId: canvasing.user?.siteId,
     }).catch(err => console.error('[PointClaim Notif] Error:', err))
 
     return claim

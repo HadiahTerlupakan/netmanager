@@ -1,4 +1,5 @@
 import { sendPushNotification as sendExpoPush, sendPushToDepartment as sendExpoPushToDepartment } from './ExpoPushService';
+import { sendPushNotifications as sendBrowserPushNotifications } from './PushNotificationService';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
@@ -63,9 +64,24 @@ export async function createNotification(data: CreateNotificationData) {
         createdAt: notification.createdAt.toISOString(),
     };
 
+    const browserPushPayload = {
+        title: notification.title,
+        body: notification.message,
+        data: {
+            url: notification.link || '/employee/notifications',
+            notificationId: notification.id,
+            sourceType: notification.sourceType || undefined,
+            sourceId: notification.sourceId || undefined,
+        },
+        tag: `notification-${notification.id}`,
+    };
+
+    const browserRecipientIds = new Set<string>();
+
     // Emit WebSocket event to specific user
     if (data.userId) {
         socketEmitter.notifyUser(data.userId, wsPayload);
+        browserRecipientIds.add(data.userId);
 
         // Send Expo Push notification for mobile users
         sendExpoPush(data.userId, data.title, data.message, {
@@ -79,6 +95,25 @@ export async function createNotification(data: CreateNotificationData) {
     if (data.departmentId) {
         socketEmitter.notifyDepartment(data.departmentId, wsPayload);
 
+        const departmentRecipients = await prisma.user.findMany({
+            where: {
+                isActive: true,
+                departmentId: data.departmentId,
+                ...(data.siteId ? {
+                    OR: [
+                        { siteId: data.siteId },
+                        { siteId: null },
+                        { userSites: { some: { siteId: data.siteId } } },
+                    ],
+                } : {}),
+            },
+            select: { id: true },
+        });
+
+        for (const recipient of departmentRecipients) {
+            browserRecipientIds.add(recipient.id);
+        }
+
         // Send Expo Push to all users in department
         sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
             link: data.link || undefined,
@@ -90,6 +125,33 @@ export async function createNotification(data: CreateNotificationData) {
     // Also notify admins for important notifications
     if (data.priority === 'HIGH' || data.priority === 'URGENT' || data.type === 'ALERT') {
         socketEmitter.notifyAdmins(wsPayload, data.siteId);
+    }
+
+    if (browserRecipientIds.size > 0) {
+        const subscriptions = await prisma.pushSubscriptions.findMany({
+            where: {
+                isActive: true,
+                userId: { in: [...browserRecipientIds] },
+            },
+            select: {
+                endpoint: true,
+                p256dh: true,
+                auth: true,
+            },
+        });
+
+        if (subscriptions.length > 0) {
+            sendBrowserPushNotifications(
+                subscriptions.map((subscription) => ({
+                    endpoint: subscription.endpoint,
+                    keys: {
+                        p256dh: subscription.p256dh,
+                        auth: subscription.auth,
+                    },
+                })),
+                browserPushPayload
+            ).catch((err) => console.error('[Web Push] Error:', err));
+        }
     }
 
     return notification;
@@ -494,6 +556,40 @@ export async function getNotificationsForUser(
     return { notifications, total };
 }
 
+export async function getReadableNotificationForUser(
+    notificationId: string,
+    userId: string,
+    options?: {
+        departmentId?: string;
+        siteId?: string;
+    }
+) {
+    let userDepartmentId = options?.departmentId;
+
+    if (!userDepartmentId) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { departmentId: true },
+        });
+        userDepartmentId = user?.departmentId || undefined;
+    }
+
+    return prisma.notifications.findFirst({
+        where: {
+            id: notificationId,
+            OR: [
+                { userId },
+                {
+                    AND: [
+                        { departmentId: userDepartmentId || 'NONE' },
+                        options?.siteId ? { OR: [{ siteId: options.siteId }, { siteId: null }] } : {}
+                    ]
+                }
+            ]
+        }
+    });
+}
+
 /**
  * Get unread notification count for a user
  * OPTIMIZED: Uses single query with $queryRaw for better performance
@@ -644,6 +740,16 @@ export interface CanvasingNotificationData {
     siteId?: string | null;
 }
 
+export interface PointClaimNotificationData {
+    claimId: string;
+    canvasingId: string;
+    customerName: string;
+    salesId: string;
+    salesName?: string;
+    pointValue: number;
+    siteId?: string | null;
+}
+
 /**
  * Find users with canvasing:verify permission in a specific site
  */
@@ -710,4 +816,29 @@ export async function notifyNewCanvasing(data: CanvasingNotificationData) {
     await Promise.all(promises);
     // console.log(`[Notification] New Canvasing: Notified ${recipients.length} verifiers`);
     return { count: recipients.length };
+}
+
+export async function notifyNewPointClaim(data: PointClaimNotificationData) {
+    const recipients = await findCanvasingVerifiers(data.siteId);
+    const filteredRecipients = recipients.filter((user) => user.id !== data.salesId);
+
+    if (filteredRecipients.length === 0) {
+        return null;
+    }
+
+    await Promise.all(filteredRecipients.map(async (user) => {
+        await createNotification({
+            type: 'ANNOUNCEMENT',
+            priority: 'NORMAL',
+            title: '🎁 Claim Poin Baru',
+            message: `${data.salesName || 'Sales'} mengajukan claim +${data.pointValue} poin untuk canvasing ${data.customerName}`,
+            link: `/admin/marketing/canvasing/${data.canvasingId}`,
+            userId: user.id,
+            siteId: data.siteId || undefined,
+            sourceType: 'POINT_CLAIM',
+            sourceId: data.claimId,
+        });
+    }));
+
+    return { count: filteredRecipients.length };
 }
