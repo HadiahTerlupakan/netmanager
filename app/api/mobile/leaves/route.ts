@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         // Check user's working hour mode - FLEXIBLE users don't have leave quotas
         const userData = await prisma.user.findUnique({
             where: { id: userId },
-            select: { workingHourMode: true, workDays: true, name: true }
+            select: { workingHourMode: true, workDays: true, name: true, siteId: true }
         })
 
         // Validate leave quota (skip for FLEXIBLE users and TUKAR_LIBUR type)
@@ -166,21 +166,31 @@ export async function POST(request: NextRequest) {
 
         // Notify Admins
         try {
-            const userData = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
             const admins = await prisma.user.findMany({
                 where: {
                     isActive: true, // Only notify active admins
                     OR: [
                         { role: { name: { in: ['SUPER_ADMIN', 'Super Admin'] } } },
                         {
-                            role: {
-                                permission: {
-                                    some: {
-                                        resource: { in: ['attendance', 'kehadiran'] },
-                                        action: 'update'
+                            AND: [
+                                {
+                                    role: {
+                                        permission: {
+                                            some: {
+                                                resource: { in: ['attendance', 'kehadiran'] },
+                                                action: 'update'
+                                            }
+                                        }
                                     }
-                                }
-                            }
+                                },
+                                ...(userData?.siteId ? [{
+                                    OR: [
+                                        { siteId: userData.siteId },
+                                        { siteId: null },
+                                        { userSites: { some: { siteId: userData.siteId } } }
+                                    ]
+                                }] : [])
+                            ]
                         }
                     ]
                 },
