@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma'
+import { redis } from '@/lib/redis'
+import { cache } from '@/lib/cache'
 import { sendPushNotification } from '@/modules/notification/services/ExpoPushService'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
@@ -17,6 +19,28 @@ interface UserSchedule {
     endWorkTime: string
     workDays: string | null
     pushToken: string | null
+}
+
+function getDateKey(date: Date = new Date()): string {
+    return date.toISOString().slice(0, 10)
+}
+
+function getFlexibleHourBucket(excessHours: number): number {
+    return Math.floor(excessHours)
+}
+
+async function acquireReminderLock(key: string, ttlSeconds: number): Promise<boolean> {
+    try {
+        const result = await redis.set(key, '1', 'EX', ttlSeconds, 'NX')
+        return result === 'OK'
+    } catch {
+        const existing = cache.get<boolean>(key)
+        if (existing) {
+            return false
+        }
+        cache.set(key, true, ttlSeconds)
+        return true
+    }
 }
 
 /**
@@ -210,6 +234,12 @@ export async function processCheckInReminders(
         // Send individual notifications with personalized time info
         for (const user of users) {
             if (user.pushToken) {
+                const reminderKey = `attendance:reminder:checkin:${user.userId}:${getDateKey()}`
+                const shouldSend = await acquireReminderLock(reminderKey, 60 * 60)
+                if (!shouldSend) {
+                    continue
+                }
+
                 await sendPushNotification(
                     user.userId,
                     '⏰ Reminder Absensi',
@@ -251,6 +281,12 @@ export async function processCheckOutReminders(
 
         for (const user of users) {
             if (user.pushToken) {
+                const reminderKey = `attendance:reminder:checkout:${user.userId}:${getDateKey()}`
+                const shouldSend = await acquireReminderLock(reminderKey, 60 * 60)
+                if (!shouldSend) {
+                    continue
+                }
+
                 await sendPushNotification(
                     user.userId,
                     '🏠 Reminder Check-Out',
@@ -339,6 +375,12 @@ export async function processIncompleteAttendance(): Promise<{
     const usersNotified: string[] = []
 
     for (const att of incomplete) {
+        const reminderKey = `attendance:alert:missing_checkout:${att.userId}:${getDateKey()}`
+        const shouldSend = await acquireReminderLock(reminderKey, 12 * 60 * 60)
+        if (!shouldSend) {
+            continue
+        }
+
         await sendAttendanceAlertToUser(att.userId, 'missing_checkout')
         usersNotified.push(att.user.name || att.userId)
     }
@@ -368,6 +410,12 @@ export async function processLateCheckOutReminders(): Promise<{ usersNotified: n
 
         for (const user of users) {
             if (user.pushToken) {
+                const reminderKey = `attendance:reminder:late_checkout:${user.userId}:${getDateKey()}`
+                const shouldSend = await acquireReminderLock(reminderKey, 2 * 60 * 60)
+                if (!shouldSend) {
+                    continue
+                }
+
                 await sendPushNotification(
                     user.userId,
                     '🛑 Belum Absen Pulang?',
@@ -485,6 +533,11 @@ export async function processFlexibleReminders(): Promise<{ usersNotified: numbe
                 // Trigger if we are in the first 0.25 (15 mins) of a new hour block
                 // OR if it's the very first time crossing the threshold (within first 15 mins)
                 if (remainder >= 0 && remainder <= 0.25) {
+                    const reminderKey = `attendance:reminder:flexible:${session.user.id}:${getDateKey(now)}:${getFlexibleHourBucket(excessHours)}`
+                    const shouldSend = await acquireReminderLock(reminderKey, 60 * 60)
+                    if (!shouldSend) {
+                        continue
+                    }
 
                     const hoursWorked = Math.floor(durationHours)
                     const minutesWorked = Math.round((durationHours % 1) * 60)
