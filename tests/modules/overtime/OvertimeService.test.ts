@@ -68,7 +68,7 @@ describe('OvertimeService', () => {
 
       // Mock user and admins for notification
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      prismaMock.user.findUnique.mockResolvedValue({ name: 'Test User' } as any)
+      prismaMock.user.findUnique.mockResolvedValue({ name: 'Test User', siteId: 'site-1' } as any)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.user.findMany.mockResolvedValue([{ id: 'admin-1' }] as any)
 
@@ -79,6 +79,34 @@ describe('OvertimeService', () => {
 
       expect(result).toBeDefined()
       expect(result.status).toBe(OvertimeStatus.PENDING)
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { role: { name: 'SUPER_ADMIN' } },
+            expect.objectContaining({
+              AND: expect.arrayContaining([
+                expect.objectContaining({
+                  role: {
+                    permission: {
+                      some: {
+                        resource: 'lembur',
+                        action: 'update'
+                      }
+                    }
+                  }
+                }),
+                {
+                  OR: [
+                    { siteId: 'site-1' },
+                    { siteId: null },
+                    { userSites: { some: { siteId: 'site-1' } } }
+                  ]
+                }
+              ])
+            })
+          ])
+        })
+      }))
     })
   })
 

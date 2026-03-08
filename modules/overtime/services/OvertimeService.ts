@@ -56,20 +56,31 @@ export class OvertimeService {
 
         // Notify Admins
         try {
-            const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+            const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, siteId: true } })
             const admins = await prisma.user.findMany({
                 where: {
                     OR: [
                         { role: { name: 'SUPER_ADMIN' } },
                         {
-                            role: {
-                                permission: {
-                                    some: {
-                                        resource: 'lembur',
-                                        action: 'update'
+                            AND: [
+                                {
+                                    role: {
+                                        permission: {
+                                            some: {
+                                                resource: 'lembur',
+                                                action: 'update'
+                                            }
+                                        }
                                     }
-                                }
-                            }
+                                },
+                                ...(user?.siteId ? [{
+                                    OR: [
+                                        { siteId: user.siteId },
+                                        { siteId: null },
+                                        { userSites: { some: { siteId: user.siteId } } }
+                                    ]
+                                }] : [])
+                            ]
                         }
                     ]
                 },
