@@ -1,6 +1,8 @@
 import { beforeEach, vi } from 'vitest'
 import { mockReset, mockDeep } from 'vitest-mock-extended'
 
+// Force the timezone to Jakarta for all tests so that CI (UTC) behaves identically to local development
+process.env.TZ = 'Asia/Jakarta'
 // Define a simplified mock type to avoid Prisma's circular type references (TS2615)
 // This is a known issue with Prisma 7.x and vitest-mock-extended
 // See: https://www.prisma.io/docs/orm/prisma-client/testing/unit-testing
