@@ -1,5 +1,6 @@
 import type { Socket, Server as SocketIOServer } from 'socket.io'
 import { SOCKET_EVENTS, type SocketData } from './types'
+import { canJoinRoom, resolveSocketAuth } from './socket-auth'
 
 // Declare global type for Socket.io server instance
 declare global {
@@ -18,24 +19,17 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
     // Authentication middleware
     globalThis.socketIOServer.use(async (socket, next) => {
         try {
-            const auth = socket.handshake.auth
-            const userId = auth?.userId as string
-            const userRole = auth?.userRole as string
-            const departmentId = auth?.departmentId as string | undefined
-            const accessAdminPanel = auth?.accessAdminPanel as boolean | undefined
+            const resolved = await resolveSocketAuth({
+                headers: socket.handshake.headers,
+                auth: socket.handshake.auth as { token?: string } | undefined,
+            })
 
-            if (!userId) {
-                console.error('[WS] Auth failed: No userId provided')
+            if (!resolved?.userId) {
+                console.error('[WS] Auth failed: no verified identity')
                 return next(new Error('Autentikasi diperlukan'))
             }
 
-            // Attach user data to socket
-            socket.data = {
-                userId,
-                userRole: userRole || 'USER',
-                departmentId,
-                accessAdminPanel,
-            } as SocketData
+            socket.data = resolved as SocketData
 
             next()
         } catch (error) {
@@ -106,10 +100,10 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
         })
 
         // Handle dynamic room joining
-        socket.on(SOCKET_EVENTS.JOIN_ROOM, (data: { room: string } | string) => {
+        socket.on(SOCKET_EVENTS.JOIN_ROOM, async (data: { room: string } | string) => {
             const room = typeof data === 'string' ? data : data.room
             // Validate room name to prevent unauthorized access
-            if (room && isRoomAllowed(socket, room)) {
+            if (room && await canJoinRoom(socket.data as SocketData, room)) {
                 socket.join(room)
                 console.log(`[WS] ${userId} joined room: ${room}`)
             } else {
@@ -178,41 +172,6 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
 
     console.log('[WS] Socket.io server initialized')
     return globalThis.socketIOServer
-}
-
-/**
- * Check if socket is allowed to join a room
- */
-function isRoomAllowed(socket: Socket, room: string): boolean {
-    const { userId, userRole, accessAdminPanel } = socket.data as SocketData
-
-    // User can join their own room
-    if (room === `user:${userId}`) return true
-
-    // Admin can join admin rooms (includes SUPER_ADMIN, ADMIN, and users with admin panel access)
-    // Relaxed check: Allow if user has accessAdminPanel OR is in the specific role list
-    const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'OWNER', 'MANAGER']
-    if ((accessAdminPanel || adminRoles.includes(userRole?.toUpperCase())) && room.startsWith('admin:')) return true
-
-    // Anyone can join their department room
-    if (room.startsWith('department:')) return true
-
-    // Allow joining ticket-specific rooms for chat (both admin and customers)
-    // TODO: Add proper validation to ensure user has access to this ticket
-    if (room.startsWith('ticket:')) return true
-
-    // Allow joining work order rooms for Activity Timeline updates
-    // TODO: Add proper validation to ensure user has access to this work order
-    if (room.startsWith('workorder:')) return true
-
-    // Allow joining chat conversation rooms
-    // Format: chat:conversationId
-    if (room.startsWith('chat:')) return true
-
-    // Allow joining global chat room
-    if (room === 'chat:global') return true
-
-    return false
 }
 
 // Periodic cleanup of orphaned/empty rooms (every 5 minutes)
