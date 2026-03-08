@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { ensurePermission } from '@/lib/rbac'
 import { apiSuccess, createHandler } from '@/lib/api'
 
@@ -22,7 +23,7 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
         })
     }
 
-    const [updatedUsers, updatedCustomers, outdatedUsers, outdatedCustomers, unknownUsers, unknownCustomers] = await Promise.all([
+    const [updatedUsers, updatedCustomers, updatedMitra, outdatedUsers, outdatedCustomers, outdatedMitra, unknownUsers, unknownCustomers, unknownMitra] = await Promise.all([
         prisma.user.count({
             where: {
                 isActive: true,
@@ -32,6 +33,12 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
         prisma.pelanggan.count({
             where: {
                 status: 'AKTIF',
+                lastVersionCode: { gte: latestVersion.versionCode }
+            }
+        }),
+        prismaMitra.mitra.count({
+            where: {
+                isActive: true,
                 lastVersionCode: { gte: latestVersion.versionCode }
             }
         }),
@@ -44,6 +51,12 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
         prisma.pelanggan.count({
             where: {
                 status: 'AKTIF',
+                lastVersionCode: { lt: latestVersion.versionCode }
+            }
+        }),
+        prismaMitra.mitra.count({
+            where: {
+                isActive: true,
                 lastVersionCode: { lt: latestVersion.versionCode }
             }
         }),
@@ -56,14 +69,20 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
         prisma.pelanggan.count({
             where: {
                 status: 'AKTIF',
+                lastVersionCode: null
+            }
+        }),
+        prismaMitra.mitra.count({
+            where: {
+                isActive: true,
                 lastVersionCode: null
             }
         })
     ])
 
-    const updatedCount = updatedUsers + updatedCustomers
-    const outdatedCount = outdatedUsers + outdatedCustomers
-    const unknownCount = unknownUsers + unknownCustomers
+    const updatedCount = updatedUsers + updatedCustomers + updatedMitra
+    const outdatedCount = outdatedUsers + outdatedCustomers + outdatedMitra
+    const unknownCount = unknownUsers + unknownCustomers + unknownMitra
 
     return apiSuccess({
         updatedCount,
