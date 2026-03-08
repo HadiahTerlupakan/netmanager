@@ -1,183 +1,213 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Notifications } from '@prisma/client'
 import { prismaMock } from '../../setup'
-// const prismaMock = defaultPrismaMock as any
 
-// NotificationService uses prisma directly, so we test the prisma mock behavior
-// Note: The actual NotificationService has many dependencies (WebSocket, Push)
-// These tests focus on the database interactions
+vi.mock('@/modules/notification/services/ExpoPushService', () => ({
+  sendPushNotification: vi.fn().mockResolvedValue(true),
+  sendPushToDepartment: vi.fn().mockResolvedValue(0),
+}))
 
-describe('NotificationService - Database Operations', () => {
+const browserPushMocks = vi.hoisted(() => ({
+  sendPushNotifications: vi.fn().mockResolvedValue([]),
+}))
+
+vi.mock('@/modules/notification/services/PushNotificationService', () => ({
+  sendPushNotifications: browserPushMocks.sendPushNotifications,
+}))
+
+import {
+  createNotification,
+  getReadableNotificationForUser,
+  markAsRead,
+  notifyNewPointClaim,
+} from '@/modules/notification/services/NotificationService'
+
+describe('NotificationService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    prismaMock.pushSubscriptions.findMany.mockResolvedValue([])
   })
 
-  describe('createNotification (via Prisma)', () => {
-    it('should create notification record in database', async () => {
-      const notificationData = {
+  describe('getReadableNotificationForUser', () => {
+    it('allows direct notifications for the current user', async () => {
+      prismaMock.notifications.findFirst.mockResolvedValueOnce({
         id: 'notif-1',
-        type: 'WORK_ORDER',
-        title: 'New Work Order',
-        message: 'You have a new work order',
         userId: 'user-1',
-        isRead: false,
-        createdAt: new Date()
-      }
+      } as Notifications)
 
-      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as unknown as Notifications)
-
-      const result = await prismaMock.notifications.create({
-        data: {
-          id: 'notif-id-1',
-          type: 'WORK_ORDER',
-          title: 'New Work Order',
-          message: 'You have a new work order',
-          userId: 'user-1'
-        }
+      const result = await getReadableNotificationForUser('notif-1', 'user-1', {
+        departmentId: 'dept-1',
+        siteId: 'site-1',
       })
 
-      expect(result.type).toBe('WORK_ORDER')
-      expect(result.userId).toBe('user-1')
+      expect(result?.id).toBe('notif-1')
+      expect(prismaMock.notifications.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'notif-1',
+          OR: [
+            { userId: 'user-1' },
+            {
+              AND: [
+                { departmentId: 'dept-1' },
+                { OR: [{ siteId: 'site-1' }, { siteId: null }] },
+              ],
+            },
+          ],
+        },
+      })
     })
 
-    it('should create notification for department', async () => {
-      const notificationData = {
-        id: 'notif-2',
-        type: 'ANNOUNCEMENT',
-        title: 'Department Notice',
-        message: 'Important announcement',
-        departmentId: 'dept-1',
-        isRead: false
-      }
+    it('loads the user department when it is not provided', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ departmentId: 'dept-2' })
+      prismaMock.notifications.findFirst.mockResolvedValueOnce({ id: 'notif-2' } as Notifications)
 
-      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as unknown as Notifications)
+      await getReadableNotificationForUser('notif-2', 'user-2')
 
-      const result = await prismaMock.notifications.create({
-        data: {
-          id: 'notif-id-2',
-          type: 'ANNOUNCEMENT',
-          title: 'Department Notice',
-          message: 'Important announcement',
-          departmentId: 'dept-1'
-        }
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-2' },
+        select: { departmentId: true },
+      })
+      expect(prismaMock.notifications.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'notif-2',
+          OR: [
+            { userId: 'user-2' },
+            {
+              AND: [
+                { departmentId: 'dept-2' },
+                {},
+              ],
+            },
+          ],
+        },
+      })
+    })
+
+    it('returns null when the notification is outside user scope', async () => {
+      prismaMock.notifications.findFirst.mockResolvedValueOnce(null)
+
+      const result = await getReadableNotificationForUser('notif-3', 'user-3', {
+        departmentId: 'dept-3',
       })
 
-      expect(result.departmentId).toBe('dept-1')
+      expect(result).toBeNull()
     })
   })
 
-  describe('markAsRead (via Prisma)', () => {
-    it('should update notification isRead to true', async () => {
+  describe('createNotification', () => {
+    it('sends browser push to active user subscriptions for direct notifications', async () => {
+      prismaMock.notifications.create.mockResolvedValueOnce({
+        id: 'notif-web-1',
+        type: 'SYSTEM',
+        priority: 'NORMAL',
+        title: 'Web Push Title',
+        message: 'Web Push Body',
+        link: '/employee/notifications',
+        sourceType: 'SYSTEM',
+        sourceId: 'src-1',
+        createdAt: new Date('2026-03-08T12:00:00.000Z'),
+      } as Notifications)
+      prismaMock.pushSubscriptions.findMany.mockResolvedValueOnce([
+        {
+          endpoint: 'https://push.example/sub-1',
+          p256dh: 'p256dh-key',
+          auth: 'auth-key',
+        },
+      ])
+
+      await createNotification({
+        type: 'SYSTEM',
+        title: 'Web Push Title',
+        message: 'Web Push Body',
+        userId: 'user-web-1',
+        link: '/employee/notifications',
+        sourceType: 'SYSTEM',
+        sourceId: 'src-1',
+      })
+
+      expect(prismaMock.pushSubscriptions.findMany).toHaveBeenCalledWith({
+        where: {
+          isActive: true,
+          userId: { in: ['user-web-1'] },
+        },
+        select: {
+          endpoint: true,
+          p256dh: true,
+          auth: true,
+        },
+      })
+      expect(browserPushMocks.sendPushNotifications).toHaveBeenCalledWith([
+        {
+          endpoint: 'https://push.example/sub-1',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-key',
+          },
+        },
+      ], expect.objectContaining({
+        title: 'Web Push Title',
+        body: 'Web Push Body',
+        tag: 'notification-notif-web-1',
+      }))
+    })
+  })
+
+  describe('notifyNewPointClaim', () => {
+    it('creates one user-targeted notification per verifier and excludes the submitter', async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { id: 'verifier-1', name: 'Verifier 1' },
+        { id: 'sales-1', name: 'Sales 1' },
+        { id: 'verifier-2', name: 'Verifier 2' },
+      ])
+      prismaMock.notifications.create
+        .mockResolvedValueOnce({ id: 'notif-1', createdAt: new Date() } as Notifications)
+        .mockResolvedValueOnce({ id: 'notif-2', createdAt: new Date() } as Notifications)
+
+      const result = await notifyNewPointClaim({
+        claimId: 'claim-1',
+        canvasingId: 'canvasing-1',
+        customerName: 'PT Maju',
+        salesId: 'sales-1',
+        salesName: 'Budi',
+        pointValue: 50,
+        siteId: 'site-1',
+      })
+
+      expect(result).toEqual({ count: 2 })
+      expect(prismaMock.notifications.create).toHaveBeenCalledTimes(2)
+      expect(prismaMock.notifications.create).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 'verifier-1',
+          siteId: 'site-1',
+          sourceType: 'POINT_CLAIM',
+          sourceId: 'claim-1',
+        }),
+      }))
+      expect(prismaMock.notifications.create).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 'verifier-2',
+          siteId: 'site-1',
+          sourceType: 'POINT_CLAIM',
+          sourceId: 'claim-1',
+        }),
+      }))
+    })
+  })
+
+  describe('markAsRead', () => {
+    it('updates the notification read state', async () => {
       prismaMock.notifications.update.mockResolvedValueOnce({
         id: 'notif-1',
         isRead: true,
-        readAt: new Date()
-      } as unknown as Notifications)
+      } as Notifications)
 
-      const result = await prismaMock.notifications.update({
-        where: { id: 'notif-1' },
-        data: { isRead: true, readAt: new Date() }
-      })
+      const result = await markAsRead('notif-1')
 
       expect(result.isRead).toBe(true)
-    })
-  })
-
-  describe('markAllAsRead (via Prisma)', () => {
-    it('should update all unread notifications for user', async () => {
-      prismaMock.notifications.updateMany.mockResolvedValueOnce({
-        count: 5
+      expect(prismaMock.notifications.update).toHaveBeenCalledWith({
+        where: { id: 'notif-1' },
+        data: expect.objectContaining({ isRead: true }),
       })
-
-      const result = await prismaMock.notifications.updateMany({
-        where: {
-          userId: 'user-1',
-          isRead: false
-        },
-        data: {
-          isRead: true,
-          readAt: new Date()
-        }
-      })
-
-      expect(result.count).toBe(5)
-    })
-
-    it('should filter by type when provided', async () => {
-      prismaMock.notifications.updateMany.mockResolvedValueOnce({
-        count: 3
-      })
-
-      const result = await prismaMock.notifications.updateMany({
-        where: {
-          userId: 'user-1',
-          isRead: false,
-          type: 'WORK_ORDER'
-        },
-        data: {
-          isRead: true,
-          readAt: new Date()
-        }
-      })
-
-      expect(result.count).toBe(3)
-    })
-  })
-
-  describe('getUnreadCount (via Prisma)', () => {
-    it('should return count of unread notifications', async () => {
-      prismaMock.notifications.count.mockResolvedValueOnce(7)
-
-      const count = await prismaMock.notifications.count({
-        where: {
-          userId: 'user-1',
-          isRead: false
-        }
-      })
-
-      expect(count).toBe(7)
-    })
-
-    it('should count notifications with OR condition for user and department', async () => {
-      prismaMock.notifications.count.mockResolvedValueOnce(10)
-
-      const count = await prismaMock.notifications.count({
-        where: {
-          isRead: false,
-          OR: [
-            { userId: 'user-1' },
-            { departmentId: { in: ['dept-1', 'dept-2'] } }
-          ]
-        }
-      })
-
-      expect(count).toBe(10)
-    })
-  })
-
-  describe('getNotifications (via Prisma)', () => {
-    it('should return paginated notifications', async () => {
-      const mockNotifications = [
-        { id: 'notif-1', title: 'Notification 1' },
-        { id: 'notif-2', title: 'Notification 2' }
-      ]
-
-      prismaMock.notifications.findMany.mockResolvedValueOnce(mockNotifications as unknown as Notifications[])
-
-      const result = await prismaMock.notifications.findMany({
-        where: {
-          OR: [
-            { userId: 'user-1' },
-            { departmentId: 'dept-1' }
-          ],
-          isRead: false
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        skip: 0
-      })
-
-      expect(result).toHaveLength(2)
     })
   })
 })
