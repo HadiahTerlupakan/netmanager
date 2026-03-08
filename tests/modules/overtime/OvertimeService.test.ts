@@ -127,6 +127,19 @@ describe('OvertimeService', () => {
 
       expect(result.status).toBe(OvertimeStatus.APPROVED)
     })
+
+    it('should reject approval when request is no longer pending', async () => {
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: 'overtime-1',
+        userId: 'user-1',
+        status: OvertimeStatus.APPROVED,
+      })
+
+      await expect(service.approveRequest('overtime-1', 'admin-1')).rejects.toThrow(
+        'Only pending overtime requests can be approved'
+      )
+      expect(mockOvertimeRepo.update).not.toHaveBeenCalled()
+    })
   })
 
   describe('rejectRequest', () => {
@@ -145,6 +158,19 @@ describe('OvertimeService', () => {
       const result = await service.rejectRequest('overtime-1', 'Overtime not needed')
 
       expect(result.status).toBe(OvertimeStatus.REJECTED)
+    })
+
+    it('should reject only pending requests', async () => {
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: 'overtime-1',
+        userId: 'user-1',
+        status: OvertimeStatus.REJECTED,
+      })
+
+      await expect(service.rejectRequest('overtime-1', 'Already rejected')).rejects.toThrow(
+        'Only pending overtime requests can be rejected'
+      )
+      expect(mockOvertimeRepo.update).not.toHaveBeenCalled()
     })
   })
 

@@ -310,6 +310,14 @@ export class OvertimeService {
 
 
     async approveRequest(id: string, approverId: string) {
+        const existing = await this.repository.findById(id)
+        if (!existing) {
+            throw new Error('Overtime request not found')
+        }
+        if (existing.status !== OvertimeStatus.PENDING) {
+            throw new Error('Only pending overtime requests can be approved')
+        }
+
         const result = await this.repository.update(id, {
             status: OvertimeStatus.APPROVED,
             approvedBy: approverId
@@ -335,6 +343,14 @@ export class OvertimeService {
     }
 
     async rejectRequest(id: string, reason: string) {
+        const existing = await this.repository.findById(id)
+        if (!existing) {
+            throw new Error('Overtime request not found')
+        }
+        if (existing.status !== OvertimeStatus.PENDING) {
+            throw new Error('Only pending overtime requests can be rejected')
+        }
+
         const result = await this.repository.update(id, {
             status: OvertimeStatus.REJECTED,
             rejectionReason: reason
