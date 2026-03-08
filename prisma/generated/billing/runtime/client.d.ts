@@ -1089,6 +1089,9 @@ declare type Fragment = {
     type: 'parameter';
 } | {
     type: 'parameterTuple';
+    itemPrefix: string;
+    itemSeparator: string;
+    itemSuffix: string;
 } | {
     type: 'parameterTupleList';
     itemPrefix: string;
@@ -2324,6 +2327,7 @@ declare type QueryPlanNode = {
     args: {
         parent: QueryPlanNode;
         children: JoinExpression[];
+        canAssumeStrictEquality: boolean;
     };
 } | {
     type: 'mapField';
@@ -3276,14 +3280,14 @@ declare namespace Utils {
 }
 
 declare type ValidationError = {
-    error_identifier: 'RELATION_VIOLATION';
+    errorIdentifier: 'RELATION_VIOLATION';
     context: {
         relation: string;
         modelA: string;
         modelB: string;
     };
 } | {
-    error_identifier: 'MISSING_RELATED_RECORD';
+    errorIdentifier: 'MISSING_RELATED_RECORD';
     context: {
         model: string;
         relation: string;
@@ -3292,24 +3296,24 @@ declare type ValidationError = {
         neededFor?: string;
     };
 } | {
-    error_identifier: 'MISSING_RECORD';
+    errorIdentifier: 'MISSING_RECORD';
     context: {
         operation: string;
     };
 } | {
-    error_identifier: 'INCOMPLETE_CONNECT_INPUT';
+    errorIdentifier: 'INCOMPLETE_CONNECT_INPUT';
     context: {
         expectedRows: number;
     };
 } | {
-    error_identifier: 'INCOMPLETE_CONNECT_OUTPUT';
+    errorIdentifier: 'INCOMPLETE_CONNECT_OUTPUT';
     context: {
         expectedRows: number;
         relation: string;
         relationType: string;
     };
 } | {
-    error_identifier: 'RECORDS_NOT_CONNECTED';
+    errorIdentifier: 'RECORDS_NOT_CONNECTED';
     context: {
         relation: string;
         parent: string;
