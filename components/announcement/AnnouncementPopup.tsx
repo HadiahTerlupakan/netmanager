@@ -54,10 +54,6 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     useEffect(() => {
         const socketInstance = io({
             path: '/api/socket',
-            auth: {
-                userId: `anonymous-${portal}`,
-                userRole: portal === 'customer' ? 'CUSTOMER' : 'EMPLOYEE',
-            },
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
@@ -78,7 +74,7 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
         return () => {
             socketInstance.disconnect();
         };
-    }, [portal, handleNewAnnouncement]);
+    }, [handleNewAnnouncement]);
 
     // Fetch existing announcements on mount
     useEffect(() => {
@@ -133,7 +129,10 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
 
         // Mark as read in backend (fire and forget)
         try {
-            fetch(`/api/announcements/${currentAnn.id}/read`, {
+            const readUrl = portal === 'customer'
+                ? `/api/customer/announcements/${currentAnn.id}/read`
+                : `/api/announcements/${currentAnn.id}/read`;
+            fetch(readUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ portal })
@@ -159,7 +158,10 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
         // Mark all as read in backend (fire and forget)
         announcements.forEach(ann => {
             try {
-                fetch(`/api/announcements/${ann.id}/read`, {
+                const readUrl = portal === 'customer'
+                    ? `/api/customer/announcements/${ann.id}/read`
+                    : `/api/announcements/${ann.id}/read`;
+                fetch(readUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ portal })
