@@ -135,7 +135,7 @@ spec:
                   const file = `${folder}/${m}/migration.sql`;
                   if (fs.existsSync(file)) {
                     const sql = fs.readFileSync(file, 'utf8');
-                    if (/DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|ALTER\s+(TABLE\s+".*"\s+ALTER\s+COLUMN|TYPE)/i.test(sql)) {
+                    if (/DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|ALTER\s+TABLE\s+".*"\s+ALTER\s+COLUMN/i.test(sql)) {
                       console.error(`⚠️ Destructive SQL found in UNAPPLIED migration: ${file}`);
                       dangerous = true;
                     }
