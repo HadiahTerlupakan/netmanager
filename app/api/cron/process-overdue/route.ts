@@ -21,8 +21,8 @@ export async function GET(req: Request) {
 
         console.log('[Cron] Completed daily overdue and isolation check');
         return NextResponse.json({ success: true, message: 'Daily check completed successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Cron] Error running daily check:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
     }
 }

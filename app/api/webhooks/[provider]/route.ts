@@ -253,7 +253,7 @@ export async function POST(
  * Update all linked invoices when payment is confirmed.
  * Parses invoiceIds from payment notes metadata and updates each invoice.
  */
-async function updateInvoicesOnPaymentTx(tx: any, paymentId: string, notes: string | null) {
+async function updateInvoicesOnPaymentTx(tx: Parameters<Parameters<typeof import('@/prisma/generated/billing').PrismaClient.prototype.$transaction>[0]>[0], paymentId: string, notes: string | null) {
     // Try to extract invoiceIds from notes metadata
     let invoiceIds: string[] = []
 
@@ -298,7 +298,7 @@ async function updateInvoicesOnPaymentTx(tx: any, paymentId: string, notes: stri
         }
 
         // Calculate total paid from all PAID payments
-        const totalPaid = invoice.payment.reduce((sum: bigint, p: any) => {
+        const totalPaid = invoice.payment.reduce((sum: bigint, p: { gatewayStatus?: string | null; amount: bigint | number }) => {
             // Only count payments that are confirmed (PAID or no gateway status = manual)
             if (!p.gatewayStatus || p.gatewayStatus === 'PAID') {
                 return sum + p.amount
