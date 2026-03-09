@@ -301,7 +301,7 @@ async function updateInvoicesOnPaymentTx(tx: Parameters<Parameters<typeof import
         const totalPaid = invoice.payment.reduce((sum: bigint, p: { gatewayStatus?: string | null; amount: bigint | number }) => {
             // Only count payments that are confirmed (PAID or no gateway status = manual)
             if (!p.gatewayStatus || p.gatewayStatus === 'PAID') {
-                return sum + p.amount
+                return sum + BigInt(p.amount)
             }
             return sum
         }, BigInt(0))
