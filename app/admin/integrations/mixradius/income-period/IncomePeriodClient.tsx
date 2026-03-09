@@ -19,8 +19,7 @@ import {
   HiOutlineBanknotes,
   HiOutlineCheckCircle,
   HiOutlineXCircle,
-  HiOutlineClipboardDocumentList,
-  HiOutlineCloudArrowDown
+  HiOutlineClipboardDocumentList
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
@@ -143,7 +142,6 @@ export default function IncomePeriodClient() {
   const [selectedProject, setSelectedProject] = useState('')
   const [rabLoading, setRabLoading] = useState(false)
   const [isCalculatingNet, setIsCalculatingNet] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
 
   // ROI Tracking State
   const [cumulativeRevenue, setCumulativeRevenue] = useState<number>(0)
@@ -406,8 +404,7 @@ export default function IncomePeriodClient() {
           sortBy: sortColumn,
           sortDir: sortDirection,
           fdate: startDate,
-          tdate: endDate,
-          source: 'local' // Use local database for Mitra Sales calculation (Settlement T-1)
+          tdate: endDate
         })
 
         if (serviceType) params.append('stype', serviceType)
@@ -718,34 +715,6 @@ export default function IncomePeriodClient() {
     return () => clearTimeout(timer)
   }, [rabProject, calculateNetIncome, parseNumber, groups.length])
 
-  const handleManualSync = async () => {
-    if (isSyncing) return
-
-    setIsSyncing(true)
-    const toastId = toast.loading('Mensinkronisasi data dari MixRadius...')
-
-    try {
-      const res = await fetch('/api/admin/integrations/mixradius/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate, endDate })
-      })
-
-      const result = await res.json()
-      if (res.ok) {
-        toast.success(result.message || 'Sinkronisasi berhasil!', { id: toastId })
-        // Refresh data after sync
-        fetchData()
-      } else {
-        toast.error(result.error || 'Gagal sinkronisasi data', { id: toastId })
-      }
-    } catch (err) {
-      console.error('Manual sync failed:', err)
-      toast.error('Terjadi kesalahan saat menghubungi server', { id: toastId })
-    } finally {
-      setIsSyncing(false)
-    }
-  }
 
   const handleSaveFees = async (newFees: FeeConfig) => {
     try {
@@ -778,8 +747,7 @@ export default function IncomePeriodClient() {
         sortBy: sortColumn,
         sortDir: sortDirection,
         fdate: startDate,
-        tdate: endDate,
-        source: 'local',
+        tdate: endDate
       })
 
       if (serviceType) params.append('stype', serviceType)
@@ -1022,18 +990,7 @@ export default function IncomePeriodClient() {
             />
           </div>
 
-          <button
-            onClick={handleManualSync}
-            disabled={isSyncing}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${isSyncing
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800'
-              }`}
-          >
-            <HiOutlineCloudArrowDown className={`w-5 h-5 ${isSyncing ? 'animate-bounce' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Sync ke Database'}
-          </button>
-
+          {/* Service Type */}
           {/* Service Type */}
           <select
             value={serviceType}

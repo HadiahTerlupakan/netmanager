@@ -382,7 +382,7 @@ export default function ExpensesClient() {
                 endDate
             })
 
-            if (selectedSite) params.append('siteId', selectedSite)
+            if (selectedSite) params.append('mixRadiusGroupId', selectedSite)
             if (selectedCategory) params.append('category', selectedCategory)
             if (selectedSubCategory) params.append('expenseCategoryId', selectedSubCategory)
 
@@ -644,8 +644,7 @@ export default function ExpensesClient() {
                 item.expenseCategory?.name || '-',
                 `"${rabText.replace(/"/g, '""')}"`,
                 `"${(item.description || '').replace(/"/g, '""')}"`, // Escape quotes
-                `"${(item.mixRadiusGroup?.name || item.site?.name || 'Umum').replace(/"/g, '""')}"`,
-                item.user?.name || '-'
+                `"${(item.mixRadiusGroupId ? sites.find(s => s.id === item.mixRadiusGroupId)?.name || item.site?.name : item.site?.name || 'Umum').replace(/"/g, '""')}"`,
             ]
         })
 
@@ -961,7 +960,7 @@ export default function ExpensesClient() {
                                     key: 'site',
                                     header: 'Site / Group',
                                     render: (item) => {
-                                        const name = item.mixRadiusGroup?.name || item.site?.name
+                                        const name = item.mixRadiusGroupId ? sites.find(s => s.id === item.mixRadiusGroupId)?.name || item.site?.name : item.site?.name
                                         return name ? (
                                             <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
                                                 <HiOutlineBuildingOffice className="w-4 h-4 text-gray-400" />
