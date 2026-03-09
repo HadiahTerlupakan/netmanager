@@ -21,8 +21,8 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     const type = searchParams.get("type") || "daily"
 
     if (startDate && endDate) {
-        const start = new Date(startDate)
-        const end = new Date(endDate)
+        const start = startDate.includes('T') ? new Date(startDate) : new Date(`${startDate}T00:00:00`);
+        const end = endDate.includes('T') ? new Date(endDate) : new Date(`${endDate}T23:59:59.999`);
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
             return apiError('Format tanggal tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
