@@ -6,6 +6,8 @@ import { attendanceFilterSchema } from '@/lib/validations/attendance'
 import { createHandler } from '@/lib/api'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * Admin Attendance Routes
@@ -22,13 +24,13 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     // 2. Validate Query Params
     const { searchParams } = req.nextUrl
     const queryParams = Object.fromEntries(searchParams.entries())
-    
+
     const parseResult = attendanceFilterSchema.safeParse(queryParams)
     if (!parseResult.success) {
         return ApiErrors.badRequest('Parameter tidak valid', { errors: parseResult.error.flatten().fieldErrors })
     }
 
-    const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, export: isExportStr } = parseResult.data
+    const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, search, export: isExportStr } = parseResult.data
     const skip = (page - 1) * limit
 
     const where: Prisma.AttendanceWhereInput = {}
@@ -36,57 +38,64 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     // 3. Apply RBAC Restrictions
     const permissions = await getUserPermissions(user.id);
     const isSuper = isSuperAdmin(user);
-    
+
     // Fetch user siteId/deptId if needed
     let restrictedSiteId: string | undefined
     let restrictedDeptId: string | undefined
 
     if (!isSuper) {
         if (permissions.includes('attendance:site_only')) {
-             const { prisma: db } = await import('@/lib/prisma');
-             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
-             restrictedSiteId = dbUser?.siteId || undefined
-             // Also restrict department if needed? usually site restriction implies viewing all depts in site, unless dept restriction also exists
+            const { prisma: db } = await import('@/lib/prisma');
+            const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+            restrictedSiteId = dbUser?.siteId || undefined
+            // Also restrict department if needed? usually site restriction implies viewing all depts in site, unless dept restriction also exists
         }
         if (permissions.includes('attendance:department_only')) {
-             const { prisma: db } = await import('@/lib/prisma');
-             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { departmentId: true } });
-             restrictedDeptId = dbUser?.departmentId || undefined
+            const { prisma: db } = await import('@/lib/prisma');
+            const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { departmentId: true } });
+            restrictedDeptId = dbUser?.departmentId || undefined
         }
     }
 
     // Apply date range filter
     if (startDateStr && endDateStr) {
         const start = new Date(startDateStr)
-        start.setHours(0, 0, 0, 0)
+        start.setTime(toStartOfDay(start).getTime())
         const end = new Date(endDateStr)
-        end.setHours(23, 59, 59, 999)
+        end.setTime(toEndOfDay(end).getTime())
         where.checkIn = { gte: start, lte: end }
     } else if (startDateStr) {
         const start = new Date(startDateStr)
-        start.setHours(0, 0, 0, 0)
+        start.setTime(toStartOfDay(start).getTime())
         const end = new Date(startDateStr)
-        end.setHours(23, 59, 59, 999)
+        end.setTime(toEndOfDay(end).getTime())
         where.checkIn = { gte: start, lte: end }
     }
 
     // Apply filters to User relation (combining explicit filters + RBAC)
     const userWhere: Prisma.UserWhereInput = {}
-    
+
     if (userId) userWhere.id = userId
-    
-    // Site Logic: Explicit filter OR Restricted filter
-    if (siteId) {
-        userWhere.siteId = siteId
-    } else if (restrictedSiteId) {
+
+    // Site Logic: RBAC Restricts First, Explicit input fallback
+    if (restrictedSiteId) {
         userWhere.siteId = restrictedSiteId
+    } else if (siteId) {
+        userWhere.siteId = siteId
     }
 
-    // Department Logic: Explicit filter OR Restricted filter
-    if (departmentId) {
-        userWhere.departmentId = departmentId
-    } else if (restrictedDeptId) {
+    // Department Logic: RBAC Restricts First, Explicit input fallback
+    if (restrictedDeptId) {
         userWhere.departmentId = restrictedDeptId
+    } else if (departmentId) {
+        userWhere.departmentId = departmentId
+    }
+
+    if (search) {
+        userWhere.OR = [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } }
+        ]
     }
 
     // Only add 'user' to where clause if we have user filters

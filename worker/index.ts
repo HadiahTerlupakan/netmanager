@@ -3,7 +3,17 @@
 // Custom Worker for Push Notifications
 // This file will be injected into the main service worker by next-pwa
 
+import { recoverPushSubscription } from './pushSubscriptionRecovery';
+
 declare const self: ServiceWorkerGlobalScope;
+
+let vapidPublicKey: string | null = null;
+
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
+    if (event.data?.type === 'PUSH_CONFIG' && typeof event.data.vapidPublicKey === 'string') {
+        vapidPublicKey = event.data.vapidPublicKey;
+    }
+});
 
 // Push notification event handler
 self.addEventListener('push', (event: PushEvent) => {
@@ -88,10 +98,18 @@ self.addEventListener('notificationclose', (event: NotificationEvent) => {
     console.log('[SW] Notification closed:', event.notification.tag);
 });
 
-// Push subscription change event handler
-self.addEventListener('pushsubscriptionchange', (_event) => {
+self.addEventListener('pushsubscriptionchange', (event) => {
     console.log('[SW] Push subscription changed');
-    // Re-subscribe logic can be added here
+    event.waitUntil(
+        recoverPushSubscription({
+            vapidPublicKey,
+            subscribe: (options) => self.registration.pushManager.subscribe(options),
+            fetchImpl: fetch,
+        }).catch((error) => {
+            console.error('[SW] Failed to recover push subscription:', error);
+            return false;
+        })
+    );
 });
 
 export { };

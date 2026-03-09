@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
-import { createNotification } from '@/modules/notification/services/NotificationService'
+import { getLeaveService } from '@/modules/attendance/services/LeaveService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { env } from '@/lib/env'
 
@@ -29,6 +29,7 @@ export async function POST(_request: Request) {
 }
 
 async function autoApproveTukarLibur() {
+    const leaveService = getLeaveService()
     const now = new Date()
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
     const tomorrowEnd = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 23, 59, 59, 999)
@@ -58,24 +59,7 @@ async function autoApproveTukarLibur() {
 
     for (const request of pendingRequests) {
         try {
-            await prisma.leaveRequest.update({
-                where: { id: request.id },
-                data: {
-                    status: 'APPROVED',
-                    approvedBy: 'SYSTEM_AUTO',
-                    updatedAt: new Date()
-                }
-            })
-
-            await createNotification({
-                type: 'SYSTEM',
-                priority: 'NORMAL',
-                title: '✅ Tukar Libur Disetujui Otomatis',
-                message: `Pengajuan tukar libur Anda untuk tanggal ${request.startDate.toLocaleDateString('id-ID')} telah disetujui otomatis oleh sistem.`,
-                userId: request.userId,
-                sourceType: 'LEAVE',
-                sourceId: request.id
-            })
+            await leaveService.approveLeave(request.id, 'SYSTEM_AUTO')
 
             approvedCount++
             approvedIds.push(request.id)

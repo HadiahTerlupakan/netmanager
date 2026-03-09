@@ -115,39 +115,38 @@ export async function POST(req: NextRequest) {
 
             // Critical/High Urgency -> Send Notification
             if (urgency === 'CRITICAL' || urgency === 'HIGH') {
-              // 1. System Notification (In-App + Push via Socket)
-               await createNotification({
-                type: 'ALERT',
-                priority: urgency === 'CRITICAL' ? 'HIGH' : 'NORMAL',
-                title: urgency === 'CRITICAL' ? '🚨 STOK HABIS' : '⚠️ Stok Menipis',
-                message: message,
-                // userId: undefined, // Broadcast via notifyAdmins in service
-                sourceType: 'INVENTORY',
-                link: '/admin/inventory/restock',
-                sourceId: alertId
+              const recipients = await prisma.user.findMany({
+                  where: {
+                      isActive: true,
+                      role: {
+                          permission: {
+                              some: {
+                                  resource: 'restock',
+                                  action: 'read'
+                              }
+                          }
+                      }
+                  },
+                  select: { id: true, email: true }
               })
 
-              notificationsSent++
+              await Promise.all(recipients.map(async (recipient) => {
+                  await createNotification({
+                      type: 'ALERT',
+                      priority: urgency === 'CRITICAL' ? 'HIGH' : 'NORMAL',
+                      title: urgency === 'CRITICAL' ? '🚨 STOK HABIS' : '⚠️ Stok Menipis',
+                      message,
+                      userId: recipient.id,
+                      sourceType: 'INVENTORY',
+                      link: '/admin/inventory/restock',
+                      sourceId: alertId
+                  })
+              }))
+
+              notificationsSent += recipients.length
 
               // 2. Email Notification (for CRITICAL only)
               if (urgency === 'CRITICAL') {
-                  // Find recipients with permission
-                  const recipients = await prisma.user.findMany({
-                      where: {
-                          isActive: true,
-
-                          role: {
-                              permission: {
-                                  some: {
-                                      resource: 'restock',
-                                      action: 'read'
-                                  }
-                              }
-                          }
-                      },
-                      select: { email: true }
-                  })
-
                   for (const recipient of recipients) {
                       if (recipient.email) {
                           await emailService.sendEmail({

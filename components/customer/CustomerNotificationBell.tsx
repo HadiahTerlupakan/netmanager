@@ -10,17 +10,10 @@ import { Button } from '@/components/ui/Button'
 import { useCustomerNotifications } from '@/lib/websocket/hooks/useCustomerNotifications'
 import { useClickOutside } from '@/hooks/useClickOutside'
 
-interface Announcement {
-    id: string;
-    title: string;
-    content: string;
-    isPinned: boolean;
-    createdAt: string;
-}
-
 export function CustomerNotificationBell() {
     const {
         notifications,
+        announcements,
         unreadCount,
         loading,
         isConnected,
@@ -28,28 +21,11 @@ export function CustomerNotificationBell() {
     } = useCustomerNotifications({ limit: 5 })
 
     const [isOpen, setIsOpen] = useState(false)
-    const [announcements, setAnnouncements] = useState<Announcement[]>([])
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     // Close dropdown when clicking outside
     const closeDropdown = useCallback(() => setIsOpen(false), [])
     useClickOutside(dropdownRef, closeDropdown)
-
-    // Fetch announcements
-    useEffect(() => {
-        const fetchAnnouncements = async () => {
-            try {
-                const res = await fetch('/api/announcements?portal=customer&active=true')
-                if (res.ok) {
-                    const data = await res.json()
-                    setAnnouncements(data)
-                }
-            } catch (error) {
-                console.error('Failed to fetch announcements', error)
-            }
-        }
-        fetchAnnouncements()
-    }, [])
 
     // Refresh when dropdown is opened
     useEffect(() => {
@@ -58,22 +34,20 @@ export function CustomerNotificationBell() {
         }
     }, [isOpen, refresh])
 
-    const totalCount = unreadCount + announcements.length
-
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
             <Button onClick={() => setIsOpen(!isOpen)}
-                className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${totalCount > 0
+                className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${unreadCount > 0
                     ? 'text-[#0d9488] bg-teal-50 dark:bg-teal-900/20'
                     : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                 aria-label="Notifikasi"
             >
                 <MdNotifications className="w-6 h-6" />
-                {!loading && totalCount > 0 && (
+                {!loading && unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse px-1">
-                        {totalCount > 9 ? '9+' : totalCount}
+                        {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
                 {/* WebSocket connection indicator */}
@@ -96,9 +70,9 @@ export function CustomerNotificationBell() {
                                 </span>
                             )}
                         </h3>
-                        {totalCount > 0 && (
+                        {unreadCount > 0 && (
                             <span className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded-full">
-                                {totalCount} baru
+                                {unreadCount} baru
                             </span>
                         )}
                     </div>

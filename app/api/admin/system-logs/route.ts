@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url)
         const typeKey = searchParams.get('type')
+        const action = searchParams.get('action')
         const search = searchParams.get('search')
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '20')
@@ -37,6 +38,10 @@ export async function GET(req: NextRequest) {
 
         if (typeKey && Object.values(LogType).includes(typeKey as LogType)) {
             where.type = typeKey as LogType
+        }
+
+        if (action) {
+            where.action = action
         }
 
         const siteIdParam = searchParams.get('siteId')

@@ -1,13 +1,16 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
+import { getUserPermissions } from '@/lib/auth'
 import { getUserRepository } from '@/lib/repositories'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
+    const authResult = await getMobileAuthPayload(req)
+    if (authResult instanceof Response) return authResult
+
+    const session = authResult
 
     // Handle Mitra users - they are in a separate table
     if (session.role === 'MITRA') {

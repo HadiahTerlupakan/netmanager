@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
 import { z } from 'zod'
 
@@ -28,21 +28,15 @@ const batchLocationSchema = z.object({
 export async function POST(request: NextRequest) {
     const timestamp = new Date().toISOString()
     try {
-        const authHeader = request.headers.get('Authorization')
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Token hilang atau tidak valid' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(" ")[1]
-        if (!token) {
-            return NextResponse.json({ error: "Token tidak tersedia" }, { status: 401 })
-        }
-        const payload = await verifyMobileToken(token)
-        if (!payload) {
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid atau kadaluarsa' }, { status: 401 })
         }
-
-        const userId = payload.id as string
         const body = await request.json()
 
         const locationService = new LocationTrackingService()

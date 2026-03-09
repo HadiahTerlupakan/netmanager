@@ -1,4 +1,6 @@
 import { CustomerUsageRepository } from '../repositories/CustomerUsageRepository'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * Service for customer usage/connection status
@@ -37,7 +39,7 @@ export class CustomerUsageService {
         // Get monthly usage
         const startOfMonth = new Date()
         startOfMonth.setDate(1)
-        startOfMonth.setHours(0, 0, 0, 0)
+        startOfMonth.setTime(toStartOfDay(startOfMonth).getTime())
 
         const [monthlyUsage, totalUsage] = await Promise.all([
             this.repository.getMonthlyUsage(customer.username, startOfMonth),

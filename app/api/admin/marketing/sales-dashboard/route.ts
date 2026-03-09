@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
             case 'week':
                 startDate = new Date(now)
                 startDate.setDate(startDate.getDate() - startDate.getDay() + 1)
-                startDate.setHours(0, 0, 0, 0)
+                startDate.setTime(toStartOfDay(startDate).getTime())
                 endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
                 break
             case 'month':
@@ -51,9 +51,9 @@ export async function GET(request: NextRequest) {
             case 'custom':
                 if (customStart && customEnd) {
                     startDate = new Date(customStart)
-                    startDate.setHours(0, 0, 0, 0)
+                    startDate.setTime(toStartOfDay(startDate).getTime())
                     endDate = new Date(customEnd)
-                    endDate.setHours(23, 59, 59, 999)
+                    endDate.setTime(toEndOfDay(endDate).getTime())
                 } else {
                     // Default to this month if custom dates not provided
                     startDate = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
         for (let i = 6; i >= 0; i--) {
             const date = new Date(now)
             date.setDate(date.getDate() - i)
-            date.setHours(0, 0, 0, 0)
+            date.setTime(toStartOfDay(date).getTime())
             
             const nextDate = new Date(date)
             nextDate.setDate(nextDate.getDate() + 1)
@@ -258,3 +258,5 @@ export async function GET(request: NextRequest) {
     }
 }
 import { NextResponse } from 'next/server'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+

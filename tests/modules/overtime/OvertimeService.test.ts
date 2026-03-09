@@ -68,7 +68,7 @@ describe('OvertimeService', () => {
 
       // Mock user and admins for notification
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      prismaMock.user.findUnique.mockResolvedValue({ name: 'Test User' } as any)
+      prismaMock.user.findUnique.mockResolvedValue({ name: 'Test User', siteId: 'site-1' } as any)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.user.findMany.mockResolvedValue([{ id: 'admin-1' }] as any)
 
@@ -79,6 +79,34 @@ describe('OvertimeService', () => {
 
       expect(result).toBeDefined()
       expect(result.status).toBe(OvertimeStatus.PENDING)
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { role: { name: 'SUPER_ADMIN' } },
+            expect.objectContaining({
+              AND: expect.arrayContaining([
+                expect.objectContaining({
+                  role: {
+                    permission: {
+                      some: {
+                        resource: 'lembur',
+                        action: 'update'
+                      }
+                    }
+                  }
+                }),
+                {
+                  OR: [
+                    { siteId: 'site-1' },
+                    { siteId: null },
+                    { userSites: { some: { siteId: 'site-1' } } }
+                  ]
+                }
+              ])
+            })
+          ])
+        })
+      }))
     })
   })
 
@@ -99,6 +127,19 @@ describe('OvertimeService', () => {
 
       expect(result.status).toBe(OvertimeStatus.APPROVED)
     })
+
+    it('should reject approval when request is no longer pending', async () => {
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: 'overtime-1',
+        userId: 'user-1',
+        status: OvertimeStatus.APPROVED,
+      })
+
+      await expect(service.approveRequest('overtime-1', 'admin-1')).rejects.toThrow(
+        'Only pending overtime requests can be approved'
+      )
+      expect(mockOvertimeRepo.update).not.toHaveBeenCalled()
+    })
   })
 
   describe('rejectRequest', () => {
@@ -117,6 +158,19 @@ describe('OvertimeService', () => {
       const result = await service.rejectRequest('overtime-1', 'Overtime not needed')
 
       expect(result.status).toBe(OvertimeStatus.REJECTED)
+    })
+
+    it('should reject only pending requests', async () => {
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: 'overtime-1',
+        userId: 'user-1',
+        status: OvertimeStatus.REJECTED,
+      })
+
+      await expect(service.rejectRequest('overtime-1', 'Already rejected')).rejects.toThrow(
+        'Only pending overtime requests can be rejected'
+      )
+      expect(mockOvertimeRepo.update).not.toHaveBeenCalled()
     })
   })
 

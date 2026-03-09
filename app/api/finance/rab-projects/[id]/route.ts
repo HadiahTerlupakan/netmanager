@@ -117,7 +117,7 @@ const updateSchema = z.object({
     siteId: z.string().nullable().optional(),
     mixRadiusGroupId: z.string().nullable().optional(),
     mixRadiusInvestorSiteId: z.string().nullable().optional(),
-    status: z.enum(["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+    status: z.enum(["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "PENGADAAN", "PENGGELARAN_JARINGAN", "PENJUALAN", "TARGET_TERCAPAI", "SELESAI", "CANCELLED"]).optional(),
     projectedRevenue: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
     projectedOpex: z.union([z.string(), z.number()]).optional().transform(v => (v !== undefined && v !== null && v !== "") ? BigInt(Math.round(Number(v))) : undefined),
 

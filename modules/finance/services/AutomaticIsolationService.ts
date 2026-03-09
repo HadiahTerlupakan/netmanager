@@ -2,9 +2,11 @@ import { InvoiceStatus } from '@/prisma/generated/billing';;
 import { prisma } from '@/lib/prisma';
 import { prismaBilling } from '@/lib/prisma-billing';
 import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';
-import { createNotification } from '@/modules/notification';
 import { logger } from '@/lib/logger';
 import { Status } from '@prisma/client';
+import { toStartOfDay } from '@/lib/utils/datetime'
+import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
+
 
 export class AutomaticIsolationService {
     /**
@@ -28,7 +30,7 @@ export class AutomaticIsolationService {
             }
 
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setTime(toStartOfDay(today).getTime());
 
             // Calculation Logic:
             // NEW LOGIC: Find Active customers who have at least ONE UNPAID invoice that is overdue
@@ -60,7 +62,7 @@ export class AutomaticIsolationService {
             for (const customer of activeCustomers) {
                 try {
                     const dueDate = new Date(customer.jatuhTempo);
-                    dueDate.setHours(0, 0, 0, 0);
+                    dueDate.setTime(toStartOfDay(dueDate).getTime());
 
 
 
@@ -81,18 +83,15 @@ export class AutomaticIsolationService {
                     await radiusService.handleStatusChange(customer.id, Status.ISOLIR); // Use Enum
 
                     // 3. Notification
-                    if (customer.userId) { // If linked to a user account
-                        await createNotification({
-                            type: 'SYSTEM',
-                            title: 'Layanan Diisolir',
-                            message: `Layanan internet Anda telah diisolir karena melewati batas pembayaran. Mohon segera lakukan pembayaran.`,
-                            userId: customer.userId,
-                            link: '/tagihan',
-                            sourceType: 'BILLING',
-                            sourceId: customer.id,
-                            priority: 'HIGH'
-                        });
-                    }
+                    await notifyCustomerFinanceNotification({
+                        userId: customer.userId,
+                        title: 'Layanan Diisolir',
+                        message: 'Layanan internet Anda telah diisolir karena melewati batas pembayaran. Mohon segera lakukan pembayaran.',
+                        link: '/tagihan',
+                        sourceType: 'BILLING',
+                        sourceId: customer.id,
+                        priority: 'HIGH'
+                    });
 
                     // 4. Log
                     await logger.logActivity({

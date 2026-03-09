@@ -23,6 +23,7 @@ export const userFilterSchema = paginationSchema.and(z.object({
  * Working hour modes
  */
 export const workingHourModeEnum = z.enum(['FIXED', 'FLEXIBLE', 'SHIFT'])
+export const attendanceGeofencePolicyEnum = z.enum(['STRICT', 'WARN', 'DISABLED'])
 
 /**
  * Overtime calculation types
@@ -56,6 +57,7 @@ export const createUserSchema = z.object({
 
   // Working hours configuration
   workingHourMode: workingHourModeEnum.default('FIXED'),
+  attendanceGeofencePolicy: attendanceGeofencePolicyEnum.default('WARN'),
   startWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).default('09:00'),
   endWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).default('17:00'),
   workDays: z.string().default('Mon,Tue,Wed,Thu,Fri'),
@@ -108,6 +110,7 @@ export const updateUserSchema = z.object({
 
   // Working hours configuration
   workingHourMode: workingHourModeEnum.optional(),
+  attendanceGeofencePolicy: attendanceGeofencePolicyEnum.optional(),
   startWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
   endWorkTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
   workDays: z.string().optional(),

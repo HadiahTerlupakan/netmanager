@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyMobileToken } from '@/lib/mobile-auth';
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 
 // Mark an announcement as read from mobile app
 export async function POST(
@@ -8,33 +8,13 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        // Get token from Authorization header
-        const authHeader = request.headers.get('Authorization');
-        // console.log('[Mobile Announcement Read] Auth header present:', !!authHeader);
-        
-        if (!authHeader?.startsWith('Bearer ')) {
-            // console.log('[Mobile Announcement Read] No Bearer token');
-            return NextResponse.json(
-                { error: 'Tidak terautentikasi' },
-                { status: 401 }
-            );
+        const authResult = await getMobileAuthPayload(request);
+        if (authResult instanceof NextResponse) {
+            return authResult;
         }
 
-        const token = authHeader.substring(7);
-        // console.log('[Mobile Announcement Read] Token length:', token.length);
-
-        const payload = await verifyMobileToken(token);
-        // console.log('[Mobile Announcement Read] Payload:', payload ? 'valid' : 'invalid', payload?.sub);
-
-        if (!payload?.sub) {
-            // console.log('[Mobile Announcement Read] Invalid token payload');
-            return NextResponse.json(
-                { error: 'Token tidak valid' },
-                { status: 401 }
-            );
-        }
-
-        const userId = payload.sub;
+        const payload = authResult;
+        const userId = payload.sub as string;
         const { id: announcementId } = await params;
         const body = await request.json().catch(() => ({}));
         const portal = body.portal || 'mobile';

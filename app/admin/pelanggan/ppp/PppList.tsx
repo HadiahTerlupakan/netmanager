@@ -7,6 +7,8 @@ import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { SiteFilter } from '@/components/common/SiteFilter'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 type PelangganPPP = {
   id: string
@@ -171,9 +173,9 @@ export default function PelangganPPPPage() {
 
   const isRenewalAllowed = (jatuhTempo: string) => {
     const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    today.setTime(toStartOfDay(today).getTime())
     const jatuhTempoDate = new Date(jatuhTempo)
-    jatuhTempoDate.setHours(0, 0, 0, 0)
+    jatuhTempoDate.setTime(toStartOfDay(jatuhTempoDate).getTime())
     const allowedDate = new Date(jatuhTempoDate)
     allowedDate.setDate(allowedDate.getDate() - disableDuration)
     return today >= allowedDate

@@ -1,33 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken } from '@/lib/mobile-auth'
-import { getNotificationsForUser, getUnreadCount, markAsRead, markAllAsRead } from '@/modules/notification'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
+import { getNotificationsForUser, getReadableNotificationForUser, getUnreadCount, markAsRead, markAllAsRead } from '@/modules/notification'
 
 // GET - Get notifications for current user
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-        
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
-        
-        const user = await verifyMobileToken(token)
-        if (!user) {
+
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
-        const { notifications, total } = await getNotificationsForUser(user.id as string, {
-            limit: 50
+        const limitParam = Number.parseInt(request.nextUrl.searchParams.get('limit') || '15', 10)
+        const cursorParam = Number.parseInt(request.nextUrl.searchParams.get('cursor') || '0', 10)
+        const limit = Number.isNaN(limitParam) ? 15 : Math.min(Math.max(limitParam, 1), 50)
+        const offset = Number.isNaN(cursorParam) ? 0 : Math.max(cursorParam, 0)
+
+        const { notifications, total } = await getNotificationsForUser(userId, {
+            limit,
+            offset,
         })
 
-        const unreadCount = await getUnreadCount(user.id as string)
+        const unreadCount = await getUnreadCount(userId)
 
         return NextResponse.json({
             success: true,
             data: {
                 notifications: notifications.map(n => {
                     let link = n.link
+
+                    const normalizeMarketingLink = (rawLink: string | null) => {
+                        if (!rawLink) return '/(app)/marketing/canvasing'
+                        if (rawLink.startsWith('/(app)/marketing/canvasing')) {
+                            return rawLink
+                        }
+                        if (rawLink.startsWith('/admin/marketing/canvasing')) {
+                            return rawLink.replace('/admin/marketing/canvasing', '/(app)/marketing/canvasing')
+                        }
+                        if (rawLink.startsWith('/marketing/canvasing')) {
+                            return rawLink.replace('/marketing/canvasing', '/(app)/marketing/canvasing')
+                        }
+                        return rawLink
+                    }
 
                     // Fix links for mobile navigation
                     if (n.sourceType === 'WORK_ORDER' && n.sourceId) {
@@ -36,6 +54,10 @@ export async function GET(request: NextRequest) {
                         link = '/(app)/izin'
                     } else if (n.sourceType === 'OVERTIME') {
                         link = '/(app)/lembur'
+                    } else if (n.sourceType === 'ATTENDANCE') {
+                        link = '/(app)/absensi'
+                    } else if (n.sourceType === 'CANVASING' || n.sourceType === 'POINT_CLAIM') {
+                        link = normalizeMarketingLink(n.link)
                     } else if (n.sourceType === 'INVENTORY') {
                         link = '/(app)/barang'
                     }
@@ -53,7 +75,7 @@ export async function GET(request: NextRequest) {
                     }
                 }),
                 unreadCount,
-                total
+                nextCursor: offset + notifications.length < total ? String(offset + notifications.length) : null,
             }
         })
     } catch (error: unknown) {
@@ -66,15 +88,13 @@ export async function GET(request: NextRequest) {
 // POST - Mark notification(s) as read
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-        
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
-        
-        const user = await verifyMobileToken(token)
-        if (!user) {
+
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -82,9 +102,17 @@ export async function POST(request: NextRequest) {
         const { action, notificationId } = body
 
         if (action === 'markAllRead') {
-            await markAllAsRead(user.id as string)
+            await markAllAsRead(userId)
             return NextResponse.json({ success: true, message: 'Semua notifikasi ditandai sudah dibaca' })
         } else if (action === 'markRead' && notificationId) {
+            const permissions = Array.isArray(authResult.permissions) ? authResult.permissions : []
+            const siteId = permissions.includes('site_only') ? authResult.siteId || undefined : undefined
+
+            const notification = await getReadableNotificationForUser(notificationId, userId, { siteId })
+            if (!notification) {
+                return NextResponse.json({ error: 'Notifikasi tidak ditemukan' }, { status: 404 })
+            }
+
             await markAsRead(notificationId)
             return NextResponse.json({ success: true, message: 'Notifikasi ditandai sudah dibaca' })
         }

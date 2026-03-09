@@ -4,6 +4,8 @@ import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService';
 import { createHandler, ApiErrors } from "@/lib/api";
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export const dynamic = 'force-dynamic';
 
@@ -32,14 +34,14 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (startDateParam && endDateParam) {
         startDate = new Date(startDateParam);
         endDate = new Date(endDateParam);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        startDate.setTime(toStartOfDay(startDate).getTime());
+        endDate.setTime(toEndOfDay(endDate).getTime());
     } else {
         const now = new Date();
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        startDate.setHours(0, 0, 0, 0);
+        startDate.setTime(toStartOfDay(startDate).getTime());
         endDate = new Date();
-        endDate.setHours(23, 59, 59, 999);
+        endDate.setTime(toEndOfDay(endDate).getTime());
     }
 
     const service = getMixRadiusService();

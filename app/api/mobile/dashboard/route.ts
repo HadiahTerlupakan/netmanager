@@ -1,29 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 const mixRadiusService = getMixRadiusService()
 
 export async function GET(req: NextRequest) {
     try {
-        // 1. Verify Token
-        const authHeader = req.headers.get('authorization')
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(req)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(' ')[1]
-        if (!token) {
-            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
-        }
-        const payload = await verifyMobileToken(token)
-
-        if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-        }
-
+        const payload = authResult
         const userId = payload.id as string
 
         // Handle Mitra users - they are in a separate table
@@ -47,14 +39,14 @@ export async function GET(req: NextRequest) {
 
             const now = new Date()
             const today = new Date(now)
-            today.setHours(0, 0, 0, 0)
+            today.setTime(toStartOfDay(today).getTime())
             const weekStart = new Date(now)
             const dayOfWeek = weekStart.getDay()
             const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1
             weekStart.setDate(weekStart.getDate() - diff)
-            weekStart.setHours(0, 0, 0, 0)
+            weekStart.setTime(toStartOfDay(weekStart).getTime())
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-            monthStart.setHours(0, 0, 0, 0)
+            monthStart.setTime(toStartOfDay(monthStart).getTime())
 
             // Mitra work orders are assigned via mitraId field in WorkOrderAssignments
             const workOrdersAssigned = await prisma.workOrderAssignments.count({
@@ -204,18 +196,18 @@ export async function GET(req: NextRequest) {
 
         // Today start
         const today = new Date(now)
-        today.setHours(0, 0, 0, 0)
+        today.setTime(toStartOfDay(today).getTime())
 
         // Week start (Monday)
         const weekStart = new Date(now)
         const dayOfWeek = weekStart.getDay()
         const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1
         weekStart.setDate(weekStart.getDate() - diff)
-        weekStart.setHours(0, 0, 0, 0)
+        weekStart.setTime(toStartOfDay(weekStart).getTime())
 
         // Month start
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        monthStart.setHours(0, 0, 0, 0)
+        monthStart.setTime(toStartOfDay(monthStart).getTime())
 
         // Get work orders assigned to user (active)
         const workOrdersAssigned = await prisma.workOrders.count({

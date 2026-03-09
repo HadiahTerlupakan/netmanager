@@ -16,6 +16,8 @@ import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
 import { validateStatusTransition } from '../utils/status-transitions';
 import { randomUUID } from 'crypto';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export class WorkOrderRepository implements IWorkOrderRepository {
     constructor(private prisma: PrismaClient) { }
@@ -25,9 +27,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
 
         const startOfDay = new Date(now);
-        startOfDay.setHours(0, 0, 0, 0);
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime());
         const endOfDay = new Date(now);
-        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime());
 
         // Get the highest sequence number for today instead of just count
         // This handles deleted records and race conditions better
@@ -2226,7 +2228,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         canvasingApprovedThisWeek: number;
     }> {
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        today.setTime(toStartOfDay(today).getTime());
 
         const dateTo = new Date();
         const dateFrom = new Date();

@@ -1,4 +1,4 @@
-import { S3Client, HeadBucketCommand, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, HeadBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { prisma } from '@/lib/prisma'
@@ -110,6 +110,7 @@ export async function getR2Client(): Promise<S3Client | null> {
             accessKeyId: settings.accessKeyId,
             secretAccessKey: settings.secretAccessKey,
         },
+        forcePathStyle: true
     })
 
     return client
@@ -127,6 +128,7 @@ export async function testR2Connection(settings: Omit<R2Settings, 'enabled'>): P
                 accessKeyId: settings.accessKeyId,
                 secretAccessKey: settings.secretAccessKey,
             },
+            forcePathStyle: true
         })
 
         // Try to head the bucket to verify access
@@ -285,6 +287,62 @@ export async function deleteFromR2(key: string): Promise<boolean> {
     }
 }
 
+export interface R2ObjectMetadata {
+    contentLength: number | null
+    contentType: string | null
+}
+
+export async function getR2ObjectMetadata(key: string): Promise<R2ObjectMetadata> {
+    const client = await getR2Client()
+    const settings = await getR2Settings()
+
+    if (!client || !settings) {
+        throw new Error('R2 storage is not enabled')
+    }
+
+    try {
+        const result = await client.send(new HeadObjectCommand({
+            Bucket: settings.bucketName,
+            Key: key
+        }))
+
+        return {
+            contentLength: result.ContentLength ?? null,
+            contentType: result.ContentType ?? null
+        }
+    } catch (error) {
+        console.error('Error reading R2 object metadata:', error)
+        throw new Error('File APK yang diupload tidak ditemukan di R2')
+    }
+}
+
+export async function getR2ObjectBuffer(key: string): Promise<Buffer> {
+    const client = await getR2Client()
+    const settings = await getR2Settings()
+
+    if (!client || !settings) {
+        throw new Error('R2 storage is not enabled')
+    }
+
+    try {
+        const result = await client.send(new GetObjectCommand({
+            Bucket: settings.bucketName,
+            Key: key
+        }))
+
+        const body = result.Body
+        if (!body || typeof body.transformToByteArray !== 'function') {
+            throw new Error('Konten file APK tidak tersedia')
+        }
+
+        const bytes = await body.transformToByteArray()
+        return Buffer.from(bytes)
+    } catch (error) {
+        console.error('Error downloading object from R2:', error)
+        throw new Error('Gagal membaca file APK yang sudah diupload ke R2')
+    }
+}
+
 /**
  * Generate upload key for different upload types
  */
@@ -357,12 +415,12 @@ export function generateR2Key(
             return `uploads/apk/${timestamp}-${sanitizedFilename}`
         case 'marketing':
             if (subFolder) {
-                 return `uploads/marketing/${subFolder}/${timestamp}-${sanitizedFilename}`
+                return `uploads/marketing/${subFolder}/${timestamp}-${sanitizedFilename}`
             }
             return `uploads/marketing/${timestamp}-${sanitizedFilename}`
         case 'map-nodes':
             if (subFolder) {
-                 return `uploads/map-nodes/${subFolder}/${timestamp}-${sanitizedFilename}`
+                return `uploads/map-nodes/${subFolder}/${timestamp}-${sanitizedFilename}`
             }
             return `uploads/map-nodes/${timestamp}-${sanitizedFilename}`
         default:

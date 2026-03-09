@@ -1,4 +1,5 @@
 import webpush from 'web-push';
+import { prisma } from '@/lib/prisma';
 
 // VAPID keys configuration
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -37,16 +38,15 @@ export interface PushSubscriptionData {
     };
 }
 
-/**
- * Send push notification to a subscription
- */
-export async function sendPushNotification(
+type PushDeliveryStatus = 'ok' | 'expired' | 'skipped';
+
+async function sendPushNotificationWithStatus(
     subscription: PushSubscriptionData,
     payload: PushPayload
-): Promise<boolean> {
+): Promise<PushDeliveryStatus> {
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
         console.warn('VAPID keys not configured, skipping push notification');
-        return false;
+        return 'skipped';
     }
 
     try {
@@ -69,17 +69,25 @@ export async function sendPushNotification(
         });
 
         await webpush.sendNotification(pushSubscription, notificationPayload);
-        return true;
+        return 'ok';
     } catch (error: unknown) {
         const webPushError = error as { statusCode?: number; message?: string };
         if (webPushError.statusCode === 410) {
-            // Subscription expired or unsubscribed
-            // console.log('Push subscription expired:', subscription.endpoint);
-            return false;
+            return 'expired';
         }
         console.error('Error sending push notification:', webPushError.message || error);
         throw error;
     }
+}
+
+/**
+ * Send push notification to a subscription
+ */
+export async function sendPushNotification(
+    subscription: PushSubscriptionData,
+    payload: PushPayload
+): Promise<boolean> {
+    return (await sendPushNotificationWithStatus(subscription, payload)) === 'ok';
 }
 
 /**
@@ -90,12 +98,29 @@ export async function sendPushNotifications(
     subscriptions: PushSubscriptionData[],
     payload: PushPayload
 ): Promise<{ endpoint: string; success: boolean; error?: string }[]> {
+    const expiredEndpoints: string[] = [];
+
     const results = await Promise.allSettled(
         subscriptions.map(async (subscription) => {
-            const success = await sendPushNotification(subscription, payload);
+            const status = await sendPushNotificationWithStatus(subscription, payload);
+            if (status === 'expired') {
+                expiredEndpoints.push(subscription.endpoint);
+            }
+            const success = status === 'ok';
             return { endpoint: subscription.endpoint, success };
         })
     );
+
+    if (expiredEndpoints.length > 0) {
+        await prisma.pushSubscriptions.updateMany({
+            where: {
+                endpoint: { in: expiredEndpoints },
+            },
+            data: {
+                isActive: false,
+            },
+        });
+    }
 
     return results.map((result, index) => {
         if (result.status === 'fulfilled') {

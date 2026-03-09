@@ -119,6 +119,7 @@ export const ErrorCodes = {
     FORBIDDEN: 'FORBIDDEN',
     SESSION_EXPIRED: 'SESSION_EXPIRED',
     INVALID_TOKEN: 'INVALID_TOKEN',
+    APP_VERSION_UNSUPPORTED: 'APP_VERSION_UNSUPPORTED',
     
     // Validation
     VALIDATION_ERROR: 'VALIDATION_ERROR',
@@ -283,4 +284,3 @@ export const ApiErrors = {
     internalError: (message = 'Internal server error') =>
         apiError(message, ErrorCodes.INTERNAL_ERROR, { status: 500 }),
 }
-

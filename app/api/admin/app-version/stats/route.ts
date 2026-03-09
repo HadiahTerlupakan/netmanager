@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/lib/prisma-mitra'
 import { ensurePermission } from '@/lib/rbac'
 import { apiSuccess, createHandler } from '@/lib/api'
 
@@ -22,27 +23,66 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
         })
     }
 
-    // Count users
-    const updatedCount = await prisma.user.count({
-        where: {
-            isActive: true,
-            lastVersionCode: { gte: latestVersion.versionCode }
-        }
-    })
+    const [updatedUsers, updatedCustomers, updatedMitra, outdatedUsers, outdatedCustomers, outdatedMitra, unknownUsers, unknownCustomers, unknownMitra] = await Promise.all([
+        prisma.user.count({
+            where: {
+                isActive: true,
+                lastVersionCode: { gte: latestVersion.versionCode }
+            }
+        }),
+        prisma.pelanggan.count({
+            where: {
+                status: 'AKTIF',
+                lastVersionCode: { gte: latestVersion.versionCode }
+            }
+        }),
+        prismaMitra.mitra.count({
+            where: {
+                isActive: true,
+                lastVersionCode: { gte: latestVersion.versionCode }
+            }
+        }),
+        prisma.user.count({
+            where: {
+                isActive: true,
+                lastVersionCode: { lt: latestVersion.versionCode }
+            }
+        }),
+        prisma.pelanggan.count({
+            where: {
+                status: 'AKTIF',
+                lastVersionCode: { lt: latestVersion.versionCode }
+            }
+        }),
+        prismaMitra.mitra.count({
+            where: {
+                isActive: true,
+                lastVersionCode: { lt: latestVersion.versionCode }
+            }
+        }),
+        prisma.user.count({
+            where: {
+                isActive: true,
+                lastVersionCode: null
+            }
+        }),
+        prisma.pelanggan.count({
+            where: {
+                status: 'AKTIF',
+                lastVersionCode: null
+            }
+        }),
+        prismaMitra.mitra.count({
+            where: {
+                isActive: true,
+                lastVersionCode: null
+            }
+        })
+    ])
 
-    const outdatedCount = await prisma.user.count({
-        where: {
-            isActive: true,
-            lastVersionCode: { lt: latestVersion.versionCode }
-        }
-    })
-    
-    const unknownCount = await prisma.user.count({
-        where: {
-            isActive: true,
-            lastVersionCode: null
-        }
-    })
+    const updatedCount = updatedUsers + updatedCustomers + updatedMitra
+    const outdatedCount = outdatedUsers + outdatedCustomers + outdatedMitra
+    const unknownCount = unknownUsers + unknownCustomers + unknownMitra
 
     return apiSuccess({
         updatedCount,

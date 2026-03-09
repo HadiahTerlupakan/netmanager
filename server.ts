@@ -320,7 +320,10 @@ app.prepare().then(() => {
     const io = new SocketIOServer(server, {
         path: '/api/socket',
         cors: {
-            origin: "*", // Allow all origins for mobile app testing
+            origin: (origin, callback) => {
+                // Safely allow all origins but preserve credentials
+                callback(null, true)
+            },
             methods: ['GET', 'POST'],
             credentials: true,
         },
@@ -458,6 +461,24 @@ app.prepare().then(() => {
         })
         console.log('[Server] MixRadius settlement sync cron scheduled (00:05)')
     }).catch(err => console.error('[Server] Failed to start MixRadius Sync Service:', err))
+
+    // Start RAB Status Evaluation Service (Daily at 01:00 AM)
+    cron.schedule('0 1 * * *', async () => {
+        console.log('[Cron] Running daily RAB status evaluation')
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/rab-status-eval`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.CRON_SECRET}`
+                }
+            })
+            const data = await res.json()
+            console.log('[Cron] RAB status evaluation result:', data)
+        } catch (err) {
+            console.error('[Cron] Failed to run RAB status evaluation:', err)
+        }
+    })
+    console.log('[Server] RAB status evaluation cron scheduled (01:00)')
 
 
     // Log connections count periodically in development

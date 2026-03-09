@@ -1,4 +1,4 @@
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -7,15 +7,13 @@ const GLOBAL_CHAT_NAME = 'Global Chat'
 // GET - Get or create global chat and return its ID
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -36,7 +34,7 @@ export async function GET(request: NextRequest) {
 
         // Ensure user is in the User table (Mitra and Customer cannot join)
         const dbUser = await prisma.user.findUnique({
-            where: { id: user.id as string },
+            where: { id: userId },
             select: { id: true }
         })
 
@@ -49,7 +47,7 @@ export async function GET(request: NextRequest) {
             where: {
                 conversationId_userId: {
                     conversationId: globalChat.id,
-                    userId: user.id as string
+                userId
                 }
             }
         })
@@ -58,7 +56,7 @@ export async function GET(request: NextRequest) {
             await prisma.conversationParticipant.create({
                 data: {
                     conversationId: globalChat.id,
-                    userId: user.id as string
+                    userId
                 }
             })
         }

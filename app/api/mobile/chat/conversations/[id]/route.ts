@@ -1,4 +1,4 @@
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService'
 import { NextRequest, NextResponse } from 'next/server'
@@ -13,15 +13,13 @@ export async function GET(
     { params }: RouteParams
 ) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -35,7 +33,7 @@ export async function GET(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id as string
+                    userId
                 }
             }
         })
@@ -73,7 +71,7 @@ export async function GET(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id as string
+                    userId
                 }
             },
             data: { lastReadAt: new Date() }
@@ -114,7 +112,7 @@ export async function GET(
                     senderName: m.sender.name,
                     senderImage: m.sender.image,
                     createdAt: m.createdAt.toISOString(),
-                    isOwn: m.senderId === (user.id as string)
+                    isOwn: m.senderId === userId
                 })),
                 hasMore,
                 nextCursor: hasMore ? displayMessages[displayMessages.length - 1]?.id : null
@@ -133,15 +131,14 @@ export async function POST(
     { params }: RouteParams
 ) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        const userName = authResult.name as string | undefined
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -158,7 +155,7 @@ export async function POST(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id as string
+                    userId
                 }
             }
         })
@@ -171,7 +168,7 @@ export async function POST(
         const newMessage = await prisma.message.create({
             data: {
                 conversationId,
-                senderId: user.id as string,
+                senderId: userId,
                 content: content?.trim() || null,
                 imageUrl: imageUrl || null
             },
@@ -197,7 +194,7 @@ export async function POST(
             where: {
                 conversationId_userId: {
                     conversationId,
-                    userId: user.id as string
+                    userId
                 }
             },
             data: { lastReadAt: new Date() }
@@ -210,7 +207,7 @@ export async function POST(
                 const otherParticipants = await prisma.conversationParticipant.findMany({
                     where: {
                         conversationId,
-                        userId: { not: user.id as string }
+                        userId: { not: userId }
                     },
                     select: { userId: true }
                 })
@@ -226,7 +223,7 @@ export async function POST(
                     
                     const chatName = conversation?.isGlobal 
                         ? 'Global Chat' 
-                        : conversation?.name || (user.name as string) || 'Chat'
+                        : conversation?.name || userName || 'Chat'
                     
                     const notificationBody = newMessage.imageUrl 
                         ? '📷 Mengirim gambar' 
@@ -235,7 +232,7 @@ export async function POST(
                     await sendPushToUsers(
                         otherUserIds,
                         `💬 ${chatName}`,
-                        `${user.name as string}: ${notificationBody}`,
+                        `${userName || 'Mobile User'}: ${notificationBody}`,
                         {
                             type: 'chat_message',
                             conversationId,

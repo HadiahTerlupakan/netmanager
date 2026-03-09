@@ -3,9 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { createNotification } from '@/modules/notification';
 import { sendCustomerPushNotification } from '@/modules/notification/services/ExpoPushService';
 import { logger } from '@/lib/logger';
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
+
 
 // Type for the raw query result
 interface EligibleCustomerRow {
@@ -177,11 +179,11 @@ export class AutomaticBillingService {
 
             // 3. Check if date is within window
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setTime(toStartOfDay(today).getTime());
 
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + daysBeforeDue);
-            targetDate.setHours(23, 59, 59, 999);
+            targetDate.setTime(toEndOfDay(targetDate).getTime());
 
             const jatuhTempo = new Date(customer.jatuhTempo);
 
@@ -375,11 +377,10 @@ export class AutomaticBillingService {
 
         // 5. Send Notification (outside transaction because it's not critical)
         try {
-            await createNotification({
-                type: 'SYSTEM',
+            await notifyCustomerFinanceNotification({
+                userId: customer.userId,
                 title: 'Tagihan Baru Tersedia',
                 message: `Tagihan bulan ini sebesar Rp ${Number(result.totalAmount).toLocaleString('id-ID')} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString('id-ID')}.`,
-                userId: customer.userId,
                 link: '/tagihan',
                 sourceType: 'INVOICE',
                 sourceId: result.id,
@@ -441,7 +442,7 @@ export class AutomaticBillingService {
         if (!customer) return;
 
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        today.setTime(toStartOfDay(today).getTime());
 
         const safeAddMonth = (date: Date) => {
             const d = new Date(date);
@@ -548,7 +549,7 @@ export class AutomaticBillingService {
 
             // Calculate target date limit (H-X)
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setTime(toStartOfDay(today).getTime());
 
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + reminderDays);

@@ -11,6 +11,8 @@ import {
     HiInformationCircle,
     HiXCircle,
 } from 'react-icons/hi2'
+import { Button } from '@/components/ui/Button'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 type ImportResult = {
     database: string
@@ -24,6 +26,14 @@ type ImportResponse = {
     results: ImportResult[]
 }
 
+type ResetResponse = {
+    success: boolean
+    message: string
+    results: ImportResult[]
+}
+
+const RESET_CONFIRMATION_TEXT = 'RESET DATABASE'
+
 const DATABASE_LABELS: Record<string, string> = {
     netmanager: 'NetManager (Utama)',
     radius: 'RADIUS',
@@ -31,7 +41,7 @@ const DATABASE_LABELS: Record<string, string> = {
     mitra: 'Mitra',
 }
 
-export function ClientComponent() {
+export function ClientComponent({ canResetDatabase }: { canResetDatabase: boolean }) {
     // Export state
     const [exporting, setExporting] = useState(false)
     const [exportSuccess, setExportSuccess] = useState(false)
@@ -43,6 +53,12 @@ export function ClientComponent() {
     const [importError, setImportError] = useState<string | null>(null)
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const [resetting, setResetting] = useState(false)
+    const [resetResult, setResetResult] = useState<ResetResponse | null>(null)
+    const [resetError, setResetError] = useState<string | null>(null)
+    const [resetModalOpen, setResetModalOpen] = useState(false)
+    const [resetConfirmationInput, setResetConfirmationInput] = useState('')
 
     // ─── EXPORT ──────────────────────────────────────────────────────────
     const handleExport = async () => {
@@ -128,6 +144,41 @@ export function ClientComponent() {
         if (fileInputRef.current) fileInputRef.current.value = ''
     }
 
+    const handleResetDatabase = async () => {
+        if (resetConfirmationInput.trim() !== RESET_CONFIRMATION_TEXT) {
+            setResetError(`Konfirmasi tidak cocok. Harus tepat: ${RESET_CONFIRMATION_TEXT}`)
+            return
+        }
+
+        setResetting(true)
+        setResetError(null)
+        setResetResult(null)
+
+        try {
+            const res = await fetch('/api/settings/backup/reset', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ confirmationText: resetConfirmationInput.trim() }),
+            })
+
+            const data: ResetResponse = await res.json()
+
+            if (!res.ok) {
+                throw new Error((data as { error?: string }).error || `HTTP ${res.status}: Gagal reset database`)
+            }
+
+            setResetResult(data)
+            setResetModalOpen(false)
+            setResetConfirmationInput('')
+        } catch (err) {
+            setResetError(err instanceof Error ? err.message : 'Terjadi kesalahan saat reset database')
+        } finally {
+            setResetting(false)
+        }
+    }
+
     return (
         <div className="w-full space-y-6">
             {/* Header */}
@@ -183,6 +234,7 @@ export function ClientComponent() {
 
                     {/* Export Button */}
                     <button
+                        type="button"
                         onClick={handleExport}
                         disabled={exporting}
                         className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
@@ -241,18 +293,19 @@ export function ClientComponent() {
                     {/* File Upload Area */}
                     {!importResult && !importing && (
                         <>
-                            <div
-                                className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors cursor-pointer"
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".tar.gz,.tgz,application/gzip,application/x-gzip,application/tar+gzip"
+                                onChange={handleFileChange}
+                                className="hidden"
+                                id="backup-file-input"
+                            />
+                            <button
+                                type="button"
+                                className="relative w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors cursor-pointer"
                                 onClick={() => fileInputRef.current?.click()}
                             >
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept=".tar.gz,.tgz,application/gzip,application/x-gzip,application/tar+gzip"
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                    id="backup-file-input"
-                                />
                                 <HiCloudArrowUp className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                                 {selectedFile ? (
                                     <div>
@@ -271,9 +324,10 @@ export function ClientComponent() {
                                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Format: .tar.gz</p>
                                     </div>
                                 )}
-                            </div>
+                            </button>
 
                             <button
+                                type="button"
                                 onClick={handleImport}
                                 disabled={!selectedFile || importing}
                                 className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
@@ -370,6 +424,7 @@ export function ClientComponent() {
                             </div>
 
                             <button
+                                type="button"
                                 onClick={resetImport}
                                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                             >
@@ -379,6 +434,156 @@ export function ClientComponent() {
                     )}
                 </div>
             </div>
+
+            {canResetDatabase && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-red-200 dark:border-red-800 p-6">
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="p-2.5 bg-red-50 dark:bg-red-900/30 rounded-lg">
+                            <HiExclamationTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Reset Database (Danger Zone)</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Hapus semua data dan kembalikan struktur database kosong</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-5">
+                        <HiExclamationTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                        <div className="text-xs text-red-800 dark:text-red-400 space-y-1">
+                            <p className="font-semibold">Sangat berisiko dan tidak bisa di-undo.</p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                                <li>Semua data di 4 database akan dihapus permanen.</li>
+                                <li>Anda kemungkinan ter-logout karena data user ikut terhapus.</li>
+                                <li>Hanya jalankan jika Anda sudah memiliki file backup terbaru.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setResetError(null)
+                            setResetModalOpen(true)
+                        }}
+                        disabled={resetting}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
+                    >
+                        {resetting ? (
+                            <>
+                                <HiArrowPath className="w-4 h-4 animate-spin" />
+                                Sedang Reset Database...
+                            </>
+                        ) : (
+                            <>
+                                <HiExclamationTriangle className="w-4 h-4" />
+                                Reset Semua Database
+                            </>
+                        )}
+                    </button>
+
+                    {resetError && (
+                        <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <HiXCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                            <p className="text-sm text-red-800 dark:text-red-400">{resetError}</p>
+                        </div>
+                    )}
+
+                    {resetResult && (
+                        <div className="mt-4 space-y-3">
+                            <div
+                                className={`flex items-start gap-2 p-3 rounded-lg border ${resetResult.success
+                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                                    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                                    }`}
+                            >
+                                {resetResult.success ? (
+                                    <HiCheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                                ) : (
+                                    <HiExclamationCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                )}
+                                <p className="text-sm text-gray-800 dark:text-gray-200">{resetResult.message}</p>
+                            </div>
+
+                            <div className="space-y-2">
+                                {resetResult.results.map((r) => (
+                                    <div
+                                        key={`reset-${r.database}`}
+                                        className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                                    >
+                                        {r.status === 'success' ? (
+                                            <HiCheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                                        ) : r.status === 'skipped' ? (
+                                            <HiExclamationTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
+                                        ) : (
+                                            <HiXCircle className="w-4 h-4 text-red-500 shrink-0" />
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                                {DATABASE_LABELS[r.database] || r.database}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{r.message}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <Modal
+                isOpen={resetModalOpen}
+                onClose={() => {
+                    if (resetting) return
+                    setResetModalOpen(false)
+                }}
+                title="Konfirmasi Reset Database"
+                description="Tindakan ini menghapus semua data secara permanen dari NetManager, RADIUS, Billing, dan Mitra."
+                size="md"
+            >
+                <div className="space-y-4">
+                    <div className="p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-sm text-red-800 dark:text-red-300">
+                        Ketik <code className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900">{RESET_CONFIRMATION_TEXT}</code> untuk melanjutkan.
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" htmlFor="reset-confirmation-input">
+                            Konfirmasi Reset
+                        </label>
+                        <input
+                            id="reset-confirmation-input"
+                            type="text"
+                            value={resetConfirmationInput}
+                            onChange={(e) => setResetConfirmationInput(e.target.value)}
+                            placeholder={`Ketik ${RESET_CONFIRMATION_TEXT}`}
+                            disabled={resetting}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-red-500"
+                        />
+                    </div>
+                </div>
+
+                <ModalFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                            setResetModalOpen(false)
+                            setResetConfirmationInput('')
+                        }}
+                        disabled={resetting}
+                    >
+                        Batal
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={handleResetDatabase}
+                        loading={resetting}
+                        disabled={resetConfirmationInput.trim() !== RESET_CONFIRMATION_TEXT}
+                    >
+                        Reset Sekarang
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </div >
     )
 }

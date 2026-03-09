@@ -4,7 +4,8 @@ import { socketEmitter } from '@/lib/websocket/emitter';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import crypto from 'crypto';
+import { createNotification } from '@/modules/notification';
+import { onWorkOrderUpdated } from '@/modules/work-order/services/WorkOrderNotifications';
 
 interface CommentData {
   id: string;
@@ -80,10 +81,22 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     try {
         const workOrder = await prisma.workOrders.findUnique({
             where: { id },
-            include: { assignedTo: true }
+            select: {
+                id: true,
+                workOrderNumber: true,
+                title: true,
+                type: true,
+                priority: true,
+                departmentId: true,
+                siteId: true,
+                assignedToId: true,
+                assignedTo: {
+                    select: { id: true, pushToken: true, isActive: true }
+                }
+            }
         });
 
-        if (workOrder?.assignedTo?.pushToken && workOrder.assignedTo?.isActive) {
+        if (workOrder?.assignedTo?.isActive) {
             // Check if user is on leave
             const now = new Date();
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -96,41 +109,28 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                 }
             });
 
-            if (!isOnLeave) {
-                const { sendExpoPushNotifications } = await import('@/lib/expo');
-
-                const title = `Komentar Baru: ${workOrder.workOrderNumber}`;
-                const notifBody = `${user.name || 'Admin'}: ${message.substring(0, 100)}`;
-
-                await sendExpoPushNotifications(
-                    [workOrder.assignedTo.pushToken],
-                    title,
-                    notifBody,
-                    {
-                        type: 'WORK_ORDER',
-                        workOrderId: id,
-                        url: `/(app)/work-order-detail/${id}`
-                    }
-                );
-            } else {
-                // console.log(`Skipping notification for user ${workOrder.assignedTo.id} (On Leave)`);
-            }
-
-            // Persist notification (Always create history)
-            await prisma.notifications.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    type: 'WORK_ORDER',
-                    title: `Komentar Baru: ${workOrder.workOrderNumber}`,
-                    message: `${user.name || 'Admin'}: ${message.substring(0, 100)}`,
-                    userId: workOrder.assignedTo.id,
-                    sourceType: 'WORK_ORDER',
-                    sourceId: id,
-                    isRead: false,
-                    priority: 'NORMAL',
-                    createdAt: new Date(),
-                }
+            await createNotification({
+                type: 'WORK_ORDER',
+                priority: 'NORMAL',
+                title: `Komentar Baru: ${workOrder.workOrderNumber}`,
+                message: `${user.name || 'Admin'}: ${message.substring(0, 100)}`,
+                link: `/admin/workorders/${id}`,
+                userId: workOrder.assignedTo.id,
+                sourceType: 'WORK_ORDER',
+                sourceId: id,
+                skipExpoPush: Boolean(isOnLeave),
             });
+
+            await onWorkOrderUpdated({
+                id: workOrder.id,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                type: workOrder.type,
+                priority: workOrder.priority,
+                departmentId: workOrder.departmentId,
+                siteId: workOrder.siteId,
+                assignedToId: workOrder.assignedToId,
+            }, `${user.name || 'Admin'}: ${message.substring(0, 100)}`, user.name || 'Admin', user.id, [workOrder.assignedTo.id]);
         }
     } catch (error) {
         console.error('Failed to send comment notification:', error);

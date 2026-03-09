@@ -1,6 +1,8 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * @swagger
@@ -49,7 +51,7 @@ export const GET = createHandler({
   // Get start of current month for FLEXIBLE stats
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
+  startOfMonth.setTime(toStartOfDay(startOfMonth).getTime())
   
   // Group by status for last 30 days
   const attendanceStats = await prisma.attendance.groupBy({

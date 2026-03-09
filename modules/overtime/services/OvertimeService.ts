@@ -3,6 +3,8 @@ import { OvertimeStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '../../notification/services/NotificationService'
 import { HolidayRepository } from '../../attendance/repositories/HolidayRepository'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export class OvertimeService {
     private repository: OvertimeRepository
@@ -22,10 +24,10 @@ export class OvertimeService {
         }
     ) {
         const startOfDay = new Date(data.date)
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
 
         const endOfDay = new Date(data.date)
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         // Cek apakah sudah ada request PENDING/APPROVED/IN_PROGRESS hari ini
         const existing = await prisma.overtime.findFirst({
@@ -54,20 +56,31 @@ export class OvertimeService {
 
         // Notify Admins
         try {
-            const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+            const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, siteId: true } })
             const admins = await prisma.user.findMany({
                 where: {
                     OR: [
                         { role: { name: 'SUPER_ADMIN' } },
                         {
-                            role: {
-                                permission: {
-                                    some: {
-                                        resource: 'lembur',
-                                        action: 'update'
+                            AND: [
+                                {
+                                    role: {
+                                        permission: {
+                                            some: {
+                                                resource: 'lembur',
+                                                action: 'update'
+                                            }
+                                        }
                                     }
-                                }
-                            }
+                                },
+                                ...(user?.siteId ? [{
+                                    OR: [
+                                        { siteId: user.siteId },
+                                        { siteId: null },
+                                        { userSites: { some: { siteId: user.siteId } } }
+                                    ]
+                                }] : [])
+                            ]
                         }
                     ]
                 },
@@ -108,9 +121,9 @@ export class OvertimeService {
 
         // Cari attendance hari ini (tidak wajib checkout)
         const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
         const endOfDay = new Date()
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         const attendance = await prisma.attendance.findFirst({
             where: {
@@ -297,6 +310,14 @@ export class OvertimeService {
 
 
     async approveRequest(id: string, approverId: string) {
+        const existing = await this.repository.findById(id)
+        if (!existing) {
+            throw new Error('Overtime request not found')
+        }
+        if (existing.status !== OvertimeStatus.PENDING) {
+            throw new Error('Only pending overtime requests can be approved')
+        }
+
         const result = await this.repository.update(id, {
             status: OvertimeStatus.APPROVED,
             approvedBy: approverId
@@ -322,6 +343,14 @@ export class OvertimeService {
     }
 
     async rejectRequest(id: string, reason: string) {
+        const existing = await this.repository.findById(id)
+        if (!existing) {
+            throw new Error('Overtime request not found')
+        }
+        if (existing.status !== OvertimeStatus.PENDING) {
+            throw new Error('Only pending overtime requests can be rejected')
+        }
+
         const result = await this.repository.update(id, {
             status: OvertimeStatus.REJECTED,
             rejectionReason: reason

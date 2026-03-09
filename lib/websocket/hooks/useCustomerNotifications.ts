@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
-import { SOCKET_EVENTS, type NotificationPayload, type CountPayload } from '../types'
+import { SOCKET_EVENTS, type NotificationPayload } from '../types'
 
 export interface CustomerNotification {
     id: string
@@ -18,6 +18,14 @@ export interface CustomerNotification {
     sender: string
 }
 
+export interface CustomerAnnouncement {
+    id: string
+    title: string
+    content: string
+    isPinned: boolean
+    createdAt: string
+}
+
 interface UseCustomerNotificationsOptions {
     limit?: number
     autoFetch?: boolean
@@ -25,7 +33,10 @@ interface UseCustomerNotificationsOptions {
 
 interface UseCustomerNotificationsResult {
     notifications: CustomerNotification[]
+    announcements: CustomerAnnouncement[]
     unreadCount: number
+    unreadTicketCount: number
+    unreadAnnouncementCount: number
     loading: boolean
     isConnected: boolean
     refresh: () => Promise<void>
@@ -42,25 +53,24 @@ export function useCustomerNotifications(
     const { isConnected } = useSocket()
 
     const [notifications, setNotifications] = useState<CustomerNotification[]>([])
+    const [announcements, setAnnouncements] = useState<CustomerAnnouncement[]>([])
     const [unreadCount, setUnreadCount] = useState(0)
+    const [unreadTicketCount, setUnreadTicketCount] = useState(0)
+    const [unreadAnnouncementCount, setUnreadAnnouncementCount] = useState(0)
     const [loading, setLoading] = useState(true)
 
     // Fetch notifications from customer API
     const fetchNotifications = useCallback(async () => {
         try {
-            const [countRes, listRes] = await Promise.all([
-                fetch('/api/customer/notifications/unread-count'),
-                fetch(`/api/customer/notifications?limit=${limit}`),
-            ])
+            const response = await fetch(`/api/customer/notifications?limit=${limit}`)
 
-            if (countRes.ok) {
-                const data = await countRes.json()
-                setUnreadCount(data.count || 0)
-            }
-
-            if (listRes.ok) {
-                const data = await listRes.json()
+            if (response.ok) {
+                const data = await response.json()
+                setUnreadCount(data.unreadCount || 0)
+                setUnreadTicketCount(data.unreadTicketCount || 0)
+                setUnreadAnnouncementCount(data.unreadAnnouncementCount || 0)
                 setNotifications(data.notifications || [])
+                setAnnouncements(data.announcements || [])
             }
         } catch (error) {
             console.error('[CustomerNotifications] Error fetching:', error)
@@ -86,20 +96,17 @@ export function useCustomerNotifications(
         [fetchNotifications]
     )
 
-    // Handle count update from WebSocket
-    const handleCountUpdate = useCallback((payload: CountPayload) => {
-        setUnreadCount(payload.count)
-    }, [])
-
     // Subscribe to WebSocket events
-    useSocketEvent(SOCKET_EVENTS.NOTIFICATION_NEW, handleNewNotification)
-    useSocketEvent(SOCKET_EVENTS.NOTIFICATION_COUNT, handleCountUpdate)
-    // Also listen for ticket replies (relevant for customer)
+    useSocketEvent(SOCKET_EVENTS.ANNOUNCEMENT_NEW, handleNewNotification)
+    useSocketEvent(SOCKET_EVENTS.TICKET_MESSAGE, handleNewNotification)
     useSocketEvent(SOCKET_EVENTS.TICKET_REPLY, handleNewNotification)
 
     return {
         notifications,
+        announcements,
         unreadCount,
+        unreadTicketCount,
+        unreadAnnouncementCount,
         loading,
         isConnected,
         refresh: fetchNotifications,

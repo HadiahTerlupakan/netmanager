@@ -8,6 +8,19 @@ interface PushNotificationManagerProps {
     className?: string
 }
 
+const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i)
+    }
+    return outputArray
+}
+
 export function PushNotificationManager({ className }: PushNotificationManagerProps) {
     const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
     const [isSubscribed, setIsSubscribed] = useState(false)
@@ -15,11 +28,24 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
     const [showBanner, setShowBanner] = useState(false)
     const [vapidKey, setVapidKey] = useState<string | null>(null)
 
-    useEffect(() => {
-        checkSupport()
+    const syncWorkerConfig = useCallback(async (registration: ServiceWorkerRegistration, publicKey: string) => {
+        registration.active?.postMessage({
+            type: 'PUSH_CONFIG',
+            vapidPublicKey: publicKey,
+        })
     }, [])
 
-    const checkSupport = async () => {
+    const syncSubscriptionToServer = useCallback(async (subscription: PushSubscription) => {
+        return fetch('/api/notifications/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subscription: subscription.toJSON(),
+            }),
+        })
+    }, [])
+
+    const checkSupport = useCallback(async () => {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
             setPermission('unsupported')
             return
@@ -31,6 +57,8 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
             if (response.ok) {
                 const data = await response.json()
                 setVapidKey(data.publicKey)
+                const registration = await navigator.serviceWorker.ready
+                await syncWorkerConfig(registration, data.publicKey)
             } else {
                 console.warn('Push notifications not configured on server')
                 setPermission('unsupported')
@@ -49,6 +77,9 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
             // Check if already subscribed
             const registration = await navigator.serviceWorker.ready
             const subscription = await registration.pushManager.getSubscription()
+            if (vapidKey) {
+                await syncWorkerConfig(registration, vapidKey)
+            }
             setIsSubscribed(!!subscription)
         } else if (currentPermission === 'default') {
             // Show banner to ask for permission
@@ -57,7 +88,11 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
                 setShowBanner(true)
             }
         }
-    }
+    }, [syncWorkerConfig, vapidKey])
+
+    useEffect(() => {
+        checkSupport()
+    }, [checkSupport])
 
     const subscribe = useCallback(async () => {
         if (!vapidKey) return
@@ -74,39 +109,13 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
 
             const registration = await navigator.serviceWorker.ready
 
-            // Convert VAPID key
-            const urlBase64ToUint8Array = (base64String: string) => {
-                const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-                const base64 = (base64String + padding)
-                    .replace(/-/g, '+')
-                    .replace(/_/g, '/')
-                const rawData = window.atob(base64)
-                const outputArray = new Uint8Array(rawData.length)
-                for (let i = 0; i < rawData.length; ++i) {
-                    outputArray[i] = rawData.charCodeAt(i)
-                }
-                return outputArray
-            }
-
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(vapidKey),
             })
 
-            // Send subscription to server
-            const response = await fetch('/api/notifications/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    subscription: {
-                        endpoint: subscription.endpoint,
-                        keys: {
-                            p256dh: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!))),
-                            auth: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!))),
-                        },
-                    },
-                }),
-            })
+            await syncWorkerConfig(registration, vapidKey)
+            const response = await syncSubscriptionToServer(subscription)
 
             if (response.ok) {
                 setIsSubscribed(true)
@@ -117,7 +126,7 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
         } finally {
             setLoading(false)
         }
-    }, [vapidKey])
+    }, [syncSubscriptionToServer, syncWorkerConfig, vapidKey])
 
     const dismissBanner = () => {
         setShowBanner(false)

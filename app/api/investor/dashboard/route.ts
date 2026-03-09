@@ -29,6 +29,11 @@ export async function GET() {
                     include: {
                         actualAchievements: true,
                         items: true,
+                        site: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 }
             }
@@ -196,7 +201,6 @@ export async function GET() {
             totalActualRevenue += BigInt(Math.floor(actCurrentRev))
 
             // Tambahkan juga riwayat actualAchievements sebelumnya (jika ada)
-
             for (const ach of ri.rabProject.actualAchievements) {
                 const netActual = Math.max(0, Number(ach.actualRevenue) - Number(ach.actualOpex || 0))
                 const actRev = netActual * (Number(ri.profitSharePercent) / 100)
@@ -204,11 +208,26 @@ export async function GET() {
             }
         }
 
+        const projectsSummary = rabInvestors.map((ri: {
+            rabProject: {
+                id: string;
+                name: string;
+                status: string;
+                site?: { name: string } | null;
+            };
+        }) => ({
+            id: ri.rabProject.id,
+            name: ri.rabProject.name,
+            status: ri.rabProject.status,
+            siteName: ri.rabProject.site?.name || 'Lokasi Global'
+        }))
+
         return NextResponse.json({
             totalInvestment: totalInvestment.toString(),
             totalProjectedRevenue: totalProjectedRevenue.toString(),
             totalActualRevenue: totalActualRevenue.toString(),
             activeProjectsCount,
+            projects: projectsSummary,
             subscribers: {
                 total: totalSubscribers,
                 active: activeSubscribers,

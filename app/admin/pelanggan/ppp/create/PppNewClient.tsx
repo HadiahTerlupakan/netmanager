@@ -71,7 +71,7 @@ export function ClientComponent() {
     passwordLogin: '123456', // Default password untuk login portal pelanggan
     hargaPaketId: '',
     tipe: 'REGULER' as 'REGULER' | 'NON_REGULER',
-    tanggalAktif: new Date().toISOString().split('T')[0] ?? '', // Default: hari ini
+    tanggalAktif: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })() ?? '', // Default: hari ini
     jatuhTempo: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
     autoIsolir: true, // Default: auto isolir aktif

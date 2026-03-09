@@ -4,6 +4,8 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { RadiusSyncService } from '@/modules/network'
 import { Prisma } from '@prisma/client'
+import { toEndOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * @swagger
@@ -242,7 +244,7 @@ export async function GET(
         )
       }
       // Set end of day for endDate
-      endDate.setHours(23, 59, 59, 999)
+      endDate.setTime(toEndOfDay(endDate).getTime())
     }
 
     // Prepare data arrays

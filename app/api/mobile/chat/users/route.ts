@@ -1,19 +1,17 @@
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET - Get list of users for starting new chat
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -24,7 +22,7 @@ export async function GET(request: NextRequest) {
         const users = await prisma.user.findMany({
             where: {
                 isActive: true,
-                id: { not: user.id },
+                id: { not: userId },
                 ...(search && {
                     OR: [
                         { name: { contains: search, mode: 'insensitive' } },

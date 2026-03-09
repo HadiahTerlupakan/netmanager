@@ -69,6 +69,14 @@ interface Expense {
     user?: {
         name: string
     }
+    rabProject?: {
+        id: string
+        name: string
+    }
+    rabItem?: {
+        id: string
+        name: string
+    }
 }
 
 interface SiteOption {
@@ -136,7 +144,7 @@ export default function ExpensesClient() {
     const [step, setStep] = useState(1)
     const [editingItem, setEditingItem] = useState<Expense | null>(null)
     const [formData, setFormData] = useState({
-        date: new Date().toISOString().split('T')[0],
+        date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
         amount: '',
         depreciation: '',
         usefulLife: 0,
@@ -146,8 +154,13 @@ export default function ExpensesClient() {
         accountId: '', // Source Account ID
         description: '',
         siteId: '',
-        mixRadiusGroupId: ''
+        mixRadiusGroupId: '',
+        rabProjectId: '',
+        rabItemId: ''
     })
+
+    const [rabProjects, setRabProjects] = useState<{ id: string, name: string, items: { id: string, name: string, expenseType: string, quantity?: number }[] }[]>([])
+    const [isUsefulLifeEnabled, setIsUsefulLifeEnabled] = useState(false)
 
     // New Category State
     // const [isAddingCategory, setIsAddingCategory] = useState(false)
@@ -227,9 +240,31 @@ export default function ExpensesClient() {
             }
         }
 
+        const fetchRabProjects = async () => {
+            try {
+                const res = await fetch('/api/finance/rab-projects')
+                const json = await res.json()
+                if (json.success && Array.isArray(json.data)) {
+                    setRabProjects(json.data.map((r: { id: string, name: string, items: { id: string, name: string, expenseType: string, quantity?: number }[] }) => ({
+                        id: r.id,
+                        name: r.name,
+                        items: (r.items || []).map((i: { id: string, name: string, expenseType: string, quantity?: number }) => ({
+                            id: i.id,
+                            name: i.name,
+                            expenseType: i.expenseType,
+                            quantity: i.quantity
+                        }))
+                    })))
+                }
+            } catch (e) {
+                console.error('Failed to fetch RAB projects', e)
+            }
+        }
+
         fetchSites()
         fetchInvestorSites()
         fetchInternalSites()
+        fetchRabProjects()
     }, [])
 
     // Fetch Metadata (None needed initially for now, categories fetched on demand)
@@ -455,6 +490,7 @@ export default function ExpensesClient() {
         setStep(1)
         if (item) {
             setEditingItem(item)
+            setIsUsefulLifeEnabled((item.usefulLife || 0) > 0)
             setFormData({
                 date: new Date(item.date).toISOString().split('T')[0],
                 amount: item.amount.toString(),
@@ -466,12 +502,15 @@ export default function ExpensesClient() {
                 accountId: item.accountId || '',
                 description: item.description || '',
                 siteId: item.siteId || '',
-                mixRadiusGroupId: item.mixRadiusGroupId || ''
+                mixRadiusGroupId: item.mixRadiusGroupId || '',
+                rabProjectId: item.rabProject?.id || '',
+                rabItemId: item.rabItem?.id || ''
             })
         } else {
             setEditingItem(null)
+            setIsUsefulLifeEnabled(false)
             setFormData({
-                date: new Date().toISOString().split('T')[0],
+                date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
                 amount: '',
                 depreciation: '',
                 usefulLife: 0,
@@ -481,7 +520,9 @@ export default function ExpensesClient() {
                 accountId: '',
                 description: '',
                 siteId: '',
-                mixRadiusGroupId: ''
+                mixRadiusGroupId: '',
+                rabProjectId: '',
+                rabItemId: ''
             })
         }
         setIsModalOpen(true)
@@ -502,7 +543,7 @@ export default function ExpensesClient() {
                 toast.error('Kategori Pengeluaran wajib dipilih')
                 return
             }
-            if (formData.category === 'CAPEX' && (!formData.usefulLife || formData.usefulLife < 1)) {
+            if (formData.category === 'CAPEX' && isUsefulLifeEnabled && (!formData.usefulLife || formData.usefulLife < 1)) {
                 toast.error('Masa manfaat CAPEX minimal 1 bulan')
                 return
             }
@@ -531,12 +572,12 @@ export default function ExpensesClient() {
                 finalSiteId = selectedOption.siteId
             }
 
-            // Clean up payload based on category
+            // Clean up payload based on category and toggle
             const payload = {
                 ...formData,
                 amount: Number(formData.amount),
-                usefulLife: formData.category === 'OPEX' ? 0 : formData.usefulLife,
-                depreciation: formData.category === 'OPEX' ? '0' : formData.depreciation,
+                usefulLife: formData.category === 'OPEX' || !isUsefulLifeEnabled ? 0 : formData.usefulLife,
+                depreciation: formData.category === 'OPEX' || !isUsefulLifeEnabled ? '0' : formData.depreciation,
                 siteId: finalSiteId
             }
 
@@ -588,18 +629,25 @@ export default function ExpensesClient() {
         }
 
         // Header CSV
-        const headers = ['Tanggal', 'Jumlah', 'Tipe', 'Kategori', 'Keterangan', 'Site/Group', 'Petugas']
+        const headers = ['Tanggal', 'Jumlah', 'Tipe', 'Kategori', 'RAB', 'Keterangan', 'Site/Group', 'Petugas']
 
         // Rows
-        const rows = filteredData.map(item => [
-            new Date(item.date).toLocaleDateString('id-ID'),
-            item.amount.toString(),
-            item.category,
-            item.expenseCategory?.name || '-',
-            `"${(item.description || '').replace(/"/g, '""')}"`, // Escape quotes
-            `"${(item.mixRadiusGroup?.name || item.site?.name || 'Umum').replace(/"/g, '""')}"`,
-            item.user?.name || '-'
-        ])
+        const rows = filteredData.map(item => {
+            const rabText = item.rabProject
+                ? `${item.rabProject.name}${item.rabItem ? ` (${item.rabItem.name})` : ''}`
+                : '-';
+
+            return [
+                new Date(item.date).toLocaleDateString('id-ID'),
+                item.amount.toString(),
+                item.category,
+                item.expenseCategory?.name || '-',
+                `"${rabText.replace(/"/g, '""')}"`,
+                `"${(item.description || '').replace(/"/g, '""')}"`, // Escape quotes
+                `"${(item.mixRadiusGroup?.name || item.site?.name || 'Umum').replace(/"/g, '""')}"`,
+                item.user?.name || '-'
+            ]
+        })
 
         // Combine
         const csvContent = [
@@ -882,11 +930,21 @@ export default function ExpensesClient() {
                                 },
                                 {
                                     key: 'expenseCategory',
-                                    header: 'Kategori',
+                                    header: 'Kategori / RAB',
                                     render: (item) => (
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {item.expenseCategory?.name || '-'}
-                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                {item.expenseCategory?.name || '-'}
+                                            </span>
+                                            {item.rabProject && (
+                                                <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">
+                                                    RAB: {item.rabProject.name}
+                                                    {item.rabItem && (
+                                                        <span className="text-gray-500 font-normal"> - {item.rabItem.name}</span>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
                                     )
                                 },
                                 // Removed COA & Account Columns
@@ -1116,24 +1174,94 @@ export default function ExpensesClient() {
                                                 </p>
                                             </div>
 
+                                            {/* Terkait RAB (Opsional) */}
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Terkait RAB (Opsional)</label>
+                                                <select
+                                                    value={formData.rabProjectId}
+                                                    onChange={e => setFormData({ ...formData, rabProjectId: e.target.value, rabItemId: '' })}
+                                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                                                >
+                                                    <option value="">-- Tidak Terkait RAB --</option>
+                                                    {rabProjects.map(rab => (
+                                                        <option key={rab.id} value={rab.id}>{rab.name}</option>
+                                                    ))}
+                                                </select>
+                                                <p className="text-[10px] text-gray-400 mt-1">
+                                                    Pilih RAB jika pengeluaran ini merupakan bagian dari eksekusi RAB.
+                                                </p>
+                                            </div>
+
+                                            {/* Pilih Item RAB (Muncul jika RAB dipilih) */}
+                                            {formData.rabProjectId && (
+                                                <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Pilih Item RAB (Opsional)</label>
+                                                    <select
+                                                        value={formData.rabItemId}
+                                                        onChange={e => {
+                                                            const selectedItemId = e.target.value;
+                                                            let newDescription = formData.description;
+                                                            if (selectedItemId) {
+                                                                const selectedItem = rabProjects
+                                                                    .find(r => r.id === formData.rabProjectId)?.items
+                                                                    ?.find(i => i.id === selectedItemId);
+                                                                if (selectedItem) {
+                                                                    const qtyText = selectedItem.quantity ? ` (Jumlah: ${selectedItem.quantity})` : '';
+                                                                    newDescription = `${selectedItem.name}${qtyText}`;
+                                                                }
+                                                            }
+                                                            setFormData({ ...formData, rabItemId: selectedItemId, description: newDescription });
+                                                        }}
+                                                        className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    >
+                                                        <option value="">-- Bebas / Tidak Spesifik --</option>
+                                                        {rabProjects
+                                                            .find(r => r.id === formData.rabProjectId)?.items
+                                                            ?.filter(i => formData.category ? i.expenseType === formData.category : true)
+                                                            .map(item => (
+                                                                <option key={item.id} value={item.id}>{item.name}</option>
+                                                            ))
+                                                        }
+                                                    </select>
+                                                    <p className="text-[10px] text-gray-400 mt-1">
+                                                        Item disaring sesuai Tipe ({formData.category}).
+                                                    </p>
+                                                </div>
+                                            )}
+
                                             {/* CAPEX Details */}
                                             {formData.category === 'CAPEX' && (
-                                                <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-800/30 grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Masa Manfaat (Bulan)</label>
+                                                <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-800/30">
+                                                    <div className="flex items-center gap-2 mb-3">
                                                         <input
-                                                            type="number"
-                                                            value={formData.usefulLife || ''}
-                                                            onChange={e => setFormData({ ...formData, usefulLife: parseInt(e.target.value) || 0 })}
-                                                            className="w-full rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800 text-sm py-1.5"
+                                                            type="checkbox"
+                                                            id="toggle-useful-life"
+                                                            checked={isUsefulLifeEnabled}
+                                                            onChange={e => setIsUsefulLifeEnabled(e.target.checked)}
+                                                            className="rounded text-purple-600 focus:ring-purple-500 border-purple-300 dark:border-purple-700 dark:bg-gray-800"
                                                         />
+                                                        <label htmlFor="toggle-useful-life" className="text-xs font-bold text-purple-700 dark:text-purple-300">Aktifkan Masa Manfaat (Bulan)</label>
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Penyusutan</label>
-                                                        <div className="text-sm font-black text-purple-600 dark:text-purple-400 pt-1.5">
-                                                            {formatCurrency(Number(formData.depreciation))}
+
+                                                    {isUsefulLifeEnabled && (
+                                                        <div className="grid grid-cols-2 gap-3 mt-2 border-t border-purple-200 dark:border-purple-800/50 pt-3">
+                                                            <div>
+                                                                <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Masa Manfaat (Bulan)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={formData.usefulLife || ''}
+                                                                    onChange={e => setFormData({ ...formData, usefulLife: parseInt(e.target.value) || 0 })}
+                                                                    className="w-full rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800 text-sm py-1.5"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Penyusutan</label>
+                                                                <div className="text-sm font-black text-purple-600 dark:text-purple-400 pt-1.5">
+                                                                    {formatCurrency(Number(formData.depreciation))}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

@@ -3,10 +3,13 @@ import type { Prisma } from '@prisma/client'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
 import { HolidayRepository } from '../repositories/HolidayRepository'
+import { calculateWorkingDays } from '../utils/calculateWorkingDays'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { logger, logActivitySafe } from '@/lib/logger'
 import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 // Standard ServiceResult pattern
 export interface ServiceResult<T> {
@@ -45,41 +48,8 @@ export class LeaveService {
         this.holidayRepository = new HolidayRepository()
     }
 
-    /**
-     * Calculate working days excluding non-working days and holidays
-     */
     private async calculateWorkingDays(startDate: Date, endDate: Date, workDaysStr: string | null = null): Promise<number> {
-        let days = 0
-        const curDate = new Date(startDate)
-        const lastDate = new Date(endDate)
-
-        // Reset hours to ensure clean day iteration
-        curDate.setHours(0, 0, 0, 0)
-        lastDate.setHours(0, 0, 0, 0)
-
-        // Parse workDays (e.g., "Mon,Tue,Wed,Thu,Fri")
-        // Default to Mon-Fri if null or empty
-        const defaultWorkDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-        const allowedDays = workDaysStr ? workDaysStr.split(',').map((d: string) => d.trim()) : defaultWorkDays
-
-        // Map day index (0-6) to string (Sun-Sat) matching the format in DB
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-        while (curDate <= lastDate) {
-            const dayIndex = curDate.getDay()
-            const dayName = dayNames[dayIndex]
-
-            // Check if it is a working day for the user
-            if (allowedDays.includes(dayName)) {
-                // Check if it's a holiday
-                const { isHoliday } = await this.holidayRepository.isHoliday(curDate)
-                if (!isHoliday) {
-                    days++
-                }
-            }
-            curDate.setDate(curDate.getDate() + 1)
-        }
-        return days
+        return calculateWorkingDays(startDate, endDate, workDaysStr, this.holidayRepository)
     }
 
     /**
@@ -437,9 +407,9 @@ export class LeaveService {
         const curDate = new Date(startDate)
 
         // Reset hours
-        curDate.setHours(0, 0, 0, 0)
+        curDate.setTime(toStartOfDay(curDate).getTime())
         const lastDate = new Date(endDate)
-        lastDate.setHours(0, 0, 0, 0)
+        lastDate.setTime(toStartOfDay(lastDate).getTime())
 
         // Determine status based on LeaveType
         let status: AttendanceStatus = 'PERMIT'
@@ -464,9 +434,9 @@ export class LeaveService {
                 if (!isHoliday) {
                     // Start of Day and End of Day for query
                     const dayStart = new Date(curDate)
-                    dayStart.setHours(0, 0, 0, 0)
+                    dayStart.setTime(toStartOfDay(dayStart).getTime())
                     const dayEnd = new Date(curDate)
-                    dayEnd.setHours(23, 59, 59, 999)
+                    dayEnd.setTime(toEndOfDay(dayEnd).getTime())
 
                     // Check existing attendance
                     const existingAttendance = await prisma.attendance.findFirst({
@@ -497,7 +467,7 @@ export class LeaveService {
                         // CREATE new
                         // Create dummy checkIn at 00:00:00
                         const checkInTime = new Date(curDate)
-                        checkInTime.setHours(0, 0, 0, 0)
+                        checkInTime.setTime(toStartOfDay(checkInTime).getTime())
 
                         await prisma.attendance.create({
                             data: {

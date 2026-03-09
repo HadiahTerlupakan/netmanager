@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { verifyAuth } from '@/lib/auth';
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 
 /**
  * POST /api/mobile/work-orders/[id]/partners
@@ -13,13 +13,12 @@ export async function POST(
 ) {
   try {
     // Autentikasi user
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Autentikasi diperlukan' },
-        { status: 401 }
-      );
+    const authResult = await getMobileAuthPayload(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+
+    const user = authResult;
 
     const { id: workOrderId } = await params;
 
@@ -143,13 +142,12 @@ export async function DELETE(
 ) {
   try {
     // Autentikasi user
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Autentikasi diperlukan' },
-        { status: 401 }
-      );
+    const authResult = await getMobileAuthPayload(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+
+    const user = authResult;
 
     const { id: workOrderId } = await params;
     const { searchParams } = new URL(request.url);

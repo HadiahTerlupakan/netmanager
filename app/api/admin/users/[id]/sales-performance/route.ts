@@ -1,6 +1,8 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * @swagger
@@ -52,7 +54,7 @@ export const GET = createHandler({
     case 'week':
       startDate = new Date(now)
       startDate.setDate(startDate.getDate() - startDate.getDay() + 1) // Monday
-      startDate.setHours(0, 0, 0, 0)
+      startDate.setTime(toStartOfDay(startDate).getTime())
       break
     case 'month':
       startDate = new Date(now.getFullYear(), now.getMonth(), 1)

@@ -1,26 +1,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMobileToken } from '@/lib/mobile-auth';
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prisma } from '@/lib/prisma';
 
 // GET - Get transaction history for mobile (Optimized)
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
+        const authResult = await getMobileAuthPayload(request);
+        if (authResult instanceof NextResponse) {
+            return authResult;
         }
 
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
-        }
-        const payload = await verifyMobileToken(token);
-
-        if (!payload || !payload.id) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
-        }
-
+        const payload = authResult;
         const userId = payload.id as string;
         const searchParams = request.nextUrl.searchParams;
         const filterType = searchParams.get('type'); // 'masuk' | 'keluar' | 'all'

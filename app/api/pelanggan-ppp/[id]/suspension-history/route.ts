@@ -3,6 +3,8 @@ import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { toEndOfDay } from '@/lib/utils/datetime'
+
 
 /**
  * @swagger
@@ -261,7 +263,7 @@ export async function GET(
         )
       }
       // Set end of day for endDate
-      endDate.setHours(23, 59, 59, 999)
+      endDate.setTime(toEndOfDay(endDate).getTime())
     }
 
     // Build where clause

@@ -1,3 +1,4 @@
+import { ensureAdminAccess } from '@/lib/server-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { prismaBilling } from '@/lib/prisma-billing'
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
@@ -5,6 +6,7 @@ import { sendCustomerPushNotification } from '@/modules/notification/services/Ex
 
 export async function POST(request: NextRequest) {
     try {
+        await ensureAdminAccess()
         const body = await request.json()
         const { paymentId, action, notes } = body
 

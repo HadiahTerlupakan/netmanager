@@ -1,24 +1,16 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { getR2Settings } from '@/lib/utils/r2-client'
 
 export async function GET(request: Request) {
   // Verify mobile authentication
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+  const authResult = await getMobileAuthPayload(request)
+  if (authResult instanceof NextResponse) {
+    return authResult
   }
 
-  const token = authHeader.split(' ')[1]
-  if (!token) {
-    return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
-  }
-  const payload = await verifyMobileToken(token)
-
-  if (!payload) {
-    return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-  }
+  const payload = authResult
 
   // Check Permission
   const permissions = payload.permissions || []

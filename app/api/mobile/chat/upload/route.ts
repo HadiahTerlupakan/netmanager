@@ -1,4 +1,4 @@
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { existsSync } from 'fs'
 import { mkdir, writeFile } from 'fs/promises'
 import { NextRequest, NextResponse } from 'next/server'
@@ -7,15 +7,13 @@ import path from 'path'
 // POST - Upload image for chat
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -46,7 +44,7 @@ export async function POST(request: NextRequest) {
 
         // Generate unique filename
         const ext = file.name.split('.').pop() || 'jpg'
-        const filename = `${user.id}-${Date.now()}.${ext}`
+        const filename = `${userId}-${Date.now()}.${ext}`
         const filePath = path.join(uploadDir, filename)
 
         // Write file to disk

@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+
+export const dynamic = 'force-dynamic'
+
+const STALE_FLEXIBLE_SESSION_HOURS = 24
 
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('Authorization')
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Token hilang atau tidak valid' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(' ')[1]
-        if (!token) {
-            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 })
-        }
-        const payload = await verifyMobileToken(token)
-        if (!payload) {
-            return NextResponse.json({ error: 'Token tidak valid atau kadaluarsa' }, { status: 401 })
-        }
-
+        const payload = authResult
         const userId = payload.id as string
 
         const { searchParams } = new URL(request.url)
@@ -31,10 +27,39 @@ export async function GET(request: NextRequest) {
                 where: { userId },
                 orderBy: { checkIn: 'desc' },
                 take: limit,
-                skip
+                skip,
+                include: {
+                    user: {
+                        select: {
+                            workingHourMode: true,
+                            flexibleTargetHour: true,
+                            shift: {
+                                select: {
+                                    startTime: true,
+                                    endTime: true
+                                }
+                            }
+                        }
+                    }
+                }
             }),
             prisma.attendance.count({ where: { userId } })
         ])
+
+        const now = new Date()
+        const attendancesWithSessionMeta = attendances.map((attendance) => {
+            const isStaleFlexibleSession =
+                attendance.user?.workingHourMode === 'FLEXIBLE'
+                && attendance.checkOut === null
+                && (now.getTime() - attendance.checkIn.getTime()) > STALE_FLEXIBLE_SESSION_HOURS * 60 * 60 * 1000
+
+            return {
+                ...attendance,
+                sessionMeta: {
+                    isStaleFlexibleSession
+                }
+            }
+        })
 
         // Check Holiday for Today (User Filter? Timezone?)
         // Ideally we should use user's timezone, but for now server time or basic check is okay for display.
@@ -82,11 +107,11 @@ export async function GET(request: NextRequest) {
         })
 
         if (approvedTukarLibur) {
-            const startDateMatch = approvedTukarLibur.startDate && 
-                approvedTukarLibur.startDate >= todayStart && 
+            const startDateMatch = approvedTukarLibur.startDate &&
+                approvedTukarLibur.startDate >= todayStart &&
                 approvedTukarLibur.startDate <= todayEnd
-            const replacementDateMatch = approvedTukarLibur.replacementDate && 
-                approvedTukarLibur.replacementDate >= todayStart && 
+            const replacementDateMatch = approvedTukarLibur.replacementDate &&
+                approvedTukarLibur.replacementDate >= todayStart &&
                 approvedTukarLibur.replacementDate <= todayEnd
 
             if (replacementDateMatch) {
@@ -102,7 +127,7 @@ export async function GET(request: NextRequest) {
         // User FLEXIBLE tidak terpengaruh workDays - bisa absen setiap hari
         if (userData?.workDays && userData?.workingHourMode !== 'FLEXIBLE') {
             const dayOfWeek = today.getDay() // 0 = Sunday, 6 = Saturday
-            const dayMap: Record<string, number> = { 
+            const dayMap: Record<string, number> = {
                 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
                 'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6,
                 '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
@@ -130,7 +155,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            data: attendances,
+            data: attendancesWithSessionMeta,
             pagination: {
                 page,
                 limit,

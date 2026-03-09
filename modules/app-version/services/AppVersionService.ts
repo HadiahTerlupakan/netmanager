@@ -1,5 +1,5 @@
 import { AppVersionRepository, type AppVersion, type CreateAppVersionDTO, type UpdateAppVersionDTO, type AppVersionWithUser } from '../repositories/AppVersionRepository'
-import { isR2Enabled, uploadToR2, generateR2Key, deleteFromR2 } from '@/lib/utils/r2-client'
+import { isR2Enabled, uploadToR2, generateR2Key, deleteFromR2, getR2ObjectBuffer, getR2ObjectMetadata, getR2Settings } from '@/lib/utils/r2-client'
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
@@ -53,6 +53,12 @@ export interface CheckVersionResult {
     } | null
 }
 
+export interface VersionAccessResult extends CheckVersionResult {
+    isSupported: boolean
+    currentVersionCode: number
+    minimumVersion: string | null
+}
+
 // Singleton instance
 let serviceInstance: AppVersionService | null = null
 
@@ -68,6 +74,67 @@ export class AppVersionService {
 
     constructor() {
         this.repository = new AppVersionRepository()
+    }
+
+    private validateUploadedKey(key: string) {
+        if (!key.startsWith('uploads/apk/')) {
+            throw new Error('Lokasi file direct upload tidak valid')
+        }
+    }
+
+    private async cleanupStoredApk(apkUrl?: string | null): Promise<void> {
+        if (!apkUrl) {
+            return
+        }
+
+        if (apkUrl.startsWith('/uploads/apk/') || apkUrl.startsWith('/apk/')) {
+            const relativePath = apkUrl.replace(/^\//, '')
+            const localPath = path.join(process.cwd(), 'public', relativePath)
+            await fs.unlink(localPath)
+            return
+        }
+
+        if ((apkUrl.startsWith('http://') || apkUrl.startsWith('https://')) && apkUrl.includes('uploads/apk/')) {
+            const keyIndex = apkUrl.indexOf('uploads/apk/')
+            if (keyIndex !== -1) {
+                const key = apkUrl.substring(keyIndex)
+                await deleteFromR2(key)
+            }
+        }
+    }
+
+    private async loadUploadedApkDetails(input: UploadVersionInput): Promise<{
+        apkBuffer?: Buffer
+        apkSize?: number
+        apkUrl?: string
+    }> {
+        if (!input.uploadedKey) {
+            return {}
+        }
+
+        this.validateUploadedKey(input.uploadedKey)
+
+        const metadata = await getR2ObjectMetadata(input.uploadedKey)
+
+        if (input.uploadedSize && metadata.contentLength !== null && input.uploadedSize !== metadata.contentLength) {
+            throw new Error('Ukuran file APK yang diupload tidak sesuai')
+        }
+
+        const settings = await getR2Settings()
+        const apkUrl = settings?.publicUrl
+            ? `${settings.publicUrl.replace(/\/$/, '')}/${input.uploadedKey}`
+            : settings
+                ? `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${input.uploadedKey}`
+                : input.uploadedKey
+
+        const resolvedSize = metadata.contentLength ?? input.uploadedSize
+        const apkBuffer = await getR2ObjectBuffer(input.uploadedKey)
+
+        return {
+            apkBuffer,
+            ...(resolvedSize ? { apkSize: resolvedSize } : {}),
+            apkUrl
+        }
     }
 
     /**
@@ -181,22 +248,42 @@ export class AppVersionService {
         let version = input.version
         let buildNumber = input.buildNumber
         let versionCode = input.versionCode
+        let apkUrl: string | undefined
+        let apkSize = input.apkSize
+        let uploadedByService = false
 
         try {
-            // Auto-parse APK jika ada APK dan version info tidak lengkap (Hanya jika APK diupload via server)
-            if ((input.apkBuffer || input.apkPath) && (!version || !buildNumber || !versionCode)) {
-                // console.log('[AppVersionService] Parsing APK for version info...')
+            const uploadedApk = await this.loadUploadedApkDetails(input)
+
+            if (uploadedApk.apkUrl) {
+                apkUrl = uploadedApk.apkUrl
+            }
+
+            if (uploadedApk.apkSize !== undefined) {
+                apkSize = uploadedApk.apkSize
+            }
+
+            if (input.apkBuffer || input.apkPath || uploadedApk.apkBuffer) {
                 const apkInfo = await this.parseApkInfo({
+                    ...(uploadedApk.apkBuffer ? { buffer: uploadedApk.apkBuffer } : {}),
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
                     ...(input.apkPath ? { path: input.apkPath } : {})
                 })
+
                 if (apkInfo) {
+                    if (
+                        (version && version !== apkInfo.versionName) ||
+                        (buildNumber && buildNumber !== apkInfo.buildNumber) ||
+                        (versionCode && versionCode !== apkInfo.versionCode)
+                    ) {
+                        throw new Error('Metadata versi tidak cocok dengan APK yang diupload')
+                    }
+
                     version = version || apkInfo.versionName
                     buildNumber = buildNumber || apkInfo.buildNumber
                     versionCode = versionCode || apkInfo.versionCode
-                    // console.log(`[AppVersionService] Auto-extracted from APK: v${version}, build ${buildNumber}, code ${versionCode}`)
                 } else {
-                    console.warn('[AppVersionService] Failed to parse APK info, using manual values if provided')
+                    throw new Error('Gagal membaca metadata APK yang diupload')
                 }
             }
 
@@ -215,31 +302,7 @@ export class AppVersionService {
                 throw new Error(`Version code ${versionCode} sudah ada`)
             }
 
-            let apkUrl: string | undefined
-            let apkSize = input.apkSize
-
-            // Scenario 1: Pre-uploaded file (Direct Upload)
-            if (input.uploadedKey) {
-                // console.log(`[AppVersionService] Using pre-uploaded file: ${input.uploadedKey}`)
-
-                // Construct public URL
-                const settings = await import('@/lib/utils/r2-client').then(m => m.getR2Settings())
-                if (settings && settings.publicUrl) {
-                    apkUrl = `${settings.publicUrl.replace(/\/$/, '')}/${input.uploadedKey}`
-                } else if (settings) {
-                    apkUrl = `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${input.uploadedKey}`
-                } else {
-                    // Fallback purely based on key if settings fail (shouldn't happen if R2 enabled)
-                    apkUrl = input.uploadedKey
-                }
-
-                if (input.uploadedSize) {
-                    apkSize = input.uploadedSize
-                }
-            }
-            // Scenario 2: Server-side Upload (Legacy/Fallback)
-            else if ((input.apkBuffer || input.apkPath) && input.apkFilename) {
-                // console.log(`[AppVersionService] Uploading APK file: ${input.apkFilename}`)
+            if (!input.uploadedKey && (input.apkBuffer || input.apkPath) && input.apkFilename) {
                 apkUrl = await this.uploadApkFile({
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
                     ...(input.apkPath ? { path: input.apkPath } : {}),
@@ -247,7 +310,7 @@ export class AppVersionService {
                     version,
                     forceLocal: input.forceLocal
                 })
-                // console.log(`[AppVersionService] APK uploaded successfully: ${apkUrl}`)
+                uploadedByService = true
             }
 
             // Create version record
@@ -271,6 +334,13 @@ export class AppVersionService {
             // console.log(`[AppVersionService] Version created successfully: ${result.id}`)
             return result
         } catch (error: unknown) {
+            if (uploadedByService && apkUrl) {
+                try {
+                    await this.cleanupStoredApk(apkUrl)
+                } catch (cleanupError) {
+                    console.warn('Gagal membersihkan APK setelah create versi gagal:', cleanupError)
+                }
+            }
             console.error('[AppVersionService] Error in uploadVersion:', error)
             const err = error as { message?: string }
             // Re-throw with more context
@@ -367,22 +437,27 @@ export class AppVersionService {
             throw new Error('Versi tidak ditemukan')
         }
 
+        const updateData: UpdateAppVersionDTO = {
+            ...data,
+            ...(data.minVersion === undefined ? { minVersion: existing.minVersion } : {})
+        }
+
         // Check for version conflicts if changing version or versionCode
-        if (data.version && data.version !== existing.version) {
-            const versionExists = await this.repository.findByVersion(data.version)
+        if (updateData.version && updateData.version !== existing.version) {
+            const versionExists = await this.repository.findByVersion(updateData.version)
             if (versionExists) {
-                throw new Error(`Version ${data.version} sudah ada`)
+                throw new Error(`Version ${updateData.version} sudah ada`)
             }
         }
 
-        if (data.versionCode && data.versionCode !== existing.versionCode) {
-            const codeExists = await this.repository.findByVersionCode(data.versionCode)
+        if (updateData.versionCode && updateData.versionCode !== existing.versionCode) {
+            const codeExists = await this.repository.findByVersionCode(updateData.versionCode)
             if (codeExists) {
-                throw new Error(`Version code ${data.versionCode} sudah ada`)
+                throw new Error(`Version code ${updateData.versionCode} sudah ada`)
             }
         }
 
-        return this.repository.update(id, data)
+        return this.repository.update(id, updateData)
     }
 
     /**
@@ -397,33 +472,7 @@ export class AppVersionService {
         // 1. Delete Physical File
         if (existing.apkUrl) {
             try {
-                // Cek apakah file lokal
-                if (existing.apkUrl.startsWith('/apk/')) {
-                    const localPath = path.join(process.cwd(), 'public', existing.apkUrl)
-                    try {
-                        await fs.unlink(localPath)
-                        // console.log(`Deleted local APK: ${localPath}`)
-                    } catch (err: unknown) {
-                        const error = err as { message?: string }
-                        console.warn(`Failed to delete local APK: ${error.message}`)
-                    }
-                }
-                // Cek apakah file R2 (mengandung uploads/apk/)
-                else if (existing.apkUrl.includes('uploads/apk/')) {
-                    // Extract key from URL
-                    // Key format: uploads/apk/timestamp-filename.apk
-                    // URL format: https://domain.com/uploads/apk/timestamp-filename.apk
-                    const keyIndex = existing.apkUrl.indexOf('uploads/apk/')
-                    if (keyIndex !== -1) {
-                        const key = existing.apkUrl.substring(keyIndex)
-                        const deleted = await deleteFromR2(key)
-                        if (deleted) {
-                            // console.log(`Deleted R2 object: ${key}`)
-                        } else {
-                            console.warn(`Failed to delete R2 object: ${key}`)
-                        }
-                    }
-                }
+                await this.cleanupStoredApk(existing.apkUrl)
             } catch (error) {
                 console.error('Error deleting physical APK file:', error)
                 // Continue to delete DB record even if file deletion fails
@@ -434,35 +483,32 @@ export class AppVersionService {
         await this.repository.delete(id)
     }
 
-    /**
-     * Check for available update
-     */
-    async checkForUpdate(
+    async evaluateVersionAccess(
         currentVersionCode: number,
         platform: string = 'android'
-    ): Promise<CheckVersionResult> {
+    ): Promise<VersionAccessResult> {
         const latestVersion = await this.repository.getLatestVersion(platform)
 
         if (!latestVersion) {
             return {
+                isSupported: true,
                 updateAvailable: false,
                 isForceUpdate: false,
                 currentVersion: '',
+                currentVersionCode,
+                minimumVersion: null,
                 latestVersion: null
             }
         }
 
         const updateAvailable = latestVersion.versionCode > currentVersionCode
 
-        // Determine if force update is required
         let isForceUpdate = false
         if (updateAvailable && latestVersion.isForceUpdate) {
             isForceUpdate = true
         }
 
-        // Also check minVersion if specified
         if (updateAvailable && latestVersion.minVersion) {
-            // Parse minVersion and compare
             const minVersionCode = this.parseVersionToCode(latestVersion.minVersion)
             if (minVersionCode && currentVersionCode < minVersionCode) {
                 isForceUpdate = true
@@ -470,18 +516,42 @@ export class AppVersionService {
         }
 
         return {
+            isSupported: !isForceUpdate,
             updateAvailable,
             isForceUpdate,
             currentVersion: latestVersion.version,
-            latestVersion: updateAvailable ? {
-                id: latestVersion.id,
-                version: latestVersion.version,
-                buildNumber: latestVersion.buildNumber,
-                versionCode: latestVersion.versionCode,
-                releaseNotes: latestVersion.releaseNotes,
-                downloadUrl: latestVersion.apkUrl ? (latestVersion.apkUrl.startsWith("http://") || latestVersion.apkUrl.startsWith("https://") ? latestVersion.apkUrl : `/api/mobile/app-version/download/${latestVersion.id}`) : null,
-                apkSize: latestVersion.apkSize ? Number(latestVersion.apkSize) : null
-            } : null
+            currentVersionCode,
+            minimumVersion: latestVersion.minVersion ?? null,
+            latestVersion: updateAvailable ? this.mapLatestVersion(latestVersion) : null
+        }
+    }
+
+    /**
+     * Check for available update
+     */
+    async checkForUpdate(
+        currentVersionCode: number,
+        platform: string = 'android'
+    ): Promise<CheckVersionResult> {
+        const result = await this.evaluateVersionAccess(currentVersionCode, platform)
+
+        return {
+            updateAvailable: result.updateAvailable,
+            isForceUpdate: result.isForceUpdate,
+            currentVersion: result.currentVersion,
+            latestVersion: result.latestVersion
+        }
+    }
+
+    private mapLatestVersion(latestVersion: AppVersion): CheckVersionResult['latestVersion'] {
+        return {
+            id: latestVersion.id,
+            version: latestVersion.version,
+            buildNumber: latestVersion.buildNumber,
+            versionCode: latestVersion.versionCode,
+            releaseNotes: latestVersion.releaseNotes,
+            downloadUrl: latestVersion.apkUrl ? (latestVersion.apkUrl.startsWith('http://') || latestVersion.apkUrl.startsWith('https://') ? latestVersion.apkUrl : `/api/mobile/app-version/download/${latestVersion.id}`) : null,
+            apkSize: latestVersion.apkSize ? Number(latestVersion.apkSize) : null
         }
     }
 

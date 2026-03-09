@@ -9,6 +9,12 @@ enum WorkingHourMode {
     FLEXIBLE = 'FLEXIBLE'
 }
 
+enum AttendanceGeofencePolicy {
+    STRICT = 'STRICT',
+    WARN = 'WARN',
+    DISABLED = 'DISABLED'
+}
+
 interface Shift {
     id: string
     name: string
@@ -19,6 +25,7 @@ interface Shift {
 
 interface WorkingHoursData {
     workingHourMode: WorkingHourMode
+    attendanceGeofencePolicy: AttendanceGeofencePolicy
     startWorkTime?: string | null
     endWorkTime?: string | null
     workDays?: string | null
@@ -29,6 +36,7 @@ interface WorkingHoursData {
 interface WorkingHoursSettingsProps {
     initialData: {
         workingHourMode: string
+        attendanceGeofencePolicy?: string | null
         startWorkTime?: string | null
         endWorkTime?: string | null
         workDays?: string | null
@@ -40,6 +48,7 @@ interface WorkingHoursSettingsProps {
 
 export default function WorkingHoursSettings({ initialData, onChange }: WorkingHoursSettingsProps) {
     const [mode, setMode] = useState<WorkingHourMode>((initialData.workingHourMode as WorkingHourMode) || WorkingHourMode.FIXED)
+    const [geofencePolicy, setGeofencePolicy] = useState<AttendanceGeofencePolicy>((initialData.attendanceGeofencePolicy as AttendanceGeofencePolicy) || AttendanceGeofencePolicy.WARN)
     const [startTime, setStartTime] = useState(initialData.startWorkTime || "09:00")
     const [endTime, setEndTime] = useState(initialData.endWorkTime || "17:00")
     const [selectedDays, setSelectedDays] = useState<string[]>(initialData.workDays ? initialData.workDays.split(',') : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'])
@@ -85,7 +94,7 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
         // Notify parent of changes
         // Use timeout to break sync render loop if parent updates state immediately
         const timer = setTimeout(() => {
-             const data: WorkingHoursData = { workingHourMode: mode }
+             const data: WorkingHoursData = { workingHourMode: mode, attendanceGeofencePolicy: geofencePolicy }
 
             if (mode === WorkingHourMode.FIXED) {
                 data.startWorkTime = startTime
@@ -104,7 +113,7 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
         }, 0)
 
         return () => clearTimeout(timer)
-    }, [mode, startTime, endTime, selectedDays, targetHours, selectedShiftId, onChange])
+    }, [mode, geofencePolicy, startTime, endTime, selectedDays, targetHours, selectedShiftId, onChange])
 
     const toggleDay = (dayId: string) => {
         if (selectedDays.includes(dayId)) {
@@ -290,6 +299,47 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
                         </div>
                     </div>
                 )}
+
+                <div className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Kebijakan Geofence Absensi</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setGeofencePolicy(AttendanceGeofencePolicy.STRICT)}
+                                className={`p-4 border rounded-xl text-left transition-all ${geofencePolicy === AttendanceGeofencePolicy.STRICT
+                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 ring-2 ring-red-200 dark:ring-red-800'
+                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                    }`}
+                            >
+                                <div className="font-semibold text-gray-900 dark:text-white">Wajib dalam area site</div>
+                                <div className="text-xs text-gray-500 mt-1">Tolak absensi jika berada di luar geofence.</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setGeofencePolicy(AttendanceGeofencePolicy.WARN)}
+                                className={`p-4 border rounded-xl text-left transition-all ${geofencePolicy === AttendanceGeofencePolicy.WARN
+                                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-200 dark:ring-amber-800'
+                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                    }`}
+                            >
+                                <div className="font-semibold text-gray-900 dark:text-white">Peringatkan saja</div>
+                                <div className="text-xs text-gray-500 mt-1">Izinkan absensi di luar area, tapi tampilkan peringatan.</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setGeofencePolicy(AttendanceGeofencePolicy.DISABLED)}
+                                className={`p-4 border rounded-xl text-left transition-all ${geofencePolicy === AttendanceGeofencePolicy.DISABLED
+                                    ? 'border-slate-500 bg-slate-50 dark:bg-slate-900/20 ring-2 ring-slate-200 dark:ring-slate-800'
+                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                    }`}
+                            >
+                                <div className="font-semibold text-gray-900 dark:text-white">Nonaktifkan geofence</div>
+                                <div className="text-xs text-gray-500 mt-1">Cocok untuk WFH atau peran remote penuh.</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     )

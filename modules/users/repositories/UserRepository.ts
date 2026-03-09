@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
-import { WorkingHourMode, Prisma } from '@prisma/client'
+import { AttendanceGeofencePolicy, WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
 
 export interface CreateUserDTO {
@@ -14,6 +14,7 @@ export interface CreateUserDTO {
     isActive?: boolean
     // Working Hours Settings
     workingHourMode?: WorkingHourMode
+    attendanceGeofencePolicy?: AttendanceGeofencePolicy
     startWorkTime?: string | null
     endWorkTime?: string | null
     workDays?: string | null
@@ -132,6 +133,7 @@ export class UserRepository {
                 isActive: data.isActive !== undefined ? data.isActive : true,
                 // Working Hours Settings
                 workingHourMode: data.workingHourMode || WorkingHourMode.FIXED,
+                attendanceGeofencePolicy: data.attendanceGeofencePolicy || AttendanceGeofencePolicy.WARN,
                 startWorkTime: data.startWorkTime || '09:00',
                 endWorkTime: data.endWorkTime || '17:00',
                 workDays: data.workDays || 'Mon,Tue,Wed,Thu,Fri',
@@ -183,4 +185,3 @@ export class UserRepository {
         })
     }
 }
-

@@ -1,18 +1,17 @@
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
-        const authHeader = req.headers.get('Authorization')
-        if (!authHeader?.startsWith('Bearer ')) {
-            return ApiErrors.unauthorized('Token tidak valid')
+        const authResult = await getMobileAuthPayload(req)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const token = authHeader.split(' ')[1];
-        const session = await verifyMobileToken(token)
-
-        if (!session || !session.userId || session.role !== 'MITRA') {
+        const session = authResult
+        if (!session.userId || session.role !== 'MITRA') {
             return ApiErrors.unauthorized('Sesi tidak valid atau bukan Mitra')
         }
 

@@ -34,7 +34,8 @@ function CaptchaSettingsSection() {
       setLoading(true)
       const res = await fetch('/api/settings/captcha')
       if (res.ok) {
-        const data = await res.json()
+        const json = await res.json()
+        const data = json.data || {}
         setCaptchaEnabled(data.enabled || false)
         setSiteKey(data.siteKey || '')
         setSecretKey(data.secretKey || '')
@@ -205,7 +206,8 @@ export function ClientComponent() {
       setError(null)
       const res = await fetch('/api/settings/api')
       if (res.ok) {
-        const data = await res.json()
+        const json = await res.json()
+        const data = json.data || {}
         setSettings({
           googleGeminiApiKey: data.googleGeminiApiKey || '',
           geminiEnabled: data.geminiEnabled || false,

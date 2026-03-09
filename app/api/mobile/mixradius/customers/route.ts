@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMobileToken } from '@/lib/mobile-auth';
-import { MixRadiusService } from '@/modules/integrations';
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
+import { MixRadiusConfigError, MixRadiusService } from '@/modules/integrations';
 
 /**
  * GET /api/mobile/mixradius/customers
@@ -8,19 +8,12 @@ import { MixRadiusService } from '@/modules/integrations';
  */
 export async function GET(request: NextRequest) {
     try {
-        // Auth Check
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
+        const authResult = await getMobileAuthPayload(request);
+        if (authResult instanceof NextResponse) {
+            return authResult;
         }
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ error: 'Token tidak tersedia' }, { status: 401 });
-        }
-        const payload = await verifyMobileToken(token);
-        if (!payload) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
-        }
+
+        const payload = authResult;
 
         // Check Permission
         const permissions = payload.permissions || [];
@@ -72,6 +65,14 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error searching MixRadius customers:', error);
+
+        if (error instanceof MixRadiusConfigError || (error instanceof Error && error.name === 'MixRadiusConfigError')) {
+            return NextResponse.json(
+                { error: error.message, code: 'MIXRADIUS_CONFIG_ERROR' },
+                { status: 503 }
+            );
+        }
+
         return NextResponse.json(
             { error: 'Gagal mencari pelanggan' },
             { status: 500 }

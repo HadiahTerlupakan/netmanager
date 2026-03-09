@@ -18,6 +18,7 @@ import { usePermission } from '@/hooks/use-permission'
 import { useSocket } from '@/lib/websocket/SocketContext'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { shouldNotifyForChatMessage } from '@/lib/chat/shouldNotifyForChatMessage'
 
 interface ChatUser {
     id: string
@@ -386,7 +387,7 @@ export default function ChatPageClient() {
 
         const handleNewMessage = (payload: ChatMessage & { conversationId: string }) => {
             // 1. Notification (if not own message)
-            if (!payload.isOwn) {
+            if (shouldNotifyForChatMessage(Boolean(payload.isOwn), selectedConversation, payload.conversationId)) {
                 playNotificationSound('chat')
                 showBrowserNotification(payload.senderName || 'User', payload.content || 'Gambar')
             }

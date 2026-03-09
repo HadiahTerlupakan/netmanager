@@ -1,19 +1,17 @@
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET - Get all conversations for current user
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
@@ -22,7 +20,7 @@ export async function GET(request: NextRequest) {
             where: {
                 participants: {
                     some: {
-                        userId: user.id
+                        userId
                     }
                 }
             },
@@ -58,7 +56,7 @@ export async function GET(request: NextRequest) {
         const formattedConversations = conversations.map(conv => {
             const lastMessage = conv.messages[0]
             const otherParticipants = conv.participants
-                .filter(p => p.userId !== user.id)
+                .filter(p => p.userId !== userId)
                 .map(p => ({
                     id: p.user.id,
                     name: p.user.name,
@@ -66,7 +64,7 @@ export async function GET(request: NextRequest) {
                 }))
 
             // Get current user's participant record for unread status
-            const myParticipant = conv.participants.find(p => p.userId === user.id)
+            const myParticipant = conv.participants.find(p => p.userId === userId)
             const hasUnread = lastMessage && myParticipant?.lastReadAt
                 ? new Date(lastMessage.createdAt) > new Date(myParticipant.lastReadAt)
                 : !!lastMessage && !myParticipant?.lastReadAt
@@ -100,21 +98,19 @@ export async function GET(request: NextRequest) {
 // POST - Create a new conversation
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.replace('Bearer ', '')
-
-        if (!token) {
-            return NextResponse.json({ error: 'Token wajib diisi' }, { status: 401 })
+        const authResult = await getMobileAuthPayload(request)
+        if (authResult instanceof NextResponse) {
+            return authResult
         }
 
-        const user = await verifyMobileToken(token)
-        if (!user) {
+        const userId = authResult.userId as string
+        if (!userId) {
             return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
         }
 
         // Validate that user exists in the User table (Mitra and Customer cannot create conversations)
         const dbUser = await prisma.user.findUnique({
-            where: { id: user.id as string },
+            where: { id: userId },
             select: { id: true }
         })
 
@@ -130,7 +126,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Include current user in participants
-        const allParticipantIds = [...new Set([user.id, ...participantIds])]
+        const allParticipantIds = [...new Set([userId, ...participantIds])]
 
         // For 1-on-1 chats, check if conversation already exists
         if (allParticipantIds.length === 2) {

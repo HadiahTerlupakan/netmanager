@@ -166,26 +166,64 @@ export async function POST(
             return NextResponse.json({ status: 'ok', message: 'Payment record not found' })
         }
 
-        // Update Payment record with gateway response
-        await prismaBilling.payment.update({
-            where: { id: payment.id },
-            data: {
-                gatewayStatus: gatewayStatus as unknown,
-                transactionId: webhookResult.transactionId || null,
-                gatewayProvider: providerType,
-                ...(webhookResult.paymentMethod ? { paymentMethod: webhookResult.paymentMethod as unknown } : {}),
-                ...(webhookResult.paidAt ? { paymentDate: webhookResult.paidAt } : {}),
-            },
-        })
-
-        // If payment is confirmed (PAID), update linked invoices
-        if (gatewayStatus === 'PAID') {
-            await updateInvoicesOnPayment(payment.id, payment.notes)
+        // Prevent race conditions and duplicate processing using atomic database checks
+        if (payment.gatewayStatus === 'PAID') {
+            console.log(`[Webhook] Payment ${payment.id} already PAID, skipping duplicate event`)
+            return NextResponse.json({ status: 'ok', message: 'Already processed' })
         }
+
+        // Execute update in a transaction to prevent race conditions during concurrent webhook/manual payments
+        await prismaBilling.$transaction(async (tx) => {
+            // Double check inside transaction for concurrency safety
+            const currentPayment = await tx.payment.findUnique({ where: { id: payment.id! } });
+            if (currentPayment && currentPayment.gatewayStatus === 'PAID') {
+                return;
+            }
+
+            // Update Payment record with gateway response
+            await tx.payment.update({
+                where: { id: payment.id },
+                data: {
+                    gatewayStatus: gatewayStatus as unknown,
+                    transactionId: webhookResult.transactionId || null,
+                    gatewayProvider: providerType,
+                    ...(webhookResult.paymentMethod ? { paymentMethod: webhookResult.paymentMethod as unknown } : {}),
+                    ...(webhookResult.paidAt ? { paymentDate: webhookResult.paidAt } : {}),
+                },
+            })
+
+            // If payment is confirmed (PAID), update linked invoices transactionally
+            if (gatewayStatus === 'PAID') {
+                await updateInvoicesOnPaymentTx(tx, payment.id, payment.notes)
+            }
+        })
 
         // If payment expired/cancelled/failed, update gateway status only
         if (['EXPIRED', 'CANCELLED', 'FAILED'].includes(gatewayStatus)) {
             console.log(`[Webhook] Payment ${payment.id} marked as ${gatewayStatus}`)
+        }
+
+        // Handle side-effects that require the new state and should happen outside the database transaction
+        if (gatewayStatus === 'PAID') {
+            // Re-fetch invoices linked to payment to trigger any external side-effects (e.g., AutomaticBillingService)
+            let invoiceIds: string[] = [];
+            try {
+                if (payment.notes) {
+                    const metadata = JSON.parse(payment.notes);
+                    if (Array.isArray(metadata.invoiceIds)) invoiceIds = metadata.invoiceIds;
+                }
+            } catch {}
+            if (invoiceIds.length === 0 && payment.invoiceId) {
+                invoiceIds = [payment.invoiceId];
+            }
+            for (const invId of invoiceIds) {
+                const inv = await prismaBilling.invoice.findUnique({ where: { id: invId } });
+                if (inv?.status === 'PAID') {
+                    await AutomaticBillingService.handleInvoicePaid(invId).catch(err => 
+                        console.error(`[Webhook] Error triggering side-effects for invoice ${invId}:`, err)
+                    );
+                }
+            }
         }
 
         // Always return 200 to acknowledge receipt
@@ -215,7 +253,7 @@ export async function POST(
  * Update all linked invoices when payment is confirmed.
  * Parses invoiceIds from payment notes metadata and updates each invoice.
  */
-async function updateInvoicesOnPayment(paymentId: string, notes: string | null) {
+async function updateInvoicesOnPaymentTx(tx: Parameters<Parameters<typeof import('@/prisma/generated/billing').PrismaClient.prototype.$transaction>[0]>[0], paymentId: string, notes: string | null) {
     // Try to extract invoiceIds from notes metadata
     let invoiceIds: string[] = []
 
@@ -232,7 +270,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
 
     // If no invoiceIds from notes, try from direct payment-invoice link
     if (invoiceIds.length === 0) {
-        const payment = await prismaBilling.payment.findUnique({
+        const payment = await tx.payment.findUnique({
             where: { id: paymentId },
             select: { invoiceId: true },
         })
@@ -249,7 +287,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
 
     // Update each invoice's paid amount and status
     for (const invoiceId of invoiceIds) {
-        const invoice = await prismaBilling.invoice.findUnique({
+        const invoice = await tx.invoice.findUnique({
             where: { id: invoiceId },
             include: { payment: true },
         })
@@ -260,10 +298,10 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
         }
 
         // Calculate total paid from all PAID payments
-        const totalPaid = invoice.payment.reduce((sum, p) => {
+        const totalPaid = invoice.payment.reduce((sum: bigint, p: { gatewayStatus?: string | null; amount: bigint | number }) => {
             // Only count payments that are confirmed (PAID or no gateway status = manual)
             if (!p.gatewayStatus || p.gatewayStatus === 'PAID') {
-                return sum + p.amount
+                return sum + BigInt(p.amount)
             }
             return sum
         }, BigInt(0))
@@ -278,7 +316,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
             invoiceStatus = invoice.status
         }
 
-        await prismaBilling.invoice.update({
+        await tx.invoice.update({
             where: { id: invoiceId },
             data: {
                 paidAmount: totalPaid,
@@ -288,7 +326,7 @@ async function updateInvoicesOnPayment(paymentId: string, notes: string | null) 
         })
 
         if (invoiceStatus === 'PAID') {
-            await AutomaticBillingService.handleInvoicePaid(invoiceId);
+            // AutomaticBillingService.handleInvoicePaid is now handled outside the transaction block
         }
 
         console.log(`[Webhook] Invoice ${invoiceId} updated: status=${invoiceStatus}, paidAmount=${totalPaid}`)

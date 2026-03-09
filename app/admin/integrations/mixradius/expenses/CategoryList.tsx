@@ -43,7 +43,7 @@ export default function CategoryList() {
         return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
     })
     const [endDate, setEndDate] = useState(() => {
-        return new Date().toISOString().split('T')[0]
+        return (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })()
     })
 
     const [formData, setFormData] = useState({

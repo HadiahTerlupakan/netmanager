@@ -1,17 +1,21 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWalletService } from '@/modules/mitra'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { prismaBilling } from '@/lib/prisma-billing'
+import { toStartOfDay } from '@/lib/utils/datetime'
+
 
 const walletService = getMitraWalletService()
 
 // GET /api/mobile/mitra/dashboard — Mitra dashboard stats
 export async function GET(req: NextRequest) {
     try {
-        const session = await verifyAuth(req)
-        if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
+        const authResult = await getMobileAuthPayload(req)
+        if (authResult instanceof Response) return authResult
+
+        const session = authResult
 
         if (session.role !== 'MITRA') {
             return ApiErrors.forbidden('Bukan akun mitra')
@@ -89,7 +93,7 @@ export async function GET(req: NextRequest) {
         if (mitra.mitraType === 'MITRA_SALES' && mitra.enableFeePelanggan) {
             try {
                 const today = new Date()
-                today.setHours(0, 0, 0, 0)
+                today.setTime(toStartOfDay(today).getTime())
 
                 // Settlement T-1: data strictly before today 00:00
                 const yesterdayEnd = new Date(today)

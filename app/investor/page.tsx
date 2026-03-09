@@ -7,9 +7,31 @@ import { HiOutlineBriefcase, HiOutlineUserGroup, HiOutlineCurrencyDollar } from 
 import InvestorBottomNav from './components/InvestorBottomNav'
 import { formatCurrency } from '@/lib/utils'
 
+interface SubscriberStats {
+    total?: number;
+    active?: number;
+    paying?: number;
+    paymentRatio?: number;
+}
+
+interface DashboardProject {
+    id: string;
+    name: string;
+    status: string;
+    siteName: string;
+}
+
+interface DashboardData {
+    totalActualRevenue?: number | string;
+    activeProjectsCount?: number;
+    totalInvestment?: number | string;
+    subscribers?: SubscriberStats;
+    projects?: DashboardProject[];
+}
+
 export default function InvestorDashboard() {
     const router = useRouter()
-    const [data, setData] = useState<unknown>(null)
+    const [data, setData] = useState<DashboardData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
@@ -21,7 +43,7 @@ export default function InvestorDashboard() {
                     return
                 }
                 const result = await res.json()
-                setData(result)
+                setData(result as DashboardData)
             } catch {
                 console.error("Dashboard fetch error")
             } finally {
@@ -44,18 +66,10 @@ export default function InvestorDashboard() {
 
     if (!data) return null;
 
-    const dashboardData = data as Record<string, unknown>
-    const totalActual = dashboardData.totalActualRevenue ? Number(dashboardData.totalActualRevenue) : 0
-    const activeCount = dashboardData.activeProjectsCount ? Number(dashboardData.activeProjectsCount) : 0
-    const investment = dashboardData.totalInvestment ? Number(dashboardData.totalInvestment) : 0
-
-    interface SubscriberStats {
-        total?: number;
-        active?: number;
-        paying?: number;
-        paymentRatio?: number;
-    }
-    const subs = dashboardData.subscribers as SubscriberStats | undefined
+    const totalActual = data.totalActualRevenue ? Number(data.totalActualRevenue) : 0
+    const activeCount = data.activeProjectsCount ? Number(data.activeProjectsCount) : 0
+    const investment = data.totalInvestment ? Number(data.totalInvestment) : 0
+    const subs = data.subscribers
     const paymentRatio = subs?.paymentRatio || 0
 
     return (
@@ -140,6 +154,43 @@ export default function InvestorDashboard() {
                         </div>
                     </div>
                 </div>
+
+                {/* Projects Status Section */}
+                {data.projects && data.projects.length > 0 && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Status Proyek Anda</h3>
+                            <Link href="/investor/projects" className="text-xs font-bold text-blue-600 dark:text-blue-400">Lihat Semua</Link>
+                        </div>
+
+                        <div className="space-y-3">
+                            {(data.projects || []).slice(0, 3).map((project) => (
+                                <Link
+                                    key={project.id}
+                                    href={`/investor/projects/${project.id}`}
+                                    className="bg-white dark:bg-neutral-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-neutral-800 flex items-center justify-between hover:border-blue-200 dark:hover:border-blue-900 transition-colors"
+                                >
+                                    <div className="flex-1 min-w-0 pr-4">
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{project.name}</p>
+                                        <p className="text-[10px] text-gray-500 truncate">{project.siteName}</p>
+                                    </div>
+                                    <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-tighter ${project.status === 'DRAFT' ? 'bg-gray-100 text-gray-600' :
+                                        project.status === 'PENDING_APPROVAL' ? 'bg-amber-100 text-amber-700' :
+                                            project.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                                                project.status === 'PENGADAAN' ? 'bg-blue-100 text-blue-800' :
+                                                    project.status === 'PENGGELARAN_JARINGAN' ? 'bg-purple-100 text-purple-800' :
+                                                        project.status === 'PENJUALAN' ? 'bg-indigo-100 text-indigo-800' :
+                                                            project.status === 'TARGET_TERCAPAI' ? 'bg-emerald-500 text-white' :
+                                                                project.status === 'SELESAI' ? 'bg-gray-800 text-white' :
+                                                                    'bg-gray-100 text-gray-600'
+                                        }`}>
+                                        {project.status.replace(/_/g, ' ')}
+                                    </span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Quick Action / Notice */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-neutral-800 dark:to-neutral-800 rounded-3xl p-5 border border-blue-100 dark:border-neutral-700 flex items-center justify-between">

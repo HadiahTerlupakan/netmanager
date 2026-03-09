@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { randomUUID } from 'crypto'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+
 
 export class AbsenceService {
     private holidayRepo: HolidayRepository
@@ -21,10 +23,10 @@ export class AbsenceService {
     async processDailyAbsence(targetDate: Date) {
         // Normalize date to start of day
         const startOfDay = new Date(targetDate)
-        startOfDay.setHours(0, 0, 0, 0)
+        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
         
         const endOfDay = new Date(targetDate)
-        endOfDay.setHours(23, 59, 59, 999)
+        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         // 1. Check if targetDate is a Holiday
         const holidays = await this.holidayRepo.findMany({
@@ -135,7 +137,7 @@ export class AbsenceService {
                 // This signals that this is NOT a real check-in, just a placeholder record for ALPHA
                 // UI should hide the time display for records with this midnight timestamp
                 const alphaTime = new Date(startOfDay)
-                alphaTime.setHours(0, 0, 0, 0)
+                alphaTime.setTime(toStartOfDay(alphaTime).getTime())
                 
                 await prisma.attendance.create({
                     data: {

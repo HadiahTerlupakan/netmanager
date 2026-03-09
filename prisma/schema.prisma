@@ -210,48 +210,51 @@ model CustomerCohort {
 model ExpenseCategory {
   id        String            @id @default(cuid())
   name      String
-  type      String // "CAPEX" or "OPEX"
-  parentId  String?
-  parent    ExpenseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children  ExpenseCategory[] @relation("CategoryHierarchy")
-  expenses  Expense[]
-  rabItems  RabItem[]
+  type      String
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  parentId  String?
+  expenses  Expense[]
+  parent    ExpenseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  ExpenseCategory[] @relation("CategoryHierarchy")
+  rabItems  RabItem[]
 
   @@index([type])
   @@index([parentId])
 }
 
 model Expense {
-  id                String           @id
-  date              DateTime         @default(now())
+  id                String            @id
+  date              DateTime          @default(now())
   amount            BigInt
-  depreciation      BigInt?          @default(0)
-  usefulLife        Int?             @default(0)
   category          String
+  description       String?
+  userId            String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  siteId            String?
+  depreciation      BigInt?           @default(0)
   expenseCategoryId String?
-  expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id])
-
-  categoryId       String?
-  accountId        String?
-  financialAccount FinancialAccount? @relation(fields: [accountId], references: [id])
-
-  description      String?
-  userId           String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime
-  siteId           String?
-  site             Sites?   @relation(fields: [siteId], references: [id])
-  mixRadiusGroupId String?
-  // Soft-relation to MixRadiusOwnerGroup in billing DB
-  user             User?    @relation(fields: [userId], references: [id])
+  mixRadiusGroupId  String?
+  usefulLife        Int?              @default(0)
+  accountId         String?
+  categoryId        String?
+  rabItemId         String?
+  rabProjectId      String?
+  financialAccount  FinancialAccount? @relation(fields: [accountId], references: [id])
+  expenseCategory   ExpenseCategory?  @relation(fields: [expenseCategoryId], references: [id])
+  rabItem           RabItem?          @relation(fields: [rabItemId], references: [id])
+  rabProject        RabProject?       @relation(fields: [rabProjectId], references: [id])
+  site              Sites?            @relation(fields: [siteId], references: [id])
+  user              User?             @relation(fields: [userId], references: [id])
 
   @@index([category])
   @@index([date])
   @@index([userId])
   @@index([siteId])
   @@index([mixRadiusGroupId])
+  @@index([rabProjectId])
+  @@index([rabItemId])
 }
 
 model HargaPaket {
@@ -259,7 +262,6 @@ model HargaPaket {
   name                 String
   bandwidthId          String?
   profilePPPId         String
-  siteId               String?
   harga                Int
   durasi               Int           @default(30)
   durasiUnit           DurasiUnit    @default(HARI)
@@ -275,6 +277,7 @@ model HargaPaket {
   status               Status        @default(AKTIF)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime
+  siteId               String?
   bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id])
   profilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id])
   site                 Sites?        @relation(fields: [siteId], references: [id])
@@ -289,20 +292,19 @@ model HargaPaket {
 }
 
 model Investor {
-  id           String   @id @default(uuid())
-  username     String   @unique
+  id           String           @id @default(uuid())
+  username     String           @unique
   password     String
   passwordHash String?
   namaLengkap  String
   perusahaan   String?
   noTelp       String?
-  email        String?  @unique
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  rabProjects RabInvestor[]
-  payouts     InvestorPayout[]
+  email        String?          @unique
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  payouts      InvestorPayout[]
+  rabProjects  RabInvestor[]
 }
 
 model InvestorPayout {
@@ -318,22 +320,20 @@ model InvestorPayout {
   status        String   @default("COMPLETED")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  investor Investor @relation(fields: [investorId], references: [id])
+  investor      Investor @relation(fields: [investorId], references: [id])
 
   @@index([investorId])
   @@index([date])
 }
 
 model RabInvestor {
-  id                 String @id @default(uuid())
+  id                 String     @id @default(uuid())
   rabProjectId       String
   investorId         String
-  investmentAmount   BigInt @default(0) // Berapa banyak dana dari investor ini
-  profitSharePercent Float  @default(0) // Berapa persen bagi hasil untuk investor ini
-
-  rabProject RabProject @relation(fields: [rabProjectId], references: [id])
-  investor   Investor   @relation(fields: [investorId], references: [id])
+  investmentAmount   BigInt     @default(0)
+  profitSharePercent Float      @default(0)
+  investor           Investor   @relation(fields: [investorId], references: [id])
+  rabProject         RabProject @relation(fields: [rabProjectId], references: [id])
 
   @@unique([rabProjectId, investorId])
 }
@@ -352,17 +352,17 @@ model Joinbox {
   name                        String
   location                    String?
   notes                       String?
-  images                      String[]        @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status          @default(AKTIF)
   createdAt                   DateTime        @default(now())
   updatedAt                   DateTime
   keteranganJumlahKabelFeeder String?
-  joinboxInput                JoinboxInput[]
-  joinboxOutput               JoinboxOutput[]
+  images                      String[]        @default([])
   siteId                      String?
   site                        Sites?          @relation(fields: [siteId], references: [id])
+  joinboxInput                JoinboxInput[]
+  joinboxOutput               JoinboxOutput[]
 
   @@index([siteId])
 }
@@ -435,14 +435,13 @@ model LeaveRequest {
   @@index([startDate, endDate], map: "idx_leave_dates")
 }
 
-// Leave Balance - Tracking kuota cuti per user per tahun
 model LeaveBalance {
   id        String    @id
   userId    String
   year      Int
   leaveType LeaveType
-  quota     Int // Jatah total untuk tahun ini
-  used      Int       @default(0) // Sudah digunakan
+  quota     Int
+  used      Int       @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime
   user      User      @relation(fields: [userId], references: [id])
@@ -503,7 +502,6 @@ model Odc {
   name                        String
   location                    String?
   notes                       String?
-  images                      String[]    @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status      @default(AKTIF)
@@ -511,10 +509,11 @@ model Odc {
   updatedAt                   DateTime
   otbCoreId                   String?     @unique
   keteranganJumlahKabelFeeder String?
+  siteId                      String?
+  images                      String[]    @default([])
   attenuationIn               Float?
   attenuationOut              Float?
   inputCoreColor              String?
-  siteId                      String?
   otbCore                     OtbCore?    @relation(fields: [otbCoreId], references: [id])
   site                        Sites?      @relation(fields: [siteId], references: [id])
   odcOutput                   OdcOutput[]
@@ -541,7 +540,6 @@ model Odp {
   name                        String
   location                    String?
   notes                       String?
-  images                      String[]    @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status      @default(AKTIF)
@@ -549,10 +547,11 @@ model Odp {
   updatedAt                   DateTime
   odcOutputId                 String?     @unique
   keteranganJumlahKabelFeeder String?
+  siteId                      String?
+  images                      String[]    @default([])
   attenuationIn               Float?
   attenuationOut              Float?
   inputCoreColor              String?
-  siteId                      String?
   odcOutput                   OdcOutput?  @relation(fields: [odcOutputId], references: [id])
   site                        Sites?      @relation(fields: [siteId], references: [id])
   odpOutput                   OdpOutput[]
@@ -580,7 +579,6 @@ model Otb {
   location                    String?
   coreCount                   Int
   notes                       String?
-  images                      String[]  @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status    @default(AKTIF)
@@ -588,6 +586,7 @@ model Otb {
   updatedAt                   DateTime
   keteranganJumlahKabelFeeder String?
   siteId                      String?
+  images                      String[]  @default([])
   site                        Sites?    @relation(fields: [siteId], references: [id])
   otbCore                     OtbCore[]
 
@@ -624,14 +623,12 @@ model Overtime {
   approvedBy         String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime
-  // Holiday/Off-day tracking fields
+  holidayDescription String?
   isHolidayOvertime  Boolean        @default(false)
   isNationalHoliday  Boolean        @default(false)
   isOffDay           Boolean        @default(false)
-  holidayDescription String?
   attendance         Attendance?    @relation(fields: [attendanceId], references: [id])
-
-  user User @relation(fields: [userId], references: [id])
+  user               User           @relation(fields: [userId], references: [id])
 
   @@index([startTime])
   @@index([status])
@@ -650,9 +647,6 @@ model Pelanggan {
   tanggalAktif                  DateTime
   jatuhTempo                    DateTime
   status                        Status              @default(AKTIF)
-  syncStatus                    String              @default("PENDING") // PENDING, SYNCED, FAILED
-  syncRetryCount                Int                 @default(0)
-  syncError                     String?
   alamat                        String?
   noTelp                        String?
   email                         String?
@@ -696,13 +690,16 @@ model Pelanggan {
   userId                        String?
   autoIsolir                    Boolean             @default(true)
   siteId                        String?
-  mixRadiusId                   String?             @unique
   lastSyncedAt                  DateTime?
-  pushToken                     String?
-  pushTokenUpdatedAt            DateTime?
+  mixRadiusId                   String?             @unique
+  syncError                     String?
+  syncRetryCount                Int                 @default(0)
+  syncStatus                    String              @default("PENDING")
   lastVersionCode               Int?
   lastVersionName               String?
   lastVersionUpdate             DateTime?
+  pushToken                     String?
+  pushTokenUpdatedAt            DateTime?
   couponUsage                   CouponUsage[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
   odp                           Odp?                @relation(fields: [odpId], references: [id])
@@ -743,7 +740,6 @@ model Pole {
   name       String
   location   String?
   notes      String?
-  images     String[] @default([])
   latitude   Float?
   longitude  Float?
   cableSlack Boolean  @default(false)
@@ -751,6 +747,7 @@ model Pole {
   createdAt  DateTime @default(now())
   updatedAt  DateTime
   siteId     String?
+  images     String[] @default([])
   site       Sites?   @relation(fields: [siteId], references: [id])
 
   @@index([siteId])
@@ -769,9 +766,9 @@ model ProfilePPP {
   status           Status          @default(AKTIF)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime
+  siteId           String?
   hargaPaket       HargaPaket[]
   mikroTikRouter   MikroTikRouter? @relation(fields: [mikroTikRouterId], references: [id])
-  siteId           String?
   site             Sites?          @relation(fields: [siteId], references: [id])
 
   @@index([mikroTikRouterId])
@@ -892,6 +889,7 @@ model User {
   roleId                                     String?
   isActive                                   Boolean                   @default(true)
   workingHourMode                            WorkingHourMode           @default(FIXED)
+  attendanceGeofencePolicy                   AttendanceGeofencePolicy  @default(WARN)
   startWorkTime                              String?
   endWorkTime                                String?
   workDays                                   String?
@@ -899,42 +897,42 @@ model User {
   flexibleTargetHour                         Int?
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
-  fcmTokens                                  String[]                  @default([])
   tokenVersion                               Int                       @default(0)
   lastVersionCode                            Int?
   lastVersionName                            String?
   lastVersionUpdate                          DateTime?
-  lastLoginAt                                DateTime?
   canvasingTarget                            Int                       @default(50)
-  targetSchema                               TargetSchema              @default(MONTHLY_RESET)
   isSales                                    Boolean                   @default(false)
-  // Salary configuration fields
+  absentDeductionRate                        Float?
   basicSalary                                Float?
   employeeType                               EmployeeType              @default(KARYAWAN)
-  joinDate                                   DateTime?
-  ptkpStatus                                 PtkpStatus?
-  bpjsKesehatan                              Boolean                   @default(false)
-  bpjsKetenagakerjaan                        Boolean                   @default(false)
-  payPeriodDay                               Int                       @default(25)
-  payDay                                     Int                       @default(1)
-  overtimeRateNormal                         Float?
+  lateDeductionRate                          Float?
+  overtimeCalcTypeHoliday                    RateType                  @default(PER_HOUR)
+  overtimeCalcTypeNational                   RateType                  @default(PER_HOUR)
   overtimeCalcTypeNormal                     RateType                  @default(PER_HOUR)
   overtimeRateHoliday                        Float?
-  overtimeCalcTypeHoliday                    RateType                  @default(PER_HOUR)
   overtimeRateNational                       Float?
-  overtimeCalcTypeNational                   RateType                  @default(PER_HOUR)
+  overtimeRateNormal                         Float?
+  payDay                                     Int                       @default(1)
+  payPeriodDay                               Int                       @default(25)
   woIncentiveEnabled                         Boolean                   @default(true)
   woIncentiveRate                            Float?
-  lateDeductionRate                          Float?
-  absentDeductionRate                        Float?
-  bankName                                   String? // Nama bank untuk withdraw
-  bankAccountNo                              String? // Nomor rekening bank
-  bankAccountName                            String? // Nama pemilik rekening
+  lastLoginAt                                DateTime?
+  bankName                                   String?
+  bankAccountNo                              String?
+  bankAccountName                            String?
+  bpjsKesehatan                              Boolean                   @default(false)
+  bpjsKetenagakerjaan                        Boolean                   @default(false)
+  fcmTokens                                  String[]                  @default([])
+  joinDate                                   DateTime?
+  ptkpStatus                                 PtkpStatus?
+  targetSchema                               TargetSchema              @default(MONTHLY_RESET)
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]
   conversation_participants                  ConversationParticipant[]
   expense                                    Expense[]
+  leaveBalances                              LeaveBalance[]
   leaveRequest                               LeaveRequest[]
   messages                                   Message[]
   overtime                                   Overtime[]
@@ -944,24 +942,33 @@ model User {
   departments                                Departments?              @relation(fields: [departmentId], references: [id])
   role                                       Role?                     @relation(fields: [roleId], references: [id])
   shift                                      Shift?                    @relation(fields: [shiftId], references: [id])
-  purchaseRequests                           PurchaseRequest[]         @relation("Requester")
   sites                                      Sites?                    @relation(fields: [siteId], references: [id])
   appVersions                                AppVersion[]
+  assets                                     Asset[]
   barang_keluar                              BarangKeluar[]
   barang_masuk                               BarangMasuk[]
   approverCanvasing                          Canvasing[]               @relation("ApproverCanvasing")
   salesCanvasing                             Canvasing[]               @relation("UserSalesCanvasing")
+  employeeLoans                              EmployeeLoan[]
   employeeLocations                          EmployeeLocation[]
   notifications                              Notifications[]
   pointClaimsReviewed                        PointClaim[]              @relation("ReviewerPointClaim")
   pointClaimsSales                           PointClaim[]              @relation("SalesPointClaim")
-  push_subscriptions                         PushSubscriptions[]
   poCreated                                  PurchaseOrder[]           @relation("POCreator")
   poProcessed                                PurchaseOrder[]           @relation("POProcessor")
   poReceived                                 PurchaseOrder[]           @relation("POReceiver")
+  purchaseRequests                           PurchaseRequest[]         @relation("Requester")
+  push_subscriptions                         PushSubscriptions[]
+  rabApprovals                               RabApproval[]
+  createdRabProjects                         RabProject[]
+  salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
+  salariesAuditedBy                          Salary[]                  @relation("SalaryAuditedBy")
+  salaries                                   Salary[]
   sla                                        Sla[]
   support_tickets                            SupportTickets[]
   ticket_replies                             TicketReplies[]
+  transferAntarGudangs                       TransferAntarGudang[]     @relation("TransferCreatedBy")
+  userSalaryComponents                       UserSalaryComponent[]
   userSites                                  UserSite[]
   work_order_assignments                     WorkOrderAssignments[]
   work_order_attachments                     WorkOrderAttachments[]
@@ -969,20 +976,10 @@ model User {
   work_order_tasks                           WorkOrderTasks[]
   work_order_templates                       WorkOrderTemplates[]
   work_order_updates                         WorkOrderUpdates[]
+  workOrdersApproved                         WorkOrders[]              @relation("work_orders_approvedByIdToUser")
   work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
-  assets                                     Asset[]
-  leaveBalances                              LeaveBalance[]
-  transferAntarGudangs                       TransferAntarGudang[]     @relation("TransferCreatedBy")
   workOrdersRequested                        WorkOrders[]              @relation("work_orders_requestedByIdToUser")
-  workOrdersApproved                         WorkOrders[]              @relation("work_orders_approvedByIdToUser")
-  salaries                                   Salary[]
-  salariesAuditedBy                          Salary[]                  @relation("SalaryAuditedBy")
-  salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
-  userSalaryComponents                       UserSalaryComponent[]
-  createdRabProjects                         RabProject[]
-  rabApprovals                               RabApproval[]
-  employeeLoans                              EmployeeLoan[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -1019,24 +1016,24 @@ model Barang {
   kode                 String                @unique
   nama                 String
   satuan               String
-  jenis                JenisBarang           @default(HABIS_PAKAI)
-  kategoriAset         KategoriAset?
-  assets               Asset[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime
   isWorkOrderMaterial  Boolean               @default(false)
+  supplierId           String?
+  jenis                JenisBarang           @default(HABIS_PAKAI)
+  kategoriAset         KategoriAset?
+  assets               Asset[]
+  supplier             Supplier?             @relation(fields: [supplierId], references: [id])
   barangGudang         BarangGudang[]
   barang_keluar        BarangKeluar[]
   barang_masuk         BarangMasuk[]
+  purchaseOrderItems   PurchaseOrderItem[]
+  purchaseRequestItems PurchaseRequestItem[]
   restockAlerts        RestockAlerts[]
   restockSettings      RestockSettings[]
   stockOpname          StockOpname[]
   transferAntarGudang  TransferAntarGudang[]
   usageAnalytics       UsageAnalytics[]
-  purchaseRequestItems PurchaseRequestItem[]
-  supplier             Supplier?             @relation(fields: [supplierId], references: [id])
-  supplierId           String?
-  purchaseOrderItems   PurchaseOrderItem[]
   workOrderMaterials   WorkOrderMaterial[]
 
   @@map("barang")
@@ -1102,7 +1099,6 @@ model BarangMasuk {
   transferId          String?
   tanggal             DateTime             @default(now())
   jumlah              Int
-  hargaBeliSatuan     Int?                 @default(0) // Input optional for asset valuation
   kondisi             KondisiBarang        @default(BARU)
   keterangan          String?
   lokasiPenyimpanan   String?
@@ -1118,6 +1114,7 @@ model BarangMasuk {
   fotoBukti           String[]
   fotoMetadata        Json?
   userId              String?
+  hargaBeliSatuan     Int?                 @default(0)
   barang              Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang              Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
   transferAntarGudang TransferAntarGudang? @relation(fields: [transferId], references: [id])
@@ -1194,10 +1191,10 @@ model Departments {
   name                   String                 @unique
   description            String?
   jobDescription         String?
-  isReminderTarget       Boolean                @default(false) // Muncul di dropdown reminder WO
-  showInMobileWO         Boolean                @default(false) // Muncul di dropdown WO request mobile app
   createdAt              DateTime               @default(now())
   updatedAt              DateTime
+  isReminderTarget       Boolean                @default(false)
+  showInMobileWO         Boolean                @default(false)
   user                   User[]
   notifications          Notifications[]
   positions              Positions[]
@@ -1253,6 +1250,7 @@ model Gudang {
   barangGudang            BarangGudang[]
   barangKeluar            BarangKeluar[]
   barangMasuk             BarangMasuk[]
+  purchaseRequests        PurchaseRequest[]
   restockAlerts           RestockAlerts[]
   restockSettings         RestockSettings[]
   stockOpname             StockOpname[]
@@ -1260,7 +1258,6 @@ model Gudang {
   transferAntarGudangKe   TransferAntarGudang[] @relation("transfer_antar_gudang_keGudangIdTogudang")
   usageAnalytics          UsageAnalytics[]
   sites                   Sites[]               @relation("GudangToSite")
-  purchaseRequests        PurchaseRequest[]
 
   @@map("gudang")
 }
@@ -1426,7 +1423,6 @@ model Registrations {
   email           String
   phone           String
   address         String
-  phoneNumber     String?
   packageName     String?
   location        String?
   latitude        Float?
@@ -1439,6 +1435,7 @@ model Registrations {
   verifiedBy      String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime
+  phoneNumber     String?
 
   @@map("registrations")
 }
@@ -1528,24 +1525,24 @@ model Sites {
   isActive         Boolean          @default(true)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime
+  bandwidths       Bandwidth[]
   expenses         Expense[]
+  hargaPakets      HargaPaket[]
+  joinboxes        Joinbox[]
+  kmzFiles         KmzFile[]
   mikrotikRouter   MikroTikRouter[]
   odcs             Odc[]
   odps             Odp[]
   otbs             Otb[]
   pelanggan        Pelanggan[]
   poles            Pole[]
+  profilePPPs      ProfilePPP[]
   user             User[]
   notifications    Notifications[]
+  rabProjects      RabProject[]
   userSites        UserSite[]
   work_orders      WorkOrders[]
   gudang           Gudang[]         @relation("GudangToSite")
-  bandwidths       Bandwidth[]
-  profilePPPs      ProfilePPP[]
-  hargaPakets      HargaPaket[]
-  joinboxes        Joinbox[]
-  kmzFiles         KmzFile[]
-  rabProjects      RabProject[]
 
   @@index([isActive])
   @@map("sites")
@@ -1598,8 +1595,8 @@ model StockOpname {
   tanggalExpire     DateTime?
   nomorBatch        String?
   catatanDetail     String?
-  alasanSelisih     String? // hilang, rusak, revisi, salah_input, terpakai, expired, lebih, lainnya
   createdAt         DateTime  @default(now())
+  alasanSelisih     String?
   barang            Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang            Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
@@ -1665,15 +1662,15 @@ model TransferAntarGudang {
   kondisi      KondisiBarang  @default(BARU)
   keterangan   String?
   createdAt    DateTime       @default(now())
-  createdById  String?
   fotoBukti    String[]
   fotoMetadata Json?
+  createdById  String?
   barangKeluar BarangKeluar[]
   barangMasuk  BarangMasuk[]
   barang       Barang         @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  createdBy    User?          @relation("TransferCreatedBy", fields: [createdById], references: [id])
   gudangDari   Gudang         @relation("transfer_antar_gudang_dariGudangIdTogudang", fields: [dariGudangId], references: [id], onDelete: Cascade)
   gudangKe     Gudang         @relation("transfer_antar_gudang_keGudangIdTogudang", fields: [keGudangId], references: [id], onDelete: Cascade)
-  createdBy    User?          @relation("TransferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([barangId])
   @@index([dariGudangId])
@@ -1710,14 +1707,13 @@ model WorkOrderAssignments {
   id           String     @id @default(cuid())
   workOrderId  String
   userId       String?
-  mitraId      String?
-  // NOTE: mitraId is a soft-relation to db_mitra (Mitra table). No actual foreign key exists in Prisma schema.
-  isLead       Boolean    @default(false)
   role         String?
   status       String     @default("PENDING")
   assignedAt   DateTime   @default(now())
   respondedAt  DateTime?
   assignedById String?
+  mitraId      String?
+  isLead       Boolean    @default(false)
   user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
@@ -1814,10 +1810,10 @@ model WorkOrderTemplates {
   createdById       String?
   createdAt         DateTime                @default(now())
   updatedAt         DateTime
+  templateItems     WorkOrderTemplateItem[]
   user              User?                   @relation(fields: [createdById], references: [id])
   departments       Departments?            @relation(fields: [departmentId], references: [id])
   workOrders        WorkOrders[]
-  templateItems     WorkOrderTemplateItem[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -1843,85 +1839,77 @@ model WorkOrderUpdates {
 }
 
 model WorkOrders {
-  id                  String            @id
-  workOrderNumber     String            @unique
-  pelangganId         String?
-  siteId              String?
-  type                WorkOrderType
-  title               String
-  description         String
-  status              WorkOrderStatus   @default(PENDING)
-  priority            WorkOrderPriority @default(NORMAL)
-  departmentId        String?
-  assignedToId        String?
-  locationAddress     String?
-  locationLat         Float?
-  locationLng         Float?
-  contactName         String?
-  contactPhone        String?
-  scheduledDate       DateTime?
-  scheduledTimeStart  String?
-  scheduledTimeEnd    String?
-  startedAt           DateTime?
-  completedAt         DateTime?
-  verifiedAt          DateTime?
-  closedAt            DateTime?
-  // ON_HOLD tracking fields
-  holdReason          String?
-  heldAt              DateTime?
-  resumedAt           DateTime?
-  estimatedHours      Float?
-  actualHours         Float?
-  estimatedCost       Float?
-  actualCost          Float?
-  requiredMaterials   Json?
-  usedMaterials       Json?
-  returnedMaterials   Json? // For DISCONNECTION: materials returned to warehouse
-  internalNotes       String?
-  resolutionNotes     String?
-  customerFeedback    String?
-  rating              Int?
-  disconnectionReason String?
-  templateId          String?
-  slaId               String?
-  createdById         String?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime
-  ticketId            String?
-  isInternal          Boolean           @default(false) // true = Internal FOC, false = Customer/Guest
-  // Mobile WO Request fields
-  requestedById       String? // User yang request dari mobile
-  requestedAt         DateTime? // Waktu request
-  approvedById        String? // Admin yang approve/reject
-  approvedAt          DateTime? // Waktu approve/reject
-  rejectionReason     String? // Alasan reject (jika ditolak)
-
-  // Warranty fields
-  isWarranty      Boolean                @default(false)
-  warrantyOwnerId String?
-  warrantySla     DateTime?
-  canvasing       Canvasing[]
-  assignments     WorkOrderAssignments[]
-  attachments     WorkOrderAttachments[]
-  tasks           WorkOrderTasks[]
-  updates         WorkOrderUpdates[]
-  assignedTo      User?                  @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
-  createdBy       User?                  @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
-  department      Departments?           @relation(fields: [departmentId], references: [id])
-  pelanggan       Pelanggan?             @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  site            Sites?                 @relation(fields: [siteId], references: [id])
-  sla             Sla?                   @relation(fields: [slaId], references: [id])
-  template        WorkOrderTemplates?    @relation(fields: [templateId], references: [id])
-  ticket          SupportTickets?        @relation(fields: [ticketId], references: [id])
-  requestedBy     User?                  @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
-  approvedBy      User?                  @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
-
-  // NEW: Support for Mitra Assignment
+  id                       String                    @id
+  workOrderNumber          String                    @unique
+  pelangganId              String?
+  siteId                   String?
+  type                     WorkOrderType
+  title                    String
+  description              String
+  status                   WorkOrderStatus           @default(PENDING)
+  priority                 WorkOrderPriority         @default(NORMAL)
+  departmentId             String?
+  assignedToId             String?
+  locationAddress          String?
+  locationLat              Float?
+  locationLng              Float?
+  contactName              String?
+  contactPhone             String?
+  scheduledDate            DateTime?
+  scheduledTimeStart       String?
+  scheduledTimeEnd         String?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  verifiedAt               DateTime?
+  closedAt                 DateTime?
+  estimatedHours           Float?
+  actualHours              Float?
+  estimatedCost            Float?
+  actualCost               Float?
+  requiredMaterials        Json?
+  usedMaterials            Json?
+  internalNotes            String?
+  resolutionNotes          String?
+  customerFeedback         String?
+  rating                   Int?
+  disconnectionReason      String?
+  templateId               String?
+  slaId                    String?
+  createdById              String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime
+  ticketId                 String?
+  returnedMaterials        Json?
+  approvedAt               DateTime?
+  approvedById             String?
+  rejectionReason          String?
+  requestedAt              DateTime?
+  requestedById            String?
+  isInternal               Boolean                   @default(false)
+  heldAt                   DateTime?
+  holdReason               String?
+  resumedAt                DateTime?
   assignedMitraId          String?
-  // NOTE: assignedMitraId is a soft-relation to db_mitra (Mitra table)
-  // NOTE: warrantyOwnerId is a soft-relation to db_mitra (Mitra table)
-  materials                WorkOrderMaterial[]
+  isWarranty               Boolean                   @default(false)
+  warrantyOwnerId          String?
+  warrantySla              DateTime?
+  canvasing                Canvasing[]
+  assignments              WorkOrderAssignments[]
+  attachments              WorkOrderAttachments[]
   workOrderMaterialReturns WorkOrderMaterialReturn[]
+  materials                WorkOrderMaterial[]
+  tasks                    WorkOrderTasks[]
+  updates                  WorkOrderUpdates[]
+  approvedBy               User?                     @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
+  assignedTo               User?                     @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
+  createdBy                User?                     @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
+  department               Departments?              @relation(fields: [departmentId], references: [id])
+  pelanggan                Pelanggan?                @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  requestedBy              User?                     @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
+  site                     Sites?                    @relation(fields: [siteId], references: [id])
+  sla                      Sla?                      @relation(fields: [slaId], references: [id])
+  template                 WorkOrderTemplates?       @relation(fields: [templateId], references: [id])
+  ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
 
   @@index([assignedToId])
   @@index([assignedMitraId])
@@ -1944,7 +1932,6 @@ model WorkOrders {
   @@map("work_orders")
 }
 
-// Material Return Tracking - untuk tracking pengembalian material dari lapangan
 model WorkOrderMaterialReturn {
   id                 String               @id @default(uuid())
   workOrderId        String
@@ -1966,13 +1953,6 @@ model WorkOrderMaterialReturn {
   @@index([barangId])
   @@index([status])
   @@map("work_order_material_returns")
-}
-
-enum MaterialReturnStatus {
-  PENDING
-  VERIFIED
-  RETURNED_TO_WAREHOUSE
-  REJECTED
 }
 
 model Conversation {
@@ -2056,34 +2036,32 @@ model Shift {
 }
 
 model Canvasing {
-  id        String          @id @default(uuid())
-  nama      String
-  noKtp     String
-  noTelpon  String
-  email     String?
-  alamat    String
-  kabel     Int
-  odp       String?
-  paket     String
-  sn        String?
-  latitude  Float?
-  longitude Float?
-  foto      String?
-  status    CanvasingStatus @default(PENDING)
-  salesId   String?
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-
+  id          String          @id @default(uuid())
+  nama        String
+  noKtp       String
+  noTelpon    String
+  email       String?
+  alamat      String
+  kabel       Int
+  odp         String?
+  paket       String
+  sn          String?
+  latitude    Float?
+  longitude   Float?
+  foto        String?
+  status      CanvasingStatus @default(PENDING)
+  salesId     String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   approvedBy  String?
   approvedAt  DateTime?
   workOrderId String?
   fotoKtp     String?
-  isLocked    Boolean     @default(false)
-  approver    User?       @relation("ApproverCanvasing", fields: [approvedBy], references: [id])
-  user        User?       @relation("UserSalesCanvasing", fields: [salesId], references: [id])
-  mitraId     String? // Tambahan untuk mitraSalesId String?
-  // NOTE: This is a soft-relation to db_mitra (Mitra table). No actual foreign key exists in Prisma schema.
-  workOrder   WorkOrders? @relation(fields: [workOrderId], references: [id])
+  isLocked    Boolean         @default(false)
+  mitraId     String?
+  approver    User?           @relation("ApproverCanvasing", fields: [approvedBy], references: [id])
+  user        User?           @relation("UserSalesCanvasing", fields: [salesId], references: [id])
+  workOrder   WorkOrders?     @relation(fields: [workOrderId], references: [id])
   pointClaims PointClaim?
 
   @@index([salesId])
@@ -2101,12 +2079,12 @@ model PointClaim {
   keterangan    String?
   pointValue    Int              @default(2)
   status        PointClaimStatus @default(PENDING)
-  isCashedOut   Boolean          @default(false)
   reviewedById  String?
   reviewedAt    DateTime?
   reviewNotes   String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+  isCashedOut   Boolean          @default(false)
   canvasing     Canvasing        @relation(fields: [canvasingId], references: [id], onDelete: Cascade)
   reviewedBy    User?            @relation("ReviewerPointClaim", fields: [reviewedById], references: [id])
   sales         User             @relation("SalesPointClaim", fields: [salesId], references: [id])
@@ -2115,6 +2093,554 @@ model PointClaim {
   @@index([salesId])
   @@index([status])
   @@map("point_claims")
+}
+
+model PurchaseRequest {
+  id              String                @id
+  nomorRequest    String                @unique
+  tanggal         DateTime              @default(now())
+  status          PurchaseRequestStatus @default(DRAFT)
+  prioritas       String                @default("NORMAL")
+  requesterId     String
+  gudangId        String
+  keterangan      String?
+  catatanApproval String?
+  purchaseOrderId String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  approvedAt      DateTime?
+  approvedBy      String?
+  items           PurchaseRequestItem[]
+  gudang          Gudang                @relation(fields: [gudangId], references: [id])
+  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
+  requester       User                  @relation("Requester", fields: [requesterId], references: [id])
+
+  @@map("purchase_requests")
+}
+
+model PurchaseRequestItem {
+  id                String          @id
+  purchaseRequestId String
+  barangId          String
+  jumlah            Int
+  hargaPerUnit      Float           @default(0)
+  totalHarga        Float           @default(0)
+  keterangan        String?
+  barang            Barang          @relation(fields: [barangId], references: [id])
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_request_items")
+}
+
+model Supplier {
+  id        String          @id @default(uuid())
+  code      String          @unique
+  name      String
+  address   String?
+  contact   String?
+  email     String?
+  phone     String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  items     Barang[]
+  pos       PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id                String              @id @default(uuid())
+  poNumber          String              @unique
+  supplierId        String?
+  status            PurchaseOrderStatus @default(DRAFT)
+  totalAmount       Float
+  issuedAt          DateTime?
+  expectedDate      DateTime?
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String
+  processedById     String?
+  receivedById      String?
+  grandTotal        Float               @default(0)
+  paidFromAccountId String?
+  paymentStatus     PaymentStatus       @default(UNPAID)
+  ppnAmount         Float               @default(0)
+  ppnRate           Float               @default(0)
+  items             PurchaseOrderItem[]
+  creator           User                @relation("POCreator", fields: [createdBy], references: [id])
+  paidFromAccount   FinancialAccount?   @relation("POPaidFrom", fields: [paidFromAccountId], references: [id])
+  processedBy       User?               @relation("POProcessor", fields: [processedById], references: [id])
+  receivedBy        User?               @relation("POReceiver", fields: [receivedById], references: [id])
+  supplier          Supplier?           @relation(fields: [supplierId], references: [id])
+  purchaseRequests  PurchaseRequest[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id
+  purchaseOrderId String
+  barangId        String
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+  barang          Barang        @relation(fields: [barangId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_order_items")
+}
+
+model FinancialAccount {
+  id             String          @id @default(uuid())
+  name           String
+  accountNumber  String?
+  type           AccountType     @default(CASH)
+  balance        Float           @default(0)
+  description    String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  expenses       Expense[]
+  purchaseOrders PurchaseOrder[] @relation("POPaidFrom")
+
+  @@map("financial_accounts")
+}
+
+model Asset {
+  id               String                 @id @default(uuid())
+  barangId         String
+  kodeAsset        String                 @unique
+  purchaseDate     DateTime
+  purchasePrice    Decimal                @db.Decimal(19, 2)
+  currentValue     Decimal                @db.Decimal(19, 2)
+  residualValue    Decimal                @default(0) @db.Decimal(19, 2)
+  usefulLife       Int
+  status           AssetStatus            @default(ACTIVE)
+  location         String?
+  assignedTo       String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  depreciationLogs AssetDepreciationLog[]
+  user             User?                  @relation(fields: [assignedTo], references: [id])
+  barang           Barang                 @relation(fields: [barangId], references: [id])
+
+  @@index([barangId])
+  @@index([status])
+  @@index([assignedTo])
+  @@map("assets")
+}
+
+model AssetDepreciationLog {
+  id        String   @id @default(uuid())
+  assetId   String
+  date      DateTime @default(now())
+  amount    Decimal  @db.Decimal(19, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("asset_depreciation_logs")
+}
+
+model Salary {
+  id              String           @id @default(uuid())
+  userId          String
+  month           Int
+  year            Int
+  status          SalaryStatus     @default(DRAFT)
+  basicSalary     Float
+  totalEarnings   Float            @default(0)
+  totalDeductions Float            @default(0)
+  netSalary       Float            @default(0)
+  calculatedAt    DateTime?
+  auditedById     String?
+  auditedAt       DateTime?
+  auditNotes      String?
+  approvedById    String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  approvedBy      User?            @relation("SalaryApprovedBy", fields: [approvedById], references: [id])
+  auditedBy       User?            @relation("SalaryAuditedBy", fields: [auditedById], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  details         SalaryDetail[]
+  revisions       SalaryRevision[]
+
+  @@unique([userId, month, year])
+  @@index([month, year])
+  @@index([status])
+  @@map("salaries")
+}
+
+model SalaryComponent {
+  id             String                @id @default(uuid())
+  name           String                @unique
+  type           SalaryComponentType
+  rateType       RateType              @default(FIXED)
+  defaultAmount  Float?
+  description    String?
+  isActive       Boolean               @default(true)
+  sortOrder      Int                   @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  details        SalaryDetail[]
+  userComponents UserSalaryComponent[]
+
+  @@map("salary_components")
+}
+
+model SalaryDetail {
+  id            String              @id @default(uuid())
+  salaryId      String
+  componentId   String?
+  name          String
+  type          SalaryComponentType
+  quantity      Float?
+  rate          Float?
+  amount        Float
+  notes         String?
+  loanPaymentId String?             @unique
+  component     SalaryComponent?    @relation(fields: [componentId], references: [id])
+  loanPayment   LoanPayment?        @relation(fields: [loanPaymentId], references: [id])
+  salary        Salary              @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+
+  @@index([salaryId])
+  @@map("salary_details")
+}
+
+model SalaryRevision {
+  id          String   @id @default(uuid())
+  salaryId    String
+  field       String
+  oldValue    String?
+  newValue    String?
+  reason      String
+  revisedById String
+  createdAt   DateTime @default(now())
+  salary      Salary   @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+
+  @@index([salaryId])
+  @@map("salary_revisions")
+}
+
+model UserSalaryComponent {
+  id          String          @id @default(uuid())
+  userId      String
+  componentId String
+  amount      Float
+  notes       String?
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  component   SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, componentId])
+  @@index([userId])
+  @@map("user_salary_components")
+}
+
+model WorkOrderMaterial {
+  id          String     @id @default(uuid())
+  workOrderId String
+  barangId    String
+  quantity    Float
+  satuan      String?
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  barang      Barang     @relation(fields: [barangId], references: [id])
+  workOrder   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([barangId])
+  @@map("work_order_materials")
+}
+
+model WorkOrderTemplateItem {
+  id          String             @id @default(uuid())
+  templateId  String
+  title       String
+  description String?
+  order       Int                @default(0)
+  isMandatory Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  template    WorkOrderTemplates @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@map("work_order_template_items")
+}
+
+model MappingNode {
+  nodeId         String        @id @map("node_id")
+  type           String
+  name           String?
+  latitude       Float?
+  longitude      Float?
+  capacity       Int           @default(0)
+  splitter       String?
+  pppoe          String?
+  serialNumber   String?       @map("serialnumber")
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at")
+  attenuationIn  Float?        @map("attenuation_in")
+  attenuationOut Float?        @map("attenuation_out")
+  inputCoreColor String?       @map("input_core_color")
+  photo          String?
+  metadata       Json?         @map("metadata")
+  outgoingEdges  MappingEdge[] @relation("SourceNode")
+  incomingEdges  MappingEdge[] @relation("TargetNode")
+
+  @@map("mapping_nodes")
+}
+
+model MappingEdge {
+  edgeId     String      @id @default(uuid()) @map("edge_id")
+  source     String
+  target     String
+  fiberType  String?     @map("fiber_type")
+  distance   Float?
+  waypoints  String?
+  notes      String?
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @default(now()) @updatedAt @map("updated_at")
+  name       String?     @map("name")
+  sourceNode MappingNode @relation("SourceNode", fields: [source], references: [nodeId])
+  targetNode MappingNode @relation("TargetNode", fields: [target], references: [nodeId])
+
+  @@index([source])
+  @@index([target])
+  @@map("mapping_edges")
+}
+
+model MapSettings {
+  id          Int      @id @default(autoincrement())
+  centerLat   String?  @map("center_lat")
+  centerLng   String?  @map("center_lng")
+  maxZoomIn   String?  @map("max_zoom_in")
+  maxZoomOut  String?  @map("max_zoom_out")
+  defaultZoom String?  @map("default_zoom")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("map_settings")
+}
+
+model RabProject {
+  id                         String                 @id @default(cuid())
+  name                       String
+  description                String?
+  siteId                     String?
+  mixRadiusGroupId           String?
+  projectedRevenue           BigInt                 @default(0)
+  projectedOpex              BigInt                 @default(0)
+  status                     RabStatus              @default(DRAFT)
+  createdBy                  String?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  arpu                       BigInt?
+  growthSettings             Json?
+  growthType                 RabGrowthType          @default(LINEAR)
+  startDate                  DateTime?
+  targetSubscribers          Int?
+  contingencyAmount          BigInt                 @default(0)
+  contingencyPercent         Float                  @default(0)
+  hasDisbursementPlan        Boolean                @default(false)
+  investmentDurationMonths   Int                    @default(12)
+  investmentRecoveryType     RabRecoveryType        @default(PERCENTAGE)
+  investmentRecoveryValue    Float                  @default(50)
+  investorProfitSharePercent Float                  @default(50)
+  paymentType                RabPaymentType         @default(PREPAID)
+  nplTolerancePercent        Float                  @default(0)
+  mixRadiusInvestorSiteId    String?
+  expenses                   Expense[]
+  investors                  RabInvestor[]
+  actualAchievements         RabActualAchievement[]
+  approvals                  RabApproval[]
+  items                      RabItem[]
+  creator                    User?                  @relation(fields: [createdBy], references: [id])
+  site                       Sites?                 @relation(fields: [siteId], references: [id])
+  wbsGroups                  RabWbs[]
+
+  @@index([siteId])
+  @@index([status])
+  @@map("rab_projects")
+}
+
+model RabApproval {
+  id           String     @id @default(cuid())
+  rabProjectId String
+  userId       String
+  status       String     @default("APPROVED")
+  notes        String?
+  createdAt    DateTime   @default(now())
+  rabProject   RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([rabProjectId, userId])
+  @@index([rabProjectId])
+  @@index([userId])
+  @@map("rab_approvals")
+}
+
+model RabItem {
+  id                String            @id @default(cuid())
+  rabProjectId      String
+  name              String
+  description       String?
+  quantity          Int               @default(1)
+  unitPrice         BigInt
+  totalPrice        BigInt
+  category          RabItemCategory   @default(HARDWARE)
+  expenseType       RabExpenseType    @default(CAPEX)
+  expenseCategoryId String?
+  wbsId             String?
+  expenses          Expense[]
+  disbursements     RabDisbursement[]
+  expenseCategory   ExpenseCategory?  @relation(fields: [expenseCategoryId], references: [id])
+  rabProject        RabProject        @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+  wbs               RabWbs?           @relation(fields: [wbsId], references: [id])
+
+  @@index([wbsId])
+  @@map("rab_items")
+}
+
+model RabWbs {
+  id           String     @id @default(cuid())
+  rabProjectId String
+  name         String
+  order        Int        @default(0)
+  items        RabItem[]
+  rabProject   RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+
+  @@index([rabProjectId])
+  @@map("rab_wbs")
+}
+
+model RabDisbursement {
+  id            String    @id @default(cuid())
+  rabItemId     String
+  name          String
+  percentage    Float
+  amount        BigInt
+  estimatedDate DateTime?
+  isPaid        Boolean   @default(false)
+  rabItem       RabItem   @relation(fields: [rabItemId], references: [id], onDelete: Cascade)
+
+  @@index([rabItemId])
+  @@map("rab_disbursements")
+}
+
+model AcsVendor {
+  id                   String   @id @default(cuid())
+  name                 String   @unique
+  manufacturerPatterns String
+  productPatterns      String
+  parameterPrefix      String?
+  serviceListPath      String?
+  lanBindingPath       String?
+  vlanIdPath           String?
+  httpWanEnablePath    String?
+  firewallLevelPath    String?
+  priority             Int      @default(10)
+  enabled              Boolean  @default(true)
+  description          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("acs_vendors")
+}
+
+model AcsWifiSecurity {
+  id            String   @id @default(cuid())
+  productClass  String   @unique
+  parameterPath String
+  wpaTypes      String?
+  encryptTypes  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("acs_wifi_security")
+}
+
+model CompanyBankAccount {
+  id            String   @id @default(uuid())
+  bankName      String
+  accountNumber String
+  accountName   String
+  isActive      Boolean  @default(true)
+  priority      Int      @default(1)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([priority])
+  @@map("company_bank_accounts")
+}
+
+model RabActualAchievement {
+  id                               String     @id @default(cuid())
+  rabProjectId                     String
+  month                            Int
+  year                             Int
+  actualSubscribers                Int
+  actualRevenue                    BigInt
+  actualOpex                       BigInt     @default(0)
+  manualRecoveryInstallment        BigInt?
+  manualInvestorShare              BigInt?
+  manualCompanyShare               BigInt?
+  manualInvestorProfitSharePercent Float?
+  notes                            String?
+  createdAt                        DateTime   @default(now())
+  updatedAt                        DateTime   @updatedAt
+  rabProject                       RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
+
+  @@unique([rabProjectId, month, year])
+  @@index([rabProjectId])
+  @@map("rab_actual_achievements")
+}
+
+model EmployeeLoan {
+  id              String        @id @default(uuid())
+  userId          String
+  amount          Float
+  installment     Float
+  remainingAmount Float
+  status          LoanStatus    @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments        LoanPayment[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("employee_loans")
+}
+
+model LoanPayment {
+  id           String        @id @default(uuid())
+  loanId       String
+  amount       Float
+  paymentDate  DateTime      @default(now())
+  notes        String?
+  loan         EmployeeLoan  @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  salaryDetail SalaryDetail?
+
+  @@index([loanId])
+  @@map("loan_payments")
+}
+
+enum MaterialReturnStatus {
+  PENDING
+  VERIFIED
+  RETURNED_TO_WAREHOUSE
+  REJECTED
 }
 
 enum EmployeeType {
@@ -2170,6 +2696,12 @@ enum AttendanceStatus {
   PERMIT
   DAY_OFF
   ALPHA
+}
+
+enum AttendanceGeofencePolicy {
+  STRICT
+  WARN
+  DISABLED
 }
 
 enum AlertSeverity {
@@ -2342,7 +2874,6 @@ enum WorkOrderPriority {
 }
 
 enum WorkOrderStatus {
-  REQUESTED // Mobile WO Request - menunggu approval
   PENDING
   ASSIGNED
   IN_PROGRESS
@@ -2351,6 +2882,7 @@ enum WorkOrderStatus {
   VERIFIED
   CLOSED
   CANCELLED
+  REQUESTED
 }
 
 enum WorkOrderType {
@@ -2391,124 +2923,6 @@ enum PurchaseRequestStatus {
   CANCELLED
 }
 
-model PurchaseRequest {
-  id           String                @id
-  nomorRequest String                @unique // PR-YYYYMMDD-XXXX
-  tanggal      DateTime              @default(now())
-  status       PurchaseRequestStatus @default(DRAFT)
-  prioritas    String                @default("NORMAL")
-
-  // Relations
-  requesterId String
-  gudangId    String
-
-  keterangan      String?
-  catatanApproval String?
-
-  // Procurement Relation
-  purchaseOrderId String?
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-
-  // Timestamps
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  approvedAt DateTime?
-  approvedBy String?
-
-  // Foreign Keys
-  requester User   @relation("Requester", fields: [requesterId], references: [id])
-  gudang    Gudang @relation(fields: [gudangId], references: [id])
-
-  // Items relation
-  items PurchaseRequestItem[]
-
-  @@map("purchase_requests")
-}
-
-model PurchaseRequestItem {
-  id                String @id
-  purchaseRequestId String
-  barangId          String
-
-  jumlah       Int
-  hargaPerUnit Float @default(0) // Estimasi harga
-  totalHarga   Float @default(0)
-
-  keterangan String?
-
-  // Relations
-  purchaseRequest PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
-  barang          Barang          @relation(fields: [barangId], references: [id])
-
-  @@map("purchase_request_items")
-}
-
-model Supplier {
-  id        String          @id @default(uuid())
-  code      String          @unique
-  name      String
-  address   String?
-  contact   String?
-  email     String?
-  phone     String?
-  items     Barang[]
-  pos       PurchaseOrder[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-
-  @@map("suppliers")
-}
-
-model PurchaseOrder {
-  id           String              @id @default(uuid())
-  poNumber     String              @unique
-  supplierId   String?
-  status       PurchaseOrderStatus @default(DRAFT)
-  totalAmount  Float
-  ppnRate      Float               @default(0) // Percentage (e.g. 11)
-  ppnAmount    Float               @default(0)
-  grandTotal   Float               @default(0) // totalAmount + ppnAmount
-  issuedAt     DateTime?
-  expectedDate DateTime?
-  notes        String?
-
-  supplier         Supplier?           @relation(fields: [supplierId], references: [id])
-  items            PurchaseOrderItem[]
-  purchaseRequests PurchaseRequest[]
-
-  paidFromAccountId String?
-  paidFromAccount   FinancialAccount? @relation("POPaidFrom", fields: [paidFromAccountId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String
-
-  processedById String?
-  receivedById  String?
-
-  creator     User  @relation("POCreator", fields: [createdBy], references: [id])
-  processedBy User? @relation("POProcessor", fields: [processedById], references: [id])
-  receivedBy  User? @relation("POReceiver", fields: [receivedById], references: [id])
-
-  paymentStatus PaymentStatus @default(UNPAID)
-
-  @@map("purchase_orders")
-}
-
-model PurchaseOrderItem {
-  id              String @id
-  purchaseOrderId String
-  barangId        String
-  quantity        Int
-  unitPrice       Float
-  totalPrice      Float
-
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  barang        Barang        @relation(fields: [barangId], references: [id])
-
-  @@map("purchase_order_items")
-}
-
 enum PurchaseOrderStatus {
   DRAFT
   ORDERED
@@ -2522,23 +2936,6 @@ enum AccountType {
   BANK
   EWALLET
   OTHER
-}
-
-model FinancialAccount {
-  id            String      @id @default(uuid())
-  name          String
-  accountNumber String?
-  type          AccountType @default(CASH)
-  balance       Float       @default(0)
-  description   String?
-  isActive      Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  expenses       Expense[]
-  purchaseOrders PurchaseOrder[] @relation("POPaidFrom") // For payments made TO suppliers
-
-  @@map("financial_accounts")
 }
 
 enum JenisBarang {
@@ -2556,250 +2953,11 @@ enum KategoriAset {
 
 enum AssetStatus {
   ACTIVE
-  INSTALLED // Terpasang di Pelanggan/Lapangan
+  INSTALLED
   SOLD
   DISPOSED
   LOST
   REPAIR
-}
-
-model Asset {
-  id            String      @id @default(uuid())
-  barangId      String
-  kodeAsset     String      @unique // Barcode/Tag
-  purchaseDate  DateTime
-  purchasePrice Decimal     @db.Decimal(19, 2)
-  currentValue  Decimal     @db.Decimal(19, 2)
-  residualValue Decimal     @default(0) @db.Decimal(19, 2)
-  usefulLife    Int // In Months
-  status        AssetStatus @default(ACTIVE)
-  location      String? // Site/Gudang Name
-  assignedTo    String? // UserId
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  barang Barang @relation(fields: [barangId], references: [id])
-  user   User?  @relation(fields: [assignedTo], references: [id])
-
-  depreciationLogs AssetDepreciationLog[]
-
-  @@index([barangId])
-  @@index([status])
-  @@index([assignedTo])
-  @@map("assets")
-}
-
-model AssetDepreciationLog {
-  id        String   @id @default(uuid())
-  assetId   String
-  date      DateTime @default(now())
-  amount    Decimal  @db.Decimal(19, 2)
-  notes     String?
-  createdAt DateTime @default(now())
-
-  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-
-  @@index([assetId])
-  @@map("asset_depreciation_logs")
-}
-
-// ==================== SALARY MODELS ====================
-
-model Salary {
-  id              String           @id @default(uuid())
-  userId          String
-  month           Int
-  year            Int
-  status          SalaryStatus     @default(DRAFT)
-  basicSalary     Float
-  totalEarnings   Float            @default(0)
-  totalDeductions Float            @default(0)
-  netSalary       Float            @default(0)
-  calculatedAt    DateTime?
-  auditedById     String?
-  auditedAt       DateTime?
-  auditNotes      String?
-  approvedById    String?
-  approvedAt      DateTime?
-  paidAt          DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  approvedBy      User?            @relation("SalaryApprovedBy", fields: [approvedById], references: [id])
-  auditedBy       User?            @relation("SalaryAuditedBy", fields: [auditedById], references: [id])
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  details         SalaryDetail[]
-  revisions       SalaryRevision[]
-
-  @@unique([userId, month, year])
-  @@index([month, year])
-  @@index([status])
-  @@map("salaries")
-}
-
-model SalaryComponent {
-  id             String                @id @default(uuid())
-  name           String                @unique
-  type           SalaryComponentType
-  rateType       RateType              @default(FIXED)
-  defaultAmount  Float?
-  description    String?
-  isActive       Boolean               @default(true)
-  sortOrder      Int                   @default(0)
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  details        SalaryDetail[]
-  userComponents UserSalaryComponent[]
-
-  @@map("salary_components")
-}
-
-model SalaryDetail {
-  id            String              @id @default(uuid())
-  salaryId      String
-  componentId   String?
-  name          String
-  type          SalaryComponentType
-  quantity      Float?
-  rate          Float?
-  amount        Float
-  notes         String?
-  loanPaymentId String?             @unique
-  component     SalaryComponent?    @relation(fields: [componentId], references: [id])
-  salary        Salary              @relation(fields: [salaryId], references: [id], onDelete: Cascade)
-  loanPayment   LoanPayment?        @relation(fields: [loanPaymentId], references: [id], onDelete: SetNull)
-
-  @@index([salaryId])
-  @@map("salary_details")
-}
-
-model SalaryRevision {
-  id          String  @id @default(uuid())
-  salaryId    String
-  field       String
-  oldValue    String?
-  newValue    String?
-  reason      String
-  revisedById String
-
-  createdAt DateTime @default(now())
-
-  salary Salary @relation(fields: [salaryId], references: [id], onDelete: Cascade)
-
-  @@index([salaryId])
-  @@map("salary_revisions")
-}
-
-model UserSalaryComponent {
-  id          String  @id @default(uuid())
-  userId      String
-  componentId String
-  amount      Float
-  notes       String?
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  component SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, componentId])
-  @@index([userId])
-  @@map("user_salary_components")
-}
-
-model WorkOrderMaterial {
-  id          String   @id @default(uuid())
-  workOrderId String
-  barangId    String
-  quantity    Float
-  satuan      String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  workOrder WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  barang    Barang     @relation(fields: [barangId], references: [id])
-
-  @@index([workOrderId])
-  @@index([barangId])
-  @@map("work_order_materials")
-}
-
-model WorkOrderTemplateItem {
-  id          String   @id @default(uuid())
-  templateId  String
-  title       String
-  description String?
-  order       Int      @default(0)
-  isMandatory Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  template WorkOrderTemplates @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId])
-  @@map("work_order_template_items")
-}
-
-// ==================== MAPPING MODELS ====================
-
-model MappingNode {
-  nodeId         String   @id @map("node_id")
-  type           String // 'olt', 'odc', 'odp', 'ont'
-  name           String?
-  latitude       Float?
-  longitude      Float?
-  capacity       Int      @default(0)
-  splitter       String?
-  pppoe          String?
-  serialNumber   String?  @map("serialnumber")
-  notes          String?
-  attenuationIn  Float?   @map("attenuation_in")
-  attenuationOut Float?   @map("attenuation_out")
-  inputCoreColor String?  @map("input_core_color")
-  photo          String?
-  metadata       Json?    @map("metadata") // For extra fields like poleSize, hasSlack, etc.
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
-
-  // Relations
-  outgoingEdges MappingEdge[] @relation("SourceNode")
-  incomingEdges MappingEdge[] @relation("TargetNode")
-
-  @@map("mapping_nodes")
-}
-
-model MappingEdge {
-  edgeId    String   @id @default(uuid()) @map("edge_id")
-  source    String
-  target    String
-  name      String?  @map("name") // Label for the fiber line
-  fiberType String?  @map("fiber_type") // 'odc_to_odc', 'odp_to_odp'
-  distance  Float?
-  waypoints String? // JSON String: [[lat,lng], [lat,lng]]
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
-
-  sourceNode MappingNode @relation("SourceNode", fields: [source], references: [nodeId])
-  targetNode MappingNode @relation("TargetNode", fields: [target], references: [nodeId])
-
-  @@index([source])
-  @@index([target])
-  @@map("mapping_edges")
-}
-
-model MapSettings {
-  id          Int      @id @default(autoincrement())
-  centerLat   String?  @map("center_lat")
-  centerLng   String?  @map("center_lng")
-  maxZoomIn   String?  @map("max_zoom_in")
-  maxZoomOut  String?  @map("max_zoom_out")
-  defaultZoom String?  @map("default_zoom")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
-
-  @@map("map_settings")
 }
 
 enum RabPaymentType {
@@ -2810,135 +2968,6 @@ enum RabPaymentType {
 enum RabRecoveryType {
   PERCENTAGE
   FIXED
-}
-
-model RabProject {
-  id                      String  @id @default(cuid())
-  name                    String
-  description             String?
-  siteId                  String?
-  mixRadiusGroupId        String?
-  mixRadiusInvestorSiteId String?
-
-  // Financial Projections (Monthly)
-  projectedRevenue BigInt @default(0)
-  projectedOpex    BigInt @default(0)
-
-  // Growth Period Settings
-  targetSubscribers Int? // Target number of subscribers
-  arpu              BigInt? // Average Revenue Per User
-  growthType        RabGrowthType  @default(LINEAR)
-  paymentType       RabPaymentType @default(PREPAID)
-
-  // LINEAR: subscribersPerMonth (how many new subs per month)
-  // PERCENTAGE: initialPercent (starting %), monthlyGrowthPercent (% increase per month)
-  // CUSTOM: milestones array [{month, percent}]
-  growthSettings Json?
-
-  // Project Timeline
-  startDate DateTime? // When the project starts
-
-  status                   RabStatus @default(DRAFT)
-  investmentDurationMonths Int       @default(12)
-
-  // Profit Sharing & Recovery
-  investmentRecoveryType     RabRecoveryType @default(PERCENTAGE)
-  investmentRecoveryValue    Float           @default(50) // e.g. 50% or fixed amount
-  investorProfitSharePercent Float           @default(50) // Share of remaining profit
-  nplTolerancePercent        Float           @default(0) // Toleransi NPL / Bad Debt (%)
-
-  contingencyPercent  Float   @default(0) // 0-100
-  contingencyAmount   BigInt  @default(0)
-  hasDisbursementPlan Boolean @default(false)
-
-  items     RabItem[]
-  wbsGroups RabWbs[]
-
-  createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  actualAchievements RabActualAchievement[]
-  approvals          RabApproval[]
-  investors          RabInvestor[]
-
-  site    Sites? @relation(fields: [siteId], references: [id])
-  // Soft-relation to Sites in main DB
-  // Soft-relation to MixRadiusOwnerGroup in billing DB
-  // Soft-relation to MixRadiusInvestorSite in billing DB
-  creator User?  @relation(fields: [createdBy], references: [id])
-
-  @@index([siteId])
-  @@index([status])
-  @@map("rab_projects")
-}
-
-model RabApproval {
-  id           String   @id @default(cuid())
-  rabProjectId String
-  userId       String
-  status       String   @default("APPROVED") // e.g. "APPROVED", "REJECTED"
-  notes        String?
-  createdAt    DateTime @default(now())
-
-  rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([rabProjectId, userId])
-  @@index([rabProjectId])
-  @@index([userId])
-  @@map("rab_approvals")
-}
-
-model RabItem {
-  id                String           @id @default(cuid())
-  rabProjectId      String
-  name              String
-  description       String?
-  quantity          Int              @default(1)
-  unitPrice         BigInt
-  totalPrice        BigInt
-  category          RabItemCategory  @default(HARDWARE)
-  expenseType       RabExpenseType   @default(CAPEX)
-  expenseCategoryId String?
-  expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id], onDelete: SetNull)
-
-  wbsId String?
-
-  rabProject    RabProject        @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
-  wbs           RabWbs?           @relation(fields: [wbsId], references: [id], onDelete: SetNull)
-  disbursements RabDisbursement[]
-
-  @@index([wbsId])
-  @@map("rab_items")
-}
-
-model RabWbs {
-  id           String @id @default(cuid())
-  rabProjectId String
-  name         String
-  order        Int    @default(0)
-
-  rabProject RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
-  items      RabItem[]
-
-  @@index([rabProjectId])
-  @@map("rab_wbs")
-}
-
-model RabDisbursement {
-  id            String    @id @default(cuid())
-  rabItemId     String
-  name          String
-  percentage    Float
-  amount        BigInt
-  estimatedDate DateTime?
-  isPaid        Boolean   @default(false)
-
-  rabItem RabItem @relation(fields: [rabItemId], references: [id], onDelete: Cascade)
-
-  @@index([rabItemId])
-  @@map("rab_disbursements")
 }
 
 enum RabExpenseType {
@@ -2954,18 +2983,23 @@ enum RabStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  PENGADAAN
+  PENGGELARAN_JARINGAN
+  PENJUALAN
+  TARGET_TERCAPAI
+  SELESAI
 }
 
 enum RabItemCategory {
   HARDWARE
   LICENSE
   INSTALLATION
+  OTHER
   DEVICE
   CABLE
   ACCESSORIES
   SERVICE
   OPERATIONAL
-  OTHER
 }
 
 enum RabGrowthType {
@@ -2978,117 +3012,6 @@ enum PaymentStatus {
   UNPAID
   PARTIAL
   PAID
-}
-
-model AcsVendor {
-  id                   String   @id @default(cuid())
-  name                 String   @unique
-  manufacturerPatterns String
-  productPatterns      String
-  parameterPrefix      String?
-  serviceListPath      String?
-  lanBindingPath       String?
-  vlanIdPath           String?
-  httpWanEnablePath    String?
-  firewallLevelPath    String?
-  priority             Int      @default(10)
-  enabled              Boolean  @default(true)
-  description          String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  @@map("acs_vendors")
-}
-
-model AcsWifiSecurity {
-  id            String   @id @default(cuid())
-  productClass  String   @unique
-  parameterPath String
-  wpaTypes      String?
-  encryptTypes  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("acs_wifi_security")
-}
-
-model CompanyBankAccount {
-  id            String   @id @default(uuid())
-  bankName      String
-  accountNumber String
-  accountName   String
-  isActive      Boolean  @default(true)
-  priority      Int      @default(1)
-  description   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([isActive])
-  @@index([priority])
-  @@map("company_bank_accounts")
-}
-
-model RabActualAchievement {
-  id           String     @id @default(cuid())
-  rabProjectId String
-  rabProject   RabProject @relation(fields: [rabProjectId], references: [id], onDelete: Cascade)
-
-  month Int // Bulan berjalan proyek (Misal: 1, 2, 3...)
-  year  Int // Tahun untuk referensi
-
-  actualSubscribers Int
-  actualRevenue     BigInt
-  actualOpex        BigInt @default(0)
-
-  // Manual Overrides for Profit Sharing
-  manualRecoveryInstallment        BigInt?
-  manualInvestorShare              BigInt?
-  manualCompanyShare               BigInt?
-  manualInvestorProfitSharePercent Float?
-
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([rabProjectId, month, year])
-  @@index([rabProjectId])
-  @@map("rab_actual_achievements")
-}
-
-// =====================================================
-// MITRA SYSTEM (MOVED TO mitra.prisma)
-// =====================================================
-
-model EmployeeLoan {
-  id              String        @id @default(uuid())
-  userId          String
-  amount          Float
-  installment     Float
-  remainingAmount Float
-  status          LoanStatus    @default(ACTIVE)
-  notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payments        LoanPayment[]
-
-  @@index([userId])
-  @@index([status])
-  @@map("employee_loans")
-}
-
-model LoanPayment {
-  id          String   @id @default(uuid())
-  loanId      String
-  amount      Float
-  paymentDate DateTime @default(now())
-  notes       String?
-
-  loan         EmployeeLoan  @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  salaryDetail SalaryDetail?
-
-  @@index([loanId])
-  @@map("loan_payments")
 }
 
 enum TargetSchema {

@@ -124,7 +124,7 @@ export function isFetchError(error: unknown): error is FetchError {
 export function formatErrorMessage(error: FetchError): string {
   if (error.details) {
     const detailMessages = Object.entries(error.details)
-      .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+      .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
       .join('; ')
     return `${error.message} (${detailMessages})`
   }

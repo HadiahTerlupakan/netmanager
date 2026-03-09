@@ -67,6 +67,22 @@ export default function InvestorProjectDetail() {
     const subs = project.subscribers as { paymentRatio?: number; paying?: number; total?: number } | undefined
     const paymentRatio = subs?.paymentRatio || 0
 
+    // Helper status badge UI for new RabStatus
+    const getStatusStyle = (status: string) => {
+        switch (status) {
+            case 'DRAFT': return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+            case 'PENDING_APPROVAL': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+            case 'APPROVED': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+            case 'PENGADAAN': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+            case 'PENGGELARAN_JARINGAN': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+            case 'PENJUALAN': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
+            case 'TARGET_TERCAPAI': return 'bg-emerald-500 text-white'
+            case 'SELESAI': return 'bg-gray-800 text-white dark:bg-white dark:text-gray-900'
+            default: return 'bg-gray-100 text-gray-600'
+        }
+    }
+    const status = String(project.status || 'DRAFT')
+
     return (
         <div className="flex-1 flex flex-col min-h-screen bg-gray-50 dark:bg-black pb-24 overflow-y-auto custom-scrollbar">
             {/* Header */}
@@ -77,16 +93,21 @@ export default function InvestorProjectDetail() {
                 >
                     <HiOutlineArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </button>
-                <div className="flex-1 truncate pr-4">
-                    <div className="flex items-center gap-2">
+                <div className="flex-1 truncate pr-2">
+                    <div className="flex items-center gap-2 mb-0.5">
                         <h1 className="text-sm font-black text-gray-900 dark:text-white truncate">{String(project.name || '')}</h1>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${getStatusStyle(status)}`}>
+                            {status.replace(/_/g, ' ')}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold truncate uppercase tracking-tight">{String(project.siteName || 'Lokasi Global')}</p>
                         {project.billingSource === 'MIXRADIUS' ? (
-                            <span className="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-md font-bold uppercase">MixRadius</span>
+                            <span className="text-[8px] font-black text-indigo-500 uppercase">MixRadius</span>
                         ) : project.billingSource === 'INTERNAL' ? (
-                            <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-md font-bold uppercase">Internal</span>
+                            <span className="text-[8px] font-black text-blue-500 uppercase">Internal</span>
                         ) : null}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">{String(project.siteName || 'Lokasi Global')}</p>
                 </div>
             </div>
 
