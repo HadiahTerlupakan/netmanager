@@ -19,10 +19,10 @@ const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 
 
 export function HolidayClient() {
     const { hasPermission } = usePermission()
-    const canCreate = hasPermission('izin:create') // Proxy for holiday management
-    const canDelete = hasPermission('izin:delete')
+    const canCreate = hasPermission('holiday:create') // Use actual holiday permission
+    const canDelete = hasPermission('holiday:delete')
 
-    const [currentDate, setCurrentDate] = useState(new Date())
+    const [currentDate, setCurrentDate] = useState<Date | null>(null)
     const [holidays, setHolidays] = useState<Holiday[]>([])
     const [_loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
@@ -30,13 +30,15 @@ export function HolidayClient() {
     const [description, setDescription] = useState('')
     const [isNational, setIsNational] = useState(true)
 
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
+    useEffect(() => {
+        setCurrentDate(new Date())
+    }, [])
 
     const fetchHolidays = useCallback(async () => {
+        if (!currentDate) return
         setLoading(true)
         try {
-            const res = await getWithAuth(`/api/admin/holidays?year=${year}`)
+            const res = await getWithAuth(`/api/admin/holidays?year=${currentDate.getFullYear()}`)
             if (res.ok) {
                 const data = await res.json()
                 setHolidays(data.data || [])
@@ -46,18 +48,20 @@ export function HolidayClient() {
         } finally {
             setLoading(false)
         }
-    }, [year])
+    }, [currentDate])
 
     useEffect(() => {
         fetchHolidays()
     }, [fetchHolidays])
 
     const handlePrevMonth = () => {
-        setCurrentDate(new Date(year, month - 1, 1))
+        if (!currentDate) return
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
     }
 
     const handleNextMonth = () => {
-        setCurrentDate(new Date(year, month + 1, 1))
+        if (!currentDate) return
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
     }
 
     const handleDateClick = (dateStr: string) => {
@@ -108,6 +112,13 @@ export function HolidayClient() {
         }
     }
 
+    if (!currentDate) {
+        return <div className="p-8 text-center text-gray-500">Memuat kalender...</div>
+    }
+
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+
     const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
     const getFirstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay()
 
@@ -115,7 +126,9 @@ export function HolidayClient() {
     const firstDay = getFirstDayOfMonth(year, month)
     const blanks = Array(firstDay).fill(null)
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
-
+    
+    // Convert holidays to a map for O(1) lookup
+    const holidayMap = new Map(holidays.map(h => [new Date(h.date).toISOString().split('T')[0], h]))
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -151,7 +164,7 @@ export function HolidayClient() {
 
                     {days.map(day => {
                         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                        const holiday = holidays.find(h => new Date(h.date).toISOString().split('T')[0] === dateStr)
+                        const holiday = holidayMap.get(dateStr)
                         const today = new Date()
                         const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year
                         const isSunday = new Date(year, month, day).getDay() === 0
