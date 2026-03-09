@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { MixRadiusService } from '@/modules/integrations';
+import { MixRadiusConfigError, MixRadiusService } from '@/modules/integrations';
 
 /**
  * GET /api/mobile/mixradius/customers
@@ -65,6 +65,14 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error searching MixRadius customers:', error);
+
+        if (error instanceof MixRadiusConfigError || (error instanceof Error && error.name === 'MixRadiusConfigError')) {
+            return NextResponse.json(
+                { error: error.message, code: 'MIXRADIUS_CONFIG_ERROR' },
+                { status: 503 }
+            );
+        }
+
         return NextResponse.json(
             { error: 'Gagal mencari pelanggan' },
             { status: 500 }
