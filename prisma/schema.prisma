@@ -241,6 +241,8 @@ model Expense {
   categoryId        String?
   rabItemId         String?
   rabProjectId      String?
+  invoiceNumber     String?
+  invoiceFile       String?
   financialAccount  FinancialAccount? @relation(fields: [accountId], references: [id])
   expenseCategory   ExpenseCategory?  @relation(fields: [expenseCategoryId], references: [id])
   rabItem           RabItem?          @relation(fields: [rabItemId], references: [id])

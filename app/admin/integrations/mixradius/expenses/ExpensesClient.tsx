@@ -16,8 +16,9 @@ import {
     HiOutlineArrowLeft,
     HiOutlineCheckCircle,
     HiOutlineInformationCircle,
-    // HiOutlineBanknotes,
-    HiOutlineDocumentText
+    HiOutlinePaperClip,
+    HiOutlineXMark,
+    HiOutlineReceiptPercent
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
@@ -26,10 +27,18 @@ import { Modal, ModalBody } from '@/components/ui/Modal'
 import { Combobox, type ComboboxOption } from '@/components/ui/Combobox'
 import { formatCurrency } from '@/lib/utils'
 import { usePermission } from '@/hooks/use-permission'
+import { buildDailyExpenseIndicators } from '@/lib/finance/daily-expense-indicators'
+import { buildExpenseCsvContent } from './expense-csv'
 import RABList, { type RABProject } from './RABList'
 import RABForm from './RABForm'
 import RABView from './RABView'
 import CategoryList from './CategoryList'
+
+interface FormItem {
+    amount: string
+    description: string
+    rabItemId: string
+}
 
 interface Expense {
     id: string
@@ -58,6 +67,8 @@ interface Expense {
     description?: string
     siteId?: string
     mixRadiusGroupId?: string
+    invoiceNumber?: string
+    invoiceFile?: string
     site?: {
         id: string
         name: string
@@ -79,6 +90,19 @@ interface Expense {
     }
 }
 
+interface FormItem {
+    id?: string
+    amount: string
+    description: string
+    rabProjectId: string
+    rabItemId: string
+    category?: string // Removed category from per-item since user requested it to be global
+    expenseCategoryId: string
+    isUsefulLifeEnabled: boolean
+    usefulLife: number
+    depreciation: string
+}
+
 interface SiteOption {
     id: string
     name: string
@@ -98,9 +122,22 @@ interface InvestorSiteOption {
     name: string
 }
 
+interface RabBottleneckMetrics {
+    pendingApprovalCount: number
+    oldestPendingDays: number
+    oldestPendingProjectName: string | null
+    averageApprovalLeadHours: number
+}
+
 export default function ExpensesClient() {
     const { hasPermission } = usePermission()
-    console.log("DEBUG: Menggunakan ExpensesClient dari MixRadius (Wizard Stepper)");
+
+    const buildIdempotencyKey = (scope: 'single' | 'batch') => {
+        const randomPart = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        return `expenses-${scope}-${Date.now()}-${randomPart}`
+    }
 
     // Permission checks (support both specific mixradius permission AND generic expense permission)
     const canCreate = hasPermission('mixradius_expenses:create') || hasPermission('expense:create')
@@ -143,24 +180,20 @@ export default function ExpensesClient() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [step, setStep] = useState(1)
     const [editingItem, setEditingItem] = useState<Expense | null>(null)
+    const defaultItem = (): FormItem => ({ amount: '', description: '', rabProjectId: '', rabItemId: '', category: 'OPEX', expenseCategoryId: '', isUsefulLifeEnabled: false, usefulLife: 0, depreciation: '' })
+    const [items, setItems] = useState<FormItem[]>([defaultItem()])
     const [formData, setFormData] = useState({
         date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
-        amount: '',
-        depreciation: '',
-        usefulLife: 0,
         category: 'OPEX',
-        expenseCategoryId: '',
-        categoryId: '', // COA Category ID
-        accountId: '', // Source Account ID
-        description: '',
         siteId: '',
         mixRadiusGroupId: '',
-        rabProjectId: '',
-        rabItemId: ''
+        invoiceNumber: '',
+        invoiceFile: ''
     })
 
     const [rabProjects, setRabProjects] = useState<{ id: string, name: string, items: { id: string, name: string, expenseType: string, quantity?: number }[] }[]>([])
-    const [isUsefulLifeEnabled, setIsUsefulLifeEnabled] = useState(false)
+    const [, setIsUsefulLifeEnabled] = useState(false)
+    const [isUploadingInvoice, setIsUploadingInvoice] = useState(false)
 
     // New Category State
     // const [isAddingCategory, setIsAddingCategory] = useState(false)
@@ -176,12 +209,13 @@ export default function ExpensesClient() {
     const [isRABViewOpen, setIsRABViewOpen] = useState(false)
     const [viewingRAB, setViewingRAB] = useState<RABProject | null>(null)
     const [rabRefreshKey, setRabRefreshKey] = useState(0)
+    const [rabBottleneckMetrics, setRabBottleneckMetrics] = useState<RabBottleneckMetrics | null>(null)
+    const [isLoadingRabMetrics, setIsLoadingRabMetrics] = useState(false)
 
     const [search, setSearch] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
+    const [isDailySimpleMode, setIsDailySimpleMode] = useState(true)
 
-    // Selected Options for Summary
-    const selectedCategoryDetail = useMemo(() => categories.find(c => c.id === formData.expenseCategoryId), [categories, formData.expenseCategoryId])
     // const selectedAccount = useMemo(() => accounts.find(a => a.id === formData.accountId), [accounts, formData.accountId])
 
     // Debounce search
@@ -299,7 +333,7 @@ export default function ExpensesClient() {
     const fetchCategories = useCallback(async () => {
         setIsLoadingCategories(true)
         try {
-            const res = await fetch(`/api/finance/expense-categories?type=${formData.category}`)
+            const res = await fetch(`/api/finance/expense-categories`)
             const json = await res.json()
             if (json.success && Array.isArray(json.data)) {
                 setCategories(json.data)
@@ -309,7 +343,7 @@ export default function ExpensesClient() {
         } finally {
             setIsLoadingCategories(false)
         }
-    }, [formData.category])
+    }, [])
 
     useEffect(() => {
         if (isModalOpen) {
@@ -326,7 +360,7 @@ export default function ExpensesClient() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: newCategoryName,
-                    type: formData.category
+                    type: 'OPEX' // Removed dynamic type as wizard doesn't support adding categories directly anymore
                 })
             })
 
@@ -361,10 +395,12 @@ export default function ExpensesClient() {
 
             setCategories(prev => prev.filter(c => c.id !== id))
 
-            // If deleted category was selected, reset selection
-            if (formData.expenseCategoryId === id) {
-                setFormData(prev => ({ ...prev, expenseCategoryId: '' }))
-            }
+            // If deleted category was selected in any item, clear it
+            setItems(prev => prev.map(item =>
+                item.expenseCategoryId === id
+                    ? { ...item, expenseCategoryId: '' }
+                    : item
+            ))
 
             toast.success('Kategori dihapus')
         } catch (e) {
@@ -411,23 +447,71 @@ export default function ExpensesClient() {
         fetchData()
     }, [fetchData])
 
-    // Calculate depreciation automatically if usefulLife changes or amount changes
-    useEffect(() => {
-        if (formData.category === 'CAPEX' && formData.amount && formData.usefulLife > 0) {
-            const amount = Number(formData.amount)
-            const life = Number(formData.usefulLife)
-            if (!isNaN(amount) && !isNaN(life) && life > 0) {
-                const depreciation = Math.round(amount / life).toString()
-                setFormData(prev => ({ ...prev, depreciation }))
+    const fetchRabBottleneckMetrics = useCallback(async () => {
+        setIsLoadingRabMetrics(true)
+        try {
+            const response = await fetch('/api/finance/rab-projects/dashboard')
+            if (!response.ok) {
+                throw new Error('Gagal mengambil ringkasan bottleneck RAB')
             }
+
+            const result = await response.json()
+            if (result.success && result.data) {
+                setRabBottleneckMetrics(result.data)
+            }
+        } catch (err) {
+            console.error('Failed to fetch RAB bottleneck metrics', err)
+        } finally {
+            setIsLoadingRabMetrics(false)
         }
-    }, [formData.amount, formData.usefulLife, formData.category])
+    }, [])
+
+    useEffect(() => {
+        if (activeTab === 'rab') {
+            fetchRabBottleneckMetrics()
+        }
+    }, [activeTab, fetchRabBottleneckMetrics])
+
+    // Helper: update specific item in items array
+    const updateItem = (index: number, field: keyof FormItem, value: string) => {
+        setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item))
+    }
+
+    const addItem = () => {
+        setItems(prev => [...prev, defaultItem()])
+    }
+
+    const removeItem = (index: number) => {
+        if (items.length <= 1) return
+        setItems(prev => prev.filter((_, i) => i !== index))
+    }
+
+    // Compute total from all items
+    const formTotal = useMemo(() => items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0), [items])
+
+    // Invoice upload handler
+    const handleInvoiceUpload = async (file: File) => {
+        setIsUploadingInvoice(true)
+        try {
+            const formDataUpload = new FormData()
+            formDataUpload.append('file', file)
+            formDataUpload.append('folder', 'invoices')
+            const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload })
+            if (!res.ok) throw new Error('Upload gagal')
+            const result = await res.json()
+            setFormData(prev => ({ ...prev, invoiceFile: result.url }))
+            toast.success('Invoice berhasil diupload')
+        } catch {
+            toast.error('Gagal mengupload invoice')
+        } finally {
+            setIsUploadingInvoice(false)
+        }
+    }
 
     // Build hierarchical category options for Combobox
     const hierarchicalCategoryOptions: ComboboxOption[] = useMemo(() => {
         if (!categories.length) return []
 
-        // Separate roots (no parentId) and children
         const roots = categories.filter(c => !c.parentId)
         const childrenMap = new Map<string, CategoryOption[]>()
         for (const cat of categories) {
@@ -440,8 +524,8 @@ export default function ExpensesClient() {
 
         const result: ComboboxOption[] = []
 
-        const flatten = (items: CategoryOption[], depth: number) => {
-            for (const item of items) {
+        const flatten = (catItems: CategoryOption[], depth: number) => {
+            for (const item of catItems) {
                 const children = childrenMap.get(item.id) || []
                 const hasChildren = children.length > 0
                 const indent = depth > 0 ? '\u2003'.repeat(depth) : ''
@@ -471,6 +555,20 @@ export default function ExpensesClient() {
         return result
     }, [categories])
 
+    const opexCategoryOptions = useMemo(() => {
+        return hierarchicalCategoryOptions.filter(opt => {
+            const cat = categories.find(c => c.id === opt.value)
+            return cat?.type === 'OPEX'
+        })
+    }, [hierarchicalCategoryOptions, categories])
+
+    const capexCategoryOptions = useMemo(() => {
+        return hierarchicalCategoryOptions.filter(opt => {
+            const cat = categories.find(c => c.id === opt.value)
+            return cat?.type === 'CAPEX'
+        })
+    }, [hierarchicalCategoryOptions, categories])
+
     const filteredData = data.filter(item => {
         if (!debouncedSearch) return true
         const lowerSearch = debouncedSearch.toLowerCase()
@@ -481,48 +579,56 @@ export default function ExpensesClient() {
         )
     })
 
-    // Calculate Summary based on filtered data
     const totalAmount = filteredData.reduce((sum, item) => sum + Number(item.amount), 0)
     const totalCapex = filteredData.filter(i => i.category === 'CAPEX').reduce((sum, item) => sum + Number(item.amount), 0)
     const totalOpex = filteredData.filter(i => i.category === 'OPEX').reduce((sum, item) => sum + Number(item.amount), 0)
+    const dailyIndicators = useMemo(() => buildDailyExpenseIndicators(filteredData.map((item) => ({
+        date: item.date,
+        amount: item.amount,
+        category: item.category,
+        siteId: item.siteId ?? null,
+        mixRadiusGroupId: item.mixRadiusGroupId ?? null,
+        description: item.description ?? null,
+        invoiceNumber: item.invoiceNumber ?? null,
+        invoiceFile: item.invoiceFile ?? null,
+    }))), [filteredData])
 
     const handleOpenModal = (item?: Expense) => {
         setStep(1)
         if (item) {
             setEditingItem(item)
             setIsUsefulLifeEnabled((item.usefulLife || 0) > 0)
-            setFormData({
-                date: new Date(item.date).toISOString().split('T')[0],
+            setItems([{
+                id: item.id,
                 amount: item.amount.toString(),
-                depreciation: item.depreciation || '',
-                usefulLife: item.usefulLife || 0,
+                description: item.description || '',
+                rabProjectId: item.rabProject?.id || '',
+                rabItemId: item.rabItem?.id || '',
                 category: item.category,
                 expenseCategoryId: item.expenseCategoryId || '',
-                categoryId: item.categoryId || '',
-                accountId: item.accountId || '',
-                description: item.description || '',
+                isUsefulLifeEnabled: (item.usefulLife || 0) > 0,
+                usefulLife: item.usefulLife || 0,
+                depreciation: item.depreciation ? item.depreciation.toString() : ''
+            }])
+            setFormData({
+                date: new Date(item.date).toISOString().split('T')[0],
+                category: item.category,
                 siteId: item.siteId || '',
                 mixRadiusGroupId: item.mixRadiusGroupId || '',
-                rabProjectId: item.rabProject?.id || '',
-                rabItemId: item.rabItem?.id || ''
+                invoiceNumber: item.invoiceNumber || '',
+                invoiceFile: item.invoiceFile || ''
             })
         } else {
             setEditingItem(null)
             setIsUsefulLifeEnabled(false)
+            setItems([defaultItem()])
             setFormData({
                 date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
-                amount: '',
-                depreciation: '',
-                usefulLife: 0,
                 category: 'OPEX',
-                expenseCategoryId: '',
-                categoryId: '',
-                accountId: '',
-                description: '',
                 siteId: '',
                 mixRadiusGroupId: '',
-                rabProjectId: '',
-                rabItemId: ''
+                invoiceNumber: '',
+                invoiceFile: ''
             })
         }
         setIsModalOpen(true)
@@ -530,22 +636,23 @@ export default function ExpensesClient() {
 
     const nextStep = () => {
         if (step === 1) {
-            if (!formData.amount || parseFloat(formData.amount) <= 0) {
-                toast.error('Nominal pengeluaran harus lebih besar dari 0')
-                return
+            // Validate all items have amount > 0
+            for (let i = 0; i < items.length; i++) {
+                if (!items[i].amount || parseFloat(items[i].amount) <= 0) {
+                    toast.error(`Nominal item ${i + 1} harus lebih besar dari 0`)
+                    return
+                }
             }
             if (!formData.date) {
                 toast.error('Tanggal transaksi wajib diisi')
                 return
             }
         } else if (step === 2) {
-            if (!formData.expenseCategoryId) {
-                toast.error('Kategori Pengeluaran wajib dipilih')
-                return
-            }
-            if (formData.category === 'CAPEX' && isUsefulLifeEnabled && (!formData.usefulLife || formData.usefulLife < 1)) {
-                toast.error('Masa manfaat CAPEX minimal 1 bulan')
-                return
+            for (let i = 0; i < items.length; i++) {
+                if (!items[i].expenseCategoryId) {
+                    toast.error(`Kategori Pengeluaran (COA) untuk item ke-${i + 1} wajib dipilih`)
+                    return
+                }
             }
         }
         setStep(step + 1)
@@ -555,16 +662,9 @@ export default function ExpensesClient() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-
         setIsSubmitting(true)
 
         try {
-            const url = editingItem
-                ? `/api/finance/expenses/${editingItem.id}`
-                : '/api/finance/expenses'
-
-            const method = editingItem ? 'PUT' : 'POST'
-
             // Find the selected group to get the linked physical siteId
             let finalSiteId = formData.siteId
             const selectedOption = sites.find(s => s.id === formData.mixRadiusGroupId)
@@ -572,27 +672,98 @@ export default function ExpensesClient() {
                 finalSiteId = selectedOption.siteId
             }
 
-            // Clean up payload based on category and toggle
-            const payload = {
-                ...formData,
-                amount: Number(formData.amount),
-                usefulLife: formData.category === 'OPEX' || !isUsefulLifeEnabled ? 0 : formData.usefulLife,
-                depreciation: formData.category === 'OPEX' || !isUsefulLifeEnabled ? '0' : formData.depreciation,
-                siteId: finalSiteId
+            if (editingItem) {
+                // Edit mode: always single item
+                const item = items[0]
+                const payload = {
+                    ...formData,
+                    expenseCategoryId: item.expenseCategoryId,
+                    amount: Number(item.amount),
+                    description: item.description,
+                    rabItemId: item.rabItemId,
+                    usefulLife: formData.category === 'OPEX' || !item.isUsefulLifeEnabled ? 0 : item.usefulLife,
+                    depreciation: item.depreciation || '0',
+                    siteId: finalSiteId
+                }
+
+                const res = await fetch(`/api/finance/expenses/${editingItem.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    throw new Error(errData.error || 'Gagal memperbarui data pengeluaran')
+                }
+
+                toast.success('Data berhasil diperbarui')
+            } else if (items.length === 1) {
+                // Create single item
+                const item = items[0]
+                const payload = {
+                    ...formData,
+                    expenseCategoryId: item.expenseCategoryId,
+                    amount: Number(item.amount),
+                    description: item.description,
+                    rabItemId: item.rabItemId,
+                    usefulLife: formData.category === 'OPEX' || !item.isUsefulLifeEnabled ? 0 : item.usefulLife,
+                    depreciation: item.depreciation || '0',
+                    siteId: finalSiteId
+                }
+
+                const res = await fetch('/api/finance/expenses', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-idempotency-key': buildIdempotencyKey('single'),
+                    },
+                    body: JSON.stringify(payload)
+                })
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    throw new Error(errData.error || 'Gagal menyimpan data pengeluaran')
+                }
+
+                toast.success('Pengeluaran berhasil ditambahkan')
+            } else {
+                // Batch create multiple items
+                const payload = {
+                    date: formData.date,
+                    siteId: finalSiteId,
+                    mixRadiusGroupId: formData.mixRadiusGroupId,
+                    invoiceNumber: formData.invoiceNumber,
+                    invoiceFile: formData.invoiceFile,
+                    items: items.map(item => ({
+                        amount: Number(item.amount),
+                        description: item.description,
+                        rabProjectId: item.rabProjectId,
+                        rabItemId: item.rabItemId,
+                        category: formData.category,
+                        expenseCategoryId: item.expenseCategoryId,
+                        usefulLife: formData.category === 'OPEX' || !item.isUsefulLifeEnabled ? 0 : item.usefulLife,
+                        depreciation: item.depreciation || '0'
+                    }))
+                }
+
+                const res = await fetch('/api/finance/expenses/batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-idempotency-key': buildIdempotencyKey('batch'),
+                    },
+                    body: JSON.stringify(payload)
+                })
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    throw new Error(errData.error || 'Gagal menyimpan data pengeluaran')
+                }
+
+                toast.success(`${items.length} pengeluaran berhasil ditambahkan`)
             }
 
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}))
-                throw new Error(errData.error || 'Gagal menyimpan data pengeluaran')
-            }
-
-            toast.success(editingItem ? 'Data berhasil diperbarui' : 'Pengeluaran berhasil ditambahkan')
             setIsModalOpen(false)
             fetchData()
         } catch (err) {
@@ -628,31 +799,26 @@ export default function ExpensesClient() {
             return
         }
 
-        // Header CSV
-        const headers = ['Tanggal', 'Jumlah', 'Tipe', 'Kategori', 'RAB', 'Keterangan', 'Site/Group', 'Petugas']
-
-        // Rows
-        const rows = filteredData.map(item => {
+        const csvContent = buildExpenseCsvContent(filteredData.map(item => {
             const rabText = item.rabProject
                 ? `${item.rabProject.name}${item.rabItem ? ` (${item.rabItem.name})` : ''}`
-                : '-';
+                : '-'
 
-            return [
-                new Date(item.date).toLocaleDateString('id-ID'),
-                item.amount.toString(),
-                item.category,
-                item.expenseCategory?.name || '-',
-                `"${rabText.replace(/"/g, '""')}"`,
-                `"${(item.description || '').replace(/"/g, '""')}"`, // Escape quotes
-                `"${(item.mixRadiusGroupId ? sites.find(s => s.id === item.mixRadiusGroupId)?.name || item.site?.name : item.site?.name || 'Umum').replace(/"/g, '""')}"`,
-            ]
-        })
+            const siteOrGroup = item.mixRadiusGroupId
+                ? sites.find(s => s.id === item.mixRadiusGroupId)?.name || item.site?.name || 'Umum'
+                : item.site?.name || 'Umum'
 
-        // Combine
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n')
+            return {
+                date: item.date,
+                amount: item.amount.toString(),
+                category: item.category,
+                expenseCategoryName: item.expenseCategory?.name || '-',
+                rabText,
+                description: item.description || '',
+                siteOrGroup,
+                petugas: item.user?.name || '-',
+            }
+        }))
 
         // Download
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -703,24 +869,26 @@ export default function ExpensesClient() {
                 <div className="flex gap-2">
                     {activeTab === 'daily' && (
                         <button
-                            onClick={handleExport}
+                            type="button"
+                            onClick={() => setIsDailySimpleMode((prev) => !prev)}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
                         >
-                            <HiOutlineDocumentArrowDown className="w-5 h-5" />
-                            <span className="hidden sm:inline">Export CSV</span>
+                            <HiOutlineInformationCircle className="w-5 h-5" />
+                            <span className="hidden sm:inline">{isDailySimpleMode ? 'Tampilkan Monitoring' : 'Mode Simple'}</span>
                         </button>
                     )}
+                    {activeTab === 'daily' && (
+                        <button type="button" onClick={handleExport}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"><HiOutlineDocumentArrowDown className="w-5 h-5" />
+                        <span className="hidden sm:inline">Export CSV</span></button>
+                    )}
                     {canCreate && activeTab !== 'coa' && (
-                        <button
-                            onClick={() => activeTab === 'daily' ? handleOpenModal() : handleOpenRABModal()}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                        >
-                            <HiOutlinePlus className="w-5 h-5" />
-                            <span className="hidden sm:inline">
-                                {activeTab === 'daily' ? 'Tambah Pengeluaran' : 'Buat RAB Baru'}
-                            </span>
-                            <span className="sm:hidden">Tambah</span>
-                        </button>
+                        <button type="button" onClick={() => activeTab === 'daily' ? handleOpenModal() : handleOpenRABModal()}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"><HiOutlinePlus className="w-5 h-5" />
+                        <span className="hidden sm:inline">
+                            {activeTab === 'daily' ? 'Tambah Pengeluaran' : 'Buat RAB Baru'}
+                        </span>
+                        <span className="sm:hidden">Tambah</span></button>
                     )}
                 </div>
             </div>
@@ -728,45 +896,36 @@ export default function ExpensesClient() {
             {/* Tabs */}
             <div className="border-b border-gray-200 dark:border-gray-700">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button
-                        onClick={() => setActiveTab('daily')}
-                        className={`
-                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
-                      ${activeTab === 'daily'
-                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                            }
-                  `}
-                    >
-                        <HiOutlineCurrencyDollar className="w-5 h-5" />
-                        Pengeluaran Harian
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('rab')}
-                        className={`
-                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
-                      ${activeTab === 'rab'
-                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                            }
-                  `}
-                    >
-                        <HiOutlineClipboardDocumentList className="w-5 h-5" />
-                        RAB (Proyek)
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('coa')}
-                        className={`
-                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
-                      ${activeTab === 'coa'
-                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                            }
-                  `}
-                    >
-                        <HiOutlineTag className="w-5 h-5" />
-                        COA
-                    </button>
+                    <button type="button" onClick={() => setActiveTab('daily')}
+                    className={`
+                                          whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
+                                          ${activeTab === 'daily'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }
+                                      `}><HiOutlineCurrencyDollar className="w-5 h-5" />
+                    Pengeluaran Harian
+                                        </button>
+                    <button type="button" onClick={() => setActiveTab('rab')}
+                    className={`
+                                          whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
+                                          ${activeTab === 'rab'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }
+                                      `}><HiOutlineClipboardDocumentList className="w-5 h-5" />
+                    RAB (Proyek)
+                                        </button>
+                    <button type="button" onClick={() => setActiveTab('coa')}
+                    className={`
+                                          whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
+                                          ${activeTab === 'coa'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }
+                                      `}><HiOutlineTag className="w-5 h-5" />
+                    COA
+                                        </button>
                 </nav>
             </div>
 
@@ -802,6 +961,25 @@ export default function ExpensesClient() {
                             </p>
                         </div>
                     </div>
+
+                    {!isDailySimpleMode && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm">
+                                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">INDIKASI DUPLIKASI</p>
+                                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                                    {dailyIndicators.suspectedDuplicateCount}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hanya warning, tidak memblokir input</p>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+                                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">PENDING VERIFIKASI BUKTI</p>
+                                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                                    {dailyIndicators.pendingVerificationCount}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Transaksi tanpa nomor/foto invoice</p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Filters & Toolbar */}
                     <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -951,9 +1129,19 @@ export default function ExpensesClient() {
                                     key: 'description',
                                     header: 'Keterangan',
                                     render: (item) => (
-                                        <span className="text-gray-700 dark:text-gray-300 line-clamp-2" title={item.description}>
-                                            {item.description || '-'}
-                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className="text-gray-700 dark:text-gray-300 line-clamp-2" title={item.description}>
+                                                {item.description || '-'}
+                                            </span>
+                                            {item.invoiceNumber && (
+                                                <div className="flex items-center gap-1 mt-1">
+                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 uppercase">Inv</span>
+                                                    <span className="text-[10px] text-gray-500 font-mono">
+                                                        {item.invoiceNumber}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     )
                                 },
                                 {
@@ -983,22 +1171,14 @@ export default function ExpensesClient() {
                                     render: (item: Expense) => (
                                         <div className="flex justify-end gap-2">
                                             {canUpdate && (
-                                                <button
-                                                    onClick={() => handleOpenModal(item)}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <HiOutlinePencilSquare className="w-5 h-5" />
-                                                </button>
+                                                <button type="button" onClick={() => handleOpenModal(item)}
+                                                className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                                title="Edit"><HiOutlinePencilSquare className="w-5 h-5" /></button>
                                             )}
                                             {canDelete && (
-                                                <button
-                                                    onClick={() => handleDelete(item.id)}
-                                                    className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                                    title="Hapus"
-                                                >
-                                                    <HiOutlineTrash className="w-5 h-5" />
-                                                </button>
+                                                <button type="button" onClick={() => handleDelete(item.id)}
+                                                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                                title="Hapus"><HiOutlineTrash className="w-5 h-5" /></button>
                                             )}
                                         </div>
                                     )
@@ -1040,7 +1220,7 @@ export default function ExpensesClient() {
 
                         <ModalBody className="p-8">
                             <form onSubmit={handleSubmit} className="space-y-6">
-                                {/* Step 1: Detail Pengeluaran */}
+                                {/* Step 1: Detail Pengeluaran - Multi Item */}
                                 {step === 1 && (
                                     <div className="space-y-5 animate-in slide-in-from-right-4 fade-in duration-300">
                                         <div className="flex items-center gap-3 mb-2">
@@ -1049,27 +1229,68 @@ export default function ExpensesClient() {
                                         </div>
 
                                         <div className="space-y-4">
-                                            {/* Nominal */}
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5 text-center">Nominal</label>
-                                                <div className="relative max-w-xs mx-auto">
-                                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                        <span className="text-gray-400 text-xl font-bold">Rp</span>
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        inputMode="numeric"
-                                                        required
-                                                        autoFocus
-                                                        value={formData.amount ? formData.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}
-                                                        onChange={e => {
-                                                            const rawValue = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '')
-                                                            setFormData({ ...formData, amount: rawValue })
-                                                        }}
-                                                        className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-2xl font-bold text-center transition-all shadow-sm"
-                                                        placeholder="0"
-                                                    />
+                                            {/* Line Items */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Item Pengeluaran</label>
+                                                    {items.length > 1 && (
+                                                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                                                            Total: {formatCurrency(formTotal)}
+                                                        </span>
+                                                    )}
                                                 </div>
+
+                                                {items.map((item, idx) => (
+                                                    <div key={idx} className={`p-4 rounded-xl border ${idx === 0 ? 'border-blue-200 dark:border-blue-800/50 bg-blue-50/30 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50'} space-y-3 animate-in fade-in slide-in-from-top-1 duration-200`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
+                                                                Item {idx + 1}
+                                                            </span>
+                                                            {items.length > 1 && (
+                                                                <button type="button" onClick={() => removeItem(idx)}
+                                                                className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                                                title="Hapus item"><HiOutlineXMark className="w-4 h-4" /></button>
+                                                            )}
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-3">
+                                                            {/* Amount */}
+                                                            <div className="relative">
+                                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                                    <span className="text-gray-400 text-sm font-bold">Rp</span>
+                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    inputMode="numeric"
+                                                                    required
+                                                                    autoFocus={idx === 0}
+                                                                    value={item.amount ? item.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}
+                                                                    onChange={e => {
+                                                                        const rawValue = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '')
+                                                                        updateItem(idx, 'amount', rawValue)
+                                                                    }}
+                                                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-lg font-bold transition-all"
+                                                                    placeholder="Nominal"
+                                                                />
+                                                            </div>
+                                                            {/* Description */}
+                                                            <input
+                                                                type="text"
+                                                                value={item.description}
+                                                                onChange={e => updateItem(idx, 'description', e.target.value)}
+                                                                className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+                                                                placeholder="Keterangan item..."
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                {/* Add Item Button */}
+                                                {!editingItem && (
+                                                    <button type="button" onClick={addItem}
+                                                    className="w-full py-2.5 px-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-all flex items-center justify-center gap-2 text-sm font-medium"><HiOutlinePlus className="w-4 h-4" />
+                                                    Tambah Item
+                                                                                                        </button>
+                                                )}
                                             </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1101,24 +1322,55 @@ export default function ExpensesClient() {
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Keterangan</label>
-                                                <div className="relative">
-                                                    <HiOutlineDocumentText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-                                                    <textarea
-                                                        value={formData.description}
-                                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                                        rows={3}
-                                                        placeholder="Misal: Pembayaran Token Listrik Gudang..."
+                                            {/* Invoice (Optional) */}
+                                            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <HiOutlineReceiptPercent className="w-4 h-4 text-gray-500" />
+                                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invoice (Opsional)</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <input
+                                                        type="text"
+                                                        value={formData.invoiceNumber}
+                                                        onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
+                                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+                                                        placeholder="No. Invoice"
                                                     />
+                                                    <div className="relative">
+                                                        {formData.invoiceFile ? (
+                                                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-sm">
+                                                                <HiOutlinePaperClip className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                                                <span className="text-green-700 dark:text-green-400 truncate flex-1">
+                                                                    {formData.invoiceFile.split('/').pop()}
+                                                                </span>
+                                                                <button type="button" onClick={() => setFormData({ ...formData, invoiceFile: '' })}
+                                                                className="text-red-500 hover:text-red-700 flex-shrink-0"><HiOutlineXMark className="w-4 h-4" /></button>
+                                                            </div>
+                                                        ) : (
+                                                            <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${isUploadingInvoice ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                                <HiOutlinePaperClip className="w-4 h-4 text-gray-400" />
+                                                                <span className="text-gray-500 dark:text-gray-400">
+                                                                    {isUploadingInvoice ? 'Mengupload...' : 'Upload Invoice'}
+                                                                </span>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*,.pdf"
+                                                                    className="hidden"
+                                                                    onChange={e => {
+                                                                        const file = e.target.files?.[0]
+                                                                        if (file) handleInvoiceUpload(file)
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Step 2: Klasifikasi Akun */}
+                                {/* Step 2: Klasifikasi & RAB */}
                                 {step === 2 && (
                                     <div className="space-y-5 animate-in slide-in-from-right-4 fade-in duration-300">
                                         <div className="flex items-center gap-3 mb-2">
@@ -1128,141 +1380,111 @@ export default function ExpensesClient() {
 
                                         {/* Tipe: OPEX/CAPEX Cards */}
                                         <div className="grid grid-cols-2 gap-4">
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, category: 'OPEX', expenseCategoryId: '' })}
-                                                className={`relative p-3 rounded-xl border-2 text-left transition-all group ${formData.category === 'OPEX'
-                                                    ? 'bg-orange-50/50 border-orange-500 shadow-sm dark:bg-orange-900/20 dark:border-orange-500'
-                                                    : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-                                                    }`}
-                                            >
-                                                <div className="font-bold text-gray-900 dark:text-white text-sm">OPEX</div>
-                                                <div className="text-[10px] text-gray-500 dark:text-gray-400">Operasional</div>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, category: 'CAPEX', expenseCategoryId: '' })}
-                                                className={`relative p-3 rounded-xl border-2 text-left transition-all group ${formData.category === 'CAPEX'
-                                                    ? 'bg-purple-50/50 border-purple-500 shadow-sm dark:bg-purple-900/20 dark:border-purple-500'
-                                                    : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-                                                    }`}
-                                            >
-                                                <div className="font-bold text-gray-900 dark:text-white text-sm">CAPEX</div>
-                                                <div className="text-[10px] text-gray-500 dark:text-gray-400">Modal</div>
-                                            </button>
+                                            <button type="button" onClick={() => {
+                                                setFormData({ ...formData, category: 'OPEX' })
+                                                setItems(prev => prev.map(item => ({ ...item, expenseCategoryId: '' })))
+                                            }}
+                                            className={`relative p-3 rounded-xl border-2 text-left transition-all group ${formData.category === 'OPEX'
+                                                ? 'bg-orange-50/50 border-orange-500 shadow-sm dark:bg-orange-900/20 dark:border-orange-500'
+                                                : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                                }`}><div className="font-bold text-gray-900 dark:text-white text-sm">OPEX</div>
+                                                                                        <div className="text-[10px] text-gray-500 dark:text-gray-400">Operasional</div></button>
+                                            <button type="button" onClick={() => {
+                                                setFormData({ ...formData, category: 'CAPEX' })
+                                                setItems(prev => prev.map(item => ({ ...item, expenseCategoryId: '' })))
+                                            }}
+                                            className={`relative p-3 rounded-xl border-2 text-left transition-all group ${formData.category === 'CAPEX'
+                                                ? 'bg-purple-50/50 border-purple-500 shadow-sm dark:bg-purple-900/20 dark:border-purple-500'
+                                                : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                                }`}><div className="font-bold text-gray-900 dark:text-white text-sm">CAPEX</div>
+                                                                                        <div className="text-[10px] text-gray-500 dark:text-gray-400">Modal</div></button>
                                         </div>
 
+
+
                                         <div className="space-y-4">
-                                            {/* Expense Category (Mandiri) */}
-                                            <div>
-                                                <div className="flex justify-between items-center mb-1.5">
-                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Kategori Pengeluaran</label>
-                                                </div>
-
-                                                <div className="relative">
-                                                    <Combobox
-                                                        options={hierarchicalCategoryOptions}
-                                                        value={formData.expenseCategoryId}
-                                                        onChange={val => setFormData({ ...formData, expenseCategoryId: val })}
-                                                        placeholder="Pilih kategori pengeluaran..."
-                                                        loading={isLoadingCategories}
-                                                    />
-                                                </div>
-                                                <p className="text-[10px] text-gray-400 mt-1">
-                                                    Kelola kategori di tab COA
-                                                </p>
-                                            </div>
-
-                                            {/* Terkait RAB (Opsional) */}
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Terkait RAB (Opsional)</label>
-                                                <select
-                                                    value={formData.rabProjectId}
-                                                    onChange={e => setFormData({ ...formData, rabProjectId: e.target.value, rabItemId: '' })}
-                                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                                >
-                                                    <option value="">-- Tidak Terkait RAB --</option>
-                                                    {rabProjects.map(rab => (
-                                                        <option key={rab.id} value={rab.id}>{rab.name}</option>
-                                                    ))}
-                                                </select>
-                                                <p className="text-[10px] text-gray-400 mt-1">
-                                                    Pilih RAB jika pengeluaran ini merupakan bagian dari eksekusi RAB.
-                                                </p>
-                                            </div>
-
-                                            {/* Pilih Item RAB (Muncul jika RAB dipilih) */}
-                                            {formData.rabProjectId && (
-                                                <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Pilih Item RAB (Opsional)</label>
-                                                    <select
-                                                        value={formData.rabItemId}
-                                                        onChange={e => {
-                                                            const selectedItemId = e.target.value;
-                                                            let newDescription = formData.description;
-                                                            if (selectedItemId) {
-                                                                const selectedItem = rabProjects
-                                                                    .find(r => r.id === formData.rabProjectId)?.items
-                                                                    ?.find(i => i.id === selectedItemId);
-                                                                if (selectedItem) {
-                                                                    const qtyText = selectedItem.quantity ? ` (Jumlah: ${selectedItem.quantity})` : '';
-                                                                    newDescription = `${selectedItem.name}${qtyText}`;
-                                                                }
-                                                            }
-                                                            setFormData({ ...formData, rabItemId: selectedItemId, description: newDescription });
-                                                        }}
-                                                        className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                                    >
-                                                        <option value="">-- Bebas / Tidak Spesifik --</option>
-                                                        {rabProjects
-                                                            .find(r => r.id === formData.rabProjectId)?.items
-                                                            ?.filter(i => formData.category ? i.expenseType === formData.category : true)
-                                                            .map(item => (
-                                                                <option key={item.id} value={item.id}>{item.name}</option>
-                                                            ))
-                                                        }
-                                                    </select>
-                                                    <p className="text-[10px] text-gray-400 mt-1">
-                                                        Item disaring sesuai Tipe ({formData.category}).
-                                                    </p>
-                                                </div>
-                                            )}
-
-                                            {/* CAPEX Details */}
-                                            {formData.category === 'CAPEX' && (
-                                                <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-800/30">
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <input
-                                                            type="checkbox"
-                                                            id="toggle-useful-life"
-                                                            checked={isUsefulLifeEnabled}
-                                                            onChange={e => setIsUsefulLifeEnabled(e.target.checked)}
-                                                            className="rounded text-purple-600 focus:ring-purple-500 border-purple-300 dark:border-purple-700 dark:bg-gray-800"
-                                                        />
-                                                        <label htmlFor="toggle-useful-life" className="text-xs font-bold text-purple-700 dark:text-purple-300">Aktifkan Masa Manfaat (Bulan)</label>
-                                                    </div>
-
-                                                    {isUsefulLifeEnabled && (
-                                                        <div className="grid grid-cols-2 gap-3 mt-2 border-t border-purple-200 dark:border-purple-800/50 pt-3">
-                                                            <div>
-                                                                <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Masa Manfaat (Bulan)</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={formData.usefulLife || ''}
-                                                                    onChange={e => setFormData({ ...formData, usefulLife: parseInt(e.target.value) || 0 })}
-                                                                    className="w-full rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800 text-sm py-1.5"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 mb-1 uppercase">Penyusutan</label>
-                                                                <div className="text-sm font-black text-purple-600 dark:text-purple-400 pt-1.5">
-                                                                    {formatCurrency(Number(formData.depreciation))}
-                                                                </div>
-                                                            </div>
+                                            {items.map((item, idx) => (
+                                                <div key={idx} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm relative space-y-4">
+                                                    {items.length > 1 && (
+                                                        <div className="absolute top-0 left-0 bg-gray-100 dark:bg-gray-700 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-tl-xl rounded-br-lg z-10">
+                                                            Item {idx + 1}
                                                         </div>
                                                     )}
+
+                                                    <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mt-1">
+                                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                                            {formatCurrency(Number(item.amount) || 0)} — {item.description || 'Tanpa keterangan'}
+                                                        </p>
+                                                    </div>
+
+
+
+                                                    {/* Expense Category */}
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Kategori Pengeluaran (COA)</label>
+                                                        <div className="relative">
+                                                            <Combobox
+                                                                options={formData.category === 'CAPEX' ? capexCategoryOptions : opexCategoryOptions}
+                                                                value={item.expenseCategoryId}
+                                                                onChange={val => updateItem(idx, 'expenseCategoryId', val)}
+                                                                placeholder="Pilih kategori pengeluaran..."
+                                                                loading={isLoadingCategories}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        {/* RAB Project */}
+                                                        <div>
+                                                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Terkait RAB Project (Opsional)</label>
+                                                            <select
+                                                                value={item.rabProjectId}
+                                                                onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, rabProjectId: e.target.value, rabItemId: '' } : it))}
+                                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm py-1.5 focus:ring-2 focus:ring-blue-500"
+                                                            >
+                                                                <option value="">-- Tidak Terkait RAB --</option>
+                                                                {rabProjects.map(rab => (
+                                                                    <option key={rab.id} value={rab.id}>{rab.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        {/* Per-Item RAB Selection */}
+                                                        {item.rabProjectId && (
+                                                            <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Terkait Item RAB</label>
+                                                                <select
+                                                                    value={item.rabItemId}
+                                                                    onChange={e => {
+                                                                        const selectedItemId = e.target.value
+                                                                        let newDescription = item.description
+                                                                        if (selectedItemId) {
+                                                                            const selectedRabItem = rabProjects
+                                                                                .find(r => r.id === item.rabProjectId)?.items
+                                                                                ?.find(i => i.id === selectedItemId)
+                                                                            if (selectedRabItem) {
+                                                                                const qtyText = selectedRabItem.quantity ? ` (Qty: ${selectedRabItem.quantity})` : ''
+                                                                                newDescription = `${selectedRabItem.name}${qtyText}`
+                                                                            }
+                                                                        }
+                                                                        setItems(prev => prev.map((it, i) => i === idx ? { ...it, rabItemId: selectedItemId, description: newDescription } : it))
+                                                                    }}
+                                                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm py-1.5 focus:ring-2 focus:ring-blue-500"
+                                                                >
+                                                                    <option value="">-- Bebas / Tidak Spesifik --</option>
+                                                                    {rabProjects
+                                                                        .find(r => r.id === item.rabProjectId)?.items
+                                                                        ?.filter(i => formData.category ? i.expenseType === formData.category : true)
+                                                                        .map(rabItem => (
+                                                                            <option key={rabItem.id} value={rabItem.id}>{rabItem.name}</option>
+                                                                        ))
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
                                     </div>
                                 )}
@@ -1278,25 +1500,82 @@ export default function ExpensesClient() {
                                         <div className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-3xl border border-blue-100 dark:border-blue-900/30 space-y-3">
                                             <div className="flex justify-between items-center pb-3 border-b border-blue-200/30">
                                                 <span className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase">Total Nominal</span>
-                                                <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">{formatCurrency(Number(formData.amount))}</span>
+                                                <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">{formatCurrency(formTotal)}</span>
                                             </div>
+
+                                            {/* Items List */}
+                                            {items.length > 1 && (
+                                                <div className="space-y-3 py-3 border-b border-blue-200/30">
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase">Item ({items.length})</p>
+                                                    {items.map((item, idx) => (
+                                                        <div key={idx} className="flex items-start justify-between text-xs pb-2">
+                                                            <div className="space-y-1 flex-1 pr-3">
+                                                                <p className="text-gray-700 dark:text-gray-200 font-semibold truncate">
+                                                                    {idx + 1}. {item.description || 'Tanpa keterangan'}
+                                                                </p>
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <span className="px-1.5 py-0.5 rounded font-mono text-[9px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">{formData.category}</span>
+                                                                    <span className="text-[10px] text-gray-500 truncate max-w-[150px]">
+                                                                        {categories.find(c => c.id === item.expenseCategoryId)?.name || 'Tanpa COA'}
+                                                                    </span>
+                                                                    {item.rabProjectId && (
+                                                                        <>
+                                                                            <span className="text-gray-300 dark:text-gray-600">•</span>
+                                                                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                                                                                RAB: {rabProjects.find(r => r.id === item.rabProjectId)?.name}
+                                                                            </span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <span className="font-bold font-mono text-gray-900 dark:text-white mt-0.5">
+                                                                {formatCurrency(Number(item.amount) || 0)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
                                             <div className="grid grid-cols-2 gap-4 text-xs pt-2">
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase">Kategori</p>
-                                                    <p className="font-bold text-gray-700 dark:text-gray-200">{selectedCategoryDetail?.name || "-"}</p>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase">Tipe</p>
-                                                    <p className="font-bold text-gray-700 dark:text-gray-200">{formData.category}</p>
-                                                </div>
                                                 <div className="space-y-1">
                                                     <p className="text-[10px] font-black text-gray-400 uppercase">Tanggal</p>
                                                     <p className="font-bold text-gray-700 dark:text-gray-200">{formData.date}</p>
                                                 </div>
-                                                <div className="col-span-2 space-y-1">
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase">Keterangan</p>
-                                                    <p className="text-gray-600 dark:text-gray-400 italic">&quot;{formData.description || "Tidak ada keterangan"}&quot;</p>
-                                                </div>
+                                                {items.length === 1 && (
+                                                    <>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] font-black text-gray-400 uppercase">Tipe</p>
+                                                            <p className="font-bold text-gray-700 dark:text-gray-200">
+                                                                <span className="px-1.5 py-0.5 rounded font-mono text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">{formData.category}</span>
+                                                            </p>
+                                                        </div>
+                                                        <div className="col-span-2 space-y-1">
+                                                            <p className="text-[10px] font-black text-gray-400 uppercase">Kategori / COA</p>
+                                                            <p className="font-bold text-gray-700 dark:text-gray-200">
+                                                                {categories.find(c => c.id === items[0].expenseCategoryId)?.name || "-"}
+                                                            </p>
+                                                        </div>
+                                                        <div className="col-span-2 space-y-1">
+                                                            <p className="text-[10px] font-black text-gray-400 uppercase">Keterangan</p>
+                                                            <p className="text-gray-600 dark:text-gray-400 italic">&quot;{items[0].description || "Tidak ada keterangan"}&quot;</p>
+                                                        </div>
+                                                    </>
+                                                )}
+                                                {formData.invoiceNumber && (
+                                                    <div className="col-span-2 space-y-1">
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase">No. Invoice</p>
+                                                        <p className="font-bold text-gray-700 dark:text-gray-200">{formData.invoiceNumber}</p>
+                                                    </div>
+                                                )}
+                                                {formData.invoiceFile && (
+                                                    <div className="col-span-2 space-y-1">
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase">File Invoice</p>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <HiOutlinePaperClip className="w-3.5 h-3.5 text-green-600" />
+                                                            <span className="text-green-700 dark:text-green-400 text-xs">{formData.invoiceFile.split('/').pop()}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1335,7 +1614,7 @@ export default function ExpensesClient() {
                                         <Button type="submit"
                                             loading={isSubmitting}
                                         >
-                                            Simpan Transaksi
+                                            {items.length > 1 ? `Simpan ${items.length} Transaksi` : 'Simpan Transaksi'}
                                         </Button>
                                     )}
                                 </div>
@@ -1346,6 +1625,34 @@ export default function ExpensesClient() {
             ) : activeTab === 'rab' ? (
                 /* RAB View */
                 <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="rounded-xl border border-amber-100 dark:border-amber-900/40 bg-white dark:bg-gray-900 p-4">
+                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Pending Approval</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                                {isLoadingRabMetrics ? '...' : (rabBottleneckMetrics?.pendingApprovalCount ?? 0)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">RAB sedang menunggu approver</p>
+                        </div>
+
+                        <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-gray-900 p-4">
+                            <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide">Oldest Pending</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                                {isLoadingRabMetrics ? '...' : `${rabBottleneckMetrics?.oldestPendingDays ?? 0} hari`}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                                {rabBottleneckMetrics?.oldestPendingProjectName || 'Belum ada antrian pending'}
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-white dark:bg-gray-900 p-4">
+                            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Rata-rata Approval</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                                {isLoadingRabMetrics ? '...' : `${rabBottleneckMetrics?.averageApprovalLeadHours ?? 0} jam`}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Lead time approval dari pengajuan</p>
+                        </div>
+                    </div>
+
                     <RABList
                         refreshKey={rabRefreshKey}
                         onEdit={handleEditRAB}

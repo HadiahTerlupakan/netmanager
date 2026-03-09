@@ -3,6 +3,11 @@ import { isSuperAdmin } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import {
+    beginExpenseMutation,
+    buildExpensePayloadHash,
+    completeExpenseMutation,
+} from "@/lib/finance/expense-idempotency";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +24,8 @@ const expenseSchema = z.object({
     mixRadiusGroupId: z.string().optional(),
     rabProjectId: z.string().optional(),
     rabItemId: z.string().optional(),
+    invoiceNumber: z.string().optional(),
+    invoiceFile: z.string().optional(),
 });
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -186,6 +193,11 @@ export const POST = createHandler({
         return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create");
     }
 
+    const idempotencyKey = req.headers.get('x-idempotency-key')?.trim();
+    if (!idempotencyKey) {
+        return ApiErrors.badRequest('Header x-idempotency-key wajib diisi');
+    }
+
     // Data is already validated and transformed by Zod via createHandler
     const {
         amount,
@@ -198,8 +210,30 @@ export const POST = createHandler({
         siteId,
         mixRadiusGroupId,
         rabProjectId,
-        rabItemId
+        rabItemId,
+        invoiceNumber,
+        invoiceFile
     } = ctx.validated;
+
+    const payloadHash = buildExpensePayloadHash(ctx.validated);
+    const beginResult = beginExpenseMutation({
+        action: 'create',
+        key: idempotencyKey,
+        userId,
+        payloadHash,
+    });
+
+    if (beginResult.status === 'replay') {
+        return apiSuccess(beginResult.response);
+    }
+
+    if (beginResult.status === 'hash-mismatch') {
+        return ApiErrors.conflict('Idempotency key sudah dipakai untuk payload berbeda');
+    }
+
+    if (beginResult.status === 'in-progress') {
+        return ApiErrors.conflict('Permintaan serupa sedang diproses');
+    }
 
     let finalSiteId = siteId;
     if ((await hasPermission("expense:site_only")) && !isSuper) {
@@ -216,7 +250,6 @@ export const POST = createHandler({
         finalSiteId = userSiteId;
     }
 
-    // Simpan record Expense (Stand-alone mode)
     const expense = await prisma.expense.create({
         data: {
             id: randomUUID(),
@@ -233,13 +266,25 @@ export const POST = createHandler({
             ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
             ...(rabProjectId ? { rabProjectId } : {}),
             ...(rabItemId ? { rabItemId } : {}),
+            ...(invoiceNumber ? { invoiceNumber } : {}),
+            ...(invoiceFile ? { invoiceFile } : {}),
         },
     });
 
-    return apiSuccess({
+    const response = {
         ...expense,
         amount: expense.amount.toString(),
         depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
         usefulLife: expense.usefulLife || 0,
+    };
+
+    completeExpenseMutation({
+        action: 'create',
+        key: idempotencyKey,
+        userId,
+        payloadHash,
+        response,
     });
+
+    return apiSuccess(response);
 });

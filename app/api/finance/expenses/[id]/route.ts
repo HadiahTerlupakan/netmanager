@@ -19,6 +19,8 @@ const expenseSchema = z.object({
     accountId: z.string().optional(),
     rabProjectId: z.string().optional(),
     rabItemId: z.string().optional(),
+    invoiceNumber: z.string().optional(),
+    invoiceFile: z.string().optional(),
 });
 
 export const PUT = createHandler({
@@ -41,7 +43,7 @@ export const PUT = createHandler({
         return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update');
     }
 
-    const { amount, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId, categoryId, accountId, rabProjectId, rabItemId } = ctx.validated;
+    const { amount, date, category, expenseCategoryId, description, siteId, mixRadiusGroupId, categoryId, accountId, rabProjectId, rabItemId, invoiceNumber, invoiceFile } = ctx.validated;
 
     // Build where clause to prevent IDOR
     const where: Prisma.ExpenseWhereUniqueInput = { id };
@@ -75,6 +77,8 @@ export const PUT = createHandler({
         ...(accountId !== undefined ? { financialAccount: accountId ? { connect: { id: accountId } } : { disconnect: true } } : {}),
         ...(rabProjectId !== undefined ? { rabProject: rabProjectId ? { connect: { id: rabProjectId } } : { disconnect: true } } : {}),
         ...(rabItemId !== undefined ? { rabItem: rabItemId ? { connect: { id: rabItemId } } : { disconnect: true } } : {}),
+        ...(invoiceNumber !== undefined ? { invoiceNumber: invoiceNumber || null } : {}),
+        ...(invoiceFile !== undefined ? { invoiceFile: invoiceFile || null } : {}),
     };
 
     if (isSiteRestricted) {
