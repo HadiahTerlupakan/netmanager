@@ -45,6 +45,7 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
     })
     const [isSavingActual, setIsSavingActual] = useState(false)
     const [isApproving, setIsApproving] = useState(false)
+    const [isSendingReminder, setIsSendingReminder] = useState(false)
 
     useEffect(() => {
         if (data) {
@@ -53,6 +54,10 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
     }, [data])
 
     if (!data) return null
+
+    const requiredApprovals = 2
+    const approvalCount = data.approvals?.length ?? 0
+    const hasReachedApprovalTarget = approvalCount >= requiredApprovals
 
     const capexItems = data.items.filter(i => !i.expenseType || i.expenseType === 'CAPEX')
 
@@ -155,6 +160,24 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
         }
     }
 
+    const handleSendReminder = async () => {
+        setIsSendingReminder(true)
+        try {
+            const res = await fetch(`/api/integrations/mixradius/expenses/rab/${data.id}/reminder`, { method: 'POST' })
+            const json = await res.json()
+
+            if (res.ok) {
+                toast.success(json.message || 'Reminder berhasil dikirim')
+            } else {
+                toast.error(json.error || 'Gagal mengirim reminder')
+            }
+        } catch (_error) {
+            toast.error('Gagal menghubungi server')
+        } finally {
+            setIsSendingReminder(false)
+        }
+    }
+
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'DRAFT': return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
@@ -178,8 +201,8 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
             case 'DRAFT':
             case 'PENDING_APPROVAL':
                 return !data.approvals?.some(a => a.userId === currentUser.id) && (
-                    <button
-                        onClick={async () => {
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={async () => {
                             setIsApproving(true)
                             try {
                                 const res = await fetch(`/api/integrations/mixradius/expenses/rab/${data.id}/approve`, { method: 'POST' })
@@ -196,49 +219,41 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                 setIsApproving(false)
                             }
                         }}
-                        disabled={isApproving}
-                        className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                    >
-                        {isApproving ? 'Memproses...' : (
+                        disabled={isApproving || isSendingReminder}
+                        className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50">{isApproving ? 'Memproses...' : (
                             <>
                                 <HiOutlineCheck className="w-4 h-4" />
                                 Setujui RAB
                             </>
-                        )}
-                    </button>
+                        )}</button>
+                        <button type="button" onClick={handleSendReminder}
+                        disabled={isApproving || isSendingReminder}
+                        className="px-3 py-1.5 text-xs font-bold border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors disabled:opacity-50">{isSendingReminder ? 'Mengirim...' : 'Kirim Reminder'}</button>
+                    </div>
                 )
             case 'APPROVED':
                 return (
-                    <button
-                        onClick={() => handleStatusTransition('PENGADAAN')}
-                        disabled={isApproving}
-                        className="px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                    >
-                        <HiOutlineCalculator className="w-4 h-4" />
-                        Mulai Pengadaan
-                    </button>
+                    <button type="button" onClick={() => handleStatusTransition('PENGADAAN')}
+                    disabled={isApproving}
+                    className="px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"><HiOutlineCalculator className="w-4 h-4" />
+                    Mulai Pengadaan
+                                        </button>
                 )
             case 'PENGADAAN':
                 return (
-                    <button
-                        onClick={() => handleStatusTransition('PENGGELARAN_JARINGAN')}
-                        disabled={isApproving}
-                        className="px-3 py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                    >
-                        <HiOutlineCube className="w-4 h-4" />
-                        Mulai Penggelaran
-                    </button>
+                    <button type="button" onClick={() => handleStatusTransition('PENGGELARAN_JARINGAN')}
+                    disabled={isApproving}
+                    className="px-3 py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"><HiOutlineCube className="w-4 h-4" />
+                    Mulai Penggelaran
+                                        </button>
                 )
             case 'PENGGELARAN_JARINGAN':
                 return (
-                    <button
-                        onClick={() => handleStatusTransition('PENJUALAN')}
-                        disabled={isApproving}
-                        className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                    >
-                        <HiOutlineUsers className="w-4 h-4" />
-                        Mulai Penjualan
-                    </button>
+                    <button type="button" onClick={() => handleStatusTransition('PENJUALAN')}
+                    disabled={isApproving}
+                    className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"><HiOutlineUsers className="w-4 h-4" />
+                    Mulai Penjualan
+                                        </button>
                 )
             default:
                 return null
@@ -639,17 +654,12 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                                 <td className="px-4 py-3 whitespace-nowrap text-center">
                                                     {isEditing ? (
                                                         <div className="flex gap-2 justify-center">
-                                                            <button onClick={() => setEditingMonth(null)} disabled={isSavingActual} className="p-1 rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                                                <HiOutlineXMark className="w-4 h-4" />
-                                                            </button>
-                                                            <button onClick={() => handleSaveActual(monthIndex)} disabled={isSavingActual} className="p-1 rounded text-white bg-blue-600 hover:bg-blue-700">
-                                                                <HiOutlineCheck className="w-4 h-4" />
-                                                            </button>
+                                                            <button type="button" onClick={() => setEditingMonth(null)} disabled={isSavingActual} className="p-1 rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><HiOutlineXMark className="w-4 h-4" /></button>
+                                                            <button type="button" onClick={() => handleSaveActual(monthIndex)} disabled={isSavingActual} className="p-1 rounded text-white bg-blue-600 hover:bg-blue-700"><HiOutlineCheck className="w-4 h-4" /></button>
                                                         </div>
                                                     ) : (
-                                                        <button onClick={() => handleEditClick(monthIndex, 0, displayRev)} className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1">
-                                                            <HiOutlinePencilSquare className="w-3.5 h-3.5" /> Catat
-                                                        </button>
+                                                        <button type="button" onClick={() => handleEditClick(monthIndex, 0, displayRev)} className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"><HiOutlinePencilSquare className="w-3.5 h-3.5" /> Catat
+                                                                                                                </button>
                                                     )}
                                                 </td>
                                             </tr>
@@ -1148,14 +1158,22 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
                                         </div>
                                     ))}
                                 </div>
-                                {data.status === 'APPROVED' && (
-                                    <div className="text-right">
+                                <div className="text-right space-y-1">
+                                    {data.status === 'APPROVED' ? (
                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full text-xs font-bold uppercase">
                                             <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></div>
                                             RAB Telah Disahkan
                                         </span>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 rounded-full text-xs font-bold uppercase">
+                                            Menunggu Persetujuan
+                                        </span>
+                                    )}
+                                    <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                                        {approvalCount}/{requiredApprovals} approver
+                                        {hasReachedApprovalTarget ? ' terpenuhi' : ' sudah menyetujui'}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     )
@@ -1163,10 +1181,8 @@ export default function RABView({ isOpen, data, onClose }: RABViewProps) {
             </div >
 
             <div className="mt-8 flex justify-end">
-                <button
-                    onClick={onClose}
-                    className="px-6 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium rounded-xl transition-colors"
-                >
+                <button type="button" onClick={onClose}
+                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium rounded-xl transition-colors">
                     Tutup
                 </button>
             </div>
