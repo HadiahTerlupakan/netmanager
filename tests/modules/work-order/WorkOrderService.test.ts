@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { WorkOrderStatus } from '@prisma/client'
 import { prismaMock } from '../../setup'
 import { WorkOrderService } from '@/modules/work-order/services/WorkOrderService'
 
@@ -167,6 +168,38 @@ describe('WorkOrderService', () => {
                 expect.any(Number),
                 expect.any(Number)
             )
+        })
+    })
+
+    describe('delete and status not-found normalization', () => {
+        const userContext = {
+            id: 'admin-1',
+            role: 'USER',
+            permissions: [] as string[],
+        }
+
+        it('returns NOT_FOUND when deleteWorkOrder cannot find the work order during access validation', async () => {
+            repositoryMock.findById.mockResolvedValue(null)
+
+            const result = await service.deleteWorkOrder('wo-missing', userContext)
+
+            expect(result).toEqual({
+                success: false,
+                error: 'Work order tidak ditemukan',
+                code: 'NOT_FOUND',
+            })
+        })
+
+        it('returns NOT_FOUND when updateStatus cannot find the work order during access validation', async () => {
+            repositoryMock.findById.mockResolvedValue(null)
+
+            const result = await service.updateStatus('wo-missing', WorkOrderStatus.CANCELLED, userContext, 'Cancelled')
+
+            expect(result).toEqual({
+                success: false,
+                error: 'Work order tidak ditemukan',
+                code: 'NOT_FOUND',
+            })
         })
     })
 })

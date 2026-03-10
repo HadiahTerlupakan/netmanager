@@ -8,6 +8,7 @@ const mockFns = vi.hoisted(() => ({
   onWorkOrderStatusChanged: vi.fn(),
   getWorkOrderById: vi.fn(),
   assignWorkOrder: vi.fn(),
+  deleteWorkOrder: vi.fn(),
   updateStatus: vi.fn(),
   updateWorkOrder: vi.fn(),
   findById: vi.fn(),
@@ -51,6 +52,7 @@ vi.mock('@/modules/work-order', () => ({
   getWorkOrderService: () => ({
     getWorkOrderById: mockFns.getWorkOrderById,
     assignWorkOrder: mockFns.assignWorkOrder,
+    deleteWorkOrder: mockFns.deleteWorkOrder,
     updateStatus: mockFns.updateStatus,
     updateWorkOrder: mockFns.updateWorkOrder,
   }),
@@ -62,6 +64,9 @@ vi.mock('@/modules/work-order', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    canvasing: {
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
     user: {
       findUnique: mockFns.userFindUnique,
     },
@@ -118,6 +123,7 @@ describe('admin workorder notification dedup', () => {
       status: 'ASSIGNED',
     })
     mockFns.assignWorkOrder.mockResolvedValue({ success: true, data: { id: 'wo-1' } })
+    mockFns.deleteWorkOrder.mockResolvedValue({ success: true })
     mockFns.updateStatus.mockResolvedValue({ success: true, data: { id: 'wo-1' } })
     mockFns.updateWorkOrder.mockResolvedValue({ success: true })
     mockFns.getWorkOrderById.mockResolvedValue({
@@ -188,5 +194,39 @@ describe('admin workorder notification dedup', () => {
     expect(response.status).toBe(200)
     expect(mockFns.createNotification).not.toHaveBeenCalled()
     expect(mockFns.onWorkOrderStatusChanged).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when permanent delete reports missing work order', async () => {
+    mockFns.deleteWorkOrder.mockResolvedValue({
+      success: false,
+      error: 'Work order tidak ditemukan',
+      code: 'NOT_FOUND',
+    })
+
+    const response = await workOrderDelete(
+      new NextRequest('http://localhost/api/admin/workorders/wo-1?permanent=true', {
+        method: 'DELETE',
+      }),
+      { session, params: { id: 'wo-1' }, permissions: ['*'] } as never
+    )
+
+    expect(response.status).toBe(404)
+  })
+
+  it('returns 404 when cancel delete reports missing work order', async () => {
+    mockFns.updateStatus.mockResolvedValue({
+      success: false,
+      error: 'Work order tidak ditemukan',
+      code: 'NOT_FOUND',
+    })
+
+    const response = await workOrderDelete(
+      new NextRequest('http://localhost/api/admin/workorders/wo-1?reason=Cancelled', {
+        method: 'DELETE',
+      }),
+      { session, params: { id: 'wo-1' }, permissions: ['*'] } as never
+    )
+
+    expect(response.status).toBe(404)
   })
 })

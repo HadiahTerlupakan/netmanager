@@ -56,7 +56,15 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
     const { id } = ctx.params
     const service = getAppVersionService()
-    await service.deleteVersion(id)
+    try {
+        await service.deleteVersion(id)
+    } catch (error) {
+        if (error instanceof Error && error.message === 'Versi tidak ditemukan') {
+            return ApiErrors.notFound('Versi aplikasi')
+        }
+
+        throw error
+    }
 
     // System Log
     logActivitySafe({

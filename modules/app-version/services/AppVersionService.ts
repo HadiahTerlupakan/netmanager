@@ -1,5 +1,6 @@
 import { AppVersionRepository, type AppVersion, type CreateAppVersionDTO, type UpdateAppVersionDTO, type AppVersionWithUser } from '../repositories/AppVersionRepository'
 import { isR2Enabled, uploadToR2, generateR2Key, deleteFromR2, getR2ObjectBuffer, getR2ObjectMetadata, getR2Settings } from '@/lib/utils/r2-client'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
@@ -480,7 +481,15 @@ export class AppVersionService {
         }
 
         // 2. Hard Delete DB Record
-        await this.repository.delete(id)
+        try {
+            await this.repository.delete(id)
+        } catch (error) {
+            if (isPrismaRecordNotFoundError(error)) {
+                throw new Error('Versi tidak ditemukan')
+            }
+
+            throw error
+        }
     }
 
     async evaluateVersionAccess(

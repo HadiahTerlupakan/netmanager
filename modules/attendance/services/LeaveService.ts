@@ -6,6 +6,7 @@ import { HolidayRepository } from '../repositories/HolidayRepository'
 import { calculateWorkingDays } from '../utils/calculateWorkingDays'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { logger, logActivitySafe } from '@/lib/logger'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
@@ -394,6 +395,9 @@ export class LeaveService {
             return { success: true }
         } catch (error) {
             logger.error('LeaveService.deleteLeave failed', error instanceof Error ? error : undefined)
+            if (isPrismaRecordNotFoundError(error)) {
+                return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
+            }
             return { success: false, error: 'Gagal menghapus cuti', code: 'DELETE_ERROR' }
         }
     }

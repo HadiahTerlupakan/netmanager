@@ -56,12 +56,9 @@ export const PATCH = createHandler({
     }
 
     // Call service based on status
-    let result
-    if (status === 'APPROVED') {
-        result = await service.approveLeave(id, user.id)
-    } else {
-        result = await service.rejectLeave(id, user.id, rejectionReason || '')
-    }
+    const result = status === 'APPROVED'
+        ? await service.approveLeave(id, user.id)
+        : await service.rejectLeave(id, user.id, rejectionReason || '')
 
     if (!result.success) {
         return ApiErrors.internalError(result.error)
@@ -114,6 +111,9 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const result = await service.deleteLeave(id, user.id)
 
     if (!result.success) {
+        if (result.code === 'NOT_FOUND') {
+            return ApiErrors.notFound('Pengajuan izin')
+        }
         return ApiErrors.internalError(result.error)
     }
 

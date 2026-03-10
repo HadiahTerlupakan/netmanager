@@ -9,6 +9,7 @@
 import type { PrismaClient, WorkOrderStatus, WorkOrderPriority, WorkOrderType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { WorkOrderRepository } from '../repositories/WorkOrderRepository'
 import type { WorkOrderFilters, WorkOrderWithRelations, CreateWorkOrderData } from '../repositories/IWorkOrderRepository'
 import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } from './WorkOrderNotifications'
@@ -470,6 +471,13 @@ export class WorkOrderService {
             return { success: true, data: result as WorkOrderWithRelations }
         } catch (error) {
             logger.error('WorkOrderService.updateStatus failed', error instanceof Error ? error : undefined)
+            if (isPrismaRecordNotFoundError(error) || (error instanceof Error && error.message === 'Work order tidak ditemukan')) {
+                return {
+                    success: false,
+                    error: 'Work order tidak ditemukan',
+                    code: 'NOT_FOUND'
+                }
+            }
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Gagal mengupdate status',
@@ -696,6 +704,13 @@ export class WorkOrderService {
             return { success: true }
         } catch (error) {
             logger.error('WorkOrderService.deleteWorkOrder failed', error instanceof Error ? error : undefined)
+            if (isPrismaRecordNotFoundError(error) || (error instanceof Error && error.message === 'Work order tidak ditemukan')) {
+                return {
+                    success: false,
+                    error: 'Work order tidak ditemukan',
+                    code: 'NOT_FOUND'
+                }
+            }
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Gagal menghapus work order',

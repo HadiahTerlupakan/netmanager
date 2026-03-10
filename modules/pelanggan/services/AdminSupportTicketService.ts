@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { TicketStatus, TicketCategory, TicketPriority, Prisma } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 import { randomUUID } from 'crypto'
 
@@ -371,6 +372,9 @@ export class AdminSupportTicketService {
             return { success: true, data: { id } }
         } catch (error) {
             console.error('[AdminSupportTicketService.deleteTicket] Error:', error)
+            if (isPrismaRecordNotFoundError(error)) {
+                return { success: false, error: 'Tiket tidak ditemukan', code: 'NOT_FOUND' }
+            }
             return { success: false, error: 'Gagal menghapus tiket', code: 'INTERNAL_ERROR' }
         }
     }

@@ -1,5 +1,6 @@
 import { SiteRepository } from '../repositories/SiteRepository'
 import { logActivitySafe } from '@/lib/logger'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 
 interface SiteCreateInput {
     code: string
@@ -170,7 +171,15 @@ export class SiteService {
         }
 
         // Hard delete
-        await this.repository.delete(id)
+        try {
+            await this.repository.delete(id)
+        } catch (error) {
+            if (isPrismaRecordNotFoundError(error)) {
+                throw new Error('Site tidak ditemukan')
+            }
+
+            throw error
+        }
 
         logActivitySafe({
             action: 'DELETE',
