@@ -100,7 +100,7 @@ export function CreateAssetForm() {
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Gagal membuat aset baru')
 
-            router.push('/admin/inventory/assets')
+            router.push('/admin/inventory')
             router.refresh()
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan aset')
@@ -124,8 +124,9 @@ export function CreateAssetForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Barang Selection */}
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama Barang</label>
+                        <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama Barang</label>
                         <select
+                            id="barangId"
                             name="barangId"
                             value={formData.barangId}
                             onChange={handleBarangChange}
@@ -146,8 +147,9 @@ export function CreateAssetForm() {
 
                     {/* Basic Info */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kode Aset</label>
+                        <label htmlFor="kodeAsset" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kode Aset</label>
                         <input
+                            id="kodeAsset"
                             type="text"
                             name="kodeAsset"
                             value={formData.kodeAsset}
@@ -160,8 +162,9 @@ export function CreateAssetForm() {
 
                     {/* Financials */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tanggal Beli</label>
+                        <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tanggal Beli</label>
                         <input
+                            id="purchaseDate"
                             type="date"
                             name="purchaseDate"
                             value={formData.purchaseDate}
@@ -171,8 +174,9 @@ export function CreateAssetForm() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Harga Beli (IDR)</label>
+                        <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Harga Beli (IDR)</label>
                         <input
+                            id="purchasePrice"
                             type="number"
                             name="purchasePrice"
                             value={formData.purchasePrice}
@@ -184,11 +188,12 @@ export function CreateAssetForm() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="usefulLife" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Umur Ekonomis (Bulan)
                         </label>
                         <div className="flex gap-2">
                             <input
+                                id="usefulLife"
                                 type="number"
                                 name="usefulLife"
                                 value={formData.usefulLife}
@@ -206,8 +211,9 @@ export function CreateAssetForm() {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nilai Residu (IDR)</label>
+                        <label htmlFor="residualValue" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nilai Residu (IDR)</label>
                         <input
+                            id="residualValue"
                             type="number"
                             name="residualValue"
                             value={formData.residualValue}
@@ -219,8 +225,9 @@ export function CreateAssetForm() {
 
                     {/* Location & Status */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Lokasi</label>
+                        <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Lokasi</label>
                         <input
+                            id="location"
                             type="text"
                             name="location"
                             value={formData.location}
@@ -230,8 +237,9 @@ export function CreateAssetForm() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                        <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
                         <select
+                            id="status"
                             name="status"
                             value={formData.status}
                             onChange={handleChange}
