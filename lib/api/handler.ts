@@ -40,6 +40,7 @@ import type { ZodSchema, ZodError } from 'zod'
 import { authOptions, getUserPermissions } from '@/lib/auth'
 import { apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 import type { ErrorResponse } from '@/lib/api-response'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { parseQuery } from './query-parser'
 
 // Types
@@ -233,6 +234,10 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
         method: request.method,
         error,
     })
+
+    if (isPrismaRecordNotFoundError(error)) {
+        return ApiErrors.notFound('Data tidak ditemukan')
+    }
 
     // Handle known error types
     if (error instanceof Error) {

@@ -3,6 +3,7 @@ import type { SalaryWithDetails, SalaryFilters } from '../repositories/SalaryRep
 import { SalaryCalculatorService } from './SalaryCalculatorService'
 import { SalaryAuditService } from './SalaryAuditService'
 import { logger, logActivitySafe } from '@/lib/logger'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { EmployeeType, Prisma } from '@prisma/client'
 import type { Salary } from '@prisma/client'
 
@@ -351,6 +352,9 @@ export class SalaryService {
             return { success: true }
         } catch (error) {
             logger.error('SalaryService.deleteSalary failed', error instanceof Error ? error : undefined)
+            if (isPrismaRecordNotFoundError(error)) {
+                return { success: false, error: 'Gaji tidak ditemukan', code: 'NOT_FOUND' }
+            }
             return { success: false, error: 'Gagal menghapus gaji', code: 'DELETE_ERROR' }
         }
     }

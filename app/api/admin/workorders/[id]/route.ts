@@ -245,6 +245,12 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
         const deleteResult = await workOrderService.deleteWorkOrder(id, user);
         if (!deleteResult.success) {
+            if (deleteResult.code === 'NOT_FOUND') {
+                return ApiErrors.notFound('Work Order');
+            }
+            if (deleteResult.code === 'FORBIDDEN') {
+                return ApiErrors.forbidden(deleteResult.error || 'Akses ditolak');
+            }
             return apiError(deleteResult.error || 'Gagal menghapus work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
         }
 
@@ -254,7 +260,13 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     // For cancel, we use updateStatus
     const cancelResult = await workOrderService.updateStatus(id, 'CANCELLED', user, reason);
     if (!cancelResult.success) {
-            return apiError(cancelResult.error || 'Gagal membatalkan work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+        if (cancelResult.code === 'NOT_FOUND') {
+            return ApiErrors.notFound('Work Order');
+        }
+        if (cancelResult.code === 'FORBIDDEN') {
+            return ApiErrors.forbidden(cancelResult.error || 'Akses ditolak');
+        }
+        return apiError(cancelResult.error || 'Gagal membatalkan work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 
     // System Log for Cancellation

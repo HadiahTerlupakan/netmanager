@@ -273,9 +273,16 @@ export default function LandingPage() {
                         <MdSupportAgent className="text-[20px]" />
                         Hubungi Sales Kami
                     </a>
-                    <div className="mt-8 text-[11px] text-slate-400 leading-relaxed">
-                        © 2023 SBLNET.ID. All rights reserved.<br />
-                        <span className="opacity-70">Terdaftar dan diawasi oleh Kominfo.</span>
+                    <div className="mt-8 text-[11px] text-slate-400 leading-relaxed flex flex-col items-center gap-2">
+                        <div>
+                            © 2023 SBLNET.ID. All rights reserved.<br />
+                            <span className="opacity-70">Terdaftar dan diawasi oleh Kominfo.</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Link href="/kebijakan-privasi" className="hover:text-slate-600 dark:hover:text-slate-300 hover:underline transition-colors">
+                                Kebijakan Privasi
+                            </Link>
+                        </div>
                     </div>
                 </footer>
             </main>

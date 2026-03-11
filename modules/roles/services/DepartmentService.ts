@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { logger, logActivitySafe } from '@/lib/logger'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 
 export interface DepartmentFilters {
     search?: string
@@ -244,6 +245,9 @@ export class DepartmentService {
             return { success: true }
         } catch (error) {
             logger.error('DepartmentService.deleteDepartment failed', error instanceof Error ? error : undefined)
+            if (isPrismaRecordNotFoundError(error)) {
+                return { success: false, error: 'Departemen tidak ditemukan', code: 'NOT_FOUND' }
+            }
             return { success: false, error: 'Gagal menghapus departemen', code: 'DELETE_ERROR' }
         }
     }

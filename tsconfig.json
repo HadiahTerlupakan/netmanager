@@ -23,8 +23,9 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@prisma/client-radius": ["./node_modules/@prisma/client-radius"],
-      
+      "@prisma/client-radius": [
+        "./node_modules/@prisma/client-radius"
+      ],
       "@/*": [
         "./*"
       ],
@@ -53,6 +54,5 @@
   "exclude": [
     "node_modules",
     "mobile"
-  ],
-
+  ]
 }

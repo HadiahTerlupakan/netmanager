@@ -1,4 +1,5 @@
 import type { Shift } from '@prisma/client'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { ShiftRepository, type CreateShiftInput, type UpdateShiftInput } from '../repositories/ShiftRepository'
 
 export class ShiftService {
@@ -73,12 +74,20 @@ export class ShiftService {
       throw new Error(`Cannot delete shift. It is assigned to ${userCount} user(s). Use force=true to soft delete.`)
     }
 
-    if (force) {
-      // Soft delete
-      await this.repository.delete(id)
-    } else {
-      // Hard delete (only if no users)
-      await this.repository.hardDelete(id)
+    try {
+      if (force) {
+        // Soft delete
+        await this.repository.delete(id)
+      } else {
+        // Hard delete (only if no users)
+        await this.repository.hardDelete(id)
+      }
+    } catch (error) {
+      if (isPrismaRecordNotFoundError(error)) {
+        throw new Error('Shift not found')
+      }
+
+      throw error
     }
   }
 

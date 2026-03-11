@@ -2,6 +2,7 @@ import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepo
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { logger } from '@/lib/logger'
+import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 
 const holidayRepo = new HolidayRepository()
 
@@ -41,7 +42,15 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const { id } = ctx.params
-    await holidayRepo.delete(id)
+    try {
+        await holidayRepo.delete(id)
+    } catch (error) {
+        if (isPrismaRecordNotFoundError(error)) {
+            return apiSuccess(null, { message: 'Hari libur sudah tidak ada' })
+        }
+
+        throw error
+    }
 
     await logger.logActivity({
         action: 'DELETE',

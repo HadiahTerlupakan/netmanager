@@ -1,0 +1,228 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { prismaMock } from '@/tests/setup'
+
+const mockFns = vi.hoisted(() => ({
+  getServerSession: vi.fn(),
+  rbacHasPermission: vi.fn(),
+  verifyAuth: vi.fn(),
+  authHasPermission: vi.fn(),
+  createRestockRequest: vi.fn(),
+  getRestockRequestDetail: vi.fn(),
+  patchRestockRequestLifecycle: vi.fn(),
+  patchRestockRequestStatus: vi.fn(),
+}))
+
+vi.mock('next-auth', async () => {
+  const actual = await vi.importActual<typeof import('next-auth')>('next-auth')
+  return {
+    ...actual,
+    getServerSession: mockFns.getServerSession,
+  }
+})
+
+vi.mock('@/lib/rbac', () => ({
+  hasPermission: mockFns.rbacHasPermission,
+}))
+
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth')
+  return {
+    ...actual,
+    verifyAuth: mockFns.verifyAuth,
+    hasPermission: mockFns.authHasPermission,
+  }
+})
+
+vi.mock('@/app/api/inventory/_utils/restock-request-lifecycle', () => ({
+  getRestockRequestDetail: mockFns.getRestockRequestDetail,
+  patchRestockRequestLifecycle: mockFns.patchRestockRequestLifecycle,
+}))
+
+vi.mock('@/app/api/inventory/_utils/restock-request-create', () => ({
+  createRestockRequest: mockFns.createRestockRequest,
+}))
+
+vi.mock('@/app/api/inventory/_utils/restock-request-status', () => ({
+  patchRestockRequestStatus: mockFns.patchRestockRequestStatus,
+}))
+
+import { POST as postRestockRequests } from '@/app/api/inventory/restock/requests/route'
+import { GET as getRestockRequestById, PATCH as patchRestockRequestById } from '@/app/api/inventory/restock/requests/[id]/route'
+import { PATCH as patchRestockRequestProcess } from '@/app/api/inventory/restock/requests/[id]/process/route'
+import { PATCH as patchRestockRequestReceive } from '@/app/api/inventory/restock/requests/[id]/receive/route'
+
+describe('inventory restock request lifecycle routes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockFns.getServerSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockFns.rbacHasPermission.mockResolvedValue(true)
+    mockFns.verifyAuth.mockResolvedValue({ id: 'user-1' })
+    mockFns.authHasPermission.mockResolvedValue(true)
+    mockFns.createRestockRequest.mockResolvedValue(
+      NextResponse.json({ id: 'pr-1', nomorRequest: 'PR-20260311-0001' }, { status: 201 })
+    )
+  })
+
+  it('delegates request creation to shared restock request helper', async () => {
+    const response = await postRestockRequests(
+      new NextRequest('http://localhost/api/inventory/restock/requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          gudangId: 'gudang-1',
+          items: [{ barangId: 'barang-1', quantity: 3 }],
+          keterangan: 'Restock Order: Barang 1',
+        }),
+      })
+    )
+
+    expect(mockFns.createRestockRequest).toHaveBeenCalledWith({
+      items: [{ barangId: 'barang-1', quantity: 3 }],
+      gudangId: 'gudang-1',
+      keterangan: 'Restock Order: Barang 1',
+      requesterId: 'user-1',
+      apiPath: '/api/inventory/restock/requests',
+    })
+    expect(response.status).toBe(201)
+  })
+
+  it('delegates request detail reads to shared purchase request helper', async () => {
+    mockFns.getRestockRequestDetail.mockResolvedValue(
+      NextResponse.json({ id: 'pr-1' }, { status: 200 })
+    )
+
+    const response = await getRestockRequestById(
+      new NextRequest('http://localhost/api/inventory/restock/requests/pr-1'),
+      { params: Promise.resolve({ id: 'pr-1' }) }
+    )
+
+    expect(mockFns.getRestockRequestDetail).toHaveBeenCalledTimes(1)
+    expect(mockFns.getRestockRequestDetail).toHaveBeenCalledWith('pr-1')
+    expect(response.status).toBe(200)
+  })
+
+  it('delegates request approval updates to shared purchase request helper', async () => {
+    mockFns.patchRestockRequestLifecycle.mockResolvedValue(
+      NextResponse.json({ id: 'pr-1', status: 'APPROVED' }, { status: 200 })
+    )
+
+    const response = await patchRestockRequestById(
+      new NextRequest('http://localhost/api/inventory/restock/requests/pr-1', {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'APPROVE' }),
+      }),
+      { params: Promise.resolve({ id: 'pr-1' }) }
+    )
+
+    expect(mockFns.patchRestockRequestLifecycle).toHaveBeenCalledTimes(1)
+    expect(mockFns.patchRestockRequestLifecycle).toHaveBeenCalledWith({
+      id: 'pr-1',
+      action: 'APPROVE',
+      catatan: undefined,
+      actorId: 'user-1',
+    })
+    expect(response.status).toBe(200)
+  })
+
+  it('maps request receive to linked purchase order status helper', async () => {
+    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+      id: 'pr-1',
+      purchaseOrderId: 'po-1',
+    })
+
+    mockFns.patchRestockRequestStatus.mockResolvedValue(
+      NextResponse.json({ id: 'po-1', status: 'RECEIVED' }, { status: 200 })
+    )
+
+    const response = await patchRestockRequestReceive(
+      new NextRequest('http://localhost/api/inventory/restock/requests/pr-1/receive', {
+        method: 'PATCH',
+        body: JSON.stringify({ items: { 'item-1': 2 }, closePO: true }),
+      }),
+      { params: Promise.resolve({ id: 'pr-1' }) }
+    )
+
+    expect(prismaMock.purchaseRequest.findUnique).toHaveBeenCalledWith({
+      where: { id: 'pr-1' },
+      select: { purchaseOrderId: true },
+    })
+    expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledTimes(1)
+    expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledWith({
+      purchaseOrderId: 'po-1',
+      action: 'RECEIVE',
+      items: { 'item-1': 2 },
+      closePO: true,
+      actorId: 'user-1',
+    })
+    expect(response.status).toBe(200)
+  })
+
+  it('maps request process to linked purchase order start-shopping helper', async () => {
+    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+      id: 'pr-1',
+      purchaseOrderId: 'po-1',
+    })
+
+    mockFns.patchRestockRequestStatus.mockResolvedValue(
+      NextResponse.json({ id: 'po-1', status: 'ORDERED' }, { status: 200 })
+    )
+
+    const response = await patchRestockRequestProcess(
+      new NextRequest('http://localhost/api/inventory/restock/requests/pr-1/process', {
+        method: 'PATCH',
+      }),
+      { params: Promise.resolve({ id: 'pr-1' }) }
+    )
+
+    expect(prismaMock.purchaseRequest.findUnique).toHaveBeenCalledWith({
+      where: { id: 'pr-1' },
+      select: { purchaseOrderId: true },
+    })
+    expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledWith({
+      purchaseOrderId: 'po-1',
+      action: 'START_SHOPPING',
+      actorId: 'user-1',
+    })
+    expect(response.status).toBe(200)
+  })
+
+  it('returns 400 when request has no linked purchase order for receive flow', async () => {
+    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+      id: 'pr-1',
+      purchaseOrderId: null,
+    })
+
+    const response = await patchRestockRequestReceive(
+      new NextRequest('http://localhost/api/inventory/restock/requests/pr-1/receive', {
+        method: 'PATCH',
+        body: JSON.stringify({ items: {}, closePO: true }),
+      }),
+      { params: Promise.resolve({ id: 'pr-1' }) }
+    )
+
+    const json = await response.json()
+    expect(response.status).toBe(400)
+    expect(json).toEqual({ error: 'Purchase Request belum memiliki Purchase Order untuk diterima' })
+    expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when request has no linked purchase order for process flow', async () => {
+    prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+      id: 'pr-1',
+      purchaseOrderId: null,
+    })
+
+    const response = await patchRestockRequestProcess(
+      new NextRequest('http://localhost/api/inventory/restock/requests/pr-1/process', {
+        method: 'PATCH',
+      }),
+      { params: Promise.resolve({ id: 'pr-1' }) }
+    )
+
+    const json = await response.json()
+    expect(response.status).toBe(400)
+    expect(json).toEqual({ error: 'Purchase Request belum memiliki Purchase Order untuk diproses' })
+    expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled()
+  })
+})

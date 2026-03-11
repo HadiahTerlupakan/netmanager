@@ -20,7 +20,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         console.error('Error fetching site:', error)
 
         const message = error instanceof Error ? error.message : ''
-        if (message === 'Site not found') {
+        if (message === 'Site not found' || message === 'Site tidak ditemukan') {
             return ApiErrors.notFound('Site')
         }
 
@@ -46,7 +46,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
         console.error('Error updating site:', error)
 
         const message = error instanceof Error ? error.message : ''
-        if (message === 'Site not found') {
+        if (message === 'Site not found' || message === 'Site tidak ditemukan') {
             return ApiErrors.notFound('Site')
         }
         if (message === 'Site code already exists') {
@@ -73,7 +73,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         console.error('Error deleting site:', error)
 
         const message = error instanceof Error ? error.message : ''
-        if (message === 'Site not found') {
+        if (message === 'Site not found' || message === 'Site tidak ditemukan') {
             return ApiErrors.notFound('Site')
         }
 

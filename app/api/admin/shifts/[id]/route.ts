@@ -100,6 +100,9 @@ export async function DELETE(
         return apiSuccess(null, { message: 'Shift berhasil dihapus' })
     } catch (error) {
         console.error('[Shifts API] Error:', error)
+        if (error instanceof Error && error.message === 'Shift not found') {
+            return ApiErrors.notFound('Shift')
+        }
         const errorMessage = error instanceof Error ? error.message : 'Gagal menghapus shift'
         return apiError(errorMessage, ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }

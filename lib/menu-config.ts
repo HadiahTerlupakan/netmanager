@@ -115,18 +115,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'INVENTORY.TRANSFER', name: 'Transfer Gudang', path: '/admin/inventory/transfer', icon: 'HiOutlineTruck' },
             { code: 'INVENTORY.OPNAME', name: 'Stock Opname', path: '/admin/inventory/opname', icon: 'HiOutlineClipboard' },
             { code: 'INVENTORY.RESTOCK', name: 'Restock', path: '/admin/inventory/restock', icon: 'HiOutlineArrowTrendingUp' },
-            { code: 'INVENTORY.ASSETS', name: 'Aset Tetap', path: '/admin/inventory/assets', icon: 'HiOutlineComputerDesktop' },
-        ],
-    },
-    {
-        code: 'PROCUREMENT',
-        name: 'Procurement',
-        path: '/admin/procurement',
-        icon: 'HiOutlineShoppingBag',
-        children: [
-            { code: 'PROCUREMENT.PROCUREMENT', name: 'Dashboard', path: '/admin/procurement', icon: 'HiOutlineChartBar', exact: true },
-            { code: 'PROCUREMENT.PURCHASE_ORDERS', name: 'Purchase Order', path: '/admin/procurement/purchase-orders', icon: 'HiOutlineDocumentText' },
-            { code: 'PROCUREMENT.MARKET_PRICE', name: 'Harga Pasar', path: '/admin/procurement/market-price', icon: 'HiOutlinePresentationChartBar' },
         ],
     },
 

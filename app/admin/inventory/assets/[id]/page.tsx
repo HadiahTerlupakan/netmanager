@@ -27,7 +27,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link 
-            href="/admin/inventory/assets"
+            href="/admin/inventory"
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
         >
             <FiArrowLeft className="w-5 h-5" />

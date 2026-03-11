@@ -14,6 +14,19 @@ interface Holiday {
     isNational: boolean
 }
 
+function handleDayKeyDown(
+    event: React.KeyboardEvent<HTMLDivElement>,
+    canCreate: boolean,
+    onSelect: () => void
+) {
+    if (!canCreate) return
+
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        onSelect()
+    }
+}
+
 const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
 const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 
@@ -25,6 +38,7 @@ export function HolidayClient() {
     const [currentDate, setCurrentDate] = useState<Date | null>(null)
     const [holidays, setHolidays] = useState<Holiday[]>([])
     const [_loading, setLoading] = useState(true)
+    const [deletingHolidayId, setDeletingHolidayId] = useState<string | null>(null)
     const [showModal, setShowModal] = useState(false)
     const [selectedDate, setSelectedDate] = useState<string>('') // YYYY-MM-DD
     const [description, setDescription] = useState('')
@@ -80,15 +94,19 @@ export function HolidayClient() {
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation()
+        if (deletingHolidayId === id) return
         if (!confirm('Hapus hari libur ini?')) return
 
         try {
+            setDeletingHolidayId(id)
             const res = await deleteWithAuth(`/api/admin/holidays/${id}`)
             if (res.ok) {
                 fetchHolidays()
             }
         } catch (err) {
             console.error(err)
+        } finally {
+            setDeletingHolidayId((currentId) => (currentId === id ? null : currentId))
         }
     }
 
@@ -124,7 +142,7 @@ export function HolidayClient() {
 
     const daysInMonth = getDaysInMonth(year, month)
     const firstDay = getFirstDayOfMonth(year, month)
-    const blanks = Array(firstDay).fill(null)
+    const blankKeys = Array.from({ length: firstDay }, (_, blankOffset) => `blank-${year}-${month}-${blankOffset + 1}`)
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
     
     // Convert holidays to a map for O(1) lookup
@@ -158,21 +176,30 @@ export function HolidayClient() {
                 </div>
 
                 <div className="grid grid-cols-7 auto-rows-fr bg-gray-200 dark:bg-gray-700 gap-px">
-                    {blanks.map((_, i) => (
-                        <div key={`blank-${i}`} className="bg-white dark:bg-gray-800 min-h-[120px] p-2" />
+                    {blankKeys.map((blankKey) => (
+                        <div key={blankKey} className="bg-white dark:bg-gray-800 min-h-[120px] p-2" />
                     ))}
 
                     {days.map(day => {
                         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                         const holiday = holidayMap.get(dateStr)
+                        const isDeleting = holiday ? deletingHolidayId === holiday.id : false
                         const today = new Date()
                         const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year
                         const isSunday = new Date(year, month, day).getDay() === 0
+                        const dayCellProps = canCreate
+                            ? {
+                                onClick: () => handleDateClick(dateStr),
+                                onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => handleDayKeyDown(event, canCreate, () => handleDateClick(dateStr)),
+                                role: 'button' as const,
+                                tabIndex: 0,
+                            }
+                            : {}
 
                         return (
                             <div
                                 key={day}
-                                onClick={() => canCreate && handleDateClick(dateStr)}
+                                {...dayCellProps}
                                 className={`${isToday ? 'bg-blue-50/50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'} min-h-[120px] p-2 relative group transition-colors
                     ${canCreate ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''}
                 `}
@@ -186,7 +213,8 @@ export function HolidayClient() {
                                     </span>
                                     {holiday && canDelete && (
                                         <Button onClick={(e) => handleDelete(holiday.id, e)}
-                                            className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                            disabled={isDeleting}
+                                            className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 disabled:opacity-100 disabled:cursor-not-allowed disabled:text-gray-300"
                                             title="Hapus"
                                         >
                                             <FiTrash2 size={14} />
@@ -233,8 +261,9 @@ export function HolidayClient() {
                 <form id="holiday-form" onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tanggal</label>
+                            <label htmlFor="holiday-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tanggal</label>
                             <input
+                                id="holiday-date"
                                 type="date"
                                 required
                                 value={selectedDate}
@@ -244,7 +273,7 @@ export function HolidayClient() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Keterangan</label>
+                            <label htmlFor="holiday-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Keterangan</label>
                             <input
                                 type="text"
                                 id="holiday-description"
