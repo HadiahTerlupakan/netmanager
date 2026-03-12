@@ -22,6 +22,8 @@ import { formatCurrency } from '@/lib/utils'
 import { usePermission } from '@/hooks/use-permission'
 import RABCompare from './RABCompare'
 
+import type { RABRevisionVarianceLabel } from './rabRevisionTypes'
+
 interface RABItem {
     id: string
     name: string
@@ -130,13 +132,27 @@ export interface RABProject {
     status: string
     items: RABItem[]
     approvals?: RABApproval[]
+    finalApprovedRevisionId?: string | null
+    revisionCount?: number
+    latestRevision?: {
+        id: string
+        revisionNumber: number
+        status: string
+    } | null
+    revisionProfitLossSummary?: {
+        netVariance: string
+        netLabel: RABRevisionVarianceLabel
+    } | null
     createdAt: string
     updatedAt: string
 }
 
 interface RABListProps {
+    initialData?: RABProject[]
     onEdit: (project: RABProject) => void
     onView: (project: RABProject) => void
+    onRevise: (project: RABProject) => void
+    onRefreshRequested?: () => void
     refreshKey?: number
 }
 
@@ -263,7 +279,7 @@ export function calculateMonthlySubscribers(
     return result
 }
 
-export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
+export default function RABList({ initialData, onEdit, onView, onRevise, onRefreshRequested, refreshKey }: RABListProps) {
     const { hasPermission } = usePermission()
     const canUpdate = hasPermission('mixradius_expenses:update') || hasPermission('expense:update')
     const canDelete = hasPermission('mixradius_expenses:delete') || hasPermission('expense:delete')
@@ -926,7 +942,10 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
     const fetchData = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/finance/rab-projects')
+            const requestUrl = refreshKey
+                ? `/api/finance/rab-projects?refreshKey=${refreshKey}`
+                : '/api/finance/rab-projects'
+            const res = await fetch(requestUrl)
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}))
                 console.error('RAB fetch error:', res.status, errorData)
@@ -941,11 +960,17 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [refreshKey])
 
     useEffect(() => {
-        fetchData()
-    }, [fetchData, refreshKey])
+        if (initialData) {
+            setData(initialData)
+            setLoading(false)
+            return
+        }
+
+        void fetchData()
+    }, [fetchData, initialData])
 
     const handleDelete = async (id: string) => {
         if (!confirm('Apakah anda yakin ingin menghapus RAB ini?')) return
@@ -959,7 +984,11 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                 throw new Error(errData.error || 'Gagal menghapus RAB')
             }
             toast.success('RAB berhasil dihapus')
-            fetchData()
+            if (onRefreshRequested) {
+                onRefreshRequested()
+            } else {
+                void fetchData()
+            }
         } catch (_error) {
             toast.error('Gagal menghapus RAB')
         }
@@ -976,7 +1005,11 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
             const json = await res.json()
             if (res.ok) {
                 toast.success('RAB berhasil diduplikasi')
-                fetchData()
+                if (onRefreshRequested) {
+                    onRefreshRequested()
+                } else {
+                    void fetchData()
+                }
             } else {
                 toast.error(json.error || 'Gagal menduplikasi RAB')
             }
@@ -1017,8 +1050,35 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
         }
     }
 
+    const getRevisionStatusCopy = (item: RABProject) => {
+        if (item.latestRevision?.status === 'PENDING_APPROVAL') {
+            return 'Revisi menunggu approval'
+        }
+
+        if (item.latestRevision?.status === 'REJECTED') {
+            return 'Revisi terakhir ditolak'
+        }
+
+        if (item.finalApprovedRevisionId) {
+            return 'Sudah ada baseline final'
+        }
+
+        if ((item.revisionCount ?? 0) > 0) {
+            return 'Ada draft revisi aktif'
+        }
+
+        return 'Belum ada revisi'
+    }
+
     return (
         <div className="space-y-4">
+            <div className="flex flex-col gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 shadow-sm dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">
+                <div className="font-semibold">Alur revisi RAB (disederhanakan)</div>
+                <div>
+                    Urutan kerja: <span className="font-semibold">Lihat Detail</span> untuk cek kondisi proyek, lanjut <span className="font-semibold">Kelola Revisi</span> untuk ubah draft, lalu pantau status approval di detail proyek.
+                </div>
+            </div>
+
             {/* Bulk Actions Header */}
             {selectedIds.length > 0 && (
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-4">
@@ -1026,6 +1086,7 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                         {selectedIds.length} proyek dipilih
                     </span>
                     <button
+                        type="button"
                         onClick={handleCompare}
                         disabled={selectedIds.length < 2}
                         className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -1153,60 +1214,92 @@ export default function RABList({ onEdit, onView, refreshKey }: RABListProps) {
                             key: 'status',
                             header: 'Status',
                             render: (item) => (
-                                <span className={`px-2 py-1 ${getStatusBadge(item.status)} rounded text-xs font-bold uppercase`}>
-                                    {item.status || 'DRAFT'}
-                                </span>
+                                <div className="space-y-1">
+                                    <span className={`inline-flex px-2 py-1 ${getStatusBadge(item.status)} rounded text-xs font-bold uppercase`}>
+                                        {item.status || 'DRAFT'}
+                                    </span>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                        {getRevisionStatusCopy(item)}
+                                    </div>
+                                </div>
                             )
                         },
                         {
                             key: 'actions',
                             header: '',
                             render: (item: RABProject) => (
-                                <div className="flex justify-end gap-2">
+                                <div className="flex flex-wrap justify-end gap-2">
                                     <button
+                                        type="button"
                                         onClick={() => onView(item)}
-                                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                                        title="Lihat Detail"
+                                        className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200 dark:hover:bg-indigo-900/50"
+                                        title="Lihat Detail & Status Revisi"
+                                        aria-label={`Lihat detail ${item.name}`}
                                     >
-                                        <HiOutlineEye className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleExport(item)}
-                                        className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                                        title="Export CSV"
-                                    >
-                                        <HiOutlineDocumentArrowDown className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleExportPDF(item)}
-                                        className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                        title="Export PDF"
-                                    >
-                                        <HiOutlineDocumentText className="w-5 h-5" />
+                                        <HiOutlineEye className="w-4 h-4" />
+                                        <span>Lihat Detail</span>
                                     </button>
                                     {canUpdate && (
                                         <>
                                             <button
+                                                type="button"
+                                                onClick={() => onRevise(item)}
+                                                className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-200 dark:hover:bg-sky-900/50"
+                                                title="Kelola Revisi RAB"
+                                                aria-label={`Kelola revisi RAB untuk ${item.name}`}
+                                            >
+                                                <HiOutlineDocumentText className="w-4 h-4" />
+                                                <span>
+                                                    {item.latestRevision?.status === 'PENDING_APPROVAL'
+                                                        ? 'Lihat Revisi Pending'
+                                                        : 'Kelola Revisi'}
+                                                </span>
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={() => onEdit(item)}
                                                 className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                                                 title="Edit"
+                                                aria-label={`Edit ${item.name}`}
                                             >
                                                 <HiOutlinePencilSquare className="w-5 h-5" />
                                             </button>
                                             <button
+                                                type="button"
                                                 onClick={() => handleDuplicate(item.id)}
                                                 className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
                                                 title="Duplikat (Copy)"
+                                                aria-label={`Duplikat ${item.name}`}
                                             >
                                                 <HiOutlineDocumentDuplicate className="w-5 h-5" />
                                             </button>
                                         </>
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport(item)}
+                                        className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                                        title="Export CSV"
+                                        aria-label={`Export CSV ${item.name}`}
+                                    >
+                                        <HiOutlineDocumentArrowDown className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExportPDF(item)}
+                                        className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                        title="Export PDF"
+                                        aria-label={`Export PDF ${item.name}`}
+                                    >
+                                        <HiOutlineDocumentText className="w-5 h-5" />
+                                    </button>
                                     {canDelete && (
                                         <button
+                                            type="button"
                                             onClick={() => handleDelete(item.id)}
                                             className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                                             title="Hapus"
+                                            aria-label={`Hapus ${item.name}`}
                                         >
                                             <HiOutlineTrash className="w-5 h-5" />
                                         </button>

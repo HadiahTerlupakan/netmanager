@@ -6,6 +6,7 @@ const eslintConfig = [
   ...nextTypescript,
   {
     ignores: [
+      ".worktrees/**",
       "prisma/generated/**",
       "scripts/**",
       "temp_genieacs_source/**",

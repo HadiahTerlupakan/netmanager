@@ -962,6 +962,7 @@ model User {
   purchaseRequests                           PurchaseRequest[]         @relation("Requester")
   push_subscriptions                         PushSubscriptions[]
   rabApprovals                               RabApproval[]
+  rabRevisionApprovals                       RabRevisionApproval[]
   createdRabProjects                         RabProject[]
   salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
   salariesAuditedBy                          Salary[]                  @relation("SalaryAuditedBy")
@@ -2438,6 +2439,7 @@ model RabProject {
   description                String?
   siteId                     String?
   mixRadiusGroupId           String?
+  finalApprovedRevisionId    String?
   projectedRevenue           BigInt                 @default(0)
   projectedOpex              BigInt                 @default(0)
   status                     RabStatus              @default(DRAFT)
@@ -2463,14 +2465,84 @@ model RabProject {
   investors                  RabInvestor[]
   actualAchievements         RabActualAchievement[]
   approvals                  RabApproval[]
+  finalApprovedRevision      RabRevision?           @relation("FinalApprovedRevision", fields: [finalApprovedRevisionId], references: [id], onDelete: SetNull)
   items                      RabItem[]
+  revisions                  RabRevision[]          @relation("ProjectRevisions")
   creator                    User?                  @relation(fields: [createdBy], references: [id])
   site                       Sites?                 @relation(fields: [siteId], references: [id])
   wbsGroups                  RabWbs[]
 
+  @@index([finalApprovedRevisionId])
   @@index([siteId])
   @@index([status])
   @@map("rab_projects")
+}
+
+model RabRevision {
+  id                      String                @id @default(cuid())
+  rabProjectId            String
+  revisionNumber          Int
+  status                  RabRevisionStatus     @default(DRAFT)
+  reason                  String?
+  notes                   String?
+  createdById             String
+  submittedById           String?
+  submittedAt             DateTime?
+  approvedById            String?
+  approvedAt              DateTime?
+  rejectedById            String?
+  rejectedAt              DateTime?
+  totalCapex              BigInt                @default(0)
+  totalOpex               BigInt                @default(0)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  approvals               RabRevisionApproval[]
+  items                   RabRevisionItem[]
+  project                 RabProject            @relation("ProjectRevisions", fields: [rabProjectId], references: [id], onDelete: Cascade)
+  projectsUsingAsBaseline RabProject[]          @relation("FinalApprovedRevision")
+
+  @@unique([rabProjectId, revisionNumber])
+  @@index([rabProjectId])
+  @@index([status])
+  @@map("rab_revisions")
+}
+
+model RabRevisionApproval {
+  id            String      @id @default(cuid())
+  rabRevisionId String
+  userId        String
+  status        String      @default("APPROVED")
+  notes         String?
+  createdAt     DateTime    @default(now())
+  rabRevision   RabRevision @relation(fields: [rabRevisionId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([rabRevisionId, userId])
+  @@index([rabRevisionId])
+  @@index([userId])
+  @@map("rab_revision_approvals")
+}
+
+model RabRevisionItem {
+  id                String          @id @default(cuid())
+  rabRevisionId     String
+  rabItemId         String?
+  name              String
+  description       String?
+  quantity          Int             @default(1)
+  unitPrice         BigInt
+  totalPrice        BigInt
+  category          RabItemCategory @default(HARDWARE)
+  expenseType       RabExpenseType  @default(CAPEX)
+  expenseCategoryId String?
+  wbsId             String?
+  sortOrder         Int             @default(0)
+  rabRevision       RabRevision     @relation(fields: [rabRevisionId], references: [id], onDelete: Cascade)
+
+  @@index([rabRevisionId])
+  @@index([rabItemId])
+  @@index([wbsId])
+  @@map("rab_revision_items")
 }
 
 model RabApproval {
@@ -2975,6 +3047,13 @@ enum RabRecoveryType {
 enum RabExpenseType {
   CAPEX
   OPEX
+}
+
+enum RabRevisionStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
 }
 
 enum RabStatus {

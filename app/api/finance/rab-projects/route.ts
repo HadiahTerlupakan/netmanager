@@ -139,32 +139,52 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
                         }
                     }
                 }
+            },
+            revisions: {
+                select: {
+                    id: true,
+                    revisionNumber: true,
+                    status: true
+                },
+                orderBy: { revisionNumber: 'desc' },
+                take: 1
+            },
+            _count: {
+                select: {
+                    revisions: true
+                }
             }
         },
     });
 
     // Serialize BigInt and new fields
-    const serialized = projects.map(p => ({
-        ...p,
-        projectedRevenue: p.projectedRevenue.toString(),
-        projectedOpex: p.projectedOpex.toString(),
-        arpu: p.arpu?.toString() || null,
-        contingencyAmount: p.contingencyAmount?.toString() || "0",
-        investors: (p.investors || []).map((i: { investmentAmount: bigint }) => ({
-            ...i,
-            investmentAmount: i.investmentAmount?.toString() || "0"
-        })),
-        items: p.items.map(i => ({
-            ...i,
-            unitPrice: i.unitPrice.toString(),
-            totalPrice: i.totalPrice.toString(),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            disbursements: (i.disbursements || []).map((d: any) => ({
-                ...d,
-                amount: d.amount.toString()
+    const serialized = projects.map(p => {
+        const { revisions, _count, ...projectData } = p
+
+        return {
+            ...projectData,
+            projectedRevenue: p.projectedRevenue.toString(),
+            projectedOpex: p.projectedOpex.toString(),
+            arpu: p.arpu?.toString() || null,
+            contingencyAmount: p.contingencyAmount?.toString() || "0",
+            revisionCount: _count?.revisions || 0,
+            latestRevision: revisions?.[0] || null,
+            investors: (p.investors || []).map((i: { investmentAmount: bigint }) => ({
+                ...i,
+                investmentAmount: i.investmentAmount?.toString() || "0"
+            })),
+            items: p.items.map(i => ({
+                ...i,
+                unitPrice: i.unitPrice.toString(),
+                totalPrice: i.totalPrice.toString(),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                disbursements: (i.disbursements || []).map((d: any) => ({
+                    ...d,
+                    amount: d.amount.toString()
+                }))
             }))
-        }))
-    }));
+        }
+    });
 
     return apiSuccess(serialized);
 });

@@ -75,7 +75,21 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             mixRadiusGroup: { select: { name: true, owners: true } },
             mixRadiusInvestorSite: { select: { name: true } },
             creator: { select: { name: true } },
-            investors: true
+            investors: true,
+            revisions: {
+                select: {
+                    id: true,
+                    revisionNumber: true,
+                    status: true
+                },
+                orderBy: { revisionNumber: 'desc' },
+                take: 1
+            },
+            _count: {
+                select: {
+                    revisions: true
+                }
+            }
         }
     });
 
@@ -83,12 +97,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         return ApiErrors.notFound("Proyek RAB");
     }
 
+    const { revisions, _count, ...projectData } = project
     const serialized = {
-        ...project,
+        ...projectData,
         projectedRevenue: project.projectedRevenue.toString(),
         projectedOpex: project.projectedOpex.toString(),
         arpu: project.arpu?.toString() || null,
         contingencyAmount: project.contingencyAmount?.toString() || "0",
+        revisionCount: _count?.revisions || 0,
+        latestRevision: revisions?.[0] || null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         items: project.items.map((i: any) => ({
             ...i,
