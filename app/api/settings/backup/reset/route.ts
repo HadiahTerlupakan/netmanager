@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ApiErrors } from '@/lib/api-response'
 import { hasPermission } from '@/lib/rbac'
+import {
+    ensurePrismaMigrationHistory,
+    getBackupPrismaConfig,
+} from '@/app/api/settings/backup/prisma-migration-history'
 import { shouldRunSeedAfterReset } from './reset-operations'
 import type { ResetResult } from './reset-operations'
 import { exec, execSync } from 'child_process'
@@ -75,18 +79,6 @@ function findTsxCommand(): string {
     return 'npx tsx'
 }
 
-function getPrismaConfigFlag(dbName: string): string {
-    const configMap: Record<string, string | null> = {
-        netmanager: null,
-        radius: 'prisma.radius.config.ts',
-        billing: 'prisma.billing.config.ts',
-        mitra: 'prisma.mitra.config.ts',
-    }
-
-    const config = configMap[dbName]
-    return config ? ` --config=${config}` : ''
-}
-
 export async function POST(req: NextRequest): Promise<NextResponse> {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -130,7 +122,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const pgPrefix = `export PGPASSWORD="${dbConfig.password}"; export PGHOST="${dbConfig.host}"; export PGPORT="${dbConfig.port}"; export PGUSER="${dbConfig.user}";`
-        const configFlag = getPrismaConfigFlag(dbName)
+        const prismaConfig = getBackupPrismaConfig(dbName)
+        const configFlag = prismaConfig?.config ? ` --config=${prismaConfig.config}` : ''
 
         try {
             await execAsync(
@@ -146,6 +139,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                     env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
                 }
             )
+
+            await ensurePrismaMigrationHistory({
+                dbName,
+                database: dbConfig.database,
+                pgPrefix,
+                psqlBin,
+                prismaBin,
+                projectRoot: process.cwd(),
+                env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
+                runCommand: async (command, options) =>
+                    execAsync(command, {
+                        ...options,
+                        shell: '/bin/sh',
+                        maxBuffer: 1024 * 1024 * 30,
+                    }),
+            })
 
             results.push({
                 database: dbName,

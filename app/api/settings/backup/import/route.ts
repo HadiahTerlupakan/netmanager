@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ApiErrors } from '@/lib/api-response'
+import {
+    ensurePrismaMigrationHistory,
+    getBackupPrismaConfig,
+} from '@/app/api/settings/backup/prisma-migration-history'
 import { exec, execSync } from 'child_process'
 import { promisify } from 'util'
 import * as fs from 'fs'
@@ -174,16 +178,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 // LANGKAH 3: Jalankan prisma db push untuk sync schema
                 // agar kolom baru yang ada di schema.prisma (tapi belum ada di dump) ikut terbuat
                 const prismaBin = findPrismaBin()
-                const DB_CONFIG_MAP: Record<string, { config?: string; migrationsDir: string }> = {
-                    netmanager: { migrationsDir: 'prisma/migrations' },
-                    radius: { config: 'prisma.radius.config.ts', migrationsDir: 'prisma/radius_migrations' },
-                    billing: { config: 'prisma.billing.config.ts', migrationsDir: 'prisma/billing_migrations' },
-                    mitra: { config: 'prisma.mitra.config.ts', migrationsDir: 'prisma/mitra_migrations' },
-                }
-                const dbConf = DB_CONFIG_MAP[dbName]
+                const prismaConfig = getBackupPrismaConfig(dbName)
 
-                if (dbConf) {
-                    const configFlag = dbConf.config ? ` --config=${dbConf.config}` : ''
+                if (prismaConfig) {
+                    const configFlag = prismaConfig.config ? ` --config=${prismaConfig.config}` : ''
 
                     try {
                         await execAsync(
@@ -194,15 +192,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                                 env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
                             }
                         )
+                        await ensurePrismaMigrationHistory({
+                            dbName,
+                            database: dbConfig.database,
+                            pgPrefix,
+                            psqlBin,
+                            prismaBin,
+                            projectRoot: process.cwd(),
+                            env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
+                            runCommand: async (command, options) =>
+                                execAsync(command, {
+                                    ...options,
+                                    shell: '/bin/sh',
+                                    maxBuffer: 1024 * 1024 * 30,
+                                }),
+                        })
                     } catch (pushErr) {
                         console.warn(`[backup:import] prisma db push warning for ${dbName}:`, String(pushErr).substring(0, 300))
                     }
-
-                    // LANGKAH 4: Mark semua migration sebagai applied tidak lagi dilakukan manual via loop
-                    // Karena ini memakan waktu sangat lama (bisa 10+ menit untuk >70 migrasi) dan
-                    // memicu 504 Gateway Timeout di web endpoint.
-                    // Saat import database di staging/prod, struktur database dan isinya sudah 
-                    // menggantikan seluruhnya, dan tabel _prisma_migrations ikut ter-import.
                 }
 
                 results.push({
