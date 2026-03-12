@@ -77,20 +77,29 @@ npm run db:up
 docker-compose up -d
 ```
 
-#### b. Generate Prisma Client
+#### b. Generate VAPID Keys (Push Notifications)
+
+Aplikasi ini membutuhkan VAPID Keys untuk fitur Notifikasi. Tambahkan/ubah value `VAPID_...` di `.env` dengan menjalankan:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+#### c. Push Multi-Database Schemas
+
+Aplikasi menggunakan lebih dari 1 schema database (Utama, Radius, Billing, Mitra). Tambahkan ke seluruh database:
+
+```bash
+npm run prisma:push-all
+```
+
+#### d. Generate Prisma Client
 
 ```bash
 npm run prisma:generate
 ```
-npx prisma db push
 
-#### c. Jalankan Database Migrations
-
-```bash
-npx prisma db push
-```
-
-#### d. Seed Database (Recommended)
+#### e. Seed Database (Recommended)
 
 ```bash
 npm run prisma:seed
