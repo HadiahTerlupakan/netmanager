@@ -101,44 +101,37 @@ spec:
               echo "======================================"
 
               # =============================================
-              # STEP 1: Clean old migration history from all databases
-              # This is needed because we squashed all migrations into a single init.
-              # The old migration records in _prisma_migrations no longer match local files.
+              # STEP 1: Clean ALL old migration records
+              # TRUNCATE _prisma_migrations to remove ALL history
+              # including failed records that block new migrations.
+              # Uses DATABASE_URL env vars directly as psql connection strings.
+              # TODO: Remove this step after first successful deployment.
               # =============================================
               echo ""
               echo "======================================"
-              echo "🧹 Cleaning old migration history (squash reset)"
+              echo "🧹 Cleaning ALL migration history (squash reset)"
               echo "======================================"
 
-              # Extract DB connection details from DATABASE_URL for psql
-              # Netmanager DB
-              echo "Clearing old migration records from netmanager DB..."
-              PGPASSWORD="$POSTGRES_PASSWORD" psql -h db-netmanager -U postgres -d netmanager -c \
-                "DELETE FROM \"_prisma_migrations\" WHERE migration_name NOT LIKE '20260313000%';" || true
+              echo "Cleaning netmanager DB..."
+              psql "$DATABASE_URL" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ netmanager cleanup skipped (table may not exist)"
 
-              # Radius DB
-              echo "Clearing old migration records from radius DB..."
-              PGPASSWORD="$POSTGRES_PASSWORD" psql -h db-radius -U postgres -d radius -c \
-                "DELETE FROM \"_prisma_migrations\" WHERE migration_name NOT LIKE '20260313000%';" || true
+              echo "Cleaning radius DB..."
+              psql "$RADIUS_DATABASE_URL" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ radius cleanup skipped"
 
-              # Billing DB
-              echo "Clearing old migration records from billing DB..."
-              PGPASSWORD="$POSTGRES_PASSWORD" psql -h db-billing -U postgres -d billing -c \
-                "DELETE FROM \"_prisma_migrations\" WHERE migration_name NOT LIKE '20260313000%';" || true
+              echo "Cleaning billing DB..."
+              psql "$DATABASE_URL_BILLING" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ billing cleanup skipped"
 
-              # Mitra DB
-              echo "Clearing old migration records from mitra DB..."
-              PGPASSWORD="$POSTGRES_PASSWORD" psql -h db-mitra -U postgres -d mitra -c \
-                "DELETE FROM \"_prisma_migrations\" WHERE migration_name NOT LIKE '20260313000%';" || true
+              echo "Cleaning mitra DB..."
+              psql "$DATABASE_URL_MITRA" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ mitra cleanup skipped"
 
-              echo "✅ Old migration history cleaned."
+              echo "✅ Migration history cleaned."
 
               echo ""
-              echo "=== Checking migration status ==="
-              npx prisma migrate status || true
-              npx prisma migrate status --config=prisma.radius.config.ts || true
-              npx prisma migrate status --config=prisma.billing.config.ts || true
-              npx prisma migrate status --config=prisma.mitra.config.ts || true
+              echo "=== Migration status after cleanup ==="
+              npx prisma migrate status 2>&1 || true
+              npx prisma migrate status --config=prisma.radius.config.ts 2>&1 || true
+              npx prisma migrate status --config=prisma.billing.config.ts 2>&1 || true
+              npx prisma migrate status --config=prisma.mitra.config.ts 2>&1 || true
 
               # =============================================
               # STEP 2: Safe Migration Guard
@@ -217,13 +210,15 @@ spec:
 
               # =============================================
               # STEP 3: Resolve squashed baseline + Deploy
+              # Mark init_squashed as already applied (it represents
+              # the existing DB state), then deploy new_features.
               # =============================================
               echo ""
               echo "======================================"
               echo "Running netmanager migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --applied 20260313000000_init_squashed || true
+              npx prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
               npx prisma migrate deploy
 
               echo ""
@@ -231,7 +226,7 @@ spec:
               echo "Running radius migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts || true
+              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
               npx prisma migrate deploy --config=prisma.radius.config.ts
 
               echo ""
@@ -239,7 +234,7 @@ spec:
               echo "Running billing migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts || true
+              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
               npx prisma migrate deploy --config=prisma.billing.config.ts
 
               echo ""
@@ -247,7 +242,7 @@ spec:
               echo "Running mitra migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts || true
+              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
               npx prisma migrate deploy --config=prisma.mitra.config.ts
 
               echo ""
