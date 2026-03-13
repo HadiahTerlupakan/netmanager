@@ -142,25 +142,21 @@ spec:
 
               # =============================================
               # STEP 2: Safe Migration Guard
-              # NOTE: Billing new_features contains intentional DROP TABLE
-              # for Transaction/TransactionCategory (finance refactoring).
-              # We skip guard for this one-time squash deployment.
-              # TODO: Remove SKIP_SAFE_GUARD after first successful deployment.
+              # Automatically allows destructive migrations that include
+              # a "-- @safe-guard-ack: <reason>" comment in the SQL file.
+              # Blocks all unacknowledged destructive migrations.
               # =============================================
               echo ""
               echo "======================================"
               echo "🛡️ SAFE MIGRATION GUARD CHECK"
               echo "======================================"
 
-              SKIP_SAFE_GUARD="${SKIP_SAFE_GUARD:-true}"
-
-              if [ "$SKIP_SAFE_GUARD" = "true" ]; then
-                echo "⚠️ Safe guard SKIPPED (one-time squash deployment)."
-                echo "   Billing DROP TABLE for transactions/transaction_categories is intentional."
-              else
-                cat << 'EOF' > /tmp/safe-guard.js
+              cat << 'GUARDEOF' > /tmp/safe-guard.js
               const fs = require('fs');
               const { execSync } = require('child_process');
+
+              const DESTRUCTIVE_PATTERN = /DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|ALTER\s+TABLE\s+".*"\s+ALTER\s+COLUMN/i;
+              const ACK_PATTERN = /--\s*@safe-guard-ack:/i;
 
               function checkDatabase(config, folder) {
                 let unapplied = [];
@@ -180,9 +176,16 @@ spec:
                   const file = `${folder}/${m}/migration.sql`;
                   if (fs.existsSync(file)) {
                     const sql = fs.readFileSync(file, 'utf8');
-                    if (/DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|ALTER\s+TABLE\s+".*"\s+ALTER\s+COLUMN/i.test(sql)) {
-                      console.error(`⚠️ Destructive SQL found in UNAPPLIED migration: ${file}`);
-                      dangerous = true;
+                    if (DESTRUCTIVE_PATTERN.test(sql)) {
+                      if (ACK_PATTERN.test(sql)) {
+                        console.log(`✅ Destructive migration ACKNOWLEDGED: ${file}`);
+                        const ackLine = sql.split('\n').find(l => ACK_PATTERN.test(l));
+                        if (ackLine) console.log(`   Reason: ${ackLine.replace(/--\s*@safe-guard-ack:\s*/i, '').trim()}`);
+                      } else {
+                        console.error(`❌ Destructive SQL found WITHOUT acknowledgment: ${file}`);
+                        console.error(`   Add "-- @safe-guard-ack: <alasan>" di baris pertama file untuk mengizinkan.`);
+                        dangerous = true;
+                      }
                     }
                   }
                 }
@@ -202,15 +205,15 @@ spec:
               }
 
               if (hasDanger) {
-                console.error('❌ Pipeline dihentikan: destructive migration detected in unapplied migrations!');
+                console.error('❌ Pipeline dihentikan: unacknowledged destructive migration detected!');
+                console.error('   Tambahkan "-- @safe-guard-ack: <alasan>" di file SQL yang bersangkutan.');
                 process.exit(1);
               } else {
-                console.log('✅ Safe migration check passed.');
+                console.log('✅ Safe migration guard passed.');
               }
-              EOF
+              GUARDEOF
 
-                node /tmp/safe-guard.js
-              fi
+              node /tmp/safe-guard.js
 
               # =============================================
               # STEP 3: Resolve squashed baseline + Deploy
