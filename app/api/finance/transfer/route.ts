@@ -7,15 +7,14 @@ const transferSchema = z.object({
   destinationAccountId: z.string().min(1, 'Akun tujuan wajib diisi'),
   amount: z.number().min(1, 'Nominal harus lebih dari 0'),
   date: z.string().or(z.date()),
-  description: z.string().optional(),
-  categoryId: z.string().min(1, 'Kategori wajib diisi')
+  description: z.string().optional()
 })
 
 export const POST = createHandler({
     auth: true,
     schema: transferSchema
 }, async (req, ctx) => {
-    const { sourceAccountId, destinationAccountId, amount, date, description, categoryId } = ctx.validated
+    const { sourceAccountId, destinationAccountId, amount, date, description } = ctx.validated
 
     if (sourceAccountId === destinationAccountId) {
          return ApiErrors.badRequest('Akun asal dan tujuan tidak boleh sama')
@@ -30,7 +29,6 @@ export const POST = createHandler({
           amount,
           date,
           createdById: ctx.session!.user.id,
-          categoryId,
           ...(description ? { description } : {})
         })
 

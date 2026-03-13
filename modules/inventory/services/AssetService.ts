@@ -1,16 +1,14 @@
 import { AssetRepository } from '../repositories/AssetRepository'
 import type { CreateAssetInput, UpdateAssetInput, AssetWithRelations } from '../repositories/AssetRepository'
-import { FinanceService } from '../../finance/services/FinanceService'
+import { prisma } from '@/lib/prisma'
 import { AssetStatus } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
 
 export class AssetService {
     private assetRepo: AssetRepository
-    private financeService: FinanceService
 
     constructor() {
         this.assetRepo = new AssetRepository()
-        this.financeService = new FinanceService()
     }
 
     async createAsset(data: CreateAssetInput, userId: string) {
@@ -124,29 +122,29 @@ export class AssetService {
         )
 
         // 2. Create Finance Expense
-        // Find or create "Depreciation" category
-        // For now, we search for a category named "Depreciation" or "Penyusutan" or "Beban Penyusutan"
-        // TODO: Refactor to have a System Config for default categories
-        const categories = await this.financeService.getAllCategories()
-        const depCategory = categories.find(c => 
-            c.name.toLowerCase().includes('penyusutan') || 
-            c.name.toLowerCase().includes('depreciation')
-        )
+        // Find or create "Depreciation" category under ExpenseCategory
+        const depCategory = await prisma.expenseCategory.findFirst({
+            where: {
+                OR: [
+                    { name: { contains: 'penyusutan', mode: 'insensitive' } },
+                    { name: { contains: 'depreciation', mode: 'insensitive' } }
+                ]
+            }
+        })
         
         if (!depCategory) {
-            // Recommendation: Do not auto-create "Beban Penyusutan" to prevent polluting Chart of Accounts.
-            // Throw an explicit error asking the admin to configure it.
-            throw new Error('Finance Category for Depreciation (e.g. "Beban Penyusutan") not found. Please create it in Finance Settings.')
+            throw new Error('Expense Category for Depreciation (e.g. "Beban Penyusutan") not found. Please create it in Finance Settings.')
         }
 
-        await this.financeService.createTransaction({
-            type: 'EXPENSE',
-            amount: actualAmount,
-            date: customDate,
-            categoryId: depCategory.id,
-            description: `Penyusutan Aset: ${asset.barang.nama} (${asset.kodeAsset})`,
-            createdById: createdById,
-            referenceId: log.id // Link to log
+        await prisma.expense.create({
+            data: {
+                amount: Math.round(actualAmount), // Prisma BigInt constraint expects rounded integer usually
+                date: customDate,
+                expenseCategoryId: depCategory.id,
+                category: 'Depresiasi Aset',
+                description: `Penyusutan Aset: ${asset.barang.nama} (${asset.kodeAsset})`,
+                userId: createdById,
+            }
         })
 
         // Log Activity

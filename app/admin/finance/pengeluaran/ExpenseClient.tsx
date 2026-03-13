@@ -133,14 +133,14 @@ export function ClientComponent() {
     const fetchMetadata = async () => {
         try {
             const [catRes, accRes] = await Promise.all([
-                fetch("/api/finance/categories"),
+                fetch("/api/finance/expense-categories"),
                 fetch("/api/finance/accounts")
             ]);
 
             const catData = await catRes.json();
             const accData = await accRes.json();
 
-            setCategories(Array.isArray(catData) ? catData.filter((c: Category) => c.type === 'EXPENSE') : []);
+            setCategories(Array.isArray(catData.data) ? catData.data : (Array.isArray(catData) ? catData : []));
             setAccounts(Array.isArray(accData.data) ? accData.data : (Array.isArray(accData) ? accData : []));
         } catch (_error) {
             console.error("Error fetching metadata:", _error);

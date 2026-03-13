@@ -140,46 +140,7 @@ enum UnmatchedStatus {
   IGNORED
 }
 
-model Transaction {
-  id          String          @id @default(uuid())
-  date        DateTime        @default(now())
-  amount      Float
-  type        TransactionType
-  description String?
-  referenceId String? // Could be PO ID, Invoice ID, etc.
-
-  categoryId String
-  category   TransactionCategory @relation(fields: [categoryId], references: [id])
-
-  accountId       String? // Make optional initially for migration
-  purchaseOrderId String?
-  createdById     String
-  attachments     String[] @default([])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([date])
-  @@index([type])
-  @@index([categoryId])
-  @@index([accountId])
-  @@index([purchaseOrderId])
-  @@map("transactions")
-}
-
-model TransactionCategory {
-  id          String          @id @default(uuid())
-  name        String
-  type        TransactionType
-  expenseType ExpenseType? // Only for EXPENSE type
-  description String?
-  isSystem    Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  transactions Transaction[]
-
-  @@map("transaction_categories")
-}
+// Transksi dan Transaksi Kategori sengaja dihapus per Rencana Refactoring 
 
 model MixRadiusInvoice {
   id            String    @id @default(cuid())

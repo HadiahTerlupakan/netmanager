@@ -214,33 +214,6 @@ exports.Prisma.UnmatchedMutationScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.TransactionScalarFieldEnum = {
-  id: 'id',
-  date: 'date',
-  amount: 'amount',
-  type: 'type',
-  description: 'description',
-  referenceId: 'referenceId',
-  categoryId: 'categoryId',
-  accountId: 'accountId',
-  purchaseOrderId: 'purchaseOrderId',
-  createdById: 'createdById',
-  attachments: 'attachments',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.TransactionCategoryScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  type: 'type',
-  expenseType: 'expenseType',
-  description: 'description',
-  isSystem: 'isSystem',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.MixRadiusInvoiceScalarFieldEnum = {
   id: 'id',
   invoiceNumber: 'invoiceNumber',
@@ -374,25 +347,12 @@ exports.UnmatchedStatus = exports.$Enums.UnmatchedStatus = {
   IGNORED: 'IGNORED'
 };
 
-exports.TransactionType = exports.$Enums.TransactionType = {
-  INCOME: 'INCOME',
-  EXPENSE: 'EXPENSE'
-};
-
-exports.ExpenseType = exports.$Enums.ExpenseType = {
-  OPERATIONAL: 'OPERATIONAL',
-  CAPITAL: 'CAPITAL',
-  OTHER: 'OTHER'
-};
-
 exports.Prisma.ModelName = {
   Invoice: 'Invoice',
   InvoiceItem: 'InvoiceItem',
   Payment: 'Payment',
   PaymentGatewayConfig: 'PaymentGatewayConfig',
   UnmatchedMutation: 'UnmatchedMutation',
-  Transaction: 'Transaction',
-  TransactionCategory: 'TransactionCategory',
   MixRadiusInvoice: 'MixRadiusInvoice',
   MixRadiusCustomer: 'MixRadiusCustomer',
   MixRadiusOwnerGroup: 'MixRadiusOwnerGroup',

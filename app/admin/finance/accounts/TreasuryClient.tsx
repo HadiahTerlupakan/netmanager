@@ -6,8 +6,7 @@ import {
   HiOutlineBuildingLibrary,
   HiOutlineBanknotes,
   HiOutlineCreditCard,
-  HiOutlinePlus,
-  HiOutlineArrowRight
+  HiOutlinePlus
 } from 'react-icons/hi2'
 import { Button } from '@/components/ui/Button'
 import TransferModal from './TransferModal'
@@ -112,7 +111,7 @@ export default function TreasuryClient({ accounts }: TreasuryClientProps) {
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Daftar Akun Keuangan</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {accounts.map((acc) => (
-            <div key={acc.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onClick={() => router.push(`/admin/finance/transactions?accountId=${acc.id}`)}>
+            <div key={acc.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                 <div className="p-6">
                     <div className="flex items-start justify-between mb-4">
                         <div className={clsx("p-3 rounded-lg", getColor(acc.type))}>
@@ -129,10 +128,6 @@ export default function TreasuryClient({ accounts }: TreasuryClientProps) {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Saldo Saat Ini</p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(acc.balance)}</p>
                     </div>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-3 flex justify-between items-center text-sm font-medium text-blue-600 dark:text-blue-400">
-                    <span>Lihat Mutasi</span>
-                    <HiOutlineArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
             </div>
         ))}

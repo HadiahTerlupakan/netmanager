@@ -8,16 +8,14 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { toast } from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
-import type { Category, Account, PurchaseOrder } from '@/types'
+import type { Account, PurchaseOrder } from '@/types'
 
 interface UnpaidBillsClientProps {
   initialData: PurchaseOrder[]
-  categories: Category[]
   accounts: Account[]
   hideHeader?: boolean
 }
-
-export default function UnpaidBillsClient({ initialData, categories, accounts, hideHeader = false }: UnpaidBillsClientProps) {
+export default function UnpaidBillsClient({ initialData, accounts, hideHeader = false }: UnpaidBillsClientProps) {
   const router = useRouter()
   const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null)
   const [loading, setLoading] = useState(false)
@@ -26,14 +24,12 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
   // Form State
   const [amount, setAmount] = useState<number>(0)
   const [date, setDate] = useState((() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })())
-  const [categoryId, setCategoryId] = useState('')
   const [notes, setNotes] = useState('')
   const [paidFromAccountId, setPaidFromAccountId] = useState('')
 
   const openPaymentModal = (po: PurchaseOrder) => {
     setSelectedPo(po)
     setAmount(po.totalAmount) // Default full payment
-    setCategoryId('')
     setPaidFromAccountId('')
     setNotes('')
     setDate((() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })())
@@ -42,10 +38,6 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
   const handlePay = async () => {
     if (!selectedPo) return
     
-    if (!categoryId) {
-      toast.error('Pilih kategori transaksi')
-      return
-    }
     if (!paidFromAccountId) {
       toast.error('Pilih sumber dana (akun)')
       return
@@ -60,7 +52,6 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
           poId: selectedPo.id,
           date,
           amount: Number(amount),
-          categoryId,
           notes,
           paidFromAccountId
         })
@@ -289,27 +280,6 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                         />
                     </div>
                   </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                    Kategori (Chart of Account)
-                </label>
-                <div className="relative">
-                    <select 
-                        className="w-full px-4 py-2 pr-8 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none transition-all"
-                        value={categoryId}
-                        onChange={(e) => setCategoryId(e.target.value)}
-                    >
-                        <option value="">-- Pilih Kategori --</option>
-                        {categories.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-400">
-                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                    </div>
-                </div>
               </div>
 
               <div className="flex flex-col gap-2">

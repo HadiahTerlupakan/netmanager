@@ -1,100 +1,11 @@
-import { prismaBilling } from '@/lib/prisma-billing';
-import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
 import { prisma } from '@/lib/prisma'
-import { TransactionRepository } from '../repositories/TransactionRepository'
-import type { ITransactionRepository } from '../repositories/ITransactionRepository'
-import { TransactionCategoryRepository } from '../repositories/TransactionCategoryRepository'
-import type { ITransactionCategoryRepository } from '../repositories/ITransactionCategoryRepository'
 import { type PaymentStatus } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
 
 export class FinanceService {
-  private transactionRepo: ITransactionRepository
-  private categoryRepo: ITransactionCategoryRepository
+  constructor() {}
 
-  constructor() {
-    this.transactionRepo = new TransactionRepository()
-    this.categoryRepo = new TransactionCategoryRepository()
-  }
-
-  async getAllCategories() {
-    return this.categoryRepo.findAll()
-  }
-
-  async createCategory(data: PrismaBilling.TransactionCategoryCreateInput) {
-    return this.categoryRepo.create(data)
-  }
-
-  async updateCategory(id: string, data: PrismaBilling.TransactionCategoryUpdateInput) {
-    const category = await this.categoryRepo.findById(id)
-    if (!category) throw new Error('Kategori tidak ditemukan')
-    return this.categoryRepo.update(id, data)
-  }
-
-  async getTransactions(filters?: { startDate?: string, endDate?: string, categoryId?: string, accountId?: string, siteId?: string }) {
-    return this.transactionRepo.findAll({
-      ...(filters?.startDate ? { startDate: new Date(filters.startDate) } : {}),
-      ...(filters?.endDate ? { endDate: new Date(filters.endDate) } : {}),
-      ...(filters?.categoryId ? { categoryId: filters.categoryId } : {}),
-      ...(filters?.accountId ? { accountId: filters.accountId } : {}),
-      ...(filters?.siteId ? { siteId: filters.siteId } : {})
-    })
-  }
-
-  async createTransaction(data: {
-    type: 'INCOME' | 'EXPENSE'
-    amount: number
-    date: Date | string
-    description?: string
-    categoryId: string
-    createdById: string
-    referenceId?: string
-    accountId?: string
-    attachments?: string[]
-  }) {
-    // 1. Update Account Balance if provided
-    const result = await prisma.$transaction(async (tx) => {
-      if (data.accountId) {
-        const modification = data.type === 'INCOME' ? data.amount : -data.amount
-        await tx.financialAccount.update({
-          where: { id: data.accountId },
-          data: { balance: { increment: modification } }
-        })
-      }
-
-      // 2. Create Transaction
-      return prismaBilling.transaction.create({
-        data: {
-          type: data.type,
-          amount: data.amount,
-          date: new Date(data.date),
-          description: data.description ?? null,
-          categoryId: data.categoryId,
-          createdById: data.createdById,
-          referenceId: data.referenceId ?? null,
-          accountId: data.accountId ?? null,
-          attachments: data.attachments || []
-        },
-        include: { category: true }
-      })
-    })
-
-    // Log Activity
-    logActivitySafe({
-      action: 'CREATE',
-      subject: 'Finance Transaction',
-      userId: data.createdById,
-      details: {
-        id: result.id,
-        type: result.type,
-        amount: result.amount,
-        desc: result.description,
-        ref: result.referenceId
-      }
-    })
-
-    return result
-  }
+// Function createTransaction dihapus karena tidak relevan  
 
   /**
    * Process payment for a Purchase Order
@@ -104,7 +15,6 @@ export class FinanceService {
     poId: string
     amount: number
     date: Date | string
-    categoryId: string
     notes?: string
     createdById: string
     paidFromAccountId?: string
@@ -140,28 +50,24 @@ export class FinanceService {
         })
       }
 
-      // Create Financial Transaction record
-      const transaction = await prismaBilling.transaction.create({
+      // Create Expense record
+      const expense = await tx.expense.create({
         data: {
-          type: 'EXPENSE',
+          category: 'Purchase Order Payment',
           amount: input.amount,
           date: new Date(input.date),
-          description: input.notes || `Pembayaran PO #${po.poNumber}`,
-          categoryId: input.categoryId,
-          referenceId: po.poNumber,
-          purchaseOrderId: po.id,
-          createdById: input.createdById,
-          accountId: input.paidFromAccountId ?? null
+          description: input.notes || `Pembayaran PO #${po.poNumber}` + (input.paidFromAccountId ? ` (dari Akun: ${input.paidFromAccountId})` : ''),
+          invoiceNumber: po.poNumber
         }
       })
 
       // Calculate new Payment Status
-      // Fetch all transactions for this PO (including the one just created)
-      const existingTx = await prismaBilling.transaction.findMany({
-        where: { purchaseOrderId: input.poId }
+      // Fetch all expenses for this PO (including the one just created)
+      const existingExpenses = await tx.expense.findMany({
+        where: { invoiceNumber: po.poNumber } // Menggunakan invoiceNumber sbg reference ke poNumber
       })
 
-      const totalPaid = existingTx.reduce((sum: number, t) => sum + Number(t.amount), 0)
+      const totalPaid = existingExpenses.reduce((sum: number, e) => sum + Number(e.amount), 0)
 
       // Determine status: UNPAID (no payments), PARTIAL (some payments), PAID (fully paid)
       let newStatus: PaymentStatus = 'UNPAID'
@@ -185,7 +91,7 @@ export class FinanceService {
         }
       })
 
-      return { transaction, newStatus }
+      return { expense, newStatus }
     })
 
     // Log Activity
@@ -198,11 +104,11 @@ export class FinanceService {
         poNumber: po.poNumber,
         amount: input.amount,
         status: result.newStatus,
-        transactionId: result.transaction.id
+        expenseId: result.expense.id
       }
     })
 
-    return result.transaction
+    return result.expense
   }
 
 
@@ -236,12 +142,6 @@ export class FinanceService {
       return summary
     }
 
-    if (type === 'CAPEX_OPEX') {
-      const startDate = new Date(new Date().getFullYear(), 0, 1) // This year default
-      const endDate = new Date()
-
-      return this.transactionRepo.getExpenseSummary(startDate, endDate)
-    }
     return null
   }
 
@@ -252,7 +152,6 @@ export class FinanceService {
     date: Date | string
     description?: string
     createdById: string
-    categoryId: string
   }) {
     const result = await prisma.$transaction(async (tx) => {
       // 1. Decrement Source Account
@@ -267,33 +166,7 @@ export class FinanceService {
         data: { balance: { increment: data.amount } }
       })
 
-      // 3. Create Outgoing Transaction (Source)
-      await prismaBilling.transaction.create({
-        data: {
-          type: 'EXPENSE',
-          amount: data.amount,
-          date: new Date(data.date),
-          description: data.description || 'Transfer Keluar',
-          categoryId: data.categoryId,
-          createdById: data.createdById,
-          accountId: data.sourceAccountId,
-          referenceId: 'TRANSFER'
-        }
-      })
-
-      // 4. Create Incoming Transaction (Destination)
-      await prismaBilling.transaction.create({
-        data: {
-          type: 'INCOME',
-          amount: data.amount,
-          date: new Date(data.date),
-          description: data.description || 'Transfer Masuk',
-          categoryId: data.categoryId,
-          createdById: data.createdById,
-          accountId: data.destinationAccountId,
-          referenceId: 'TRANSFER'
-        }
-      })
+      // Catatan: Pembuatan riwayat dihilangkan karena Transaction dihapus
 
       return { success: true }
     })
@@ -313,48 +186,7 @@ export class FinanceService {
     return result
   }
 
-  async deleteTransaction(id: string, userId?: string) {
-    const result = await prisma.$transaction(async (tx) => {
-      const transaction = await prismaBilling.transaction.findUnique({ where: { id } })
-      if (!transaction) throw new Error('Transaksi tidak ditemukan')
-
-      // Revert account balance if associated with an account
-      if (transaction.accountId) {
-        if (transaction.type === 'INCOME') {
-          // Revert Income: Decrement
-          await tx.financialAccount.update({
-            where: { id: transaction.accountId },
-            data: { balance: { decrement: transaction.amount } }
-          })
-        } else {
-          // Revert Expense: Increment
-          await tx.financialAccount.update({
-            where: { id: transaction.accountId },
-            data: { balance: { increment: transaction.amount } }
-          })
-        }
-      }
-
-      await prismaBilling.transaction.delete({ where: { id } })
-      return transaction
-    })
-
-    // Log Activity
-    if (userId) { // userId is optional because previous signature didn't have it, but we should supply it
-      logActivitySafe({
-        action: 'DELETE',
-        subject: 'Finance Transaction',
-        userId: userId,
-        details: {
-          id: result.id,
-          amount: result.amount,
-          desc: result.description
-        }
-      })
-    }
-
-    return result
-  }
+// Function deleteTransaction dihapus karena transaction telah dihapus dari DB
   async createAccount(data: {
     name: string
     type: 'BANK' | 'CASH' | 'EWALLET' | 'OTHER'

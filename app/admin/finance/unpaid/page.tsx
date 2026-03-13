@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { prismaBilling } from '@/lib/prisma-billing';
 import UnpaidBillsClient from './UnpaidBillsClient'
 
 export const dynamic = 'force-dynamic'
@@ -16,16 +15,11 @@ export default async function UnpaidBillsPage() {
     orderBy: { createdAt: 'desc' }
   })
 
-  const categories = await prismaBilling.transactionCategory.findMany({
-    where: { type: 'EXPENSE' },
-    orderBy: { name: 'asc' }
-  })
-
   const accounts = await prisma.financialAccount.findMany({
     where: { isActive: true },
     orderBy: { type: 'asc' }
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <UnpaidBillsClient initialData={unpaidPos as any} categories={categories} accounts={accounts} />
+  return <UnpaidBillsClient initialData={unpaidPos as any} accounts={accounts} />
 }

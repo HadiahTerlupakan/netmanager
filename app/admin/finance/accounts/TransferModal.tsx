@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { HiOutlineArrowRight } from 'react-icons/hi2'
-import type { Account, Category } from '@/types'
+import type { Account } from '@/types'
 
 interface TransferModalProps {
   isOpen: boolean
@@ -17,37 +17,22 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
   const [formData, setFormData] = useState({
     sourceAccountId: '',
     destinationAccountId: '',
-    categoryId: '',
     amount: '',
     date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
     description: ''
   })
   
-  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const fetchCategories = useCallback(async () => {
-      try {
-          const res = await fetch('/api/finance/categories')
-          if (res.ok) {
-              const data = await res.json()
-              setCategories(data)
-          }
-      } catch (e) {
-          console.error("Failed to fetch categories", e)
-      }
-  }, [])
-
   useEffect(() => {
     if (isOpen) {
-        fetchCategories()
         // Default to first account if not selected
         if (!formData.sourceAccountId && accounts.length > 0 && accounts[0]) {
             setFormData(prev => ({ ...prev, sourceAccountId: accounts[0]!.id }))
         }
     }
-  }, [isOpen, accounts, formData.sourceAccountId, fetchCategories])
+  }, [isOpen, accounts, formData.sourceAccountId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,7 +67,6 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
       setFormData({
         sourceAccountId: '',
         destinationAccountId: '',
-        categoryId: '',
         amount: '',
         date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
         description: ''
@@ -198,21 +182,7 @@ export default function TransferModal({ isOpen, onClose, onSuccess, accounts }: 
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Kategori</label>
-                        <select 
-                            value={formData.categoryId}
-                            onChange={e => setFormData({...formData, categoryId: e.target.value})}
-                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none"
-                            required
-                        >
-                            <option value="">Pilih Kategori</option>
-                            {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                     <div>
+                    <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Keterangan</label>
                         <input 
                             type="text"

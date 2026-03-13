@@ -6,7 +6,6 @@ const financeService = new FinanceService()
 
 const payPoSchema = z.object({
   poId: z.string().min(1, 'ID Purchase Order wajib diisi'),
-  categoryId: z.string().min(1, 'Kategori transaksi wajib dipilih'),
   date: z.string().or(z.date()),
   amount: z.number().min(1, 'Jumlah pembayaran harus lebih dari 0'),
   notes: z.string().optional(),
@@ -17,12 +16,11 @@ export const POST = createHandler({
     auth: true,
     schema: payPoSchema
 }, async (req, ctx) => {
-    const { poId, categoryId, date, amount, notes, paidFromAccountId } = ctx.validated
+    const { poId, date, amount, notes, paidFromAccountId } = ctx.validated
 
     try {
-        const transaction = await financeService.payPurchaseOrder({
+        await financeService.payPurchaseOrder({
           poId,
-          categoryId,
           date,
           amount,
           createdById: ctx.session!.user.id,
@@ -30,7 +28,7 @@ export const POST = createHandler({
           ...(paidFromAccountId ? { paidFromAccountId } : {})
         })
 
-        return apiSuccess(transaction, { message: 'Pembayaran PO berhasil dicatat' })
+        return apiSuccess({ success: true }, { message: 'Pembayaran PO berhasil dicatat' })
     } catch (error: unknown) {
         console.error('Error paying PO:', error)
         const message = error instanceof Error ? error.message : 'Gagal memproses pembayaran PO'
