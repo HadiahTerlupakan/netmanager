@@ -87,7 +87,71 @@ Proyek ini menggunakan TypeScript, Tailwind CSS, dan Prisma ORM dengan arsitektu
 -   **Prisma**: Gunakan `npm run prisma:generate` setelah setiap perubahan `prisma/schema.prisma`.
 -   **`tsx`**: Untuk menjalankan skrip TypeScript secara langsung (`npx tsx scripts/myscript.ts`).
 
-## 4. Aturan .cursor/rules atau .github/copilot-instructions.md
+## 4. Database & Prisma Migrations
+
+Proyek ini menggunakan **4 database PostgreSQL** terpisah, masing-masing dengan konfigurasi Prisma sendiri:
+
+| Database | Schema File | Config File | Migrations Folder |
+|---|---|---|---|
+| `netmanager` | `prisma/schema.prisma` | `prisma.config.ts` | `prisma/migrations/` |
+| `radius` | `prisma/schema.radius.prisma` | `prisma.radius.config.ts` | `prisma/radius_migrations/` |
+| `billing` | `prisma/billing.prisma` | `prisma.billing.config.ts` | `prisma/billing_migrations/` |
+| `mitra` | `prisma/mitra.prisma` | `prisma.mitra.config.ts` | `prisma/mitra_migrations/` |
+
+### 4.1. Membuat Migrasi Baru
+
+```bash
+# Netmanager (default)
+npx prisma migrate dev --name nama_migrasi
+
+# Database lain (gunakan --config)
+npx prisma migrate dev --name nama_migrasi --config=prisma.radius.config.ts
+npx prisma migrate dev --name nama_migrasi --config=prisma.billing.config.ts
+npx prisma migrate dev --name nama_migrasi --config=prisma.mitra.config.ts
+```
+
+Setelah setiap perubahan schema, jalankan: `npm run prisma:generate`
+
+### 4.2. Safe Migration Guard (`@safe-guard-ack`)
+
+Pipeline CI/CD (Jenkins) memiliki **safe-guard** yang otomatis memblokir migrasi destructive (DROP TABLE, DROP COLUMN, TRUNCATE, ALTER COLUMN) untuk mencegah kehilangan data yang tidak disengaja.
+
+**Jika Anda SENGAJA membuat migrasi destructive**, tambahkan komentar acknowledgment di **baris pertama** file `migration.sql`:
+
+```sql
+-- @safe-guard-ack: Alasan mengapa migrasi destructive ini aman dan disengaja
+-- DropTable
+DROP TABLE "nama_tabel";
+```
+
+**Aturan:**
+-   **Tanpa `@safe-guard-ack`**: Pipeline akan **DIBLOKIR** dan deployment gagal.
+-   **Dengan `@safe-guard-ack`**: Pipeline akan **LOLOS** dengan log alasan ke console.
+-   Komentar harus mengandung teks `-- @safe-guard-ack:` diikuti alasan yang jelas.
+-   Implementasi guard ada di `k8s/migration-job.yaml`.
+
+### 4.3. Squashing Migrations (Reset History)
+
+Jika riwayat migrasi terlalu banyak dan perlu di-squash:
+
+1.  **Jangan gabungkan schema baru ke dalam file squash**. File squash (`init`) harus 100% merepresentasikan kondisi database **yang sudah ada** di staging/production.
+2.  Perubahan schema baru harus diletakkan di file migrasi **terpisah** setelah init.
+3.  Update `k8s/migration-job.yaml` untuk:
+    -   Menghapus record migrasi lama dari tabel `_prisma_migrations` (via `psql`).
+    -   Menjalankan `npx prisma migrate resolve --applied <nama_init>` untuk menandai baseline sebagai sudah ter-apply.
+    -   Menjalankan `npx prisma migrate deploy` untuk menerapkan migrasi baru.
+4.  **Setelah deployment pertama berhasil**, hapus kode pembersihan one-time dari `migration-job.yaml`.
+
+### 4.4. Deployment Flow (Jenkins → K8s)
+
+File: `k8s/migration-job.yaml`
+
+Urutan eksekusi:
+1.  🧹 Bersihkan record migrasi lama (jika ada squash reset)
+2.  🛡️ Safe Migration Guard — cek migrasi destructive
+3.  🚀 Resolve baseline + Deploy migrasi baru untuk keempat database
+
+## 5. Aturan .cursor/rules atau .github/copilot-instructions.md
 
 Tidak ada file `rules` Cursor atau `copilot-instructions.md` yang ditemukan di repositori ini.
 
