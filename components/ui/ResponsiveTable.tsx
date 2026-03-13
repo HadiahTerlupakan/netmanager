@@ -71,6 +71,12 @@ export interface ResponsiveTableProps<T> {
   totalPages?: number
   /** Callback when page changes */
   onPageChange?: (page: number) => void
+  /** Current items per page value */
+  itemsPerPage?: number | 'all'
+  /** Available options for items per page */
+  itemsPerPageOptions?: (number | 'all')[]
+  /** Callback when items per page changes */
+  onItemsPerPageChange?: (value: number | 'all') => void
 }
 
 // ============================================================================
@@ -238,7 +244,10 @@ export function ResponsiveTable<T>({
   onSort,
   page,
   totalPages,
-  onPageChange
+  onPageChange,
+  itemsPerPage,
+  itemsPerPageOptions,
+  onItemsPerPageChange
 }: ResponsiveTableProps<T>) {
   // Ensure data is always an array
   const safeData = Array.isArray(data) ? data : []
@@ -475,7 +484,29 @@ export function ResponsiveTable<T>({
             </button>
           </div>
           <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
+            <div className="flex items-center gap-4">
+              {itemsPerPageOptions && onItemsPerPageChange && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tampilkan
+                  </label>
+                  <select
+                    id="items-per-page"
+                    value={itemsPerPage || 10}
+                    onChange={(e) => {
+                      const val = e.target.value === 'all' ? 'all' : Number(e.target.value)
+                      onItemsPerPageChange(val)
+                    }}
+                    className="block w-full rounded-md border-gray-300 py-1.5 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                  >
+                    {itemsPerPageOptions.map(opt => (
+                      <option key={opt} value={opt}>
+                        {opt === 'all' ? 'Semua' : opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <p className="text-sm text-gray-700 dark:text-gray-300">
                 Page <span className="font-medium">{page || 1}</span> of <span className="font-medium">{totalPages}</span>
               </p>

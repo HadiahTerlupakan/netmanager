@@ -220,6 +220,10 @@ export default function ExpensesClient() {
     const [isDailySimpleMode, setIsDailySimpleMode] = useState(true)
     const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([])
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20)
+
     // const selectedAccount = useMemo(() => accounts.find(a => a.id === formData.accountId), [accounts, formData.accountId])
 
     // Debounce search
@@ -580,12 +584,25 @@ export default function ExpensesClient() {
         )
     })
 
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [debouncedSearch, selectedSite, selectedCategory, selectedSubCategory, startDate, endDate])
+
+    // Compute paginated data
+    const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(filteredData.length / itemsPerPage)
+    const paginatedData = useMemo(() => {
+        if (itemsPerPage === 'all') return filteredData
+        const startIndex = (currentPage - 1) * itemsPerPage
+        return filteredData.slice(startIndex, startIndex + itemsPerPage)
+    }, [filteredData, currentPage, itemsPerPage])
+
     const selectedFilteredCount = useMemo(
-        () => filteredData.filter(item => selectedExpenseIds.includes(item.id)).length,
-        [filteredData, selectedExpenseIds]
+        () => paginatedData.filter(item => selectedExpenseIds.includes(item.id)).length,
+        [paginatedData, selectedExpenseIds]
     )
 
-    const allFilteredSelected = filteredData.length > 0 && selectedFilteredCount === filteredData.length
+    const allFilteredSelected = paginatedData.length > 0 && selectedFilteredCount === paginatedData.length
 
     const toggleExpenseSelection = useCallback((id: string) => {
         setSelectedExpenseIds(prev => prev.includes(id)
@@ -594,19 +611,19 @@ export default function ExpensesClient() {
     }, [])
 
     const toggleSelectAllFiltered = useCallback(() => {
-        const filteredIds = filteredData.map(item => item.id)
-        if (filteredIds.length === 0) return
+        const paginatedIds = paginatedData.map(item => item.id)
+        if (paginatedIds.length === 0) return
 
         setSelectedExpenseIds(prev => {
-            const allSelected = filteredIds.every(id => prev.includes(id))
+            const allSelected = paginatedIds.every(id => prev.includes(id))
             if (allSelected) {
-                return prev.filter(id => !filteredIds.includes(id))
+                return prev.filter(id => !paginatedIds.includes(id))
             }
 
-            const merged = new Set([...prev, ...filteredIds])
+            const merged = new Set([...prev, ...paginatedIds])
             return Array.from(merged)
         })
-    }, [filteredData])
+    }, [paginatedData])
 
     useEffect(() => {
         setSelectedExpenseIds(prev => prev.filter(id => data.some(item => item.id === id)))
@@ -713,6 +730,7 @@ export default function ExpensesClient() {
                     expenseCategoryId: item.expenseCategoryId,
                     amount: Number(item.amount),
                     description: item.description,
+                    rabProjectId: item.rabProjectId,
                     rabItemId: item.rabItemId,
                     usefulLife: formData.category === 'OPEX' || !item.isUsefulLifeEnabled ? 0 : item.usefulLife,
                     depreciation: item.depreciation || '0',
@@ -739,6 +757,7 @@ export default function ExpensesClient() {
                     expenseCategoryId: item.expenseCategoryId,
                     amount: Number(item.amount),
                     description: item.description,
+                    rabProjectId: item.rabProjectId,
                     rabItemId: item.rabItemId,
                     usefulLife: formData.category === 'OPEX' || !item.isUsefulLifeEnabled ? 0 : item.usefulLife,
                     depreciation: item.depreciation || '0',
@@ -1110,7 +1129,16 @@ export default function ExpensesClient() {
                     {/* Table */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                         <ResponsiveTable keyField="id"
-                            data={filteredData}
+                            data={paginatedData}
+                            page={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                            itemsPerPage={itemsPerPage}
+                            itemsPerPageOptions={[10, 20, 50, 100, 'all']}
+                            onItemsPerPageChange={(val) => {
+                                setItemsPerPage(val)
+                                setCurrentPage(1)
+                            }}
                             loading={loading}
                             emptyMessage={
                                 <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">

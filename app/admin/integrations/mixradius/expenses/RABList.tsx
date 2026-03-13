@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
     HiOutlinePencilSquare,
     HiOutlineTrash,
@@ -288,6 +288,21 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
     const [loading, setLoading] = useState(false)
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [showCompareModal, setShowCompareModal] = useState(false)
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10)
+
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [data])
+
+    const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(data.length / itemsPerPage)
+    const paginatedData = useMemo(() => {
+        if (itemsPerPage === 'all') return data
+        const startIndex = (currentPage - 1) * itemsPerPage
+        return data.slice(startIndex, startIndex + itemsPerPage)
+    }, [data, currentPage, itemsPerPage])
 
     const toggleSelection = (id: string) => {
         setSelectedIds(prev =>
@@ -1099,7 +1114,16 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
 
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                 <ResponsiveTable keyField="id"
-                    data={data}
+                    data={paginatedData}
+                    page={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    itemsPerPage={itemsPerPage}
+                    itemsPerPageOptions={[10, 20, 50, 100, 'all']}
+                    onItemsPerPageChange={(val) => {
+                        setItemsPerPage(val)
+                        setCurrentPage(1)
+                    }}
                     loading={loading}
                     emptyMessage={
                         <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">

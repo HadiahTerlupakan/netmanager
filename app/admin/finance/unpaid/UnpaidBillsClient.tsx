@@ -92,7 +92,7 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
 
   // Stats Calculation
   const totalUnpaid = filteredPos.reduce((sum, po) => {
-    const paid = po.transactions.reduce((acc: number, curr) => acc + curr.amount, 0)
+    const paid = (po.transactions || []).reduce((acc: number, curr) => acc + curr.amount, 0)
     const target = po.grandTotal > 0 ? po.grandTotal : po.totalAmount
     return sum + (target - paid)
   }, 0)
@@ -177,7 +177,7 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                         </tr>
                     )}
                     {filteredPos.map((po) => {
-                        const paidAmount = po.transactions.reduce((acc: number, curr) => acc + curr.amount, 0)
+                        const paidAmount = (po.transactions || []).reduce((acc: number, curr) => acc + curr.amount, 0)
                         const targetAmount = po.grandTotal > 0 ? po.grandTotal : po.totalAmount
                         const remaining = targetAmount - paidAmount
 
