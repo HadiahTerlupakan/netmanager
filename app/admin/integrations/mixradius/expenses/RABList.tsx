@@ -989,8 +989,8 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
             } else {
                 void fetchData()
             }
-        } catch (_error) {
-            toast.error('Gagal menghapus RAB')
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Gagal menghapus RAB')
         }
     }
 
@@ -1013,8 +1013,8 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
             } else {
                 toast.error(json.error || 'Gagal menduplikasi RAB')
             }
-        } catch (_error) {
-            toast.error('Gagal terhubung ke server')
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Gagal terhubung ke server')
         } finally {
             setLoading(false)
         }

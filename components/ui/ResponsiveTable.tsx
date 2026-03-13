@@ -12,7 +12,7 @@ export interface Column<T> {
   /** Unique key to access data, can be nested like 'user.name' */
   key: keyof T | string
   /** Header text displayed in table */
-  header: string
+  header: React.ReactNode
   /** Custom render function for cell content */
   render?: (item: T, index: number) => React.ReactNode
   /** 
@@ -511,8 +511,8 @@ export function ResponsiveTable<T>({
                         onClick={() => onPageChange(p)}
                         aria-current={p === (page || 1) ? 'page' : undefined}
                         className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${p === (page || 1)
-                            ? 'z-10 bg-indigo-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
-                            : 'text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0'
+                          ? 'z-10 bg-indigo-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+                          : 'text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0'
                           }`}
                       >
                         {p}
