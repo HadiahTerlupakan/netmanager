@@ -361,9 +361,21 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         return ApiErrors.badRequest("Hanya proyek RAB dengan status DRAFT yang dapat dihapus");
     }
 
-    await prisma.rabProject.delete({
-        where: { id }
-    });
+    await prisma.$transaction([
+        // Delete non-cascading relations
+        prisma.rabInvestor.deleteMany({
+            where: { rabProjectId: id }
+        }),
+        // Nullify expense relations
+        prisma.expense.updateMany({
+            where: { rabProjectId: id },
+            data: { rabProjectId: null }
+        }),
+        // Delete the core project (others use onDelete: Cascade)
+        prisma.rabProject.delete({
+            where: { id }
+        })
+    ]);
 
     return apiSuccess({ success: true });
 });

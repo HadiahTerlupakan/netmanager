@@ -653,6 +653,7 @@ export default function RABForm({ isOpen, initialData, sites, internalSites = []
             const payload = {
                 name: formData.name,
                 description: formData.description,
+                status: formData.status,
                 mixRadiusGroupId: formData.mixRadiusGroupId || null,
                 mixRadiusInvestorSiteId: billingSource === 'MIXRADIUS' ? (formData.mixRadiusInvestorSiteId || null) : null,
                 siteId: billingSource === 'INTERNAL' ? (formData.siteId || finalSiteId || null) : (finalSiteId || null),
