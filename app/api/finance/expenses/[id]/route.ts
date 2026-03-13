@@ -49,7 +49,7 @@ export const PUT = createHandler({
     const where: Prisma.ExpenseWhereUniqueInput = { id };
 
     // Only restrict by site if user has expense:site_only permission
-    const isSiteRestricted = !isSuper && (await hasPermission("expense:site_only"));
+    const isSiteRestricted = !isSuper && (await hasPermission("expense:site_only", null, { silent: true }));
     if (isSiteRestricted) {
         // Fetch user siteId
         const dbUser = await prisma.user.findUnique({
@@ -72,8 +72,8 @@ export const PUT = createHandler({
         category,
         ...(expenseCategoryId !== undefined ? { expenseCategory: expenseCategoryId ? { connect: { id: expenseCategoryId } } : { disconnect: true } } : {}),
         ...(description !== undefined ? { description } : {}),
-        ...(mixRadiusGroupId !== undefined ? { mixRadiusGroup: mixRadiusGroupId ? { connect: { id: mixRadiusGroupId } } : { disconnect: true } } : {}),
-        ...(categoryId !== undefined ? { transactionCategory: categoryId ? { connect: { id: categoryId } } : { disconnect: true } } : {}),
+        ...(mixRadiusGroupId !== undefined ? { mixRadiusGroupId: mixRadiusGroupId || null } : {}),
+        ...(categoryId !== undefined ? { categoryId: categoryId || null } : {}),
         ...(accountId !== undefined ? { financialAccount: accountId ? { connect: { id: accountId } } : { disconnect: true } } : {}),
         ...(rabProjectId !== undefined ? { rabProject: rabProjectId ? { connect: { id: rabProjectId } } : { disconnect: true } } : {}),
         ...(rabItemId !== undefined ? { rabItem: rabItemId ? { connect: { id: rabItemId } } : { disconnect: true } } : {}),

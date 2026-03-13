@@ -90,6 +90,33 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.notFound("Proyek RAB");
   }
 
+  // Check if a DRAFT revision already exists to prevent duplicate creation on double-click
+  const existingDraft = await prisma.rabRevision.findFirst({
+    where: {
+      rabProjectId: project.id,
+      status: "DRAFT", // Hardcoded string if RabRevisionStatus is not easily accessible here, but the model has it.
+    },
+    include: {
+      items: { orderBy: { sortOrder: "asc" } },
+      approvals: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (existingDraft) {
+    return apiSuccess(serializeRabRevision(existingDraft));
+  }
+
   const baseItems = project.finalApprovedRevision
     ? normalizeRevisionSnapshotItems(project.finalApprovedRevision.items)
     : normalizeRevisionSnapshotItems(project.items);
