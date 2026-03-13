@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "MaterialReturnStatus" AS ENUM ('PENDING', 'VERIFIED', 'RETURNED_TO_WAREHOUSE', 'REJECTED');
 
@@ -3922,3 +3925,4 @@ ALTER TABLE "_GudangToSite" ADD CONSTRAINT "_GudangToSite_A_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "_GudangToSite" ADD CONSTRAINT "_GudangToSite_B_fkey" FOREIGN KEY ("B") REFERENCES "sites"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

@@ -171,6 +171,8 @@ spec:
               echo "Running netmanager migrations"
               echo "======================================"
 
+              # Mark the squashed migration as applied to avoid trying to recreate existing tables/enums
+              npx prisma migrate resolve --applied 20260313000000_init_squashed || true
               npx prisma migrate deploy
 
               echo ""
@@ -178,6 +180,7 @@ spec:
               echo "Running radius migrations"
               echo "======================================"
 
+              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts || true
               npx prisma migrate deploy --config=prisma.radius.config.ts
 
               echo ""
@@ -185,6 +188,7 @@ spec:
               echo "Running billing migrations"
               echo "======================================"
 
+              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts || true
               npx prisma migrate deploy --config=prisma.billing.config.ts
 
               echo ""
@@ -192,6 +196,7 @@ spec:
               echo "Running mitra migrations"
               echo "======================================"
 
+              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts || true
               npx prisma migrate deploy --config=prisma.mitra.config.ts
 
               echo ""

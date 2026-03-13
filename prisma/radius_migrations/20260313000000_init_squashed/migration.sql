@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "radacct" (
     "radacctid" BIGSERIAL NOT NULL,
@@ -200,3 +203,4 @@ CREATE INDEX "radippool_poolname_expire_idx" ON "radippool"("pool_name", "expiry
 
 -- CreateIndex
 CREATE INDEX "radippool_poolname_poolkey_ipaddress_idx" ON "radippool"("pool_name", "pool_key", "framedipaddress");
+
