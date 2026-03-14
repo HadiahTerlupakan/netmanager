@@ -23,6 +23,7 @@ vi.mock('@/modules/roles', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
+  prismaAuth: prismaMock,
 }))
 
 import { GET } from '@/app/api/admin/system-logs/route'

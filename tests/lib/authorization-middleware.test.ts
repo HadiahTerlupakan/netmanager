@@ -27,6 +27,11 @@ vi.mock('@/lib/prisma', () => ({
     systemLog: {
       create: vi.fn().mockResolvedValue({})
     }
+  },
+  prismaAuth: {
+    systemLog: {
+      create: vi.fn().mockResolvedValue({})
+    }
   }
 }))
 

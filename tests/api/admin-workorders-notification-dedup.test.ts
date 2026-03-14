@@ -74,6 +74,17 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: mockFns.workOrderFindUnique,
     },
   },
+  prismaAuth: {
+    canvasing: {
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    user: {
+      findUnique: mockFns.userFindUnique,
+    },
+    workOrders: {
+      findUnique: mockFns.workOrderFindUnique,
+    },
+  },
 }))
 
 vi.mock('@/modules/work-order/services/WorkOrderCacheService', () => ({

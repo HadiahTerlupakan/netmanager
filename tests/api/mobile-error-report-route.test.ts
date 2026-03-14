@@ -14,6 +14,7 @@ vi.mock('@/lib/mobile-api-auth', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
+  prismaAuth: prismaMock,
 }))
 
 vi.mock('@/lib/logger', () => ({

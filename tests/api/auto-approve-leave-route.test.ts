@@ -20,6 +20,11 @@ vi.mock('@/lib/prisma', () => ({
       findMany: mockFns.findMany,
     },
   },
+  prismaAuth: {
+    leaveRequest: {
+      findMany: mockFns.findMany,
+    },
+  },
 }))
 
 vi.mock('@/lib/env', () => ({

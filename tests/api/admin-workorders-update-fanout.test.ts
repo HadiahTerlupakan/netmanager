@@ -65,6 +65,17 @@ vi.mock('@/lib/prisma', () => ({
       findFirst: mockFns.leaveFindFirst,
     },
   },
+  prismaAuth: {
+    user: {
+      findUnique: mockFns.userFindUnique,
+    },
+    workOrders: {
+      findUnique: mockFns.workOrderFindUnique,
+    },
+    leaveRequest: {
+      findFirst: mockFns.leaveFindFirst,
+    },
+  },
 }))
 
 vi.mock('@/lib/websocket/emitter', () => ({

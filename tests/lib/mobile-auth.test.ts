@@ -30,6 +30,14 @@ vi.mock('@/lib/prisma', () => ({
     pelanggan: {
       findUnique: mockPelangganFindUnique
     }
+  },
+  prismaAuth: {
+    user: {
+      findUnique: mockUserFindUnique
+    },
+    pelanggan: {
+      findUnique: mockPelangganFindUnique
+    }
   }
 }))
 

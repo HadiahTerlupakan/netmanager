@@ -43,7 +43,10 @@ vi.mock('@/modules/notification/services/NotificationService', () => ({
 // Mock prisma for attendance check
 vi.mock('@/lib/prisma', async () => {
   const { prismaMock } = await import('../../setup')
-  return { prisma: prismaMock }
+  return { 
+    prisma: prismaMock,
+    prismaAuth: prismaMock,
+  }
 })
 
 import { OvertimeService } from '@/modules/overtime/services/OvertimeService'

@@ -10,6 +10,7 @@ const { mockHasPermission, mockIsSuperAdmin } = vi.hoisted(() => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
+  prismaAuth: prismaMock,
 }))
 
 vi.mock('@/lib/auth', () => ({

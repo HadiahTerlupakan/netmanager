@@ -217,7 +217,8 @@ export const prismaMock = createMock() as unknown as MockPrismaClient
 
 // Mock the prisma modules
 vi.mock('@/lib/prisma', () => ({
-  prisma: prismaMock
+  prisma: prismaMock,
+  prismaAuth: prismaMock,
 }))
 
 vi.mock('@/lib/prisma-mitra', () => ({

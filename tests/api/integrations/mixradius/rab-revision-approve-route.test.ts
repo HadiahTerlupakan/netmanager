@@ -17,6 +17,7 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
+  prismaAuth: prismaMock,
 }))
 
 import { POST as APPROVE } from '@/app/api/integrations/mixradius/expenses/rab/[id]/revisions/[revisionId]/approve/route'
