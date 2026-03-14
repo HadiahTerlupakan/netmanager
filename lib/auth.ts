@@ -5,7 +5,7 @@ import type { NextAuthOptions, Session } from 'next-auth'
 const NextAuth = (_NextAuth as { default?: unknown }).default as typeof _NextAuth || _NextAuth
 import _CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
-import { prisma } from '@/lib/prisma'
+import { prismaAuth } from '@/lib/prisma'
 import { getUserRepository } from '@/lib/repositories'
 import { compare } from 'bcryptjs'
 import { checkRateLimit } from '@/lib/redis'
@@ -22,7 +22,7 @@ async function validateDatabaseConnection(): Promise<boolean> {
       NEXTAUTH_URL: process.env.NEXTAUTH_URL,
       COOKIE_DOMAIN: process.env.COOKIE_DOMAIN
     })
-    await prisma.$queryRaw`SELECT 1`
+    await prismaAuth.$queryRaw`SELECT 1`
     console.log('[AUTH] Database connection: OK')
     return true
   } catch (error) {
@@ -46,7 +46,8 @@ async function validateRedisConnection(): Promise<boolean> {
 
 // Auth configuration with credentials provider only
 export const authConfig: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as NextAuthOptions['adapter'],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  adapter: PrismaAdapter(prismaAuth as any) as NextAuthOptions['adapter'],
   // IMPORTANT: Secret is required for JWT signing
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || '',
   // Enable debug mode in development
@@ -173,7 +174,7 @@ export const authConfig: NextAuthOptions = {
           const portal = creds?.portal
           if (portal) {
             console.log(`[AUTH] Checking access for portal: ${portal}`)
-            const userWithRole = await prisma.user.findUnique({
+            const userWithRole = await prismaAuth.user.findUnique({
               where: { id: user.id },
               include: { role: true }
             })
@@ -224,7 +225,7 @@ export const authConfig: NextAuthOptions = {
 
         // Fetch role and permissions from DB
         try {
-          const dbUser = await prisma.user.findUnique({
+          const dbUser = await prismaAuth.user.findUnique({
             where: { id: user.id },
             include: {
               role: {
@@ -269,6 +270,7 @@ export const authConfig: NextAuthOptions = {
           // Legacy support - keep siteId for backward compatibility
           token.departmentId = dbUser?.departmentId
           token.siteId = token.primarySiteId || dbUser?.siteId // Prefer primary site
+          token.tenantId = dbUser?.tenantId || null
 
           // Token version for force logout feature
           token.tokenVersion = dbUser?.tokenVersion ?? 0
@@ -294,7 +296,7 @@ export const authConfig: NextAuthOptions = {
 
       // Handle session updates
       if (trigger === 'update') {
-        const dbUser = await prisma.user.findUnique({
+        const dbUser = await prismaAuth.user.findUnique({
           where: { id: token.id as string },
           include: {
             role: {
@@ -324,6 +326,7 @@ export const authConfig: NextAuthOptions = {
           token.siteIds = userSites.map(us => us.siteId)
           token.primarySiteId = userSites.find(us => us.isPrimary)?.siteId || userSites[0]?.siteId || null
           token.siteId = token.primarySiteId || dbUser.siteId // Legacy: prefer primary site
+          token.tenantId = dbUser.tenantId || null
 
           token.role = dbUser.role?.name || 'USER'
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
@@ -370,6 +373,7 @@ export const authConfig: NextAuthOptions = {
             departments: { name: string } | null;
             isSales: boolean;
             siteId: string | null;
+            tenantId: string | null;
             userSites: { siteId: string }[];
           } | null = null;
 
@@ -384,7 +388,7 @@ export const authConfig: NextAuthOptions = {
 
           // Cache miss - fetch from database
           if (!dbUser) {
-            dbUser = await prisma.user.findUnique({
+            dbUser = await prismaAuth.user.findUnique({
               where: { id: userId },
               select: {
                 tokenVersion: true,
@@ -402,6 +406,7 @@ export const authConfig: NextAuthOptions = {
                 departments: { select: { name: true } },
                 isSales: true,
                 siteId: true,
+                tenantId: true,
                 userSites: {
                   where: { isPrimary: true },
                   select: { siteId: true },
@@ -467,6 +472,7 @@ export const authConfig: NextAuthOptions = {
           sessionUser.siteId = primarySiteId;
           sessionUser.primarySiteId = primarySiteId;
           sessionUser.siteIds = token.siteIds; // Keep array from token
+          sessionUser.tenantId = dbUser.tenantId || null;
 
           sessionUser.isSales = dbUser.isSales;
 
@@ -489,7 +495,7 @@ export const authConfig: NextAuthOptions = {
       let roleName = 'Unknown'
       let portal = 'Unknown'
       try {
-        const dbUser = await prisma.user.findUnique({
+        const dbUser = await prismaAuth.user.findUnique({
           where: { id: user.id },
           include: { role: true }
         })
@@ -498,7 +504,7 @@ export const authConfig: NextAuthOptions = {
           dbUser?.role?.accessEmployeePanel ? 'Employee Portal' : 'Unknown'
 
         // Update lastLoginAt
-        await prisma.user.update({
+        await prismaAuth.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() }
         })
@@ -543,6 +549,7 @@ export interface UserSession {
   id: string
   email: string
   name: string | null
+  tenantId: string | null
   role: string | undefined
   departmentId: string | undefined
   /** @deprecated Use siteIds for multi-site */
@@ -578,6 +585,7 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
           id: mobilePayload.userId,
           email: mobilePayload.email as string,
           name: mobilePayload.name as string | null,
+          tenantId: (mp.tenantId as string | null) || null,
           role: mobilePayload.role as string | undefined,
           departmentId: mp.departmentId as string | undefined,
           siteId: (mp.primarySiteId || mp.siteId) as string | undefined,
@@ -607,6 +615,7 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
       id: (token.id as string) || '',
       email: (token.email as string) || '',
       name: (token.name as string) || null,
+      tenantId: (token.tenantId as string | null) || null,
       role: token.role as string | undefined,
       departmentId: token.departmentId as string | undefined,
       siteId: token.siteId as string | undefined,
@@ -648,7 +657,7 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
 
   // Load from database
   try {
-    const user = await prisma.user.findUnique({
+    const user = await prismaAuth.user.findUnique({
       where: { id: userId },
       include: {
         role: {
@@ -722,7 +731,7 @@ export async function invalidatePermissionCache(userId: string): Promise<void> {
 export async function invalidateRolePermissionCache(roleId: string): Promise<void> {
   try {
     // Find all users with this role and invalidate their cache
-    const users = await prisma.user.findMany({
+    const users = await prismaAuth.user.findMany({
       where: { roleId },
       select: { id: true }
     })

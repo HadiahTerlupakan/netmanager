@@ -1,6 +1,6 @@
 // Email Service using Nodemailer
 import nodemailer from 'nodemailer'
-import { PrismaClient } from '@prisma/client'
+import { prisma as defaultPrisma } from '@/lib/prisma'
 import { decryptApiKey } from '@/lib/utils/encryption'
 
 export interface EmailConfig {
@@ -29,8 +29,10 @@ export interface SendEmailResult {
     error?: string
 }
 
+type PrismaInstance = typeof defaultPrisma
+
 export class EmailService {
-    constructor(private prisma: PrismaClient) { }
+    constructor(private prisma: PrismaInstance = defaultPrisma) { }
 
     /**
      * Load email configuration from database

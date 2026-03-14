@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle, HiOutlineDevicePhoneMobile, HiOutlineMap, HiOutlineStar, HiOutlineClock } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
@@ -46,6 +47,8 @@ interface User {
 export default function UserList() {
     const { socket } = useSocket()
     const { hasPermission } = usePermission()
+    const searchParams = useSearchParams()
+    const tenantIdFilter = searchParams.get('tenantId')
 
     // Permissions
     const canCreate = hasPermission('users:create')
@@ -67,9 +70,29 @@ export default function UserList() {
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 10
 
+    const fetchUsers = useCallback(async () => {
+        try {
+            setLoading(true)
+            const query = tenantIdFilter ? `?tenantId=${tenantIdFilter}` : ''
+            const res = await fetch(`/api/admin/users${query}`)
+            const data = await res.json()
+            if (res.ok) {
+                // API uses apiSuccess() which returns {success, data: {users: [...]}}
+                setUsers(data.data?.users || data.users || [])
+            } else {
+                toast.error(data.error || 'Gagal memuat data pengguna')
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error)
+            toast.error('Terjadi kesalahan saat memuat data pengguna')
+        } finally {
+            setLoading(false)
+        }
+    }, [tenantIdFilter])
+
     useEffect(() => {
         fetchUsers()
-    }, [])
+    }, [fetchUsers])
 
     useEffect(() => {
         if (!socket) return
@@ -110,24 +133,6 @@ export default function UserList() {
         }
     }, [socket])
 
-    const fetchUsers = async () => {
-        try {
-            setLoading(true)
-            const res = await fetch('/api/admin/users')
-            const data = await res.json()
-            if (res.ok) {
-                // API uses apiSuccess() which returns {success, data: {users: [...]}}
-                setUsers(data.data?.users || data.users || [])
-            } else {
-                toast.error(data.error || 'Gagal memuat data pengguna')
-            }
-        } catch (error) {
-            console.error('Error fetching users:', error)
-            toast.error('Terjadi kesalahan saat memuat data pengguna')
-        } finally {
-            setLoading(false)
-        }
-    }
 
     const handleDelete = async (userId: string) => {
         setDeleting(true)
@@ -432,7 +437,7 @@ export default function UserList() {
                 </div>
                 {canCreate && (
                     <Link
-                        href="/admin/users/new"
+                        href={tenantIdFilter ? `/admin/users/new?tenantId=${tenantIdFilter}` : "/admin/users/new"}
                         className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors shadow-sm"
                     >
                         <HiOutlinePlus className="w-5 h-5 text-white" />
@@ -440,6 +445,28 @@ export default function UserList() {
                     </Link>
                 )}
             </div>
+
+            {tenantIdFilter && (
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <HiOutlineBuildingOffice className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        <div>
+                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                                Memfilter berdasarkan Tenant
+                            </p>
+                            <p className="text-xs text-indigo-700 dark:text-indigo-400">
+                                Menampilkan semua akun administrator untuk tenant yang dipilih.
+                            </p>
+                        </div>
+                    </div>
+                    <Link 
+                        href="/admin/users"
+                        className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 underline"
+                    >
+                        Hapus Filter
+                    </Link>
+                </div>
+            )}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

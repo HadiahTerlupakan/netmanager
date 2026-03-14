@@ -1,3 +1,4 @@
+process.env.IS_SEEDING = 'true'
 import { prisma } from '../lib/prisma'
 import { prismaMitra } from '../lib/prisma-mitra'
 import { prismaBilling } from '../lib/prisma-billing'

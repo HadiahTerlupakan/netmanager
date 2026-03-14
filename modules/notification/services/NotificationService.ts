@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { randomUUID } from 'crypto';
 import { getPriorityEmoji, getStatusEmoji, getActionEmoji, getWorkOrderTypeLabel } from '@/lib/notification-constants';
+import { getTenantIdFromContext } from '@/lib/tenant-context';
 
 export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT' | 'ANNOUNCEMENT';
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -611,11 +612,15 @@ export async function getUnreadCount(userId: string, excludeTypes?: Notification
         : Prisma.empty;
 
     // Single optimized query with subquery for departmentId
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+    const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
     const result = await prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count
         FROM "notifications" n
         WHERE n."isRead" = false
         ${typeCondition}
+        ${!isSuperAdmin ? Prisma.sql`AND n."tenantId" = ${effectiveTenantId}` : Prisma.empty}
         AND (
             n."userId" = ${userId}
             OR (

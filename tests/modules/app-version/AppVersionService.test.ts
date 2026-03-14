@@ -56,7 +56,8 @@ const baseVersion: AppVersionWithUser = {
   createdAt: new Date(),
   updatedAt: new Date(),
   createdBy: null,
-  user: null
+  user: null,
+  tenantId: null
 }
 
 describe('AppVersionService', () => {

@@ -1,8 +1,7 @@
 import { prismaRadius } from '@/lib/prisma-radius';
 import { toStartOfDay } from '@/lib/utils/datetime';
-import { PrismaClient } from '@prisma/client';
+import { prisma as defaultPrisma } from '@/lib/prisma';
 import type {
-
     IRadiusRepository,
     IRadiusUser,
     IRadiusBandwidth,
@@ -14,9 +13,10 @@ import type {
     IRadiusSessionView,
 } from './IRadiusRepository';
 
+type PrismaInstance = typeof defaultPrisma;
 
 export class RadiusRepository implements IRadiusRepository {
-    constructor(private prisma: PrismaClient) { }
+    constructor(private prisma: PrismaInstance = defaultPrisma) { }
 
     /**
      * Create RADIUS user with authentication credentials

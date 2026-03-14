@@ -26,6 +26,7 @@ export interface CreateUserInput {
     shiftId?: string | null
     // Sales Feature
     isSales?: boolean
+    tenantId?: string | null
 }
 
 type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
@@ -38,6 +39,16 @@ export interface UpdateUserInput {
     siteId?: string | null
     roleId?: string | null
     isActive?: boolean
+    tenantId?: string | null
+    // Working Hours
+    workingHourMode?: string
+    attendanceGeofencePolicy?: string
+    startWorkTime?: string | null
+    endWorkTime?: string | null
+    workDays?: string | null
+    flexibleTargetHour?: number | null
+    shiftId?: string | null
+    isSales?: boolean
 }
 
 export class UserService {
@@ -47,8 +58,8 @@ export class UserService {
         this.userRepository = new UserRepository()
     }
 
-    async getAllUsers(siteId?: string): Promise<UserWithRelations[]> {
-        return this.userRepository.findAll(siteId)
+    async getAllUsers(siteId?: string, tenantId?: string): Promise<UserWithRelations[]> {
+        return this.userRepository.findAll(siteId, tenantId)
     }
 
     async getUser(id: string): Promise<User | null> {
@@ -93,6 +104,7 @@ export class UserService {
             shiftId: data.shiftId || null,
             // Sales Feature
             isSales: data.isSales || false,
+            tenantId: data.tenantId || null,
         })
     }
 
@@ -111,27 +123,31 @@ export class UserService {
             }
         }
 
-        const updateData: Prisma.UserUpdateInput = {}
+        const updateData: Prisma.UserUncheckedUpdateInput = {}
         if (data.email !== undefined) updateData.email = data.email
         if (data.name !== undefined) updateData.name = data.name
         if (data.phone !== undefined) updateData.phone = data.phone
         if (data.isActive !== undefined) updateData.isActive = data.isActive
 
-        // Handle nullable foreign keys
-        if (data.departmentId !== undefined) {
-            updateData.departments = data.departmentId
-                ? { connect: { id: data.departmentId } }
-                : { disconnect: true }
-        }
-        if (data.siteId !== undefined) {
-            updateData.sites = data.siteId
-                ? { connect: { id: data.siteId } }
-                : { disconnect: true }
-        }
+        if (data.departmentId !== undefined) updateData.departmentId = data.departmentId || null
+        if (data.siteId !== undefined) updateData.siteId = data.siteId || null
+        
+        // Working Hours
+        if (data.workingHourMode !== undefined) updateData.workingHourMode = data.workingHourMode as WorkingHourMode
+        if (data.attendanceGeofencePolicy !== undefined) updateData.attendanceGeofencePolicy = data.attendanceGeofencePolicy as AttendanceGeofencePolicy
+        if (data.startWorkTime !== undefined) updateData.startWorkTime = data.startWorkTime
+        if (data.endWorkTime !== undefined) updateData.endWorkTime = data.endWorkTime
+        if (data.workDays !== undefined) updateData.workDays = data.workDays
+        if (data.flexibleTargetHour !== undefined) updateData.flexibleTargetHour = data.flexibleTargetHour
+        if (data.shiftId !== undefined) updateData.shiftId = data.shiftId || null
+
+        if (data.isSales !== undefined) updateData.isSales = data.isSales
+
         if (data.roleId !== undefined) {
-            updateData.role = data.roleId
-                ? { connect: { id: data.roleId } }
-                : { disconnect: true }
+            updateData.roleId = data.roleId || null
+        }
+        if (data.tenantId !== undefined) {
+            updateData.tenantId = data.tenantId || null
         }
 
         const updatedUser = await this.userRepository.update(id, updateData)

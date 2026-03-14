@@ -118,7 +118,8 @@ export async function POST(req: Request) {
                 username: customer.username,
                 status: customer.status,
                 appVersionCode: parsedVersionCode,
-                appVersionName: body.versionName || null
+                appVersionName: body.versionName || null,
+                tenantId: customer.tenantId
             }, '7d')
 
             return {
@@ -181,7 +182,9 @@ export async function POST(req: Request) {
                 name: user.name,
                 role: user.role?.name || 'USER',
                 appVersionCode: parsedVersionCode,
-                appVersionName: body.versionName || null
+                appVersionName: body.versionName || null,
+                tenantId: user.tenantId,
+                isSuperAdmin: user.role?.isSuperAdmin ?? false
             }
             const token = await signMobileToken(tokenPayload)
             const { getUserFeaturesWithCanvasing } = await import('@/lib/canvasing-access')
@@ -232,7 +235,8 @@ export async function POST(req: Request) {
                 role: 'MITRA',
                 mitraType: mitra.mitraType,
                 appVersionCode: parsedVersionCode,
-                appVersionName: body.versionName || null
+                appVersionName: body.versionName || null,
+                tenantId: mitra.tenantId
             }
             const token = await signMobileToken(tokenPayload)
 

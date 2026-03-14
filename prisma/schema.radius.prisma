@@ -41,6 +41,7 @@ model radacct {
   framedinterfaceid   String?   @db.VarChar(44)
   delegatedipv6prefix String?   @db.VarChar(45)
   class               String?   @db.VarChar(64)
+  tenantId            String?
 
   @@index([acctsessionid], map: "radacct_acctsessionid_idx")
   @@index([acctsessiontime], map: "radacct_acctsessiontime_idx")
@@ -54,55 +55,66 @@ model radacct {
   @@index([framedipv6prefix], map: "radacct_framedipv6prefix_idx")
   @@index([nasipaddress], map: "radacct_nasipaddress_idx")
   @@index([username], map: "radacct_username_idx")
+  @@index([tenantId])
 }
 
 model radcheck {
-  id        Int    @id @default(autoincrement())
-  username  String @default("") @db.VarChar(64)
-  attribute String @default("") @db.VarChar(64)
-  op        String @default("==") @db.VarChar(2)
-  value     String @default("") @db.VarChar(253)
+  id        Int     @id @default(autoincrement())
+  username  String  @default("") @db.VarChar(64)
+  attribute String  @default("") @db.VarChar(64)
+  op        String  @default("==") @db.VarChar(2)
+  value     String  @default("") @db.VarChar(253)
+  tenantId  String?
 
   @@index([username], map: "radcheck_username_idx")
+  @@index([tenantId])
 }
 
 model radgroupcheck {
-  id        Int    @id @default(autoincrement())
-  groupname String @default("") @db.VarChar(64)
-  attribute String @default("") @db.VarChar(64)
-  op        String @default("==") @db.VarChar(2)
-  value     String @default("") @db.VarChar(253)
+  id        Int     @id @default(autoincrement())
+  groupname String  @default("") @db.VarChar(64)
+  attribute String  @default("") @db.VarChar(64)
+  op        String  @default("==") @db.VarChar(2)
+  value     String  @default("") @db.VarChar(253)
+  tenantId  String?
 
   @@index([groupname], map: "radgroupcheck_groupname_idx")
+  @@index([tenantId])
 }
 
 model radgroupreply {
-  id        Int    @id @default(autoincrement())
-  groupname String @default("") @db.VarChar(64)
-  attribute String @default("") @db.VarChar(64)
-  op        String @default("=") @db.VarChar(2)
-  value     String @default("") @db.VarChar(253)
+  id        Int     @id @default(autoincrement())
+  groupname String  @default("") @db.VarChar(64)
+  attribute String  @default("") @db.VarChar(64)
+  op        String  @default("=") @db.VarChar(2)
+  value     String  @default("") @db.VarChar(253)
+  tenantId  String?
 
   @@index([groupname], map: "radgroupreply_groupname_idx")
+  @@index([tenantId])
 }
 
 model radreply {
-  id        Int    @id @default(autoincrement())
-  username  String @default("") @db.VarChar(64)
-  attribute String @default("") @db.VarChar(64)
-  op        String @default("=") @db.VarChar(2)
-  value     String @default("") @db.VarChar(253)
+  id        Int     @id @default(autoincrement())
+  username  String  @default("") @db.VarChar(64)
+  attribute String  @default("") @db.VarChar(64)
+  op        String  @default("=") @db.VarChar(2)
+  value     String  @default("") @db.VarChar(253)
+  tenantId  String?
 
   @@index([username], map: "radreply_username_idx")
+  @@index([tenantId])
 }
 
 model radusergroup {
-  id        Int    @id @default(autoincrement())
-  username  String @default("") @db.VarChar(64)
-  groupname String @default("") @db.VarChar(64)
-  priority  Int    @default(1)
+  id        Int     @id @default(autoincrement())
+  username  String  @default("") @db.VarChar(64)
+  groupname String  @default("") @db.VarChar(64)
+  priority  Int     @default(1)
+  tenantId  String?
 
   @@index([username], map: "radusergroup_username_idx")
+  @@index([tenantId])
 }
 
 model radpostauth {
@@ -112,9 +124,11 @@ model radpostauth {
   reply    String?   @default("") @db.VarChar(32)
   authdate DateTime? @default(now()) @db.Timestamp(6)
   class    String?   @db.VarChar(64)
+  tenantId String?
 
   @@index([class], map: "radpostauth_class_idx")
   @@index([username], map: "radpostauth_username_idx")
+  @@index([tenantId])
 }
 
 model nas {
@@ -127,8 +141,10 @@ model nas {
   server      String? @db.VarChar(64)
   community   String? @db.VarChar(50)
   description String? @db.VarChar(200)
+  tenantId    String?
 
   @@index([nasname], map: "nas_nasname_idx")
+  @@index([tenantId])
 }
 
 model radippool {
@@ -141,9 +157,10 @@ model radippool {
   expiry_time      DateTime? @db.Timestamp(6)
   username         String    @db.VarChar(64)
   pool_key         String    @db.VarChar(30)
+  tenantId         String?
 
   @@index([framedipaddress], map: "radippool_framedipaddress_idx")
   @@index([pool_name, expiry_time], map: "radippool_poolname_expire_idx")
   @@index([pool_name, pool_key, framedipaddress], map: "radippool_poolname_poolkey_ipaddress_idx")
+  @@index([tenantId])
 }
-

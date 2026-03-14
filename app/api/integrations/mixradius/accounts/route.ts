@@ -74,7 +74,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     username,
     password,
     isDefault: isDefault || false,
-    lastSyncedAt: null
+    lastSyncedAt: null,
+    tenantId: user.tenantId!
   })
 
   await logger.logActivity({

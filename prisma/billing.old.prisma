@@ -1,0 +1,289 @@
+generator client_billing {
+  provider = "prisma-client-js"
+  output   = "./generated/billing"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Invoice {
+  id             String        @id
+  invoiceNumber  String        @unique
+  pelangganId    String
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime
+  status         InvoiceStatus @default(DRAFT)
+  subtotal       BigInt        @default(0)
+  taxAmount      BigInt        @default(0)
+  discountAmount BigInt        @default(0)
+  totalAmount    BigInt        @default(0)
+  paidAmount     BigInt        @default(0)
+  notes          String?
+  terms          String?
+  sentAt         DateTime?
+  paidAt         DateTime?
+  createdBy      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  siteId         String?
+  invoiceItem    InvoiceItem[]
+  payment        Payment[]
+
+  @@index([dueDate])
+  @@index([invoiceNumber])
+  @@index([issueDate])
+  @@index([pelangganId])
+  @@index([status])
+  @@index([siteId])
+}
+
+model InvoiceItem {
+  id          String   @id
+  invoiceId   String
+  description String
+  quantity    Int      @default(1)
+  unitPrice   BigInt
+  totalPrice  BigInt
+  itemType    ItemType @default(SERVICE)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id              String                @id
+  invoiceId       String?
+  pelangganId     String
+  amount          BigInt
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod
+  reference       String?
+  notes           String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime
+  invoice         Invoice?              @relation(fields: [invoiceId], references: [id])
+  accountId       String?
+  gatewayStatus   GatewayPaymentStatus?
+  gatewayProvider String?
+  transactionId   String?
+  paymentUrl      String?
+  expiresAt       DateTime?
+
+  unmatchedMutationId String?            @unique
+  unmatchedMutation   UnmatchedMutation? @relation(fields: [unmatchedMutationId], references: [id])
+  receiptUrl          String?
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@index([pelangganId])
+  @@index([gatewayStatus])
+  @@index([transactionId])
+}
+
+model PaymentGatewayConfig {
+  id           String    @id
+  provider     String    @unique
+  providerName String
+  isEnabled    Boolean   @default(false)
+  isProduction Boolean   @default(false)
+  priority     Int       @default(0)
+  apiKey       String?
+  apiSecret    String?
+  clientKey    String?
+  merchantId   String?
+  webhookUrl   String?
+  callbackUrl  String?
+  settings     Json?
+  lastTestedAt DateTime?
+  testStatus   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+  createdBy    String?
+
+  @@index([isEnabled])
+  @@index([priority])
+  @@index([provider])
+}
+
+model UnmatchedMutation {
+  id              String   @id @default(uuid())
+  provider        String   @default("MOOTA")
+  transactionId   String?  @unique // Mutation ID from provider
+  amount          Decimal  @db.Decimal(19, 2)
+  description     String?
+  type            String?  // CR/DB
+  date            DateTime // Date from provider
+  bankId          String?  // Bank identifier
+  rawPayload      Json?    // Store exact webhook payload
+  
+  status          UnmatchedStatus @default(PENDING)
+  resolvedAt      DateTime?
+  resolvedById    String?
+  matchedInvoiceId String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  payment         Payment? // Relation to the established payment if resolved
+
+  @@index([status])
+  @@index([provider])
+  @@index([amount])
+}
+
+enum UnmatchedStatus {
+  PENDING
+  RESOLVED
+  IGNORED
+}
+
+// Transksi dan Transaksi Kategori sengaja dihapus per Rencana Refactoring 
+
+
+model MixRadiusInvoice {
+  id            String    @id @default(cuid())
+  invoiceNumber String    @unique
+  mixRadiusId   String? // The internal ID from MixRadius
+  username      String
+  fullName      String?
+  ownerName     String?
+  planName      String?
+  amount        Decimal   @db.Decimal(19, 2)
+  status        String // PAID, UNPAID, etc.
+  paymentMethod String?
+  issuedDate    DateTime // derived from renewed_on or created_on
+  dueDate       DateTime? // derived or calculated
+  expiredOn     DateTime?
+  syncedAt      DateTime  @default(now())
+
+  @@index([status])
+  @@index([username])
+  @@index([ownerName])
+  @@index([dueDate])
+  @@map("mix_radius_invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  OVERDUE
+  PAID
+  PARTIAL_PAID
+  CANCELLED
+}
+
+enum ItemType {
+  SERVICE
+  PRODUCT
+  SETUP_FEE
+  MONTHLY_FEE
+  ONE_TIME_FEE
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  E_WALLET
+  CREDIT_CARD
+  DEBIT_CARD
+  CHECK
+  OTHER
+}
+
+enum Status {
+  AKTIF
+  NONAKTIF
+  MAINTENANCE
+  ISOLIR
+  DISMANTLE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum ExpenseType {
+  OPERATIONAL // Opex
+  CAPITAL // Capex
+  OTHER
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum GatewayPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+
+model MixRadiusCustomer {
+  id           String    @id
+  mixRadiusId  String    @unique
+  username     String    @unique
+  fullName     String?
+  address      String?
+  phoneNumber  String?
+  planName     String?
+  status       String?
+  ownerName    String?
+  expiredOn    DateTime?
+  lastSyncedAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("mix_radius_customers")
+}
+
+model MixRadiusOwnerGroup {
+  id          String       @id @default(uuid())
+  name        String
+  owners      String[]
+  siteId      String?      // Soft-relation to Sites in main DB
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Note: expenses and rabProjects are managed via repository layer (soft-relations)
+
+  @@index([siteId])
+  @@map("mix_radius_owner_groups")
+}
+
+model MixRadiusInvestorSite {
+  id          String   @id @default(uuid())
+  name        String   // Nama Site Investor (misal: "Proyek Cimenyan - Investor A")
+  owners      String[] // Daftar owner MixRadius yang pendapatannya masuk ke site ini
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mix_radius_investor_sites")
+}
+
+model MixRadiusConfig {
+  id           String   @id @default(uuid())
+  name         String   @default("Default")
+  apiUrl       String
+  username     String
+  password     String
+  apiKey       String
+  isDefault    Boolean  @default(false)
+  lastSyncedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("mix_radius_configs")
+}

@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { WorkOrders, WorkOrderTasks, WorkOrderAssignments, WorkOrderUpdates, WorkOrderAttachments, WorkOrderStatus, WorkOrderType } from '@prisma/client';
 import type {
     IWorkOrderRepository,
@@ -18,9 +18,12 @@ import { randomUUID } from 'crypto';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
 
+import { prisma as defaultPrisma } from '@/lib/prisma'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
+type PrismaInstance = typeof defaultPrisma
 
 export class WorkOrderRepository implements IWorkOrderRepository {
-    constructor(private prisma: PrismaClient) { }
+    constructor(private prisma: PrismaInstance = defaultPrisma) { }
 
     async generateWorkOrderNumber(): Promise<string> {
         const now = new Date();
@@ -1198,6 +1201,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         // Prepare conditions for raw query
+        // MANUALLY handle tenant isolation for raw query
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         let query = Prisma.sql`
             SELECT
                 AVG(EXTRACT(EPOCH FROM ("completedAt" - "startedAt")) / 3600)::float as "avgHours",
@@ -1206,6 +1213,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             WHERE "completedAt" IS NOT NULL
             AND "startedAt" IS NOT NULL
         `
+
+        // Add tenant filter if not super admin
+        if (!isSuperAdmin) {
+            query = Prisma.sql`${query} AND "tenantId" = ${effectiveTenantId}`
+        }
 
         if (filters?.siteId) query = Prisma.sql`${query} AND "siteId" = ${filters.siteId}`
         if (filters?.departmentId) query = Prisma.sql`${query} AND "departmentId" = ${filters.departmentId}`

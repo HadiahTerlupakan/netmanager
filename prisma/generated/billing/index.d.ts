@@ -1908,6 +1908,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     siteId: string | null
+    tenantId: string | null
   }
 
   export type InvoiceMaxAggregateOutputType = {
@@ -1930,6 +1931,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     siteId: string | null
+    tenantId: string | null
   }
 
   export type InvoiceCountAggregateOutputType = {
@@ -1952,6 +1954,7 @@ export namespace Prisma {
     createdAt: number
     updatedAt: number
     siteId: number
+    tenantId: number
     _all: number
   }
 
@@ -1992,6 +1995,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     siteId?: true
+    tenantId?: true
   }
 
   export type InvoiceMaxAggregateInputType = {
@@ -2014,6 +2018,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     siteId?: true
+    tenantId?: true
   }
 
   export type InvoiceCountAggregateInputType = {
@@ -2036,6 +2041,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     siteId?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -2145,6 +2151,7 @@ export namespace Prisma {
     createdAt: Date
     updatedAt: Date
     siteId: string | null
+    tenantId: string | null
     _count: InvoiceCountAggregateOutputType | null
     _avg: InvoiceAvgAggregateOutputType | null
     _sum: InvoiceSumAggregateOutputType | null
@@ -2186,6 +2193,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     siteId?: boolean
+    tenantId?: boolean
     invoiceItem?: boolean | Invoice$invoiceItemArgs<ExtArgs>
     payment?: boolean | Invoice$paymentArgs<ExtArgs>
     _count?: boolean | InvoiceCountOutputTypeDefaultArgs<ExtArgs>
@@ -2211,6 +2219,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     siteId?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["invoice"]>
 
   export type InvoiceSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -2233,6 +2242,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     siteId?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["invoice"]>
 
   export type InvoiceSelectScalar = {
@@ -2255,9 +2265,10 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     siteId?: boolean
+    tenantId?: boolean
   }
 
-  export type InvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "pelangganId" | "issueDate" | "dueDate" | "status" | "subtotal" | "taxAmount" | "discountAmount" | "totalAmount" | "paidAmount" | "notes" | "terms" | "sentAt" | "paidAt" | "createdBy" | "createdAt" | "updatedAt" | "siteId", ExtArgs["result"]["invoice"]>
+  export type InvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "pelangganId" | "issueDate" | "dueDate" | "status" | "subtotal" | "taxAmount" | "discountAmount" | "totalAmount" | "paidAmount" | "notes" | "terms" | "sentAt" | "paidAt" | "createdBy" | "createdAt" | "updatedAt" | "siteId" | "tenantId", ExtArgs["result"]["invoice"]>
   export type InvoiceInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoiceItem?: boolean | Invoice$invoiceItemArgs<ExtArgs>
     payment?: boolean | Invoice$paymentArgs<ExtArgs>
@@ -2292,6 +2303,7 @@ export namespace Prisma {
       createdAt: Date
       updatedAt: Date
       siteId: string | null
+      tenantId: string | null
     }, ExtArgs["result"]["invoice"]>
     composites: {}
   }
@@ -2736,6 +2748,7 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"Invoice", 'DateTime'>
     readonly updatedAt: FieldRef<"Invoice", 'DateTime'>
     readonly siteId: FieldRef<"Invoice", 'String'>
+    readonly tenantId: FieldRef<"Invoice", 'String'>
   }
     
 
@@ -3222,6 +3235,7 @@ export namespace Prisma {
     unitPrice: bigint | null
     totalPrice: bigint | null
     itemType: $Enums.ItemType | null
+    tenantId: string | null
   }
 
   export type InvoiceItemMaxAggregateOutputType = {
@@ -3232,6 +3246,7 @@ export namespace Prisma {
     unitPrice: bigint | null
     totalPrice: bigint | null
     itemType: $Enums.ItemType | null
+    tenantId: string | null
   }
 
   export type InvoiceItemCountAggregateOutputType = {
@@ -3242,6 +3257,7 @@ export namespace Prisma {
     unitPrice: number
     totalPrice: number
     itemType: number
+    tenantId: number
     _all: number
   }
 
@@ -3266,6 +3282,7 @@ export namespace Prisma {
     unitPrice?: true
     totalPrice?: true
     itemType?: true
+    tenantId?: true
   }
 
   export type InvoiceItemMaxAggregateInputType = {
@@ -3276,6 +3293,7 @@ export namespace Prisma {
     unitPrice?: true
     totalPrice?: true
     itemType?: true
+    tenantId?: true
   }
 
   export type InvoiceItemCountAggregateInputType = {
@@ -3286,6 +3304,7 @@ export namespace Prisma {
     unitPrice?: true
     totalPrice?: true
     itemType?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -3383,6 +3402,7 @@ export namespace Prisma {
     unitPrice: bigint
     totalPrice: bigint
     itemType: $Enums.ItemType
+    tenantId: string | null
     _count: InvoiceItemCountAggregateOutputType | null
     _avg: InvoiceItemAvgAggregateOutputType | null
     _sum: InvoiceItemSumAggregateOutputType | null
@@ -3412,6 +3432,7 @@ export namespace Prisma {
     unitPrice?: boolean
     totalPrice?: boolean
     itemType?: boolean
+    tenantId?: boolean
     invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["invoiceItem"]>
 
@@ -3423,6 +3444,7 @@ export namespace Prisma {
     unitPrice?: boolean
     totalPrice?: boolean
     itemType?: boolean
+    tenantId?: boolean
     invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["invoiceItem"]>
 
@@ -3434,6 +3456,7 @@ export namespace Prisma {
     unitPrice?: boolean
     totalPrice?: boolean
     itemType?: boolean
+    tenantId?: boolean
     invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["invoiceItem"]>
 
@@ -3445,9 +3468,10 @@ export namespace Prisma {
     unitPrice?: boolean
     totalPrice?: boolean
     itemType?: boolean
+    tenantId?: boolean
   }
 
-  export type InvoiceItemOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "description" | "quantity" | "unitPrice" | "totalPrice" | "itemType", ExtArgs["result"]["invoiceItem"]>
+  export type InvoiceItemOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "description" | "quantity" | "unitPrice" | "totalPrice" | "itemType" | "tenantId", ExtArgs["result"]["invoiceItem"]>
   export type InvoiceItemInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }
@@ -3471,6 +3495,7 @@ export namespace Prisma {
       unitPrice: bigint
       totalPrice: bigint
       itemType: $Enums.ItemType
+      tenantId: string | null
     }, ExtArgs["result"]["invoiceItem"]>
     composites: {}
   }
@@ -3902,6 +3927,7 @@ export namespace Prisma {
     readonly unitPrice: FieldRef<"InvoiceItem", 'BigInt'>
     readonly totalPrice: FieldRef<"InvoiceItem", 'BigInt'>
     readonly itemType: FieldRef<"InvoiceItem", 'ItemType'>
+    readonly tenantId: FieldRef<"InvoiceItem", 'String'>
   }
     
 
@@ -4357,6 +4383,7 @@ export namespace Prisma {
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
+    tenantId: string | null
   }
 
   export type PaymentMaxAggregateOutputType = {
@@ -4380,6 +4407,7 @@ export namespace Prisma {
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
+    tenantId: string | null
   }
 
   export type PaymentCountAggregateOutputType = {
@@ -4403,6 +4431,7 @@ export namespace Prisma {
     expiresAt: number
     unmatchedMutationId: number
     receiptUrl: number
+    tenantId: number
     _all: number
   }
 
@@ -4436,6 +4465,7 @@ export namespace Prisma {
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
+    tenantId?: true
   }
 
   export type PaymentMaxAggregateInputType = {
@@ -4459,6 +4489,7 @@ export namespace Prisma {
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
+    tenantId?: true
   }
 
   export type PaymentCountAggregateInputType = {
@@ -4482,6 +4513,7 @@ export namespace Prisma {
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -4592,6 +4624,7 @@ export namespace Prisma {
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
+    tenantId: string | null
     _count: PaymentCountAggregateOutputType | null
     _avg: PaymentAvgAggregateOutputType | null
     _sum: PaymentSumAggregateOutputType | null
@@ -4634,6 +4667,7 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
@@ -4659,6 +4693,7 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
@@ -4684,6 +4719,7 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
@@ -4709,9 +4745,10 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    tenantId?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt" | "unmatchedMutationId" | "receiptUrl", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -4752,6 +4789,7 @@ export namespace Prisma {
       expiresAt: Date | null
       unmatchedMutationId: string | null
       receiptUrl: string | null
+      tenantId: string | null
     }, ExtArgs["result"]["payment"]>
     composites: {}
   }
@@ -5197,6 +5235,7 @@ export namespace Prisma {
     readonly expiresAt: FieldRef<"Payment", 'DateTime'>
     readonly unmatchedMutationId: FieldRef<"Payment", 'String'>
     readonly receiptUrl: FieldRef<"Payment", 'String'>
+    readonly tenantId: FieldRef<"Payment", 'String'>
   }
     
 
@@ -5687,6 +5726,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     createdBy: string | null
+    tenantId: string | null
   }
 
   export type PaymentGatewayConfigMaxAggregateOutputType = {
@@ -5707,6 +5747,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     createdBy: string | null
+    tenantId: string | null
   }
 
   export type PaymentGatewayConfigCountAggregateOutputType = {
@@ -5728,6 +5769,7 @@ export namespace Prisma {
     createdAt: number
     updatedAt: number
     createdBy: number
+    tenantId: number
     _all: number
   }
 
@@ -5758,6 +5800,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     createdBy?: true
+    tenantId?: true
   }
 
   export type PaymentGatewayConfigMaxAggregateInputType = {
@@ -5778,6 +5821,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     createdBy?: true
+    tenantId?: true
   }
 
   export type PaymentGatewayConfigCountAggregateInputType = {
@@ -5799,6 +5843,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     createdBy?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -5907,6 +5952,7 @@ export namespace Prisma {
     createdAt: Date
     updatedAt: Date
     createdBy: string | null
+    tenantId: string | null
     _count: PaymentGatewayConfigCountAggregateOutputType | null
     _avg: PaymentGatewayConfigAvgAggregateOutputType | null
     _sum: PaymentGatewayConfigSumAggregateOutputType | null
@@ -5947,6 +5993,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     createdBy?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["paymentGatewayConfig"]>
 
   export type PaymentGatewayConfigSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -5968,6 +6015,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     createdBy?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["paymentGatewayConfig"]>
 
   export type PaymentGatewayConfigSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -5989,6 +6037,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     createdBy?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["paymentGatewayConfig"]>
 
   export type PaymentGatewayConfigSelectScalar = {
@@ -6010,9 +6059,10 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     createdBy?: boolean
+    tenantId?: boolean
   }
 
-  export type PaymentGatewayConfigOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "provider" | "providerName" | "isEnabled" | "isProduction" | "priority" | "apiKey" | "apiSecret" | "clientKey" | "merchantId" | "webhookUrl" | "callbackUrl" | "settings" | "lastTestedAt" | "testStatus" | "createdAt" | "updatedAt" | "createdBy", ExtArgs["result"]["paymentGatewayConfig"]>
+  export type PaymentGatewayConfigOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "provider" | "providerName" | "isEnabled" | "isProduction" | "priority" | "apiKey" | "apiSecret" | "clientKey" | "merchantId" | "webhookUrl" | "callbackUrl" | "settings" | "lastTestedAt" | "testStatus" | "createdAt" | "updatedAt" | "createdBy" | "tenantId", ExtArgs["result"]["paymentGatewayConfig"]>
 
   export type $PaymentGatewayConfigPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "PaymentGatewayConfig"
@@ -6036,6 +6086,7 @@ export namespace Prisma {
       createdAt: Date
       updatedAt: Date
       createdBy: string | null
+      tenantId: string | null
     }, ExtArgs["result"]["paymentGatewayConfig"]>
     composites: {}
   }
@@ -6477,6 +6528,7 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"PaymentGatewayConfig", 'DateTime'>
     readonly updatedAt: FieldRef<"PaymentGatewayConfig", 'DateTime'>
     readonly createdBy: FieldRef<"PaymentGatewayConfig", 'String'>
+    readonly tenantId: FieldRef<"PaymentGatewayConfig", 'String'>
   }
     
 
@@ -6878,6 +6930,7 @@ export namespace Prisma {
     matchedInvoiceId: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type UnmatchedMutationMaxAggregateOutputType = {
@@ -6895,6 +6948,7 @@ export namespace Prisma {
     matchedInvoiceId: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type UnmatchedMutationCountAggregateOutputType = {
@@ -6913,6 +6967,7 @@ export namespace Prisma {
     matchedInvoiceId: number
     createdAt: number
     updatedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -6940,6 +6995,7 @@ export namespace Prisma {
     matchedInvoiceId?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type UnmatchedMutationMaxAggregateInputType = {
@@ -6957,6 +7013,7 @@ export namespace Prisma {
     matchedInvoiceId?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type UnmatchedMutationCountAggregateInputType = {
@@ -6975,6 +7032,7 @@ export namespace Prisma {
     matchedInvoiceId?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -7080,6 +7138,7 @@ export namespace Prisma {
     matchedInvoiceId: string | null
     createdAt: Date
     updatedAt: Date
+    tenantId: string | null
     _count: UnmatchedMutationCountAggregateOutputType | null
     _avg: UnmatchedMutationAvgAggregateOutputType | null
     _sum: UnmatchedMutationSumAggregateOutputType | null
@@ -7117,6 +7176,7 @@ export namespace Prisma {
     matchedInvoiceId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
     payment?: boolean | UnmatchedMutation$paymentArgs<ExtArgs>
   }, ExtArgs["result"]["unmatchedMutation"]>
 
@@ -7136,6 +7196,7 @@ export namespace Prisma {
     matchedInvoiceId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["unmatchedMutation"]>
 
   export type UnmatchedMutationSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -7154,6 +7215,7 @@ export namespace Prisma {
     matchedInvoiceId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["unmatchedMutation"]>
 
   export type UnmatchedMutationSelectScalar = {
@@ -7172,9 +7234,10 @@ export namespace Prisma {
     matchedInvoiceId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type UnmatchedMutationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "provider" | "transactionId" | "amount" | "description" | "type" | "date" | "bankId" | "rawPayload" | "status" | "resolvedAt" | "resolvedById" | "matchedInvoiceId" | "createdAt" | "updatedAt", ExtArgs["result"]["unmatchedMutation"]>
+  export type UnmatchedMutationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "provider" | "transactionId" | "amount" | "description" | "type" | "date" | "bankId" | "rawPayload" | "status" | "resolvedAt" | "resolvedById" | "matchedInvoiceId" | "createdAt" | "updatedAt" | "tenantId", ExtArgs["result"]["unmatchedMutation"]>
   export type UnmatchedMutationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     payment?: boolean | UnmatchedMutation$paymentArgs<ExtArgs>
   }
@@ -7202,6 +7265,7 @@ export namespace Prisma {
       matchedInvoiceId: string | null
       createdAt: Date
       updatedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["unmatchedMutation"]>
     composites: {}
   }
@@ -7641,6 +7705,7 @@ export namespace Prisma {
     readonly matchedInvoiceId: FieldRef<"UnmatchedMutation", 'String'>
     readonly createdAt: FieldRef<"UnmatchedMutation", 'DateTime'>
     readonly updatedAt: FieldRef<"UnmatchedMutation", 'DateTime'>
+    readonly tenantId: FieldRef<"UnmatchedMutation", 'String'>
   }
     
 
@@ -8101,6 +8166,7 @@ export namespace Prisma {
     dueDate: Date | null
     expiredOn: Date | null
     syncedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusInvoiceMaxAggregateOutputType = {
@@ -8118,6 +8184,7 @@ export namespace Prisma {
     dueDate: Date | null
     expiredOn: Date | null
     syncedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusInvoiceCountAggregateOutputType = {
@@ -8135,6 +8202,7 @@ export namespace Prisma {
     dueDate: number
     expiredOn: number
     syncedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -8162,6 +8230,7 @@ export namespace Prisma {
     dueDate?: true
     expiredOn?: true
     syncedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusInvoiceMaxAggregateInputType = {
@@ -8179,6 +8248,7 @@ export namespace Prisma {
     dueDate?: true
     expiredOn?: true
     syncedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusInvoiceCountAggregateInputType = {
@@ -8196,6 +8266,7 @@ export namespace Prisma {
     dueDate?: true
     expiredOn?: true
     syncedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -8300,6 +8371,7 @@ export namespace Prisma {
     dueDate: Date | null
     expiredOn: Date | null
     syncedAt: Date
+    tenantId: string | null
     _count: MixRadiusInvoiceCountAggregateOutputType | null
     _avg: MixRadiusInvoiceAvgAggregateOutputType | null
     _sum: MixRadiusInvoiceSumAggregateOutputType | null
@@ -8336,6 +8408,7 @@ export namespace Prisma {
     dueDate?: boolean
     expiredOn?: boolean
     syncedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusInvoice"]>
 
   export type MixRadiusInvoiceSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -8353,6 +8426,7 @@ export namespace Prisma {
     dueDate?: boolean
     expiredOn?: boolean
     syncedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusInvoice"]>
 
   export type MixRadiusInvoiceSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -8370,6 +8444,7 @@ export namespace Prisma {
     dueDate?: boolean
     expiredOn?: boolean
     syncedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusInvoice"]>
 
   export type MixRadiusInvoiceSelectScalar = {
@@ -8387,9 +8462,10 @@ export namespace Prisma {
     dueDate?: boolean
     expiredOn?: boolean
     syncedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MixRadiusInvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "mixRadiusId" | "username" | "fullName" | "ownerName" | "planName" | "amount" | "status" | "paymentMethod" | "issuedDate" | "dueDate" | "expiredOn" | "syncedAt", ExtArgs["result"]["mixRadiusInvoice"]>
+  export type MixRadiusInvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "mixRadiusId" | "username" | "fullName" | "ownerName" | "planName" | "amount" | "status" | "paymentMethod" | "issuedDate" | "dueDate" | "expiredOn" | "syncedAt" | "tenantId", ExtArgs["result"]["mixRadiusInvoice"]>
 
   export type $MixRadiusInvoicePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "MixRadiusInvoice"
@@ -8409,6 +8485,7 @@ export namespace Prisma {
       dueDate: Date | null
       expiredOn: Date | null
       syncedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mixRadiusInvoice"]>
     composites: {}
   }
@@ -8846,6 +8923,7 @@ export namespace Prisma {
     readonly dueDate: FieldRef<"MixRadiusInvoice", 'DateTime'>
     readonly expiredOn: FieldRef<"MixRadiusInvoice", 'DateTime'>
     readonly syncedAt: FieldRef<"MixRadiusInvoice", 'DateTime'>
+    readonly tenantId: FieldRef<"MixRadiusInvoice", 'String'>
   }
     
 
@@ -9236,6 +9314,7 @@ export namespace Prisma {
     lastSyncedAt: Date | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusCustomerMaxAggregateOutputType = {
@@ -9252,6 +9331,7 @@ export namespace Prisma {
     lastSyncedAt: Date | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusCustomerCountAggregateOutputType = {
@@ -9268,6 +9348,7 @@ export namespace Prisma {
     lastSyncedAt: number
     createdAt: number
     updatedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -9286,6 +9367,7 @@ export namespace Prisma {
     lastSyncedAt?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusCustomerMaxAggregateInputType = {
@@ -9302,6 +9384,7 @@ export namespace Prisma {
     lastSyncedAt?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusCustomerCountAggregateInputType = {
@@ -9318,6 +9401,7 @@ export namespace Prisma {
     lastSyncedAt?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -9407,6 +9491,7 @@ export namespace Prisma {
     lastSyncedAt: Date
     createdAt: Date
     updatedAt: Date
+    tenantId: string | null
     _count: MixRadiusCustomerCountAggregateOutputType | null
     _min: MixRadiusCustomerMinAggregateOutputType | null
     _max: MixRadiusCustomerMaxAggregateOutputType | null
@@ -9440,6 +9525,7 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusCustomer"]>
 
   export type MixRadiusCustomerSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -9456,6 +9542,7 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusCustomer"]>
 
   export type MixRadiusCustomerSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -9472,6 +9559,7 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusCustomer"]>
 
   export type MixRadiusCustomerSelectScalar = {
@@ -9488,9 +9576,10 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MixRadiusCustomerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mixRadiusId" | "username" | "fullName" | "address" | "phoneNumber" | "planName" | "status" | "ownerName" | "expiredOn" | "lastSyncedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusCustomer"]>
+  export type MixRadiusCustomerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mixRadiusId" | "username" | "fullName" | "address" | "phoneNumber" | "planName" | "status" | "ownerName" | "expiredOn" | "lastSyncedAt" | "createdAt" | "updatedAt" | "tenantId", ExtArgs["result"]["mixRadiusCustomer"]>
 
   export type $MixRadiusCustomerPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "MixRadiusCustomer"
@@ -9509,6 +9598,7 @@ export namespace Prisma {
       lastSyncedAt: Date
       createdAt: Date
       updatedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mixRadiusCustomer"]>
     composites: {}
   }
@@ -9945,6 +10035,7 @@ export namespace Prisma {
     readonly lastSyncedAt: FieldRef<"MixRadiusCustomer", 'DateTime'>
     readonly createdAt: FieldRef<"MixRadiusCustomer", 'DateTime'>
     readonly updatedAt: FieldRef<"MixRadiusCustomer", 'DateTime'>
+    readonly tenantId: FieldRef<"MixRadiusCustomer", 'String'>
   }
     
 
@@ -10328,6 +10419,7 @@ export namespace Prisma {
     isActive: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusOwnerGroupMaxAggregateOutputType = {
@@ -10337,6 +10429,7 @@ export namespace Prisma {
     isActive: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusOwnerGroupCountAggregateOutputType = {
@@ -10347,6 +10440,7 @@ export namespace Prisma {
     isActive: number
     createdAt: number
     updatedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -10358,6 +10452,7 @@ export namespace Prisma {
     isActive?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusOwnerGroupMaxAggregateInputType = {
@@ -10367,6 +10462,7 @@ export namespace Prisma {
     isActive?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusOwnerGroupCountAggregateInputType = {
@@ -10377,6 +10473,7 @@ export namespace Prisma {
     isActive?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -10460,6 +10557,7 @@ export namespace Prisma {
     isActive: boolean
     createdAt: Date
     updatedAt: Date
+    tenantId: string | null
     _count: MixRadiusOwnerGroupCountAggregateOutputType | null
     _min: MixRadiusOwnerGroupMinAggregateOutputType | null
     _max: MixRadiusOwnerGroupMaxAggregateOutputType | null
@@ -10487,6 +10585,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
 
   export type MixRadiusOwnerGroupSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -10497,6 +10596,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
 
   export type MixRadiusOwnerGroupSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -10507,6 +10607,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
 
   export type MixRadiusOwnerGroupSelectScalar = {
@@ -10517,9 +10618,10 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MixRadiusOwnerGroupOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "owners" | "siteId" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusOwnerGroup"]>
+  export type MixRadiusOwnerGroupOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "owners" | "siteId" | "isActive" | "createdAt" | "updatedAt" | "tenantId", ExtArgs["result"]["mixRadiusOwnerGroup"]>
 
   export type $MixRadiusOwnerGroupPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "MixRadiusOwnerGroup"
@@ -10532,6 +10634,7 @@ export namespace Prisma {
       isActive: boolean
       createdAt: Date
       updatedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mixRadiusOwnerGroup"]>
     composites: {}
   }
@@ -10962,6 +11065,7 @@ export namespace Prisma {
     readonly isActive: FieldRef<"MixRadiusOwnerGroup", 'Boolean'>
     readonly createdAt: FieldRef<"MixRadiusOwnerGroup", 'DateTime'>
     readonly updatedAt: FieldRef<"MixRadiusOwnerGroup", 'DateTime'>
+    readonly tenantId: FieldRef<"MixRadiusOwnerGroup", 'String'>
   }
     
 
@@ -11344,6 +11448,7 @@ export namespace Prisma {
     isActive: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusInvestorSiteMaxAggregateOutputType = {
@@ -11352,6 +11457,7 @@ export namespace Prisma {
     isActive: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusInvestorSiteCountAggregateOutputType = {
@@ -11361,6 +11467,7 @@ export namespace Prisma {
     isActive: number
     createdAt: number
     updatedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -11371,6 +11478,7 @@ export namespace Prisma {
     isActive?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusInvestorSiteMaxAggregateInputType = {
@@ -11379,6 +11487,7 @@ export namespace Prisma {
     isActive?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusInvestorSiteCountAggregateInputType = {
@@ -11388,6 +11497,7 @@ export namespace Prisma {
     isActive?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -11470,6 +11580,7 @@ export namespace Prisma {
     isActive: boolean
     createdAt: Date
     updatedAt: Date
+    tenantId: string | null
     _count: MixRadiusInvestorSiteCountAggregateOutputType | null
     _min: MixRadiusInvestorSiteMinAggregateOutputType | null
     _max: MixRadiusInvestorSiteMaxAggregateOutputType | null
@@ -11496,6 +11607,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusInvestorSite"]>
 
   export type MixRadiusInvestorSiteSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -11505,6 +11617,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusInvestorSite"]>
 
   export type MixRadiusInvestorSiteSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -11514,6 +11627,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusInvestorSite"]>
 
   export type MixRadiusInvestorSiteSelectScalar = {
@@ -11523,9 +11637,10 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MixRadiusInvestorSiteOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "owners" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusInvestorSite"]>
+  export type MixRadiusInvestorSiteOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "owners" | "isActive" | "createdAt" | "updatedAt" | "tenantId", ExtArgs["result"]["mixRadiusInvestorSite"]>
 
   export type $MixRadiusInvestorSitePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "MixRadiusInvestorSite"
@@ -11537,6 +11652,7 @@ export namespace Prisma {
       isActive: boolean
       createdAt: Date
       updatedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mixRadiusInvestorSite"]>
     composites: {}
   }
@@ -11966,6 +12082,7 @@ export namespace Prisma {
     readonly isActive: FieldRef<"MixRadiusInvestorSite", 'Boolean'>
     readonly createdAt: FieldRef<"MixRadiusInvestorSite", 'DateTime'>
     readonly updatedAt: FieldRef<"MixRadiusInvestorSite", 'DateTime'>
+    readonly tenantId: FieldRef<"MixRadiusInvestorSite", 'String'>
   }
     
 
@@ -12353,6 +12470,7 @@ export namespace Prisma {
     lastSyncedAt: Date | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusConfigMaxAggregateOutputType = {
@@ -12366,6 +12484,7 @@ export namespace Prisma {
     lastSyncedAt: Date | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MixRadiusConfigCountAggregateOutputType = {
@@ -12379,6 +12498,7 @@ export namespace Prisma {
     lastSyncedAt: number
     createdAt: number
     updatedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -12394,6 +12514,7 @@ export namespace Prisma {
     lastSyncedAt?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusConfigMaxAggregateInputType = {
@@ -12407,6 +12528,7 @@ export namespace Prisma {
     lastSyncedAt?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MixRadiusConfigCountAggregateInputType = {
@@ -12420,6 +12542,7 @@ export namespace Prisma {
     lastSyncedAt?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -12506,6 +12629,7 @@ export namespace Prisma {
     lastSyncedAt: Date | null
     createdAt: Date
     updatedAt: Date
+    tenantId: string | null
     _count: MixRadiusConfigCountAggregateOutputType | null
     _min: MixRadiusConfigMinAggregateOutputType | null
     _max: MixRadiusConfigMaxAggregateOutputType | null
@@ -12536,6 +12660,7 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusConfig"]>
 
   export type MixRadiusConfigSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -12549,6 +12674,7 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusConfig"]>
 
   export type MixRadiusConfigSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -12562,6 +12688,7 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mixRadiusConfig"]>
 
   export type MixRadiusConfigSelectScalar = {
@@ -12575,9 +12702,10 @@ export namespace Prisma {
     lastSyncedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MixRadiusConfigOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "apiUrl" | "username" | "password" | "apiKey" | "isDefault" | "lastSyncedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mixRadiusConfig"]>
+  export type MixRadiusConfigOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "apiUrl" | "username" | "password" | "apiKey" | "isDefault" | "lastSyncedAt" | "createdAt" | "updatedAt" | "tenantId", ExtArgs["result"]["mixRadiusConfig"]>
 
   export type $MixRadiusConfigPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "MixRadiusConfig"
@@ -12593,6 +12721,7 @@ export namespace Prisma {
       lastSyncedAt: Date | null
       createdAt: Date
       updatedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mixRadiusConfig"]>
     composites: {}
   }
@@ -13026,6 +13155,7 @@ export namespace Prisma {
     readonly lastSyncedAt: FieldRef<"MixRadiusConfig", 'DateTime'>
     readonly createdAt: FieldRef<"MixRadiusConfig", 'DateTime'>
     readonly updatedAt: FieldRef<"MixRadiusConfig", 'DateTime'>
+    readonly tenantId: FieldRef<"MixRadiusConfig", 'String'>
   }
     
 
@@ -13425,7 +13555,8 @@ export namespace Prisma {
     createdBy: 'createdBy',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
-    siteId: 'siteId'
+    siteId: 'siteId',
+    tenantId: 'tenantId'
   };
 
   export type InvoiceScalarFieldEnum = (typeof InvoiceScalarFieldEnum)[keyof typeof InvoiceScalarFieldEnum]
@@ -13438,7 +13569,8 @@ export namespace Prisma {
     quantity: 'quantity',
     unitPrice: 'unitPrice',
     totalPrice: 'totalPrice',
-    itemType: 'itemType'
+    itemType: 'itemType',
+    tenantId: 'tenantId'
   };
 
   export type InvoiceItemScalarFieldEnum = (typeof InvoiceItemScalarFieldEnum)[keyof typeof InvoiceItemScalarFieldEnum]
@@ -13464,7 +13596,8 @@ export namespace Prisma {
     paymentUrl: 'paymentUrl',
     expiresAt: 'expiresAt',
     unmatchedMutationId: 'unmatchedMutationId',
-    receiptUrl: 'receiptUrl'
+    receiptUrl: 'receiptUrl',
+    tenantId: 'tenantId'
   };
 
   export type PaymentScalarFieldEnum = (typeof PaymentScalarFieldEnum)[keyof typeof PaymentScalarFieldEnum]
@@ -13488,7 +13621,8 @@ export namespace Prisma {
     testStatus: 'testStatus',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
-    createdBy: 'createdBy'
+    createdBy: 'createdBy',
+    tenantId: 'tenantId'
   };
 
   export type PaymentGatewayConfigScalarFieldEnum = (typeof PaymentGatewayConfigScalarFieldEnum)[keyof typeof PaymentGatewayConfigScalarFieldEnum]
@@ -13509,7 +13643,8 @@ export namespace Prisma {
     resolvedById: 'resolvedById',
     matchedInvoiceId: 'matchedInvoiceId',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    tenantId: 'tenantId'
   };
 
   export type UnmatchedMutationScalarFieldEnum = (typeof UnmatchedMutationScalarFieldEnum)[keyof typeof UnmatchedMutationScalarFieldEnum]
@@ -13529,7 +13664,8 @@ export namespace Prisma {
     issuedDate: 'issuedDate',
     dueDate: 'dueDate',
     expiredOn: 'expiredOn',
-    syncedAt: 'syncedAt'
+    syncedAt: 'syncedAt',
+    tenantId: 'tenantId'
   };
 
   export type MixRadiusInvoiceScalarFieldEnum = (typeof MixRadiusInvoiceScalarFieldEnum)[keyof typeof MixRadiusInvoiceScalarFieldEnum]
@@ -13548,7 +13684,8 @@ export namespace Prisma {
     expiredOn: 'expiredOn',
     lastSyncedAt: 'lastSyncedAt',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    tenantId: 'tenantId'
   };
 
   export type MixRadiusCustomerScalarFieldEnum = (typeof MixRadiusCustomerScalarFieldEnum)[keyof typeof MixRadiusCustomerScalarFieldEnum]
@@ -13561,7 +13698,8 @@ export namespace Prisma {
     siteId: 'siteId',
     isActive: 'isActive',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    tenantId: 'tenantId'
   };
 
   export type MixRadiusOwnerGroupScalarFieldEnum = (typeof MixRadiusOwnerGroupScalarFieldEnum)[keyof typeof MixRadiusOwnerGroupScalarFieldEnum]
@@ -13573,7 +13711,8 @@ export namespace Prisma {
     owners: 'owners',
     isActive: 'isActive',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    tenantId: 'tenantId'
   };
 
   export type MixRadiusInvestorSiteScalarFieldEnum = (typeof MixRadiusInvestorSiteScalarFieldEnum)[keyof typeof MixRadiusInvestorSiteScalarFieldEnum]
@@ -13589,7 +13728,8 @@ export namespace Prisma {
     isDefault: 'isDefault',
     lastSyncedAt: 'lastSyncedAt',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    tenantId: 'tenantId'
   };
 
   export type MixRadiusConfigScalarFieldEnum = (typeof MixRadiusConfigScalarFieldEnum)[keyof typeof MixRadiusConfigScalarFieldEnum]
@@ -13842,6 +13982,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Invoice"> | Date | string
     updatedAt?: DateTimeFilter<"Invoice"> | Date | string
     siteId?: StringNullableFilter<"Invoice"> | string | null
+    tenantId?: StringNullableFilter<"Invoice"> | string | null
     invoiceItem?: InvoiceItemListRelationFilter
     payment?: PaymentListRelationFilter
   }
@@ -13866,6 +14007,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     siteId?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
     invoiceItem?: InvoiceItemOrderByRelationAggregateInput
     payment?: PaymentOrderByRelationAggregateInput
   }
@@ -13893,6 +14035,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Invoice"> | Date | string
     updatedAt?: DateTimeFilter<"Invoice"> | Date | string
     siteId?: StringNullableFilter<"Invoice"> | string | null
+    tenantId?: StringNullableFilter<"Invoice"> | string | null
     invoiceItem?: InvoiceItemListRelationFilter
     payment?: PaymentListRelationFilter
   }, "id" | "invoiceNumber">
@@ -13917,6 +14060,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     siteId?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: InvoiceCountOrderByAggregateInput
     _avg?: InvoiceAvgOrderByAggregateInput
     _max?: InvoiceMaxOrderByAggregateInput
@@ -13947,6 +14091,7 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"Invoice"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Invoice"> | Date | string
     siteId?: StringNullableWithAggregatesFilter<"Invoice"> | string | null
+    tenantId?: StringNullableWithAggregatesFilter<"Invoice"> | string | null
   }
 
   export type InvoiceItemWhereInput = {
@@ -13960,6 +14105,7 @@ export namespace Prisma {
     unitPrice?: BigIntFilter<"InvoiceItem"> | bigint | number
     totalPrice?: BigIntFilter<"InvoiceItem"> | bigint | number
     itemType?: EnumItemTypeFilter<"InvoiceItem"> | $Enums.ItemType
+    tenantId?: StringNullableFilter<"InvoiceItem"> | string | null
     invoice?: XOR<InvoiceScalarRelationFilter, InvoiceWhereInput>
   }
 
@@ -13971,6 +14117,7 @@ export namespace Prisma {
     unitPrice?: SortOrder
     totalPrice?: SortOrder
     itemType?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     invoice?: InvoiceOrderByWithRelationInput
   }
 
@@ -13985,6 +14132,7 @@ export namespace Prisma {
     unitPrice?: BigIntFilter<"InvoiceItem"> | bigint | number
     totalPrice?: BigIntFilter<"InvoiceItem"> | bigint | number
     itemType?: EnumItemTypeFilter<"InvoiceItem"> | $Enums.ItemType
+    tenantId?: StringNullableFilter<"InvoiceItem"> | string | null
     invoice?: XOR<InvoiceScalarRelationFilter, InvoiceWhereInput>
   }, "id">
 
@@ -13996,6 +14144,7 @@ export namespace Prisma {
     unitPrice?: SortOrder
     totalPrice?: SortOrder
     itemType?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: InvoiceItemCountOrderByAggregateInput
     _avg?: InvoiceItemAvgOrderByAggregateInput
     _max?: InvoiceItemMaxOrderByAggregateInput
@@ -14014,6 +14163,7 @@ export namespace Prisma {
     unitPrice?: BigIntWithAggregatesFilter<"InvoiceItem"> | bigint | number
     totalPrice?: BigIntWithAggregatesFilter<"InvoiceItem"> | bigint | number
     itemType?: EnumItemTypeWithAggregatesFilter<"InvoiceItem"> | $Enums.ItemType
+    tenantId?: StringNullableWithAggregatesFilter<"InvoiceItem"> | string | null
   }
 
   export type PaymentWhereInput = {
@@ -14040,6 +14190,7 @@ export namespace Prisma {
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
+    tenantId?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
   }
@@ -14065,6 +14216,7 @@ export namespace Prisma {
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
     invoice?: InvoiceOrderByWithRelationInput
     unmatchedMutation?: UnmatchedMutationOrderByWithRelationInput
   }
@@ -14093,6 +14245,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
+    tenantId?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
   }, "id" | "unmatchedMutationId">
@@ -14118,6 +14271,7 @@ export namespace Prisma {
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: PaymentCountOrderByAggregateInput
     _avg?: PaymentAvgOrderByAggregateInput
     _max?: PaymentMaxOrderByAggregateInput
@@ -14149,6 +14303,7 @@ export namespace Prisma {
     expiresAt?: DateTimeNullableWithAggregatesFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     receiptUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    tenantId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
   }
 
   export type PaymentGatewayConfigWhereInput = {
@@ -14173,6 +14328,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"PaymentGatewayConfig"> | Date | string
     updatedAt?: DateTimeFilter<"PaymentGatewayConfig"> | Date | string
     createdBy?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
+    tenantId?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
   }
 
   export type PaymentGatewayConfigOrderByWithRelationInput = {
@@ -14194,6 +14350,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     createdBy?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
   }
 
   export type PaymentGatewayConfigWhereUniqueInput = Prisma.AtLeast<{
@@ -14218,6 +14375,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"PaymentGatewayConfig"> | Date | string
     updatedAt?: DateTimeFilter<"PaymentGatewayConfig"> | Date | string
     createdBy?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
+    tenantId?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
   }, "id" | "provider">
 
   export type PaymentGatewayConfigOrderByWithAggregationInput = {
@@ -14239,6 +14397,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     createdBy?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: PaymentGatewayConfigCountOrderByAggregateInput
     _avg?: PaymentGatewayConfigAvgOrderByAggregateInput
     _max?: PaymentGatewayConfigMaxOrderByAggregateInput
@@ -14268,6 +14427,7 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"PaymentGatewayConfig"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"PaymentGatewayConfig"> | Date | string
     createdBy?: StringNullableWithAggregatesFilter<"PaymentGatewayConfig"> | string | null
+    tenantId?: StringNullableWithAggregatesFilter<"PaymentGatewayConfig"> | string | null
   }
 
   export type UnmatchedMutationWhereInput = {
@@ -14289,6 +14449,7 @@ export namespace Prisma {
     matchedInvoiceId?: StringNullableFilter<"UnmatchedMutation"> | string | null
     createdAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
     updatedAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    tenantId?: StringNullableFilter<"UnmatchedMutation"> | string | null
     payment?: XOR<PaymentNullableScalarRelationFilter, PaymentWhereInput> | null
   }
 
@@ -14308,6 +14469,7 @@ export namespace Prisma {
     matchedInvoiceId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     payment?: PaymentOrderByWithRelationInput
   }
 
@@ -14330,6 +14492,7 @@ export namespace Prisma {
     matchedInvoiceId?: StringNullableFilter<"UnmatchedMutation"> | string | null
     createdAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
     updatedAt?: DateTimeFilter<"UnmatchedMutation"> | Date | string
+    tenantId?: StringNullableFilter<"UnmatchedMutation"> | string | null
     payment?: XOR<PaymentNullableScalarRelationFilter, PaymentWhereInput> | null
   }, "id" | "transactionId">
 
@@ -14349,6 +14512,7 @@ export namespace Prisma {
     matchedInvoiceId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: UnmatchedMutationCountOrderByAggregateInput
     _avg?: UnmatchedMutationAvgOrderByAggregateInput
     _max?: UnmatchedMutationMaxOrderByAggregateInput
@@ -14375,6 +14539,7 @@ export namespace Prisma {
     matchedInvoiceId?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"UnmatchedMutation"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"UnmatchedMutation"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"UnmatchedMutation"> | string | null
   }
 
   export type MixRadiusInvoiceWhereInput = {
@@ -14395,6 +14560,7 @@ export namespace Prisma {
     dueDate?: DateTimeNullableFilter<"MixRadiusInvoice"> | Date | string | null
     expiredOn?: DateTimeNullableFilter<"MixRadiusInvoice"> | Date | string | null
     syncedAt?: DateTimeFilter<"MixRadiusInvoice"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusInvoice"> | string | null
   }
 
   export type MixRadiusInvoiceOrderByWithRelationInput = {
@@ -14412,6 +14578,7 @@ export namespace Prisma {
     dueDate?: SortOrderInput | SortOrder
     expiredOn?: SortOrderInput | SortOrder
     syncedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
   }
 
   export type MixRadiusInvoiceWhereUniqueInput = Prisma.AtLeast<{
@@ -14432,6 +14599,7 @@ export namespace Prisma {
     dueDate?: DateTimeNullableFilter<"MixRadiusInvoice"> | Date | string | null
     expiredOn?: DateTimeNullableFilter<"MixRadiusInvoice"> | Date | string | null
     syncedAt?: DateTimeFilter<"MixRadiusInvoice"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusInvoice"> | string | null
   }, "id" | "invoiceNumber">
 
   export type MixRadiusInvoiceOrderByWithAggregationInput = {
@@ -14449,6 +14617,7 @@ export namespace Prisma {
     dueDate?: SortOrderInput | SortOrder
     expiredOn?: SortOrderInput | SortOrder
     syncedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MixRadiusInvoiceCountOrderByAggregateInput
     _avg?: MixRadiusInvoiceAvgOrderByAggregateInput
     _max?: MixRadiusInvoiceMaxOrderByAggregateInput
@@ -14474,6 +14643,7 @@ export namespace Prisma {
     dueDate?: DateTimeNullableWithAggregatesFilter<"MixRadiusInvoice"> | Date | string | null
     expiredOn?: DateTimeNullableWithAggregatesFilter<"MixRadiusInvoice"> | Date | string | null
     syncedAt?: DateTimeWithAggregatesFilter<"MixRadiusInvoice"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"MixRadiusInvoice"> | string | null
   }
 
   export type MixRadiusCustomerWhereInput = {
@@ -14493,6 +14663,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
     createdAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusCustomer"> | string | null
   }
 
   export type MixRadiusCustomerOrderByWithRelationInput = {
@@ -14509,6 +14680,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
   }
 
   export type MixRadiusCustomerWhereUniqueInput = Prisma.AtLeast<{
@@ -14528,6 +14700,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
     createdAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusCustomer"> | string | null
   }, "id" | "mixRadiusId" | "username">
 
   export type MixRadiusCustomerOrderByWithAggregationInput = {
@@ -14544,6 +14717,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MixRadiusCustomerCountOrderByAggregateInput
     _max?: MixRadiusCustomerMaxOrderByAggregateInput
     _min?: MixRadiusCustomerMinOrderByAggregateInput
@@ -14566,6 +14740,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeWithAggregatesFilter<"MixRadiusCustomer"> | Date | string
     createdAt?: DateTimeWithAggregatesFilter<"MixRadiusCustomer"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusCustomer"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"MixRadiusCustomer"> | string | null
   }
 
   export type MixRadiusOwnerGroupWhereInput = {
@@ -14579,6 +14754,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"MixRadiusOwnerGroup"> | boolean
     createdAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusOwnerGroup"> | string | null
   }
 
   export type MixRadiusOwnerGroupOrderByWithRelationInput = {
@@ -14589,6 +14765,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
   }
 
   export type MixRadiusOwnerGroupWhereUniqueInput = Prisma.AtLeast<{
@@ -14602,6 +14779,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"MixRadiusOwnerGroup"> | boolean
     createdAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusOwnerGroup"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusOwnerGroup"> | string | null
   }, "id">
 
   export type MixRadiusOwnerGroupOrderByWithAggregationInput = {
@@ -14612,6 +14790,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MixRadiusOwnerGroupCountOrderByAggregateInput
     _max?: MixRadiusOwnerGroupMaxOrderByAggregateInput
     _min?: MixRadiusOwnerGroupMinOrderByAggregateInput
@@ -14628,6 +14807,7 @@ export namespace Prisma {
     isActive?: BoolWithAggregatesFilter<"MixRadiusOwnerGroup"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"MixRadiusOwnerGroup"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusOwnerGroup"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"MixRadiusOwnerGroup"> | string | null
   }
 
   export type MixRadiusInvestorSiteWhereInput = {
@@ -14640,6 +14820,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"MixRadiusInvestorSite"> | boolean
     createdAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusInvestorSite"> | string | null
   }
 
   export type MixRadiusInvestorSiteOrderByWithRelationInput = {
@@ -14649,6 +14830,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
   }
 
   export type MixRadiusInvestorSiteWhereUniqueInput = Prisma.AtLeast<{
@@ -14661,6 +14843,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"MixRadiusInvestorSite"> | boolean
     createdAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusInvestorSite"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusInvestorSite"> | string | null
   }, "id">
 
   export type MixRadiusInvestorSiteOrderByWithAggregationInput = {
@@ -14670,6 +14853,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MixRadiusInvestorSiteCountOrderByAggregateInput
     _max?: MixRadiusInvestorSiteMaxOrderByAggregateInput
     _min?: MixRadiusInvestorSiteMinOrderByAggregateInput
@@ -14685,6 +14869,7 @@ export namespace Prisma {
     isActive?: BoolWithAggregatesFilter<"MixRadiusInvestorSite"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"MixRadiusInvestorSite"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusInvestorSite"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"MixRadiusInvestorSite"> | string | null
   }
 
   export type MixRadiusConfigWhereInput = {
@@ -14701,6 +14886,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeNullableFilter<"MixRadiusConfig"> | Date | string | null
     createdAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusConfig"> | string | null
   }
 
   export type MixRadiusConfigOrderByWithRelationInput = {
@@ -14714,6 +14900,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
   }
 
   export type MixRadiusConfigWhereUniqueInput = Prisma.AtLeast<{
@@ -14730,6 +14917,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeNullableFilter<"MixRadiusConfig"> | Date | string | null
     createdAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string
+    tenantId?: StringNullableFilter<"MixRadiusConfig"> | string | null
   }, "id">
 
   export type MixRadiusConfigOrderByWithAggregationInput = {
@@ -14743,6 +14931,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MixRadiusConfigCountOrderByAggregateInput
     _max?: MixRadiusConfigMaxOrderByAggregateInput
     _min?: MixRadiusConfigMinOrderByAggregateInput
@@ -14762,6 +14951,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeNullableWithAggregatesFilter<"MixRadiusConfig"> | Date | string | null
     createdAt?: DateTimeWithAggregatesFilter<"MixRadiusConfig"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusConfig"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"MixRadiusConfig"> | string | null
   }
 
   export type InvoiceCreateInput = {
@@ -14784,6 +14974,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     siteId?: string | null
+    tenantId?: string | null
     invoiceItem?: InvoiceItemCreateNestedManyWithoutInvoiceInput
     payment?: PaymentCreateNestedManyWithoutInvoiceInput
   }
@@ -14808,6 +14999,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     siteId?: string | null
+    tenantId?: string | null
     invoiceItem?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
     payment?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput
   }
@@ -14832,6 +15024,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoiceItem?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
     payment?: PaymentUpdateManyWithoutInvoiceNestedInput
   }
@@ -14856,6 +15049,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoiceItem?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput
     payment?: PaymentUncheckedUpdateManyWithoutInvoiceNestedInput
   }
@@ -14880,6 +15074,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     siteId?: string | null
+    tenantId?: string | null
   }
 
   export type InvoiceUpdateManyMutationInput = {
@@ -14902,6 +15097,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type InvoiceUncheckedUpdateManyInput = {
@@ -14924,6 +15120,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type InvoiceItemCreateInput = {
@@ -14933,6 +15130,7 @@ export namespace Prisma {
     unitPrice: bigint | number
     totalPrice: bigint | number
     itemType?: $Enums.ItemType
+    tenantId?: string | null
     invoice: InvoiceCreateNestedOneWithoutInvoiceItemInput
   }
 
@@ -14944,6 +15142,7 @@ export namespace Prisma {
     unitPrice: bigint | number
     totalPrice: bigint | number
     itemType?: $Enums.ItemType
+    tenantId?: string | null
   }
 
   export type InvoiceItemUpdateInput = {
@@ -14953,6 +15152,7 @@ export namespace Prisma {
     unitPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     totalPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     itemType?: EnumItemTypeFieldUpdateOperationsInput | $Enums.ItemType
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneRequiredWithoutInvoiceItemNestedInput
   }
 
@@ -14964,6 +15164,7 @@ export namespace Prisma {
     unitPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     totalPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     itemType?: EnumItemTypeFieldUpdateOperationsInput | $Enums.ItemType
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type InvoiceItemCreateManyInput = {
@@ -14974,6 +15175,7 @@ export namespace Prisma {
     unitPrice: bigint | number
     totalPrice: bigint | number
     itemType?: $Enums.ItemType
+    tenantId?: string | null
   }
 
   export type InvoiceItemUpdateManyMutationInput = {
@@ -14983,6 +15185,7 @@ export namespace Prisma {
     unitPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     totalPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     itemType?: EnumItemTypeFieldUpdateOperationsInput | $Enums.ItemType
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type InvoiceItemUncheckedUpdateManyInput = {
@@ -14993,6 +15196,7 @@ export namespace Prisma {
     unitPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     totalPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     itemType?: EnumItemTypeFieldUpdateOperationsInput | $Enums.ItemType
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentCreateInput = {
@@ -15014,6 +15218,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    tenantId?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
@@ -15039,6 +15244,7 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    tenantId?: string | null
   }
 
   export type PaymentUpdateInput = {
@@ -15060,6 +15266,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
@@ -15085,6 +15292,7 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentCreateManyInput = {
@@ -15108,6 +15316,7 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    tenantId?: string | null
   }
 
   export type PaymentUpdateManyMutationInput = {
@@ -15129,6 +15338,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentUncheckedUpdateManyInput = {
@@ -15152,6 +15362,7 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentGatewayConfigCreateInput = {
@@ -15173,6 +15384,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     createdBy?: string | null
+    tenantId?: string | null
   }
 
   export type PaymentGatewayConfigUncheckedCreateInput = {
@@ -15194,6 +15406,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     createdBy?: string | null
+    tenantId?: string | null
   }
 
   export type PaymentGatewayConfigUpdateInput = {
@@ -15215,6 +15428,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdBy?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentGatewayConfigUncheckedUpdateInput = {
@@ -15236,6 +15450,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdBy?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentGatewayConfigCreateManyInput = {
@@ -15257,6 +15472,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     createdBy?: string | null
+    tenantId?: string | null
   }
 
   export type PaymentGatewayConfigUpdateManyMutationInput = {
@@ -15278,6 +15494,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdBy?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentGatewayConfigUncheckedUpdateManyInput = {
@@ -15299,6 +15516,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdBy?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type UnmatchedMutationCreateInput = {
@@ -15317,6 +15535,7 @@ export namespace Prisma {
     matchedInvoiceId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     payment?: PaymentCreateNestedOneWithoutUnmatchedMutationInput
   }
 
@@ -15336,6 +15555,7 @@ export namespace Prisma {
     matchedInvoiceId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     payment?: PaymentUncheckedCreateNestedOneWithoutUnmatchedMutationInput
   }
 
@@ -15355,6 +15575,7 @@ export namespace Prisma {
     matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     payment?: PaymentUpdateOneWithoutUnmatchedMutationNestedInput
   }
 
@@ -15374,6 +15595,7 @@ export namespace Prisma {
     matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     payment?: PaymentUncheckedUpdateOneWithoutUnmatchedMutationNestedInput
   }
 
@@ -15393,6 +15615,7 @@ export namespace Prisma {
     matchedInvoiceId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type UnmatchedMutationUpdateManyMutationInput = {
@@ -15411,6 +15634,7 @@ export namespace Prisma {
     matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type UnmatchedMutationUncheckedUpdateManyInput = {
@@ -15429,6 +15653,7 @@ export namespace Prisma {
     matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvoiceCreateInput = {
@@ -15446,6 +15671,7 @@ export namespace Prisma {
     dueDate?: Date | string | null
     expiredOn?: Date | string | null
     syncedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusInvoiceUncheckedCreateInput = {
@@ -15463,6 +15689,7 @@ export namespace Prisma {
     dueDate?: Date | string | null
     expiredOn?: Date | string | null
     syncedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusInvoiceUpdateInput = {
@@ -15480,6 +15707,7 @@ export namespace Prisma {
     dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     syncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvoiceUncheckedUpdateInput = {
@@ -15497,6 +15725,7 @@ export namespace Prisma {
     dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     syncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvoiceCreateManyInput = {
@@ -15514,6 +15743,7 @@ export namespace Prisma {
     dueDate?: Date | string | null
     expiredOn?: Date | string | null
     syncedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusInvoiceUpdateManyMutationInput = {
@@ -15531,6 +15761,7 @@ export namespace Prisma {
     dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     syncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvoiceUncheckedUpdateManyInput = {
@@ -15548,6 +15779,7 @@ export namespace Prisma {
     dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     expiredOn?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     syncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusCustomerCreateInput = {
@@ -15564,6 +15796,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusCustomerUncheckedCreateInput = {
@@ -15580,6 +15813,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusCustomerUpdateInput = {
@@ -15596,6 +15830,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusCustomerUncheckedUpdateInput = {
@@ -15612,6 +15847,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusCustomerCreateManyInput = {
@@ -15628,6 +15864,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusCustomerUpdateManyMutationInput = {
@@ -15644,6 +15881,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusCustomerUncheckedUpdateManyInput = {
@@ -15660,6 +15898,7 @@ export namespace Prisma {
     lastSyncedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusOwnerGroupCreateInput = {
@@ -15670,6 +15909,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusOwnerGroupUncheckedCreateInput = {
@@ -15680,6 +15920,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusOwnerGroupUpdateInput = {
@@ -15690,6 +15931,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusOwnerGroupUncheckedUpdateInput = {
@@ -15700,6 +15942,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusOwnerGroupCreateManyInput = {
@@ -15710,6 +15953,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusOwnerGroupUpdateManyMutationInput = {
@@ -15720,6 +15964,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusOwnerGroupUncheckedUpdateManyInput = {
@@ -15730,6 +15975,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvestorSiteCreateInput = {
@@ -15739,6 +15985,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusInvestorSiteUncheckedCreateInput = {
@@ -15748,6 +15995,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusInvestorSiteUpdateInput = {
@@ -15757,6 +16005,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvestorSiteUncheckedUpdateInput = {
@@ -15766,6 +16015,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvestorSiteCreateManyInput = {
@@ -15775,6 +16025,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusInvestorSiteUpdateManyMutationInput = {
@@ -15784,6 +16035,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusInvestorSiteUncheckedUpdateManyInput = {
@@ -15793,6 +16045,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusConfigCreateInput = {
@@ -15806,6 +16059,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusConfigUncheckedCreateInput = {
@@ -15819,6 +16073,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusConfigUpdateInput = {
@@ -15832,6 +16087,7 @@ export namespace Prisma {
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusConfigUncheckedUpdateInput = {
@@ -15845,6 +16101,7 @@ export namespace Prisma {
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusConfigCreateManyInput = {
@@ -15858,6 +16115,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MixRadiusConfigUpdateManyMutationInput = {
@@ -15871,6 +16129,7 @@ export namespace Prisma {
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MixRadiusConfigUncheckedUpdateManyInput = {
@@ -15884,6 +16143,7 @@ export namespace Prisma {
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type StringFilter<$PrismaModel = never> = {
@@ -16001,6 +16261,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     siteId?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type InvoiceAvgOrderByAggregateInput = {
@@ -16031,6 +16292,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     siteId?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type InvoiceMinOrderByAggregateInput = {
@@ -16053,6 +16315,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     siteId?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type InvoiceSumOrderByAggregateInput = {
@@ -16184,6 +16447,7 @@ export namespace Prisma {
     unitPrice?: SortOrder
     totalPrice?: SortOrder
     itemType?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type InvoiceItemAvgOrderByAggregateInput = {
@@ -16200,6 +16464,7 @@ export namespace Prisma {
     unitPrice?: SortOrder
     totalPrice?: SortOrder
     itemType?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type InvoiceItemMinOrderByAggregateInput = {
@@ -16210,6 +16475,7 @@ export namespace Prisma {
     unitPrice?: SortOrder
     totalPrice?: SortOrder
     itemType?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type InvoiceItemSumOrderByAggregateInput = {
@@ -16289,6 +16555,7 @@ export namespace Prisma {
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type PaymentAvgOrderByAggregateInput = {
@@ -16316,6 +16583,7 @@ export namespace Prisma {
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type PaymentMinOrderByAggregateInput = {
@@ -16339,6 +16607,7 @@ export namespace Prisma {
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type PaymentSumOrderByAggregateInput = {
@@ -16412,6 +16681,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     createdBy?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type PaymentGatewayConfigAvgOrderByAggregateInput = {
@@ -16436,6 +16706,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     createdBy?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type PaymentGatewayConfigMinOrderByAggregateInput = {
@@ -16456,6 +16727,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     createdBy?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type PaymentGatewayConfigSumOrderByAggregateInput = {
@@ -16535,6 +16807,7 @@ export namespace Prisma {
     matchedInvoiceId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type UnmatchedMutationAvgOrderByAggregateInput = {
@@ -16556,6 +16829,7 @@ export namespace Prisma {
     matchedInvoiceId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type UnmatchedMutationMinOrderByAggregateInput = {
@@ -16573,6 +16847,7 @@ export namespace Prisma {
     matchedInvoiceId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type UnmatchedMutationSumOrderByAggregateInput = {
@@ -16620,6 +16895,7 @@ export namespace Prisma {
     dueDate?: SortOrder
     expiredOn?: SortOrder
     syncedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusInvoiceAvgOrderByAggregateInput = {
@@ -16641,6 +16917,7 @@ export namespace Prisma {
     dueDate?: SortOrder
     expiredOn?: SortOrder
     syncedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusInvoiceMinOrderByAggregateInput = {
@@ -16658,6 +16935,7 @@ export namespace Prisma {
     dueDate?: SortOrder
     expiredOn?: SortOrder
     syncedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusInvoiceSumOrderByAggregateInput = {
@@ -16678,6 +16956,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusCustomerMaxOrderByAggregateInput = {
@@ -16694,6 +16973,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusCustomerMinOrderByAggregateInput = {
@@ -16710,6 +16990,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type StringNullableListFilter<$PrismaModel = never> = {
@@ -16728,6 +17009,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusOwnerGroupMaxOrderByAggregateInput = {
@@ -16737,6 +17019,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusOwnerGroupMinOrderByAggregateInput = {
@@ -16746,6 +17029,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusInvestorSiteCountOrderByAggregateInput = {
@@ -16755,6 +17039,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusInvestorSiteMaxOrderByAggregateInput = {
@@ -16763,6 +17048,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusInvestorSiteMinOrderByAggregateInput = {
@@ -16771,6 +17057,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusConfigCountOrderByAggregateInput = {
@@ -16784,6 +17071,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusConfigMaxOrderByAggregateInput = {
@@ -16797,6 +17085,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MixRadiusConfigMinOrderByAggregateInput = {
@@ -16810,6 +17099,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type InvoiceItemCreateNestedManyWithoutInvoiceInput = {
@@ -17399,6 +17689,7 @@ export namespace Prisma {
     unitPrice: bigint | number
     totalPrice: bigint | number
     itemType?: $Enums.ItemType
+    tenantId?: string | null
   }
 
   export type InvoiceItemUncheckedCreateWithoutInvoiceInput = {
@@ -17408,6 +17699,7 @@ export namespace Prisma {
     unitPrice: bigint | number
     totalPrice: bigint | number
     itemType?: $Enums.ItemType
+    tenantId?: string | null
   }
 
   export type InvoiceItemCreateOrConnectWithoutInvoiceInput = {
@@ -17439,6 +17731,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    tenantId?: string | null
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
 
@@ -17462,6 +17755,7 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    tenantId?: string | null
   }
 
   export type PaymentCreateOrConnectWithoutInvoiceInput = {
@@ -17501,6 +17795,7 @@ export namespace Prisma {
     unitPrice?: BigIntFilter<"InvoiceItem"> | bigint | number
     totalPrice?: BigIntFilter<"InvoiceItem"> | bigint | number
     itemType?: EnumItemTypeFilter<"InvoiceItem"> | $Enums.ItemType
+    tenantId?: StringNullableFilter<"InvoiceItem"> | string | null
   }
 
   export type PaymentUpsertWithWhereUniqueWithoutInvoiceInput = {
@@ -17543,6 +17838,7 @@ export namespace Prisma {
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
+    tenantId?: StringNullableFilter<"Payment"> | string | null
   }
 
   export type InvoiceCreateWithoutInvoiceItemInput = {
@@ -17565,6 +17861,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     siteId?: string | null
+    tenantId?: string | null
     payment?: PaymentCreateNestedManyWithoutInvoiceInput
   }
 
@@ -17588,6 +17885,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     siteId?: string | null
+    tenantId?: string | null
     payment?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput
   }
 
@@ -17627,6 +17925,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     payment?: PaymentUpdateManyWithoutInvoiceNestedInput
   }
 
@@ -17650,6 +17949,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     payment?: PaymentUncheckedUpdateManyWithoutInvoiceNestedInput
   }
 
@@ -17673,6 +17973,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     siteId?: string | null
+    tenantId?: string | null
     invoiceItem?: InvoiceItemCreateNestedManyWithoutInvoiceInput
   }
 
@@ -17696,6 +17997,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt: Date | string
     siteId?: string | null
+    tenantId?: string | null
     invoiceItem?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
   }
 
@@ -17720,6 +18022,7 @@ export namespace Prisma {
     matchedInvoiceId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type UnmatchedMutationUncheckedCreateWithoutPaymentInput = {
@@ -17738,6 +18041,7 @@ export namespace Prisma {
     matchedInvoiceId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type UnmatchedMutationCreateOrConnectWithoutPaymentInput = {
@@ -17776,6 +18080,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoiceItem?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
   }
 
@@ -17799,6 +18104,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoiceItem?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput
   }
 
@@ -17829,6 +18135,7 @@ export namespace Prisma {
     matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type UnmatchedMutationUncheckedUpdateWithoutPaymentInput = {
@@ -17847,6 +18154,7 @@ export namespace Prisma {
     matchedInvoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentCreateWithoutUnmatchedMutationInput = {
@@ -17868,6 +18176,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    tenantId?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
   }
 
@@ -17891,6 +18200,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    tenantId?: string | null
   }
 
   export type PaymentCreateOrConnectWithoutUnmatchedMutationInput = {
@@ -17928,6 +18238,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
   }
 
@@ -17951,6 +18262,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type InvoiceItemCreateManyInvoiceInput = {
@@ -17960,6 +18272,7 @@ export namespace Prisma {
     unitPrice: bigint | number
     totalPrice: bigint | number
     itemType?: $Enums.ItemType
+    tenantId?: string | null
   }
 
   export type PaymentCreateManyInvoiceInput = {
@@ -17982,6 +18295,7 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    tenantId?: string | null
   }
 
   export type InvoiceItemUpdateWithoutInvoiceInput = {
@@ -17991,6 +18305,7 @@ export namespace Prisma {
     unitPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     totalPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     itemType?: EnumItemTypeFieldUpdateOperationsInput | $Enums.ItemType
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type InvoiceItemUncheckedUpdateWithoutInvoiceInput = {
@@ -18000,6 +18315,7 @@ export namespace Prisma {
     unitPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     totalPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     itemType?: EnumItemTypeFieldUpdateOperationsInput | $Enums.ItemType
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type InvoiceItemUncheckedUpdateManyWithoutInvoiceInput = {
@@ -18009,6 +18325,7 @@ export namespace Prisma {
     unitPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     totalPrice?: BigIntFieldUpdateOperationsInput | bigint | number
     itemType?: EnumItemTypeFieldUpdateOperationsInput | $Enums.ItemType
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentUpdateWithoutInvoiceInput = {
@@ -18030,6 +18347,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
 
@@ -18053,6 +18371,7 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type PaymentUncheckedUpdateManyWithoutInvoiceInput = {
@@ -18075,6 +18394,7 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
 

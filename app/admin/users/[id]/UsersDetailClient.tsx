@@ -20,7 +20,8 @@ import {
   HiOutlineExclamationTriangle,
   HiArrowPath,
   HiOutlineIdentification,
-  HiOutlineStar
+  HiOutlineStar,
+  HiOutlineGlobeAlt
 } from 'react-icons/hi2'
 import WorkingHoursSettings from './WorkingHoursSettings'
 import LeaveBalanceSettings from './LeaveBalanceSettings'
@@ -49,6 +50,11 @@ interface Role {
 interface Site {
   id: string
   code: string
+  name: string
+}
+
+interface Tenant {
+  id: string
   name: string
 }
 
@@ -84,6 +90,8 @@ interface UserData {
   shift?: { id: string; name: string; startTime: string; endTime: string } | null
   canvasingTarget?: number
   isSales?: boolean
+  tenantId?: string | null
+  tenant?: { id: string; name: string } | null
 }
 
 export function ClientComponent({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> | undefined }) {
@@ -103,6 +111,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   const [departments, setDepartments] = useState<Department[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [roles, setRoles] = useState<Role[]>([])
+  const [tenants, setTenants] = useState<Tenant[]>([])
   const [user, setUser] = useState<UserData | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPassword, setShowPassword] = useState(false)
@@ -125,6 +134,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     flexibleTargetHour: 8,
     shiftId: '',
     isSales: false,
+    tenantId: '',
   })
 
   const fetchUser = useCallback(async () => {
@@ -154,6 +164,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           flexibleTargetHour: usr.flexibleTargetHour || 8,
           shiftId: usr.shiftId || '',
           isSales: usr.isSales || false,
+          tenantId: usr.tenantId || '',
         })
         // Multi-site: Load userSites
         if (usr.userSites && usr.userSites.length > 0) {
@@ -217,14 +228,27 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     }
   }, [])
 
+  const fetchTenants = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/tenants')
+      if (res.ok) {
+        const data = await res.json()
+        setTenants(data.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching tenants:', error)
+    }
+  }, [])
+
   useEffect(() => {
     Promise.all([
       fetchUser(),
       fetchDepartments(),
       fetchRoles(),
       fetchSites(),
+      fetchTenants(),
     ]).finally(() => setLoading(false))
-  }, [fetchUser, fetchDepartments, fetchRoles, fetchSites])
+  }, [fetchUser, fetchDepartments, fetchRoles, fetchSites, fetchTenants])
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
@@ -302,6 +326,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         flexibleTargetHour: formData.flexibleTargetHour || null,
         shiftId: formData.shiftId || null,
         isSales: formData.isSales,
+        tenantId: formData.tenantId || null,
         // Multi-site support
         userSites: selectedSites,
       }
@@ -508,6 +533,19 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
               </p>
             )}
           </div>
+
+          {/* Tenant Card (Super Admin only) */}
+          {hasPermission('tenants:read') && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <HiOutlineGlobeAlt className="w-5 h-5 text-amber-500" />
+                Tenant
+              </h3>
+              <p className="text-xl font-medium text-gray-900 dark:text-white">
+                {user?.tenant?.name || '-'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Working Hours Card */}
@@ -807,6 +845,37 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                 </div>
                 {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
               </div>
+
+              {/* Tenant Selection (Super Admin only) */}
+              {hasPermission('tenants:read') && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Tenant <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <HiOutlineGlobeAlt className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      name="tenantId"
+                      required
+                      value={formData.tenantId}
+                      onChange={handleChange}
+                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.tenantId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                    >
+                      <option value="">Pilih Tenant</option>
+                      {tenants.map(tenant => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pilih tenant untuk pengguna ini. Pengguna akan dibatasi hanya pada data milik tenant ini.</p>
+                  {errors.tenantId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tenantId}</p>}
+                </div>
+              )}
             </div>
           </div>
         </div>

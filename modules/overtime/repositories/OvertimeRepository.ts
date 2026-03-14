@@ -3,6 +3,7 @@ import { type IOvertimeRepository } from './IOvertimeRepository'
 import { Prisma } from '@prisma/client'
 import type { Overtime, OvertimeStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 
 export class OvertimeRepository implements IOvertimeRepository {
     async findById(id: string): Promise<Overtime | null> {
@@ -233,6 +234,9 @@ export class OvertimeRepository implements IOvertimeRepository {
     }
 
     async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         let query = Prisma.sql`
             SELECT
                 TO_CHAR(o."createdAt", 'YYYY-MM-DD') as date,
@@ -249,6 +253,10 @@ export class OvertimeRepository implements IOvertimeRepository {
             WHERE o."createdAt" >= ${startDate}
             AND o."createdAt" <= ${endDate}
         `
+
+        if (!isSuperAdmin) {
+            query = Prisma.sql`${query} AND o."tenantId" = ${effectiveTenantId}`
+        }
 
         if (siteId) {
             query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
@@ -283,6 +291,9 @@ export class OvertimeRepository implements IOvertimeRepository {
             groupByNameColumn = Prisma.sql`d.name`
         }
 
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         const query = Prisma.sql`
             SELECT
                 ${groupByNameColumn} as name,
@@ -293,6 +304,7 @@ export class OvertimeRepository implements IOvertimeRepository {
             ${joinTable}
             WHERE o."createdAt" >= ${startDate}
             AND o."createdAt" <= ${endDate}
+            ${!isSuperAdmin ? Prisma.sql`AND o."tenantId" = ${effectiveTenantId}` : Prisma.empty}
             GROUP BY ${groupByColumn}, ${groupByNameColumn}
         `
 

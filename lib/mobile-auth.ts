@@ -53,6 +53,8 @@ export interface MobileTokenPayload {
     permissions?: string[]
     isSales?: boolean
     siteId?: string | null
+    tenantId?: string | null
+    isSuperAdmin?: boolean
     [key: string]: unknown
 }
 
@@ -116,6 +118,7 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
                 isActive: true,
                 isSales: true,
                 siteId: true,
+                tenantId: true,
                 role: {
                     include: {
                         permission: true
@@ -135,7 +138,8 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
                     nama: true,
                     username: true,
                     status: true,
-                    tokenVersion: true
+                    tokenVersion: true,
+                    tenantId: true
                 }
             })
 
@@ -161,7 +165,8 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
                     role: 'CUSTOMER',
                     permissions: ['customer:read', 'customer:write'], // Basic permissions
                     isSales: false,
-                    siteId: null
+                    siteId: null,
+                    tenantId: customer.tenantId
                 } as unknown as MobileTokenPayload
             }
 
@@ -173,7 +178,8 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
                     name: true,
                     isActive: true,
                     mitraType: true,
-                    siteId: true
+                    siteId: true,
+                    tenantId: true
                 }
             })
 
@@ -192,7 +198,8 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
                     role: 'MITRA',
                     permissions: [], // Will be handled by features in token or logic
                     isSales: mitra.mitraType === 'MITRA_SALES',
-                    siteId: mitra.siteId
+                    siteId: mitra.siteId,
+                    tenantId: mitra.tenantId
                 } as unknown as MobileTokenPayload
             }
 
@@ -212,7 +219,7 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
             return null
         }
 
-        const permissions = dbUser.role?.permission.map(p => `${p.resource}:${p.action}`) || []
+        const permissions = dbUser.role?.permission.map((p: { resource: string; action: string }) => `${p.resource}:${p.action}`) || []
         console.log(`[MOBILE_AUTH] Permissions for ${userId}:`, permissions.length)
 
         return {
@@ -222,7 +229,9 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
             role: dbUser.role?.name,
             permissions,
             isSales: dbUser.isSales,
-            siteId: dbUser.siteId
+            siteId: dbUser.siteId,
+            tenantId: dbUser.tenantId,
+            isSuperAdmin: dbUser.role?.isSuperAdmin ?? false
         } as unknown as MobileTokenPayload
     } catch (error) {
         console.error('[MOBILE_AUTH] Token verification failed:', error)

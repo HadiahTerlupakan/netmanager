@@ -1452,6 +1452,7 @@ export namespace Prisma {
     penaltyMaintenance: number | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MitraMaxAggregateOutputType = {
@@ -1496,6 +1497,7 @@ export namespace Prisma {
     penaltyMaintenance: number | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MitraCountAggregateOutputType = {
@@ -1542,6 +1544,7 @@ export namespace Prisma {
     penaltyMaintenance: number
     createdAt: number
     updatedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -1620,6 +1623,7 @@ export namespace Prisma {
     penaltyMaintenance?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MitraMaxAggregateInputType = {
@@ -1664,6 +1668,7 @@ export namespace Prisma {
     penaltyMaintenance?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MitraCountAggregateInputType = {
@@ -1710,6 +1715,7 @@ export namespace Prisma {
     penaltyMaintenance?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -1843,6 +1849,7 @@ export namespace Prisma {
     penaltyMaintenance: number | null
     createdAt: Date
     updatedAt: Date
+    tenantId: string | null
     _count: MitraCountAggregateOutputType | null
     _avg: MitraAvgAggregateOutputType | null
     _sum: MitraSumAggregateOutputType | null
@@ -1908,6 +1915,7 @@ export namespace Prisma {
     penaltyMaintenance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
     mitraWallet?: boolean | Mitra$mitraWalletArgs<ExtArgs>
     withdrawalsRequested?: boolean | Mitra$withdrawalsRequestedArgs<ExtArgs>
     faceVerificationLogs?: boolean | Mitra$faceVerificationLogsArgs<ExtArgs>
@@ -1958,6 +1966,7 @@ export namespace Prisma {
     penaltyMaintenance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mitra"]>
 
   export type MitraSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -2004,6 +2013,7 @@ export namespace Prisma {
     penaltyMaintenance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }, ExtArgs["result"]["mitra"]>
 
   export type MitraSelectScalar = {
@@ -2050,9 +2060,10 @@ export namespace Prisma {
     penaltyMaintenance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MitraOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "passwordHash" | "phone" | "isActive" | "siteId" | "mitraType" | "pushToken" | "pushTokenUpdatedAt" | "fcmTokens" | "lastVersionCode" | "lastVersionName" | "lastVersionUpdate" | "mitraRateWoPsb" | "mitraRateWoMaintenance" | "mitraRateCanvasing" | "mitraRateFeePelanggan" | "enableFeePelanggan" | "bankName" | "bankAccountNo" | "bankAccountName" | "targetHarian" | "minWithdrawal" | "mixradiusOwnerNames" | "nik" | "tempatLahir" | "tanggalLahir" | "alamat" | "latitudeRumah" | "longitudeRumah" | "fotoDiri" | "fotoKtp" | "fotoSim" | "fotoKk" | "requiresFaceVerification" | "lastFaceVerification" | "garansiHari" | "slaGaransiJam" | "penaltyPsb" | "penaltyMaintenance" | "createdAt" | "updatedAt", ExtArgs["result"]["mitra"]>
+  export type MitraOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "passwordHash" | "phone" | "isActive" | "siteId" | "mitraType" | "pushToken" | "pushTokenUpdatedAt" | "fcmTokens" | "lastVersionCode" | "lastVersionName" | "lastVersionUpdate" | "mitraRateWoPsb" | "mitraRateWoMaintenance" | "mitraRateCanvasing" | "mitraRateFeePelanggan" | "enableFeePelanggan" | "bankName" | "bankAccountNo" | "bankAccountName" | "targetHarian" | "minWithdrawal" | "mixradiusOwnerNames" | "nik" | "tempatLahir" | "tanggalLahir" | "alamat" | "latitudeRumah" | "longitudeRumah" | "fotoDiri" | "fotoKtp" | "fotoSim" | "fotoKk" | "requiresFaceVerification" | "lastFaceVerification" | "garansiHari" | "slaGaransiJam" | "penaltyPsb" | "penaltyMaintenance" | "createdAt" | "updatedAt" | "tenantId", ExtArgs["result"]["mitra"]>
   export type MitraInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     mitraWallet?: boolean | Mitra$mitraWalletArgs<ExtArgs>
     withdrawalsRequested?: boolean | Mitra$withdrawalsRequestedArgs<ExtArgs>
@@ -2113,6 +2124,7 @@ export namespace Prisma {
       penaltyMaintenance: number | null
       createdAt: Date
       updatedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mitra"]>
     composites: {}
   }
@@ -2582,6 +2594,7 @@ export namespace Prisma {
     readonly penaltyMaintenance: FieldRef<"Mitra", 'Float'>
     readonly createdAt: FieldRef<"Mitra", 'DateTime'>
     readonly updatedAt: FieldRef<"Mitra", 'DateTime'>
+    readonly tenantId: FieldRef<"Mitra", 'String'>
   }
     
 
@@ -3088,6 +3101,7 @@ export namespace Prisma {
     currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MitraWalletMaxAggregateOutputType = {
@@ -3099,6 +3113,7 @@ export namespace Prisma {
     currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    tenantId: string | null
   }
 
   export type MitraWalletCountAggregateOutputType = {
@@ -3110,6 +3125,7 @@ export namespace Prisma {
     currency: number
     createdAt: number
     updatedAt: number
+    tenantId: number
     _all: number
   }
 
@@ -3135,6 +3151,7 @@ export namespace Prisma {
     currency?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MitraWalletMaxAggregateInputType = {
@@ -3146,6 +3163,7 @@ export namespace Prisma {
     currency?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
   }
 
   export type MitraWalletCountAggregateInputType = {
@@ -3157,6 +3175,7 @@ export namespace Prisma {
     currency?: true
     createdAt?: true
     updatedAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -3255,6 +3274,7 @@ export namespace Prisma {
     currency: string
     createdAt: Date
     updatedAt: Date
+    tenantId: string | null
     _count: MitraWalletCountAggregateOutputType | null
     _avg: MitraWalletAvgAggregateOutputType | null
     _sum: MitraWalletSumAggregateOutputType | null
@@ -3285,6 +3305,7 @@ export namespace Prisma {
     currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
     transactions?: boolean | MitraWallet$transactionsArgs<ExtArgs>
     withdrawals?: boolean | MitraWallet$withdrawalsArgs<ExtArgs>
@@ -3300,6 +3321,7 @@ export namespace Prisma {
     currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["mitraWallet"]>
 
@@ -3312,6 +3334,7 @@ export namespace Prisma {
     currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["mitraWallet"]>
 
@@ -3324,9 +3347,10 @@ export namespace Prisma {
     currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MitraWalletOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mitraId" | "balance" | "totalEarnings" | "totalWithdrawn" | "currency" | "createdAt" | "updatedAt", ExtArgs["result"]["mitraWallet"]>
+  export type MitraWalletOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mitraId" | "balance" | "totalEarnings" | "totalWithdrawn" | "currency" | "createdAt" | "updatedAt" | "tenantId", ExtArgs["result"]["mitraWallet"]>
   export type MitraWalletInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
     transactions?: boolean | MitraWallet$transactionsArgs<ExtArgs>
@@ -3356,6 +3380,7 @@ export namespace Prisma {
       currency: string
       createdAt: Date
       updatedAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mitraWallet"]>
     composites: {}
   }
@@ -3790,6 +3815,7 @@ export namespace Prisma {
     readonly currency: FieldRef<"MitraWallet", 'String'>
     readonly createdAt: FieldRef<"MitraWallet", 'DateTime'>
     readonly updatedAt: FieldRef<"MitraWallet", 'DateTime'>
+    readonly tenantId: FieldRef<"MitraWallet", 'String'>
   }
     
 
@@ -4281,6 +4307,7 @@ export namespace Prisma {
     referenceId: string | null
     referenceType: string | null
     createdAt: Date | null
+    tenantId: string | null
   }
 
   export type MitraTransactionMaxAggregateOutputType = {
@@ -4292,6 +4319,7 @@ export namespace Prisma {
     referenceId: string | null
     referenceType: string | null
     createdAt: Date | null
+    tenantId: string | null
   }
 
   export type MitraTransactionCountAggregateOutputType = {
@@ -4303,6 +4331,7 @@ export namespace Prisma {
     referenceId: number
     referenceType: number
     createdAt: number
+    tenantId: number
     _all: number
   }
 
@@ -4324,6 +4353,7 @@ export namespace Prisma {
     referenceId?: true
     referenceType?: true
     createdAt?: true
+    tenantId?: true
   }
 
   export type MitraTransactionMaxAggregateInputType = {
@@ -4335,6 +4365,7 @@ export namespace Prisma {
     referenceId?: true
     referenceType?: true
     createdAt?: true
+    tenantId?: true
   }
 
   export type MitraTransactionCountAggregateInputType = {
@@ -4346,6 +4377,7 @@ export namespace Prisma {
     referenceId?: true
     referenceType?: true
     createdAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -4444,6 +4476,7 @@ export namespace Prisma {
     referenceId: string | null
     referenceType: string | null
     createdAt: Date
+    tenantId: string | null
     _count: MitraTransactionCountAggregateOutputType | null
     _avg: MitraTransactionAvgAggregateOutputType | null
     _sum: MitraTransactionSumAggregateOutputType | null
@@ -4474,6 +4507,7 @@ export namespace Prisma {
     referenceId?: boolean
     referenceType?: boolean
     createdAt?: boolean
+    tenantId?: boolean
     wallet?: boolean | MitraWalletDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["mitraTransaction"]>
 
@@ -4486,6 +4520,7 @@ export namespace Prisma {
     referenceId?: boolean
     referenceType?: boolean
     createdAt?: boolean
+    tenantId?: boolean
     wallet?: boolean | MitraWalletDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["mitraTransaction"]>
 
@@ -4498,6 +4533,7 @@ export namespace Prisma {
     referenceId?: boolean
     referenceType?: boolean
     createdAt?: boolean
+    tenantId?: boolean
     wallet?: boolean | MitraWalletDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["mitraTransaction"]>
 
@@ -4510,9 +4546,10 @@ export namespace Prisma {
     referenceId?: boolean
     referenceType?: boolean
     createdAt?: boolean
+    tenantId?: boolean
   }
 
-  export type MitraTransactionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "walletId" | "amount" | "type" | "description" | "referenceId" | "referenceType" | "createdAt", ExtArgs["result"]["mitraTransaction"]>
+  export type MitraTransactionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "walletId" | "amount" | "type" | "description" | "referenceId" | "referenceType" | "createdAt" | "tenantId", ExtArgs["result"]["mitraTransaction"]>
   export type MitraTransactionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     wallet?: boolean | MitraWalletDefaultArgs<ExtArgs>
   }
@@ -4537,6 +4574,7 @@ export namespace Prisma {
       referenceId: string | null
       referenceType: string | null
       createdAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["mitraTransaction"]>
     composites: {}
   }
@@ -4969,6 +5007,7 @@ export namespace Prisma {
     readonly referenceId: FieldRef<"MitraTransaction", 'String'>
     readonly referenceType: FieldRef<"MitraTransaction", 'String'>
     readonly createdAt: FieldRef<"MitraTransaction", 'DateTime'>
+    readonly tenantId: FieldRef<"MitraTransaction", 'String'>
   }
     
 
@@ -5419,6 +5458,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     mitraWalletId: string | null
+    tenantId: string | null
   }
 
   export type WithdrawRequestMaxAggregateOutputType = {
@@ -5437,6 +5477,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     mitraWalletId: string | null
+    tenantId: string | null
   }
 
   export type WithdrawRequestCountAggregateOutputType = {
@@ -5455,6 +5496,7 @@ export namespace Prisma {
     createdAt: number
     updatedAt: number
     mitraWalletId: number
+    tenantId: number
     _all: number
   }
 
@@ -5483,6 +5525,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     mitraWalletId?: true
+    tenantId?: true
   }
 
   export type WithdrawRequestMaxAggregateInputType = {
@@ -5501,6 +5544,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     mitraWalletId?: true
+    tenantId?: true
   }
 
   export type WithdrawRequestCountAggregateInputType = {
@@ -5519,6 +5563,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     mitraWalletId?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -5624,6 +5669,7 @@ export namespace Prisma {
     createdAt: Date
     updatedAt: Date
     mitraWalletId: string | null
+    tenantId: string | null
     _count: WithdrawRequestCountAggregateOutputType | null
     _avg: WithdrawRequestAvgAggregateOutputType | null
     _sum: WithdrawRequestSumAggregateOutputType | null
@@ -5661,6 +5707,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     mitraWalletId?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
     mitraWallet?: boolean | WithdrawRequest$mitraWalletArgs<ExtArgs>
   }, ExtArgs["result"]["withdrawRequest"]>
@@ -5681,6 +5728,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     mitraWalletId?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
     mitraWallet?: boolean | WithdrawRequest$mitraWalletArgs<ExtArgs>
   }, ExtArgs["result"]["withdrawRequest"]>
@@ -5701,6 +5749,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     mitraWalletId?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
     mitraWallet?: boolean | WithdrawRequest$mitraWalletArgs<ExtArgs>
   }, ExtArgs["result"]["withdrawRequest"]>
@@ -5721,9 +5770,10 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     mitraWalletId?: boolean
+    tenantId?: boolean
   }
 
-  export type WithdrawRequestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mitraId" | "amount" | "bankName" | "bankAccountNo" | "bankAccountName" | "status" | "method" | "notes" | "processedById" | "processedAt" | "rejectionReason" | "createdAt" | "updatedAt" | "mitraWalletId", ExtArgs["result"]["withdrawRequest"]>
+  export type WithdrawRequestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mitraId" | "amount" | "bankName" | "bankAccountNo" | "bankAccountName" | "status" | "method" | "notes" | "processedById" | "processedAt" | "rejectionReason" | "createdAt" | "updatedAt" | "mitraWalletId" | "tenantId", ExtArgs["result"]["withdrawRequest"]>
   export type WithdrawRequestInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
     mitraWallet?: boolean | WithdrawRequest$mitraWalletArgs<ExtArgs>
@@ -5759,6 +5809,7 @@ export namespace Prisma {
       createdAt: Date
       updatedAt: Date
       mitraWalletId: string | null
+      tenantId: string | null
     }, ExtArgs["result"]["withdrawRequest"]>
     composites: {}
   }
@@ -6199,6 +6250,7 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"WithdrawRequest", 'DateTime'>
     readonly updatedAt: FieldRef<"WithdrawRequest", 'DateTime'>
     readonly mitraWalletId: FieldRef<"WithdrawRequest", 'String'>
+    readonly tenantId: FieldRef<"WithdrawRequest", 'String'>
   }
     
 
@@ -6662,6 +6714,7 @@ export namespace Prisma {
     longitude: number | null
     deviceInfo: string | null
     createdAt: Date | null
+    tenantId: string | null
   }
 
   export type FaceVerificationLogMaxAggregateOutputType = {
@@ -6672,6 +6725,7 @@ export namespace Prisma {
     longitude: number | null
     deviceInfo: string | null
     createdAt: Date | null
+    tenantId: string | null
   }
 
   export type FaceVerificationLogCountAggregateOutputType = {
@@ -6682,6 +6736,7 @@ export namespace Prisma {
     longitude: number
     deviceInfo: number
     createdAt: number
+    tenantId: number
     _all: number
   }
 
@@ -6704,6 +6759,7 @@ export namespace Prisma {
     longitude?: true
     deviceInfo?: true
     createdAt?: true
+    tenantId?: true
   }
 
   export type FaceVerificationLogMaxAggregateInputType = {
@@ -6714,6 +6770,7 @@ export namespace Prisma {
     longitude?: true
     deviceInfo?: true
     createdAt?: true
+    tenantId?: true
   }
 
   export type FaceVerificationLogCountAggregateInputType = {
@@ -6724,6 +6781,7 @@ export namespace Prisma {
     longitude?: true
     deviceInfo?: true
     createdAt?: true
+    tenantId?: true
     _all?: true
   }
 
@@ -6821,6 +6879,7 @@ export namespace Prisma {
     longitude: number | null
     deviceInfo: string | null
     createdAt: Date
+    tenantId: string | null
     _count: FaceVerificationLogCountAggregateOutputType | null
     _avg: FaceVerificationLogAvgAggregateOutputType | null
     _sum: FaceVerificationLogSumAggregateOutputType | null
@@ -6850,6 +6909,7 @@ export namespace Prisma {
     longitude?: boolean
     deviceInfo?: boolean
     createdAt?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["faceVerificationLog"]>
 
@@ -6861,6 +6921,7 @@ export namespace Prisma {
     longitude?: boolean
     deviceInfo?: boolean
     createdAt?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["faceVerificationLog"]>
 
@@ -6872,6 +6933,7 @@ export namespace Prisma {
     longitude?: boolean
     deviceInfo?: boolean
     createdAt?: boolean
+    tenantId?: boolean
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["faceVerificationLog"]>
 
@@ -6883,9 +6945,10 @@ export namespace Prisma {
     longitude?: boolean
     deviceInfo?: boolean
     createdAt?: boolean
+    tenantId?: boolean
   }
 
-  export type FaceVerificationLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mitraId" | "photoUrl" | "latitude" | "longitude" | "deviceInfo" | "createdAt", ExtArgs["result"]["faceVerificationLog"]>
+  export type FaceVerificationLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "mitraId" | "photoUrl" | "latitude" | "longitude" | "deviceInfo" | "createdAt" | "tenantId", ExtArgs["result"]["faceVerificationLog"]>
   export type FaceVerificationLogInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     mitra?: boolean | MitraDefaultArgs<ExtArgs>
   }
@@ -6909,6 +6972,7 @@ export namespace Prisma {
       longitude: number | null
       deviceInfo: string | null
       createdAt: Date
+      tenantId: string | null
     }, ExtArgs["result"]["faceVerificationLog"]>
     composites: {}
   }
@@ -7340,6 +7404,7 @@ export namespace Prisma {
     readonly longitude: FieldRef<"FaceVerificationLog", 'Float'>
     readonly deviceInfo: FieldRef<"FaceVerificationLog", 'String'>
     readonly createdAt: FieldRef<"FaceVerificationLog", 'DateTime'>
+    readonly tenantId: FieldRef<"FaceVerificationLog", 'String'>
   }
     
 
@@ -7811,7 +7876,8 @@ export namespace Prisma {
     penaltyPsb: 'penaltyPsb',
     penaltyMaintenance: 'penaltyMaintenance',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    tenantId: 'tenantId'
   };
 
   export type MitraScalarFieldEnum = (typeof MitraScalarFieldEnum)[keyof typeof MitraScalarFieldEnum]
@@ -7825,7 +7891,8 @@ export namespace Prisma {
     totalWithdrawn: 'totalWithdrawn',
     currency: 'currency',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    tenantId: 'tenantId'
   };
 
   export type MitraWalletScalarFieldEnum = (typeof MitraWalletScalarFieldEnum)[keyof typeof MitraWalletScalarFieldEnum]
@@ -7839,7 +7906,8 @@ export namespace Prisma {
     description: 'description',
     referenceId: 'referenceId',
     referenceType: 'referenceType',
-    createdAt: 'createdAt'
+    createdAt: 'createdAt',
+    tenantId: 'tenantId'
   };
 
   export type MitraTransactionScalarFieldEnum = (typeof MitraTransactionScalarFieldEnum)[keyof typeof MitraTransactionScalarFieldEnum]
@@ -7860,7 +7928,8 @@ export namespace Prisma {
     rejectionReason: 'rejectionReason',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
-    mitraWalletId: 'mitraWalletId'
+    mitraWalletId: 'mitraWalletId',
+    tenantId: 'tenantId'
   };
 
   export type WithdrawRequestScalarFieldEnum = (typeof WithdrawRequestScalarFieldEnum)[keyof typeof WithdrawRequestScalarFieldEnum]
@@ -7873,7 +7942,8 @@ export namespace Prisma {
     latitude: 'latitude',
     longitude: 'longitude',
     deviceInfo: 'deviceInfo',
-    createdAt: 'createdAt'
+    createdAt: 'createdAt',
+    tenantId: 'tenantId'
   };
 
   export type FaceVerificationLogScalarFieldEnum = (typeof FaceVerificationLogScalarFieldEnum)[keyof typeof FaceVerificationLogScalarFieldEnum]
@@ -8077,6 +8147,7 @@ export namespace Prisma {
     penaltyMaintenance?: FloatNullableFilter<"Mitra"> | number | null
     createdAt?: DateTimeFilter<"Mitra"> | Date | string
     updatedAt?: DateTimeFilter<"Mitra"> | Date | string
+    tenantId?: StringNullableFilter<"Mitra"> | string | null
     mitraWallet?: XOR<MitraWalletNullableScalarRelationFilter, MitraWalletWhereInput> | null
     withdrawalsRequested?: WithdrawRequestListRelationFilter
     faceVerificationLogs?: FaceVerificationLogListRelationFilter
@@ -8126,6 +8197,7 @@ export namespace Prisma {
     penaltyMaintenance?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     mitraWallet?: MitraWalletOrderByWithRelationInput
     withdrawalsRequested?: WithdrawRequestOrderByRelationAggregateInput
     faceVerificationLogs?: FaceVerificationLogOrderByRelationAggregateInput
@@ -8178,6 +8250,7 @@ export namespace Prisma {
     penaltyMaintenance?: FloatNullableFilter<"Mitra"> | number | null
     createdAt?: DateTimeFilter<"Mitra"> | Date | string
     updatedAt?: DateTimeFilter<"Mitra"> | Date | string
+    tenantId?: StringNullableFilter<"Mitra"> | string | null
     mitraWallet?: XOR<MitraWalletNullableScalarRelationFilter, MitraWalletWhereInput> | null
     withdrawalsRequested?: WithdrawRequestListRelationFilter
     faceVerificationLogs?: FaceVerificationLogListRelationFilter
@@ -8227,6 +8300,7 @@ export namespace Prisma {
     penaltyMaintenance?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MitraCountOrderByAggregateInput
     _avg?: MitraAvgOrderByAggregateInput
     _max?: MitraMaxOrderByAggregateInput
@@ -8281,6 +8355,7 @@ export namespace Prisma {
     penaltyMaintenance?: FloatNullableWithAggregatesFilter<"Mitra"> | number | null
     createdAt?: DateTimeWithAggregatesFilter<"Mitra"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Mitra"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"Mitra"> | string | null
   }
 
   export type MitraWalletWhereInput = {
@@ -8295,6 +8370,7 @@ export namespace Prisma {
     currency?: StringFilter<"MitraWallet"> | string
     createdAt?: DateTimeFilter<"MitraWallet"> | Date | string
     updatedAt?: DateTimeFilter<"MitraWallet"> | Date | string
+    tenantId?: StringNullableFilter<"MitraWallet"> | string | null
     mitra?: XOR<MitraScalarRelationFilter, MitraWhereInput>
     transactions?: MitraTransactionListRelationFilter
     withdrawals?: WithdrawRequestListRelationFilter
@@ -8309,6 +8385,7 @@ export namespace Prisma {
     currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     mitra?: MitraOrderByWithRelationInput
     transactions?: MitraTransactionOrderByRelationAggregateInput
     withdrawals?: WithdrawRequestOrderByRelationAggregateInput
@@ -8326,6 +8403,7 @@ export namespace Prisma {
     currency?: StringFilter<"MitraWallet"> | string
     createdAt?: DateTimeFilter<"MitraWallet"> | Date | string
     updatedAt?: DateTimeFilter<"MitraWallet"> | Date | string
+    tenantId?: StringNullableFilter<"MitraWallet"> | string | null
     mitra?: XOR<MitraScalarRelationFilter, MitraWhereInput>
     transactions?: MitraTransactionListRelationFilter
     withdrawals?: WithdrawRequestListRelationFilter
@@ -8340,6 +8418,7 @@ export namespace Prisma {
     currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MitraWalletCountOrderByAggregateInput
     _avg?: MitraWalletAvgOrderByAggregateInput
     _max?: MitraWalletMaxOrderByAggregateInput
@@ -8359,6 +8438,7 @@ export namespace Prisma {
     currency?: StringWithAggregatesFilter<"MitraWallet"> | string
     createdAt?: DateTimeWithAggregatesFilter<"MitraWallet"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"MitraWallet"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"MitraWallet"> | string | null
   }
 
   export type MitraTransactionWhereInput = {
@@ -8373,6 +8453,7 @@ export namespace Prisma {
     referenceId?: StringNullableFilter<"MitraTransaction"> | string | null
     referenceType?: StringNullableFilter<"MitraTransaction"> | string | null
     createdAt?: DateTimeFilter<"MitraTransaction"> | Date | string
+    tenantId?: StringNullableFilter<"MitraTransaction"> | string | null
     wallet?: XOR<MitraWalletScalarRelationFilter, MitraWalletWhereInput>
   }
 
@@ -8385,6 +8466,7 @@ export namespace Prisma {
     referenceId?: SortOrderInput | SortOrder
     referenceType?: SortOrderInput | SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     wallet?: MitraWalletOrderByWithRelationInput
   }
 
@@ -8400,6 +8482,7 @@ export namespace Prisma {
     referenceId?: StringNullableFilter<"MitraTransaction"> | string | null
     referenceType?: StringNullableFilter<"MitraTransaction"> | string | null
     createdAt?: DateTimeFilter<"MitraTransaction"> | Date | string
+    tenantId?: StringNullableFilter<"MitraTransaction"> | string | null
     wallet?: XOR<MitraWalletScalarRelationFilter, MitraWalletWhereInput>
   }, "id">
 
@@ -8412,6 +8495,7 @@ export namespace Prisma {
     referenceId?: SortOrderInput | SortOrder
     referenceType?: SortOrderInput | SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: MitraTransactionCountOrderByAggregateInput
     _avg?: MitraTransactionAvgOrderByAggregateInput
     _max?: MitraTransactionMaxOrderByAggregateInput
@@ -8431,6 +8515,7 @@ export namespace Prisma {
     referenceId?: StringNullableWithAggregatesFilter<"MitraTransaction"> | string | null
     referenceType?: StringNullableWithAggregatesFilter<"MitraTransaction"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"MitraTransaction"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"MitraTransaction"> | string | null
   }
 
   export type WithdrawRequestWhereInput = {
@@ -8452,6 +8537,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"WithdrawRequest"> | Date | string
     updatedAt?: DateTimeFilter<"WithdrawRequest"> | Date | string
     mitraWalletId?: StringNullableFilter<"WithdrawRequest"> | string | null
+    tenantId?: StringNullableFilter<"WithdrawRequest"> | string | null
     mitra?: XOR<MitraScalarRelationFilter, MitraWhereInput>
     mitraWallet?: XOR<MitraWalletNullableScalarRelationFilter, MitraWalletWhereInput> | null
   }
@@ -8472,6 +8558,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     mitraWalletId?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
     mitra?: MitraOrderByWithRelationInput
     mitraWallet?: MitraWalletOrderByWithRelationInput
   }
@@ -8495,6 +8582,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"WithdrawRequest"> | Date | string
     updatedAt?: DateTimeFilter<"WithdrawRequest"> | Date | string
     mitraWalletId?: StringNullableFilter<"WithdrawRequest"> | string | null
+    tenantId?: StringNullableFilter<"WithdrawRequest"> | string | null
     mitra?: XOR<MitraScalarRelationFilter, MitraWhereInput>
     mitraWallet?: XOR<MitraWalletNullableScalarRelationFilter, MitraWalletWhereInput> | null
   }, "id">
@@ -8515,6 +8603,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     mitraWalletId?: SortOrderInput | SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: WithdrawRequestCountOrderByAggregateInput
     _avg?: WithdrawRequestAvgOrderByAggregateInput
     _max?: WithdrawRequestMaxOrderByAggregateInput
@@ -8541,6 +8630,7 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"WithdrawRequest"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"WithdrawRequest"> | Date | string
     mitraWalletId?: StringNullableWithAggregatesFilter<"WithdrawRequest"> | string | null
+    tenantId?: StringNullableWithAggregatesFilter<"WithdrawRequest"> | string | null
   }
 
   export type FaceVerificationLogWhereInput = {
@@ -8554,6 +8644,7 @@ export namespace Prisma {
     longitude?: FloatNullableFilter<"FaceVerificationLog"> | number | null
     deviceInfo?: StringNullableFilter<"FaceVerificationLog"> | string | null
     createdAt?: DateTimeFilter<"FaceVerificationLog"> | Date | string
+    tenantId?: StringNullableFilter<"FaceVerificationLog"> | string | null
     mitra?: XOR<MitraScalarRelationFilter, MitraWhereInput>
   }
 
@@ -8565,6 +8656,7 @@ export namespace Prisma {
     longitude?: SortOrderInput | SortOrder
     deviceInfo?: SortOrderInput | SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     mitra?: MitraOrderByWithRelationInput
   }
 
@@ -8579,6 +8671,7 @@ export namespace Prisma {
     longitude?: FloatNullableFilter<"FaceVerificationLog"> | number | null
     deviceInfo?: StringNullableFilter<"FaceVerificationLog"> | string | null
     createdAt?: DateTimeFilter<"FaceVerificationLog"> | Date | string
+    tenantId?: StringNullableFilter<"FaceVerificationLog"> | string | null
     mitra?: XOR<MitraScalarRelationFilter, MitraWhereInput>
   }, "id">
 
@@ -8590,6 +8683,7 @@ export namespace Prisma {
     longitude?: SortOrderInput | SortOrder
     deviceInfo?: SortOrderInput | SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrderInput | SortOrder
     _count?: FaceVerificationLogCountOrderByAggregateInput
     _avg?: FaceVerificationLogAvgOrderByAggregateInput
     _max?: FaceVerificationLogMaxOrderByAggregateInput
@@ -8608,6 +8702,7 @@ export namespace Prisma {
     longitude?: FloatNullableWithAggregatesFilter<"FaceVerificationLog"> | number | null
     deviceInfo?: StringNullableWithAggregatesFilter<"FaceVerificationLog"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"FaceVerificationLog"> | Date | string
+    tenantId?: StringNullableWithAggregatesFilter<"FaceVerificationLog"> | string | null
   }
 
   export type MitraCreateInput = {
@@ -8654,6 +8749,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitraWallet?: MitraWalletCreateNestedOneWithoutMitraInput
     withdrawalsRequested?: WithdrawRequestCreateNestedManyWithoutMitraInput
     faceVerificationLogs?: FaceVerificationLogCreateNestedManyWithoutMitraInput
@@ -8703,6 +8799,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitraWallet?: MitraWalletUncheckedCreateNestedOneWithoutMitraInput
     withdrawalsRequested?: WithdrawRequestUncheckedCreateNestedManyWithoutMitraInput
     faceVerificationLogs?: FaceVerificationLogUncheckedCreateNestedManyWithoutMitraInput
@@ -8752,6 +8849,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitraWallet?: MitraWalletUpdateOneWithoutMitraNestedInput
     withdrawalsRequested?: WithdrawRequestUpdateManyWithoutMitraNestedInput
     faceVerificationLogs?: FaceVerificationLogUpdateManyWithoutMitraNestedInput
@@ -8801,6 +8899,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitraWallet?: MitraWalletUncheckedUpdateOneWithoutMitraNestedInput
     withdrawalsRequested?: WithdrawRequestUncheckedUpdateManyWithoutMitraNestedInput
     faceVerificationLogs?: FaceVerificationLogUncheckedUpdateManyWithoutMitraNestedInput
@@ -8850,6 +8949,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MitraUpdateManyMutationInput = {
@@ -8896,6 +8996,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraUncheckedUpdateManyInput = {
@@ -8942,6 +9043,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraWalletCreateInput = {
@@ -8952,6 +9054,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitra: MitraCreateNestedOneWithoutMitraWalletInput
     transactions?: MitraTransactionCreateNestedManyWithoutWalletInput
     withdrawals?: WithdrawRequestCreateNestedManyWithoutMitraWalletInput
@@ -8966,6 +9069,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     transactions?: MitraTransactionUncheckedCreateNestedManyWithoutWalletInput
     withdrawals?: WithdrawRequestUncheckedCreateNestedManyWithoutMitraWalletInput
   }
@@ -8978,6 +9082,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitra?: MitraUpdateOneRequiredWithoutMitraWalletNestedInput
     transactions?: MitraTransactionUpdateManyWithoutWalletNestedInput
     withdrawals?: WithdrawRequestUpdateManyWithoutMitraWalletNestedInput
@@ -8992,6 +9097,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     transactions?: MitraTransactionUncheckedUpdateManyWithoutWalletNestedInput
     withdrawals?: WithdrawRequestUncheckedUpdateManyWithoutMitraWalletNestedInput
   }
@@ -9005,6 +9111,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MitraWalletUpdateManyMutationInput = {
@@ -9015,6 +9122,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraWalletUncheckedUpdateManyInput = {
@@ -9026,6 +9134,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraTransactionCreateInput = {
@@ -9036,6 +9145,7 @@ export namespace Prisma {
     referenceId?: string | null
     referenceType?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
     wallet: MitraWalletCreateNestedOneWithoutTransactionsInput
   }
 
@@ -9048,6 +9158,7 @@ export namespace Prisma {
     referenceId?: string | null
     referenceType?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MitraTransactionUpdateInput = {
@@ -9058,6 +9169,7 @@ export namespace Prisma {
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
     referenceType?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     wallet?: MitraWalletUpdateOneRequiredWithoutTransactionsNestedInput
   }
 
@@ -9070,6 +9182,7 @@ export namespace Prisma {
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
     referenceType?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraTransactionCreateManyInput = {
@@ -9081,6 +9194,7 @@ export namespace Prisma {
     referenceId?: string | null
     referenceType?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MitraTransactionUpdateManyMutationInput = {
@@ -9091,6 +9205,7 @@ export namespace Prisma {
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
     referenceType?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraTransactionUncheckedUpdateManyInput = {
@@ -9102,6 +9217,7 @@ export namespace Prisma {
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
     referenceType?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type WithdrawRequestCreateInput = {
@@ -9118,6 +9234,7 @@ export namespace Prisma {
     rejectionReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitra: MitraCreateNestedOneWithoutWithdrawalsRequestedInput
     mitraWallet?: MitraWalletCreateNestedOneWithoutWithdrawalsInput
   }
@@ -9138,6 +9255,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     mitraWalletId?: string | null
+    tenantId?: string | null
   }
 
   export type WithdrawRequestUpdateInput = {
@@ -9154,6 +9272,7 @@ export namespace Prisma {
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitra?: MitraUpdateOneRequiredWithoutWithdrawalsRequestedNestedInput
     mitraWallet?: MitraWalletUpdateOneWithoutWithdrawalsNestedInput
   }
@@ -9174,6 +9293,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     mitraWalletId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type WithdrawRequestCreateManyInput = {
@@ -9192,6 +9312,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     mitraWalletId?: string | null
+    tenantId?: string | null
   }
 
   export type WithdrawRequestUpdateManyMutationInput = {
@@ -9208,6 +9329,7 @@ export namespace Prisma {
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type WithdrawRequestUncheckedUpdateManyInput = {
@@ -9226,6 +9348,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     mitraWalletId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type FaceVerificationLogCreateInput = {
@@ -9235,6 +9358,7 @@ export namespace Prisma {
     longitude?: number | null
     deviceInfo?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
     mitra: MitraCreateNestedOneWithoutFaceVerificationLogsInput
   }
 
@@ -9246,6 +9370,7 @@ export namespace Prisma {
     longitude?: number | null
     deviceInfo?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type FaceVerificationLogUpdateInput = {
@@ -9255,6 +9380,7 @@ export namespace Prisma {
     longitude?: NullableFloatFieldUpdateOperationsInput | number | null
     deviceInfo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitra?: MitraUpdateOneRequiredWithoutFaceVerificationLogsNestedInput
   }
 
@@ -9266,6 +9392,7 @@ export namespace Prisma {
     longitude?: NullableFloatFieldUpdateOperationsInput | number | null
     deviceInfo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type FaceVerificationLogCreateManyInput = {
@@ -9276,6 +9403,7 @@ export namespace Prisma {
     longitude?: number | null
     deviceInfo?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type FaceVerificationLogUpdateManyMutationInput = {
@@ -9285,6 +9413,7 @@ export namespace Prisma {
     longitude?: NullableFloatFieldUpdateOperationsInput | number | null
     deviceInfo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type FaceVerificationLogUncheckedUpdateManyInput = {
@@ -9295,6 +9424,7 @@ export namespace Prisma {
     longitude?: NullableFloatFieldUpdateOperationsInput | number | null
     deviceInfo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type StringFilter<$PrismaModel = never> = {
@@ -9465,6 +9595,7 @@ export namespace Prisma {
     penaltyMaintenance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraAvgOrderByAggregateInput = {
@@ -9525,6 +9656,7 @@ export namespace Prisma {
     penaltyMaintenance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraMinOrderByAggregateInput = {
@@ -9569,6 +9701,7 @@ export namespace Prisma {
     penaltyMaintenance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraSumOrderByAggregateInput = {
@@ -9736,6 +9869,7 @@ export namespace Prisma {
     currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraWalletAvgOrderByAggregateInput = {
@@ -9753,6 +9887,7 @@ export namespace Prisma {
     currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraWalletMinOrderByAggregateInput = {
@@ -9764,6 +9899,7 @@ export namespace Prisma {
     currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraWalletSumOrderByAggregateInput = {
@@ -9809,6 +9945,7 @@ export namespace Prisma {
     referenceId?: SortOrder
     referenceType?: SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraTransactionAvgOrderByAggregateInput = {
@@ -9824,6 +9961,7 @@ export namespace Prisma {
     referenceId?: SortOrder
     referenceType?: SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraTransactionMinOrderByAggregateInput = {
@@ -9835,6 +9973,7 @@ export namespace Prisma {
     referenceId?: SortOrder
     referenceType?: SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type MitraTransactionSumOrderByAggregateInput = {
@@ -9881,6 +10020,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     mitraWalletId?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type WithdrawRequestAvgOrderByAggregateInput = {
@@ -9903,6 +10043,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     mitraWalletId?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type WithdrawRequestMinOrderByAggregateInput = {
@@ -9921,6 +10062,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     mitraWalletId?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type WithdrawRequestSumOrderByAggregateInput = {
@@ -9955,6 +10097,7 @@ export namespace Prisma {
     longitude?: SortOrder
     deviceInfo?: SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type FaceVerificationLogAvgOrderByAggregateInput = {
@@ -9970,6 +10113,7 @@ export namespace Prisma {
     longitude?: SortOrder
     deviceInfo?: SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type FaceVerificationLogMinOrderByAggregateInput = {
@@ -9980,6 +10124,7 @@ export namespace Prisma {
     longitude?: SortOrder
     deviceInfo?: SortOrder
     createdAt?: SortOrder
+    tenantId?: SortOrder
   }
 
   export type FaceVerificationLogSumOrderByAggregateInput = {
@@ -10630,6 +10775,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     transactions?: MitraTransactionCreateNestedManyWithoutWalletInput
     withdrawals?: WithdrawRequestCreateNestedManyWithoutMitraWalletInput
   }
@@ -10642,6 +10788,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     transactions?: MitraTransactionUncheckedCreateNestedManyWithoutWalletInput
     withdrawals?: WithdrawRequestUncheckedCreateNestedManyWithoutMitraWalletInput
   }
@@ -10665,6 +10812,7 @@ export namespace Prisma {
     rejectionReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitraWallet?: MitraWalletCreateNestedOneWithoutWithdrawalsInput
   }
 
@@ -10683,6 +10831,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     mitraWalletId?: string | null
+    tenantId?: string | null
   }
 
   export type WithdrawRequestCreateOrConnectWithoutMitraInput = {
@@ -10702,6 +10851,7 @@ export namespace Prisma {
     longitude?: number | null
     deviceInfo?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type FaceVerificationLogUncheckedCreateWithoutMitraInput = {
@@ -10711,6 +10861,7 @@ export namespace Prisma {
     longitude?: number | null
     deviceInfo?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type FaceVerificationLogCreateOrConnectWithoutMitraInput = {
@@ -10742,6 +10893,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     transactions?: MitraTransactionUpdateManyWithoutWalletNestedInput
     withdrawals?: WithdrawRequestUpdateManyWithoutMitraWalletNestedInput
   }
@@ -10754,6 +10906,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     transactions?: MitraTransactionUncheckedUpdateManyWithoutWalletNestedInput
     withdrawals?: WithdrawRequestUncheckedUpdateManyWithoutMitraWalletNestedInput
   }
@@ -10793,6 +10946,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"WithdrawRequest"> | Date | string
     updatedAt?: DateTimeFilter<"WithdrawRequest"> | Date | string
     mitraWalletId?: StringNullableFilter<"WithdrawRequest"> | string | null
+    tenantId?: StringNullableFilter<"WithdrawRequest"> | string | null
   }
 
   export type FaceVerificationLogUpsertWithWhereUniqueWithoutMitraInput = {
@@ -10822,6 +10976,7 @@ export namespace Prisma {
     longitude?: FloatNullableFilter<"FaceVerificationLog"> | number | null
     deviceInfo?: StringNullableFilter<"FaceVerificationLog"> | string | null
     createdAt?: DateTimeFilter<"FaceVerificationLog"> | Date | string
+    tenantId?: StringNullableFilter<"FaceVerificationLog"> | string | null
   }
 
   export type MitraCreateWithoutMitraWalletInput = {
@@ -10868,6 +11023,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     withdrawalsRequested?: WithdrawRequestCreateNestedManyWithoutMitraInput
     faceVerificationLogs?: FaceVerificationLogCreateNestedManyWithoutMitraInput
   }
@@ -10916,6 +11072,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     withdrawalsRequested?: WithdrawRequestUncheckedCreateNestedManyWithoutMitraInput
     faceVerificationLogs?: FaceVerificationLogUncheckedCreateNestedManyWithoutMitraInput
   }
@@ -10933,6 +11090,7 @@ export namespace Prisma {
     referenceId?: string | null
     referenceType?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MitraTransactionUncheckedCreateWithoutWalletInput = {
@@ -10943,6 +11101,7 @@ export namespace Prisma {
     referenceId?: string | null
     referenceType?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MitraTransactionCreateOrConnectWithoutWalletInput = {
@@ -10969,6 +11128,7 @@ export namespace Prisma {
     rejectionReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitra: MitraCreateNestedOneWithoutWithdrawalsRequestedInput
   }
 
@@ -10987,6 +11147,7 @@ export namespace Prisma {
     rejectionReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type WithdrawRequestCreateOrConnectWithoutMitraWalletInput = {
@@ -11054,6 +11215,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     withdrawalsRequested?: WithdrawRequestUpdateManyWithoutMitraNestedInput
     faceVerificationLogs?: FaceVerificationLogUpdateManyWithoutMitraNestedInput
   }
@@ -11102,6 +11264,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     withdrawalsRequested?: WithdrawRequestUncheckedUpdateManyWithoutMitraNestedInput
     faceVerificationLogs?: FaceVerificationLogUncheckedUpdateManyWithoutMitraNestedInput
   }
@@ -11134,6 +11297,7 @@ export namespace Prisma {
     referenceId?: StringNullableFilter<"MitraTransaction"> | string | null
     referenceType?: StringNullableFilter<"MitraTransaction"> | string | null
     createdAt?: DateTimeFilter<"MitraTransaction"> | Date | string
+    tenantId?: StringNullableFilter<"MitraTransaction"> | string | null
   }
 
   export type WithdrawRequestUpsertWithWhereUniqueWithoutMitraWalletInput = {
@@ -11160,6 +11324,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitra: MitraCreateNestedOneWithoutMitraWalletInput
     withdrawals?: WithdrawRequestCreateNestedManyWithoutMitraWalletInput
   }
@@ -11173,6 +11338,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     withdrawals?: WithdrawRequestUncheckedCreateNestedManyWithoutMitraWalletInput
   }
 
@@ -11200,6 +11366,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitra?: MitraUpdateOneRequiredWithoutMitraWalletNestedInput
     withdrawals?: WithdrawRequestUpdateManyWithoutMitraWalletNestedInput
   }
@@ -11213,6 +11380,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     withdrawals?: WithdrawRequestUncheckedUpdateManyWithoutMitraWalletNestedInput
   }
 
@@ -11260,6 +11428,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitraWallet?: MitraWalletCreateNestedOneWithoutMitraInput
     faceVerificationLogs?: FaceVerificationLogCreateNestedManyWithoutMitraInput
   }
@@ -11308,6 +11477,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitraWallet?: MitraWalletUncheckedCreateNestedOneWithoutMitraInput
     faceVerificationLogs?: FaceVerificationLogUncheckedCreateNestedManyWithoutMitraInput
   }
@@ -11325,6 +11495,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitra: MitraCreateNestedOneWithoutMitraWalletInput
     transactions?: MitraTransactionCreateNestedManyWithoutWalletInput
   }
@@ -11338,6 +11509,7 @@ export namespace Prisma {
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     transactions?: MitraTransactionUncheckedCreateNestedManyWithoutWalletInput
   }
 
@@ -11401,6 +11573,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitraWallet?: MitraWalletUpdateOneWithoutMitraNestedInput
     faceVerificationLogs?: FaceVerificationLogUpdateManyWithoutMitraNestedInput
   }
@@ -11449,6 +11622,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitraWallet?: MitraWalletUncheckedUpdateOneWithoutMitraNestedInput
     faceVerificationLogs?: FaceVerificationLogUncheckedUpdateManyWithoutMitraNestedInput
   }
@@ -11472,6 +11646,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitra?: MitraUpdateOneRequiredWithoutMitraWalletNestedInput
     transactions?: MitraTransactionUpdateManyWithoutWalletNestedInput
   }
@@ -11485,6 +11660,7 @@ export namespace Prisma {
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     transactions?: MitraTransactionUncheckedUpdateManyWithoutWalletNestedInput
   }
 
@@ -11532,6 +11708,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitraWallet?: MitraWalletCreateNestedOneWithoutMitraInput
     withdrawalsRequested?: WithdrawRequestCreateNestedManyWithoutMitraInput
   }
@@ -11580,6 +11757,7 @@ export namespace Prisma {
     penaltyMaintenance?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
     mitraWallet?: MitraWalletUncheckedCreateNestedOneWithoutMitraInput
     withdrawalsRequested?: WithdrawRequestUncheckedCreateNestedManyWithoutMitraInput
   }
@@ -11644,6 +11822,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitraWallet?: MitraWalletUpdateOneWithoutMitraNestedInput
     withdrawalsRequested?: WithdrawRequestUpdateManyWithoutMitraNestedInput
   }
@@ -11692,6 +11871,7 @@ export namespace Prisma {
     penaltyMaintenance?: NullableFloatFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitraWallet?: MitraWalletUncheckedUpdateOneWithoutMitraNestedInput
     withdrawalsRequested?: WithdrawRequestUncheckedUpdateManyWithoutMitraNestedInput
   }
@@ -11711,6 +11891,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     mitraWalletId?: string | null
+    tenantId?: string | null
   }
 
   export type FaceVerificationLogCreateManyMitraInput = {
@@ -11720,6 +11901,7 @@ export namespace Prisma {
     longitude?: number | null
     deviceInfo?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type WithdrawRequestUpdateWithoutMitraInput = {
@@ -11736,6 +11918,7 @@ export namespace Prisma {
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitraWallet?: MitraWalletUpdateOneWithoutWithdrawalsNestedInput
   }
 
@@ -11754,6 +11937,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     mitraWalletId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type WithdrawRequestUncheckedUpdateManyWithoutMitraInput = {
@@ -11771,6 +11955,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     mitraWalletId?: NullableStringFieldUpdateOperationsInput | string | null
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type FaceVerificationLogUpdateWithoutMitraInput = {
@@ -11780,6 +11965,7 @@ export namespace Prisma {
     longitude?: NullableFloatFieldUpdateOperationsInput | number | null
     deviceInfo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type FaceVerificationLogUncheckedUpdateWithoutMitraInput = {
@@ -11789,6 +11975,7 @@ export namespace Prisma {
     longitude?: NullableFloatFieldUpdateOperationsInput | number | null
     deviceInfo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type FaceVerificationLogUncheckedUpdateManyWithoutMitraInput = {
@@ -11798,6 +11985,7 @@ export namespace Prisma {
     longitude?: NullableFloatFieldUpdateOperationsInput | number | null
     deviceInfo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraTransactionCreateManyWalletInput = {
@@ -11808,6 +11996,7 @@ export namespace Prisma {
     referenceId?: string | null
     referenceType?: string | null
     createdAt?: Date | string
+    tenantId?: string | null
   }
 
   export type WithdrawRequestCreateManyMitraWalletInput = {
@@ -11825,6 +12014,7 @@ export namespace Prisma {
     rejectionReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    tenantId?: string | null
   }
 
   export type MitraTransactionUpdateWithoutWalletInput = {
@@ -11835,6 +12025,7 @@ export namespace Prisma {
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
     referenceType?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraTransactionUncheckedUpdateWithoutWalletInput = {
@@ -11845,6 +12036,7 @@ export namespace Prisma {
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
     referenceType?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MitraTransactionUncheckedUpdateManyWithoutWalletInput = {
@@ -11855,6 +12047,7 @@ export namespace Prisma {
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
     referenceType?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type WithdrawRequestUpdateWithoutMitraWalletInput = {
@@ -11871,6 +12064,7 @@ export namespace Prisma {
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     mitra?: MitraUpdateOneRequiredWithoutWithdrawalsRequestedNestedInput
   }
 
@@ -11889,6 +12083,7 @@ export namespace Prisma {
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type WithdrawRequestUncheckedUpdateManyWithoutMitraWalletInput = {
@@ -11906,6 +12101,7 @@ export namespace Prisma {
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
 

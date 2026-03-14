@@ -29,7 +29,7 @@ import { PointClaimRepository } from '@/modules/marketing/repositories/PointClai
 import type { IPointClaimRepository } from '@/modules/marketing/repositories/IPointClaimRepository'
 import { PointClaimService } from '@/modules/marketing/services/PointClaimService'
 import { AttendanceRepository } from '@/modules/attendance/repositories/AttendanceRepository'
-import { prisma } from '@/lib/prisma'
+import { prisma, prismaAuth } from '@/lib/prisma'
 
 let userRepositoryInstance: IUserRepository | null = null
 let otbRepositoryInstance: IOtbRepository | null = null
@@ -44,7 +44,8 @@ let pemasukanRepositoryInstance: IPemasukanRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
-    userRepositoryInstance = new UserRepository()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    userRepositoryInstance = new UserRepository(prismaAuth as any)
   }
   return userRepositoryInstance
 }

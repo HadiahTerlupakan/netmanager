@@ -75,10 +75,12 @@ model Mitra {
   mitraWallet          MitraWallet?
   withdrawalsRequested WithdrawRequest[]     @relation("WithdrawRequester")
   faceVerificationLogs FaceVerificationLog[]
+  tenantId             String?
 
   @@index([siteId])
   @@index([mitraType])
   @@index([isActive])
+  @@index([tenantId])
 }
 
 model MitraWallet {
@@ -93,8 +95,10 @@ model MitraWallet {
   mitra          Mitra              @relation(fields: [mitraId], references: [id], onDelete: Cascade)
   transactions   MitraTransaction[]
   withdrawals    WithdrawRequest[]
+  tenantId       String?
 
   @@index([mitraId])
+  @@index([tenantId])
   @@map("mitra_wallets")
 }
 
@@ -108,10 +112,12 @@ model MitraTransaction {
   referenceType String? // "WORK_ORDER" atau "CANVASING"
   createdAt     DateTime             @default(now())
   wallet        MitraWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  tenantId      String?
 
   @@index([walletId])
   @@index([createdAt])
   @@index([referenceId])
+  @@index([tenantId])
   @@map("mitra_transactions")
 }
 
@@ -133,10 +139,12 @@ model WithdrawRequest {
   mitra           Mitra          @relation("WithdrawRequester", fields: [mitraId], references: [id])
   mitraWallet     MitraWallet?   @relation(fields: [mitraWalletId], references: [id])
   mitraWalletId   String?
+  tenantId        String?
 
   @@index([mitraId])
   @@index([status])
   @@index([createdAt])
+  @@index([tenantId])
   @@map("withdraw_requests")
 }
 
@@ -168,9 +176,11 @@ model FaceVerificationLog {
   deviceInfo String? // Info device (opsional)
   createdAt  DateTime @default(now())
 
-  mitra Mitra @relation(fields: [mitraId], references: [id], onDelete: Cascade)
+  mitra    Mitra   @relation(fields: [mitraId], references: [id], onDelete: Cascade)
+  tenantId String?
 
   @@index([mitraId])
   @@index([createdAt])
+  @@index([tenantId])
   @@map("face_verification_logs")
 }

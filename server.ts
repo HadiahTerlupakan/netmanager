@@ -1,5 +1,10 @@
 import 'dotenv/config'
 
+// Flag to indicate we are running in a custom server context (not Next.js App Router)
+// This helps prevent AsyncLocalStorage crashes in tenant detection
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(globalThis as any).IS_CUSTOM_SERVER = true
+
 // Safeguard: Set Default Timezone for the entire process if not set
 // This ensures Date() functions typically use this timezone in Node.js environment
 if (!process.env.TZ) {

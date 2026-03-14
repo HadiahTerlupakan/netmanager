@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'react-hot-toast'
 import {
@@ -17,7 +17,8 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineCheckCircle,
   HiOutlineShieldCheck,
-  HiOutlineIdentification
+  HiOutlineIdentification,
+  HiOutlineGlobeAlt
 } from 'react-icons/hi2'
 import MultiSiteSelect from '../components/MultiSiteSelect'
 import WorkingHoursSettings from '../[id]/WorkingHoursSettings'
@@ -45,9 +46,16 @@ interface Site {
   name: string
 }
 
+interface Tenant {
+  id: string
+  name: string
+}
+
 export function ClientComponent() {
   const router = useRouter()
   const { hasPermission } = usePermission()
+  const searchParams = useSearchParams()
+  const tenantIdParam = searchParams.get('tenantId')
   const canCreate = hasPermission('users:create')
 
   const [loading, setLoading] = useState(false)
@@ -55,6 +63,7 @@ export function ClientComponent() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [sites, setSites] = useState<Site[]>([])
+  const [tenants, setTenants] = useState<Tenant[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
 
@@ -71,6 +80,7 @@ export function ClientComponent() {
     // Status & Features
     isActive: true,
     isSales: false,
+    tenantId: '',
   })
   const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([])
   
@@ -134,14 +144,37 @@ export function ClientComponent() {
       }
     }
 
+    const fetchTenants = async () => {
+      try {
+        const res = await fetch('/api/admin/tenants', { signal })
+        const data = await res.json()
+        if (res.ok) {
+          setTenants(data.data || [])
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error fetching tenants:', error)
+        }
+      }
+    }
+
     fetchDepartments()
     fetchRoles()
     fetchSites()
+    if (hasPermission('tenants:read')) {
+      fetchTenants()
+    }
 
     return () => {
       abortController.abort()
     }
-  }, [])
+  }, [hasPermission])
+
+  useEffect(() => {
+    if (tenantIdParam) {
+      setFormData(prev => ({ ...prev, tenantId: tenantIdParam }))
+    }
+  }, [tenantIdParam])
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
@@ -309,8 +342,39 @@ export function ClientComponent() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tenant Selection (Super Admin only) */}
+              {hasPermission('tenants:read') && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Tenant <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <HiOutlineGlobeAlt className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      name="tenantId"
+                      required
+                      value={formData.tenantId}
+                      onChange={handleChange}
+                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.tenantId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                    >
+                      <option value="">Pilih Tenant</option>
+                      {tenants.map(tenant => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pilih tenant untuk pengguna ini. Pengguna akan dibatasi hanya pada data milik tenant ini.</p>
+                  {errors.tenantId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tenantId}</p>}
+                </div>
+              )}
+
               {/* Email */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

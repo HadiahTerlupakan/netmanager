@@ -139,7 +139,8 @@ exports.Prisma.InvoiceScalarFieldEnum = {
   createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  siteId: 'siteId'
+  siteId: 'siteId',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.InvoiceItemScalarFieldEnum = {
@@ -149,7 +150,8 @@ exports.Prisma.InvoiceItemScalarFieldEnum = {
   quantity: 'quantity',
   unitPrice: 'unitPrice',
   totalPrice: 'totalPrice',
-  itemType: 'itemType'
+  itemType: 'itemType',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.PaymentScalarFieldEnum = {
@@ -172,7 +174,8 @@ exports.Prisma.PaymentScalarFieldEnum = {
   paymentUrl: 'paymentUrl',
   expiresAt: 'expiresAt',
   unmatchedMutationId: 'unmatchedMutationId',
-  receiptUrl: 'receiptUrl'
+  receiptUrl: 'receiptUrl',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.PaymentGatewayConfigScalarFieldEnum = {
@@ -193,7 +196,8 @@ exports.Prisma.PaymentGatewayConfigScalarFieldEnum = {
   testStatus: 'testStatus',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  createdBy: 'createdBy'
+  createdBy: 'createdBy',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.UnmatchedMutationScalarFieldEnum = {
@@ -211,7 +215,8 @@ exports.Prisma.UnmatchedMutationScalarFieldEnum = {
   resolvedById: 'resolvedById',
   matchedInvoiceId: 'matchedInvoiceId',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.MixRadiusInvoiceScalarFieldEnum = {
@@ -228,7 +233,8 @@ exports.Prisma.MixRadiusInvoiceScalarFieldEnum = {
   issuedDate: 'issuedDate',
   dueDate: 'dueDate',
   expiredOn: 'expiredOn',
-  syncedAt: 'syncedAt'
+  syncedAt: 'syncedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.MixRadiusCustomerScalarFieldEnum = {
@@ -244,7 +250,8 @@ exports.Prisma.MixRadiusCustomerScalarFieldEnum = {
   expiredOn: 'expiredOn',
   lastSyncedAt: 'lastSyncedAt',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.MixRadiusOwnerGroupScalarFieldEnum = {
@@ -254,7 +261,8 @@ exports.Prisma.MixRadiusOwnerGroupScalarFieldEnum = {
   siteId: 'siteId',
   isActive: 'isActive',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.MixRadiusInvestorSiteScalarFieldEnum = {
@@ -263,7 +271,8 @@ exports.Prisma.MixRadiusInvestorSiteScalarFieldEnum = {
   owners: 'owners',
   isActive: 'isActive',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.MixRadiusConfigScalarFieldEnum = {
@@ -276,7 +285,8 @@ exports.Prisma.MixRadiusConfigScalarFieldEnum = {
   isDefault: 'isDefault',
   lastSyncedAt: 'lastSyncedAt',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.SortOrder = {

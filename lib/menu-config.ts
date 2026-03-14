@@ -229,6 +229,13 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     // SISTEM
     // ═══════════════════════════════════════════
     {
+        code: 'TENANT',
+        name: 'Tenants',
+        path: '/admin/tenants',
+        icon: 'HiOutlineBuildingOffice',
+        section: 'Sistem',
+    },
+    {
         code: 'INTEGRATION',
         name: 'Integrasi',
         path: '/admin/integrations',

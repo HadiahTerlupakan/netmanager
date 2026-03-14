@@ -22,6 +22,7 @@ export interface CreateUserDTO {
     shiftId?: string | null
     // Sales Feature
     isSales?: boolean
+    tenantId?: string | null
 }
 
 export interface UserWithRelations extends User {
@@ -37,8 +38,7 @@ export interface UserWithRelations extends User {
 }
 
 export class UserRepository {
-    async findAll(siteId?: string): Promise<UserWithRelations[]> {
-
+    async findAll(siteId?: string, tenantId?: string): Promise<UserWithRelations[]> {
         const query: Prisma.UserFindManyArgs = {
             orderBy: { createdAt: 'desc' },
             include: {
@@ -57,8 +57,12 @@ export class UserRepository {
             },
         }
 
-        if (siteId) {
-            query.where = { siteId }
+        const where: Prisma.UserWhereInput = {}
+        if (siteId) where.siteId = siteId
+        if (tenantId) where.tenantId = tenantId
+        
+        if (Object.keys(where).length > 0) {
+            query.where = where
         }
 
         const users = await prisma.user.findMany(query)
@@ -141,6 +145,8 @@ export class UserRepository {
                 shiftId: data.shiftId || null,
                 // Sales Feature
                 isSales: data.isSales || false,
+                // Tenant Support: Allow manual tenantId for Super Admin bypass
+                ...(data.tenantId && { tenantId: data.tenantId }),
             },
         })
     }

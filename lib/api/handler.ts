@@ -58,6 +58,8 @@ export interface HandlerContext<T = unknown> {
             email: string
             name?: string
             role?: string
+            tenantId?: string
+            isSuperAdmin?: boolean
         }
     } | null
     /** User permissions (if auth enabled) */
@@ -119,6 +121,8 @@ export function createHandler<T = unknown>(
                             email: session.user.email || '',
                             name: session.user.name,
                             role: session.user.role,
+                            tenantId: session.user.tenantId,
+                            isSuperAdmin: session.user.isSuperAdmin,
                         }
                     }
 
@@ -146,6 +150,8 @@ export function createHandler<T = unknown>(
                                         email: (payload.email as string) || '',
                                         name: payload.name as string | undefined,
                                         role: payload.role,
+                                        tenantId: payload.tenantId,
+                                        isSuperAdmin: payload.isSuperAdmin,
                                     }
                                 }
                                 ctx.permissions = payload.permissions || []

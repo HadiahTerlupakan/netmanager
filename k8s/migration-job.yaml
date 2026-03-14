@@ -245,6 +245,16 @@ spec:
               npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
               npx prisma migrate deploy --config=prisma.mitra.config.ts
 
+              # =============================================
+              # STEP 4: Backfill Data
+              # Automatically assign all orphaned data to a Default Tenant
+              # =============================================
+              echo ""
+              echo "======================================"
+              echo "Running multi-tenant data backfill script"
+              echo "======================================"
+              npx tsx scripts/backfill-tenant.ts "Radpro Network" || echo "⚠️ Backfill script encountered an issue, but migration continuing"
+
               echo ""
               echo "======================================"
               echo "✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY"

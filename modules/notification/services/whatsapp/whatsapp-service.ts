@@ -1,14 +1,16 @@
 // WhatsApp Service - Main service for sending WhatsApp messages
 
-import { PrismaClient } from '@prisma/client'
+import { prisma as defaultPrisma } from '@/lib/prisma'
 import { decryptApiKey } from '@/lib/utils/encryption'
 import { WhatsAppFactory } from './whatsapp-factory'
 import type { WhatsAppConfig, SendMessageParams, SendFileParams, SendResult } from './whatsapp-provider-interface'
 
-export class WhatsAppService {
-    private prisma: PrismaClient
+type PrismaInstance = typeof defaultPrisma
 
-    constructor(prisma: PrismaClient) {
+export class WhatsAppService {
+    private prisma: PrismaInstance
+
+    constructor(prisma: PrismaInstance = defaultPrisma) {
         this.prisma = prisma
     }
 

@@ -1,11 +1,12 @@
 import { PrismaClient } from '@prisma/client'
-
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
-
+import { withTenantIsolation } from './prisma-extension'
 import 'dotenv/config'
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
+
+const globalForPrismaAuth = globalThis as unknown as { prismaAuth: PrismaClient | undefined }
 
 const connectionString = process.env.DATABASE_URL
 
@@ -13,22 +14,26 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not set in environment variables')
 }
 
-// Configure connection pool with limits for memory optimization
-const pool = new Pool({
-  connectionString,
-  max: 20,                    // Maximum pool size
-  min: 2,                     // Minimum pool size
-  idleTimeoutMillis: 30000,   // Close idle connections after 30s
-  connectionTimeoutMillis: 10000, // Timeout after 10s
-})
-const adapter = new PrismaPg(pool)
+const ignoreModels = ['Account', 'Session', 'VerificationToken', 'Tenant']
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+const createPrismaClientBase = (): PrismaClient => {
+  const pool = new Pool({
+    connectionString,
+    max: 20,
+    min: 2,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  })
+  const adapter = new PrismaPg(pool)
+
+  return new PrismaClient({
     adapter,
     log: ['error', 'warn'],
   })
+}
+
+export const prismaAuth = globalForPrismaAuth.prismaAuth ?? createPrismaClientBase()
+export const prisma = globalForPrisma.prisma ?? prismaAuth.$extends(withTenantIsolation(ignoreModels)) as unknown as PrismaClient
 
 // Fix for BigInt serialization in JSON for React 19
 if (typeof BigInt !== 'undefined') {

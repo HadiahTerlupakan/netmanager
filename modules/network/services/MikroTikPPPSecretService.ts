@@ -5,9 +5,10 @@
  * Digunakan dalam mode API MikroTik (bukan RADIUS).
  */
 
-import { PrismaClient } from '@prisma/client';
 import { RouterOSAPI } from 'node-routeros-v2';
 import { prisma as defaultPrisma } from '@/lib/prisma';
+
+type PrismaInstance = typeof defaultPrisma;
 
 interface PPPSecretData {
   name: string;
@@ -29,7 +30,7 @@ const EXPIRED_PROFILE = 'expired users';
 const CONNECTION_TIMEOUT = 10000;
 
 export class MikroTikPPPSecretService {
-  constructor(private prisma: PrismaClient = defaultPrisma) {}
+  constructor(private prisma: PrismaInstance = defaultPrisma) {}
 
   /**
    * Helper: Connect ke MikroTik Router

@@ -163,7 +163,8 @@ exports.Prisma.MitraScalarFieldEnum = {
   penaltyPsb: 'penaltyPsb',
   penaltyMaintenance: 'penaltyMaintenance',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.MitraWalletScalarFieldEnum = {
@@ -174,7 +175,8 @@ exports.Prisma.MitraWalletScalarFieldEnum = {
   totalWithdrawn: 'totalWithdrawn',
   currency: 'currency',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.MitraTransactionScalarFieldEnum = {
@@ -185,7 +187,8 @@ exports.Prisma.MitraTransactionScalarFieldEnum = {
   description: 'description',
   referenceId: 'referenceId',
   referenceType: 'referenceType',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.WithdrawRequestScalarFieldEnum = {
@@ -203,7 +206,8 @@ exports.Prisma.WithdrawRequestScalarFieldEnum = {
   rejectionReason: 'rejectionReason',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  mitraWalletId: 'mitraWalletId'
+  mitraWalletId: 'mitraWalletId',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.FaceVerificationLogScalarFieldEnum = {
@@ -213,7 +217,8 @@ exports.Prisma.FaceVerificationLogScalarFieldEnum = {
   latitude: 'latitude',
   longitude: 'longitude',
   deviceInfo: 'deviceInfo',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  tenantId: 'tenantId'
 };
 
 exports.Prisma.SortOrder = {

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { HolidayRepository } from './HolidayRepository'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 
 export class AttendanceRepository {
     async findMany(params: {
@@ -46,6 +47,9 @@ export class AttendanceRepository {
         const total = await prisma.attendance.count({ where })
 
         // 2. Average Duration (Optimized)
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         let query = Prisma.sql`
             SELECT
                 AVG(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "avgDuration"
@@ -61,6 +65,10 @@ export class AttendanceRepository {
             AND a."checkIn" <= ${endDate}
             AND a."checkOut" IS NOT NULL
         `
+
+        if (!isSuperAdmin) {
+            query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`
+        }
 
         if (siteId) {
             query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
@@ -85,6 +93,9 @@ export class AttendanceRepository {
 
     async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         // 1. Get Attendance Stats
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         let query = Prisma.sql`
             SELECT
                 TO_CHAR(a."checkIn", 'YYYY-MM-DD') as date,
@@ -101,6 +112,10 @@ export class AttendanceRepository {
             WHERE a."checkIn" >= ${startDate}
             AND a."checkIn" <= ${endDate}
         `
+
+        if (!isSuperAdmin) {
+            query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`
+        }
 
         if (siteId) {
             query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
@@ -211,6 +226,9 @@ export class AttendanceRepository {
         }
 
         // Raw query to aggregate by joined table
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         const query = Prisma.sql`
             SELECT
                 ${groupByColumn} as id,
@@ -223,6 +241,7 @@ export class AttendanceRepository {
             ${joinTable}
             WHERE a."checkIn" >= ${startDate}
             AND a."checkIn" <= ${endDate}
+            ${!isSuperAdmin ? Prisma.sql`AND a."tenantId" = ${effectiveTenantId}` : Prisma.empty}
             GROUP BY ${groupByColumn}, ${groupByNameColumn}
         `
 
@@ -384,6 +403,9 @@ export class AttendanceRepository {
     }
 
     async getUserTotalDuration(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         let query = Prisma.sql`
             SELECT
                 a."userId",
@@ -401,6 +423,10 @@ export class AttendanceRepository {
             AND a."checkOut" IS NOT NULL
             AND a.status IN ('ON_TIME', 'LATE')
         `
+
+        if (!isSuperAdmin) {
+            query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`
+        }
 
         if (siteId) {
             query = Prisma.sql`${query} AND u."siteId" = ${siteId}`

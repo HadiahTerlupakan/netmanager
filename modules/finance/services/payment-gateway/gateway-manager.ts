@@ -1,13 +1,20 @@
 import { prismaBilling } from '@/lib/prisma-billing';
 // Gateway Manager - Manages all payment providers
 
-import { PrismaClient } from '@prisma/client'
 import { ProviderFactory } from './provider-factory'
 import type { PaymentProvider, CreatePaymentParams, PaymentResult } from './provider-interface'
+
+import { prisma as defaultPrisma } from '@/lib/prisma';
 import { decryptApiKey } from '@/lib/utils/encryption'
 
+type PrismaInstance = typeof defaultPrisma;
+
 export class PaymentGatewayManager {
-    constructor(private prisma: PrismaClient) { }
+    private prisma: PrismaInstance;
+
+    constructor(prisma: PrismaInstance = defaultPrisma) {
+        this.prisma = prisma;
+    }
 
     /**
      * Get all enabled providers, sorted by priority

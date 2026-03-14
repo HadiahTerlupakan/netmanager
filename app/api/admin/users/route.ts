@@ -32,11 +32,12 @@ export const GET = createHandler({
     }
   }
 
-  // Get site filter
+  // Get site and tenant filters
   const siteIdFilter = getSiteFilter(sessionWithPermissions as Session, 'users')
+  const tenantIdFilter = req.nextUrl.searchParams.get('tenantId') || undefined
 
   const userService = getUserService()
-  const users = await userService.getAllUsers(siteIdFilter)
+  const users = await userService.getAllUsers(siteIdFilter, tenantIdFilter)
 
   logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
     userId: session.user.id,
@@ -77,6 +78,12 @@ export const POST = createHandler({
     body.siteId = userSiteId
   }
 
+  // Tenant assignment logic
+  // If user is Super Admin, they can specify tenantId in body
+  // Otherwise, it will follow the implicit tenant of the user (via prisma extension)
+  const isSuperAdmin = session.user.isSuperAdmin || false
+  const targetTenantId = isSuperAdmin ? body.tenantId : undefined
+
   logger.info('Creating new user', {
     email: body.email,
     createdBy: session.user.id,
@@ -104,6 +111,8 @@ export const POST = createHandler({
       ...(body.shiftId && { shiftId: body.shiftId }),
       // Sales Feature
       isSales: body.isSales || false,
+      // Tenant Support
+      tenantId: targetTenantId || null,
     })
 
     // Handle multi-site: create userSites records

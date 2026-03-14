@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 import { calculateHaversineDistance } from '@/lib/geo-utils'
 import { type Server as SocketIOServer } from 'socket.io'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
@@ -214,6 +216,9 @@ export class LocationTrackingService {
         const userIds = activeAttendances.map(a => a.userId)
         
         // Use raw query for DISTINCT ON (PostgreSQL specific - most efficient)
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+
         const latestLocations = await prisma.$queryRaw<Array<{
             userId: string
             latitude: number
@@ -230,6 +235,7 @@ export class LocationTrackingService {
                 heading, "isMoving", "batteryLevel", "recordedAt"
             FROM "employee_locations"
             WHERE "userId" = ANY(${userIds})
+            ${!isSuperAdmin ? Prisma.sql`AND "tenantId" = ${effectiveTenantId}` : Prisma.empty}
             ORDER BY "userId", "recordedAt" DESC
         `
 

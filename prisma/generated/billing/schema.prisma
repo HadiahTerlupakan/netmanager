@@ -29,6 +29,7 @@ model Invoice {
   siteId         String?
   invoiceItem    InvoiceItem[]
   payment        Payment[]
+  tenantId       String?
 
   @@index([dueDate])
   @@index([invoiceNumber])
@@ -36,6 +37,7 @@ model Invoice {
   @@index([pelangganId])
   @@index([status])
   @@index([siteId])
+  @@index([tenantId])
 }
 
 model InvoiceItem {
@@ -47,8 +49,10 @@ model InvoiceItem {
   totalPrice  BigInt
   itemType    ItemType @default(SERVICE)
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenantId    String?
 
   @@index([invoiceId])
+  @@index([tenantId])
 }
 
 model Payment {
@@ -75,12 +79,14 @@ model Payment {
   unmatchedMutationId String?            @unique
   unmatchedMutation   UnmatchedMutation? @relation(fields: [unmatchedMutationId], references: [id])
   receiptUrl          String?
+  tenantId            String?
 
   @@index([invoiceId])
   @@index([paymentDate])
   @@index([pelangganId])
   @@index([gatewayStatus])
   @@index([transactionId])
+  @@index([tenantId])
 }
 
 model PaymentGatewayConfig {
@@ -102,10 +108,12 @@ model PaymentGatewayConfig {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime
   createdBy    String?
+  tenantId     String?
 
   @@index([isEnabled])
   @@index([priority])
   @@index([provider])
+  @@index([tenantId])
 }
 
 model UnmatchedMutation {
@@ -127,11 +135,13 @@ model UnmatchedMutation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  payment Payment? // Relation to the established payment if resolved
+  payment  Payment? // Relation to the established payment if resolved
+  tenantId String?
 
   @@index([status])
   @@index([provider])
   @@index([amount])
+  @@index([tenantId])
 }
 
 enum UnmatchedStatus {
@@ -157,11 +167,13 @@ model MixRadiusInvoice {
   dueDate       DateTime? // derived or calculated
   expiredOn     DateTime?
   syncedAt      DateTime  @default(now())
+  tenantId      String?
 
   @@index([status])
   @@index([username])
   @@index([ownerName])
   @@index([dueDate])
+  @@index([tenantId])
   @@map("mix_radius_invoices")
 }
 
@@ -241,7 +253,9 @@ model MixRadiusCustomer {
   lastSyncedAt DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  tenantId     String?
 
+  @@index([tenantId])
   @@map("mix_radius_customers")
 }
 
@@ -255,8 +269,10 @@ model MixRadiusOwnerGroup {
   updatedAt DateTime @updatedAt
 
   // Note: expenses and rabProjects are managed via repository layer (soft-relations)
+  tenantId String?
 
   @@index([siteId])
+  @@index([tenantId])
   @@map("mix_radius_owner_groups")
 }
 
@@ -267,7 +283,9 @@ model MixRadiusInvestorSite {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  tenantId  String?
 
+  @@index([tenantId])
   @@map("mix_radius_investor_sites")
 }
 
@@ -282,6 +300,8 @@ model MixRadiusConfig {
   lastSyncedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  tenantId     String?
 
+  @@index([tenantId])
   @@map("mix_radius_configs")
 }

@@ -9,9 +9,12 @@
  * - MIKROTIK_API: Pelanggan auth via PPP Secret di MikroTik langsung
  */
 
-import { PrismaClient, Status } from '@prisma/client';
+import { Status } from '@prisma/client';
 import { RadiusRepository } from '../repositories/RadiusRepository';
 import { MikroTikPPPSecretService } from './MikroTikPPPSecretService';
+import { prisma as defaultPrisma } from '@/lib/prisma';
+
+type PrismaInstance = typeof defaultPrisma;
 
 // Connection mode types
 export type ConnectionMode = 'RADIUS' | 'MIKROTIK_API';
@@ -20,7 +23,7 @@ export class RadiusSyncService {
     private radiusRepo: RadiusRepository;
     private pppSecretService: MikroTikPPPSecretService;
 
-    constructor(private prisma: PrismaClient) {
+    constructor(private prisma: PrismaInstance = defaultPrisma) {
         this.radiusRepo = new RadiusRepository(prisma);
         this.pppSecretService = new MikroTikPPPSecretService(prisma);
     }
