@@ -123,3 +123,15 @@ export async function ensureAnyPermission(requiredPermissions: string[], redirec
     }
 }
 
+/**
+ * Ensure the current user is from the main tenant
+ */
+export async function ensureMainTenant(redirectTo: string = '/admin/forbidden') {
+    const session = await getServerSession(authConfig)
+    const { MAIN_TENANT_ID } = await import('@/lib/tenant-constants')
+
+    if (session?.user?.tenantId !== MAIN_TENANT_ID) {
+        const { redirect } = await import('next/navigation')
+        redirect(`${redirectTo}?reason=${encodeURIComponent('Hanya untuk tenant utama')}`)
+    }
+}

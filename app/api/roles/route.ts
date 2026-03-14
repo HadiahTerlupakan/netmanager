@@ -7,6 +7,7 @@ import { getRoleService } from '@/modules/roles'
 import { z } from 'zod'
 import { logActivitySafe } from '@/lib/logger'
 import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
+import { MAIN_TENANT_ID } from '@/lib/tenant-constants'
 
 const roleSchema = z.object({
     name: z.string().min(2),
@@ -86,12 +87,25 @@ export async function POST(req: Request) {
         const validated = roleSchema.parse(body)
         // console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
 
-        // Sanitize permissions based on panel access flags (safety net)
         const sanitizedPermissions = await sanitizePermissionsByPanelAccess(
             validated.permissions,
             validated.accessAdminPanel ?? false,
             validated.accessEmployeePanel ?? false
         )
+
+        const session = await getServerSession(authConfig)
+        const isMain = session?.user?.tenantId === MAIN_TENANT_ID
+
+        // RESTRICTION: Non-main tenants cannot create Super Admin roles
+        if (validated.isSuperAdmin && !isMain) {
+            return NextResponse.json({ error: 'Hanya tenant utama yang dapat membuat role Super Admin' }, { status: 403 })
+        }
+
+        // RESTRICTION: Non-main tenants cannot assign sensitive permissions
+        const restrictedResources = ['backup_database', 'app_version', 'tenants']
+        if (!isMain && sanitizedPermissions.some(p => restrictedResources.includes(p.split(':')[0]))) {
+            return NextResponse.json({ error: 'Hanya tenant utama yang dapat memberikan hak akses administratif sensitif (Backup, App Version, Tenants)' }, { status: 403 })
+        }
 
         const roleService = getRoleService()
 
@@ -122,8 +136,6 @@ export async function POST(req: Request) {
             canApproveRab?: boolean;
         })
 
-        // System Log
-        const session = await getServerSession(authConfig)
         if (session?.user?.id) {
             logActivitySafe({
                 action: 'CREATE',

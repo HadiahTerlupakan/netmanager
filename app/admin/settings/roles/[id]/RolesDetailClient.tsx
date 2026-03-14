@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
@@ -40,7 +41,10 @@ const _ALL_MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat() as 
 export function ClientComponent() {
     const router = useRouter()
     const params = useParams()
+    const { data: session } = useSession()
     const { hasPermission, isLoading: authLoading } = usePermission()
+
+    const isMain = session?.user?.tenantId === '8bceb512-ccef-4f53-bcc8-dd372cbf87e0'
 
     const isNew = params?.id === 'new'
     const roleId = params?.id as string
@@ -323,31 +327,33 @@ export function ClientComponent() {
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <h2 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Tipe Role</h2>
 
-                    {/* SUPER ADMIN TOGGLE */}
-                    <label className="flex items-start gap-3 p-4 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/10 dark:border-indigo-800 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/20 cursor-pointer transition-colors mb-4">
-                        <input
-                            type="checkbox"
-                            checked={formData.isSuperAdmin}
-                            onChange={e => setFormData({
-                                ...formData,
-                                isSuperAdmin: e.target.checked,
-                                // Auto-enable access if super admin
-                                accessAdminPanel: e.target.checked ? true : formData.accessAdminPanel,
-                                accessEmployeePanel: e.target.checked ? true : formData.accessEmployeePanel
-                            })}
-                            className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 mt-0.5"
-                            disabled={formData.name === 'SUPER_ADMIN'} // Cannot uncheck for original Super Admin
-                        />
-                        <div>
-                            <span className="block font-medium text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
-                                Super Administrator
-                                <span className="text-[10px] px-2 py-0.5 bg-indigo-200 text-indigo-800 rounded-full font-bold">POWERFUL</span>
-                            </span>
-                            <span className="text-sm text-indigo-700 dark:text-indigo-400">
-                                Role ini memiliki <strong>akses penuh</strong> ke seluruh sistem, mengabaikan semua batasan permission dan site.
-                            </span>
-                        </div>
-                    </label>
+                    {/* SUPER ADMIN TOGGLE - Only for main tenant */}
+                    {isMain && (
+                        <label className="flex items-start gap-3 p-4 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/10 dark:border-indigo-800 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/20 cursor-pointer transition-colors mb-4">
+                            <input
+                                type="checkbox"
+                                checked={formData.isSuperAdmin}
+                                onChange={e => setFormData({
+                                    ...formData,
+                                    isSuperAdmin: e.target.checked,
+                                    // Auto-enable access if super admin
+                                    accessAdminPanel: e.target.checked ? true : formData.accessAdminPanel,
+                                    accessEmployeePanel: e.target.checked ? true : formData.accessEmployeePanel
+                                })}
+                                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 mt-0.5"
+                                disabled={formData.name === 'SUPER_ADMIN'} // Cannot uncheck for original Super Admin
+                            />
+                            <div>
+                                <span className="block font-medium text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
+                                    Super Administrator
+                                    <span className="text-[10px] px-2 py-0.5 bg-indigo-200 text-indigo-800 rounded-full font-bold">POWERFUL</span>
+                                </span>
+                                <span className="text-sm text-indigo-700 dark:text-indigo-400">
+                                    Role ini memiliki <strong>akses penuh</strong> ke seluruh sistem, mengabaikan semua batasan permission dan site.
+                                </span>
+                            </div>
+                        </label>
+                    )}
 
                     <div className={formData.isSuperAdmin ? 'opacity-50 pointer-events-none' : ''}>
                         <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
@@ -569,7 +575,14 @@ export function ClientComponent() {
                         {(formData.accessAdminPanel || formData.accessEmployeePanel) && (
                             <div className="space-y-4">
                                 {(Object.entries(activeTab === 'admin' ? PERMISSION_GROUPS : PERMISSION_GROUPS_MOBILE) as unknown as [string, readonly string[]][]).map(([groupName, resources]) => {
-                                    const groupActions = resources.flatMap(resource =>
+                                    // RESTRICTION: Hide sensitive resources for non-main tenants
+                                    const filteredResources = isMain
+                                        ? resources
+                                        : resources.filter(r => !['backup_database', 'app_version', 'tenants'].includes(r))
+
+                                    if (filteredResources.length === 0) return null
+
+                                    const groupActions = filteredResources.flatMap(resource =>
                                         ACTIONS.map(action => `${resource}:${action}`)
                                     )
                                     const selectedGroupActions = groupActions.filter(p => formData.permissions.includes(p))

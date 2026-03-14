@@ -70,6 +70,10 @@ export function ClientComponent() {
   const [formData, setFormData] = useState({
     // Account Information
     email: '',
+    emailChecked: false,
+    emailExists: false,
+    emailRole: '',
+    isCheckingEmail: false,
     name: '',
     password: '',
     phone: '',
@@ -199,6 +203,10 @@ export function ClientComponent() {
       [name]: type === 'checkbox' ? checked : value
     }))
 
+    if (name === 'email') {
+      setFormData(prev => ({ ...prev, emailChecked: false, emailExists: false }))
+    }
+
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev }
@@ -208,6 +216,47 @@ export function ClientComponent() {
     }
   }
 
+  // Real-time email validation with debounce
+  useEffect(() => {
+    if (!formData.email || !/^\S+@\S+\.\S+$/.test(formData.email)) {
+      setFormData(prev => ({ ...prev, emailChecked: false, isCheckingEmail: false }))
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setFormData(prev => ({ ...prev, isCheckingEmail: true }))
+      try {
+        const res = await fetch(`/api/admin/users/check-identifier?email=${encodeURIComponent(formData.email)}`)
+        const data = await res.json()
+        if (res.ok && data.data) {
+          setFormData(prev => ({
+            ...prev,
+            emailChecked: true,
+            emailExists: data.data.exists,
+            emailRole: data.data.role || '',
+            isCheckingEmail: false
+          }))
+          
+          if (data.data.exists) {
+            setErrors(prev => ({ ...prev, email: `Email sudah terdaftar sebagai ${data.data.role}` }))
+          } else {
+            setErrors(prev => {
+              const newErrors = { ...prev }
+              delete newErrors.email
+              return newErrors
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error checking email:', error)
+      } finally {
+        setFormData(prev => ({ ...prev, isCheckingEmail: false }))
+      }
+    }, 800) // 800ms debounce
+
+    return () => clearTimeout(timer)
+  }, [formData.email])
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
@@ -215,6 +264,8 @@ export function ClientComponent() {
       newErrors.email = 'Email wajib diisi'
     } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       newErrors.email = 'Format email tidak valid'
+    } else if (formData.emailExists) {
+      newErrors.email = `Email sudah terdaftar sebagai ${formData.emailRole}`
     }
 
     if (!formData.name) {
@@ -390,12 +441,30 @@ export function ClientComponent() {
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.email ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                    className={`block w-full pl-10 pr-10 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.email ? 'border-red-300 dark:border-red-700' : (formData.emailChecked && !formData.emailExists) ? 'border-green-500 dark:border-green-600' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     placeholder="contoh@perusahaan.com"
                   />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    {formData.isCheckingEmail ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-indigo-500"></div>
+                    ) : formData.emailChecked && (
+                      formData.emailExists ? (
+                        <HiOutlineExclamationTriangle className="h-5 w-5 text-red-500" />
+                      ) : (
+                        <HiOutlineCheckCircle className="h-5 w-5 text-green-500" />
+                      )
+                    )}
+                  </div>
                 </div>
-                {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
+                {errors.email && (
+                  <p className={`mt-1 text-sm ${formData.emailExists ? 'text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {errors.email}
+                  </p>
+                )}
+                {formData.emailChecked && !formData.emailExists && (
+                  <p className="mt-1 text-sm text-green-600 dark:text-green-400">Email tersedia</p>
+                )}
               </div>
 
               {/* Role Selection */}

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 
-type RoleToExclude = 'EMPLOYEE' | 'CUSTOMER' | 'MITRA'
+export type RoleToExclude = 'EMPLOYEE' | 'CUSTOMER' | 'MITRA'
 
 /**
  * Checks if an identifier (email, username, or ID) exists across all user types

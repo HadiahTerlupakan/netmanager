@@ -180,6 +180,14 @@ export default function Sidebar() {
         .filter((child): child is MenuConfig => child !== null)
     }
 
+    // RESTRICTION: Hide certain menus for non-main tenants
+    const restrictedCodes = ['TENANT', 'PENGATURAN.APP_VERSION', 'PENGATURAN.BACKUP_DATABASE', 'TENANT']
+    const isMain = session?.user?.tenantId === '8bceb512-ccef-4f53-bcc8-dd372cbf87e0'
+
+    if (!isMain && restrictedCodes.includes(item.code)) {
+      return null
+    }
+
     // Check strict permission for the item itself
     // Use the last part of the code (e.g. "NETWORK.MIKROTIK" -> "MIKROTIK")
     const permissionResource = item.code
@@ -203,7 +211,7 @@ export default function Sidebar() {
     }
 
     return { ...item, children: filteredChildren }
-  }, [hasPermission])
+  }, [hasPermission, session?.user?.tenantId])
 
   const allNavItems = ADMIN_MENU_CONFIG
 
