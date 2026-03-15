@@ -225,7 +225,7 @@ spec:
               echo "======================================"
               echo "Running multi-tenant data backfill script"
               echo "======================================"
-              npx tsx scripts/backfill-tenant.ts "Radpro Network" || echo "⚠️ Backfill script encountered an issue, but migration continuing"
+              npx tsx scripts/backfill-tenant.ts || echo "⚠️ Backfill script encountered an issue, but migration continuing"
 
               echo ""
               echo "======================================"
