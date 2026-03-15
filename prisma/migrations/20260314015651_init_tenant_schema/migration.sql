@@ -1077,7 +1077,11 @@ END IF;
 END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'oauth_provider_configs_tenantId_fkey') THEN
 ALTER TABLE "oauth_provider_configs" ADD CONSTRAINT "oauth_provider_configs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
 DO $$ BEGIN
