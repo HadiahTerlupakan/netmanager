@@ -185,6 +185,7 @@ spec:
               echo "Running netmanager migrations"
               echo "======================================"
 
+              npx prisma migrate resolve --rolled-back 20260314015651_init_tenant_schema 2>&1 || true
               npx prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
               npx prisma migrate deploy
 
@@ -193,6 +194,7 @@ spec:
               echo "Running radius migrations"
               echo "======================================"
 
+              npx prisma migrate resolve --rolled-back 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
               npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
               npx prisma migrate deploy --config=prisma.radius.config.ts
 
@@ -201,6 +203,7 @@ spec:
               echo "Running billing migrations"
               echo "======================================"
 
+              npx prisma migrate resolve --rolled-back 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
               npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
               npx prisma migrate deploy --config=prisma.billing.config.ts
 
@@ -209,6 +212,7 @@ spec:
               echo "Running mitra migrations"
               echo "======================================"
 
+              npx prisma migrate resolve --rolled-back 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
               npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
               npx prisma migrate deploy --config=prisma.mitra.config.ts
 
