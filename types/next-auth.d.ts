@@ -18,6 +18,7 @@ declare module 'next-auth' {
       primarySiteId?: string
       isSuperAdmin?: boolean
       tenantId?: string | null
+      tenantName?: string | null
       departmentId?: string
       departmentName?: string
       canApproveRab?: boolean
@@ -43,6 +44,7 @@ declare module 'next-auth' {
     siteIds?: string[]
     isSuperAdmin?: boolean
     tenantId?: string | null
+    tenantName?: string | null
     canApproveRab?: boolean
     employee?: {
       id: string
@@ -67,6 +69,7 @@ declare module 'next-auth/jwt' {
     primarySiteId?: string
     departmentId?: string
     tenantId?: string | null
+    tenantName?: string | null
     isSuperAdmin?: boolean
     canApproveRab?: boolean
     employee?: {

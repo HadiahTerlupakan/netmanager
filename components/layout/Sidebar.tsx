@@ -72,6 +72,7 @@ import {
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
 import { useSession, signOut } from 'next-auth/react'
+import { isMainTenant } from '@/lib/tenant-constants'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -181,8 +182,8 @@ export default function Sidebar() {
     }
 
     // RESTRICTION: Hide certain menus for non-main tenants
-    const restrictedCodes = ['TENANT', 'PENGATURAN.APP_VERSION', 'PENGATURAN.BACKUP_DATABASE', 'TENANT']
-    const isMain = session?.user?.tenantId === '8bceb512-ccef-4f53-bcc8-dd372cbf87e0'
+    const restrictedCodes = ['TENANT', 'PENGATURAN.APP_VERSION', 'PENGATURAN.BACKUP_DATABASE']
+    const isMain = isMainTenant(session?.user?.tenantId)
 
     if (!isMain && restrictedCodes.includes(item.code)) {
       return null
@@ -315,7 +316,17 @@ export default function Sidebar() {
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight leading-none" title={appName}>
                   {appName}
                 </h2>
-                <span className="text-[10px] font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">Admin Portal</span>
+                <div className="flex flex-col mt-1.5 gap-0.5">
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider truncate leading-tight" title={session?.user?.tenantName || ''}>
+                    {session?.user?.tenantName || 'Main Tenant'}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />
+                    <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest leading-none">
+                      {session?.user?.role?.replace(/_/g, ' ') || 'User'}
+                    </span>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setIsOpen(false)}

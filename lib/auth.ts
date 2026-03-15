@@ -237,9 +237,15 @@ export const authConfig: NextAuthOptions = {
               userSites: {       // Multi-site support
                 include: { site: true },
                 orderBy: { isPrimary: 'desc' } // Primary site first
-              }
+              },
+              tenant: true // Include tenant details
             }
           })
+
+          token.name = dbUser?.name
+          token.email = dbUser?.email
+          token.picture = dbUser?.image
+          token.tokenVersion = dbUser?.tokenVersion ?? 0
 
           token.role = dbUser?.role?.name || 'USER'
           token.accessAdminPanel = dbUser?.role?.accessAdminPanel ?? false
@@ -271,6 +277,7 @@ export const authConfig: NextAuthOptions = {
           token.departmentId = dbUser?.departmentId
           token.siteId = token.primarySiteId || dbUser?.siteId // Prefer primary site
           token.tenantId = dbUser?.tenantId || null
+          token.tenantName = dbUser?.tenant?.name || null
 
           // Token version for force logout feature
           token.tokenVersion = dbUser?.tokenVersion ?? 0
@@ -308,25 +315,15 @@ export const authConfig: NextAuthOptions = {
             userSites: {  // Multi-site support
               include: { site: true },
               orderBy: { isPrimary: 'desc' }
-            }
+            },
+            tenant: true
           }
         })
 
         if (dbUser) {
-          token.name = dbUser.name
-          token.email = dbUser.email
-          token.picture = dbUser.image
-          token.departmentId = dbUser.departmentId
-          token.departmentName = dbUser.departments?.name
-          token.tokenVersion = dbUser.tokenVersion ?? 0
-          token.isSales = dbUser.isSales ?? false
-
-          // Multi-site support
-          const userSites = dbUser.userSites || []
-          token.siteIds = userSites.map(us => us.siteId)
-          token.primarySiteId = userSites.find(us => us.isPrimary)?.siteId || userSites[0]?.siteId || null
           token.siteId = token.primarySiteId || dbUser.siteId // Legacy: prefer primary site
           token.tenantId = dbUser.tenantId || null
+          token.tenantName = dbUser.tenant?.name || null
 
           token.role = dbUser.role?.name || 'USER'
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
@@ -374,6 +371,7 @@ export const authConfig: NextAuthOptions = {
             isSales: boolean;
             siteId: string | null;
             tenantId: string | null;
+            tenant: { name: string } | null;
             userSites: { siteId: string }[];
           } | null = null;
 
@@ -407,6 +405,7 @@ export const authConfig: NextAuthOptions = {
                 isSales: true,
                 siteId: true,
                 tenantId: true,
+                tenant: { select: { name: true } },
                 userSites: {
                   where: { isPrimary: true },
                   select: { siteId: true },
@@ -473,6 +472,7 @@ export const authConfig: NextAuthOptions = {
           sessionUser.primarySiteId = primarySiteId;
           sessionUser.siteIds = token.siteIds; // Keep array from token
           sessionUser.tenantId = dbUser.tenantId || null;
+          sessionUser.tenantName = dbUser.tenant?.name || null;
 
           sessionUser.isSales = dbUser.isSales;
 

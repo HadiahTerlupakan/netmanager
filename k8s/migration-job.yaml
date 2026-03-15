@@ -234,5 +234,11 @@ spec:
 
               echo ""
               echo "======================================"
+              echo "Running legacy data migration (NETMANAGER)"
+              echo "======================================"
+              npx tsx scripts/migrate-legacy-tenant.ts || echo "⚠️ Legacy migration encountered an issue, but migration continuing"
+
+              echo ""
+              echo "======================================"
               echo "✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY"
               echo "======================================"

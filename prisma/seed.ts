@@ -5,7 +5,7 @@ import { prismaBilling } from '../lib/prisma-billing'
 import { prismaRadius } from '../lib/prisma-radius'
 import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
-import { MAIN_TENANT_ID } from '../lib/tenant-constants'
+import { MAIN_TENANT_ID, MAIN_TENANT_NAME } from '../lib/tenant-constants'
 
 
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS, getAllGranularPermissions } from '../lib/permission-config'
@@ -25,9 +25,24 @@ async function main() {
   console.log('🌱 Seeding database...\n')
 
   // ========================================================================
+  // STEP 0: TENANT (WAJIB - harus dibuat sebelum semua data lain)
+  // ========================================================================
+  console.log('🏢 STEP 0: Creating Main Tenant...')
+
+  await prisma.tenant.upsert({
+    where: { id: MAIN_TENANT_ID },
+    update: { name: MAIN_TENANT_NAME },
+    create: {
+      id: MAIN_TENANT_ID,
+      name: MAIN_TENANT_NAME,
+    },
+  })
+  console.log(`   ✅ Tenant: ${MAIN_TENANT_NAME} (${MAIN_TENANT_ID})`)
+
+  // ========================================================================
   // STEP 1: PERMISSIONS (WAJIB untuk Autentikasi)
   // ========================================================================
-  console.log('📋 STEP 1: Creating Permissions...')
+  console.log('\n📋 STEP 1: Creating Permissions...')
   const permissions = []
   const karyawanPermissions = []
 
@@ -89,6 +104,7 @@ async function main() {
         name: `${action.split(':').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} ${resource.charAt(0).toUpperCase() + resource.slice(1)}`,
         resource,
         action,
+        tenantId: MAIN_TENANT_ID,
         description: `Granular permission: ${permValue}`,
       },
     })
@@ -293,6 +309,7 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Technical',
+      tenantId: MAIN_TENANT_ID,
       description: 'Technical Support & Network Operations',
       jobDescription: 'Mengelola infrastruktur jaringan dan dukungan teknis',
     },
@@ -306,6 +323,7 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Customer Service',
+      tenantId: MAIN_TENANT_ID,
       description: 'Customer Support & Relations',
       jobDescription: 'Menangani pertanyaan dan keluhan pelanggan',
     },
@@ -319,6 +337,7 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Operations',
+      tenantId: MAIN_TENANT_ID,
       description: 'Field Operations & Maintenance',
       jobDescription: 'Operasi lapangan dan pemeliharaan jaringan',
     },
@@ -332,6 +351,7 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Finance',
+      tenantId: MAIN_TENANT_ID,
       description: 'Finance & Accounting',
       jobDescription: 'Mengelola keuangan dan akuntansi',
     },
@@ -345,6 +365,7 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'Marketing',
+      tenantId: MAIN_TENANT_ID,
       description: 'Marketing & Sales',
       jobDescription: 'Pemasaran dan penjualan',
     },
@@ -358,6 +379,7 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'HR',
+      tenantId: MAIN_TENANT_ID,
       description: 'Human Resources',
       jobDescription: 'Manajemen sumber daya manusia',
     },
@@ -381,6 +403,7 @@ async function main() {
       description: 'Kantor Pusat',
       isActive: true,
       attendanceRadius: 100, // 100 meters radius for attendance
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ Site: HQ')
@@ -397,6 +420,7 @@ async function main() {
       description: 'Coverage area Jakarta Selatan',
       isActive: true,
       attendanceRadius: 100,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ Site: JKT01')
@@ -413,6 +437,7 @@ async function main() {
       description: 'Coverage area Jakarta Utara',
       isActive: true,
       attendanceRadius: 100,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ Site: JKT02')
@@ -430,7 +455,8 @@ async function main() {
       updatedAt: new Date(),
       title: 'Administrator',
       code: 'ADMIN',
-      departmentId: technicalDept.id
+      departmentId: technicalDept.id,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ Position: Administrator')
@@ -443,7 +469,8 @@ async function main() {
       updatedAt: new Date(),
       title: 'Teknisi',
       code: 'TECH',
-      departmentId: technicalDept.id
+      departmentId: technicalDept.id,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ Position: Teknisi')
@@ -456,7 +483,8 @@ async function main() {
       updatedAt: new Date(),
       title: 'Sales Representative',
       code: 'SALES',
-      departmentId: marketingDept.id
+      departmentId: marketingDept.id,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ Position: Sales Representative')
@@ -469,7 +497,8 @@ async function main() {
       updatedAt: new Date(),
       title: 'Finance Officer',
       code: 'FIN',
-      departmentId: financeDept.id
+      departmentId: financeDept.id,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ Position: Finance Officer')
@@ -489,6 +518,7 @@ async function main() {
       nama: 'Gudang Pusat',
       lokasi: 'Jl. Utama No. 1, Jakarta',
       isActive: true,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   // Connect gudang to site (many-to-many)
@@ -508,6 +538,7 @@ async function main() {
       nama: 'Gudang Jakarta Selatan',
       lokasi: 'Jl. Sudirman No. 123, Jakarta Selatan',
       isActive: true,
+      tenantId: MAIN_TENANT_ID,
     },
   })
   // Connect gudang to site (many-to-many)
@@ -575,6 +606,7 @@ async function main() {
       startWorkTime: '09:00',
       endWorkTime: '17:00',
       workDays: 'Mon,Tue,Wed,Thu,Fri',
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ User: admin@example.com (Role: SUPER_ADMIN)')
@@ -599,6 +631,7 @@ async function main() {
       startWorkTime: '09:00',
       endWorkTime: '17:00',
       workDays: 'Mon,Tue,Wed,Thu,Fri',
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ User: admin2@example.com (Role: ADMIN)')
@@ -623,6 +656,7 @@ async function main() {
       startWorkTime: '08:00',
       endWorkTime: '17:00',
       workDays: 'Mon,Tue,Wed,Thu,Fri,Sat',
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ User: teknisi@example.com (Role: TEKNISI)')
@@ -649,6 +683,7 @@ async function main() {
       startWorkTime: '09:00',
       endWorkTime: '17:00',
       workDays: 'Mon,Tue,Wed,Thu,Fri',
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ User: sales@example.com (Role: SALES)')
@@ -673,6 +708,7 @@ async function main() {
       startWorkTime: '09:00',
       endWorkTime: '17:00',
       workDays: 'Mon,Tue,Wed,Thu,Fri',
+      tenantId: MAIN_TENANT_ID,
     },
   })
   console.log('   ✅ User: finance@example.com (Role: FINANCE)')
@@ -751,6 +787,7 @@ async function main() {
       noTelp: '081234567899',
       email: 'investor@example.com',
       isActive: true,
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Investor: investordemo (Type: INVESTOR)')
@@ -768,6 +805,7 @@ async function main() {
       noTelp: '081234567888',
       email: 'investor2@example.com',
       isActive: true,
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Investor: investor2 (Type: INVESTOR)')
@@ -881,7 +919,7 @@ async function main() {
 
   // Default Cash Account
 
-  const existingCash = await prisma.financialAccount.findFirst({ where: { type: 'CASH' } })
+  const existingCash = await prisma.financialAccount.findFirst({ where: { type: 'CASH', tenantId: MAIN_TENANT_ID } })
   if (!existingCash) {
     await prisma.financialAccount.create({
       data: {
@@ -889,7 +927,8 @@ async function main() {
         type: 'CASH',
         description: 'Kas tunai harian di kantor',
         balance: 0,
-        isActive: true
+        isActive: true,
+        tenantId: MAIN_TENANT_ID,
       }
     })
     console.log('   ✅ Account: Kas Operasional')
@@ -897,7 +936,7 @@ async function main() {
     console.log('   ℹ️  Account: Kas Operasional (Already exists)')
   }
 
-  const existingBank = await prisma.financialAccount.findFirst({ where: { type: 'BANK' } })
+  const existingBank = await prisma.financialAccount.findFirst({ where: { type: 'BANK', tenantId: MAIN_TENANT_ID } })
   if (!existingBank) {
     await prisma.financialAccount.create({
       data: {
@@ -906,7 +945,8 @@ async function main() {
         accountNumber: '1234567890',
         description: 'Rekening Utama',
         balance: 0,
-        isActive: true
+        isActive: true,
+        tenantId: MAIN_TENANT_ID,
       }
     })
     console.log('   ✅ Account: Bank BCA')
@@ -1143,6 +1183,7 @@ async function main() {
       centerLat: '-6.2088',
       centerLng: '106.8456',
       defaultZoom: '13',
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Map Settings: Default Jakarta')
@@ -1157,7 +1198,8 @@ async function main() {
       type: 'odc',
       latitude: -6.2088,
       longitude: 106.8456,
-      capacity: 144
+      capacity: 144,
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Node: ODC-HQ')
@@ -1171,7 +1213,8 @@ async function main() {
       type: 'odp',
       latitude: -6.2100,
       longitude: 106.8400,
-      capacity: 16
+      capacity: 16,
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Node: ODP-JKT01-01')
@@ -1185,7 +1228,8 @@ async function main() {
       type: 'odp',
       latitude: -6.2120,
       longitude: 106.8480,
-      capacity: 16
+      capacity: 16,
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Node: ODP-JKT01-02')
@@ -1199,7 +1243,8 @@ async function main() {
       source: 'ODC-HQ',
       target: 'ODP-JKT01-01',
       fiberType: '48 core',
-      distance: 800
+      distance: 800,
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Edge: HQ -> ODP 01')
@@ -1212,7 +1257,8 @@ async function main() {
       source: 'ODC-HQ',
       target: 'ODP-JKT01-02',
       fiberType: '24 core',
-      distance: 650
+      distance: 650,
+      tenantId: MAIN_TENANT_ID,
     }
   })
   console.log('   ✅ Edge: HQ -> ODP 02')
