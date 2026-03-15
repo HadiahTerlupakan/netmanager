@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { HiArrowPath, HiCheckCircle, HiClock, HiExclamationCircle, HiGlobeAlt, HiPlus, HiXMark } from 'react-icons/hi2'
+import { HiArrowPath, HiCheckCircle, HiClock, HiExclamationCircle, HiGlobeAlt, HiPlus, HiXMark, HiInformationCircle } from 'react-icons/hi2'
 import Link from 'next/link'
 import { TIMEZONE_OPTIONS } from '@/lib/constants/timezone-constants'
 
@@ -59,6 +59,11 @@ export function ClientComponent() {
     notifWa: false,
     notifEmail: false,
   })
+
+  // Backfill state
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<{ success: boolean; message: string; log?: string } | null>(null)
+  const [backfillError, setBackfillError] = useState<string | null>(null)
 
   // Update current time every second based on selected timezone
   useEffect(() => {
@@ -154,6 +159,28 @@ export function ClientComponent() {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan pengaturan')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // ─── BACKFILL (SYNC TENANT) ──────────────────────────────────────────
+  const handleBackfill = async () => {
+    setBackfilling(true)
+    setBackfillError(null)
+    setBackfillResult(null)
+
+    try {
+      const res = await fetch('/api/settings/backup/backfill', { method: 'POST' })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}: Gagal sinkronisasi tenant`)
+      }
+
+      setBackfillResult(data)
+    } catch (err) {
+      setBackfillError(err instanceof Error ? err.message : 'Terjadi kesalahan saat sinkronisasi tenant')
+    } finally {
+      setBackfilling(false)
     }
   }
 
@@ -690,6 +717,66 @@ export function ClientComponent() {
               </Link>
             </div>
           </form>
+        )}
+      </div>
+
+      {/* ─── SINKRONISASI DATA SECTION (Multi-Tenant) ─── */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+            <HiArrowPath className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Sinkronisasi Multi-Tenant</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Jalankan jika ada data master/legacy yang tidak terhubung ke tenant apa pun setelah Import</p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-5">
+          <HiInformationCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-800 dark:text-blue-400 leading-relaxed">
+            Fitur ini akan mengecek seluruh data yang tidak memiliki <strong>ID Tenant</strong> dan menghubungkannya dengan tenant utama. Jalankan rutin <strong>satu kali setelah berhasil mengimport database legacy</strong> dari menu Backup.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleBackfill}
+          disabled={backfilling}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
+        >
+          {backfilling ? (
+            <>
+              <HiArrowPath className="w-4 h-4 animate-spin" />
+              Sedang Melakukan Sinkronisasi...
+            </>
+          ) : (
+            <>
+              <HiArrowPath className="w-4 h-4" />
+              Sinkronisasi Data Multi-Tenant
+            </>
+          )}
+        </button>
+
+        {backfillError && (
+          <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <HiXMark className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800 dark:text-red-400">{backfillError}</p>
+          </div>
+        )}
+
+        {backfillResult && (
+          <div className="mt-3 flex flex-col gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <HiCheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+              <p className="text-sm font-medium text-green-800 dark:text-green-400">{backfillResult.message}</p>
+            </div>
+            {backfillResult.log && (
+              <pre className="mt-1 w-full text-xs font-mono whitespace-pre-wrap text-green-900 dark:text-green-300 bg-green-100/50 dark:bg-green-950 p-2 rounded max-h-40 overflow-auto">
+                {backfillResult.log}
+              </pre>
+            )}
+          </div>
         )}
       </div>
     </div>
