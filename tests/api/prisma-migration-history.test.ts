@@ -42,7 +42,7 @@ describe('ensurePrismaMigrationHistory', () => {
     })
 
     expect(runCommand).toHaveBeenCalledTimes(1)
-    expect(runCommand.mock.calls[0]?.[0]).toContain('select case when to_regclass')
+    expect(runCommand.mock.calls[0]?.[0]).toContain('information_schema.tables')
   })
 
   it('fails fast when schema is not equivalent before baselining', async () => {
