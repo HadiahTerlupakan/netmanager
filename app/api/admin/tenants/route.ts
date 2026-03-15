@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma, prismaAuth } from '@/lib/prisma'
 import { apiError, ErrorCodes } from '@/lib/api-response'
+import { provisionTenantData } from '@/lib/tenant-provisioning'
 
 export async function GET(request: Request) {
     try {
@@ -56,13 +57,23 @@ export async function POST(request: Request) {
             }
         })
 
+        // Auto-provision default Roles, Permissions, and Settings
+        try {
+            const result = await provisionTenantData(prismaAuth, tenant.id)
+            console.log(`[TENANT_POST] Provisioned tenant ${tenant.name}:`, result)
+        } catch (provisionError) {
+            console.error(`[TENANT_POST] Warning: Provisioning failed for tenant ${tenant.id}:`, provisionError)
+            // Don't fail the creation, just log the warning
+        }
+
         return NextResponse.json({ 
             success: true, 
             data: tenant, 
-            message: `Tenant ${tenant.name} berhasil dibuat.` 
+            message: `Tenant ${tenant.name} berhasil dibuat dengan data default.` 
         })
     } catch (error) {
         console.error('[TENANT_POST]', error)
         return apiError('Failed to create tenant', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }
+

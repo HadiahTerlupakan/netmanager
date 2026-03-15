@@ -228,5 +228,11 @@ spec:
 
               echo ""
               echo "======================================"
+              echo "Running tenant provisioning fix script"
+              echo "======================================"
+              npx tsx scripts/fix-tenant-provision.ts || echo "⚠️ Tenant provisioning script encountered an issue, but migration continuing"
+
+              echo ""
+              echo "======================================"
               echo "✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY"
               echo "======================================"

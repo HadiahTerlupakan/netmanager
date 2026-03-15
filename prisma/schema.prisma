@@ -833,7 +833,7 @@ model Permission {
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   role        Role[]   @relation("PermissionToRole")
 
-  @@unique([resource, action])
+  @@unique([resource, action, tenantId])
   @@index([resource])
   @@index([action])
   @@index([tenantId])
@@ -934,7 +934,7 @@ model RevenueSnapshot {
 
 model Role {
   id                  String       @id
-  name                String       @unique
+  name                String
   description         String?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime
@@ -949,6 +949,7 @@ model Role {
   tenant              Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   permission          Permission[] @relation("PermissionToRole")
 
+  @@unique([name, tenantId])
   @@index([accessAdminPanel])
   @@index([accessEmployeePanel])
   @@index([isRestricted])
@@ -966,7 +967,7 @@ model Session {
 
 model Settings {
   id          String   @id
-  key         String   @unique
+  key         String
   value       String?
   encrypted   Boolean  @default(false)
   description String?
@@ -975,6 +976,7 @@ model Settings {
   tenantId    String?
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@unique([key, tenantId])
   @@index([key])
   @@index([tenantId])
 }
