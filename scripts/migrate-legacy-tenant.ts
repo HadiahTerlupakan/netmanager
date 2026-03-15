@@ -1,77 +1,83 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
+import { MAIN_TENANT_NAME } from '../lib/tenant-constants'
 
 /**
  * Script ini bersifat IDEMPOTENT (aman dijalankan berkali-kali).
- * Digunakan dalam CI/CD untuk memastikan tenant NETMANAGER ada dan data legacy tertaut.
+ * Safety net untuk memastikan tenant NETMANAGER ada dan data legacy tertaut.
+ * 
+ * Berjalan SETELAH backfill-tenant.ts sehingga tenant sudah ada/direname.
+ * Script ini TIDAK membuat tenant baru atau mengubah ID.
  */
 
 async function main() {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) {
     console.error('❌ DATABASE_URL tidak ditemukan di .env')
-    return
+    process.exit(1)
   }
 
   const pool = new Pool({ connectionString })
   const adapter = new PrismaPg(pool)
   const prisma = new PrismaClient({ adapter })
 
-  console.log('🚀 Checking/Migrating legacy data for NETMANAGER...')
+  console.log('🚀 [migrate-legacy-tenant] Checking for orphaned data...')
 
   try {
-    // 1. Pastikan Tenant NETMANAGER ada
-    const tenantName = 'NETMANAGER'
-    const targetTenantId = '0c33470a-0a95-4770-b083-a52598c490a3' // ID Konsisten
-    
-    let tenant = await prisma.tenant.findUnique({
-      where: { id: targetTenantId }
+    // Cari tenant NETMANAGER (sudah dibuat/direname oleh backfill-tenant.ts)
+    let tenant = await prisma.tenant.findFirst({
+      where: { name: MAIN_TENANT_NAME }
     })
 
     if (!tenant) {
-      console.log(`🏢 Creating main tenant: ${tenantName} (${targetTenantId})...`)
-      tenant = await prisma.tenant.create({
-        data: {
-          id: targetTenantId,
-          name: tenantName,
-          isActive: true
-        }
+      // Fallback: cari tenant apapun yang paling lama
+      tenant = await prisma.tenant.findFirst({
+        orderBy: { createdAt: 'asc' }
       })
-    } else {
-      console.log(`✅ Tenant ${tenantName} already exists.`)
     }
 
-    // 2. Daftar model yang perlu di-backfill (tenantId is null)
-    const modelsToUpdate = [
-      'User', 'Departments', 'Sites', 'Position', 'Gudang', 
-      'Role', 'Permission', 'Investor', 'FinancialAccount', 
-      'MapSettings', 'MappingNode', 'MappingEdge', 'Barang', 
-      'KategoriBarang', 'SatuanBarang', 'Vendor'
-    ]
+    if (!tenant) {
+      console.log('⚠️ No tenant found. Skipping legacy migration.')
+      return
+    }
 
-    for (const modelName of modelsToUpdate) {
-      try {
-        const delegateName = modelName.charAt(0).toLowerCase() + modelName.slice(1)
-        // @ts-ignore
-        const delegate = prisma[delegateName]
-        
-        if (delegate && delegate.updateMany) {
+    console.log(`✅ Using tenant: "${tenant.name}" (${tenant.id})`)
+
+    // Backfill semua model secara dinamis (menggunakan Prisma DMMF)
+    const modelsWithTenantId = Prisma.dmmf.datamodel.models.filter(model =>
+      model.fields.some(f => f.name === 'tenantId')
+    )
+
+    let totalUpdated = 0
+
+    for (const model of modelsWithTenantId) {
+      const delegateProp = model.name.charAt(0).toLowerCase() + model.name.slice(1)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const delegate = (prisma as any)[delegateProp]
+
+      if (delegate && delegate.updateMany) {
+        try {
           const result = await delegate.updateMany({
             where: { tenantId: null },
-            data: { tenantId: targetTenantId }
+            data: { tenantId: tenant.id }
           })
           if (result.count > 0) {
-            console.log(`🔹 ${modelName}: Updated ${result.count} records.`)
+            console.log(`  🔹 ${model.name}: Updated ${result.count} records`)
+            totalUpdated += result.count
           }
+        } catch {
+          // Skip models yang mungkin tidak ada di environment tertentu
         }
-      } catch (err) {
-        // Skip models that might not exist in some environments
       }
     }
 
-    console.log('✨ CI/CD Migration Step Complete.')
+    if (totalUpdated === 0) {
+      console.log('  ℹ️  No orphaned records found.')
+    }
+
+    console.log(`✅ [migrate-legacy-tenant] Complete. Total updated: ${totalUpdated}`)
   } catch (error) {
     console.error('❌ Migration Error:', error)
     process.exit(1)
