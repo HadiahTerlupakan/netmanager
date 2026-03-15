@@ -101,40 +101,7 @@ spec:
               echo "======================================"
 
               # =============================================
-              # STEP 1: Clean ALL old migration records
-              # TRUNCATE _prisma_migrations to remove ALL history
-              # including failed records that block new migrations.
-              # Uses DATABASE_URL env vars directly as psql connection strings.
-              # TODO: Remove this step after first successful deployment.
-              # =============================================
-              echo ""
-              echo "======================================"
-              echo "🧹 Cleaning ALL migration history (squash reset)"
-              echo "======================================"
-
-              echo "Cleaning netmanager DB..."
-              psql "$DATABASE_URL" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ netmanager cleanup skipped (table may not exist)"
-
-              echo "Cleaning radius DB..."
-              psql "$RADIUS_DATABASE_URL" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ radius cleanup skipped"
-
-              echo "Cleaning billing DB..."
-              psql "$DATABASE_URL_BILLING" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ billing cleanup skipped"
-
-              echo "Cleaning mitra DB..."
-              psql "$DATABASE_URL_MITRA" -c "TRUNCATE TABLE \"_prisma_migrations\";" 2>&1 || echo "⚠️ mitra cleanup skipped"
-
-              echo "✅ Migration history cleaned."
-
-              echo ""
-              echo "=== Migration status after cleanup ==="
-              npx prisma migrate status 2>&1 || true
-              npx prisma migrate status --config=prisma.radius.config.ts 2>&1 || true
-              npx prisma migrate status --config=prisma.billing.config.ts 2>&1 || true
-              npx prisma migrate status --config=prisma.mitra.config.ts 2>&1 || true
-
-              # =============================================
-              # STEP 2: Safe Migration Guard
+              # Safe Migration Guard
               # Automatically allows destructive migrations that include
               # a "-- @safe-guard-ack: <reason>" comment in the SQL file.
               # Blocks all unacknowledged destructive migrations.

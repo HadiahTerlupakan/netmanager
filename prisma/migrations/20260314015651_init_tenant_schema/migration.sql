@@ -1,348 +1,348 @@
 -- @safe-guard-ack: Adding Tenant model and tenantId for Multi-Tenant SaaS architecture
 -- AlterTable
-ALTER TABLE "ARAgingSnapshot" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "ARAgingSnapshot" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Announcement" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Announcement" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "AnnouncementRead" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "AnnouncementRead" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Attendance" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Attendance" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "employee_locations" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "employee_locations" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Bandwidth" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Bandwidth" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Coupon" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Coupon" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "CouponUsage" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "CouponUsage" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "CustomerCohort" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "CustomerCohort" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "ExpenseCategory" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "ExpenseCategory" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Expense" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Expense" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "HargaPaket" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "HargaPaket" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Investor" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Investor" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "InvestorPayout" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "InvestorPayout" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "RabInvestor" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "RabInvestor" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Holiday" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Holiday" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Joinbox" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Joinbox" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "JoinboxInput" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "JoinboxInput" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "JoinboxOutput" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "JoinboxOutput" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "KmzFile" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "KmzFile" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "LeaveRequest" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "LeaveRequest" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "LeaveBalance" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "LeaveBalance" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "MRRMovement" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "MRRMovement" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "MikroTikRouter" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "MikroTikRouter" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Odc" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Odc" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "OdcOutput" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "OdcOutput" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Odp" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Odp" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "OdpOutput" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "OdpOutput" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Otb" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Otb" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "OtbCore" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "OtbCore" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Overtime" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Overtime" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Pelanggan" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Pelanggan" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Permission" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Permission" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Pole" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Pole" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "ProfilePPP" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "ProfilePPP" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "ReminderLog" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "ReminderLog" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "RevenueSnapshot" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "RevenueSnapshot" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "roles" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "roles" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Settings" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Settings" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "SystemLog" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "SystemLog" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "user_sites" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "user_sites" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "barang" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "barang" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "barang_gudang" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "barang_gudang" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "barang_keluar" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "barang_keluar" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "barang_masuk" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "barang_masuk" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "configuration_restores" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "configuration_restores" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "customer_usage" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "customer_usage" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "departments" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "departments" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "device_backups" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "device_backups" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "gudang" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "gudang" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "network_alerts" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "network_alerts" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "network_performance" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "network_performance" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "notifications" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "notifications" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "positions" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "positions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "push_subscriptions" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "registrations" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "registrations" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "restock_alerts" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "restock_alerts" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "restock_settings" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "restock_settings" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "service_suspension" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "service_suspension" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "sites" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "sites" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "sla" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "sla" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "stock_opname" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "stock_opname" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "support_tickets" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "support_tickets" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "ticket_replies" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "ticket_replies" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "transfer_antar_gudang" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "transfer_antar_gudang" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "usage_analytics" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "usage_analytics" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_assignments" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_assignments" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_attachments" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_attachments" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_escalations" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_escalations" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_tasks" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_tasks" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_templates" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_templates" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_updates" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_updates" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_orders" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_orders" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_material_returns" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_material_returns" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Conversation" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Conversation" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "ConversationParticipant" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "ConversationParticipant" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Message" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "app_versions" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "app_versions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "Shift" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "Shift" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "canvasing" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "canvasing" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "point_claims" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "point_claims" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "purchase_requests" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "purchase_requests" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "purchase_request_items" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "purchase_request_items" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "suppliers" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "suppliers" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "purchase_orders" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "purchase_orders" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "purchase_order_items" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "purchase_order_items" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "financial_accounts" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "financial_accounts" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "assets" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "assets" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "asset_depreciation_logs" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "asset_depreciation_logs" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "salaries" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "salaries" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "salary_components" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "salary_components" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "salary_details" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "salary_details" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "salary_revisions" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "salary_revisions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "user_salary_components" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "user_salary_components" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_materials" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_materials" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "work_order_template_items" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "work_order_template_items" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "mapping_nodes" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "mapping_nodes" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "mapping_edges" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "mapping_edges" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "map_settings" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "map_settings" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_projects" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_projects" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_revisions" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_revisions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_revision_approvals" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_revision_approvals" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_revision_items" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_revision_items" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_approvals" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_approvals" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_items" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_items" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_wbs" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_wbs" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_disbursements" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_disbursements" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "acs_vendors" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "acs_vendors" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "acs_wifi_security" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "acs_wifi_security" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "company_bank_accounts" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "company_bank_accounts" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "rab_actual_achievements" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "rab_actual_achievements" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "employee_loans" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "employee_loans" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
-ALTER TABLE "loan_payments" ADD COLUMN     "tenantId" TEXT;
+ALTER TABLE "loan_payments" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- CreateTable
-CREATE TABLE "Tenant" (
+CREATE TABLE IF NOT EXISTS "Tenant" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "domain" TEXT,
@@ -354,349 +354,349 @@ CREATE TABLE "Tenant" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Tenant_domain_key" ON "Tenant"("domain");
+CREATE UNIQUE INDEX IF NOT EXISTS "Tenant_domain_key" ON "Tenant"("domain");
 
 -- CreateIndex
-CREATE INDEX "ARAgingSnapshot_tenantId_idx" ON "ARAgingSnapshot"("tenantId");
+CREATE INDEX IF NOT EXISTS "ARAgingSnapshot_tenantId_idx" ON "ARAgingSnapshot"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Announcement_tenantId_idx" ON "Announcement"("tenantId");
+CREATE INDEX IF NOT EXISTS "Announcement_tenantId_idx" ON "Announcement"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "AnnouncementRead_tenantId_idx" ON "AnnouncementRead"("tenantId");
+CREATE INDEX IF NOT EXISTS "AnnouncementRead_tenantId_idx" ON "AnnouncementRead"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Attendance_tenantId_idx" ON "Attendance"("tenantId");
+CREATE INDEX IF NOT EXISTS "Attendance_tenantId_idx" ON "Attendance"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "employee_locations_tenantId_idx" ON "employee_locations"("tenantId");
+CREATE INDEX IF NOT EXISTS "employee_locations_tenantId_idx" ON "employee_locations"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Bandwidth_tenantId_idx" ON "Bandwidth"("tenantId");
+CREATE INDEX IF NOT EXISTS "Bandwidth_tenantId_idx" ON "Bandwidth"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Coupon_tenantId_idx" ON "Coupon"("tenantId");
+CREATE INDEX IF NOT EXISTS "Coupon_tenantId_idx" ON "Coupon"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "CouponUsage_tenantId_idx" ON "CouponUsage"("tenantId");
+CREATE INDEX IF NOT EXISTS "CouponUsage_tenantId_idx" ON "CouponUsage"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "CustomerCohort_tenantId_idx" ON "CustomerCohort"("tenantId");
+CREATE INDEX IF NOT EXISTS "CustomerCohort_tenantId_idx" ON "CustomerCohort"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "ExpenseCategory_tenantId_idx" ON "ExpenseCategory"("tenantId");
+CREATE INDEX IF NOT EXISTS "ExpenseCategory_tenantId_idx" ON "ExpenseCategory"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Expense_tenantId_idx" ON "Expense"("tenantId");
+CREATE INDEX IF NOT EXISTS "Expense_tenantId_idx" ON "Expense"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "HargaPaket_tenantId_idx" ON "HargaPaket"("tenantId");
+CREATE INDEX IF NOT EXISTS "HargaPaket_tenantId_idx" ON "HargaPaket"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Investor_tenantId_idx" ON "Investor"("tenantId");
+CREATE INDEX IF NOT EXISTS "Investor_tenantId_idx" ON "Investor"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "InvestorPayout_tenantId_idx" ON "InvestorPayout"("tenantId");
+CREATE INDEX IF NOT EXISTS "InvestorPayout_tenantId_idx" ON "InvestorPayout"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "RabInvestor_tenantId_idx" ON "RabInvestor"("tenantId");
+CREATE INDEX IF NOT EXISTS "RabInvestor_tenantId_idx" ON "RabInvestor"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Holiday_tenantId_idx" ON "Holiday"("tenantId");
+CREATE INDEX IF NOT EXISTS "Holiday_tenantId_idx" ON "Holiday"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Joinbox_tenantId_idx" ON "Joinbox"("tenantId");
+CREATE INDEX IF NOT EXISTS "Joinbox_tenantId_idx" ON "Joinbox"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "JoinboxInput_tenantId_idx" ON "JoinboxInput"("tenantId");
+CREATE INDEX IF NOT EXISTS "JoinboxInput_tenantId_idx" ON "JoinboxInput"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "JoinboxOutput_tenantId_idx" ON "JoinboxOutput"("tenantId");
+CREATE INDEX IF NOT EXISTS "JoinboxOutput_tenantId_idx" ON "JoinboxOutput"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "KmzFile_tenantId_idx" ON "KmzFile"("tenantId");
+CREATE INDEX IF NOT EXISTS "KmzFile_tenantId_idx" ON "KmzFile"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "LeaveRequest_tenantId_idx" ON "LeaveRequest"("tenantId");
+CREATE INDEX IF NOT EXISTS "LeaveRequest_tenantId_idx" ON "LeaveRequest"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "LeaveBalance_tenantId_idx" ON "LeaveBalance"("tenantId");
+CREATE INDEX IF NOT EXISTS "LeaveBalance_tenantId_idx" ON "LeaveBalance"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "MRRMovement_tenantId_idx" ON "MRRMovement"("tenantId");
+CREATE INDEX IF NOT EXISTS "MRRMovement_tenantId_idx" ON "MRRMovement"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "MikroTikRouter_tenantId_idx" ON "MikroTikRouter"("tenantId");
+CREATE INDEX IF NOT EXISTS "MikroTikRouter_tenantId_idx" ON "MikroTikRouter"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Odc_tenantId_idx" ON "Odc"("tenantId");
+CREATE INDEX IF NOT EXISTS "Odc_tenantId_idx" ON "Odc"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "OdcOutput_tenantId_idx" ON "OdcOutput"("tenantId");
+CREATE INDEX IF NOT EXISTS "OdcOutput_tenantId_idx" ON "OdcOutput"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Odp_tenantId_idx" ON "Odp"("tenantId");
+CREATE INDEX IF NOT EXISTS "Odp_tenantId_idx" ON "Odp"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "OdpOutput_tenantId_idx" ON "OdpOutput"("tenantId");
+CREATE INDEX IF NOT EXISTS "OdpOutput_tenantId_idx" ON "OdpOutput"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Otb_tenantId_idx" ON "Otb"("tenantId");
+CREATE INDEX IF NOT EXISTS "Otb_tenantId_idx" ON "Otb"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "OtbCore_tenantId_idx" ON "OtbCore"("tenantId");
+CREATE INDEX IF NOT EXISTS "OtbCore_tenantId_idx" ON "OtbCore"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Overtime_tenantId_idx" ON "Overtime"("tenantId");
+CREATE INDEX IF NOT EXISTS "Overtime_tenantId_idx" ON "Overtime"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Pelanggan_tenantId_idx" ON "Pelanggan"("tenantId");
+CREATE INDEX IF NOT EXISTS "Pelanggan_tenantId_idx" ON "Pelanggan"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Permission_tenantId_idx" ON "Permission"("tenantId");
+CREATE INDEX IF NOT EXISTS "Permission_tenantId_idx" ON "Permission"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Pole_tenantId_idx" ON "Pole"("tenantId");
+CREATE INDEX IF NOT EXISTS "Pole_tenantId_idx" ON "Pole"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "ProfilePPP_tenantId_idx" ON "ProfilePPP"("tenantId");
+CREATE INDEX IF NOT EXISTS "ProfilePPP_tenantId_idx" ON "ProfilePPP"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "ReminderLog_tenantId_idx" ON "ReminderLog"("tenantId");
+CREATE INDEX IF NOT EXISTS "ReminderLog_tenantId_idx" ON "ReminderLog"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "RevenueSnapshot_tenantId_idx" ON "RevenueSnapshot"("tenantId");
+CREATE INDEX IF NOT EXISTS "RevenueSnapshot_tenantId_idx" ON "RevenueSnapshot"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "roles_tenantId_idx" ON "roles"("tenantId");
+CREATE INDEX IF NOT EXISTS "roles_tenantId_idx" ON "roles"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Settings_tenantId_idx" ON "Settings"("tenantId");
+CREATE INDEX IF NOT EXISTS "Settings_tenantId_idx" ON "Settings"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "SystemLog_tenantId_idx" ON "SystemLog"("tenantId");
+CREATE INDEX IF NOT EXISTS "SystemLog_tenantId_idx" ON "SystemLog"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "User_tenantId_idx" ON "User"("tenantId");
+CREATE INDEX IF NOT EXISTS "User_tenantId_idx" ON "User"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "user_sites_tenantId_idx" ON "user_sites"("tenantId");
+CREATE INDEX IF NOT EXISTS "user_sites_tenantId_idx" ON "user_sites"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "barang_tenantId_idx" ON "barang"("tenantId");
+CREATE INDEX IF NOT EXISTS "barang_tenantId_idx" ON "barang"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "barang_gudang_tenantId_idx" ON "barang_gudang"("tenantId");
+CREATE INDEX IF NOT EXISTS "barang_gudang_tenantId_idx" ON "barang_gudang"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "barang_keluar_tenantId_idx" ON "barang_keluar"("tenantId");
+CREATE INDEX IF NOT EXISTS "barang_keluar_tenantId_idx" ON "barang_keluar"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "barang_masuk_tenantId_idx" ON "barang_masuk"("tenantId");
+CREATE INDEX IF NOT EXISTS "barang_masuk_tenantId_idx" ON "barang_masuk"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "configuration_restores_tenantId_idx" ON "configuration_restores"("tenantId");
+CREATE INDEX IF NOT EXISTS "configuration_restores_tenantId_idx" ON "configuration_restores"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "customer_usage_tenantId_idx" ON "customer_usage"("tenantId");
+CREATE INDEX IF NOT EXISTS "customer_usage_tenantId_idx" ON "customer_usage"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "departments_tenantId_idx" ON "departments"("tenantId");
+CREATE INDEX IF NOT EXISTS "departments_tenantId_idx" ON "departments"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "device_backups_tenantId_idx" ON "device_backups"("tenantId");
+CREATE INDEX IF NOT EXISTS "device_backups_tenantId_idx" ON "device_backups"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "gudang_tenantId_idx" ON "gudang"("tenantId");
+CREATE INDEX IF NOT EXISTS "gudang_tenantId_idx" ON "gudang"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "network_alerts_tenantId_idx" ON "network_alerts"("tenantId");
+CREATE INDEX IF NOT EXISTS "network_alerts_tenantId_idx" ON "network_alerts"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "network_performance_tenantId_idx" ON "network_performance"("tenantId");
+CREATE INDEX IF NOT EXISTS "network_performance_tenantId_idx" ON "network_performance"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "notifications_tenantId_idx" ON "notifications"("tenantId");
+CREATE INDEX IF NOT EXISTS "notifications_tenantId_idx" ON "notifications"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "positions_tenantId_idx" ON "positions"("tenantId");
+CREATE INDEX IF NOT EXISTS "positions_tenantId_idx" ON "positions"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "push_subscriptions_tenantId_idx" ON "push_subscriptions"("tenantId");
+CREATE INDEX IF NOT EXISTS "push_subscriptions_tenantId_idx" ON "push_subscriptions"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "registrations_tenantId_idx" ON "registrations"("tenantId");
+CREATE INDEX IF NOT EXISTS "registrations_tenantId_idx" ON "registrations"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "restock_alerts_tenantId_idx" ON "restock_alerts"("tenantId");
+CREATE INDEX IF NOT EXISTS "restock_alerts_tenantId_idx" ON "restock_alerts"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "restock_settings_tenantId_idx" ON "restock_settings"("tenantId");
+CREATE INDEX IF NOT EXISTS "restock_settings_tenantId_idx" ON "restock_settings"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "service_suspension_tenantId_idx" ON "service_suspension"("tenantId");
+CREATE INDEX IF NOT EXISTS "service_suspension_tenantId_idx" ON "service_suspension"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "sites_tenantId_idx" ON "sites"("tenantId");
+CREATE INDEX IF NOT EXISTS "sites_tenantId_idx" ON "sites"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "sla_tenantId_idx" ON "sla"("tenantId");
+CREATE INDEX IF NOT EXISTS "sla_tenantId_idx" ON "sla"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "stock_opname_tenantId_idx" ON "stock_opname"("tenantId");
+CREATE INDEX IF NOT EXISTS "stock_opname_tenantId_idx" ON "stock_opname"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "support_tickets_tenantId_idx" ON "support_tickets"("tenantId");
+CREATE INDEX IF NOT EXISTS "support_tickets_tenantId_idx" ON "support_tickets"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "ticket_replies_tenantId_idx" ON "ticket_replies"("tenantId");
+CREATE INDEX IF NOT EXISTS "ticket_replies_tenantId_idx" ON "ticket_replies"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "transfer_antar_gudang_tenantId_idx" ON "transfer_antar_gudang"("tenantId");
+CREATE INDEX IF NOT EXISTS "transfer_antar_gudang_tenantId_idx" ON "transfer_antar_gudang"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "usage_analytics_tenantId_idx" ON "usage_analytics"("tenantId");
+CREATE INDEX IF NOT EXISTS "usage_analytics_tenantId_idx" ON "usage_analytics"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_assignments_tenantId_idx" ON "work_order_assignments"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_assignments_tenantId_idx" ON "work_order_assignments"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_attachments_tenantId_idx" ON "work_order_attachments"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_attachments_tenantId_idx" ON "work_order_attachments"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_escalations_tenantId_idx" ON "work_order_escalations"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_escalations_tenantId_idx" ON "work_order_escalations"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_tasks_tenantId_idx" ON "work_order_tasks"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_tasks_tenantId_idx" ON "work_order_tasks"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_templates_tenantId_idx" ON "work_order_templates"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_templates_tenantId_idx" ON "work_order_templates"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_updates_tenantId_idx" ON "work_order_updates"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_updates_tenantId_idx" ON "work_order_updates"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_orders_tenantId_idx" ON "work_orders"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_orders_tenantId_idx" ON "work_orders"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_material_returns_tenantId_idx" ON "work_order_material_returns"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_material_returns_tenantId_idx" ON "work_order_material_returns"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Conversation_tenantId_idx" ON "Conversation"("tenantId");
+CREATE INDEX IF NOT EXISTS "Conversation_tenantId_idx" ON "Conversation"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "ConversationParticipant_tenantId_idx" ON "ConversationParticipant"("tenantId");
+CREATE INDEX IF NOT EXISTS "ConversationParticipant_tenantId_idx" ON "ConversationParticipant"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Message_tenantId_idx" ON "Message"("tenantId");
+CREATE INDEX IF NOT EXISTS "Message_tenantId_idx" ON "Message"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "app_versions_tenantId_idx" ON "app_versions"("tenantId");
+CREATE INDEX IF NOT EXISTS "app_versions_tenantId_idx" ON "app_versions"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Shift_tenantId_idx" ON "Shift"("tenantId");
+CREATE INDEX IF NOT EXISTS "Shift_tenantId_idx" ON "Shift"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "canvasing_tenantId_idx" ON "canvasing"("tenantId");
+CREATE INDEX IF NOT EXISTS "canvasing_tenantId_idx" ON "canvasing"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "point_claims_tenantId_idx" ON "point_claims"("tenantId");
+CREATE INDEX IF NOT EXISTS "point_claims_tenantId_idx" ON "point_claims"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "purchase_requests_tenantId_idx" ON "purchase_requests"("tenantId");
+CREATE INDEX IF NOT EXISTS "purchase_requests_tenantId_idx" ON "purchase_requests"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "purchase_request_items_tenantId_idx" ON "purchase_request_items"("tenantId");
+CREATE INDEX IF NOT EXISTS "purchase_request_items_tenantId_idx" ON "purchase_request_items"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "suppliers_tenantId_idx" ON "suppliers"("tenantId");
+CREATE INDEX IF NOT EXISTS "suppliers_tenantId_idx" ON "suppliers"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "purchase_orders_tenantId_idx" ON "purchase_orders"("tenantId");
+CREATE INDEX IF NOT EXISTS "purchase_orders_tenantId_idx" ON "purchase_orders"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "purchase_order_items_tenantId_idx" ON "purchase_order_items"("tenantId");
+CREATE INDEX IF NOT EXISTS "purchase_order_items_tenantId_idx" ON "purchase_order_items"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "financial_accounts_tenantId_idx" ON "financial_accounts"("tenantId");
+CREATE INDEX IF NOT EXISTS "financial_accounts_tenantId_idx" ON "financial_accounts"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "assets_tenantId_idx" ON "assets"("tenantId");
+CREATE INDEX IF NOT EXISTS "assets_tenantId_idx" ON "assets"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "asset_depreciation_logs_tenantId_idx" ON "asset_depreciation_logs"("tenantId");
+CREATE INDEX IF NOT EXISTS "asset_depreciation_logs_tenantId_idx" ON "asset_depreciation_logs"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "salaries_tenantId_idx" ON "salaries"("tenantId");
+CREATE INDEX IF NOT EXISTS "salaries_tenantId_idx" ON "salaries"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "salary_components_tenantId_idx" ON "salary_components"("tenantId");
+CREATE INDEX IF NOT EXISTS "salary_components_tenantId_idx" ON "salary_components"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "salary_details_tenantId_idx" ON "salary_details"("tenantId");
+CREATE INDEX IF NOT EXISTS "salary_details_tenantId_idx" ON "salary_details"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "salary_revisions_tenantId_idx" ON "salary_revisions"("tenantId");
+CREATE INDEX IF NOT EXISTS "salary_revisions_tenantId_idx" ON "salary_revisions"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "user_salary_components_tenantId_idx" ON "user_salary_components"("tenantId");
+CREATE INDEX IF NOT EXISTS "user_salary_components_tenantId_idx" ON "user_salary_components"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_materials_tenantId_idx" ON "work_order_materials"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_materials_tenantId_idx" ON "work_order_materials"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "work_order_template_items_tenantId_idx" ON "work_order_template_items"("tenantId");
+CREATE INDEX IF NOT EXISTS "work_order_template_items_tenantId_idx" ON "work_order_template_items"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "mapping_nodes_tenantId_idx" ON "mapping_nodes"("tenantId");
+CREATE INDEX IF NOT EXISTS "mapping_nodes_tenantId_idx" ON "mapping_nodes"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "mapping_edges_tenantId_idx" ON "mapping_edges"("tenantId");
+CREATE INDEX IF NOT EXISTS "mapping_edges_tenantId_idx" ON "mapping_edges"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "map_settings_tenantId_idx" ON "map_settings"("tenantId");
+CREATE INDEX IF NOT EXISTS "map_settings_tenantId_idx" ON "map_settings"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_projects_tenantId_idx" ON "rab_projects"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_projects_tenantId_idx" ON "rab_projects"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_revisions_tenantId_idx" ON "rab_revisions"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_revisions_tenantId_idx" ON "rab_revisions"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_revision_approvals_tenantId_idx" ON "rab_revision_approvals"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_revision_approvals_tenantId_idx" ON "rab_revision_approvals"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_revision_items_tenantId_idx" ON "rab_revision_items"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_revision_items_tenantId_idx" ON "rab_revision_items"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_approvals_tenantId_idx" ON "rab_approvals"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_approvals_tenantId_idx" ON "rab_approvals"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_items_tenantId_idx" ON "rab_items"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_items_tenantId_idx" ON "rab_items"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_wbs_tenantId_idx" ON "rab_wbs"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_wbs_tenantId_idx" ON "rab_wbs"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_disbursements_tenantId_idx" ON "rab_disbursements"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_disbursements_tenantId_idx" ON "rab_disbursements"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "acs_vendors_tenantId_idx" ON "acs_vendors"("tenantId");
+CREATE INDEX IF NOT EXISTS "acs_vendors_tenantId_idx" ON "acs_vendors"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "acs_wifi_security_tenantId_idx" ON "acs_wifi_security"("tenantId");
+CREATE INDEX IF NOT EXISTS "acs_wifi_security_tenantId_idx" ON "acs_wifi_security"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "company_bank_accounts_tenantId_idx" ON "company_bank_accounts"("tenantId");
+CREATE INDEX IF NOT EXISTS "company_bank_accounts_tenantId_idx" ON "company_bank_accounts"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "rab_actual_achievements_tenantId_idx" ON "rab_actual_achievements"("tenantId");
+CREATE INDEX IF NOT EXISTS "rab_actual_achievements_tenantId_idx" ON "rab_actual_achievements"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "employee_loans_tenantId_idx" ON "employee_loans"("tenantId");
+CREATE INDEX IF NOT EXISTS "employee_loans_tenantId_idx" ON "employee_loans"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "loan_payments_tenantId_idx" ON "loan_payments"("tenantId");
+CREATE INDEX IF NOT EXISTS "loan_payments_tenantId_idx" ON "loan_payments"("tenantId");
 
 -- AddForeignKey
 ALTER TABLE "ARAgingSnapshot" ADD CONSTRAINT "ARAgingSnapshot_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
