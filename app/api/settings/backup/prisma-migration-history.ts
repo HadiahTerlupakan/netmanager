@@ -102,7 +102,18 @@ export async function ensurePrismaMigrationHistory({
   }
 
   const configArg = getConfigArg(prismaConfig.config)
-  const appliedCountCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c ${shellQuote(`select case when to_regclass('public."_prisma_migrations"') is null then -1 else (select count(*) from "_prisma_migrations") end as applied_count;`)}`
+  const checkTableCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='_prisma_migrations'"`
+  const getCountCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c "SELECT count(*) FROM \\"_prisma_migrations\\""`
+  
+  const appliedCountCommand = `
+    EXISTS=$(${checkTableCommand})
+    if [ "$EXISTS" = "1" ]; then
+      ${getCountCommand}
+    else
+      echo "-1"
+    fi
+  `
+
   const appliedCountResult = (await runCommand(appliedCountCommand, { env })) as { stdout?: string }
   const appliedCount = parseAppliedCount(appliedCountResult.stdout ?? '')
 

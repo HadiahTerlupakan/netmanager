@@ -18,6 +18,7 @@
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
     "db:ps": "docker-compose ps",
+    "db:backfill": "tsx scripts/backfill-tenant.ts",
     "prisma:generate": "prisma generate && prisma generate --config=prisma.radius.config.ts && prisma generate --config=prisma.billing.config.ts && prisma generate --config=prisma.mitra.config.ts",
     "prisma:push-all": "prisma db push && prisma db push --config=prisma.radius.config.ts && prisma db push --config=prisma.billing.config.ts && prisma db push --config=prisma.mitra.config.ts",
     "prisma:migrate": "prisma migrate dev --name init && prisma migrate dev --config=prisma.radius.config.ts --name init && prisma migrate dev --config=prisma.billing.config.ts --name init && prisma migrate dev --config=prisma.mitra.config.ts --name init",

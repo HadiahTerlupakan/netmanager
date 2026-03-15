@@ -1,7 +1,7 @@
 process.env.IS_SEEDING = 'true'
 import { Prisma } from '@prisma/client'
 import { prismaAuth as prisma } from '../lib/prisma'
-import { MAIN_TENANT_NAME } from '../lib/tenant-constants'
+import { MAIN_TENANT_NAME, MAIN_TENANT_ID } from '../lib/tenant-constants'
 
 /**
  * Script ini bersifat IDEMPOTENT.
@@ -45,7 +45,10 @@ async function main() {
     } else {
       // 3. Tidak ada tenant sama sekali → buat baru
       tenant = await prisma.tenant.create({
-        data: { name: MAIN_TENANT_NAME }
+        data: { 
+          id: MAIN_TENANT_ID,
+          name: MAIN_TENANT_NAME 
+        }
       })
       console.log(`✨ Created new tenant: "${MAIN_TENANT_NAME}" (ID: ${tenant.id})`)
     }

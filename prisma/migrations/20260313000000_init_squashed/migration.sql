@@ -3603,6 +3603,7 @@ ALTER TABLE "network_performance" ADD CONSTRAINT "network_performance_mikrotik_f
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+DELETE FROM "notifications";
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
