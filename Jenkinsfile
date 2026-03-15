@@ -129,12 +129,24 @@ spec:
                         echo "Loading Docker image into K3s containerd using root wrapper..."
                         // Kita spawn kontainer docker sementara dari dalam docker-sock untuk mendapatkan
                         // akses privileged chroot ke mesin host, lalu menjalankan k3s ctr!
+                        // Masalah: docker save multi-image bisa merusak parsing nama oleh k3s ctr import.
+                        // Solusi: Lakukan satu per satu agar nama image tetap konsisten (menggunakan strip -).
                         sh """
                         docker run --rm -i --privileged \\
                             -v /:/host \\
                             -v /var/run/docker.sock:/var/run/docker.sock \\
                             docker:cli \\
-                            sh -c "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} ${CRON_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
+                            sh -c "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
+
+                        docker run --rm -i --privileged \\
+                            -v /:/host \\
+                            -v /var/run/docker.sock:/var/run/docker.sock \\
+                            docker:cli \\
+                            sh -c "docker save ${CRON_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
+
+                        echo "Verifikasi image yang terdaftar di k3s:"
+                        docker run --rm -i --privileged -v /:/host docker:cli \\
+                            chroot /host /usr/local/bin/k3s ctr images list | grep netmanager || true
                         """
                     }
                 }
@@ -185,18 +197,23 @@ spec:
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
                         
-                        // 4. Polling for Job completion or failure (menghindari race condition)
+                        // 4. Wait for Job completion or failure (lebih efisien daripada loop manual)
                         def jobStatus = sh(
                             script: """
-                                echo "Menunggu Kubernetes Job netmanager-migration-job (max 30 menit)..."
-                                for i in \$(seq 1 360); do
-                                    COMPLETE=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "False")
-                                    FAILED=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo "False")
-                                    if [ "\$COMPLETE" = "True" ]; then exit 0; fi
-                                    if [ "\$FAILED" = "True" ]; then exit 1; fi
-                                    sleep 5
-                                done
-                                exit 1 # Timeout
+                                echo "Menunggu Kubernetes Job netmanager-migration-job (timeout 30 menit)..."
+                                # Gunakan kubectl wait untuk deteksi completion yang lebih clean
+                                if kubectl wait --for=condition=complete job/netmanager-migration-job -n ${NAMESPACE} --timeout=1800s; then
+                                    exit 0
+                                else
+                                    # Jika bukan complete, cek apakah failed
+                                    if kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q "True"; then
+                                        echo "❌ Job GAGAL terdeteksi."
+                                        exit 1
+                                    else
+                                        echo "⚠️ Job timeout atau status tidak diketahui."
+                                        exit 1
+                                    fi
+                                fi
                             """,
                             returnStatus: true
                         )
