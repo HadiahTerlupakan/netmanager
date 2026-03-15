@@ -187,6 +187,7 @@ spec:
 
               npx prisma migrate resolve --rolled-back 20260314015651_init_tenant_schema 2>&1 || true
               npx prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
+              npx prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
               npx prisma migrate deploy
 
               echo ""
