@@ -78,8 +78,10 @@ COPY --from=builder /app/prisma.mitra.config.ts ./prisma.mitra.config.ts
 COPY --from=builder /app/lib ./lib
 
 # Copy modules folder (required by server.ts for RadiusMonitor, etc.)
-# Copy modules folder (required by server.ts for RadiusMonitor, etc.)
 COPY --from=builder /app/modules ./modules
+
+# Copy scripts folder (required by K8s migration job for backfill/migration scripts)
+COPY --from=builder /app/scripts ./scripts
 
 # proxy.ts is merged into middleware.ts, so we don't copy it anymore
 # middleware.ts is handled by default next build or root copy? 
