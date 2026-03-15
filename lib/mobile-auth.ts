@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { getAppVersionService, type VersionAccessResult } from '@/modules/app-version/services/AppVersionService'
-import { prisma } from '@/lib/prisma'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prismaAuth } from '@/lib/prisma'
+import { prismaMitraAuth } from '@/lib/prisma-mitra'
 
 const secret = new TextEncoder().encode(
     process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
@@ -16,7 +16,7 @@ export async function signMobileToken(payload: Record<string, unknown>) {
 
         // Mitra users are in a separate table, they don't have tokenVersion
         if (role !== 'MITRA') {
-            const user = await prisma.user.findUnique({
+            const user = await prismaAuth.user.findUnique({
                 where: { id },
                 select: { tokenVersion: true }
             })
@@ -111,7 +111,7 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
         }
 
         // Validate tokenVersion against database
-        const dbUser = await prisma.user.findUnique({
+        const dbUser = await prismaAuth.user.findUnique({
             where: { id: userId as string },
             select: {
                 tokenVersion: true,
@@ -131,7 +131,7 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
             console.log('[MOBILE_AUTH] User not found in User table, checking Pelanggan...', userId)
 
             // Fallback: Check if it's a Customer
-            const customer = await prisma.pelanggan.findUnique({
+            const customer = await prismaAuth.pelanggan.findUnique({
                 where: { id: userId as string },
                 select: {
                     id: true,
@@ -171,7 +171,7 @@ export async function verifyMobileToken(token: string, versionCodeOverride?: num
             }
 
             console.log('[MOBILE_AUTH] Customer not found, checking Mitra...', userId)
-            const mitra = await prismaMitra.mitra.findUnique({
+            const mitra = await prismaMitraAuth.mitra.findUnique({
                 where: { id: userId as string },
                 select: {
                     id: true,

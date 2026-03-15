@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prismaAuth as prisma } from '@/lib/prisma'
 import type { Prisma, User } from '@prisma/client'
 
 // Infer AppVersion type dari Prisma client

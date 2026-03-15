@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { apiError, ErrorCodes } from '@/lib/api-response'
-import { prisma } from '@/lib/prisma'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prismaAuth } from '@/lib/prisma'
+import { prismaMitraAuth } from '@/lib/prisma-mitra'
 import { compare } from 'bcryptjs'
 import { signMobileToken } from '@/lib/mobile-auth'
 import { getAppVersionService } from '@/modules/app-version/services/AppVersionService'
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
 
         // Helper: Try Login as Customer
         const tryCustomerLogin = async (): Promise<LoginResult> => {
-            const customer = await prisma.pelanggan.findFirst({
+            const customer = await prismaAuth.pelanggan.findFirst({
                 where: {
                     OR: [
                         { username: { equals: email, mode: 'insensitive' } },
@@ -144,8 +144,8 @@ export async function POST(req: Request) {
 
         // Helper: Try Login as Employee
         const tryEmployeeLogin = async (): Promise<LoginResult> => {
-            const user = await prisma.user.findUnique({
-                where: { email },
+            const user = await prismaAuth.user.findFirst({
+                where: { email: { equals: email, mode: 'insensitive' } },
                 include: { role: { include: { permission: true } } }
             })
 
@@ -166,7 +166,7 @@ export async function POST(req: Request) {
 
             // Update version
             if (parsedVersionCode > 0) {
-                await prisma.user.update({
+                await prismaAuth.user.update({
                     where: { id: user.id },
                     data: {
                         lastVersionCode: parsedVersionCode,
@@ -212,8 +212,8 @@ export async function POST(req: Request) {
 
         // Helper: Try Login as Mitra
         const tryMitraLogin = async (): Promise<LoginResult> => {
-            const mitra = await prismaMitra.mitra.findUnique({
-                where: { email }
+            const mitra = await prismaMitraAuth.mitra.findFirst({
+                where: { email: { equals: email, mode: 'insensitive' } }
             })
 
             if (!mitra) return { found: false }
